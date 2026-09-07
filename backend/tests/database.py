@@ -6,11 +6,9 @@ from src.main import app
 from src.database import get_db
 from src.config import settings
 from src.models import ModeloBase
-from src.personas.services import crear_persona
-from src.mascotas.services import crear_mascota
-from src.personas.schemas import PersonaCreate
-from src.mascotas.schemas import MascotaCreate
-from src.mascotas.models import TipoMascota
+from src.personal.schemas import PersonaCreate
+from src.personal.services import crear_persona
+from src.personal.models import Persona
 
 
 # creamos una db para testing
@@ -51,17 +49,12 @@ def session() -> Generator[Session, None, None]:
     persona_2 = crear_persona(
         db, PersonaCreate(nombre="Ana", email="ana.dominguez@gmail.com")
     )
-    mascota_1 = crear_mascota(db, MascotaCreate(nombre="Lola", tipo=TipoMascota.GATO, tutor_id=persona_1.id))
-    mascota_2 = crear_mascota(db, MascotaCreate(nombre="Felipe", tipo=TipoMascota.PERRO, tutor_id=persona_1.id))
-    mascota_3 = crear_mascota(db, MascotaCreate(nombre="Coco", tipo=TipoMascota.COBAYO, tutor_id=persona_2.id))
-
+  
     db.add_all(
         [
             persona_1,
             persona_2,
-            mascota_1,
-            mascota_2,
-            mascota_3
+
         ]
     )
     db.commit()
