@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+#from src.database import Base, engine   si anda, esto ay que sacarlo
 from src.database import engine
 from src.models import ModeloBase
 
@@ -12,6 +13,12 @@ from src.logger import setup_logging
 # Importamos los routers desde nuestros modulos
 from src.personal.router import router as personal_router
 from fastapi.middleware.cors import CORSMiddleware
+
+from src.Equipo import models as equipo_models
+from src.Equipo.router import router as equipo_router
+
+from src.insumos import models as insumos_models
+from src.insumos.router import router as insumos_router
 
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
@@ -41,3 +48,11 @@ app.add_middleware(
 
 # asociamos los routers a nuestra app
 app.include_router(personal_router)
+#app.include_router(insumos_router)
+app.include_router(personas_router)
+app.include_router(mascotas_router)
+app.include_router(insumos_router)
+app.include_router(equipo_router)
+
+#crear tabla registrada en SQLAlchemy
+ModeloBase.metadata.create_all(bind=engine)
