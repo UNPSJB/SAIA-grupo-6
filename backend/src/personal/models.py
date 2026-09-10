@@ -12,7 +12,6 @@ class Persona(ModeloBase):
     nombre: Mapped[str] = mapped_column(String(40),index=True)
     apellido: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     dni: Mapped[str] = mapped_column(String(8), unique=True, index=True)
-    fecha_nacimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     telefono: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
     email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
 
