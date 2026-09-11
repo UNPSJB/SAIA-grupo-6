@@ -43,7 +43,7 @@ def crear_persona(db: Session, persona: schemas.PersonaCreate) -> Persona:
 def listar_personas(db: Session) -> List[Persona]:
     logger.info("Listando personal desde services")
     # traigo TODOS los registros
-    return db.scalars(select(Persona)).all()
+    return db.scalars(select(Persona).where(Persona.activo == True)).all()
 
 
 def leer_persona(db: Session, persona_id: int) -> Persona:

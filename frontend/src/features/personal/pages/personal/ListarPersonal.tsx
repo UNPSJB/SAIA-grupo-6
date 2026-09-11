@@ -9,7 +9,9 @@ export default function ListarPersonal() {
   const [personal, setPersonal] = useState<Persona[]>([]);
   const [filtro, setFiltro] = useState<'todos' | 'operar' | 'administrar'>('todos');
   const navigate = useNavigate();
-
+  // Estado para controlar la confirmación
+  const [idABorrar, setIdABorrar] = useState<number | null>(null);
+  
   useEffect(() => {
     fetch('http://localhost:8000/personal/')
       .then(res => res.json())
@@ -24,15 +26,13 @@ export default function ListarPersonal() {
   }, []);
 
   const manejarEliminar = async (id: number) => {
-    if (window.confirm('¿Estás seguro de que querés eliminar a este registro?')) {
-      try {
-        await fetch(`http://localhost:8000/personal/${id}`, {
-          method: 'DELETE',
-        });
-        setPersonal(personal.filter(p => p.id !== id));
-      } catch (error) {
-        console.error("Error al eliminar:", error);
-      }
+    try {
+      await fetch(`http://localhost:8000/personal/${id}`, {
+        method: 'DELETE',
+      });
+      setPersonal(personal.filter(p => p.id !== id));
+    } catch (error) {
+      console.error("Error al eliminar:", error);
     }
   };
 
@@ -46,7 +46,7 @@ export default function ListarPersonal() {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Gestión de Personal</h2>
-        <Link to="/personal/nuevo" style={estiloBotonAdd}>+ ADD</Link>
+        <Link to="/personal/nuevo" style={estiloBotonAdd}>+ Agregar</Link>
       </div>
 
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
@@ -86,12 +86,35 @@ export default function ListarPersonal() {
               </td>
               <td style={{ padding: '12px', textAlign: 'center', display: 'flex', gap: '10px', justifyContent: 'center' }}>
                 <button onClick={() => navigate(`/personal/editar/${p.id}`)} style={estiloBotonAccion('editar')}>Modificar</button>
-                <button onClick={() => manejarEliminar(p.id!)} style={estiloBotonAccion('eliminar')}>Eliminar</button>
+                {/* Ahora el botón activa el modal en lugar de borrar directamente */}
+                <button onClick={() => setIdABorrar(p.id!)} style={estiloBotonAccion('eliminar')}>Eliminar</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {/*CARTEL DE CONFIRMACIÓN*/}
+      {idABorrar !== null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', width: '350px', textAlign: 'center' }}>
+            <h3 style={{ marginTop: 0, color: '#333' }}>¿Esta seguro que desea eliminar?</h3>
+            <p style={{ color: '#666', marginBottom: '20px' }}>Esta acción no se puede deshacer.</p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => setIdABorrar(null)} 
+                style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ccc', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>
+                Cancelar
+              </button>
+              <button 
+                onClick={() => { manejarEliminar(idABorrar); setIdABorrar(null); }} 
+                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#d9534f', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
