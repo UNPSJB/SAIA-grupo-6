@@ -35,11 +35,14 @@ class EquipoBase(BaseModel):
 
 
 class EquipoCreate(EquipoBase):
-    pass
+    activo: bool = True
 
 
 class EquipoUpdate(EquipoBase):
-    pass
+    nombre: str | None = None
+    ubicacion: str | None = None
+    tipo: TipoEquipo | None = None
+    activo: bool | None = None    
 
 
 class Equipo(EquipoBase):
