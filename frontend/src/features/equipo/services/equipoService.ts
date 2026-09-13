@@ -3,7 +3,7 @@ import type { Equipo } from "../types/equipo";
 const API_URL = "http://localhost:8000";
 
 export async function listarEquipos(): Promise<Equipo[]> {
-  const response = await fetch(`${API_URL}/equipo`);
+  const response = await fetch(`${API_URL}/equipos`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -14,7 +14,7 @@ export async function listarEquipos(): Promise<Equipo[]> {
 }
 
 export async function obtenerEquipo(id: number): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipo/${id}`);
+  const response = await fetch(`${API_URL}/equipos/${id}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -27,7 +27,7 @@ export async function obtenerEquipo(id: number): Promise<Equipo> {
 export async function crearEquipo(
   equipo: Omit<Equipo, "id">
 ): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipo`, {
+  const response = await fetch(`${API_URL}/equipos`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,8 +49,8 @@ export async function modificarEquipo(
   id: number,
   equipo: Omit<Equipo, "id">
 ): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipo/${id}`, {
-    method: "PUT",
+  const response = await fetch(`${API_URL}/equipos/${id}`, {
+    method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },
@@ -66,7 +66,7 @@ export async function modificarEquipo(
 }
 
 export async function eliminarEquipo(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/equipo/${id}`, {
+  const response = await fetch(`${API_URL}/equipos/${id}`, {
     method: "DELETE",
   });
 

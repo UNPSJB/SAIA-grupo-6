@@ -8,6 +8,12 @@ import { InsumosPage } from "./features/insumos/components/pages/insumosPage";
 import { InsumoCreatePage } from "./features/insumos/components/pages/insumoCreatePage";
 import { InsumoEditPage } from "./features/insumos/components/pages/insumoEditPage";
 
+// 1. Importaciones del módulo de equipos
+import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
+import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
+import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
+
+
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
@@ -92,4 +98,33 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+
+  // 2. Rutas agregadas para Equipos
+  {
+    path: "/equipos",
+    element: (
+      <LayoutPrincipal>
+        <EquiposPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/equipos/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <EquipoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/equipos/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <EquipoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+
+
 ]);

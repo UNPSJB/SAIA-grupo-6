@@ -20,10 +20,10 @@ def listar_equipos(db:Session) -> list[Equipo]:
         .order_by(Equipo.id)
     )
 
-    return list(db.scalars(consulta).all)
+    return list(db.scalars(consulta).all())
 
 def obtener_equipo(db: Session, equipo_id:int)-> Equipo:
-    Equipo: equipo = db.get(Equipo, equipo_id)
+    equipo: Equipo = db.get(Equipo, equipo_id)
 
     if equipo is None:
         raise EquipoNoEncontrado(equipo_id)

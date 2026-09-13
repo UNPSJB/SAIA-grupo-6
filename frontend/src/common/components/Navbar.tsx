@@ -65,6 +65,10 @@ export default function Navbar() {
         Insumos
       </Link>
 
+      <Link to="/equipos" style={estiloLink}>
+        Equipos
+      </Link>
+
       {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
       {/* se usa <span> en lugar de <Link> porque son vistas que todavía no están desarrolladas.
           les dejo por ahora un cursor de "no permitido" y un color más apagado para indicar que aun no las hice lol. */}
@@ -76,7 +80,7 @@ export default function Navbar() {
           fontSize: "14px",
         }}
       >
-        Equipo (Próximamente)
+        FUTUROS (Próximamente)
       </span>
     </nav>
   );
