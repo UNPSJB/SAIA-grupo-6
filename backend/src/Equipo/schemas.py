@@ -35,7 +35,7 @@ class EquipoBase(BaseModel):
 
 
 class EquipoCreate(EquipoBase):
-    activo: bool = True
+    pass
 
 
 class EquipoUpdate(EquipoBase):

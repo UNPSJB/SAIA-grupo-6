@@ -34,12 +34,6 @@ export function EquipoItem({ equipo, onEdit, onDelete }: EquipoItemProps) {
         {equipo.ubicacion}
       </Table.Cell>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        <Badge colorScheme={equipo.activo ? "green" : "red"}>
-          {equipo.activo ? "Activo" : "Inactivo"}
-        </Badge>
-      </Table.Cell>
-
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center" style={{ gap: "10px" }}>
           <Button

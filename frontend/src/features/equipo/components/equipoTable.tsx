@@ -58,16 +58,10 @@ export function EquipoTable({ equipos, onEdit, onDelete }: EquipoTableProps) {
             <Table.ColumnHeader
               fontWeight="normal"
               fontSize="16px"
+              textAlign="center"
               style={{ padding: "12px" }}
             >
-                Estado
-            </Table.ColumnHeader>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", textAlign: "center" }}
-            >
-          
+            
               Acciones
             </Table.ColumnHeader>
           </Table.Row>

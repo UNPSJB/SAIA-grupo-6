@@ -73,8 +73,8 @@ export function EquipoForm({
   const handleUbicacionChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({ ...prev, ubicacion: e.target.value }));
 
-  const handleActivoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, activo: e.target.checked }));
+  //const handleActivoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+   // setValues((prev) => ({ ...prev, activo: e.target.checked }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,31 +151,6 @@ export function EquipoForm({
             placeholder="Ej: Sector A - Laboratorio"
             style={estiloInput}
           />
-        </Field.Root>
-      </Box>
-
-      {/* 4. Estado (Activo) */}
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-              color: "#555",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={values.activo}
-              onChange={handleActivoChange}
-              style={{ width: "18px", height: "18px", cursor: "pointer" }}
-            />
-            Equipo Activo
-          </label>
         </Field.Root>
       </Box>
 
