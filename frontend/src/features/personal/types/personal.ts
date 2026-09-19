@@ -8,4 +8,6 @@ export interface Persona {
   puede_operar: boolean;
   puede_administrar: boolean;
   activo: boolean;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string | null;
 }

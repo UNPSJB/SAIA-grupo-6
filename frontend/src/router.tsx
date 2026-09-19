@@ -1,18 +1,21 @@
 import { createBrowserRouter } from "react-router-dom";
 import Navbar from "./common/components/Navbar";
-import ListarPersonal from "./features/personal/pages/personal/ListarPersonal";
-import AgregarPersonal from "./features/personal/pages/personal/AgregarPersonal";
-import ModificarPersonal from "./features/personal/pages/personal/ModificarPersonal";
-import DetallePersonal from "./features/personal/pages/personal/DetallePersonal";
+
+// 1. Importaciones del módulo de Personal (Refactorizado con Chakra)
+import { PersonalPage } from "./features/personal/components/pages/PersonalPage";
+import { PersonalCreatePage } from "./features/personal/components/pages/PersonalCreatePage";
+import { PersonalEditPage } from "./features/personal/components/pages/PersonalEditPage";
+import { PersonalDetailPage } from "./features/personal/components/pages/PersonalDetailPage";
+
+// 2. Importaciones del módulo de Insumos
 import { InsumosPage } from "./features/insumos/components/pages/insumosPage";
 import { InsumoCreatePage } from "./features/insumos/components/pages/insumoCreatePage";
 import { InsumoEditPage } from "./features/insumos/components/pages/insumoEditPage";
 
-// 1. Importaciones del módulo de equipos
+// 3. Importaciones del módulo de Equipos
 import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
-
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
@@ -42,11 +45,13 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+  
+  // --- RUTAS DE PERSONAL ---
   {
     path: "/personal",
     element: (
       <LayoutPrincipal>
-        <ListarPersonal />
+        <PersonalPage />
       </LayoutPrincipal>
     ),
   },
@@ -54,15 +59,15 @@ export const router = createBrowserRouter([
     path: "/personal/nuevo",
     element: (
       <LayoutPrincipal>
-        <AgregarPersonal />
+        <PersonalCreatePage />
       </LayoutPrincipal>
     ),
   },
   {
-    path: "/personal/editar/:id",
+    path: "/personal/:id/editar",
     element: (
       <LayoutPrincipal>
-        <ModificarPersonal />
+        <PersonalEditPage />
       </LayoutPrincipal>
     ),
   },
@@ -70,10 +75,12 @@ export const router = createBrowserRouter([
     path: "/personal/detalle/:id",
     element: (
       <LayoutPrincipal>
-        <DetallePersonal />
+        <PersonalDetailPage />
       </LayoutPrincipal>
     ),
   },
+
+  // --- RUTAS DE INSUMOS ---
   {
     path: "/insumos",
     element: (
@@ -99,7 +106,7 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // 2. Rutas agregadas para Equipos
+  // --- RUTAS DE EQUIPOS ---
   {
     path: "/equipos",
     element: (
@@ -124,7 +131,4 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
-
-
-
 ]);
