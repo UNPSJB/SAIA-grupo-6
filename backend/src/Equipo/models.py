@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Enum as SQLEnum
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 #from src.database import Base aber si esto es lo q no anda
 from enum import Enum
@@ -24,3 +24,5 @@ class Equipo(ModeloBase):
     ubicacion: Mapped[str] = mapped_column(String(100), nullable=False)
 
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(back_populates="equipo")

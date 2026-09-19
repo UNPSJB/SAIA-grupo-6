@@ -1,10 +1,10 @@
 from datetime import datetime, date
 from typing import Optional
 from src.models import ModeloBase
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, Date, DateTime
 
-class Persona(ModeloBase):
+class Personal(ModeloBase):
     __tablename__ = "personal"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -19,6 +19,10 @@ class Persona(ModeloBase):
     puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
 
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(
+        back_populates="autor"
+    )
 
     # - Opcional , esta bueno
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

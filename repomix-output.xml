@@ -1,0 +1,5836 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+backend/
+  src/
+    Equipo/
+      __init__.py
+      constants.py
+      exceptions.py
+      models.py
+      router.py
+      schemas.py
+      services.py
+    insumos/
+      constants.py
+      exceptions.py
+      models.py
+      router.py
+      schemas.py
+      services.py
+    personal/
+      __init__.py
+      constants.py
+      exceptions.py
+      models.py
+      router.py
+      schemas.py
+      services.py
+    PlanLimpieza/
+      __init__.py
+      constants.py
+      exceptions.py
+      models.py
+      router.py
+      schemas.py
+      services.py
+    tareas/
+      __init__.py
+      constants.py
+      exceptions.py
+      models.py
+      router.py
+      schemas.py
+      services.py
+    __init__.py
+    config.py
+    database.py
+    exceptions.py
+    logger.py
+    main.py
+    models.py
+  tests/
+    database.py
+  .env.template
+  README.md
+  requirements.txt
+frontend/
+  public/
+    favicon.svg
+    icons.svg
+  src/
+    common/
+      api/
+        .gitkeep
+      components/
+        .gitkeep
+        Navbar.tsx
+      hooks/
+        .gitkeep
+      .gitkeep
+    components/
+      ui/
+        close-button.tsx
+        color-mode.tsx
+        dialog.tsx
+        provider.tsx
+        toaster.tsx
+        tooltip.tsx
+    features/
+      equipo/
+        components/
+          pages/
+            equipoCreatePage.tsx
+            equipoEditPage.tsx
+            equipoPage.tsx
+          DeleteEquipoDialog.tsx
+          equipoForm.tsx
+          equipoItem.tsx
+          equipoTable.tsx
+        hooks/
+          useEquipo.ts
+          useEquipoABM.ts
+          useEquipos.ts
+        services/
+          equipoService.ts
+        types/
+          equipo.ts
+        equipoRoutes.tsx
+      insumos/
+        components/
+          pages/
+            insumoCreatePage.tsx
+            insumoEditPage.tsx
+            insumosPage.tsx
+          DeleteInsumoDialog.tsx
+          insumoForm.tsx
+          insumoItem.tsx
+          insumoTable.tsx
+        hooks/
+          useInsumo.ts
+          useInsumoABM.ts
+          useInsumos.ts
+        services/
+          insumoService.ts
+        types/
+          insumo.ts
+        insumoRoutes.tsx
+      personal/
+        components/
+          pages/
+            PersonalCreatePage.tsx
+            PersonalDetailPage.tsx
+            PersonalEditPage.tsx
+            PersonalPage.tsx
+          DeletePersonalDialog.tsx
+          PersonalForm.tsx
+          PersonalItem.tsx
+          PersonalTable.tsx
+        hooks/
+          usePersonal.ts
+          usePersonalABM.ts
+          usePersonales.ts
+        services/
+          personalService.ts
+        types/
+          personal.ts
+        personalRoutes.tsx
+      planLimpieza/
+        types/
+          planLimpieza.ts
+      .gitkeep
+    index.css
+    main.tsx
+    router.tsx
+  eslint.config.js
+  index.html
+  package.json
+  README.md
+  tsconfig.app.json
+  tsconfig.json
+  tsconfig.node.json
+  vite.config.ts
+.gitignore
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="backend/src/PlanLimpieza/__init__.py">
+
+</file>
+
+<file path="backend/src/PlanLimpieza/constants.py">
+from enum import Enum
+
+
+class ErrorCode(str, Enum):
+    PLAN_LIMPIEZA_NO_ENCONTRADO = "plan_limpieza_no_encontrado"
+    PLAN_DUPLICADO = "plan_duplicado"
+    DATO_DUPLICADO = "dato_duplicado"
+    AUTOR_NO_ENCONTRADO = "autor_no_encontrado"
+    AUTOR_INACTIVO = "autor_inactivo"
+    AUTOR_SIN_PERMISO_DE_ADMINISTRAR = "autor_sin_permiso_de_administrar"
+    NOMBRE_PLAN_DUPLICADO = "nombre_plan_duplicado"
+    NOMBRE_INVALIDO = "nombre_invalido"
+    FRECUENCIA_INVALIDA = "frecuencia_invalida"
+    TAREA_ID_INVALIDO = "tarea_id_invalido"
+    EQUIPO_ID_INVALIDO = "equipo_id_invalido"
+    AUTOR_ID_INVALIDO = "autor_id_invalido"
+</file>
+
+<file path="backend/src/PlanLimpieza/exceptions.py">
+from src.exceptions import NotFound, BadRequest, PermissionDenied
+from src.PlanLimpieza.constants import ErrorCode
+
+
+class PlanLimpiezaNoEncontrado(NotFound):
+    DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO
+
+
+class PlanDuplicado(BadRequest):
+    DETAIL = ErrorCode.PLAN_DUPLICADO
+
+
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+
+
+class AutorNoEncontrado(NotFound):
+    DETAIL = ErrorCode.AUTOR_NO_ENCONTRADO
+
+
+class AutorInactivo(BadRequest):
+    DETAIL = ErrorCode.AUTOR_INACTIVO
+
+
+class AutorSinPermisoDeAdministrar(PermissionDenied):
+    DETAIL = ErrorCode.AUTOR_SIN_PERMISO_DE_ADMINISTRAR
+
+class NombrePlanDuplicado(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_PLAN_DUPLICADO
+
+class NombreInvalido(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+class FrecuenciaInvalida(BadRequest):
+    DETAIL = ErrorCode.FRECUENCIA_INVALIDA
+
+class TareaIdInvalido(BadRequest):
+    DETAIL = ErrorCode.TAREA_ID_INVALIDO
+
+class EquipoIdInvalido(BadRequest):
+    DETAIL = ErrorCode.EQUIPO_ID_INVALIDO
+
+class AutorIdInvalido(BadRequest):
+    DETAIL = ErrorCode.AUTOR_ID_INVALIDO
+</file>
+
+<file path="backend/src/PlanLimpieza/models.py">
+from datetime import datetime, date
+from typing import Optional
+from src.models import ModeloBase
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, Date, DateTime, Integer
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+
+class PlanLimpieza(ModeloBase):
+    __tablename__ = "plan_limpieza"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    nombre: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"))
+    equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"))
+    autor_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))
+
+    tarea: Mapped["Tarea"] = relationship(back_populates="planes")
+    equipo: Mapped["Equipo"] = relationship(back_populates="planes")
+    autor: Mapped["Personal"] = relationship(back_populates="planes")
+    
+
+    # - Opcional , esta bueno
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+</file>
+
+<file path="backend/src/PlanLimpieza/router.py">
+import logging
+from typing import List
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.PlanLimpieza import schemas, services
+
+# Creamos un logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# Agrupamos las rutas bajo el prefijo /planes-limpieza
+router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"])
+
+
+@router.post("/", response_model=schemas.PlanLimpieza)
+def create_plan_limpieza(
+    plan: schemas.PlanLimpiezaCreate, db: Session = Depends(get_db)
+):
+    return services.crear_plan_limpieza(db, plan)
+
+
+@router.get("/", response_model=List[schemas.PlanLimpieza])
+def read_planes_limpieza(db: Session = Depends(get_db)):
+    logger.info("Consultando la lista de planes de limpieza activos")
+    return services.listar_planes_limpieza(db)
+
+
+@router.get("/{plan_id}", response_model=schemas.PlanLimpieza)
+def read_plan_limpieza(plan_id: int, db: Session = Depends(get_db)):
+    return services.leer_plan_limpieza(db, plan_id)
+
+
+@router.put("/{plan_id}", response_model=schemas.PlanLimpieza)
+def update_plan_limpieza(
+    plan_id: int,
+    plan: schemas.PlanLimpiezaUpdate,
+    db: Session = Depends(get_db),
+):
+    return services.modificar_plan_limpieza(db, plan_id, plan)
+
+
+@router.delete("/{plan_id}", response_model=schemas.PlanLimpieza)
+def delete_plan_limpieza(plan_id: int, db: Session = Depends(get_db)):
+    return services.eliminar_plan_limpieza(db, plan_id)
+</file>
+
+<file path="backend/src/PlanLimpieza/schemas.py">
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Optional
+from datetime import datetime
+from src.PlanLimpieza import exceptions
+
+
+class PlanLimpiezaBase(BaseModel):
+    nombre: str
+    frecuencia: int
+    tarea_id: int
+    equipo_id: int
+    autor_id: int
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
+            raise exceptions.NombreInvalido()
+        return v.strip()
+
+    @field_validator("frecuencia")
+    @classmethod
+    def validar_frecuencia(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.FrecuenciaInvalida()
+        return v
+
+    @field_validator("tarea_id")
+    @classmethod
+    def validar_tarea_id(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.TareaIdInvalido()
+        return v
+
+    @field_validator("equipo_id")
+    @classmethod
+    def validar_equipo_id(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.EquipoIdInvalido()
+        return v
+
+    @field_validator("autor_id")
+    @classmethod
+    def validar_autor_id(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.AutorIdInvalido()
+        return v
+
+
+class PlanLimpiezaCreate(PlanLimpiezaBase):
+    pass
+
+
+class PlanLimpiezaUpdate(PlanLimpiezaBase):
+    nombre: Optional[str] = None
+    frecuencia: Optional[int] = None
+    tarea_id: Optional[int] = None
+    equipo_id: Optional[int] = None
+    autor_id: Optional[int] = None
+    activo: Optional[bool] = None
+
+
+class PlanLimpieza(PlanLimpiezaBase):
+    id: int
+    activo: bool
+    fecha_creacion: datetime
+    fecha_actualizacion: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+</file>
+
+<file path="backend/src/PlanLimpieza/services.py">
+import logging
+from typing import List
+
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+
+from src.PlanLimpieza import models, schemas, exceptions
+from src.personal.models import Personal
+
+# logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# OPERACIONES CRUD PARA PLAN DE LIMPIEZA
+# ==========================================
+
+def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
+    """Verifica que el autor exista, esté activo y tenga permiso de administrar."""
+    db_autor = db.scalar(select(Personal).where(Personal.id == autor_id))
+
+    if db_autor is None:
+        raise exceptions.AutorNoEncontrado()
+
+    if not db_autor.activo:
+        raise exceptions.AutorInactivo()
+
+    if not db_autor.puede_administrar:
+        raise exceptions.AutorSinPermisoDeAdministrar()
+
+    return db_autor
+
+def crear_plan_limpieza(
+    db: Session, plan: schemas.PlanLimpiezaCreate
+) -> models.PlanLimpieza:
+    _verificar_autor_administrador(db, plan.autor_id)
+
+    _plan = models.PlanLimpieza(**plan.model_dump())
+    db.add(_plan)
+
+    try:
+        db.commit()
+        db.refresh(_plan)
+        return _plan
+
+    except IntegrityError as e:
+        db.rollback()
+        mensaje_error = str(e.orig).lower()
+        if "nombre" in mensaje_error:
+            raise exceptions.NombrePlanDuplicado()
+        elif "tarea_id" in mensaje_error and "equipo_id" in mensaje_error:
+            raise exceptions.PlanDuplicado()
+        else:
+            raise exceptions.DatoDuplicado()
+
+
+def listar_planes_limpieza(db: Session) -> List[models.PlanLimpieza]:
+    logger.info("Listando planes de limpieza desde services")
+    # traigo solo los planes activos
+    return db.scalars(
+        select(models.PlanLimpieza).where(models.PlanLimpieza.activo == True)
+    ).all()
+
+
+def leer_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
+    # busco el plan por id
+    db_plan = db.scalar(
+        select(models.PlanLimpieza).where(models.PlanLimpieza.id == plan_id)
+    )
+    if db_plan is None:
+        raise exceptions.PlanLimpiezaNoEncontrado()
+    return db_plan
+
+
+def modificar_plan_limpieza(
+    db: Session, plan_id: int, plan: schemas.PlanLimpiezaUpdate
+) -> models.PlanLimpieza:
+    db_plan = leer_plan_limpieza(db, plan_id)
+
+    datos_a_actualizar = plan.model_dump(exclude_unset=True)
+
+    # si en esta edición se está cambiando el autor, valido el nuevo también
+    if "autor_id" in datos_a_actualizar:
+        _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
+
+    if datos_a_actualizar:
+        try:
+            db.execute(
+                update(models.PlanLimpieza)
+                .where(models.PlanLimpieza.id == plan_id)
+                .values(**datos_a_actualizar)
+            )
+            db.commit()
+            db.refresh(db_plan)
+
+        except IntegrityError as e:
+            db.rollback()
+            mensaje_error = str(e.orig).lower()
+            if "tarea_id" in mensaje_error and "equipo_id" in mensaje_error:
+                raise exceptions.PlanDuplicado()
+            else:
+                raise exceptions.DatoDuplicado()
+
+    return db_plan
+
+
+def eliminar_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
+    # busco
+    db_plan = leer_plan_limpieza(db, plan_id)
+
+    # BAJA LÓGICA: en vez de borrar de la bd, cambio el estado a inactivo
+    db_plan.activo = False
+    db.commit()
+    db.refresh(db_plan)
+
+    return db_plan
+</file>
+
+<file path="backend/src/tareas/__init__.py">
+
+</file>
+
+<file path="backend/src/tareas/constants.py">
+
+</file>
+
+<file path="backend/src/tareas/exceptions.py">
+
+</file>
+
+<file path="backend/src/tareas/models.py">
+from datetime import datetime, date
+from typing import Optional
+from src.models import ModeloBase
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, Date, DateTime
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class Tarea(ModeloBase):
+    __tablename__ = "tareas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(
+        back_populates="tarea"
+    )
+</file>
+
+<file path="backend/src/tareas/router.py">
+
+</file>
+
+<file path="backend/src/tareas/schemas.py">
+
+</file>
+
+<file path="backend/src/tareas/services.py">
+
+</file>
+
+<file path="frontend/src/features/planLimpieza/types/planLimpieza.ts">
+export interface PlanLimpieza {
+  id: number;
+  nombre: string;
+  frecuencia: string;
+  tarea_id: number;
+  equipo_id: number;
+}
+</file>
+
+<file path="backend/src/Equipo/__init__.py">
+
+</file>
+
+<file path="backend/src/Equipo/constants.py">
+
+</file>
+
+<file path="backend/src/insumos/exceptions.py">
+from typing import List
+from src.insumos.constants import ErrorCode
+from src.exceptions import NotFound, BadRequest
+
+
+class InsumoYaExiste(BadRequest):
+    DETAIL = ErrorCode.INSUMO_YA_EXISTE
+
+class InsumoNoEncontrado(NotFound):
+    DETAIL = ErrorCode.INSUMO_NO_ENCONTRADO
+
+class NombreVacio(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_VACIO
+
+class TipoUnidadInvalido(ValueError):
+    def __init__(self, posibles_tipos: List[str]):
+        posibles_tipos = ", ".join(posibles_tipos)
+        message = f"{ErrorCode.TIPO_UNIDAD_INVALIDO} {posibles_tipos}."
+        super().__init__(message)
+</file>
+
+<file path="backend/src/insumos/models.py">
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from enum import auto, StrEnum
+from src.models import ModeloBase
+
+class TipoUnidad(StrEnum):
+    Kg = auto()
+    G = auto()
+    L = auto()
+    Ml = auto()
+    Cm3 = auto()
+    
+
+
+class Insumo(ModeloBase):
+    __tablename__ = "insumos"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    nombre: Mapped[str] = mapped_column(index=True, unique=True) #por defecto las columnas son not null en sqlAlchemy
+    tipo: Mapped[TipoUnidad] = mapped_column() #ver si va index
+</file>
+
+<file path="backend/src/insumos/schemas.py">
+from pydantic import BaseModel, ConfigDict, field_validator, Field
+from src.insumos.models import TipoUnidad
+from src.insumos import exceptions
+
+# Los siguientes schemas contienen atributos sin muchas restricciones de tipo.
+# Podemos crear atributos con ciertas reglas mediante el uso de un "Field" adecuado.
+# https://docs.pydantic.dev/latest/concepts/fields/
+
+
+class InsumoBase(BaseModel):
+    nombre: str
+    tipo: TipoUnidad  # solo permitiremos valores de este tipo.
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v):
+        if not v.strip():
+            raise exceptions.NombreVacio()
+        return v.strip()
+
+    @field_validator("tipo", mode="before")
+    @classmethod
+    def is_valid_tipo_unidad(cls, v: str) -> str:
+        tipos_validos = [tipo.value for tipo in TipoUnidad]
+
+        if v.lower() not in tipos_validos:
+            raise exceptions.TipoUnidadInvalido(tipos_validos)
+
+        return v.lower()
+
+
+class InsumoCreate(InsumoBase):
+    pass
+
+
+class InsumoUpdate(InsumoBase):
+    pass
+
+
+class Insumo(InsumoBase):
+    id: int
+    tipo: TipoUnidad
+
+    model_config = ConfigDict(from_attributes = True)
+
+
+class InsumoDelete(InsumoBase):
+    id: int
+    tipo: TipoUnidad
+</file>
+
+<file path="backend/src/insumos/services.py">
+from typing import List
+from sqlalchemy import delete, select, update
+from sqlalchemy.orm import Session
+from src.insumos.models import Insumo
+from src.insumos import schemas, exceptions
+
+
+# operaciones CRUD para Insumo
+
+
+def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> schemas.Insumo:
+
+    existente = db.scalar(
+        select(Insumo).where(Insumo.nombre == insumo.nombre)
+    )
+    if existente:
+        raise exceptions.InsumoYaExiste() # no esta como criterio de aceptación explicitamente pero creemos que debería ir
+
+    _insumo = Insumo(**insumo.model_dump())
+    db.add(_insumo)
+    db.commit()
+    db.refresh(
+        _insumo
+    ) 
+    return _insumo
+
+
+def listar_insumos(db: Session) -> List[schemas.Insumo]:
+    return db.scalars(select(Insumo)).all()
+
+
+def leer_insumo(db: Session, insumo_id: int) -> schemas.Insumo:
+    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id))
+    if db_insumo is None:
+        raise exceptions.InsumoNoEncontrado() # <- usamos nuestras propias excepciones adaptadas al dominio de aplicación
+    return db_insumo
+
+
+def modificar_insumo(
+    db: Session, insumo_id: int, insumo: schemas.InsumoUpdate
+) -> Insumo:
+    db_insumo = leer_insumo(db, insumo_id)
+    db.execute(update(Insumo)
+               .where(Insumo.id == insumo_id)
+               .values(**insumo.model_dump()))
+    db.commit()
+    db.refresh(db_insumo)
+    return db_insumo
+
+
+def eliminar_insumo(db: Session, insumo_id: int) -> schemas.InsumoDelete:
+    db_insumo = leer_insumo(db, insumo_id)
+    db.execute(
+        delete(Insumo).where(Insumo.id == insumo_id)
+    )
+    db.commit()
+    return db_insumo
+</file>
+
+<file path="backend/src/personal/__init__.py">
+
+</file>
+
+<file path="backend/src/personal/router.py">
+import logging
+from typing import List 
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.personal import schemas, services
+
+# Creamos un logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# Agrupamos las rutas bajo el prefijo /personal
+router = APIRouter(prefix="/personal", tags=["personal"])
+
+@router.post("/", response_model=schemas.Persona)
+def create_persona(persona: schemas.PersonaCreate, db: Session = Depends(get_db)):
+    return services.crear_persona(db, persona)
+
+@router.get("/", response_model=List[schemas.Persona])
+def read_personas(db: Session = Depends(get_db)):
+    logger.info("Consultando la lista de personal activo")
+    return services.listar_personas(db)
+
+@router.get("/{persona_id}", response_model=schemas.Persona)
+def read_persona(persona_id: int, db: Session = Depends(get_db)):
+    return services.leer_persona(db, persona_id)
+
+@router.put("/{persona_id}", response_model=schemas.Persona)
+def update_persona(persona_id: int, persona: schemas.PersonaUpdate, db: Session = Depends(get_db)):
+    return services.modificar_persona(db, persona_id, persona)
+
+@router.delete("/{persona_id}", response_model=schemas.Persona)
+def delete_persona(persona_id: int, db: Session = Depends(get_db)):
+    return services.eliminar_persona(db, persona_id)
+</file>
+
+<file path="backend/src/config.py">
+import logging
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    # Definimos las variables con sus tipos y valores por defecto (opcional)
+    DB_URL: str
+    DB_URL_TEST: str
+    ENV: str = "DEV"
+    ROOT_PATH_DEVELOPMENT: str = ""
+    ROOT_PATH_PRODUCTION: str = ""
+    LOG_LEVEL: str = "INFO"
+
+    # Configuración para que lea automáticamente el archivo .env
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # Ignora otras variables que estén en el .env y no definamos en este archivo
+    )
+
+
+# Instancia global que reutilizaremos en el proyecto
+settings = Settings()
+</file>
+
+<file path="backend/src/database.py">
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from src.config import settings
+
+
+engine = create_engine(settings.DB_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    # Para usar restricciones de FK en SQLite, debemos habilitar la siguiente opción:
+    db.execute(text("PRAGMA foreign_keys = ON"))
+    try:
+        yield db
+    finally:
+        db.close()
+</file>
+
+<file path="backend/src/exceptions.py">
+from typing import Any, Dict
+
+from fastapi import HTTPException, status
+
+
+class DetailedHTTPException(HTTPException):
+    STATUS_CODE = status.HTTP_500_INTERNAL_SERVER_ERROR
+    DETAIL = "Error del servidor"
+
+    def __init__(self, **kwargs: Dict[str, Any]) -> None:
+        super().__init__(status_code=self.STATUS_CODE, detail=self.DETAIL, **kwargs)
+
+
+class PermissionDenied(DetailedHTTPException):
+    STATUS_CODE = status.HTTP_403_FORBIDDEN
+    DETAIL = "Permiso denegado"
+
+
+class NotFound(DetailedHTTPException):
+    STATUS_CODE = status.HTTP_404_NOT_FOUND
+    DETAIL = "No encontrado"
+
+
+class BadRequest(DetailedHTTPException):
+    STATUS_CODE = status.HTTP_400_BAD_REQUEST
+    DETAIL = "Solicitud incorrecta"
+
+
+class UnprocessableContent(DetailedHTTPException):
+    STATUS_CODE = status.HTTP_422_UNPROCESSABLE_CONTENT
+    DETAIL = "Contenido no procesable"
+
+
+class NotAuthenticated(DetailedHTTPException):
+    STATUS_CODE = status.HTTP_401_UNAUTHORIZED
+    DETAIL = "Usuario no autorizado"
+
+    def __init__(self) -> None:
+        super().__init__(headers={"WWW-Authenticate": "Bearer"})
+</file>
+
+<file path="backend/src/logger.py">
+import logging
+from src.config import settings
+
+def setup_logging():
+    """Configura el sistema de logging de la aplicación."""
+    logging.basicConfig(
+        level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Retorna una instancia de logger configurada para el módulo que lo solicite."""
+    return logging.getLogger(name)
+</file>
+
+<file path="backend/src/models.py">
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
+
+# autor original: https://stackoverflow.com/a/54034230
+def keyvalgen(obj):
+    """Genera pares nombre/valor, quitando/filtrando los atributos de SQLAlchemy."""
+    excl = ("_sa_adapter", "_sa_instance_state")
+    for k, v in vars(obj).items():
+        if not k.startswith("_") and not any(hasattr(v, a) for a in excl):
+            yield k, v
+
+
+class ModeloBase(Base):
+    """Modelo base para los módulos de nuestra app."""
+    __abstract__ = True
+
+    def __repr__(self):
+        # Define un formato de representacion como cadena para el modelo base.
+        params = ", ".join(f"{k}={v}" for k, v in keyvalgen(self))
+        return f"{self.__class__.__name__}({params})"
+</file>
+
+<file path="backend/.env.template">
+ENV="DEV"
+ROOT_PATH=""
+DB_URL="sqlite:///db.sqlite3"
+DB_URL_TEST="sqlite://"
+LOG_LEVEL="INFO"
+#DB_URL="postgresql://user:password@postgresserver/mi-db-postgresql"
+#DB_URL="mysql:///username@localhost:3306/mi-db-mysql"
+</file>
+
+<file path="backend/README.md">
+#### Descripción
+
+Este proyecto contiene un ejemplo de la estructura recomendada para nuevos proyectos que utilicen FastAPI en el backend. 
+
+Se sugiere mantener la estructura de archivos (basada en [fastapi-best-practices](https://github.com/zhanymkanov/fastapi-best-practices)), adaptándola al dominio que corresponda. Esto es, creando nuevos módulos que contengan mínimamente los siguientes elementos:
+
+*  `constants.py`
+*  `exceptions.py`
+*  `models.py`
+*  `router.py`
+*  `schemas.py`
+*  `services.py`
+
+Si se lo desea, añadir tests para dichos módulos debiera seguir la misma estructura que los disponibles en la carpeta `tests`, con las adaptaciones que se consideren necesarias.
+
+#### ¿Cómo lo ejecuto?
+
+1. Instalar dependencias dentro de un entorno virtual con: `pip install -r requirements.txt`
+2. Crea una copia del archivo `.env.template` con el nombre `.env` y reemplaza los valores de las variables de entorno que creas necesarias.
+3. Asumiendo que estamos en la raiz del repositorio y nuestro código dentro de `src/`, iniciar el proyecto ejecutando: `fastapi dev src/main.py`
+4. Cuando el proyecto esté listo, abrir http://localhost:8000/docs para probar la API de manera interactiva.
+
+Opcionalmente:
+1. Asumiendo que estamos en la raíz del repositorio, ejecutar los tests con: `python -m pytest tests/`
+
+**Importante**: 
+* Al trabajar en nuevos dominios, los módulos y archivos de ejemplo (personas, mascotas) ya no son necesarios y pueden ser eliminados junto con cualquier referencia a ellos dentro de `src/` y `tests/`.
+* Por defecto el proyecto utiliza el motor de base de datos `sqlite` por lo que los datos de la app vivirán dentro del archivo cuyo nombre está definido en el archivo `.env` (por ejemplo: `db.sqlite3`) a menos que se renombre y/o se decida utilizar otro motor de base de datos.
+* Los tests han sido configurados para ejecutarse utilizando una base de datos en memoria por lo que no existe un archivo que contenga sus datos. Estos tests están relacionados al dominio personas/mascotas por lo que si borras los módulos, es probable que dejen de funcionar.
+</file>
+
+<file path="backend/requirements.txt">
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.14.2
+certifi==2026.7.22
+click==8.4.2
+detect-installer==0.1.0
+dnspython==2.8.0
+email-validator==2.3.0
+fastapi==0.141.1
+fastapi-cli==0.0.32
+fastapi-cloud-cli==0.23.0
+fastar==0.11.0
+greenlet==3.5.5
+h11==0.16.0
+httpcore==1.0.9
+httptools==0.8.0
+httpx==0.28.1
+idna==3.18
+Jinja2==3.1.6
+markdown-it-py==4.2.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+pydantic==2.13.4
+pydantic-extra-types==2.11.1
+pydantic-settings==2.15.0
+pydantic_core==2.46.4
+Pygments==2.20.0
+python-dotenv==1.2.2
+python-multipart==0.0.32
+PyYAML==6.0.3
+rich==15.0.0
+rich-toolkit==0.20.3
+rignore==0.8.1
+sentry-sdk==2.67.1
+shellingham==1.5.4
+SQLAlchemy==2.0.52
+starlette==1.6.0
+typer==0.27.1
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.7.0
+uvicorn==0.52.1
+#uvloop==0.22.1 # comentado porque con Windows daba problemas y lo reemplaza por otra herramienta
+watchfiles==1.2.0
+websockets==17.0.1
+</file>
+
+<file path="frontend/public/favicon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="46" fill="none" viewBox="0 0 48 46"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z" style="fill:#863bff;fill:color(display-p3 .5252 .23 1);fill-opacity:1"/><mask id="a" width="48" height="46" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><path fill="#000" d="M25.842 44.938c-.664.844-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.183c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.498 0-3.579-1.842-3.579H1.133c-.92 0-1.456-1.04-.92-1.787L9.91.473c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.578 1.842 3.578h11.377c.943 0 1.473 1.088.89 1.832L25.843 44.94z" style="fill:#000;fill-opacity:1"/></mask><g mask="url(#a)"><g filter="url(#b)"><ellipse cx="5.508" cy="14.704" fill="#ede6ff" rx="5.508" ry="14.704" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -4.47 31.516)"/></g><g filter="url(#c)"><ellipse cx="10.399" cy="29.851" fill="#ede6ff" rx="10.399" ry="29.851" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -39.328 7.883)"/></g><g filter="url(#d)"><ellipse cx="5.508" cy="30.487" fill="#7e14ff" rx="5.508" ry="30.487" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.814 -25.913 -14.639)scale(1 -1)"/></g><g filter="url(#e)"><ellipse cx="5.508" cy="30.599" fill="#7e14ff" rx="5.508" ry="30.599" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.814 -32.644 -3.334)scale(1 -1)"/></g><g filter="url(#f)"><ellipse cx="5.508" cy="30.599" fill="#7e14ff" rx="5.508" ry="30.599" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -34.34 30.47)"/></g><g filter="url(#g)"><ellipse cx="14.072" cy="22.078" fill="#ede6ff" rx="14.072" ry="22.078" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="rotate(93.35 24.506 48.493)scale(-1 1)"/></g><g filter="url(#h)"><ellipse cx="3.47" cy="21.501" fill="#7e14ff" rx="3.47" ry="21.501" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.009 28.708 47.59)scale(-1 1)"/></g><g filter="url(#i)"><ellipse cx="3.47" cy="21.501" fill="#7e14ff" rx="3.47" ry="21.501" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.009 28.708 47.59)scale(-1 1)"/></g><g filter="url(#j)"><ellipse cx=".387" cy="8.972" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(39.51 .387 8.972)"/></g><g filter="url(#k)"><ellipse cx="47.523" cy="-6.092" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 47.523 -6.092)"/></g><g filter="url(#l)"><ellipse cx="41.412" cy="6.333" fill="#47bfff" rx="5.971" ry="9.665" style="fill:#47bfff;fill:color(display-p3 .2799 .748 1);fill-opacity:1" transform="rotate(37.892 41.412 6.333)"/></g><g filter="url(#m)"><ellipse cx="-1.879" cy="38.332" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 -1.88 38.332)"/></g><g filter="url(#n)"><ellipse cx="-1.879" cy="38.332" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 -1.88 38.332)"/></g><g filter="url(#o)"><ellipse cx="35.651" cy="29.907" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 35.651 29.907)"/></g><g filter="url(#p)"><ellipse cx="38.418" cy="32.4" fill="#47bfff" rx="5.971" ry="15.297" style="fill:#47bfff;fill:color(display-p3 .2799 .748 1);fill-opacity:1" transform="rotate(37.892 38.418 32.4)"/></g></g><defs><filter id="b" width="60.045" height="41.654" x="-19.77" y="16.149" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="c" width="90.34" height="51.437" x="-54.613" y="-7.533" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="d" width="79.355" height="29.4" x="-49.64" y="2.03" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="e" width="79.579" height="29.4" x="-45.045" y="20.029" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="f" width="79.579" height="29.4" x="-43.513" y="21.178" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="g" width="74.749" height="58.852" x="15.756" y="-17.901" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="h" width="61.377" height="25.362" x="23.548" y="2.284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="i" width="61.377" height="25.362" x="23.548" y="2.284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="j" width="56.045" height="63.649" x="-27.636" y="-22.853" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="k" width="54.814" height="64.646" x="20.116" y="-38.415" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="l" width="33.541" height="35.313" x="24.641" y="-11.323" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="m" width="54.814" height="64.646" x="-29.286" y="6.009" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="n" width="54.814" height="64.646" x="-29.286" y="6.009" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="o" width="54.814" height="64.646" x="8.244" y="-2.416" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="p" width="39.409" height="43.623" x="18.713" y="10.588" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter></defs></svg>
+</file>
+
+<file path="frontend/public/icons.svg">
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="bluesky-icon" viewBox="0 0 16 17">
+    <g clip-path="url(#bluesky-clip)"><path fill="#08060d" d="M7.75 7.735c-.693-1.348-2.58-3.86-4.334-5.097-1.68-1.187-2.32-.981-2.74-.79C.188 2.065.1 2.812.1 3.251s.241 3.602.398 4.13c.52 1.744 2.367 2.333 4.07 2.145-2.495.37-4.71 1.278-1.805 4.512 3.196 3.309 4.38-.71 4.987-2.746.608 2.036 1.307 5.91 4.93 2.746 2.72-2.746.747-4.143-1.747-4.512 1.702.189 3.55-.4 4.07-2.145.156-.528.397-3.691.397-4.13s-.088-1.186-.575-1.406c-.42-.19-1.06-.395-2.741.79-1.755 1.24-3.64 3.752-4.334 5.099"/></g>
+    <defs><clipPath id="bluesky-clip"><path fill="#fff" d="M.1.85h15.3v15.3H.1z"/></clipPath></defs>
+  </symbol>
+  <symbol id="discord-icon" viewBox="0 0 20 19">
+    <path fill="#08060d" d="M16.224 3.768a14.5 14.5 0 0 0-3.67-1.153c-.158.286-.343.67-.47.976a13.5 13.5 0 0 0-4.067 0c-.128-.306-.317-.69-.476-.976A14.4 14.4 0 0 0 3.868 3.77C1.546 7.28.916 10.703 1.231 14.077a14.7 14.7 0 0 0 4.5 2.306q.545-.748.965-1.587a9.5 9.5 0 0 1-1.518-.74q.191-.14.372-.293c2.927 1.369 6.107 1.369 8.999 0q.183.152.372.294-.723.437-1.52.74.418.838.963 1.588a14.6 14.6 0 0 0 4.504-2.308c.37-3.911-.63-7.302-2.644-10.309m-9.13 8.234c-.878 0-1.599-.82-1.599-1.82 0-.998.705-1.82 1.6-1.82.894 0 1.614.82 1.599 1.82.001 1-.705 1.82-1.6 1.82m5.91 0c-.878 0-1.599-.82-1.599-1.82 0-.998.705-1.82 1.6-1.82.893 0 1.614.82 1.599 1.82 0 1-.706 1.82-1.6 1.82"/>
+  </symbol>
+  <symbol id="documentation-icon" viewBox="0 0 21 20">
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="m15.5 13.333 1.533 1.322c.645.555.967.833.967 1.178s-.322.623-.967 1.179L15.5 18.333m-3.333-5-1.534 1.322c-.644.555-.966.833-.966 1.178s.322.623.966 1.179l1.534 1.321"/>
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M17.167 10.836v-4.32c0-1.41 0-2.117-.224-2.68-.359-.906-1.118-1.621-2.08-1.96-.599-.21-1.349-.21-2.848-.21-2.623 0-3.935 0-4.983.369-1.684.591-3.013 1.842-3.641 3.428C3 6.449 3 7.684 3 10.154v2.122c0 2.558 0 3.838.706 4.726q.306.383.713.671c.76.536 1.79.64 3.581.66"/>
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M3 10a2.78 2.78 0 0 1 2.778-2.778c.555 0 1.209.097 1.748-.047.48-.129.854-.503.982-.982.145-.54.048-1.194.048-1.749a2.78 2.78 0 0 1 2.777-2.777"/>
+  </symbol>
+  <symbol id="github-icon" viewBox="0 0 19 19">
+    <path fill="#08060d" fill-rule="evenodd" d="M9.356 1.85C5.05 1.85 1.57 5.356 1.57 9.694a7.84 7.84 0 0 0 5.324 7.44c.387.079.528-.168.528-.376 0-.182-.013-.805-.013-1.454-2.165.467-2.616-.935-2.616-.935-.349-.91-.864-1.143-.864-1.143-.71-.48.051-.48.051-.48.787.051 1.2.805 1.2.805.695 1.194 1.817.857 2.268.649.064-.507.27-.857.49-1.052-1.728-.182-3.545-.857-3.545-3.87 0-.857.31-1.558.8-2.104-.078-.195-.349-1 .077-2.078 0 0 .657-.208 2.14.805a7.5 7.5 0 0 1 1.946-.26c.657 0 1.328.092 1.946.26 1.483-1.013 2.14-.805 2.14-.805.426 1.078.155 1.883.078 2.078.502.546.799 1.247.799 2.104 0 3.013-1.818 3.675-3.558 3.87.284.247.528.714.528 1.454 0 1.052-.012 1.896-.012 2.156 0 .208.142.455.528.377a7.84 7.84 0 0 0 5.324-7.441c.013-4.338-3.48-7.844-7.773-7.844" clip-rule="evenodd"/>
+  </symbol>
+  <symbol id="social-icon" viewBox="0 0 20 20">
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M12.5 6.667a4.167 4.167 0 1 0-8.334 0 4.167 4.167 0 0 0 8.334 0"/>
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M2.5 16.667a5.833 5.833 0 0 1 8.75-5.053m3.837.474.513 1.035c.07.144.257.282.414.309l.93.155c.596.1.736.536.307.965l-.723.73a.64.64 0 0 0-.152.531l.207.903c.164.715-.213.991-.84.618l-.872-.52a.63.63 0 0 0-.577 0l-.872.52c-.624.373-1.003.094-.84-.618l.207-.903a.64.64 0 0 0-.152-.532l-.723-.729c-.426-.43-.289-.864.306-.964l.93-.156a.64.64 0 0 0 .412-.31l.513-1.034c.28-.562.735-.562 1.012 0"/>
+  </symbol>
+  <symbol id="x-icon" viewBox="0 0 19 19">
+    <path fill="#08060d" fill-rule="evenodd" d="M1.893 1.98c.052.072 1.245 1.769 2.653 3.77l2.892 4.114c.183.261.333.48.333.486s-.068.089-.152.183l-.522.593-.765.867-3.597 4.087c-.375.426-.734.834-.798.905a1 1 0 0 0-.118.148c0 .01.236.017.664.017h.663l.729-.83c.4-.457.796-.906.879-.999a692 692 0 0 0 1.794-2.038c.034-.037.301-.34.594-.675l.551-.624.345-.392a7 7 0 0 1 .34-.374c.006 0 .93 1.306 2.052 2.903l2.084 2.965.045.063h2.275c1.87 0 2.273-.003 2.266-.021-.008-.02-1.098-1.572-3.894-5.547-2.013-2.862-2.28-3.246-2.273-3.266.008-.019.282-.332 2.085-2.38l2-2.274 1.567-1.782c.022-.028-.016-.03-.65-.03h-.674l-.3.342a871 871 0 0 1-1.782 2.025c-.067.075-.405.458-.75.852a100 100 0 0 1-.803.91c-.148.172-.299.344-.99 1.127-.304.343-.32.358-.345.327-.015-.019-.904-1.282-1.976-2.808L6.365 1.85H1.8zm1.782.91 8.078 11.294c.772 1.08 1.413 1.973 1.425 1.984.016.017.241.02 1.05.017l1.03-.004-2.694-3.766L7.796 5.75 5.722 2.852l-1.039-.004-1.039-.004z" clip-rule="evenodd"/>
+  </symbol>
+</svg>
+</file>
+
+<file path="frontend/src/common/api/.gitkeep">
+
+</file>
+
+<file path="frontend/src/common/components/.gitkeep">
+
+</file>
+
+<file path="frontend/src/common/hooks/.gitkeep">
+
+</file>
+
+<file path="frontend/src/common/.gitkeep">
+
+</file>
+
+<file path="frontend/src/components/ui/dialog.tsx">
+import { Dialog as ChakraDialog, Portal } from "@chakra-ui/react"
+import { CloseButton } from "./close-button"
+import * as React from "react"
+
+interface DialogContentProps extends ChakraDialog.ContentProps {
+  portalled?: boolean
+  portalRef?: React.RefObject<HTMLElement | null>
+  backdrop?: boolean
+}
+
+export const DialogContent = React.forwardRef<
+  HTMLDivElement,
+  DialogContentProps
+>(function DialogContent(props, ref) {
+  const {
+    children,
+    portalled = true,
+    portalRef,
+    backdrop = true,
+    ...rest
+  } = props
+
+  return (
+    <Portal disabled={!portalled} container={portalRef}>
+      {backdrop && <ChakraDialog.Backdrop />}
+      <ChakraDialog.Positioner>
+        <ChakraDialog.Content ref={ref} {...rest} asChild={false}>
+          {children}
+        </ChakraDialog.Content>
+      </ChakraDialog.Positioner>
+    </Portal>
+  )
+})
+
+export const DialogCloseTrigger = React.forwardRef<
+  HTMLButtonElement,
+  ChakraDialog.CloseTriggerProps
+>(function DialogCloseTrigger(props, ref) {
+  return (
+    <ChakraDialog.CloseTrigger
+      position="absolute"
+      top="2"
+      insetEnd="2"
+      {...props}
+      asChild
+    >
+      <CloseButton size="sm" ref={ref}>
+        {props.children}
+      </CloseButton>
+    </ChakraDialog.CloseTrigger>
+  )
+})
+
+export const DialogRoot = ChakraDialog.Root
+export const DialogFooter = ChakraDialog.Footer
+export const DialogHeader = ChakraDialog.Header
+export const DialogBody = ChakraDialog.Body
+export const DialogBackdrop = ChakraDialog.Backdrop
+export const DialogTitle = ChakraDialog.Title
+export const DialogDescription = ChakraDialog.Description
+export const DialogTrigger = ChakraDialog.Trigger
+export const DialogActionTrigger = ChakraDialog.ActionTrigger
+</file>
+
+<file path="frontend/src/components/ui/provider.tsx">
+"use client"
+
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react"
+import {
+  ColorModeProvider,
+  type ColorModeProviderProps,
+} from "./color-mode"
+
+export function Provider(props: ColorModeProviderProps) {
+  return (
+    <ChakraProvider value={defaultSystem}>
+      <ColorModeProvider {...props} />
+    </ChakraProvider>
+  )
+}
+</file>
+
+<file path="frontend/src/components/ui/toaster.tsx">
+"use client"
+
+import {
+  Toaster as ChakraToaster,
+  Portal,
+  Spinner,
+  Stack,
+  Toast,
+  createToaster,
+} from "@chakra-ui/react"
+
+export const toaster = createToaster({
+  placement: "bottom-end",
+  pauseOnPageIdle: true,
+})
+
+export const Toaster = () => {
+  return (
+    <Portal>
+      <ChakraToaster toaster={toaster} insetInline={{ mdDown: "4" }}>
+        {(toast) => (
+          <Toast.Root width={{ md: "sm" }}>
+            {toast.type === "loading" ? (
+              <Spinner size="sm" color="blue.solid" />
+            ) : (
+              <Toast.Indicator />
+            )}
+            <Stack gap="1" flex="1" maxWidth="100%">
+              {toast.title && <Toast.Title>{toast.title}</Toast.Title>}
+              {toast.description && (
+                <Toast.Description>{toast.description}</Toast.Description>
+              )}
+            </Stack>
+            {toast.action && (
+              <Toast.ActionTrigger>{toast.action.label}</Toast.ActionTrigger>
+            )}
+            {toast.closable && <Toast.CloseTrigger />}
+          </Toast.Root>
+        )}
+      </ChakraToaster>
+    </Portal>
+  )
+}
+</file>
+
+<file path="frontend/src/components/ui/tooltip.tsx">
+import { Tooltip as ChakraTooltip, Portal } from "@chakra-ui/react"
+import * as React from "react"
+
+export interface TooltipProps extends ChakraTooltip.RootProps {
+  showArrow?: boolean
+  portalled?: boolean
+  portalRef?: React.RefObject<HTMLElement | null>
+  content: React.ReactNode
+  contentProps?: ChakraTooltip.ContentProps
+  disabled?: boolean
+}
+
+export const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
+  function Tooltip(props, ref) {
+    const {
+      showArrow,
+      children,
+      disabled,
+      portalled = true,
+      content,
+      contentProps,
+      portalRef,
+      ...rest
+    } = props
+
+    if (disabled) return children
+
+    return (
+      <ChakraTooltip.Root {...rest}>
+        <ChakraTooltip.Trigger asChild>{children}</ChakraTooltip.Trigger>
+        <Portal disabled={!portalled} container={portalRef}>
+          <ChakraTooltip.Positioner>
+            <ChakraTooltip.Content ref={ref} {...contentProps}>
+              {showArrow && (
+                <ChakraTooltip.Arrow>
+                  <ChakraTooltip.ArrowTip />
+                </ChakraTooltip.Arrow>
+              )}
+              {content}
+            </ChakraTooltip.Content>
+          </ChakraTooltip.Positioner>
+        </Portal>
+      </ChakraTooltip.Root>
+    )
+  },
+)
+</file>
+
+<file path="frontend/src/features/equipo/components/pages/equipoCreatePage.tsx">
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { EquipoForm } from "../equipoForm";
+import { useEquipoABM } from "../../hooks/useEquipoABM";
+import type { Equipo } from "../../types/equipo";
+
+export function EquipoCreatePage() {
+  const navigate = useNavigate();
+  const { alta, loading, error } = useEquipoABM();
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: Omit<Equipo, "id">) => {
+    try {
+      await alta(values);
+      setExito(true);
+      // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
+      setTimeout(() => {
+        navigate("/equipos");
+      }, 2000);
+    } catch {
+      // El error ya queda reflejado en useInsumoABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">
+          Nuevo equipo
+        </Heading>
+        <Button
+          bg="#6c757d"
+          color="white"
+          fontSize="16px"
+          fontWeight="normal"
+          height="auto"
+          minW="auto"
+          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
+          _hover={{ bg: "#6c757d" }}
+          onClick={() => navigate("/equipos")}
+        >
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {/* Cartel rojo de error */}
+      {error && (
+        <Box
+          style={{
+            backgroundColor: "#f8d7da",
+            color: "#721c24",
+            padding: "12px",
+            borderRadius: "6px",
+            marginBottom: "20px",
+            border: "1px solid #f5c6cb",
+            fontWeight: "bold",
+          }}
+        >
+          ⚠️ {error}
+        </Box>
+      )}
+
+      {/* Cartel verde de éxito */}
+      {exito && (
+        <Box
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <Box
+            style={{
+              backgroundColor: "white",
+              padding: "30px 50px",
+              borderRadius: "12px",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              textAlign: "center",
+            }}
+          >
+            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+            <Heading
+              as="h3"
+              style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+            >
+              Éxito
+            </Heading>
+            <Text
+              style={{
+                color: "#555",
+                marginTop: "10px",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              equipo agregado correctamente.
+            </Text>
+          </Box>
+        </Box>
+      )}
+
+      <EquipoForm
+        onSubmit={handleSubmit}
+        isLoading={loading}
+        title="Alta de Equipo"
+        submitLabel="Crear Equipo"
+      />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/components/pages/equipoEditPage.tsx">
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { EquipoForm } from "../../components/equipoForm";
+import { useEquipo } from "../../hooks/useEquipo";
+import { useEquipoABM } from "../../hooks/useEquipoABM";
+import type { Equipo } from "../../types/equipo";
+
+export function EquipoEditPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const equipoId = Number(id);
+
+  const {
+    equipo,
+    loading: cargando,
+    error: errorCarga,
+  } = useEquipo(Number.isFinite(equipoId) ? equipoId : null);
+  const {
+    modificar,
+    loading: guardando,
+    error: errorGuardado,
+  } = useEquipoABM();
+
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: Omit<Equipo, "id">) => {
+    try {
+      await modificar(equipoId, values);
+      setExito(true);
+      // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
+      setTimeout(() => {
+        navigate("/Equipos");
+      }, 2000);
+    } catch {
+      // El error ya queda reflejado en useEquipoABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">
+          Editar Equipo
+        </Heading>
+        <Button
+          bg="#6c757d"
+          color="white"
+          fontSize="16px"
+          fontWeight="normal"
+          height="auto"
+          minW="auto"
+          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
+          _hover={{ bg: "#6c757d" }}
+          onClick={() => navigate("/equipos")}
+        >
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
+
+      {cargando && (
+        <Text style={{ fontStyle: "italic", color: "#666" }}>
+          Cargando datos del Equipo...
+        </Text>
+      )}
+
+      {!cargando && !errorCarga && equipo && (
+        <>
+          {/* Cartel rojo de error */}
+          {errorGuardado && (
+            <Box
+              style={{
+                backgroundColor: "#f8d7da",
+                color: "#721c24",
+                padding: "12px",
+                borderRadius: "6px",
+                marginBottom: "20px",
+                border: "1px solid #f5c6cb",
+                fontWeight: "bold",
+              }}
+            >
+              ⚠️ {errorGuardado}
+            </Box>
+          )}
+
+          {/* Cartel verde de éxito */}
+          {exito && (
+            <Box
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0,0,0,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+            >
+              <Box
+                style={{
+                  backgroundColor: "white",
+                  padding: "30px 50px",
+                  borderRadius: "12px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                  textAlign: "center",
+                }}
+              >
+                <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+                <Heading
+                  as="h3"
+                  style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+                >
+                  Éxito
+                </Heading>
+                <Text
+                  style={{
+                    color: "#555",
+                    marginTop: "10px",
+                    fontSize: "16px",
+                    fontWeight: 500,
+                  }}
+                >
+                  equipo modificado correctamente.
+                </Text>
+              </Box>
+            </Box>
+          )}
+
+          <EquipoForm
+            key={equipo.id}
+            initialValues={{ nombre: equipo.nombre, tipo: equipo.tipo, ubicacion: equipo.ubicacion, activo: equipo.activo,}}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            title="Modificar Equipo"
+            submitLabel="Guardar cambios"
+            onCancel={() => navigate("/equipos")}
+          />
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/hooks/useEquipo.ts">
+import { useEffect, useState } from "react";
+import { obtenerEquipo } from "../services/equipoService";
+import type { Equipo } from "../types/equipo";
+
+export function useEquipo(id: number | null) {
+    const [equipo, setEquipo] = useState<Equipo | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (id === null) {
+            return;
+        }
+
+        const cargarEquipo = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const data = await obtenerEquipo(id);
+                setEquipo(data);
+            } catch (err) {
+                setError("No se pudo cargar el equipo");
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        cargarEquipo();
+    }, [id]);
+
+    return {
+        equipo,
+        loading,
+        error,
+    };
+}
+</file>
+
+<file path="frontend/src/features/equipo/hooks/useEquipoABM.ts">
+import { useState } from "react";
+import {
+    crearEquipo,
+    modificarEquipo,
+    eliminarEquipo,
+} from "../services/equipoService";
+import type { Equipo } from "../types/equipo";
+
+export function useEquipoABM() {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const alta = async (equipo: Omit<Equipo, "id">) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            return await crearEquipo(equipo);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo crear el equipo");
+            console.error(err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const modificar = async (
+        id: number,
+        equipo: Omit<Equipo, "id">
+    ) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            return await modificarEquipo(id, equipo);
+        } catch (err) {
+            setError("No se pudo modificar el equipo");
+            console.error(err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const borrar = async (id: number) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            await eliminarEquipo(id);
+        } catch (err) {
+            setError("No se pudo eliminar el equipo");
+            console.error(err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return {
+        alta,
+        modificar,
+        borrar,
+        loading,
+        error,
+    };
+}
+</file>
+
+<file path="frontend/src/features/equipo/hooks/useEquipos.ts">
+import { useCallback, useEffect, useState } from "react";
+import { listarEquipos } from "../services/equipoService";
+import type { Equipo } from "../types/equipo";
+
+export function useEquipos() {
+    const [equipos, setEquipos] = useState<Equipo[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const cargarEquipos = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const data = await listarEquipos();
+            setEquipos(data);
+        } catch (err) {
+            setError("No se pudieron cargar los equipos");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        cargarEquipos();
+    }, [cargarEquipos]);
+
+    return {
+        equipos,
+        loading,
+        error,
+        cargarEquipos,
+    };
+}
+</file>
+
+<file path="frontend/src/features/equipo/types/equipo.ts">
+// 1. Tipo de Unión (sustituye al enum)
+export type TipoEquipo = 'heladera' | 'horno' | 'balanza' | 'termometro';
+
+// 2. Objeto auxiliar constante (opcional, muy útil para formularios o desplegables)
+export const TIPO_EQUIPO_OPTIONS: TipoEquipo[] = [
+  'heladera',
+  'horno',
+  'balanza',
+  'termometro',
+];
+
+// 3. Interfaz del Equipo
+export interface Equipo {
+  id: number;
+  nombre: string;
+  tipo: TipoEquipo;
+  ubicacion: string;
+  activo: boolean;
+}
+</file>
+
+<file path="frontend/src/features/insumos/components/pages/insumoCreatePage.tsx">
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { InsumoForm } from "../insumoForm";
+import { useInsumoABM } from "../../hooks/useInsumoABM";
+import type { Insumo } from "../../types/insumo";
+
+export function InsumoCreatePage() {
+  const navigate = useNavigate();
+  const { alta, loading, error } = useInsumoABM();
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: Omit<Insumo, "id">) => {
+    try {
+      await alta(values);
+      setExito(true);
+      // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
+      setTimeout(() => {
+        navigate("/insumos");
+      }, 2000);
+    } catch {
+      // El error ya queda reflejado en useInsumoABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">
+          Nuevo insumo
+        </Heading>
+        <Button
+          bg="#6c757d"
+          color="white"
+          fontSize="16px"
+          fontWeight="normal"
+          height="auto"
+          minW="auto"
+          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
+          _hover={{ bg: "#6c757d" }}
+          onClick={() => navigate("/insumos")}
+        >
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {/* Cartel rojo de error */}
+      {error && (
+        <Box
+          style={{
+            backgroundColor: "#f8d7da",
+            color: "#721c24",
+            padding: "12px",
+            borderRadius: "6px",
+            marginBottom: "20px",
+            border: "1px solid #f5c6cb",
+            fontWeight: "bold",
+          }}
+        >
+          ⚠️ {error}
+        </Box>
+      )}
+
+      {/* Cartel verde de éxito */}
+      {exito && (
+        <Box
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <Box
+            style={{
+              backgroundColor: "white",
+              padding: "30px 50px",
+              borderRadius: "12px",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              textAlign: "center",
+            }}
+          >
+            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+            <Heading
+              as="h3"
+              style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+            >
+              Éxito
+            </Heading>
+            <Text
+              style={{
+                color: "#555",
+                marginTop: "10px",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Insumo agregado correctamente.
+            </Text>
+          </Box>
+        </Box>
+      )}
+
+      <InsumoForm
+        onSubmit={handleSubmit}
+        isLoading={loading}
+        title="Alta de Insumo"
+        submitLabel="Crear insumo"
+      />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/insumos/components/pages/insumoEditPage.tsx">
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { InsumoForm } from "../../components/insumoForm";
+import { useInsumo } from "../../hooks/useInsumo";
+import { useInsumoABM } from "../../hooks/useInsumoABM";
+import type { Insumo } from "../../types/insumo";
+
+export function InsumoEditPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const insumoId = Number(id);
+
+  const {
+    insumo,
+    loading: cargando,
+    error: errorCarga,
+  } = useInsumo(Number.isFinite(insumoId) ? insumoId : null);
+  const {
+    modificar,
+    loading: guardando,
+    error: errorGuardado,
+  } = useInsumoABM();
+
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: Omit<Insumo, "id">) => {
+    try {
+      await modificar(insumoId, values);
+      setExito(true);
+      // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
+      setTimeout(() => {
+        navigate("/insumos");
+      }, 2000);
+    } catch {
+      // El error ya queda reflejado en useInsumoABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">
+          Editar insumo
+        </Heading>
+        <Button
+          bg="#6c757d"
+          color="white"
+          fontSize="16px"
+          fontWeight="normal"
+          height="auto"
+          minW="auto"
+          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
+          _hover={{ bg: "#6c757d" }}
+          onClick={() => navigate("/insumos")}
+        >
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
+
+      {cargando && (
+        <Text style={{ fontStyle: "italic", color: "#666" }}>
+          Cargando datos del insumo...
+        </Text>
+      )}
+
+      {!cargando && !errorCarga && insumo && (
+        <>
+          {/* Cartel rojo de error */}
+          {errorGuardado && (
+            <Box
+              style={{
+                backgroundColor: "#f8d7da",
+                color: "#721c24",
+                padding: "12px",
+                borderRadius: "6px",
+                marginBottom: "20px",
+                border: "1px solid #f5c6cb",
+                fontWeight: "bold",
+              }}
+            >
+              ⚠️ {errorGuardado}
+            </Box>
+          )}
+
+          {/* Cartel verde de éxito */}
+          {exito && (
+            <Box
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0,0,0,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+            >
+              <Box
+                style={{
+                  backgroundColor: "white",
+                  padding: "30px 50px",
+                  borderRadius: "12px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                  textAlign: "center",
+                }}
+              >
+                <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+                <Heading
+                  as="h3"
+                  style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+                >
+                  Éxito
+                </Heading>
+                <Text
+                  style={{
+                    color: "#555",
+                    marginTop: "10px",
+                    fontSize: "16px",
+                    fontWeight: 500,
+                  }}
+                >
+                  Insumo modificado correctamente.
+                </Text>
+              </Box>
+            </Box>
+          )}
+
+          <InsumoForm
+            key={insumo.id}
+            initialValues={{ nombre: insumo.nombre, tipo: insumo.tipo }}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            title="Modificar Insumo"
+            submitLabel="Guardar cambios"
+            onCancel={() => navigate("/insumos")}
+          />
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/insumos/components/DeleteInsumoDialog.tsx">
+import { Box, Button, Portal, Text } from "@chakra-ui/react";
+import type { Insumo } from "../types/insumo";
+
+interface DeleteInsumoDialogProps {
+  isOpen: boolean;
+  insumo: Insumo | null;
+  isLoading?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export function DeleteInsumoDialog({
+  isOpen,
+  insumo,
+  isLoading,
+  onClose,
+  onConfirm,
+}: DeleteInsumoDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <Portal>
+      {/* Overlay */}
+      <Box
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        {/* Tarjeta */}
+        <Box
+          style={{
+            backgroundColor: "white",
+            padding: "25px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+            width: "350px",
+            textAlign: "center",
+          }}
+        >
+          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+            ¿Esta seguro que desea eliminar el insumo{" "}
+            <strong>{insumo?.nombre}</strong>?
+          </Box>
+          <Text style={{ color: "#666", marginBottom: "20px" }}>
+            Esta acción no se puede deshacer.
+          </Text>
+          <Box
+            style={{ display: "flex", gap: "10px", justifyContent: "center" }}
+          >
+            <Button
+              onClick={onClose}
+              height="auto"
+              minW="auto"
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                backgroundColor: "#fff",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={onConfirm}
+              loading={isLoading}
+              height="auto"
+              minW="auto"
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: "#d9534f",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Sí, eliminar
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+    </Portal>
+  );
+}
+</file>
+
+<file path="frontend/src/features/insumos/components/insumoForm.tsx">
+import { useState } from "react";
+import {
+  Box,
+  Button,
+  Field,
+  HStack,
+  Input,
+  NativeSelect,
+} from "@chakra-ui/react";
+import { TIPOS_UNIDAD, type Insumo } from "../types/insumo";
+
+type InsumoFormValues = Omit<Insumo, "id">;
+
+interface InsumoFormProps {
+  initialValues?: InsumoFormValues;
+  onSubmit: (values: InsumoFormValues) => Promise<void> | void;
+  isLoading?: boolean;
+  submitLabel?: string;
+  title?: string;
+  onCancel?: () => void;
+}
+
+const emptyValues: InsumoFormValues = { nombre: "", tipo: "kg" };
+
+const estiloInput = {
+  backgroundColor: "#fff",
+  padding: "12px",
+  width: "100%",
+  maxWidth: "500px",
+  borderRadius: "8px",
+  border: "2px solid #90BEBB",
+  fontSize: "16px",
+  outline: "none",
+  color: "#333",
+};
+
+const estiloSelect = {
+  ...estiloInput,
+  boxSizing: "border-box" as const,
+  colorScheme: "light" as const,
+  height: "auto" as const,
+  lineHeight: "normal" as const,
+};
+
+const estiloLabel = {
+  display: "block",
+  fontSize: "14px",
+  fontWeight: "bold" as const,
+  marginBottom: "8px",
+  color: "#555",
+};
+
+export function InsumoForm({
+  initialValues = emptyValues,
+  onSubmit,
+  isLoading = false,
+  submitLabel = "Guardar",
+  title = "Alta de Insumo",
+  onCancel,
+}: InsumoFormProps) {
+  const [values, setValues] = useState<InsumoFormValues>(initialValues);
+
+  const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, nombre: e.target.value }));
+
+  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues((prev) => ({
+      ...prev,
+      tipo: e.target.value as InsumoFormValues["tipo"],
+    }));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(values);
+  };
+
+  return (
+    <Box
+      as="form"
+      onSubmit={handleSubmit}
+      style={{
+        backgroundColor: "#ffffff",
+        padding: "30px",
+        borderRadius: "12px",
+        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+        marginBottom: "30px",
+      }}
+    >
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+        {title}
+      </Box>
+
+      {/* Nombre */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            NOMBRE *
+          </Box>
+          <Input
+            value={values.nombre}
+            onChange={handleNombreChange}
+            placeholder="Ej: Fertilizante nitrogenado"
+            style={estiloInput}
+          />
+        </Field.Root>
+      </Box>
+
+      {/* Tipo de unidad */}
+      <Box style={{ marginBottom: "25px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            TIPO DE UNIDAD *
+          </Box>
+          <NativeSelect.Root>
+            <NativeSelect.Field
+              value={values.tipo}
+              onChange={handleTipoChange}
+              style={estiloSelect}
+            >
+              {TIPOS_UNIDAD.map((tipo) => (
+                <option
+                  key={tipo.value}
+                  value={tipo.value}
+                  style={{ backgroundColor: "#fff", color: "#333" }}
+                >
+                  {tipo.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+      </Box>
+
+      {/* Botones */}
+      <HStack style={{ gap: "15px" }}>
+        <Button
+          type="submit"
+          loading={isLoading}
+          style={{
+            backgroundColor: "#468189",
+            color: "white",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "15px",
+            fontWeight: "bold",
+          }}
+        >
+          {submitLabel}
+        </Button>
+
+        {onCancel && (
+          <Button
+            type="button"
+            onClick={onCancel}
+            style={{
+              backgroundColor: "#e0e0e0",
+              color: "#333",
+              padding: "12px 24px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "15px",
+              fontWeight: "bold",
+            }}
+          >
+            Cancelar
+          </Button>
+        )}
+      </HStack>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/insumos/components/insumoItem.tsx">
+import { Table, Button, HStack } from "@chakra-ui/react";
+import { TIPOS_UNIDAD, type Insumo } from "../types/insumo";
+
+interface InsumoItemProps {
+  insumo: Insumo;
+  onEdit: (insumo: Insumo) => void;
+  onDelete: (insumo: Insumo) => void;
+}
+
+const TEAL = "#468189";
+
+export function InsumoItem({ insumo, onEdit, onDelete }: InsumoItemProps) {
+  const tipoLabel =
+    TIPOS_UNIDAD.find((t) => t.value === insumo.tipo)?.label ?? insumo.tipo;
+
+  return (
+    <Table.Row style={{ borderBottom: "1px solid #eee" }}>
+      <Table.Cell
+        color={TEAL}
+        fontWeight="bold"
+        fontSize="16px"
+        style={{ padding: "12px" }}
+      >
+        #{insumo.id}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {insumo.nombre}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {tipoLabel}
+      </Table.Cell>
+      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+        <HStack justify="center" style={{ gap: "10px" }}>
+          <Button
+            bg="#f0ad4e"
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: "#f0ad4e" }}
+            onClick={() => onEdit(insumo)}
+          >
+            Modificar
+          </Button>
+          <Button
+            bg="#d9534f"
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: "#d9534f" }}
+            onClick={() => onDelete(insumo)}
+          >
+            Eliminar
+          </Button>
+        </HStack>
+      </Table.Cell>
+    </Table.Row>
+  );
+}
+</file>
+
+<file path="frontend/src/features/insumos/components/insumoTable.tsx">
+import { Box, Table, Text } from "@chakra-ui/react";
+import { InsumoItem } from "./insumoItem";
+import type { Insumo } from "../types/insumo";
+
+interface InsumoTableProps {
+  insumos: Insumo[];
+  onEdit: (insumo: Insumo) => void;
+  onDelete: (insumo: Insumo) => void;
+}
+
+const TEAL = "#468189";
+
+export function InsumoTable({ insumos, onEdit, onDelete }: InsumoTableProps) {
+  if (insumos.length === 0) {
+    return (
+      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+        <Text color="gray.500">No hay insumos cargados.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
+      <Table.Root
+        variant="outline"
+        style={{ width: "100%", borderCollapse: "collapse" }}
+      >
+        <Table.Header>
+          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+              ID
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+              Nombre
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+              Tipo
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px", textAlign: "center" }}
+            >
+              Acciones
+            </Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {insumos.map((insumo) => (
+            <InsumoItem
+              key={insumo.id}
+              insumo={insumo}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </Table.Body>
+      </Table.Root>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/insumos/hooks/useInsumo.ts">
+import { useEffect, useState } from "react";
+import { obtenerInsumo } from "../services/insumoService";
+import type { Insumo } from "../types/insumo";
+
+export function useInsumo(id: number | null) {
+    const [insumo, setInsumo] = useState<Insumo | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (id === null) {
+            return;
+        }
+
+        const cargarInsumo = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const data = await obtenerInsumo(id);
+                setInsumo(data);
+            } catch (err) {
+                setError("No se pudo cargar el insumo");
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        cargarInsumo();
+    }, [id]);
+
+    return {
+        insumo,
+        loading,
+        error,
+    };
+}
+</file>
+
+<file path="frontend/src/features/insumos/hooks/useInsumoABM.ts">
+import { useState } from "react";
+import {
+    crearInsumo,
+    modificarInsumo,
+    eliminarInsumo,
+} from "../services/insumoService";
+import type { Insumo } from "../types/insumo";
+
+export function useInsumoABM() {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const alta = async (insumo: Omit<Insumo, "id">) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            return await crearInsumo(insumo);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo crear el insumo");
+            console.error(err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const modificar = async (
+        id: number,
+        insumo: Omit<Insumo, "id">
+    ) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            return await modificarInsumo(id, insumo);
+        } catch (err) {
+            setError("No se pudo modificar el insumo");
+            console.error(err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const borrar = async (id: number) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            await eliminarInsumo(id);
+        } catch (err) {
+            setError("No se pudo eliminar el insumo");
+            console.error(err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return {
+        alta,
+        modificar,
+        borrar,
+        loading,
+        error,
+    };
+}
+</file>
+
+<file path="frontend/src/features/insumos/hooks/useInsumos.ts">
+import { useCallback, useEffect, useState } from "react";
+import { listarInsumos } from "../services/insumoService";
+import type { Insumo } from "../types/insumo";
+
+export function useInsumos() {
+    const [insumos, setInsumos] = useState<Insumo[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const cargarInsumos = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const data = await listarInsumos();
+            setInsumos(data);
+        } catch (err) {
+            setError("No se pudieron cargar los insumos");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        cargarInsumos();
+    }, [cargarInsumos]);
+
+    return {
+        insumos,
+        loading,
+        error,
+        cargarInsumos,
+    };
+}
+</file>
+
+<file path="frontend/src/features/insumos/services/insumoService.ts">
+import type { Insumo } from "../types/insumo";
+
+const API_URL = "http://localhost:8000";
+
+export async function listarInsumos(): Promise<Insumo[]> {
+    const response = await fetch(`${API_URL}/insumos`);
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al obtener los insumos");
+    }
+
+    return response.json();
+}
+
+export async function obtenerInsumo(id: number): Promise<Insumo> {
+    const response = await fetch(`${API_URL}/insumos/${id}`);
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al obtener el insumo");
+    }
+
+    return response.json();
+}
+
+export async function crearInsumo(
+    insumo: Omit<Insumo, "id">
+): Promise<Insumo> {
+    const response = await fetch(`${API_URL}/insumos`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(insumo),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al crear el insumo");
+    }
+
+    return response.json();
+}
+
+export async function modificarInsumo(
+    id: number,
+    insumo: Omit<Insumo, "id">
+): Promise<Insumo> {
+    const response = await fetch(`${API_URL}/insumos/${id}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(insumo),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al modificar el insumo");
+    }
+
+    return response.json();
+}
+
+export async function eliminarInsumo(id: number): Promise<void> {
+    const response = await fetch(`${API_URL}/insumos/${id}`, {
+        method: "DELETE",
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al eliminar el insumo");
+    }
+}
+</file>
+
+<file path="frontend/src/features/insumos/types/insumo.ts">
+export type TipoUnidad = "kg" | "g" | "l" | "ml" | "cm3";
+
+export const TIPOS_UNIDAD: { value: TipoUnidad; label: string }[] = [
+  { value: "kg", label: "Kilogramos (kg)" },
+  { value: "g", label: "Gramos (g)" },
+  { value: "l", label: "Litros (l)" },
+  { value: "ml", label: "Mililitros (ml)" },
+  { value: "cm3", label: "Centímetros cúbicos (cm3)" },
+];
+
+export interface Insumo {
+  id: number;
+  nombre: string;
+  tipo: TipoUnidad;
+}
+</file>
+
+<file path="frontend/src/features/insumos/insumoRoutes.tsx">
+import type { RouteObject } from "react-router-dom";
+import { InsumosPage } from "./components/pages/insumosPage";
+import { InsumoCreatePage } from "./components/pages/insumoCreatePage";
+import { InsumoEditPage } from "./components/pages/insumoEditPage";
+
+// Agregar este array al array de `children` (o `routes`) de tu router principal
+export const insumoRoutes: RouteObject[] = [
+  { path: "insumos", element: <InsumosPage /> },
+  { path: "insumos/nuevo", element: <InsumoCreatePage /> },
+  { path: "insumos/:id/editar", element: <InsumoEditPage /> },
+];
+</file>
+
+<file path="frontend/src/features/personal/components/pages/PersonalCreatePage.tsx">
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { PersonalForm } from "../PersonalForm";
+import { usePersonalABM } from "../../hooks/usePersonalABM";
+import type { Persona } from "../../types/personal";
+
+export function PersonalCreatePage() {
+  const navigate = useNavigate();
+  const { alta, loading, error } = usePersonalABM();
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">) => {
+    try {
+      await alta(values);
+      setExito(true);
+      setTimeout(() => { navigate("/personal"); }, 2000);
+    } catch { }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Nuevo Personal</Heading>
+        <Button bg="#6c757d" color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }} _hover={{ bg: "#6c757d" }} onClick={() => navigate("/personal")}>
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {error && (
+        <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+          ⚠️ {error}
+        </Box>
+      )}
+
+      {exito && (
+        <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
+            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+            <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>Éxito</Heading>
+            <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>Personal agregado correctamente.</Text>
+          </Box>
+        </Box>
+      )}
+
+      <PersonalForm onSubmit={handleSubmit} isLoading={loading} title="Alta de Personal" submitLabel="Crear personal" />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/pages/PersonalDetailPage.tsx">
+import { useNavigate, useParams } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { usePersonal } from "../../hooks/usePersonal";
+
+export function PersonalDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { persona, loading, error } = usePersonal(Number(id));
+
+  if (loading) return <Box p="20px">Cargando información...</Box>;
+  if (error || !persona) return <Box p="20px" color="red.500">{error || "No se encontró el empleado"}</Box>;
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Ficha de Personal #{persona.id}</Heading>
+        <Button bg="#6c757d" color="white" height="auto" onClick={() => navigate("/personal")} style={{ padding: "8px 16px", borderRadius: "6px" }}>Volver a la lista</Button>
+      </HStack>
+
+      <Box style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+        <Text mb="2"><strong>Nombre completo:</strong> {persona.nombre} {persona.apellido}</Text>
+        <Text mb="2"><strong>DNI:</strong> {persona.dni}</Text>
+        <Text mb="2"><strong>Email:</strong> {persona.email}</Text>
+        <Text mb="2"><strong>Teléfono:</strong> {persona.telefono || "No registrado"}</Text>
+        
+        <Box style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
+          <Heading as="h4" size="sm" mb="3">Permisos en el sistema:</Heading>
+          <ul style={{ listStyleType: "none", padding: 0 }}>
+            <li style={{ marginBottom: "10px" }}>{persona.puede_operar ? "✅" : "❌"} Puede Operar</li>
+            <li>{persona.puede_administrar ? "✅" : "❌"} Puede Administrar</li>
+          </ul>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/pages/PersonalEditPage.tsx">
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { PersonalForm } from "../PersonalForm";
+import { usePersonal } from "../../hooks/usePersonal";
+import { usePersonalABM } from "../../hooks/usePersonalABM";
+import type { Persona } from "../../types/personal";
+
+export function PersonalEditPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const personaId = Number(id);
+
+  const { persona, loading: cargando, error: errorCarga } = usePersonal(Number.isFinite(personaId) ? personaId : null);
+  const { modificar, loading: guardando, error: errorGuardado } = usePersonalABM();
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">) => {
+    try {
+      await modificar(personaId, values);
+      setExito(true);
+      setTimeout(() => { navigate("/personal"); }, 2000);
+    } catch { }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Editar Personal</Heading>
+        <Button bg="#6c757d" color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }} _hover={{ bg: "#6c757d" }} onClick={() => navigate("/personal")}>
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
+      {cargando && <Text style={{ fontStyle: "italic", color: "#666" }}>Cargando datos del personal...</Text>}
+
+      {!cargando && !errorCarga && persona && (
+        <>
+          {errorGuardado && (
+            <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+              ⚠️ {errorGuardado}
+            </Box>
+          )}
+
+          {exito && (
+            <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+              <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
+                <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+                <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>Éxito</Heading>
+                <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>Personal modificado correctamente.</Text>
+              </Box>
+            </Box>
+          )}
+
+          <PersonalForm
+            key={persona.id}
+            initialValues={{ nombre: persona.nombre, apellido: persona.apellido || "", dni: persona.dni, email: persona.email, telefono: persona.telefono || "", puede_operar: persona.puede_operar, puede_administrar: persona.puede_administrar }}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            title="Modificar Personal"
+            submitLabel="Guardar cambios"
+            onCancel={() => navigate("/personal")}
+          />
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/pages/PersonalPage.tsx">
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Button, ButtonGroup, Heading, HStack, IconButton, Pagination, Spinner, Text } from "@chakra-ui/react";
+import { PersonalTable } from "../PersonalTable";
+import { DeletePersonalDialog } from "../DeletePersonalDialog";
+import { usePersonales } from "../../hooks/usePersonales";
+import { usePersonalABM } from "../../hooks/usePersonalABM";
+import type { Persona } from "../../types/personal";
+
+const TEAL = "#468189";
+const PAGE_SIZE = 10;
+
+export function PersonalPage() {
+  const navigate = useNavigate();
+  const { personales, loading, error, cargarPersonales } = usePersonales();
+  const { borrar, loading: borrando } = usePersonalABM();
+
+  const [personaAEliminar, setPersonaAEliminar] = useState<Persona | null>(null);
+  const [filtro, setFiltro] = useState<"todos" | "operar" | "administrar">("todos");
+  const [page, setPage] = useState(1);
+
+  const personalFiltrado = useMemo(() => {
+    return personales.filter((p) => {
+      if (filtro === "operar") return p.puede_operar;
+      if (filtro === "administrar") return p.puede_administrar;
+      return true;
+    });
+  }, [personales, filtro]);
+
+  const personalPaginado = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return personalFiltrado.slice(start, start + PAGE_SIZE);
+  }, [personalFiltrado, page]);
+
+  const handleEdit = (persona: Persona) => navigate(`/personal/${persona.id}/editar`);
+  const handleDeleteRequest = (persona: Persona) => setPersonaAEliminar(persona);
+  const handleCloseDialog = () => { if (!borrando) setPersonaAEliminar(null); };
+
+  const handleConfirmDelete = async () => {
+    if (!personaAEliminar) return;
+    try {
+      await borrar(personaAEliminar.id);
+      setPersonaAEliminar(null);
+      await cargarPersonales();
+    } catch {
+      // El error queda en el hook
+    }
+  };
+
+  const estiloFiltro = (activo: boolean) => ({
+    padding: "8px 16px", borderRadius: "6px", border: `1px solid ${TEAL}`,
+    backgroundColor: activo ? TEAL : "#fff", color: activo ? "#fff" : TEAL,
+    cursor: "pointer", fontWeight: "bold" as const, transition: "0.2s"
+  });
+
+  return (
+    <Box style={{ padding: "20px" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Gestión de Personal</Heading>
+        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: TEAL }} onClick={() => navigate("/personal/nuevo")}>
+          + Agregar
+        </Button>
+      </HStack>
+
+      <HStack mb="20px" gap="10px">
+        <button onClick={() => { setFiltro("todos"); setPage(1); }} style={estiloFiltro(filtro === "todos")}>Todos</button>
+        <button onClick={() => { setFiltro("operar"); setPage(1); }} style={estiloFiltro(filtro === "operar")}>Operadores</button>
+        <button onClick={() => { setFiltro("administrar"); setPage(1); }} style={estiloFiltro(filtro === "administrar")}>Administradores</button>
+      </HStack>
+
+      {loading && <Spinner />}
+      {!loading && error && <Text color="red.500">{error}</Text>}
+
+      {!loading && !error && (
+        <>
+          <PersonalTable personales={personalPaginado} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+
+          {personalFiltrado.length > PAGE_SIZE && (
+            <Pagination.Root count={personalFiltrado.length} pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)} mt="16px">
+              <HStack justify="center">
+                <ButtonGroup variant="ghost" size="sm">
+                  <Pagination.Items render={(pageItem) => {
+                      const isSelected = pageItem.value === page;
+                      return (
+                        <IconButton aria-label={`Página ${pageItem.value}`} bg={isSelected ? TEAL : "transparent"} color={isSelected ? "white" : TEAL} border={isSelected ? "none" : `1px solid ${TEAL}`} _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}>
+                          {pageItem.value}
+                        </IconButton>
+                      );
+                  }} />
+                </ButtonGroup>
+              </HStack>
+            </Pagination.Root>
+          )}
+        </>
+      )}
+
+      <DeletePersonalDialog isOpen={personaAEliminar !== null} persona={personaAEliminar} isLoading={borrando} onClose={handleCloseDialog} onConfirm={handleConfirmDelete} />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/DeletePersonalDialog.tsx">
+import { Box, Button, Portal, Text } from "@chakra-ui/react";
+import type { Persona } from "../types/personal";
+
+interface DeletePersonalDialogProps {
+  isOpen: boolean;
+  persona: Persona | null;
+  isLoading?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export function DeletePersonalDialog({ isOpen, persona, isLoading, onClose, onConfirm }: DeletePersonalDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <Portal>
+      <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+        <Box style={{ backgroundColor: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 15px rgba(0,0,0,0.2)", width: "350px", textAlign: "center" }}>
+          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+            ¿Esta seguro que desea eliminar a <strong>{persona?.nombre}</strong>?
+          </Box>
+          <Text style={{ color: "#666", marginBottom: "20px" }}>Esta acción no se puede deshacer.</Text>
+          <Box style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+            <Button onClick={onClose} height="auto" minW="auto" style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ccc", backgroundColor: "#fff", cursor: "pointer", fontWeight: "bold" }}>Cancelar</Button>
+            <Button onClick={onConfirm} loading={isLoading} height="auto" minW="auto" style={{ padding: "8px 16px", borderRadius: "6px", border: "none", backgroundColor: "#d9534f", color: "white", cursor: "pointer", fontWeight: "bold" }}>Sí, eliminar</Button>
+          </Box>
+        </Box>
+      </Box>
+    </Portal>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/PersonalForm.tsx">
+import { useState } from "react";
+import { Box, Button, Field, HStack, Input } from "@chakra-ui/react";
+import type { Persona } from "../types/personal";
+
+type PersonalFormValues = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
+
+interface PersonalFormProps {
+  initialValues?: PersonalFormValues;
+  onSubmit: (values: PersonalFormValues) => Promise<void> | void;
+  isLoading?: boolean;
+  submitLabel?: string;
+  title?: string;
+  onCancel?: () => void;
+}
+
+const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false };
+
+const estiloInput = { backgroundColor: "#fff", padding: "12px", width: "100%", borderRadius: "8px", border: "2px solid #90BEBB", fontSize: "16px", outline: "none", color: "#333" };
+const estiloLabel = { display: "block", fontSize: "14px", fontWeight: "bold" as const, marginBottom: "8px", color: "#555" };
+
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel }: PersonalFormProps) {
+  const [values, setValues] = useState<PersonalFormValues>(initialValues);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      ...values,
+      apellido: values.apellido || null,
+      telefono: values.telefono || null
+    });
+  };
+
+  return (
+    <Box as="form" onSubmit={handleSubmit} style={{ backgroundColor: "#ffffff", padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}>
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189", marginBottom: "20px" }}>{title}</Box>
+
+      <HStack gap="20px" mb="20px">
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>NOMBRE *</Box>
+          <Input value={values.nombre} onChange={(e) => setValues({ ...values, nombre: e.target.value })} style={estiloInput} />
+        </Field.Root>
+        <Field.Root>
+          <Box as="label" style={estiloLabel}>APELLIDO</Box>
+          <Input value={values.apellido || ""} onChange={(e) => setValues({ ...values, apellido: e.target.value })} style={estiloInput} />
+        </Field.Root>
+      </HStack>
+
+      <HStack gap="20px" mb="20px">
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>DNI (7 u 8 dígitos)*</Box>
+          <Input value={values.dni} maxLength={8} onChange={(e) => setValues({ ...values, dni: e.target.value })} style={estiloInput} />
+        </Field.Root>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>EMAIL *</Box>
+          <Input type="email" value={values.email} onChange={(e) => setValues({ ...values, email: e.target.value })} style={estiloInput} />
+        </Field.Root>
+      </HStack>
+
+      <Box mb="20px">
+        <Field.Root>
+          <Box as="label" style={estiloLabel}>TELÉFONO</Box>
+          <Input value={values.telefono || ""} onChange={(e) => setValues({ ...values, telefono: e.target.value })} style={estiloInput} />
+        </Field.Root>
+      </Box>
+
+      <HStack gap="25px" mb="25px">
+        <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+          <input type="checkbox" checked={values.puede_operar} onChange={(e) => setValues({ ...values, puede_operar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Operar
+        </label>
+        <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+          <input type="checkbox" checked={values.puede_administrar} onChange={(e) => setValues({ ...values, puede_administrar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Administrar
+        </label>
+      </HStack>
+
+      <HStack style={{ gap: "15px" }}>
+        <Button type="submit" loading={isLoading} style={{ backgroundColor: "#468189", color: "white", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold" }}>
+          {submitLabel}
+        </Button>
+        {onCancel && (
+          <Button type="button" onClick={onCancel} style={{ backgroundColor: "#e0e0e0", color: "#333", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold" }}>
+            Cancelar
+          </Button>
+        )}
+      </HStack>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/PersonalItem.tsx">
+import { Table, Button, HStack } from "@chakra-ui/react";
+import type { Persona } from "../types/personal";
+import { useNavigate } from "react-router-dom";
+
+interface PersonalItemProps {
+  persona: Persona;
+  onEdit: (persona: Persona) => void;
+  onDelete: (persona: Persona) => void;
+}
+
+const TEAL = "#468189";
+
+export function PersonalItem({ persona, onEdit, onDelete }: PersonalItemProps) {
+  const navigate = useNavigate();
+
+  return (
+    <Table.Row style={{ borderBottom: "1px solid #eee" }}>
+      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+        #{persona.id}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {persona.nombre} {persona.apellido || ""}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {persona.dni}
+      </Table.Cell>
+      <Table.Cell style={{ padding: "12px" }}>
+        <span style={{ backgroundColor: "#f5f5f5", padding: "4px 8px", borderRadius: "4px", fontSize: "13px" }}>
+            {persona.puede_operar && "Operar"}
+            {persona.puede_operar && persona.puede_administrar && " | "}
+            {persona.puede_administrar && "Administrar"}
+            {(!persona.puede_operar && !persona.puede_administrar) && "Ninguna"}
+        </span>
+      </Table.Cell>
+      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+        <Button variant="ghost" fontSize="18px" cursor="pointer" onClick={() => navigate(`/personal/detalle/${persona.id}`)} title="Ver Detalle">
+          👁️
+        </Button>
+      </Table.Cell>
+      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+        <HStack justify="center" style={{ gap: "10px" }}>
+          <Button bg="#f0ad4e" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#f0ad4e" }} onClick={() => onEdit(persona)}>
+            Modificar
+          </Button>
+          <Button bg="#d9534f" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#d9534f" }} onClick={() => onDelete(persona)}>
+            Eliminar
+          </Button>
+        </HStack>
+      </Table.Cell>
+    </Table.Row>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/components/PersonalTable.tsx">
+import { Box, Table, Text } from "@chakra-ui/react";
+import { PersonalItem } from "./PersonalItem";
+import type { Persona } from "../types/personal";
+
+interface PersonalTableProps {
+  personales: Persona[];
+  onEdit: (persona: Persona) => void;
+  onDelete: (persona: Persona) => void;
+}
+
+const TEAL = "#468189";
+
+export function PersonalTable({ personales, onEdit, onDelete }: PersonalTableProps) {
+  if (personales.length === 0) {
+    return (
+      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+        <Text color="gray.500">No hay personal cargado.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
+      <Table.Root variant="outline" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <Table.Header>
+          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>ID</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Nombre</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>DNI</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Permisos</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Detalle</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Acciones</Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {personales.map((persona) => (
+            <PersonalItem key={persona.id} persona={persona} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </Table.Body>
+      </Table.Root>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/personal/hooks/usePersonal.ts">
+import { useEffect, useState } from "react";
+import { obtenerPersona } from "../services/personalService";
+import type { Persona } from "../types/personal";
+
+export function usePersonal(id: number | null) {
+    const [persona, setPersona] = useState<Persona | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (id === null) return;
+        const cargarPersona = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await obtenerPersona(id);
+                setPersona(data);
+            } catch (err) {
+                setError("No se pudo cargar el personal");
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        cargarPersona();
+    }, [id]);
+
+    return { persona, loading, error };
+}
+</file>
+
+<file path="frontend/src/features/personal/hooks/usePersonalABM.ts">
+import { useState } from "react";
+import { crearPersona, modificarPersona, eliminarPersona } from "../services/personalService";
+import type { Persona } from "../types/personal";
+
+type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
+
+export function usePersonalABM() {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const alta = async (persona: PersonaInput) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await crearPersona(persona);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Error al crear personal");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const modificar = async (id: number, persona: PersonaInput) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await modificarPersona(id, persona);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Error al modificar personal");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const borrar = async (id: number) => {
+        try {
+            setLoading(true);
+            setError(null);
+            await eliminarPersona(id);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Error al eliminar personal");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { alta, modificar, borrar, loading, error };
+}
+</file>
+
+<file path="frontend/src/features/personal/hooks/usePersonales.ts">
+import { useCallback, useEffect, useState } from "react";
+import { listarPersonal } from "../services/personalService";
+import type { Persona } from "../types/personal";
+
+export function usePersonales() {
+    const [personales, setPersonales] = useState<Persona[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const cargarPersonales = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await listarPersonal();
+            setPersonales(data);
+        } catch (err) {
+            setError("No se pudo cargar el personal");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        cargarPersonales();
+    }, [cargarPersonales]);
+
+    return { personales, loading, error, cargarPersonales };
+}
+</file>
+
+<file path="frontend/src/features/personal/services/personalService.ts">
+import type { Persona } from "../types/personal";
+
+const API_URL = "http://localhost:8000";
+
+export async function listarPersonal(): Promise<Persona[]> {
+    const response = await fetch(`${API_URL}/personal`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al obtener el personal");
+    }
+    return response.json();
+}
+
+export async function obtenerPersona(id: number): Promise<Persona> {
+    const response = await fetch(`${API_URL}/personal/${id}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al obtener la persona");
+    }
+    return response.json();
+}
+
+export async function crearPersona(persona: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">): Promise<Persona> {
+    const response = await fetch(`${API_URL}/personal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(persona),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al crear el registro");
+    }
+    return response.json();
+}
+
+export async function modificarPersona(id: number, persona: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">): Promise<Persona> {
+    const response = await fetch(`${API_URL}/personal/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(persona),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al modificar el registro");
+    }
+    return response.json();
+}
+
+export async function eliminarPersona(id: number): Promise<void> {
+    const response = await fetch(`${API_URL}/personal/${id}`, {
+        method: "DELETE",
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al eliminar el registro");
+    }
+}
+</file>
+
+<file path="frontend/src/features/personal/types/personal.ts">
+export interface Persona {
+  id: number;
+  nombre: string;
+  apellido?: string | null;
+  dni: string;
+  email: string;
+  telefono?: string | null;
+  puede_operar: boolean;
+  puede_administrar: boolean;
+  activo: boolean;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string | null;
+}
+</file>
+
+<file path="frontend/src/features/personal/personalRoutes.tsx">
+import type { RouteObject } from "react-router-dom";
+import { PersonalPage } from "./components/pages/PersonalPage";
+import { PersonalCreatePage } from "./components/pages/PersonalCreatePage";
+import { PersonalEditPage } from "./components/pages/PersonalEditPage";
+import { PersonalDetailPage } from "./components/pages/PersonalDetailPage";
+
+export const personalRoutes: RouteObject[] = [
+  { path: "personal", element: <PersonalPage /> },
+  { path: "personal/nuevo", element: <PersonalCreatePage /> },
+  { path: "personal/:id/editar", element: <PersonalEditPage /> },
+  { path: "personal/detalle/:id", element: <PersonalDetailPage /> },
+];
+</file>
+
+<file path="frontend/src/features/.gitkeep">
+
+</file>
+
+<file path="frontend/eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+])
+</file>
+
+<file path="frontend/index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="frontend/README.md">
+# React + TypeScript + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+
+Note: This will impact Vite dev & build performances.
+You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
+```
+
+You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
+```
+</file>
+
+<file path="frontend/tsconfig.app.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+</file>
+
+<file path="frontend/tsconfig.node.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "module": "nodenext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["vite.config.ts"]
+}
+</file>
+
+<file path="frontend/vite.config.ts">
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
+import { defineConfig } from 'vite'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    react(),
+    babel({ presets: [reactCompilerPreset()] })
+  ],
+})
+</file>
+
+<file path="README.md">
+# Sistema de apoyo para la inocuidad alimentaria
+
+### Descripción
+El proyecto se enmarca en el desarrollo de un sistema de apoyo a la inocuidad alimentaria, con el objetivo de permitir la visualización de indicadores de gestión de la misma, a partir de la administración de diferentes instrumentos de relevamiento de Buenas Prácticas de Manufactura (BPM) y Procedimientos Operativos Estandarizados (POES), como protocolos, muestreos, puntos de control, entre otros.
+
+### Integrantes:
+* Florencia Anahí Argañarás
+* Facundo Emiliano Cuell
+* Alan Oscar James
+* Joaquín Gabriel Lobos Glass
+* María Ángeles Magni Taddei
+* Lautaro Ezequiel Moraga
+</file>
+
+<file path="backend/src/Equipo/router.py">
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
+from src.database import get_db
+from . import schemas, services
+
+router = APIRouter(
+    prefix="/equipos",
+    tags=["Equipos"]
+)
+
+@router.post(
+    "",
+    response_model=schemas.EquipoResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def crear_equipo(
+    datos: schemas.EquipoCreate,
+    db: Session = Depends(get_db)
+):
+    return services.crear_equipo(db, datos)
+
+@router.get(
+    "",
+    response_model=list[schemas.EquipoResponse]
+)
+def listar_equipo(
+    db:Session = Depends(get_db)
+):
+    return services.listar_equipos(db)
+
+@router.get(
+    "/{equipo_id}",
+    response_model=schemas.EquipoResponse
+)
+def obtener_equipo(
+    equipo_id: int,
+    db: Session = Depends(get_db)
+):
+    return services.obtener_equipo(db, equipo_id)
+
+@router.patch(
+    "/{equipo_id}",
+    response_model=schemas.EquipoResponse
+)
+def actualizar_equipo(
+    equipo_id: int,
+    datos: schemas.EquipoUpdate,
+    db: Session = Depends(get_db)
+):
+    return services.actualizar_equipo(
+        db,
+        equipo_id,
+        datos
+    )
+
+@router.delete(
+    "/{equipo_id}",
+    response_model=schemas.EquipoResponse
+)
+def dar_de_baja_equipo(
+    equipo_id: int,
+    db: Session = Depends(get_db)
+):
+    return services.dar_de_baja_equipo(
+        db,
+        equipo_id
+    )
+</file>
+
+<file path="backend/src/insumos/constants.py">
+class ErrorCode:
+    INSUMO_NO_ENCONTRADO = "El insumo no fue encontrado."
+    NOMBRE_DUPLICADO = "El nombre ya existe."
+    TIPO_UNIDAD_INVALIDO = "El tipo de unidad indicado es inválido. El valor indicado debiera ser una de las opciones en la lista:"
+    INSUMO_YA_EXISTE = "El insumo ya existe."
+    NOMBRE_VACIO = "El nombre no puede estar vacío."
+    UBICACION_VACIA = "ubicacion no puede estar vacia"
+</file>
+
+<file path="backend/src/insumos/router.py">
+import logging
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.insumos import schemas, services
+
+# Creamos un logger para este módulo específico. Más info.: https://docs.python.org/3/library/logging.html
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/insumos", tags=["insumos"])
+
+# Rutas para Insumos
+
+
+@router.post("", response_model=schemas.Insumo)
+def create_insumo(insumo: schemas.InsumoCreate, db: Session = Depends(get_db)):
+    return services.crear_insumo(db, insumo)
+
+
+@router.get("", response_model=list[schemas.Insumo])
+def read_insumos(db: Session = Depends(get_db)):
+    logger.info("Listando insumos desde router") 
+    return services.listar_insumos(db)
+
+
+@router.get("/{insumo_id}", response_model=schemas.Insumo)
+def read_insumo(insumo_id: int, db: Session = Depends(get_db)):
+    return services.leer_insumo(db, insumo_id)
+
+
+@router.put("/{insumo_id}", response_model=schemas.Insumo)
+def update_insumo(
+    insumo_id: int, insumo: schemas.InsumoUpdate, db: Session = Depends(get_db)
+):
+    return services.modificar_insumo(db, insumo_id, insumo)
+
+
+@router.delete("/{insumo_id}", response_model=schemas.InsumoDelete)
+def delete_insumo(insumo_id: int, db: Session = Depends(get_db)):
+    return services.eliminar_insumo(db, insumo_id)
+</file>
+
+<file path="backend/src/personal/constants.py">
+class ErrorCode:
+    PERSONA_NO_ENCONTRADA = "El Personal solicitado no existe o fue dado de baja."
+    DATO_DUPLICADO = "El DNI o Email ingresado ya se encuentra registrado en el sistema."
+    NOMBRE_INVALIDO = "El nombre no puede estar vacío y debe contener solo letras."
+    DNI_INVALIDO = "El DNI debe contener entre 7 y 8 dígitos numéricos."
+    EMAIL_INVALIDO = "El correo electrónico no tiene un formato válido."
+</file>
+
+<file path="backend/src/personal/exceptions.py">
+from src.exceptions import NotFound, BadRequest
+from src.personal.constants import ErrorCode
+
+class PersonaNoEncontrada(NotFound):
+    DETAIL = ErrorCode.PERSONA_NO_ENCONTRADA
+
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+
+class NombreInvalido(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+class DniInvalido(BadRequest):
+    DETAIL = ErrorCode.DNI_INVALIDO
+
+class EmailInvalido(BadRequest):
+    DETAIL = ErrorCode.EMAIL_INVALIDO
+</file>
+
+<file path="backend/src/__init__.py">
+
+</file>
+
+<file path="backend/tests/database.py">
+import pytest
+from typing import Generator
+from sqlalchemy import StaticPool, create_engine, text
+from sqlalchemy.orm import sessionmaker, Session
+from src.main import app
+from src.database import get_db
+from src.config import settings
+from src.models import ModeloBase
+from src.personal.schemas import PersonaCreate
+from src.personal.services import crear_persona
+from src.personal.models import Persona
+
+
+# creamos una db para testing
+engine = create_engine(
+    settings.DB_URL_TEST,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def override_get_db():
+    # utilizaremos esta funcion para "pisar" la que definimos en src/database.py.
+    db = TestingSessionLocal()
+    # Para usar restricciones de FK en SQLite, debemos habilitar la siguiente opción:
+    db.execute(text("PRAGMA foreign_keys = ON"))
+    try:
+        print("Using test DB!")
+        yield db
+    finally:
+        db.close()
+
+# forzamos a fastapi para que utilice la db para testing.
+app.dependency_overrides[get_db] = override_get_db
+
+@pytest.fixture
+def session() -> Generator[Session, None, None]:
+    # Creamos las tablas en la db de pruebas
+    ModeloBase.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    # Para usar restricciones de FK en SQLite, debemos habilitar la siguiente opción:
+    db.execute(text("PRAGMA foreign_keys = ON"))
+
+    # aqui podemos crear instancias de objetos para hacer tests
+    # haciendo uso de las funciones "create_<clase>" de services y los schemas <Clase>Create.
+    persona_1 = crear_persona(db, PersonaCreate(nombre="Juan", email="juan.perez@gmail.com"))
+    persona_2 = crear_persona(
+        db, PersonaCreate(nombre="Ana", email="ana.dominguez@gmail.com")
+    )
+  
+    db.add_all(
+        [
+            persona_1,
+            persona_2,
+
+        ]
+    )
+    db.commit()
+
+    yield db
+
+    db.close()
+    ModeloBase.metadata.drop_all(bind=engine)
+</file>
+
+<file path="frontend/src/components/ui/close-button.tsx">
+import type { ButtonProps } from "@chakra-ui/react"
+import { IconButton as ChakraIconButton } from "@chakra-ui/react"
+import * as React from "react"
+import { LuX } from "react-icons/lu"
+
+export type CloseButtonProps = ButtonProps
+
+export const CloseButton = React.forwardRef<
+  HTMLButtonElement,
+  CloseButtonProps
+>(function CloseButton(props, ref) {
+  return (
+    <ChakraIconButton variant="ghost" aria-label="Close" ref={ref} {...props}>
+      {props.children ?? <LuX />}
+    </ChakraIconButton>
+  )
+})
+</file>
+
+<file path="frontend/src/components/ui/color-mode.tsx">
+"use client"
+
+import type { IconButtonProps, SpanProps } from "@chakra-ui/react"
+import { ClientOnly, IconButton, Skeleton, Span } from "@chakra-ui/react"
+import { ThemeProvider, useTheme } from "next-themes"
+import type { ThemeProviderProps } from "next-themes"
+import * as React from "react"
+import { LuMoon, LuSun } from "react-icons/lu"
+
+export interface ColorModeProviderProps extends ThemeProviderProps {}
+
+export function ColorModeProvider(props: ColorModeProviderProps) {
+  return (
+    <ThemeProvider attribute="class" disableTransitionOnChange {...props} />
+  )
+}
+
+export type ColorMode = "light" | "dark"
+
+export interface UseColorModeReturn {
+  colorMode: ColorMode
+  setColorMode: (colorMode: ColorMode) => void
+  toggleColorMode: () => void
+}
+
+export function useColorMode(): UseColorModeReturn {
+  const { resolvedTheme, setTheme, forcedTheme } = useTheme()
+  const colorMode = forcedTheme || resolvedTheme
+  const toggleColorMode = () => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark")
+  }
+  return {
+    colorMode: colorMode as ColorMode,
+    setColorMode: setTheme,
+    toggleColorMode,
+  }
+}
+
+export function useColorModeValue<T>(light: T, dark: T) {
+  const { colorMode } = useColorMode()
+  return colorMode === "dark" ? dark : light
+}
+
+export function ColorModeIcon() {
+  const { colorMode } = useColorMode()
+  return colorMode === "dark" ? <LuMoon /> : <LuSun />
+}
+
+interface ColorModeButtonProps extends Omit<IconButtonProps, "aria-label"> {}
+
+export const ColorModeButton = React.forwardRef<
+  HTMLButtonElement,
+  ColorModeButtonProps
+>(function ColorModeButton(props, ref) {
+  const { toggleColorMode } = useColorMode()
+  return (
+    <ClientOnly fallback={<Skeleton boxSize="9" />}>
+      <IconButton
+        onClick={toggleColorMode}
+        variant="ghost"
+        aria-label="Toggle color mode"
+        size="sm"
+        ref={ref}
+        {...props}
+        css={{
+          _icon: {
+            width: "5",
+            height: "5",
+          },
+        }}
+      >
+        <ColorModeIcon />
+      </IconButton>
+    </ClientOnly>
+  )
+})
+
+export const LightMode = React.forwardRef<HTMLSpanElement, SpanProps>(
+  function LightMode(props, ref) {
+    return (
+      <Span
+        color="fg"
+        display="contents"
+        className="chakra-theme light"
+        colorPalette="gray"
+        colorScheme="light"
+        ref={ref}
+        {...props}
+      />
+    )
+  },
+)
+
+export const DarkMode = React.forwardRef<HTMLSpanElement, SpanProps>(
+  function DarkMode(props, ref) {
+    return (
+      <Span
+        color="fg"
+        display="contents"
+        className="chakra-theme dark"
+        colorPalette="gray"
+        colorScheme="dark"
+        ref={ref}
+        {...props}
+      />
+    )
+  },
+)
+</file>
+
+<file path="frontend/src/features/equipo/components/pages/equipoPage.tsx">
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Heading,
+  HStack,
+  IconButton,
+  Pagination,
+  Spinner,
+  Text,
+} from "@chakra-ui/react";
+import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { EquipoTable } from "../equipoTable";
+import { DeleteEquipoDialog } from "../DeleteEquipoDialog";
+import { useEquipos } from "../../hooks/useEquipos";
+import { useEquipoABM } from "../../hooks/useEquipoABM";
+import type { Equipo } from "../../types/equipo";
+
+const TEAL = "#468189";
+const PAGE_SIZE = 10;
+
+export function EquiposPage() {
+  const navigate = useNavigate();
+  const { equipos, loading, error, cargarEquipos } = useEquipos();
+  const { borrar, loading: borrando } = useEquipoABM();
+
+  const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
+  const [page, setPage] = useState(1);
+
+  const equiposPaginados = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return equipos.slice(start, start + PAGE_SIZE);
+  }, [equipos, page]);
+
+  const handleEdit = (equipo: Equipo) => {
+    navigate(`/equipos/${equipo.id}/editar`);
+  };
+
+  const handleDeleteRequest = (equipo: Equipo) => {
+    setEquipoAEliminar(equipo);
+  };
+
+  const handleCloseDialog = () => {
+    if (borrando) return;
+    setEquipoAEliminar(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!equipoAEliminar) return;
+
+    try {
+      await borrar(equipoAEliminar.id);
+      setEquipoAEliminar(null);
+      await cargarEquipos();
+    } catch {
+      // El error ya queda reflejado en useEquipoABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px" }}>
+      <HStack justify="space-between" mb="20px">
+        {/* size="md" = 24px, como el <h2> por defecto del navegador */}
+        <Heading as="h2" size="md" fontWeight="bold" color="black">
+          Gestión de Equipos
+        </Heading>
+        <Button
+          bg={TEAL}
+          color="white"
+          fontSize="16px"
+          fontWeight="bold"
+          borderRadius="6px"
+          px="20px"
+          py="10px"
+          _hover={{ bg: TEAL }}
+          onClick={() => navigate("/equipos/nuevo")}
+        >
+          + Agregar
+        </Button>
+      </HStack>
+
+      {loading && <Spinner />}
+
+      {!loading && error && <Text color="red.500">{error}</Text>}
+
+      {!loading && !error && (
+        <>
+          <EquipoTable
+            equipos={equiposPaginados}
+            onEdit={handleEdit}
+            onDelete={handleDeleteRequest}
+          />
+
+          {equipos.length > PAGE_SIZE && (
+            <Pagination.Root
+              count={equipos.length}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={(e) => setPage(e.page)}
+              mt="16px"
+            >
+              <HStack justify="center">
+                <ButtonGroup variant="ghost" size="sm">
+                  <Pagination.Items
+                    render={(pageItem) => {
+                      const isSelected = pageItem.value === page;
+                      return (
+                        <IconButton
+                          aria-label={`Página ${pageItem.value}`}
+                          bg={isSelected ? TEAL : "transparent"}
+                          color={isSelected ? "white" : TEAL}
+                          border={isSelected ? "none" : `1px solid ${TEAL}`}
+                          _hover={{
+                            bg: isSelected ? TEAL : `${TEAL}1A`,
+                          }}
+                        >
+                          {pageItem.value}
+                        </IconButton>
+                      );
+                    }}
+                  />
+                </ButtonGroup>
+              </HStack>
+            </Pagination.Root>
+          )}
+        </>
+      )}
+
+      <DeleteEquipoDialog
+        isOpen={equipoAEliminar !== null}
+        equipo={equipoAEliminar}
+        isLoading={borrando}
+        onClose={handleCloseDialog}
+        onConfirm={handleConfirmDelete}
+      />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/components/DeleteEquipoDialog.tsx">
+import { Box, Button, Portal, Text } from "@chakra-ui/react";
+import type { Equipo } from "../types/equipo";
+
+interface DeleteInsumoDialogProps {
+  isOpen: boolean;
+  equipo: Equipo | null;
+  isLoading?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export function DeleteEquipoDialog({
+  isOpen,
+  equipo,
+  isLoading,
+  onClose,
+  onConfirm,
+}: DeleteInsumoDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <Portal>
+      {/* Overlay */}
+      <Box
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        {/* Tarjeta */}
+        <Box
+          style={{
+            backgroundColor: "white",
+            padding: "25px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+            width: "350px",
+            textAlign: "center",
+          }}
+        >
+          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+            ¿Esta seguro que desea eliminar el equipo{" "}
+            <strong>{equipo?.nombre}</strong>?
+          </Box>
+          <Text style={{ color: "#666", marginBottom: "20px" }}>
+            Esta acción no se puede deshacer.
+          </Text>
+          <Box
+            style={{ display: "flex", gap: "10px", justifyContent: "center" }}
+          >
+            <Button
+              onClick={onClose}
+              height="auto"
+              minW="auto"
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                backgroundColor: "#fff",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={onConfirm}
+              loading={isLoading}
+              height="auto"
+              minW="auto"
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: "#d9534f",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Sí, eliminar
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+    </Portal>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/components/equipoForm.tsx">
+import { useState } from "react";
+import {
+  Box,
+  Button,
+  Field,
+  HStack,
+  Input,
+  NativeSelect,
+} from "@chakra-ui/react";
+import { TIPO_EQUIPO_OPTIONS, type Equipo } from "../types/equipo";
+
+type EquipoFormValues = Omit<Equipo, "id">;
+
+interface EquipoFormProps {
+  initialValues?: EquipoFormValues;
+  onSubmit: (values: EquipoFormValues) => Promise<void> | void;
+  isLoading?: boolean;
+  submitLabel?: string;
+  title?: string;
+  onCancel?: () => void;
+}
+
+const emptyValues: EquipoFormValues = { nombre: "", tipo: "heladera", ubicacion:"", activo:true, };
+
+const estiloInput = {
+  backgroundColor: "#fff",
+  padding: "12px",
+  width: "100%",
+  maxWidth: "500px",
+  borderRadius: "8px",
+  border: "2px solid #90BEBB",
+  fontSize: "16px",
+  outline: "none",
+  color: "#333",
+};
+
+const estiloSelect = {
+  ...estiloInput,
+  boxSizing: "border-box" as const,
+  colorScheme: "light" as const,
+  height: "auto" as const,
+  lineHeight: "normal" as const,
+};
+
+const estiloLabel = {
+  display: "block",
+  fontSize: "14px",
+  fontWeight: "bold" as const,
+  marginBottom: "8px",
+  color: "#555",
+};
+
+export function EquipoForm({
+  initialValues = emptyValues,
+  onSubmit,
+  isLoading = false,
+  submitLabel = "Guardar",
+  title = "Alta de Equipo",
+  onCancel,
+}: EquipoFormProps) {
+  const [values, setValues] = useState<EquipoFormValues>(initialValues);
+
+  const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, nombre: e.target.value }));
+
+  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues((prev) => ({
+      ...prev,
+      tipo: e.target.value as EquipoFormValues["tipo"],
+    }));
+
+
+  const handleUbicacionChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, ubicacion: e.target.value }));
+
+  //const handleActivoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+   // setValues((prev) => ({ ...prev, activo: e.target.checked }));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(values);
+  };
+
+  return (
+    <Box
+      as="form"
+      onSubmit={handleSubmit}
+      style={{
+        backgroundColor: "#ffffff",
+        padding: "30px",
+        borderRadius: "12px",
+        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+        marginBottom: "30px",
+      }}
+    >
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+        {title}
+      </Box>
+
+      {/* Nombre */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            NOMBRE *
+          </Box>
+          <Input
+            value={values.nombre}
+            onChange={handleNombreChange}
+            placeholder="Ej: Fertilizante nitrogenado"
+            style={estiloInput}
+          />
+        </Field.Root>
+      </Box>
+
+      {/* 2. Tipo de Equipo */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            TIPO DE EQUIPO *
+          </Box>
+          <NativeSelect.Root>
+            <NativeSelect.Field
+              value={values.tipo}
+              onChange={handleTipoChange}
+              style={estiloSelect}
+            >
+              {TIPO_EQUIPO_OPTIONS.map((tipo) => (
+                <option
+                  key={tipo}
+                  value={tipo}
+                  style={{ backgroundColor: "#fff", color: "#333" }}
+                >
+                  {tipo}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+      </Box>
+
+      {/* 3. Ubicación */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            UBICACIÓN *
+          </Box>
+          <Input
+            value={values.ubicacion}
+            onChange={handleUbicacionChange}
+            placeholder="Ej: Sector A - Laboratorio"
+            style={estiloInput}
+          />
+        </Field.Root>
+      </Box>
+
+      {/* Botones */}
+      <HStack style={{ gap: "15px" }}>
+        <Button
+          type="submit"
+          loading={isLoading}
+          style={{
+            backgroundColor: "#468189",
+            color: "white",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "15px",
+            fontWeight: "bold",
+          }}
+        >
+          {submitLabel}
+        </Button>
+
+        {onCancel && (
+          <Button
+            type="button"
+            onClick={onCancel}
+            style={{
+              backgroundColor: "#e0e0e0",
+              color: "#333",
+              padding: "12px 24px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "15px",
+              fontWeight: "bold",
+            }}
+          >
+            Cancelar
+          </Button>
+        )}
+      </HStack>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/components/equipoItem.tsx">
+import { Table, Button, HStack, Badge } from "@chakra-ui/react";
+//import { TIPO_EQUIPO_OPTIONS, type Equipo } from "../types/equipo";
+import type { Equipo } from "../types/equipo";
+
+interface EquipoItemProps {
+  equipo: Equipo;
+  onEdit: (equipo: Equipo) => void;
+  onDelete: (equipo: Equipo) => void;
+}
+
+const TEAL = "#468189";
+
+export function EquipoItem({ equipo, onEdit, onDelete }: EquipoItemProps) {
+
+  return (
+    <Table.Row style={{ borderBottom: "1px solid #eee" }}>
+      <Table.Cell
+        color={TEAL}
+        fontWeight="bold"
+        fontSize="16px"
+        style={{ padding: "12px" }}
+      >
+        #{equipo.id}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {equipo.nombre}
+      </Table.Cell>
+      
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {equipo.tipo}
+      </Table.Cell>
+       
+       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {equipo.ubicacion}
+      </Table.Cell>
+
+      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+        <HStack justify="center" style={{ gap: "10px" }}>
+          <Button
+            bg="#f0ad4e"
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: "#f0ad4e" }}
+            onClick={() => onEdit(equipo)}
+          >
+            Modificar
+          </Button>
+          <Button
+            bg="#d9534f"
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: "#d9534f" }}
+            onClick={() => onDelete(equipo)}
+          >
+            Eliminar
+          </Button>
+        </HStack>
+      </Table.Cell>
+    </Table.Row>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/components/equipoTable.tsx">
+import { Box, Table, Text } from "@chakra-ui/react";
+import { EquipoItem } from "./equipoItem";
+import type { Equipo } from "../types/equipo";
+
+interface EquipoTableProps {
+  equipos: Equipo[];
+  onEdit: (equipo: Equipo) => void;
+  onDelete: (equipo: Equipo) => void;
+}
+
+const TEAL = "#468189";
+
+export function EquipoTable({ equipos, onEdit, onDelete }: EquipoTableProps) {
+  if (equipos.length === 0) {
+    return (
+      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+        <Text color="gray.500">No hay equipos cargados.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
+      <Table.Root
+        variant="outline"
+        style={{ width: "100%", borderCollapse: "collapse" }}
+      >
+        <Table.Header>
+          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+              ID
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+              Nombre
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+              Tipo
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px" }}
+            >
+                Ubicación
+            </Table.ColumnHeader>
+            <Table.ColumnHeader
+              fontWeight="normal"
+              fontSize="16px"
+              textAlign="center"
+              style={{ padding: "12px" }}
+            >
+            
+              Acciones
+            </Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {equipos.map((equipo) => (
+            <EquipoItem
+              key={equipo.id}
+              equipo={equipo}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </Table.Body>
+      </Table.Root>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/equipo/services/equipoService.ts">
+import type { Equipo } from "../types/equipo";
+
+const API_URL = "http://localhost:8000";
+
+export async function listarEquipos(): Promise<Equipo[]> {
+  const response = await fetch(`${API_URL}/equipos`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener los equipos");
+  }
+
+  return response.json();
+}
+
+export async function obtenerEquipo(id: number): Promise<Equipo> {
+  const response = await fetch(`${API_URL}/equipos/${id}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener el equipo");
+  }
+
+  return response.json();
+}
+
+export async function crearEquipo(
+  equipo: Omit<Equipo, "id">
+): Promise<Equipo> {
+  const response = await fetch(`${API_URL}/equipos`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(equipo),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al crear el equipo");
+  }
+
+  return response.json();
+}
+
+
+
+export async function modificarEquipo(
+  id: number,
+  equipo: Omit<Equipo, "id">
+): Promise<Equipo> {
+  const response = await fetch(`${API_URL}/equipos/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(equipo),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al modificar el equipo");
+  }
+
+  return response.json();
+}
+
+export async function eliminarEquipo(id: number): Promise<void> {
+  const response = await fetch(`${API_URL}/equipos/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al eliminar el equipo");
+  }
+}
+</file>
+
+<file path="frontend/src/features/equipo/equipoRoutes.tsx">
+import type { RouteObject } from "react-router-dom";
+import { EquiposPage } from "./components/pages/equipoPage";
+import { EquipoCreatePage } from "./components/pages/equipoCreatePage";
+import { EquipoEditPage } from "./components/pages/equipoEditPage";
+
+// Agregar este array al array de `children` (o `routes`) de tu router principal
+export const insumoRoutes: RouteObject[] = [
+  { path: "insumos", element: <EquiposPage /> },
+  { path: "insumos/nuevo", element: <EquipoCreatePage /> },
+  { path: "insumos/:id/editar", element: <EquipoEditPage /> },
+];
+</file>
+
+<file path="frontend/src/features/insumos/components/pages/insumosPage.tsx">
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Heading,
+  HStack,
+  IconButton,
+  Pagination,
+  Spinner,
+  Text,
+} from "@chakra-ui/react";
+import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { InsumoTable } from "../insumoTable";
+import { DeleteInsumoDialog } from "../DeleteInsumoDialog";
+import { useInsumos } from "../../hooks/useInsumos";
+import { useInsumoABM } from "../../hooks/useInsumoABM";
+import type { Insumo } from "../../types/insumo";
+
+const TEAL = "#468189";
+const PAGE_SIZE = 10;
+
+export function InsumosPage() {
+  const navigate = useNavigate();
+  const { insumos, loading, error, cargarInsumos } = useInsumos();
+  const { borrar, loading: borrando } = useInsumoABM();
+
+  const [insumoAEliminar, setInsumoAEliminar] = useState<Insumo | null>(null);
+  const [page, setPage] = useState(1);
+
+  const insumosPaginados = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return insumos.slice(start, start + PAGE_SIZE);
+  }, [insumos, page]);
+
+  const handleEdit = (insumo: Insumo) => {
+    navigate(`/insumos/${insumo.id}/editar`);
+  };
+
+  const handleDeleteRequest = (insumo: Insumo) => {
+    setInsumoAEliminar(insumo);
+  };
+
+  const handleCloseDialog = () => {
+    if (borrando) return;
+    setInsumoAEliminar(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!insumoAEliminar) return;
+
+    try {
+      await borrar(insumoAEliminar.id);
+      setInsumoAEliminar(null);
+      await cargarInsumos();
+    } catch {
+      // El error ya queda reflejado en useInsumoABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">
+          Gestión de Insumos
+        </Heading>
+        <Button
+          bg={TEAL}
+          color="white"
+          fontSize="16px"
+          fontWeight="bold"
+          borderRadius="6px"
+          px="20px"
+          py="10px"
+          _hover={{ bg: TEAL }}
+          onClick={() => navigate("/insumos/nuevo")}
+        >
+          + Agregar
+        </Button>
+      </HStack>
+
+      {loading && <Spinner />}
+
+      {!loading && error && <Text color="red.500">{error}</Text>}
+
+      {!loading && !error && (
+        <>
+          <InsumoTable
+            insumos={insumosPaginados}
+            onEdit={handleEdit}
+            onDelete={handleDeleteRequest}
+          />
+
+          {insumos.length > PAGE_SIZE && (
+            <Pagination.Root
+              count={insumos.length}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={(e) => setPage(e.page)}
+              mt="16px"
+            >
+              <HStack justify="center">
+                <ButtonGroup variant="ghost" size="sm">
+                  <Pagination.Items
+                    render={(pageItem) => {
+                      const isSelected = pageItem.value === page;
+                      return (
+                        <IconButton
+                          aria-label={`Página ${pageItem.value}`}
+                          bg={isSelected ? TEAL : "transparent"}
+                          color={isSelected ? "white" : TEAL}
+                          border={isSelected ? "none" : `1px solid ${TEAL}`}
+                          _hover={{
+                            bg: isSelected ? TEAL : `${TEAL}1A`,
+                          }}
+                        >
+                          {pageItem.value}
+                        </IconButton>
+                      );
+                    }}
+                  />
+                </ButtonGroup>
+              </HStack>
+            </Pagination.Root>
+          )}
+        </>
+      )}
+
+      <DeleteInsumoDialog
+        isOpen={insumoAEliminar !== null}
+        insumo={insumoAEliminar}
+        isLoading={borrando}
+        onClose={handleCloseDialog}
+        onConfirm={handleConfirmDelete}
+      />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/index.css">
+body {
+  margin: 0;
+  background-color: #F4E9CD;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #333;
+}
+
+* {
+  box-sizing: border-box;
+}
+</file>
+
+<file path=".gitignore">
+# Created by https://www.toptal.com/developers/gitignore/api/react,node,python
+# Edit at https://www.toptal.com/developers/gitignore?templates=react,node,python
+
+### Node ###
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Directory for instrumented libs generated by jscoverage/JSCover
+lib-cov
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Snowpack dependency directory (https://snowpack.dev/)
+web_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+# Comment in the public line in if your project uses Gatsby and not Next.js
+# https://nextjs.org/blog/next-9-1#public-directory-support
+# public
+
+# vuepress build output
+.vuepress/dist
+
+# vuepress v2.x temp and cache directory
+.temp
+
+# Docusaurus cache and generated files
+.docusaurus
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+### Node Patch ###
+# Serverless Webpack directories
+.webpack/
+
+# Optional stylelint cache
+
+# SvelteKit build / generate output
+.svelte-kit
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+#poetry.lock
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#pdm.lock
+#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   in version control.
+#   https://pdm.fming.dev/#use-with-ide
+.pdm.toml
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+#.idea/
+
+### Python Patch ###
+# Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
+poetry.toml
+
+# ruff
+.ruff_cache/
+
+# LSP config files
+pyrightconfig.json
+
+### react ###
+.DS_*
+**/*.backup.*
+**/*.back.*
+
+node_modules
+
+*.sublime*
+
+psd
+thumb
+sketch
+
+# End of https://www.toptal.com/developers/gitignore/api/react,node,python
+
+
+#extension de historial
+.history/
+.lh/
+</file>
+
+<file path="backend/src/Equipo/exceptions.py">
+from fastapi import HTTPException, status
+from typing import List
+from src.insumos.constants import ErrorCode
+from src.exceptions import NotFound, BadRequest
+
+class EquipoNoEncontrado(HTTPException):
+    def __init__(self, equipo_id: int):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se encontró el equipo con id {equipo_id}"
+        )
+
+class NombreVacio(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_VACIO
+
+
+class UbicacionVacia(BadRequest):
+    DETAIL = ErrorCode.UBICACION_VACIA
+
+
+class TipoUnidadInvalido(ValueError):
+    def init(self, posibles_tipos: List[str]):
+        posibles_tipos = ", ".join(posibles_tipos)
+        message = f"{ErrorCode.TIPO_UNIDAD_INVALIDO} {posibles_tipos}."
+        super().init(message)
+</file>
+
+<file path="backend/src/Equipo/models.py">
+from sqlalchemy import Boolean, Enum as SQLEnum
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+#from src.database import Base aber si esto es lo q no anda
+from enum import Enum
+from src.models import ModeloBase
+
+class TipoEquipo(str, Enum):
+    HELADERA = "heladera"
+    HORNO = "horno"
+    BALANZA = "balanza"
+    TERMOMETRO = "termometro"
+
+class Equipo(ModeloBase):
+    __tablename__ = "equipos"
+
+    id: Mapped[int] = mapped_column(primary_key= True, index=True)
+
+    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    tipo: Mapped[TipoEquipo] = mapped_column(SQLEnum(TipoEquipo), nullable = False)
+
+    ubicacion: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(back_populates="equipo")
+</file>
+
+<file path="backend/src/personal/models.py">
+from datetime import datetime, date
+from typing import Optional
+from src.models import ModeloBase
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Boolean, Date, DateTime
+
+class Personal(ModeloBase):
+    __tablename__ = "personal"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    nombre: Mapped[str] = mapped_column(String(40),index=True)
+    apellido: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    dni: Mapped[str] = mapped_column(String(8), unique=True, index=True)
+    telefono: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
+    email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+
+    puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
+    puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(
+        back_populates="autor"
+    )
+
+    # - Opcional , esta bueno
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+
+    # - A futuro la entidad tendria una conexion con documentos, los cuales seran otra tabla aparte
+    # - Y seria una relacion de uno a muchos, la cual condicionaria si el personal puede operar y si puede administrar.
+    # - documentos: Mapped[Optional[List["Documento"]]] = relationship("Documento", back_populates="persona")
+</file>
+
+<file path="backend/src/personal/schemas.py">
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Optional
+from datetime import datetime
+from src.personal import exceptions
+
+class PersonaBase(BaseModel):
+    nombre: str 
+    apellido: Optional[str] = None
+    dni: str 
+    telefono: Optional[str] = None
+    email: str 
+    
+    puede_operar: bool = False
+    puede_administrar: bool = False
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
+            raise exceptions.NombreInvalido()
+        return v.strip()
+
+    @field_validator("dni")
+    @classmethod
+    def validar_dni(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^\d{7,8}$", v):
+            raise exceptions.DniInvalido()
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", v):
+            raise exceptions.EmailInvalido()
+        return v.strip()
+
+class PersonaCreate(PersonaBase):
+    pass
+
+class PersonaUpdate(PersonaBase):
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    dni: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    puede_operar: Optional[bool] = None
+    puede_administrar: Optional[bool] = None
+    activo: Optional[bool] = None
+
+class Persona(PersonaBase):
+    id: int
+    activo: bool
+    fecha_creacion: datetime
+    fecha_actualizacion: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+</file>
+
+<file path="frontend/src/common/components/Navbar.tsx">
+import { Link } from "react-router-dom";
+
+// SIDEBAR
+export default function Navbar() {
+  return (
+    // la etiqueta <nav> es semántica, se le da el ancho, el color
+    // y hao que ocupe todo el alto de la pantalla (minHeight: '100vh')
+    <nav
+      style={{
+        width: "250px",
+        backgroundColor: "#468189",
+        color: "white",
+        padding: "20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "15px",
+        minHeight: "100vh",
+        boxShadow: "2px 0 5px rgba(0,0,0,0.1)",
+      }}
+    >
+      {/* LOGO Y TÍTULO}
+      {/* esta eñ contenedor flexible para alinear el ícono y el texto horizontalmente */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "20px",
+        }}
+      >
+        {/* Ícono: Escudo con tilde. 
+            Chamuyo: se eligió para representar gráficamente la seguridad e inocuidad del sistema SAIA. 
+            yo lo dejo porq va directo en pantalla sin necesidad de cargar foto externa. */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#d8e2dc"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <path d="m9 12 2 2 4-4"></path>
+        </svg>
+
+        {/* NOMBRE DEL SIST */}
+        <h2 style={{ fontSize: "26px", margin: 0, letterSpacing: "1px" }}>
+          SAIA
+        </h2>
+      </div>
+      {/* --------------------------------- */}
+
+      {/* --- SECCIÓN DE ENLACES (RUTAS ACTIVAS) --- */}
+      {/* se usa el <Link> de React Router para navegar sin que la página se recargue entera de una*/}
+      <Link to="/" style={estiloLink}>
+        Inicio
+      </Link>
+      <Link to="/personal" style={estiloLink}>
+        Personal
+      </Link>
+      <Link to="/insumos" style={estiloLink}>
+        Insumos
+      </Link>
+
+      <Link to="/equipos" style={estiloLink}>
+        Equipos
+      </Link>
+
+      {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
+      {/* se usa <span> en lugar de <Link> porque son vistas que todavía no están desarrolladas.
+          les dejo por ahora un cursor de "no permitido" y un color más apagado para indicar que aun no las hice lol. */}
+      <span
+        style={{
+          color: "#d8e2dc",
+          cursor: "not-allowed",
+          padding: "10px",
+          fontSize: "14px",
+        }}
+      >
+        FUTUROS (Próximamente)
+      </span>
+    </nav>
+  );
+}
+
+// --- ESTILOS EXTRAÍDOS ---
+// se separan los estilos de los links activos en una constante para no repetir código.
+// mantiene el HTML más limpio y fácil de leer.
+const estiloLink = {
+  color: "white",
+  textDecoration: "none",
+  padding: "12px 15px",
+  borderRadius: "6px",
+  backgroundColor: "rgba(255, 255, 255, 0.15)", // le meto un blanco transparente para resaltar el botón
+  fontWeight: "bold" as const, // 'as const' es necesario para que TypeScript no se queje con los pesos de fuente
+  transition: "background 0.2s", // lo hace mas suave para si mas adelante le agregamos mas cosas
+};
+</file>
+
+<file path="frontend/src/main.tsx">
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { RouterProvider } from "react-router-dom";
+import { Provider } from "./components/ui/provider";
+import { router } from "./router";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <Provider>
+      <RouterProvider router={router} />
+    </Provider>
+  </React.StrictMode>,
+);
+</file>
+
+<file path="frontend/package.json">
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "^3.37.0",
+    "@emotion/react": "^11.14.0",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-icons": "^5.7.0",
+    "react-router-dom": "^7.18.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@eslint/js": "^10.0.1",
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@types/babel__core": "^7.20.5",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "globals": "^17.11.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.2"
+  }
+}
+</file>
+
+<file path="backend/src/Equipo/schemas.py">
+from pydantic import BaseModel, ConfigDict, field_validator, Field
+from src.Equipo.models import TipoEquipo
+from src.Equipo import exceptions
+
+
+class EquipoBase(BaseModel):
+    nombre: str
+    ubicacion: str
+    tipo: TipoEquipo
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v):
+        if not v.strip():
+            raise exceptions.NombreVacio()
+        return v.strip()
+
+    @field_validator("ubicacion")
+    @classmethod
+    def validar_ubicacion_no_vacia(cls, v: str) -> str:
+        if not v.strip():
+            raise exceptions.UbicacionVacia()
+        return v.strip()
+
+    @field_validator("tipo", mode="before")
+    @classmethod
+    def is_valid_tipo_unidad(cls, v: str) -> str:
+        tipos_validos = [tipo.value for tipo in TipoEquipo]
+
+        if v.lower() not in tipos_validos:
+            raise exceptions.TipoUnidadInvalido(tipos_validos)
+
+        return v.lower()
+
+
+
+class EquipoCreate(EquipoBase):
+    pass
+
+
+class EquipoUpdate(EquipoBase):
+    nombre: str | None = None
+    ubicacion: str | None = None
+    tipo: TipoEquipo | None = None
+    activo: bool | None = None    
+
+
+class Equipo(EquipoBase):
+    id: int
+    tipo: TipoEquipo
+
+    model_config = ConfigDict(from_attributes = True)
+
+
+class EquipoDelete(EquipoBase):
+    id: int
+    tipo: TipoEquipo
+
+class EquipoResponse(EquipoBase):
+    id: int
+    activo: bool
+
+    model_config = ConfigDict(from_attributes=True)
+</file>
+
+<file path="backend/src/personal/services.py">
+import logging
+from typing import List
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from src.personal.models import Personal
+from src.personal import schemas, exceptions
+from fastapi import HTTPException
+
+#logger para este módulo específico. 
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# OPERACIONES CRUD PARA PERSONAL
+# ==========================================
+
+def crear_persona(db: Session, persona: schemas.PersonaCreate) -> Personal:
+    # transformo el schema de Pydantic a un modelo de SQLAlchemy
+    _persona = Personal(**persona.model_dump())
+    db.add(_persona)
+    
+    try:
+        # guardo la nueva persona en la base de datos
+        db.commit()
+        db.refresh(_persona)
+        return _persona
+    
+    except IntegrityError as e:
+        db.rollback()
+        mensaje_error = str(e.orig).lower()
+        if "dni" in mensaje_error:
+            raise exceptions.DniDuplicado()
+        elif "email" in mensaje_error:
+            raise exceptions.EmailDuplicado()
+        else:
+            raise exceptions.DatoDuplicado()
+
+
+def listar_personas(db: Session) -> List[Personal]:
+    logger.info("Listando personal desde services")
+    # traigo TODOS los registros
+    return db.scalars(select(Personal).where(Personal.activo == True)).all()
+
+
+def leer_persona(db: Session, persona_id: int) -> Personal:
+    # busco a la persona por id
+    db_persona = db.scalar(select(Personal).where(Personal.id == persona_id))
+    if db_persona is None:
+        raise exceptions.PersonaNoEncontrada()
+    return db_persona
+
+
+def modificar_persona(
+    db: Session, persona_id: int, persona: schemas.PersonaUpdate
+) -> Personal:
+    # primero tengo q verificar que exista lol
+    db_persona = leer_persona(db, persona_id)
+    
+    # exclude_unset=True hace q solo se actualicen los campos que el frontend realmente envió
+    datos_a_actualizar = persona.model_dump(exclude_unset=True)
+    
+    if datos_a_actualizar:
+        try:
+            db.execute(
+                update(Personal).where(Personal.id == persona_id).values(**datos_a_actualizar)
+            )
+            db.commit()
+            db.refresh(db_persona)
+            
+        except IntegrityError as e:
+            db.rollback()
+            mensaje_error = str(e.orig).lower()
+            if "dni" in mensaje_error:
+                raise exceptions.DniDuplicado()
+            elif "email" in mensaje_error:
+                raise exceptions.EmailDuplicado()
+            else:
+                raise exceptions.DatoDuplicado()
+            
+    return db_persona
+
+
+def eliminar_persona(db: Session, persona_id: int) -> Personal:
+    # busco
+    db_persona = leer_persona(db, persona_id)
+    
+    # BAJA LÓGICA: en vez de borrarla de la bd, le cambio el estado a inactivo
+    db_persona.activo = False
+    db.commit()
+    db.refresh(db_persona)
+    
+    return db_persona
+</file>
+
+<file path="backend/src/Equipo/services.py">
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from .exceptions import EquipoNoEncontrado
+from .models import Equipo
+from .schemas import EquipoCreate, EquipoUpdate
+
+def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
+    nuevo_equipo = Equipo(**datos.model_dump())
+    db.add(nuevo_equipo)
+    db.commit()
+    db.refresh(nuevo_equipo)
+
+    return nuevo_equipo
+
+def listar_equipos(db: Session) -> list[Equipo]:
+    consulta = (
+        select(Equipo)
+        .where(Equipo.activo.is_(True))
+        .order_by(Equipo.id)
+    )
+
+    return list(db.scalars(consulta).all())
+
+def obtener_equipo(db: Session, equipo_id:int)-> Equipo:
+    equipo: Equipo = db.get(Equipo, equipo_id)
+
+    if equipo is None:
+        raise EquipoNoEncontrado(equipo_id)
+
+    return equipo
+
+def actualizar_equipo(db: Session, equipo_id: int, datos: EquipoUpdate)-> Equipo:
+    equipo = obtener_equipo(db, equipo_id)
+
+    cambios = datos.model_dump(
+        exclude_unset=True, exclude_none=True
+    )
+
+    for atributo, valor in cambios.items():
+        setattr(equipo, atributo, valor)
+
+    db.commit()
+    db.refresh(equipo)
+
+    return equipo
+
+def dar_de_baja_equipo(db:Session, equipo_id: int)-> Equipo:
+    equipo = obtener_equipo(db, equipo_id)
+
+    equipo.activo = False
+
+    db.commit()
+    db.refresh(equipo)
+
+    return equipo
+</file>
+
+<file path="frontend/src/router.tsx">
+import { createBrowserRouter } from "react-router-dom";
+import Navbar from "./common/components/Navbar";
+
+// 1. Importaciones del módulo de Personal (Refactorizado con Chakra)
+import { PersonalPage } from "./features/personal/components/pages/PersonalPage";
+import { PersonalCreatePage } from "./features/personal/components/pages/PersonalCreatePage";
+import { PersonalEditPage } from "./features/personal/components/pages/PersonalEditPage";
+import { PersonalDetailPage } from "./features/personal/components/pages/PersonalDetailPage";
+
+// 2. Importaciones del módulo de Insumos
+import { InsumosPage } from "./features/insumos/components/pages/insumosPage";
+import { InsumoCreatePage } from "./features/insumos/components/pages/insumoCreatePage";
+import { InsumoEditPage } from "./features/insumos/components/pages/insumoEditPage";
+
+// 3. Importaciones del módulo de Equipos
+import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
+import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
+import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
+
+// Layout principal que mantiene el menú a la izquierda
+function LayoutPrincipal({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        backgroundColor: "#f4f7f6",
+      }}
+    >
+      <Navbar />
+      <div style={{ flex: 1, padding: "30px" }}>{children}</div>
+    </div>
+  );
+}
+
+export const router = createBrowserRouter([
+  {
+    path: "/",
+    element: (
+      <LayoutPrincipal>
+        <div style={{ textAlign: "center", marginTop: "50px" }}>
+          <h1>Panel Principal - SAIA</h1>
+          <p>Seleccioná una opción en el menú lateral para comenzar.</p>
+        </div>
+      </LayoutPrincipal>
+    ),
+  },
+  
+  // --- RUTAS DE PERSONAL ---
+  {
+    path: "/personal",
+    element: (
+      <LayoutPrincipal>
+        <PersonalPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/personal/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <PersonalCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/personal/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <PersonalEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/personal/detalle/:id",
+    element: (
+      <LayoutPrincipal>
+        <PersonalDetailPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE INSUMOS ---
+  {
+    path: "/insumos",
+    element: (
+      <LayoutPrincipal>
+        <InsumosPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/insumos/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <InsumoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/insumos/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <InsumoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE EQUIPOS ---
+  {
+    path: "/equipos",
+    element: (
+      <LayoutPrincipal>
+        <EquiposPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/equipos/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <EquipoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/equipos/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <EquipoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+]);
+</file>
+
+<file path="backend/src/main.py">
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+#from src.database import Base, engine   si anda, esto ay que sacarlo
+from src.database import engine
+from src.models import ModeloBase
+
+# Importamos la configuración validada por Pydantic
+from src.config import settings
+
+# Importamos configuracion de logger
+from src.logger import setup_logging
+
+# Importamos los routers desde nuestros modulos
+from src.personal.router import router as personal_router
+from fastapi.middleware.cors import CORSMiddleware
+
+from src.Equipo import models as equipo_models
+from src.Equipo.router import router as equipo_router
+
+from src.insumos import models as insumos_models
+from src.insumos.router import router as insumos_router
+
+from src.PlanLimpieza import models as plan_limpieza_models
+from src.PlanLimpieza.router import router as plan_limpieza_router
+
+from src.tareas import models as tareas_models
+
+ENV = settings.ENV.upper()
+ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
+
+setup_logging()
+
+@asynccontextmanager
+async def db_creation_lifespan(app: FastAPI):
+    ModeloBase.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(root_path=ROOT_PATH, lifespan=db_creation_lifespan)
+
+origins = [
+    "http://localhost:5173", # para recibir requests desde app React (puerto: 5173)
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# asociamos los routers a nuestra app
+app.include_router(personal_router)
+#app.include_router(insumos_router)
+#app.include_router(personas_router)
+#app.include_router(mascotas_router)
+app.include_router(insumos_router)
+app.include_router(equipo_router)
+app.include_router(plan_limpieza_router)
+#crear tabla registrada en SQLAlchemy
+ModeloBase.metadata.create_all(bind=engine)
+</file>
+
+</files>
