@@ -1,46 +1,57 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
+from src.personal import exceptions
 
-# datos comunes y obligatorios
 class PersonaBase(BaseModel):
-    # primero valido nombre y apellido para que no vengan vacios y estan limitados con un maximo.
-    nombre: str = Field(min_length=1, max_length=40, pattern=r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$")
-    apellido: Optional[str] = Field(default=None, max_length=40, pattern=r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$")
-
-    # valido dni para que tenga una longitud correcta
-    dni: str = Field(min_length=7, max_length=8, pattern=r"^\d+$")
+    nombre: str 
+    apellido: Optional[str] = None
+    dni: str 
+    telefono: Optional[str] = None
+    email: str 
     
-    telefono: Optional[str] = Field(default=None, max_length=15, pattern=r"^\+?[0-9\s-]+$")
-
-    # EmailStr fuerza a que el texto tenga un @ y un dominio válido
-    email: EmailStr
-
     puede_operar: bool = False
     puede_administrar: bool = False
 
-# ACA LO Q EL FRONTEND ENVIA PARA DAR DE ALTA
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
+            raise exceptions.NombreInvalido()
+        return v.strip()
+
+    @field_validator("dni")
+    @classmethod
+    def validar_dni(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^\d{7,8}$", v):
+            raise exceptions.DniInvalido()
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", v):
+            raise exceptions.EmailInvalido()
+        return v.strip()
+
 class PersonaCreate(PersonaBase):
     pass
 
-# lo que el frontend envía para MODIFICAR
 class PersonaUpdate(PersonaBase):
-    nombre: Optional[str] = Field(default=None, min_length=1, max_length=40, pattern=r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$")
-    apellido: Optional[str] = Field(default=None, max_length=40, pattern=r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$")
-    dni: Optional[str] = Field(default=None, min_length=7, max_length=8, pattern=r"^\d+$")
-    telefono: Optional[str] = Field(default=None, max_length=15, pattern=r"^\+?[0-9\s-]+$")
-    email: Optional[EmailStr] = None
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    dni: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
     puede_operar: Optional[bool] = None
     puede_administrar: Optional[bool] = None
-    activo: Optional[bool] = None  # Útil si queremos dar la baja lógica desde el frontend
+    activo: Optional[bool] = None
 
-# Lo que la API le DEVUELVE al frontend
 class Persona(PersonaBase):
     id: int
     activo: bool
     fecha_creacion: datetime
     fecha_actualizacion: Optional[datetime] = None
 
-    # from_atributes=True permite que Pydantic trabaje con modelos SQLAlchemy
-    model_config = ConfigDict(from_attributes= True)
-
+    model_config = ConfigDict(from_attributes=True)

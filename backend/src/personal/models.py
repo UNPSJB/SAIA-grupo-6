@@ -17,7 +17,7 @@ class Persona(ModeloBase):
 
     puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
     puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
-    # - Para poder hacer las bajas logicas
+
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # - Opcional , esta bueno

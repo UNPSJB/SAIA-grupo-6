@@ -6,3 +6,12 @@ class PersonaNoEncontrada(NotFound):
 
 class DatoDuplicado(BadRequest):
     DETAIL = ErrorCode.DATO_DUPLICADO
+
+class NombreInvalido(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+class DniInvalido(BadRequest):
+    DETAIL = ErrorCode.DNI_INVALIDO
+
+class EmailInvalido(BadRequest):
+    DETAIL = ErrorCode.EMAIL_INVALIDO

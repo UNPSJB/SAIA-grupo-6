@@ -24,18 +24,14 @@ def crear_persona(db: Session, persona: schemas.PersonaCreate) -> Persona:
         db.commit()
         db.refresh(_persona)
         return _persona
+    
     except IntegrityError as e:
-        # si falla el dni o email pq ya existe, TENGO QUE hacer rollback para no romper la bd
         db.rollback()
-        
-        # leo el error original de la bd
         mensaje_error = str(e.orig).lower()
-        
-        # depende si el error menciona al dni o al email, tiro el texto
         if "dni" in mensaje_error:
-            raise HTTPException(status_code=400, detail="⚠️ El DNI ingresado ya se encuentra registrado para otra persona.")
+            raise exceptions.DniDuplicado()
         elif "email" in mensaje_error:
-            raise HTTPException(status_code=400, detail="⚠️ El correo electrónico ingresado ya está en uso.")
+            raise exceptions.EmailDuplicado()
         else:
             raise exceptions.DatoDuplicado()
 
@@ -47,7 +43,7 @@ def listar_personas(db: Session) -> List[Persona]:
 
 
 def leer_persona(db: Session, persona_id: int) -> Persona:
-    # buesco a la persona por id
+    # busco a la persona por id
     db_persona = db.scalar(select(Persona).where(Persona.id == persona_id))
     if db_persona is None:
         raise exceptions.PersonaNoEncontrada()
@@ -70,17 +66,14 @@ def modificar_persona(
             )
             db.commit()
             db.refresh(db_persona)
+            
         except IntegrityError as e:
-            # hago el rollback para no romper la bd
             db.rollback()
-            
-            # leo el error original de la bd
             mensaje_error = str(e.orig).lower()
-            
             if "dni" in mensaje_error:
-                raise HTTPException(status_code=400, detail="⚠️ El DNI ingresado ya se encuentra registrado para otra persona.")
+                raise exceptions.DniDuplicado()
             elif "email" in mensaje_error:
-                raise HTTPException(status_code=400, detail="⚠️ El correo electrónico ingresado ya está en uso.")
+                raise exceptions.EmailDuplicado()
             else:
                 raise exceptions.DatoDuplicado()
             
