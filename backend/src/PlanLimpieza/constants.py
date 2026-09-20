@@ -3,7 +3,6 @@ from enum import Enum
 
 class ErrorCode(str, Enum):
     PLAN_LIMPIEZA_NO_ENCONTRADO = "plan_limpieza_no_encontrado"
-    PLAN_DUPLICADO = "plan_duplicado"
     DATO_DUPLICADO = "dato_duplicado"
     AUTOR_NO_ENCONTRADO = "autor_no_encontrado"
     AUTOR_INACTIVO = "autor_inactivo"
@@ -11,6 +10,6 @@ class ErrorCode(str, Enum):
     NOMBRE_PLAN_DUPLICADO = "nombre_plan_duplicado"
     NOMBRE_INVALIDO = "nombre_invalido"
     FRECUENCIA_INVALIDA = "frecuencia_invalida"
-    TAREA_ID_INVALIDO = "tarea_id_invalido"
+    TAREAS_VACIAS = "tareas_vacias"
     EQUIPO_ID_INVALIDO = "equipo_id_invalido"
     AUTOR_ID_INVALIDO = "autor_id_invalido"

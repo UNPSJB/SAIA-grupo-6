@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from src.database import get_db
@@ -18,9 +18,11 @@ def create_tarea(tarea: schemas.TareaCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[schemas.Tarea])
-def read_tareas(db: Session = Depends(get_db)):
+def read_tareas(
+    plan_limpieza_id: Optional[int] = None, db: Session = Depends(get_db)
+):
     logger.info("Consultando la lista de tareas activas")
-    return services.listar_tareas(db)
+    return services.listar_tareas(db, plan_limpieza_id)
 
 
 @router.get("/{tarea_id}", response_model=schemas.Tarea)

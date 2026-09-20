@@ -6,3 +6,5 @@ class ErrorCode(str, Enum):
     NOMBRE_INVALIDO = "nombre_invalido"
     NOMBRE_DUPLICADO = "nombre_duplicado"
     DATO_DUPLICADO = "dato_duplicado"
+    PLAN_LIMPIEZA_ID_INVALIDO = "plan_limpieza_id_invalido"
+    PLAN_LIMPIEZA_NO_ENCONTRADO = "plan_limpieza_no_encontrado"

@@ -6,10 +6,6 @@ class PlanLimpiezaNoEncontrado(NotFound):
     DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO
 
 
-class PlanDuplicado(BadRequest):
-    DETAIL = ErrorCode.PLAN_DUPLICADO
-
-
 class DatoDuplicado(BadRequest):
     DETAIL = ErrorCode.DATO_DUPLICADO
 
@@ -25,20 +21,26 @@ class AutorInactivo(BadRequest):
 class AutorSinPermisoDeAdministrar(PermissionDenied):
     DETAIL = ErrorCode.AUTOR_SIN_PERMISO_DE_ADMINISTRAR
 
+
 class NombrePlanDuplicado(BadRequest):
     DETAIL = ErrorCode.NOMBRE_PLAN_DUPLICADO
+
 
 class NombreInvalido(BadRequest):
     DETAIL = ErrorCode.NOMBRE_INVALIDO
 
+
 class FrecuenciaInvalida(BadRequest):
     DETAIL = ErrorCode.FRECUENCIA_INVALIDA
 
-class TareaIdInvalido(BadRequest):
-    DETAIL = ErrorCode.TAREA_ID_INVALIDO
+
+class TareasVacias(BadRequest):
+    DETAIL = ErrorCode.TAREAS_VACIAS
+
 
 class EquipoIdInvalido(BadRequest):
     DETAIL = ErrorCode.EQUIPO_ID_INVALIDO
+
 
 class AutorIdInvalido(BadRequest):
     DETAIL = ErrorCode.AUTOR_ID_INVALIDO

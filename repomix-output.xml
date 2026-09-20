@@ -175,8 +175,25 @@ frontend/
           personal.ts
         personalRoutes.tsx
       planLimpieza/
+        components/
+          pages/
+            PlanLimpiezaCreatePage.tsx
+            PlanLimpiezaEditPage.tsx
+            PlanLimpiezaPage.tsx
+          DeletePlanLimpiezaDialog.tsx
+          PlanLimpiezaForm.tsx
+          PlanLimpiezaItem.tsx
+          PlanLimpiezaTable.tsx
+        hooks/
+          useOpcionesPlanLimpieza.ts
+          usePlanesLimpieza.ts
+          usePlanLimpieza.ts
+          usePlanLimpiezaABM.ts
+        services/
+          planLimpiezaService.ts
         types/
           planLimpieza.ts
+        planLimpiezaRoutes.tsx
       .gitkeep
     index.css
     main.tsx
@@ -196,405 +213,969 @@ README.md
 <files>
 This section contains the contents of the repository's files.
 
-<file path="backend/src/PlanLimpieza/__init__.py">
-
-</file>
-
-<file path="backend/src/PlanLimpieza/constants.py">
-from enum import Enum
-
-
-class ErrorCode(str, Enum):
-    PLAN_LIMPIEZA_NO_ENCONTRADO = "plan_limpieza_no_encontrado"
-    PLAN_DUPLICADO = "plan_duplicado"
-    DATO_DUPLICADO = "dato_duplicado"
-    AUTOR_NO_ENCONTRADO = "autor_no_encontrado"
-    AUTOR_INACTIVO = "autor_inactivo"
-    AUTOR_SIN_PERMISO_DE_ADMINISTRAR = "autor_sin_permiso_de_administrar"
-    NOMBRE_PLAN_DUPLICADO = "nombre_plan_duplicado"
-    NOMBRE_INVALIDO = "nombre_invalido"
-    FRECUENCIA_INVALIDA = "frecuencia_invalida"
-    TAREA_ID_INVALIDO = "tarea_id_invalido"
-    EQUIPO_ID_INVALIDO = "equipo_id_invalido"
-    AUTOR_ID_INVALIDO = "autor_id_invalido"
-</file>
-
-<file path="backend/src/PlanLimpieza/exceptions.py">
-from src.exceptions import NotFound, BadRequest, PermissionDenied
-from src.PlanLimpieza.constants import ErrorCode
-
-
-class PlanLimpiezaNoEncontrado(NotFound):
-    DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO
-
-
-class PlanDuplicado(BadRequest):
-    DETAIL = ErrorCode.PLAN_DUPLICADO
-
-
-class DatoDuplicado(BadRequest):
-    DETAIL = ErrorCode.DATO_DUPLICADO
-
-
-class AutorNoEncontrado(NotFound):
-    DETAIL = ErrorCode.AUTOR_NO_ENCONTRADO
-
-
-class AutorInactivo(BadRequest):
-    DETAIL = ErrorCode.AUTOR_INACTIVO
-
-
-class AutorSinPermisoDeAdministrar(PermissionDenied):
-    DETAIL = ErrorCode.AUTOR_SIN_PERMISO_DE_ADMINISTRAR
-
-class NombrePlanDuplicado(BadRequest):
-    DETAIL = ErrorCode.NOMBRE_PLAN_DUPLICADO
-
-class NombreInvalido(BadRequest):
-    DETAIL = ErrorCode.NOMBRE_INVALIDO
-
-class FrecuenciaInvalida(BadRequest):
-    DETAIL = ErrorCode.FRECUENCIA_INVALIDA
-
-class TareaIdInvalido(BadRequest):
-    DETAIL = ErrorCode.TAREA_ID_INVALIDO
-
-class EquipoIdInvalido(BadRequest):
-    DETAIL = ErrorCode.EQUIPO_ID_INVALIDO
-
-class AutorIdInvalido(BadRequest):
-    DETAIL = ErrorCode.AUTOR_ID_INVALIDO
-</file>
-
-<file path="backend/src/PlanLimpieza/models.py">
-from datetime import datetime, date
-from typing import Optional
-from src.models import ModeloBase
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Boolean, Date, DateTime, Integer
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-
-
-class PlanLimpieza(ModeloBase):
-    __tablename__ = "plan_limpieza"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-
-    nombre: Mapped[str] = mapped_column(String(60), unique=True, index=True)
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"))
-    equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"))
-    autor_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))
-
-    tarea: Mapped["Tarea"] = relationship(back_populates="planes")
-    equipo: Mapped["Equipo"] = relationship(back_populates="planes")
-    autor: Mapped["Personal"] = relationship(back_populates="planes")
-    
-
-    # - Opcional , esta bueno
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
-</file>
-
-<file path="backend/src/PlanLimpieza/router.py">
-import logging
-from typing import List
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from src.database import get_db
-from src.PlanLimpieza import schemas, services
-
-# Creamos un logger para este módulo específico
-logger = logging.getLogger(__name__)
-
-# Agrupamos las rutas bajo el prefijo /planes-limpieza
-router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"])
-
-
-@router.post("/", response_model=schemas.PlanLimpieza)
-def create_plan_limpieza(
-    plan: schemas.PlanLimpiezaCreate, db: Session = Depends(get_db)
-):
-    return services.crear_plan_limpieza(db, plan)
-
-
-@router.get("/", response_model=List[schemas.PlanLimpieza])
-def read_planes_limpieza(db: Session = Depends(get_db)):
-    logger.info("Consultando la lista de planes de limpieza activos")
-    return services.listar_planes_limpieza(db)
-
-
-@router.get("/{plan_id}", response_model=schemas.PlanLimpieza)
-def read_plan_limpieza(plan_id: int, db: Session = Depends(get_db)):
-    return services.leer_plan_limpieza(db, plan_id)
-
-
-@router.put("/{plan_id}", response_model=schemas.PlanLimpieza)
-def update_plan_limpieza(
-    plan_id: int,
-    plan: schemas.PlanLimpiezaUpdate,
-    db: Session = Depends(get_db),
-):
-    return services.modificar_plan_limpieza(db, plan_id, plan)
-
-
-@router.delete("/{plan_id}", response_model=schemas.PlanLimpieza)
-def delete_plan_limpieza(plan_id: int, db: Session = Depends(get_db)):
-    return services.eliminar_plan_limpieza(db, plan_id)
-</file>
-
-<file path="backend/src/PlanLimpieza/schemas.py">
-import re
-from pydantic import BaseModel, ConfigDict, field_validator
-from typing import Optional
-from datetime import datetime
-from src.PlanLimpieza import exceptions
-
-
-class PlanLimpiezaBase(BaseModel):
-    nombre: str
-    frecuencia: int
-    tarea_id: int
-    equipo_id: int
-    autor_id: int
-
-    @field_validator("nombre")
-    @classmethod
-    def validar_nombre(cls, v: str) -> str:
-        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
-            raise exceptions.NombreInvalido()
-        return v.strip()
-
-    @field_validator("frecuencia")
-    @classmethod
-    def validar_frecuencia(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.FrecuenciaInvalida()
-        return v
-
-    @field_validator("tarea_id")
-    @classmethod
-    def validar_tarea_id(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.TareaIdInvalido()
-        return v
-
-    @field_validator("equipo_id")
-    @classmethod
-    def validar_equipo_id(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.EquipoIdInvalido()
-        return v
-
-    @field_validator("autor_id")
-    @classmethod
-    def validar_autor_id(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.AutorIdInvalido()
-        return v
-
-
-class PlanLimpiezaCreate(PlanLimpiezaBase):
-    pass
-
-
-class PlanLimpiezaUpdate(PlanLimpiezaBase):
-    nombre: Optional[str] = None
-    frecuencia: Optional[int] = None
-    tarea_id: Optional[int] = None
-    equipo_id: Optional[int] = None
-    autor_id: Optional[int] = None
-    activo: Optional[bool] = None
-
-
-class PlanLimpieza(PlanLimpiezaBase):
-    id: int
-    activo: bool
-    fecha_creacion: datetime
-    fecha_actualizacion: Optional[datetime] = None
-
-    model_config = ConfigDict(from_attributes=True)
-</file>
-
-<file path="backend/src/PlanLimpieza/services.py">
-import logging
-from typing import List
-
-from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
-
-from src.PlanLimpieza import models, schemas, exceptions
-from src.personal.models import Personal
-
-# logger para este módulo específico
-logger = logging.getLogger(__name__)
-
-# ==========================================
-# OPERACIONES CRUD PARA PLAN DE LIMPIEZA
-# ==========================================
-
-def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
-    """Verifica que el autor exista, esté activo y tenga permiso de administrar."""
-    db_autor = db.scalar(select(Personal).where(Personal.id == autor_id))
-
-    if db_autor is None:
-        raise exceptions.AutorNoEncontrado()
-
-    if not db_autor.activo:
-        raise exceptions.AutorInactivo()
-
-    if not db_autor.puede_administrar:
-        raise exceptions.AutorSinPermisoDeAdministrar()
-
-    return db_autor
-
-def crear_plan_limpieza(
-    db: Session, plan: schemas.PlanLimpiezaCreate
-) -> models.PlanLimpieza:
-    _verificar_autor_administrador(db, plan.autor_id)
-
-    _plan = models.PlanLimpieza(**plan.model_dump())
-    db.add(_plan)
-
-    try:
-        db.commit()
-        db.refresh(_plan)
-        return _plan
-
-    except IntegrityError as e:
-        db.rollback()
-        mensaje_error = str(e.orig).lower()
-        if "nombre" in mensaje_error:
-            raise exceptions.NombrePlanDuplicado()
-        elif "tarea_id" in mensaje_error and "equipo_id" in mensaje_error:
-            raise exceptions.PlanDuplicado()
-        else:
-            raise exceptions.DatoDuplicado()
-
-
-def listar_planes_limpieza(db: Session) -> List[models.PlanLimpieza]:
-    logger.info("Listando planes de limpieza desde services")
-    # traigo solo los planes activos
-    return db.scalars(
-        select(models.PlanLimpieza).where(models.PlanLimpieza.activo == True)
-    ).all()
-
-
-def leer_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
-    # busco el plan por id
-    db_plan = db.scalar(
-        select(models.PlanLimpieza).where(models.PlanLimpieza.id == plan_id)
-    )
-    if db_plan is None:
-        raise exceptions.PlanLimpiezaNoEncontrado()
-    return db_plan
-
-
-def modificar_plan_limpieza(
-    db: Session, plan_id: int, plan: schemas.PlanLimpiezaUpdate
-) -> models.PlanLimpieza:
-    db_plan = leer_plan_limpieza(db, plan_id)
-
-    datos_a_actualizar = plan.model_dump(exclude_unset=True)
-
-    # si en esta edición se está cambiando el autor, valido el nuevo también
-    if "autor_id" in datos_a_actualizar:
-        _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
-
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(models.PlanLimpieza)
-                .where(models.PlanLimpieza.id == plan_id)
-                .values(**datos_a_actualizar)
-            )
-            db.commit()
-            db.refresh(db_plan)
-
-        except IntegrityError as e:
-            db.rollback()
-            mensaje_error = str(e.orig).lower()
-            if "tarea_id" in mensaje_error and "equipo_id" in mensaje_error:
-                raise exceptions.PlanDuplicado()
-            else:
-                raise exceptions.DatoDuplicado()
-
-    return db_plan
-
-
-def eliminar_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
-    # busco
-    db_plan = leer_plan_limpieza(db, plan_id)
-
-    # BAJA LÓGICA: en vez de borrar de la bd, cambio el estado a inactivo
-    db_plan.activo = False
-    db.commit()
-    db.refresh(db_plan)
-
-    return db_plan
-</file>
-
-<file path="backend/src/tareas/__init__.py">
-
-</file>
-
-<file path="backend/src/tareas/constants.py">
-
-</file>
-
-<file path="backend/src/tareas/exceptions.py">
-
-</file>
-
-<file path="backend/src/tareas/models.py">
-from datetime import datetime, date
-from typing import Optional
-from src.models import ModeloBase
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Boolean, Date, DateTime
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-
-class Tarea(ModeloBase):
-    __tablename__ = "tareas"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(100))
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    
-
-    planes: Mapped[list["PlanLimpieza"]] = relationship(
-        back_populates="tarea"
-    )
-</file>
-
-<file path="backend/src/tareas/router.py">
-
-</file>
-
-<file path="backend/src/tareas/schemas.py">
-
-</file>
-
-<file path="backend/src/tareas/services.py">
-
-</file>
-
-<file path="frontend/src/features/planLimpieza/types/planLimpieza.ts">
-export interface PlanLimpieza {
-  id: number;
-  nombre: string;
-  frecuencia: string;
-  tarea_id: number;
-  equipo_id: number;
+<file path="frontend/src/features/planLimpieza/components/pages/PlanLimpiezaCreatePage.tsx">
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
+import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
+import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
+
+export function PlanLimpiezaCreatePage() {
+  const navigate = useNavigate();
+  const { alta, loading, error } = usePlanLimpiezaABM();
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: PlanLimpiezaInput) => {
+    try {
+      await alta(values);
+      setExito(true);
+      setTimeout(() => { navigate("/planes-limpieza"); }, 2000);
+    } catch { }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Nuevo Plan de Limpieza</Heading>
+        <Button bg="#6c757d" color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }} _hover={{ bg: "#6c757d" }} onClick={() => navigate("/planes-limpieza")}>
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {error && (
+        <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+          ⚠️ {error}
+        </Box>
+      )}
+
+      {exito && (
+        <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
+            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+            <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>Éxito</Heading>
+            <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>Plan de limpieza agregado correctamente.</Text>
+          </Box>
+        </Box>
+      )}
+
+      <PlanLimpiezaForm onSubmit={handleSubmit} isLoading={loading} title="Alta de Plan de Limpieza" submitLabel="Crear plan" />
+    </Box>
+  );
 }
+</file>
+
+<file path="frontend/src/features/planLimpieza/components/pages/PlanLimpiezaEditPage.tsx">
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
+import { usePlanLimpieza } from "../../hooks/usePlanLimpieza";
+import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
+import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
+
+export function PlanLimpiezaEditPage() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const planId = Number(id);
+
+  const { plan, loading: cargando, error: errorCarga } = usePlanLimpieza(Number.isFinite(planId) ? planId : null);
+  const { modificar, loading: guardando, error: errorGuardado } = usePlanLimpiezaABM();
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (values: PlanLimpiezaInput) => {
+    try {
+      await modificar(planId, values);
+      setExito(true);
+      setTimeout(() => { navigate("/planes-limpieza"); }, 2000);
+    } catch { }
+  };
+
+  return (
+    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Editar Plan de Limpieza</Heading>
+        <Button bg="#6c757d" color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }} _hover={{ bg: "#6c757d" }} onClick={() => navigate("/planes-limpieza")}>
+          Volver a la lista
+        </Button>
+      </HStack>
+
+      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
+      {cargando && <Text style={{ fontStyle: "italic", color: "#666" }}>Cargando datos del plan...</Text>}
+
+      {!cargando && !errorCarga && plan && (
+        <>
+          {errorGuardado && (
+            <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+              ⚠️ {errorGuardado}
+            </Box>
+          )}
+
+          {exito && (
+            <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+              <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
+                <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+                <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>Éxito</Heading>
+                <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>Plan de limpieza modificado correctamente.</Text>
+              </Box>
+            </Box>
+          )}
+
+          <PlanLimpiezaForm
+            key={plan.id}
+            initialValues={{
+              nombre: plan.nombre,
+              frecuencia: plan.frecuencia,
+              tarea_id: plan.tarea_id,
+              equipo_id: plan.equipo_id,
+              autor_id: plan.autor_id,
+            }}
+            onSubmit={handleSubmit}
+            isLoading={guardando}
+            title="Modificar Plan de Limpieza"
+            submitLabel="Guardar cambios"
+            onCancel={() => navigate("/planes-limpieza")}
+          />
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/components/pages/PlanLimpiezaPage.tsx">
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Button, ButtonGroup, Heading, HStack, IconButton, Pagination, Spinner, Text } from "@chakra-ui/react";
+import { PlanLimpiezaTable } from "../PlanLimpiezaTable";
+import { DeletePlanLimpiezaDialog } from "../DeletePlanLimpiezaDialog";
+import { usePlanesLimpieza } from "../../hooks/usePlanesLimpieza";
+import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
+import { useOpcionesPlanLimpieza } from "../../hooks/useOpcionesPlanLimpieza";
+import type { PlanLimpieza } from "../../types/planLimpieza";
+
+const TEAL = "#468189";
+const PAGE_SIZE = 10;
+
+export function PlanLimpiezaPage() {
+  const navigate = useNavigate();
+  const { planes, loading, error, cargarPlanes } = usePlanesLimpieza();
+  const { tareas, equipos } = useOpcionesPlanLimpieza();
+  const { borrar, loading: borrando } = usePlanLimpiezaABM();
+
+  const [planAEliminar, setPlanAEliminar] = useState<PlanLimpieza | null>(null);
+  const [page, setPage] = useState(1);
+
+  const planesPaginados = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return planes.slice(start, start + PAGE_SIZE);
+  }, [planes, page]);
+
+  const handleEdit = (plan: PlanLimpieza) => navigate(`/planes-limpieza/${plan.id}/editar`);
+  const handleDeleteRequest = (plan: PlanLimpieza) => setPlanAEliminar(plan);
+  const handleCloseDialog = () => { if (!borrando) setPlanAEliminar(null); };
+
+  const handleConfirmDelete = async () => {
+    if (!planAEliminar) return;
+    try {
+      await borrar(planAEliminar.id);
+      setPlanAEliminar(null);
+      await cargarPlanes();
+    } catch {
+      // El error queda reflejado en usePlanLimpiezaABM().error
+    }
+  };
+
+  return (
+    <Box style={{ padding: "20px" }}>
+      <HStack justify="space-between" mb="20px">
+        <Heading as="h2" size="md" fontWeight="bold" color="black">Planes de Limpieza</Heading>
+        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: TEAL }} onClick={() => navigate("/planes-limpieza/nuevo")}>
+          + Agregar
+        </Button>
+      </HStack>
+
+      {loading && <Spinner />}
+      {!loading && error && <Text color="red.500">{error}</Text>}
+
+      {!loading && !error && (
+        <>
+          <PlanLimpiezaTable planes={planesPaginados} tareas={tareas} equipos={equipos} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+
+          {planes.length > PAGE_SIZE && (
+            <Pagination.Root count={planes.length} pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)} mt="16px">
+              <HStack justify="center">
+                <ButtonGroup variant="ghost" size="sm">
+                  <Pagination.Items render={(pageItem) => {
+                      const isSelected = pageItem.value === page;
+                      return (
+                        <IconButton aria-label={`Página ${pageItem.value}`} bg={isSelected ? TEAL : "transparent"} color={isSelected ? "white" : TEAL} border={isSelected ? "none" : `1px solid ${TEAL}`} _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}>
+                          {pageItem.value}
+                        </IconButton>
+                      );
+                  }} />
+                </ButtonGroup>
+              </HStack>
+            </Pagination.Root>
+          )}
+        </>
+      )}
+
+      <DeletePlanLimpiezaDialog isOpen={planAEliminar !== null} plan={planAEliminar} isLoading={borrando} onClose={handleCloseDialog} onConfirm={handleConfirmDelete} />
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/components/DeletePlanLimpiezaDialog.tsx">
+import { Box, Button, Portal, Text } from "@chakra-ui/react";
+import type { PlanLimpieza } from "../types/planLimpieza";
+
+interface DeletePlanLimpiezaDialogProps {
+  isOpen: boolean;
+  plan: PlanLimpieza | null;
+  isLoading?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export function DeletePlanLimpiezaDialog({ isOpen, plan, isLoading, onClose, onConfirm }: DeletePlanLimpiezaDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <Portal>
+      <Box
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        <Box
+          style={{
+            backgroundColor: "white",
+            padding: "25px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+            width: "350px",
+            textAlign: "center",
+          }}
+        >
+          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+            ¿Esta seguro que desea eliminar el plan <strong>{plan?.nombre}</strong>?
+          </Box>
+          <Text style={{ color: "#666", marginBottom: "20px" }}>Esta acción no se puede deshacer.</Text>
+          <Box style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+            <Button
+              onClick={onClose}
+              height="auto"
+              minW="auto"
+              style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ccc", backgroundColor: "#fff", cursor: "pointer", fontWeight: "bold" }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={onConfirm}
+              loading={isLoading}
+              height="auto"
+              minW="auto"
+              style={{ padding: "8px 16px", borderRadius: "6px", border: "none", backgroundColor: "#d9534f", color: "white", cursor: "pointer", fontWeight: "bold" }}
+            >
+              Sí, eliminar
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+    </Portal>
+  );
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/components/PlanLimpiezaForm.tsx">
+import { useState } from "react";
+import { Box, Button, Field, HStack, Input, NativeSelect, Text } from "@chakra-ui/react";
+import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
+import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
+
+interface PlanLimpiezaFormProps {
+  initialValues?: PlanLimpiezaInput;
+  onSubmit: (values: PlanLimpiezaInput) => Promise<void> | void;
+  isLoading?: boolean;
+  submitLabel?: string;
+  title?: string;
+  onCancel?: () => void;
+}
+
+const emptyValues: PlanLimpiezaInput = {
+  nombre: "",
+  frecuencia: 1,
+  tarea_id: 0,
+  equipo_id: 0,
+  autor_id: 0,
+};
+
+const estiloInput = {
+  backgroundColor: "#fff",
+  padding: "12px",
+  width: "100%",
+  maxWidth: "500px",
+  borderRadius: "8px",
+  border: "2px solid #90BEBB",
+  fontSize: "16px",
+  outline: "none",
+  color: "#333",
+};
+
+const estiloSelect = {
+  ...estiloInput,
+  boxSizing: "border-box" as const,
+  colorScheme: "light" as const,
+  height: "auto" as const,
+  lineHeight: "normal" as const,
+};
+
+const estiloLabel = {
+  display: "block",
+  fontSize: "14px",
+  fontWeight: "bold" as const,
+  marginBottom: "8px",
+  color: "#555",
+};
+
+export function PlanLimpiezaForm({
+  initialValues = emptyValues,
+  onSubmit,
+  isLoading = false,
+  submitLabel = "Guardar",
+  title = "Alta de Plan de Limpieza",
+  onCancel,
+}: PlanLimpiezaFormProps) {
+  const [values, setValues] = useState<PlanLimpiezaInput>(initialValues);
+  const { tareas, equipos, personal, loading: cargandoOpciones, error: errorOpciones } = useOpcionesPlanLimpieza();
+
+  const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, nombre: e.target.value }));
+
+  const handleFrecuenciaChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, frecuencia: Number(e.target.value) }));
+
+  const handleTareaChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues((prev) => ({ ...prev, tarea_id: Number(e.target.value) }));
+
+  const handleEquipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues((prev) => ({ ...prev, equipo_id: Number(e.target.value) }));
+
+  const handleAutorChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues((prev) => ({ ...prev, autor_id: Number(e.target.value) }));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(values);
+  };
+
+  return (
+    <Box
+      as="form"
+      onSubmit={handleSubmit}
+      style={{
+        backgroundColor: "#ffffff",
+        padding: "30px",
+        borderRadius: "12px",
+        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+        marginBottom: "30px",
+      }}
+    >
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+        {title}
+      </Box>
+
+      {errorOpciones && (
+        <Box
+          style={{
+            backgroundColor: "#f8d7da",
+            color: "#721c24",
+            padding: "10px",
+            borderRadius: "6px",
+            marginBottom: "20px",
+            border: "1px solid #f5c6cb",
+          }}
+        >
+          ⚠️ {errorOpciones}
+        </Box>
+      )}
+
+      {/* Nombre */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            NOMBRE *
+          </Box>
+          <Input
+            value={values.nombre}
+            onChange={handleNombreChange}
+            placeholder="Ej: Limpieza diaria de heladeras"
+            style={estiloInput}
+          />
+        </Field.Root>
+      </Box>
+
+      {/* Frecuencia */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            FRECUENCIA (en días) *
+          </Box>
+          <Input
+            type="number"
+            min={1}
+            value={values.frecuencia}
+            onChange={handleFrecuenciaChange}
+            placeholder="Ej: 1"
+            style={estiloInput}
+          />
+        </Field.Root>
+      </Box>
+
+      <HStack gap="20px" mb="20px" flexWrap="wrap" alignItems="flex-start">
+        {/* Tarea */}
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            TAREA *
+          </Box>
+          <NativeSelect.Root disabled={cargandoOpciones}>
+            <NativeSelect.Field value={values.tarea_id} onChange={handleTareaChange} style={estiloSelect}>
+              <option value={0} disabled>
+                {cargandoOpciones ? "Cargando..." : "Seleccioná una tarea"}
+              </option>
+              {tareas.map((tarea) => (
+                <option key={tarea.id} value={tarea.id} style={{ backgroundColor: "#fff", color: "#333" }}>
+                  {tarea.nombre}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+
+        {/* Equipo */}
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            EQUIPO *
+          </Box>
+          <NativeSelect.Root disabled={cargandoOpciones}>
+            <NativeSelect.Field value={values.equipo_id} onChange={handleEquipoChange} style={estiloSelect}>
+              <option value={0} disabled>
+                {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+              </option>
+              {equipos.map((equipo) => (
+                <option key={equipo.id} value={equipo.id} style={{ backgroundColor: "#fff", color: "#333" }}>
+                  {equipo.nombre}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+      </HStack>
+
+      {/* Autor */}
+      <Box style={{ marginBottom: "25px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            AUTOR *
+          </Box>
+          <NativeSelect.Root disabled={cargandoOpciones}>
+            <NativeSelect.Field value={values.autor_id} onChange={handleAutorChange} style={estiloSelect}>
+              <option value={0} disabled>
+                {cargandoOpciones ? "Cargando..." : "Seleccioná quién crea el plan"}
+              </option>
+              {personal.map((persona) => (
+                <option key={persona.id} value={persona.id} style={{ backgroundColor: "#fff", color: "#333" }}>
+                  {persona.nombre} {persona.apellido || ""}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+        <Text style={{ fontSize: "12px", color: "#888", marginTop: "6px" }}>
+          Se guarda de forma explícita porque el sistema todavía no tiene sesión de usuario.
+        </Text>
+      </Box>
+
+      {/* Botones */}
+      <HStack style={{ gap: "15px" }}>
+        <Button
+          type="submit"
+          loading={isLoading}
+          disabled={!values.tarea_id || !values.equipo_id || !values.autor_id}
+          style={{
+            backgroundColor: "#468189",
+            color: "white",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "15px",
+            fontWeight: "bold",
+          }}
+        >
+          {submitLabel}
+        </Button>
+
+        {onCancel && (
+          <Button
+            type="button"
+            onClick={onCancel}
+            style={{
+              backgroundColor: "#e0e0e0",
+              color: "#333",
+              padding: "12px 24px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "15px",
+              fontWeight: "bold",
+            }}
+          >
+            Cancelar
+          </Button>
+        )}
+      </HStack>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/components/PlanLimpiezaItem.tsx">
+import { Table, Button, HStack, Badge } from "@chakra-ui/react";
+import type { PlanLimpieza } from "../types/planLimpieza";
+
+interface PlanLimpiezaItemProps {
+  plan: PlanLimpieza;
+  nombreTarea: string;
+  nombreEquipo: string;
+  onEdit: (plan: PlanLimpieza) => void;
+  onDelete: (plan: PlanLimpieza) => void;
+}
+
+const TEAL = "#468189";
+
+export function PlanLimpiezaItem({ plan, nombreTarea, nombreEquipo, onEdit, onDelete }: PlanLimpiezaItemProps) {
+  return (
+    <Table.Row style={{ borderBottom: "1px solid #eee" }}>
+      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+        #{plan.id}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {plan.nombre}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {nombreTarea}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        {nombreEquipo}
+      </Table.Cell>
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        Cada {plan.frecuencia} {plan.frecuencia === 1 ? "día" : "días"}
+      </Table.Cell>
+      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+        <Badge colorPalette={plan.activo ? "green" : "gray"} borderRadius="6px" px="8px" py="4px">
+          {plan.activo ? "Activo" : "Inactivo"}
+        </Badge>
+      </Table.Cell>
+      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+        <HStack justify="center" style={{ gap: "10px" }}>
+          <Button
+            bg="#f0ad4e"
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: "#f0ad4e" }}
+            onClick={() => onEdit(plan)}
+          >
+            Modificar
+          </Button>
+          <Button
+            bg="#d9534f"
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: "#d9534f" }}
+            onClick={() => onDelete(plan)}
+          >
+            Eliminar
+          </Button>
+        </HStack>
+      </Table.Cell>
+    </Table.Row>
+  );
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/components/PlanLimpiezaTable.tsx">
+import { Box, Table, Text } from "@chakra-ui/react";
+import { PlanLimpiezaItem } from "./PlanLimpiezaItem";
+import type { EquipoOption, PlanLimpieza, TareaOption } from "../types/planLimpieza";
+
+interface PlanLimpiezaTableProps {
+  planes: PlanLimpieza[];
+  tareas: TareaOption[];
+  equipos: EquipoOption[];
+  onEdit: (plan: PlanLimpieza) => void;
+  onDelete: (plan: PlanLimpieza) => void;
+}
+
+const TEAL = "#468189";
+
+export function PlanLimpiezaTable({ planes, tareas, equipos, onEdit, onDelete }: PlanLimpiezaTableProps) {
+  if (planes.length === 0) {
+    return (
+      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+        <Text color="gray.500">No hay planes de limpieza cargados.</Text>
+      </Box>
+    );
+  }
+
+  const nombreTarea = (id: number) => tareas.find((t) => t.id === id)?.nombre || `#${id}`;
+  const nombreEquipo = (id: number) => equipos.find((e) => e.id === id)?.nombre || `#${id}`;
+
+  return (
+    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
+      <Table.Root variant="outline" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <Table.Header>
+          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>ID</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Nombre</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Tarea</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Equipo</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Frecuencia</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Estado</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Acciones</Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {planes.map((plan) => (
+            <PlanLimpiezaItem
+              key={plan.id}
+              plan={plan}
+              nombreTarea={nombreTarea(plan.tarea_id)}
+              nombreEquipo={nombreEquipo(plan.equipo_id)}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </Table.Body>
+      </Table.Root>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/hooks/useOpcionesPlanLimpieza.ts">
+import { useEffect, useState } from "react";
+import {
+    listarOpcionesTareas,
+    listarOpcionesEquipos,
+    listarOpcionesPersonal,
+} from "../services/planLimpiezaService";
+import type { TareaOption, EquipoOption, PersonalOption } from "../types/planLimpieza";
+
+export function useOpcionesPlanLimpieza() {
+    const [tareas, setTareas] = useState<TareaOption[]>([]);
+    const [equipos, setEquipos] = useState<EquipoOption[]>([]);
+    const [personal, setPersonal] = useState<PersonalOption[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const cargarOpciones = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const [tareasData, equiposData, personalData] = await Promise.all([
+                    listarOpcionesTareas(),
+                    listarOpcionesEquipos(),
+                    listarOpcionesPersonal(),
+                ]);
+                setTareas(tareasData);
+                setEquipos(equiposData);
+                setPersonal(personalData);
+            } catch (err) {
+                setError("No se pudieron cargar las opciones del formulario");
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        cargarOpciones();
+    }, []);
+
+    return { tareas, equipos, personal, loading, error };
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/hooks/usePlanesLimpieza.ts">
+import { useCallback, useEffect, useState } from "react";
+import { listarPlanesLimpieza } from "../services/planLimpiezaService";
+import type { PlanLimpieza } from "../types/planLimpieza";
+
+export function usePlanesLimpieza() {
+    const [planes, setPlanes] = useState<PlanLimpieza[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const cargarPlanes = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await listarPlanesLimpieza();
+            setPlanes(data);
+        } catch (err) {
+            setError("No se pudieron cargar los planes de limpieza");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        cargarPlanes();
+    }, [cargarPlanes]);
+
+    return { planes, loading, error, cargarPlanes };
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/hooks/usePlanLimpieza.ts">
+import { useEffect, useState } from "react";
+import { obtenerPlanLimpieza } from "../services/planLimpiezaService";
+import type { PlanLimpieza } from "../types/planLimpieza";
+
+export function usePlanLimpieza(id: number | null) {
+    const [plan, setPlan] = useState<PlanLimpieza | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (id === null) return;
+
+        const cargarPlan = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await obtenerPlanLimpieza(id);
+                setPlan(data);
+            } catch (err) {
+                setError("No se pudo cargar el plan de limpieza");
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        cargarPlan();
+    }, [id]);
+
+    return { plan, loading, error };
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/hooks/usePlanLimpiezaABM.ts">
+import { useState } from "react";
+import {
+    crearPlanLimpieza,
+    modificarPlanLimpieza,
+    eliminarPlanLimpieza,
+    type PlanLimpiezaInput,
+} from "../services/planLimpiezaService";
+
+export function usePlanLimpiezaABM() {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const alta = async (plan: PlanLimpiezaInput) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await crearPlanLimpieza(plan);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo crear el plan de limpieza");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const modificar = async (id: number, plan: PlanLimpiezaInput) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await modificarPlanLimpieza(id, plan);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo modificar el plan de limpieza");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const borrar = async (id: number) => {
+        try {
+            setLoading(true);
+            setError(null);
+            await eliminarPlanLimpieza(id);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo eliminar el plan de limpieza");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { alta, modificar, borrar, loading, error };
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/services/planLimpiezaService.ts">
+import type {
+  PlanLimpieza,
+  TareaOption,
+  EquipoOption,
+  PersonalOption,
+} from "../types/planLimpieza";
+
+const API_URL = "http://localhost:8000";
+
+export type PlanLimpiezaInput = Omit<
+  PlanLimpieza,
+  "id" | "activo" | "fecha_creacion" | "fecha_actualizacion"
+>;
+
+export async function listarPlanesLimpieza(): Promise<PlanLimpieza[]> {
+  const response = await fetch(`${API_URL}/planes-limpieza`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener los planes de limpieza");
+  }
+
+  return response.json();
+}
+
+export async function obtenerPlanLimpieza(id: number): Promise<PlanLimpieza> {
+  const response = await fetch(`${API_URL}/planes-limpieza/${id}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener el plan de limpieza");
+  }
+
+  return response.json();
+}
+
+export async function crearPlanLimpieza(
+  plan: PlanLimpiezaInput
+): Promise<PlanLimpieza> {
+  const response = await fetch(`${API_URL}/planes-limpieza`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(plan),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al crear el plan de limpieza");
+  }
+
+  return response.json();
+}
+
+export async function modificarPlanLimpieza(
+  id: number,
+  plan: PlanLimpiezaInput
+): Promise<PlanLimpieza> {
+  const response = await fetch(`${API_URL}/planes-limpieza/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(plan),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al modificar el plan de limpieza");
+  }
+
+  return response.json();
+}
+
+export async function eliminarPlanLimpieza(id: number): Promise<void> {
+  const response = await fetch(`${API_URL}/planes-limpieza/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al eliminar el plan de limpieza");
+  }
+}
+
+// --- Opciones para los <select> del formulario ---
+// Se consultan las entidades relacionadas (tareas, equipos, personal) para
+// que el usuario elija por nombre en lugar de tipear un ID a mano.
+
+export async function listarOpcionesTareas(): Promise<TareaOption[]> {
+  const response = await fetch(`${API_URL}/tareas`);
+
+  if (!response.ok) {
+    throw new Error("Error al obtener las tareas");
+  }
+
+  return response.json();
+}
+
+export async function listarOpcionesEquipos(): Promise<EquipoOption[]> {
+  const response = await fetch(`${API_URL}/equipos`);
+
+  if (!response.ok) {
+    throw new Error("Error al obtener los equipos");
+  }
+
+  return response.json();
+}
+
+export async function listarOpcionesPersonal(): Promise<PersonalOption[]> {
+  const response = await fetch(`${API_URL}/personal`);
+
+  if (!response.ok) {
+    throw new Error("Error al obtener el personal");
+  }
+
+  return response.json();
+}
+</file>
+
+<file path="frontend/src/features/planLimpieza/planLimpiezaRoutes.tsx">
+import type { RouteObject } from "react-router-dom";
+import { PlanLimpiezaPage } from "./components/pages/PlanLimpiezaPage";
+import { PlanLimpiezaCreatePage } from "./components/pages/PlanLimpiezaCreatePage";
+import { PlanLimpiezaEditPage } from "./components/pages/PlanLimpiezaEditPage";
+
+export const planLimpiezaRoutes: RouteObject[] = [
+  { path: "planes-limpieza", element: <PlanLimpiezaPage /> },
+  { path: "planes-limpieza/nuevo", element: <PlanLimpiezaCreatePage /> },
+  { path: "planes-limpieza/:id/editar", element: <PlanLimpiezaEditPage /> },
+];
 </file>
 
 <file path="backend/src/Equipo/__init__.py">
@@ -802,6 +1383,619 @@ def delete_persona(persona_id: int, db: Session = Depends(get_db)):
     return services.eliminar_persona(db, persona_id)
 </file>
 
+<file path="backend/src/PlanLimpieza/__init__.py">
+
+</file>
+
+<file path="backend/src/PlanLimpieza/constants.py">
+from enum import Enum
+
+
+class ErrorCode(str, Enum):
+    PLAN_LIMPIEZA_NO_ENCONTRADO = "plan_limpieza_no_encontrado"
+    DATO_DUPLICADO = "dato_duplicado"
+    AUTOR_NO_ENCONTRADO = "autor_no_encontrado"
+    AUTOR_INACTIVO = "autor_inactivo"
+    AUTOR_SIN_PERMISO_DE_ADMINISTRAR = "autor_sin_permiso_de_administrar"
+    NOMBRE_PLAN_DUPLICADO = "nombre_plan_duplicado"
+    NOMBRE_INVALIDO = "nombre_invalido"
+    FRECUENCIA_INVALIDA = "frecuencia_invalida"
+    TAREA_ID_INVALIDO = "tarea_id_invalido"
+    TAREAS_VACIAS = "tareas_vacias"
+    TAREAS_NO_ENCONTRADAS = "tareas_no_encontradas"
+    EQUIPO_ID_INVALIDO = "equipo_id_invalido"
+    AUTOR_ID_INVALIDO = "autor_id_invalido"
+</file>
+
+<file path="backend/src/PlanLimpieza/exceptions.py">
+from src.exceptions import NotFound, BadRequest, PermissionDenied
+from src.PlanLimpieza.constants import ErrorCode
+
+
+class PlanLimpiezaNoEncontrado(NotFound):
+    DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO
+
+
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+
+
+class AutorNoEncontrado(NotFound):
+    DETAIL = ErrorCode.AUTOR_NO_ENCONTRADO
+
+
+class AutorInactivo(BadRequest):
+    DETAIL = ErrorCode.AUTOR_INACTIVO
+
+
+class AutorSinPermisoDeAdministrar(PermissionDenied):
+    DETAIL = ErrorCode.AUTOR_SIN_PERMISO_DE_ADMINISTRAR
+
+
+class NombrePlanDuplicado(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_PLAN_DUPLICADO
+
+
+class NombreInvalido(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+
+class FrecuenciaInvalida(BadRequest):
+    DETAIL = ErrorCode.FRECUENCIA_INVALIDA
+
+
+class TareaIdInvalido(BadRequest):
+    DETAIL = ErrorCode.TAREA_ID_INVALIDO
+
+
+class TareasVacias(BadRequest):
+    DETAIL = ErrorCode.TAREAS_VACIAS
+
+
+class TareasNoEncontradas(NotFound):
+    DETAIL = ErrorCode.TAREAS_NO_ENCONTRADAS
+
+
+class EquipoIdInvalido(BadRequest):
+    DETAIL = ErrorCode.EQUIPO_ID_INVALIDO
+
+
+class AutorIdInvalido(BadRequest):
+    DETAIL = ErrorCode.AUTOR_ID_INVALIDO
+</file>
+
+<file path="backend/src/PlanLimpieza/models.py">
+from datetime import datetime, date
+from typing import Optional
+from src.models import ModeloBase, plan_limpieza_tareas
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, Date, DateTime, Integer
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class PlanLimpieza(ModeloBase):
+    __tablename__ = "plan_limpieza"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    nombre: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"))
+    autor_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))
+
+    tareas: Mapped[list["Tarea"]] = relationship(
+        secondary=plan_limpieza_tareas, back_populates="planes"
+    )
+    equipo: Mapped["Equipo"] = relationship(back_populates="planes")
+    autor: Mapped["Personal"] = relationship(back_populates="planes")
+
+    # - Opcional , esta bueno
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+</file>
+
+<file path="backend/src/PlanLimpieza/router.py">
+import logging
+from typing import List
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.PlanLimpieza import schemas, services
+
+# Creamos un logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# Agrupamos las rutas bajo el prefijo /planes-limpieza
+router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"])
+
+
+@router.post("/", response_model=schemas.PlanLimpieza)
+def create_plan_limpieza(
+    plan: schemas.PlanLimpiezaCreate, db: Session = Depends(get_db)
+):
+    return services.crear_plan_limpieza(db, plan)
+
+
+@router.get("/", response_model=List[schemas.PlanLimpieza])
+def read_planes_limpieza(db: Session = Depends(get_db)):
+    logger.info("Consultando la lista de planes de limpieza activos")
+    return services.listar_planes_limpieza(db)
+
+
+@router.get("/{plan_id}", response_model=schemas.PlanLimpieza)
+def read_plan_limpieza(plan_id: int, db: Session = Depends(get_db)):
+    return services.leer_plan_limpieza(db, plan_id)
+
+
+@router.put("/{plan_id}", response_model=schemas.PlanLimpieza)
+def update_plan_limpieza(
+    plan_id: int,
+    plan: schemas.PlanLimpiezaUpdate,
+    db: Session = Depends(get_db),
+):
+    return services.modificar_plan_limpieza(db, plan_id, plan)
+
+
+@router.delete("/{plan_id}", response_model=schemas.PlanLimpieza)
+def delete_plan_limpieza(plan_id: int, db: Session = Depends(get_db)):
+    return services.eliminar_plan_limpieza(db, plan_id)
+</file>
+
+<file path="backend/src/PlanLimpieza/schemas.py">
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import List, Optional
+from datetime import datetime
+from src.PlanLimpieza import exceptions
+from src.tareas.schemas import Tarea as TareaSchema
+
+
+class PlanLimpiezaBase(BaseModel):
+    nombre: str
+    frecuencia: int
+    tareas_ids: List[int]
+    equipo_id: int
+    autor_id: int
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
+            raise exceptions.NombreInvalido()
+        return v.strip()
+
+    @field_validator("frecuencia")
+    @classmethod
+    def validar_frecuencia(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.FrecuenciaInvalida()
+        return v
+
+    @field_validator("tareas_ids")
+    @classmethod
+    def validar_tareas_ids(cls, v: List[int]) -> List[int]:
+        if not v:
+            raise exceptions.TareasVacias()
+        for tarea_id in v:
+            if tarea_id <= 0:
+                raise exceptions.TareaIdInvalido()
+        return v
+
+    @field_validator("equipo_id")
+    @classmethod
+    def validar_equipo_id(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.EquipoIdInvalido()
+        return v
+
+    @field_validator("autor_id")
+    @classmethod
+    def validar_autor_id(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.AutorIdInvalido()
+        return v
+
+
+class PlanLimpiezaCreate(PlanLimpiezaBase):
+    pass
+
+
+class PlanLimpiezaUpdate(PlanLimpiezaBase):
+    nombre: Optional[str] = None
+    frecuencia: Optional[int] = None
+    tareas_ids: Optional[List[int]] = None
+    equipo_id: Optional[int] = None
+    autor_id: Optional[int] = None
+    activo: Optional[bool] = None
+
+
+class PlanLimpieza(BaseModel):
+    id: int
+    nombre: str
+    frecuencia: int
+    tareas: List[TareaSchema]
+    equipo_id: int
+    autor_id: int
+    activo: bool
+    fecha_creacion: datetime
+    fecha_actualizacion: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+</file>
+
+<file path="backend/src/PlanLimpieza/services.py">
+import logging
+from typing import List
+
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from src.PlanLimpieza import models, schemas, exceptions
+from src.personal.models import Personal
+from src.tareas.models import Tarea
+
+# logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# OPERACIONES CRUD PARA PLAN DE LIMPIEZA
+# ==========================================
+
+
+def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
+    """Verifica que el autor exista, esté activo y tenga permiso de administrar."""
+    db_autor = db.scalar(select(Personal).where(Personal.id == autor_id))
+
+    if db_autor is None:
+        raise exceptions.AutorNoEncontrado()
+
+    if not db_autor.activo:
+        raise exceptions.AutorInactivo()
+
+    if not db_autor.puede_administrar:
+        raise exceptions.AutorSinPermisoDeAdministrar()
+
+    return db_autor
+
+
+def _obtener_tareas(db: Session, tareas_ids: List[int]) -> List[Tarea]:
+    """Verifica que todas las tareas indicadas existan y estén activas, y las devuelve."""
+    tareas = db.scalars(
+        select(Tarea).where(Tarea.id.in_(tareas_ids), Tarea.activo == True)
+    ).all()
+
+    if len(tareas) != len(set(tareas_ids)):
+        raise exceptions.TareasNoEncontradas()
+
+    return tareas
+
+
+def crear_plan_limpieza(
+    db: Session, plan: schemas.PlanLimpiezaCreate
+) -> models.PlanLimpieza:
+    _verificar_autor_administrador(db, plan.autor_id)
+    tareas = _obtener_tareas(db, plan.tareas_ids)
+
+    datos_plan = plan.model_dump(exclude={"tareas_ids"})
+    _plan = models.PlanLimpieza(**datos_plan)
+    _plan.tareas = tareas
+    db.add(_plan)
+
+    try:
+        db.commit()
+        db.refresh(_plan)
+        return _plan
+
+    except IntegrityError as e:
+        db.rollback()
+        mensaje_error = str(e.orig).lower()
+        if "nombre" in mensaje_error:
+            raise exceptions.NombrePlanDuplicado()
+        else:
+            raise exceptions.DatoDuplicado()
+
+
+def listar_planes_limpieza(db: Session) -> List[models.PlanLimpieza]:
+    logger.info("Listando planes de limpieza desde services")
+    # traigo solo los planes activos
+    return db.scalars(
+        select(models.PlanLimpieza).where(models.PlanLimpieza.activo == True)
+    ).all()
+
+
+def leer_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
+    # busco el plan por id
+    db_plan = db.scalar(
+        select(models.PlanLimpieza).where(models.PlanLimpieza.id == plan_id)
+    )
+    if db_plan is None:
+        raise exceptions.PlanLimpiezaNoEncontrado()
+    return db_plan
+
+
+def modificar_plan_limpieza(
+    db: Session, plan_id: int, plan: schemas.PlanLimpiezaUpdate
+) -> models.PlanLimpieza:
+    db_plan = leer_plan_limpieza(db, plan_id)
+
+    datos_a_actualizar = plan.model_dump(exclude_unset=True)
+
+    # si en esta edición se está cambiando el autor, valido el nuevo también
+    if "autor_id" in datos_a_actualizar:
+        _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
+
+    # las tareas se manejan aparte porque "tareas" es una relación M2M,
+    # no una columna, así que no puede ir dentro del update() masivo
+    nuevas_tareas = None
+    if "tareas_ids" in datos_a_actualizar:
+        nuevas_tareas = _obtener_tareas(db, datos_a_actualizar.pop("tareas_ids"))
+
+    if datos_a_actualizar:
+        try:
+            db.execute(
+                update(models.PlanLimpieza)
+                .where(models.PlanLimpieza.id == plan_id)
+                .values(**datos_a_actualizar)
+            )
+
+        except IntegrityError as e:
+            db.rollback()
+            mensaje_error = str(e.orig).lower()
+            if "nombre" in mensaje_error:
+                raise exceptions.NombrePlanDuplicado()
+            else:
+                raise exceptions.DatoDuplicado()
+
+    if nuevas_tareas is not None:
+        db_plan.tareas = nuevas_tareas
+
+    db.commit()
+    db.refresh(db_plan)
+
+    return db_plan
+
+
+def eliminar_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
+    # busco
+    db_plan = leer_plan_limpieza(db, plan_id)
+
+    # BAJA LÓGICA: en vez de borrar de la bd, cambio el estado a inactivo
+    db_plan.activo = False
+    db.commit()
+    db.refresh(db_plan)
+
+    return db_plan
+</file>
+
+<file path="backend/src/tareas/__init__.py">
+
+</file>
+
+<file path="backend/src/tareas/constants.py">
+from enum import Enum
+
+
+class ErrorCode(str, Enum):
+    TAREA_NO_ENCONTRADA = "tarea_no_encontrada"
+    NOMBRE_INVALIDO = "nombre_invalido"
+    NOMBRE_DUPLICADO = "nombre_duplicado"
+    DATO_DUPLICADO = "dato_duplicado"
+</file>
+
+<file path="backend/src/tareas/exceptions.py">
+from src.exceptions import NotFound, BadRequest
+from src.tareas.constants import ErrorCode
+
+
+class TareaNoEncontrada(NotFound):
+    DETAIL = ErrorCode.TAREA_NO_ENCONTRADA
+
+
+class NombreInvalido(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+
+class NombreDuplicado(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_DUPLICADO
+
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+</file>
+
+<file path="backend/src/tareas/models.py">
+from datetime import datetime, date
+from typing import Optional
+from src.models import ModeloBase, plan_limpieza_tareas
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, Date, DateTime
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class Tarea(ModeloBase):
+    __tablename__ = "tareas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(
+        secondary=plan_limpieza_tareas, back_populates="tareas"
+    )
+</file>
+
+<file path="backend/src/tareas/router.py">
+import logging
+from typing import List
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.tareas import schemas, services
+
+# Creamos un logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# Agrupamos las rutas bajo el prefijo /tareas
+router = APIRouter(prefix="/tareas", tags=["tareas"])
+
+
+@router.post("/", response_model=schemas.Tarea)
+def create_tarea(tarea: schemas.TareaCreate, db: Session = Depends(get_db)):
+    return services.crear_tarea(db, tarea)
+
+
+@router.get("/", response_model=List[schemas.Tarea])
+def read_tareas(db: Session = Depends(get_db)):
+    logger.info("Consultando la lista de tareas activas")
+    return services.listar_tareas(db)
+
+
+@router.get("/{tarea_id}", response_model=schemas.Tarea)
+def read_tarea(tarea_id: int, db: Session = Depends(get_db)):
+    return services.leer_tarea(db, tarea_id)
+
+
+@router.put("/{tarea_id}", response_model=schemas.Tarea)
+def update_tarea(
+    tarea_id: int,
+    tarea: schemas.TareaUpdate,
+    db: Session = Depends(get_db),
+):
+    return services.modificar_tarea(db, tarea_id, tarea)
+
+
+@router.delete("/{tarea_id}", response_model=schemas.Tarea)
+def delete_tarea(tarea_id: int, db: Session = Depends(get_db)):
+    return services.eliminar_tarea(db, tarea_id)
+</file>
+
+<file path="backend/src/tareas/schemas.py">
+import re
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from src.tareas import exceptions
+
+
+class TareaBase(BaseModel):
+    nombre: str
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
+            raise exceptions.NombreInvalido()
+        return v.strip()
+
+
+class TareaCreate(TareaBase):
+    pass
+
+
+class TareaUpdate(TareaBase):
+    nombre: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+class Tarea(TareaBase):
+    id: int
+    activo: bool
+
+    model_config = ConfigDict(from_attributes=True)
+</file>
+
+<file path="backend/src/tareas/services.py">
+import logging
+from typing import List
+
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
+
+from src.tareas import models, schemas, exceptions
+
+# logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# OPERACIONES CRUD PARA TAREA
+# ==========================================
+
+
+def crear_tarea(db: Session, tarea: schemas.TareaCreate) -> models.Tarea:
+    _tarea = models.Tarea(**tarea.model_dump())
+    db.add(_tarea)
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error al crear tarea: {e}")
+        #FALTAN EXCEPCIONES ESPECIFICAS PARA LOS ERRORES
+
+
+
+    return _tarea
+
+
+def listar_tareas(db: Session) -> List[models.Tarea]:
+    logger.info("Listando tareas activas desde services")
+    # traigo solo las tareas activas
+    return db.scalars(
+        select(models.Tarea).where(models.Tarea.activo == True)
+    ).all()
+
+
+def leer_tarea(db: Session, tarea_id: int) -> models.Tarea:
+    db_tarea = db.scalar(select(models.Tarea).where(models.Tarea.id == tarea_id))
+    if db_tarea is None:
+        raise exceptions.TareaNoEncontrada()
+    return db_tarea
+
+
+def modificar_tarea(
+    db: Session, tarea_id: int, tarea: schemas.TareaUpdate
+) -> models.Tarea:
+    db_tarea = leer_tarea(db, tarea_id)
+
+    datos_a_actualizar = tarea.model_dump(exclude_unset=True)
+
+    # si se está cambiando el nombre, verifico que no choque con otra tarea
+    if "nombre" in datos_a_actualizar:
+        existente = db.scalar(
+            select(models.Tarea).where(
+                models.Tarea.nombre == datos_a_actualizar["nombre"],
+                models.Tarea.id != tarea_id,
+            )
+        )
+        if existente:
+            raise exceptions.NombreDuplicado()
+
+    if datos_a_actualizar:
+        db.execute(
+            update(models.Tarea)
+            .where(models.Tarea.id == tarea_id)
+            .values(**datos_a_actualizar)
+        )
+        db.commit()
+        db.refresh(db_tarea)
+
+    return db_tarea
+
+
+def eliminar_tarea(db: Session, tarea_id: int) -> models.Tarea:
+    db_tarea = leer_tarea(db, tarea_id)
+
+    # BAJA LÓGICA: en vez de borrar de la bd, cambio el estado a inactivo
+    db_tarea.activo = False
+    db.commit()
+    db.refresh(db_tarea)
+
+    return db_tarea
+</file>
+
 <file path="backend/src/config.py">
 import logging
 
@@ -910,6 +2104,7 @@ def get_logger(name: str) -> logging.Logger:
 </file>
 
 <file path="backend/src/models.py">
+from sqlalchemy import Table, Column, ForeignKey
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -932,6 +2127,17 @@ class ModeloBase(Base):
         # Define un formato de representacion como cadena para el modelo base.
         params = ", ".join(f"{k}={v}" for k, v in keyvalgen(self))
         return f"{self.__class__.__name__}({params})"
+
+
+# Tabla intermedia para la relación muchos a muchos entre PlanLimpieza y Tarea.
+# Vive acá (y no dentro de un módulo puntual) porque la referencian tanto
+# src.PlanLimpieza.models como src.tareas.models.
+plan_limpieza_tareas = Table(
+    "plan_limpieza_tareas",
+    Base.metadata,
+    Column("plan_limpieza_id", ForeignKey("plan_limpieza.id"), primary_key=True),
+    Column("tarea_id", ForeignKey("tareas.id"), primary_key=True),
+)
 </file>
 
 <file path="backend/.env.template">
@@ -3339,6 +4545,38 @@ export const personalRoutes: RouteObject[] = [
 ];
 </file>
 
+<file path="frontend/src/features/planLimpieza/types/planLimpieza.ts">
+export interface PlanLimpieza {
+  id: number;
+  nombre: string;
+  frecuencia: number;
+  tarea_id: number;
+  equipo_id: number;
+  autor_id: number;
+  activo: boolean;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string | null;
+}
+
+// Opciones livianas usadas para poblar los <select> del formulario.
+// Se piden a los endpoints de las otras entidades (tareas, equipos, personal).
+export interface TareaOption {
+  id: number;
+  nombre: string;
+}
+
+export interface EquipoOption {
+  id: number;
+  nombre: string;
+}
+
+export interface PersonalOption {
+  id: number;
+  nombre: string;
+  apellido?: string | null;
+}
+</file>
+
 <file path="frontend/src/features/.gitkeep">
 
 </file>
@@ -5121,73 +6359,6 @@ class TipoUnidadInvalido(ValueError):
         super().init(message)
 </file>
 
-<file path="backend/src/Equipo/models.py">
-from sqlalchemy import Boolean, Enum as SQLEnum
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-#from src.database import Base aber si esto es lo q no anda
-from enum import Enum
-from src.models import ModeloBase
-
-class TipoEquipo(str, Enum):
-    HELADERA = "heladera"
-    HORNO = "horno"
-    BALANZA = "balanza"
-    TERMOMETRO = "termometro"
-
-class Equipo(ModeloBase):
-    __tablename__ = "equipos"
-
-    id: Mapped[int] = mapped_column(primary_key= True, index=True)
-
-    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
-
-    tipo: Mapped[TipoEquipo] = mapped_column(SQLEnum(TipoEquipo), nullable = False)
-
-    ubicacion: Mapped[str] = mapped_column(String(100), nullable=False)
-
-    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    planes: Mapped[list["PlanLimpieza"]] = relationship(back_populates="equipo")
-</file>
-
-<file path="backend/src/personal/models.py">
-from datetime import datetime, date
-from typing import Optional
-from src.models import ModeloBase
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, Date, DateTime
-
-class Personal(ModeloBase):
-    __tablename__ = "personal"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-
-    nombre: Mapped[str] = mapped_column(String(40),index=True)
-    apellido: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
-    dni: Mapped[str] = mapped_column(String(8), unique=True, index=True)
-    telefono: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
-    email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
-
-    puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
-    puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    planes: Mapped[list["PlanLimpieza"]] = relationship(
-        back_populates="autor"
-    )
-
-    # - Opcional , esta bueno
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
-
-    # - A futuro la entidad tendria una conexion con documentos, los cuales seran otra tabla aparte
-    # - Y seria una relacion de uno a muchos, la cual condicionaria si el personal puede operar y si puede administrar.
-    # - documentos: Mapped[Optional[List["Documento"]]] = relationship("Documento", back_populates="persona")
-</file>
-
 <file path="backend/src/personal/schemas.py">
 import re
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -5320,6 +6491,10 @@ export default function Navbar() {
         Equipos
       </Link>
 
+      <Link to="/planes-limpieza" style={estiloLink}>
+        Planes de Limpieza
+      </Link>
+
       {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
       {/* se usa <span> en lugar de <Link> porque son vistas que todavía no están desarrolladas.
           les dejo por ahora un cursor de "no permitido" y un color más apagado para indicar que aun no las hice lol. */}
@@ -5410,6 +6585,37 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 }
 </file>
 
+<file path="backend/src/Equipo/models.py">
+from sqlalchemy import Boolean, Enum as SQLEnum
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+#from src.database import Base aber si esto es lo q no anda
+from enum import Enum
+from src.models import ModeloBase
+
+class TipoEquipo(str, Enum):
+    HELADERA = "heladera"
+    HORNO = "horno"
+    BALANZA = "balanza"
+    TERMOMETRO = "termometro"
+
+class Equipo(ModeloBase):
+    __tablename__ = "equipos"
+
+    id: Mapped[int] = mapped_column(primary_key= True, index=True)
+
+    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    tipo: Mapped[TipoEquipo] = mapped_column(SQLEnum(TipoEquipo), nullable = False)
+
+    ubicacion: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(back_populates="equipo")
+</file>
+
 <file path="backend/src/Equipo/schemas.py">
 from pydantic import BaseModel, ConfigDict, field_validator, Field
 from src.Equipo.models import TipoEquipo
@@ -5474,6 +6680,101 @@ class EquipoResponse(EquipoBase):
     activo: bool
 
     model_config = ConfigDict(from_attributes=True)
+</file>
+
+<file path="backend/src/personal/models.py">
+from datetime import datetime, date
+from typing import Optional
+from src.models import ModeloBase
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Boolean, Date, DateTime
+
+class Personal(ModeloBase):
+    __tablename__ = "personal"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    nombre: Mapped[str] = mapped_column(String(40),index=True)
+    apellido: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    dni: Mapped[str] = mapped_column(String(8), unique=True, index=True)
+    telefono: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
+    email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+
+    puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
+    puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    planes: Mapped[list["PlanLimpieza"]] = relationship(
+        back_populates="autor"
+    )
+
+    # - Opcional , esta bueno
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+
+    # - A futuro la entidad tendria una conexion con documentos, los cuales seran otra tabla aparte
+    # - Y seria una relacion de uno a muchos, la cual condicionaria si el personal puede operar y si puede administrar.
+    # - documentos: Mapped[Optional[List["Documento"]]] = relationship("Documento", back_populates="persona")
+</file>
+
+<file path="backend/src/Equipo/services.py">
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from .exceptions import EquipoNoEncontrado
+from .models import Equipo
+from .schemas import EquipoCreate, EquipoUpdate
+
+def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
+    nuevo_equipo = Equipo(**datos.model_dump())
+    db.add(nuevo_equipo)
+    db.commit()
+    db.refresh(nuevo_equipo)
+
+    return nuevo_equipo
+
+def listar_equipos(db: Session) -> list[Equipo]:
+    consulta = (
+        select(Equipo)
+        .where(Equipo.activo.is_(True))
+        .order_by(Equipo.id)
+    )
+
+    return list(db.scalars(consulta).all())
+
+def obtener_equipo(db: Session, equipo_id:int)-> Equipo:
+    equipo: Equipo = db.get(Equipo, equipo_id)
+
+    if equipo is None:
+        raise EquipoNoEncontrado(equipo_id)
+
+    return equipo
+
+def actualizar_equipo(db: Session, equipo_id: int, datos: EquipoUpdate)-> Equipo:
+    equipo = obtener_equipo(db, equipo_id)
+
+    cambios = datos.model_dump(
+        exclude_unset=True, exclude_none=True
+    )
+
+    for atributo, valor in cambios.items():
+        setattr(equipo, atributo, valor)
+
+    db.commit()
+    db.refresh(equipo)
+
+    return equipo
+
+def dar_de_baja_equipo(db:Session, equipo_id: int)-> Equipo:
+    equipo = obtener_equipo(db, equipo_id)
+
+    equipo.activo = False
+
+    db.commit()
+    db.refresh(equipo)
+
+    return equipo
 </file>
 
 <file path="backend/src/personal/services.py">
@@ -5571,65 +6872,6 @@ def eliminar_persona(db: Session, persona_id: int) -> Personal:
     return db_persona
 </file>
 
-<file path="backend/src/Equipo/services.py">
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from .exceptions import EquipoNoEncontrado
-from .models import Equipo
-from .schemas import EquipoCreate, EquipoUpdate
-
-def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
-    nuevo_equipo = Equipo(**datos.model_dump())
-    db.add(nuevo_equipo)
-    db.commit()
-    db.refresh(nuevo_equipo)
-
-    return nuevo_equipo
-
-def listar_equipos(db: Session) -> list[Equipo]:
-    consulta = (
-        select(Equipo)
-        .where(Equipo.activo.is_(True))
-        .order_by(Equipo.id)
-    )
-
-    return list(db.scalars(consulta).all())
-
-def obtener_equipo(db: Session, equipo_id:int)-> Equipo:
-    equipo: Equipo = db.get(Equipo, equipo_id)
-
-    if equipo is None:
-        raise EquipoNoEncontrado(equipo_id)
-
-    return equipo
-
-def actualizar_equipo(db: Session, equipo_id: int, datos: EquipoUpdate)-> Equipo:
-    equipo = obtener_equipo(db, equipo_id)
-
-    cambios = datos.model_dump(
-        exclude_unset=True, exclude_none=True
-    )
-
-    for atributo, valor in cambios.items():
-        setattr(equipo, atributo, valor)
-
-    db.commit()
-    db.refresh(equipo)
-
-    return equipo
-
-def dar_de_baja_equipo(db:Session, equipo_id: int)-> Equipo:
-    equipo = obtener_equipo(db, equipo_id)
-
-    equipo.activo = False
-
-    db.commit()
-    db.refresh(equipo)
-
-    return equipo
-</file>
-
 <file path="frontend/src/router.tsx">
 import { createBrowserRouter } from "react-router-dom";
 import Navbar from "./common/components/Navbar";
@@ -5649,6 +6891,10 @@ import { InsumoEditPage } from "./features/insumos/components/pages/insumoEditPa
 import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
+
+import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanLimpiezaPage";
+import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
+import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/PlanLimpiezaEditPage";
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
@@ -5678,7 +6924,7 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
-  
+
   // --- RUTAS DE PERSONAL ---
   {
     path: "/personal",
@@ -5764,6 +7010,31 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+  // --- RUTAS DE PLANES DE LIMPIEZA ---
+  {
+    path: "/planes-limpieza",
+    element: (
+      <LayoutPrincipal>
+        <PlanLimpiezaPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/planes-limpieza/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <PlanLimpiezaCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/planes-limpieza/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <PlanLimpiezaEditPage />
+      </LayoutPrincipal>
+    ),
+  },
 ]);
 </file>
 
@@ -5794,6 +7065,7 @@ from src.PlanLimpieza import models as plan_limpieza_models
 from src.PlanLimpieza.router import router as plan_limpieza_router
 
 from src.tareas import models as tareas_models
+from src.tareas.router import router as tareas_router
 
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
@@ -5829,6 +7101,7 @@ app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
 app.include_router(plan_limpieza_router)
+app.include_router(tareas_router)
 #crear tabla registrada en SQLAlchemy
 ModeloBase.metadata.create_all(bind=engine)
 </file>

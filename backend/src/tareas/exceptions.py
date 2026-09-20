@@ -13,5 +13,14 @@ class NombreInvalido(BadRequest):
 class NombreDuplicado(BadRequest):
     DETAIL = ErrorCode.NOMBRE_DUPLICADO
 
+
 class DatoDuplicado(BadRequest):
     DETAIL = ErrorCode.DATO_DUPLICADO
+
+
+class PlanLimpiezaIdInvalido(BadRequest):
+    DETAIL = ErrorCode.PLAN_LIMPIEZA_ID_INVALIDO
+
+
+class PlanLimpiezaNoEncontrado(NotFound):
+    DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO

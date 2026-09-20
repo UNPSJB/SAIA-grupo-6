@@ -7,7 +7,6 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-
 class PlanLimpieza(ModeloBase):
     __tablename__ = "plan_limpieza"
 
@@ -18,14 +17,16 @@ class PlanLimpieza(ModeloBase):
 
     frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"))
     equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"))
     autor_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))
 
-    tarea: Mapped["Tarea"] = relationship(back_populates="planes")
+    # Relación 1-N: cada tarea es propia de este plan (no se comparte entre
+    # planes). Si se borra el plan, se borran sus tareas con él.
+    tareas: Mapped[list["Tarea"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan"
+    )
     equipo: Mapped["Equipo"] = relationship(back_populates="planes")
     autor: Mapped["Personal"] = relationship(back_populates="planes")
-    
 
     # - Opcional , esta bueno
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

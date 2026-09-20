@@ -17,6 +17,10 @@ import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
 
+import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanLimpiezaPage";
+import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
+import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/PlanLimpiezaEditPage";
+
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
@@ -45,7 +49,7 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
-  
+
   // --- RUTAS DE PERSONAL ---
   {
     path: "/personal",
@@ -128,6 +132,31 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <EquipoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+  // --- RUTAS DE PLANES DE LIMPIEZA ---
+  {
+    path: "/planes-limpieza",
+    element: (
+      <LayoutPrincipal>
+        <PlanLimpiezaPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/planes-limpieza/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <PlanLimpiezaCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/planes-limpieza/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <PlanLimpiezaEditPage />
       </LayoutPrincipal>
     ),
   },
