@@ -4,7 +4,7 @@ from src.models import ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, Boolean, Date, DateTime
 
-class Persona(ModeloBase):
+class Personal(ModeloBase):
     __tablename__ = "personal"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)

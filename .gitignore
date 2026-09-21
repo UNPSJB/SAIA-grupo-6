@@ -329,3 +329,5 @@ sketch
 #extension de historial
 .history/
 .lh/
+
+repomix-output.xml

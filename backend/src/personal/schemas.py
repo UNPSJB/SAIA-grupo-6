@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 from src.personal import exceptions
@@ -14,6 +14,12 @@ class PersonaBase(BaseModel):
     puede_operar: bool = False
     puede_administrar: bool = False
 
+    @model_validator(mode='after')
+    def validar_capacidades(self):
+        if not self.puede_operar and not self.puede_administrar:
+            raise ValueError("Debe asignar al menos una capacidad (operar o administrar).")
+        return self 
+    
     @field_validator("nombre")
     @classmethod
     def validar_nombre(cls, v: str) -> str:
