@@ -25,9 +25,10 @@ def crear_equipo(
     response_model=list[schemas.EquipoResponse]
 )
 def listar_equipo(
+    incluir_inactivos: bool = False,
     db:Session = Depends(get_db)
 ):
-    return services.listar_equipos(db)
+    return services.listar_equipos(db, incluir_inactivos)
 
 @router.get(
     "/{equipo_id}",

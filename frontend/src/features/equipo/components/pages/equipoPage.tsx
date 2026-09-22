@@ -10,10 +10,12 @@ import {
   Pagination,
   Spinner,
   Text,
+  Switch,
 } from "@chakra-ui/react";
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { EquipoTable } from "../equipoTable";
 import { DeleteEquipoDialog } from "../DeleteEquipoDialog";
+import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useEquipos } from "../../hooks/useEquipos";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import type { Equipo } from "../../types/equipo";
@@ -23,16 +25,34 @@ const PAGE_SIZE = 10;
 
 export function EquiposPage() {
   const navigate = useNavigate();
-  const { equipos, loading, error, cargarEquipos } = useEquipos();
-  const { borrar, loading: borrando } = useEquipoABM();
-
-  const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
+  const [verInactivos, setVerInactivos] = useState(false);
   const [page, setPage] = useState(1);
 
+  const { equipos, loading, error, cargarEquipos } = useEquipos(verInactivos);
+  const { borrar, reactivar, loading: procesando } = useEquipoABM();
+
+  const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
+  const [equipoAReactivar, setEquipoAReactivar] = useState<Equipo | null>(null);
+
   const equiposPaginados = useMemo(() => {
+    const filtrados = equipos.filter(e => verInactivos ? !e.activo : e.activo);
     const start = (page - 1) * PAGE_SIZE;
-    return equipos.slice(start, start + PAGE_SIZE);
-  }, [equipos, page]);
+    return filtrados.slice(start, start + PAGE_SIZE);
+  }, [equipos, page, verInactivos]);
+
+  const handleConfirmReactivar = async () => {
+    if (!equipoAReactivar) return;
+    try {
+      await reactivar(equipoAReactivar.id, {
+        nombre: equipoAReactivar.nombre,
+        tipo: equipoAReactivar.tipo,
+        ubicacion: equipoAReactivar.ubicacion,
+        activo: true
+      });
+      setEquipoAReactivar(null);
+      await cargarEquipos();
+    } catch {}
+  };
 
   const handleEdit = (equipo: Equipo) => {
     navigate(`/equipos/${equipo.id}/editar`);
@@ -42,47 +62,45 @@ export function EquiposPage() {
     setEquipoAEliminar(equipo);
   };
 
-  const handleCloseDialog = () => {
-    if (borrando) return;
+  const handleCloseDeleteDialog = () => {
+    if (procesando) return;
     setEquipoAEliminar(null);
   };
 
   const handleConfirmDelete = async () => {
     if (!equipoAEliminar) return;
-
     try {
       await borrar(equipoAEliminar.id);
       setEquipoAEliminar(null);
       await cargarEquipos();
-    } catch {
-      // El error ya queda reflejado en useEquipoABM().error
-    }
+    } catch { }
   };
 
   return (
     <Box style={{ padding: "20px" }}>
       <HStack justify="space-between" mb="20px">
-        {/* size="md" = 24px, como el <h2> por defecto del navegador */}
         <Heading as="h2" size="md" fontWeight="bold" color="black">
-          Gestión de Equipos
+          {verInactivos ? "Equipos Dados de Baja" : "Gestión de Equipos"}
         </Heading>
         <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
-          fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL }}
-          onClick={() => navigate("/equipos/nuevo")}
+          bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px"
+          _hover={{ bg: TEAL }} onClick={() => navigate("/equipos/nuevo")}
         >
           + Agregar
         </Button>
       </HStack>
 
-      {loading && <Spinner />}
+      <HStack justify="flex-end" mb="20px">
+        <Switch.Root checked={verInactivos} onCheckedChange={(e) => { setVerInactivos(e.checked); setPage(1); }} colorPalette="gray">
+          <Switch.HiddenInput />
+          <Switch.Control />
+          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? "#d9534f" : "#555", fontWeight: verInactivos ? "bold" : "normal" }}>
+            Ver dados de baja
+          </Switch.Label>
+        </Switch.Root>
+      </HStack>
 
+      {loading && <Spinner />}
       {!loading && error && <Text color="red.500">{error}</Text>}
 
       {!loading && !error && (
@@ -91,15 +109,13 @@ export function EquiposPage() {
             equipos={equiposPaginados}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
+            onReactivar={(equipo) => setEquipoAReactivar(equipo)}
           />
 
-          {equipos.length > PAGE_SIZE && (
+          {equipos.filter(e => verInactivos ? !e.activo : e.activo).length > PAGE_SIZE && (
             <Pagination.Root
-              count={equipos.length}
-              pageSize={PAGE_SIZE}
-              page={page}
-              onPageChange={(e) => setPage(e.page)}
-              mt="16px"
+              count={equipos.filter(e => verInactivos ? !e.activo : e.activo).length}
+              pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)} mt="16px"
             >
               <HStack justify="center">
                 <ButtonGroup variant="ghost" size="sm">
@@ -108,13 +124,8 @@ export function EquiposPage() {
                       const isSelected = pageItem.value === page;
                       return (
                         <IconButton
-                          aria-label={`Página ${pageItem.value}`}
-                          bg={isSelected ? TEAL : "transparent"}
-                          color={isSelected ? "white" : TEAL}
-                          border={isSelected ? "none" : `1px solid ${TEAL}`}
-                          _hover={{
-                            bg: isSelected ? TEAL : `${TEAL}1A`,
-                          }}
+                          aria-label={`Página ${pageItem.value}`} bg={isSelected ? TEAL : "transparent"} color={isSelected ? "white" : TEAL} border={isSelected ? "none" : `1px solid ${TEAL}`}
+                          _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}
                         >
                           {pageItem.value}
                         </IconButton>
@@ -131,9 +142,17 @@ export function EquiposPage() {
       <DeleteEquipoDialog
         isOpen={equipoAEliminar !== null}
         equipo={equipoAEliminar}
-        isLoading={borrando}
-        onClose={handleCloseDialog}
+        isLoading={procesando}
+        onClose={handleCloseDeleteDialog}
         onConfirm={handleConfirmDelete}
+      />
+
+      <ConfirmarReactivacionDialog
+        isOpen={equipoAReactivar !== null}
+        mensaje={`¿Estás seguro que deseas reactivar el equipo ${equipoAReactivar?.nombre}?`}
+        isLoading={procesando}
+        onCancel={() => { if (!procesando) setEquipoAReactivar(null); }}
+        onConfirm={handleConfirmReactivar}
       />
     </Box>
   );

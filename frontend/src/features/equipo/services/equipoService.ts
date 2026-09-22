@@ -2,8 +2,9 @@ import type { Equipo } from "../types/equipo";
 
 const API_URL = "http://localhost:8000";
 
-export async function listarEquipos(): Promise<Equipo[]> {
-  const response = await fetch(`${API_URL}/equipos`);
+export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]> {
+  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+  const response = await fetch(`${API_URL}/equipos${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -74,4 +75,17 @@ export async function eliminarEquipo(id: number): Promise<void> {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Error al eliminar el equipo");
   }
+}
+
+export async function reactivarEquipo(id: number, equipo: Omit<Equipo, "id">): Promise<Equipo> {
+  const response = await fetch(`${API_URL}/equipos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...equipo, activo: true }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al reactivar el equipo");
+  }
+  return response.json();
 }

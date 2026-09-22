@@ -1,9 +1,5 @@
 import { useState } from "react";
-import {
-    crearEquipo,
-    modificarEquipo,
-    eliminarEquipo,
-} from "../services/equipoService";
+import { crearEquipo, modificarEquipo, eliminarEquipo, reactivarEquipo } from "../services/equipoService";
 import type { Equipo } from "../types/equipo";
 
 export function useEquipoABM() {
@@ -58,10 +54,24 @@ export function useEquipoABM() {
         }
     };
 
+    const reactivar = async (id: number, equipo: Omit<Equipo, "id">) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await reactivarEquipo(id, equipo);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Error al reactivar");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         alta,
         modificar,
         borrar,
+        reactivar,
         loading,
         error,
     };
