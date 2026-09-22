@@ -1,5 +1,5 @@
 import logging
-from typing import List 
+from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from src.database import get_db
@@ -16,9 +16,9 @@ def create_persona(persona: schemas.PersonaCreate, db: Session = Depends(get_db)
     return services.crear_persona(db, persona)
 
 @router.get("/", response_model=List[schemas.Persona])
-def read_personas(db: Session = Depends(get_db)):
-    logger.info("Consultando la lista de personal activo")
-    return services.listar_personas(db)
+def read_personas(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
+    logger.info("Consultando la lista de personal (incluir_inactivos=%s)", incluir_inactivos)
+    return services.listar_personas(db, incluir_inactivos)
 
 @router.get("/{persona_id}", response_model=schemas.Persona)
 def read_persona(persona_id: int, db: Session = Depends(get_db)):

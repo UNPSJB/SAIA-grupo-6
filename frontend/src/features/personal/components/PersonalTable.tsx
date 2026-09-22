@@ -6,15 +6,16 @@ interface PersonalTableProps {
   personales: Persona[];
   onEdit: (persona: Persona) => void;
   onDelete: (persona: Persona) => void;
+  onReactivar: (persona: Persona) => void; // <- NUEVO
 }
 
 const TEAL = "#468189";
 
-export function PersonalTable({ personales, onEdit, onDelete }: PersonalTableProps) {
+export function PersonalTable({ personales, onEdit, onDelete, onReactivar }: PersonalTableProps) {
   if (personales.length === 0) {
     return (
       <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
-        <Text color="gray.500">No hay personal cargado.</Text>
+        <Text color="gray.500">No hay personal para mostrar.</Text>
       </Box>
     );
   }
@@ -34,7 +35,7 @@ export function PersonalTable({ personales, onEdit, onDelete }: PersonalTablePro
         </Table.Header>
         <Table.Body>
           {personales.map((persona) => (
-            <PersonalItem key={persona.id} persona={persona} onEdit={onEdit} onDelete={onDelete} />
+            <PersonalItem key={persona.id} persona={persona} onEdit={onEdit} onDelete={onDelete} onReactivar={onReactivar} />
           ))}
         </Table.Body>
       </Table.Root>

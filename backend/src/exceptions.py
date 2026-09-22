@@ -37,3 +37,24 @@ class NotAuthenticated(DetailedHTTPException):
 
     def __init__(self) -> None:
         super().__init__(headers={"WWW-Authenticate": "Bearer"})
+
+class ConflictoRegistroInactivo(HTTPException):
+    """
+    Se lanza cuando ya existe un registro con el mismo valor único
+    (dni, email, nombre, número de serie, etc.) pero está dado de baja
+    lógicamente (activo=False).
+
+    A diferencia de un error de negocio común, este no debe bloquear
+    silenciosamente al usuario: el frontend puede leer `id` y `campo`
+    del detail y ofrecerle reactivar ese registro con los datos nuevos
+    en vez de simplemente rechazar la operación.
+
+    Reutilizable por cualquier entidad con baja lógica (Personal, Equipo,
+    Insumos), ya que no depende de ningún campo específico de una entidad.
+    """
+
+    def __init__(self, mensaje: str, entidad_id: int, campo: str) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"mensaje": mensaje, "id": entidad_id, "campo": campo, "tipo": "inactivo"},
+        )
