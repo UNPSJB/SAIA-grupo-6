@@ -88,19 +88,28 @@ def modificar_plan_limpieza(
 
     datos_a_actualizar = plan.model_dump(exclude_unset=True)
 
-    # si en esta edición se está cambiando el autor, valido el nuevo también
     if "autor_id" in datos_a_actualizar:
         _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
 
-    # las tareas se manejan aparte: no son una columna sino una lista de
-    # entidades hijas propias del plan (relación 1-N, no un M2M), así que no
-    # pueden ir dentro del update() masivo. Se reemplaza la lista completa;
-    # gracias a cascade="all, delete-orphan" las tareas viejas se eliminan solas.
-    nuevas_tareas = None
+    # Manejo seguro de tareas sin DELETE destructivo
     if "tareas" in datos_a_actualizar:
-        nuevas_tareas = _crear_tareas_del_plan(
-            [TareaInput(**t) for t in datos_a_actualizar.pop("tareas")]
-        )
+        tareas_input = datos_a_actualizar.pop("tareas")
+        nombres_nuevos = [t["nombre"] for t in tareas_input if t.get("nombre")]
+
+        # 1. Tareas existentes asociadas a este plan
+        tareas_actuales = {t.nombre: t for t in db_plan.tareas}
+
+        # 2. Desactivar tareas que se eliminaron del plan en lugar de borrarlas con DELETE
+        for t in db_plan.tareas:
+            if t.nombre not in nombres_nuevos:
+                t.activo = False
+
+        # 3. Agregar o reactivar las que vienen en la petición
+        for nombre in nombres_nuevos:
+            if nombre in tareas_actuales:
+                tareas_actuales[nombre].activo = True
+            else:
+                db_plan.tareas.append(Tarea(nombre=nombre))
 
     if datos_a_actualizar:
         try:
@@ -109,7 +118,6 @@ def modificar_plan_limpieza(
                 .where(models.PlanLimpieza.id == plan_id)
                 .values(**datos_a_actualizar)
             )
-
         except IntegrityError as e:
             db.rollback()
             mensaje_error = str(e.orig).lower()
@@ -117,9 +125,6 @@ def modificar_plan_limpieza(
                 raise exceptions.NombrePlanDuplicado()
             else:
                 raise exceptions.DatoDuplicado()
-
-    if nuevas_tareas is not None:
-        db_plan.tareas = nuevas_tareas
 
     db.commit()
     db.refresh(db_plan)

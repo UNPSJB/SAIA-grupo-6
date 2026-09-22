@@ -26,6 +26,9 @@ from src.PlanLimpieza.router import router as plan_limpieza_router
 from src.tareas import models as tareas_models
 from src.tareas.router import router as tareas_router
 
+from src.checklist import models as checklist_models
+from src.checklist.router import router as checklist_router
+
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
 
@@ -54,12 +57,10 @@ app.add_middleware(
 
 # asociamos los routers a nuestra app
 app.include_router(personal_router)
-#app.include_router(insumos_router)
-#app.include_router(personas_router)
-#app.include_router(mascotas_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
 app.include_router(plan_limpieza_router)
 app.include_router(tareas_router)
+app.include_router(checklist_router)
 #crear tabla registrada en SQLAlchemy
 ModeloBase.metadata.create_all(bind=engine)

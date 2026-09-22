@@ -21,6 +21,8 @@ import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanL
 import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
 import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/PlanLimpiezaEditPage";
 
+import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
+
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
@@ -157,6 +159,14 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <PlanLimpiezaEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/checklist",
+    element: (
+      <LayoutPrincipal>
+        <ChecklistPage />
       </LayoutPrincipal>
     ),
   },

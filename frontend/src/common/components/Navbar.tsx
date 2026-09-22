@@ -73,6 +73,10 @@ export default function Navbar() {
         Planes de Limpieza
       </Link>
 
+      <Link to="/checklist" style={estiloLink}>
+        Checklist Diario
+      </Link>
+
       {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
       {/* se usa <span> en lugar de <Link> porque son vistas que todavía no están desarrolladas.
           les dejo por ahora un cursor de "no permitido" y un color más apagado para indicar que aun no las hice lol. */}
