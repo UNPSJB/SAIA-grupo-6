@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import Navbar from "./common/components/Navbar";
 
-// 1. Importaciones del módulo de Personal (Refactorizado con Chakra)
+// 1. Importaciones del módulo de Personal
 import { PersonalPage } from "./features/personal/components/pages/PersonalPage";
 import { PersonalCreatePage } from "./features/personal/components/pages/PersonalCreatePage";
 import { PersonalEditPage } from "./features/personal/components/pages/PersonalEditPage";
@@ -16,6 +16,11 @@ import { InsumoEditPage } from "./features/insumos/components/pages/insumoEditPa
 import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
+
+// 4. Importaciones del módulo Insumo Químico 
+import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
+import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
+import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
@@ -45,7 +50,7 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
-  
+
   // --- RUTAS DE PERSONAL ---
   {
     path: "/personal",
@@ -128,6 +133,32 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <EquipoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE INSUMOS QUÍMICOS ---
+  {
+    path: "/insumos-quimicos",
+    element: (
+      <LayoutPrincipal>
+        <InsumosQuimicosPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/insumos-quimicos/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <InsumoQuimicoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/insumos-quimicos/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <InsumoQuimicoEditPage />
       </LayoutPrincipal>
     ),
   },
