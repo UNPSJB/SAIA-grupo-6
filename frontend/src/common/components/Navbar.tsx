@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 // SIDEBAR
 export default function Navbar() {
   return (
-    // la etiqueta <nav> es semántica, se le da el ancho, el color
-    // y hao que ocupe todo el alto de la pantalla (minHeight: '100vh')
+    // La etiqueta <nav> es semántica, se le da el ancho, el color
+    // y hace que ocupe todo el alto de la pantalla.
     <nav
       style={{
         width: "250px",
@@ -18,8 +18,7 @@ export default function Navbar() {
         boxShadow: "2px 0 5px rgba(0,0,0,0.1)",
       }}
     >
-      {/* LOGO Y TÍTULO}
-      {/* esta eñ contenedor flexible para alinear el ícono y el texto horizontalmente */}
+      {/* LOGO Y TÍTULO */}
       <div
         style={{
           display: "flex",
@@ -28,9 +27,7 @@ export default function Navbar() {
           marginBottom: "20px",
         }}
       >
-        {/* Ícono: Escudo con tilde. 
-            Chamuyo: se eligió para representar gráficamente la seguridad e inocuidad del sistema SAIA. 
-            yo lo dejo porq va directo en pantalla sin necesidad de cargar foto externa. */}
+        {/* Ícono: Escudo con tilde */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="32"
@@ -46,21 +43,22 @@ export default function Navbar() {
           <path d="m9 12 2 2 4-4"></path>
         </svg>
 
-        {/* NOMBRE DEL SIST */}
+        {/* NOMBRE DEL SISTEMA */}
         <h2 style={{ fontSize: "26px", margin: 0, letterSpacing: "1px" }}>
           SAIA
         </h2>
       </div>
-      {/* --------------------------------- */}
 
-      {/* --- SECCIÓN DE ENLACES (RUTAS ACTIVAS) --- */}
-      {/* se usa el <Link> de React Router para navegar sin que la página se recargue entera de una*/}
+      {/* --- SECCIÓN DE ENLACES --- */}
+
       <Link to="/" style={estiloLink}>
         Inicio
       </Link>
+
       <Link to="/personal" style={estiloLink}>
         Personal
       </Link>
+
       <Link to="/insumos" style={estiloLink}>
         Insumos
       </Link>
@@ -77,9 +75,11 @@ export default function Navbar() {
         Checklist Diario
       </Link>
 
-      {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
-      {/* se usa <span> en lugar de <Link> porque son vistas que todavía no están desarrolladas.
-          les dejo por ahora un cursor de "no permitido" y un color más apagado para indicar que aun no las hice lol. */}
+      <Link to="/insumos-quimicos" style={estiloLink}>
+        Insumos Químicos
+      </Link>
+
+      {/* --- SECCIÓN DE MÓDULOS FUTUROS --- */}
       <span
         style={{
           color: "#d8e2dc",
@@ -95,14 +95,13 @@ export default function Navbar() {
 }
 
 // --- ESTILOS EXTRAÍDOS ---
-// se separan los estilos de los links activos en una constante para no repetir código.
-// mantiene el HTML más limpio y fácil de leer.
+
 const estiloLink = {
   color: "white",
   textDecoration: "none",
   padding: "12px 15px",
   borderRadius: "6px",
-  backgroundColor: "rgba(255, 255, 255, 0.15)", // le meto un blanco transparente para resaltar el botón
-  fontWeight: "bold" as const, // 'as const' es necesario para que TypeScript no se queje con los pesos de fuente
-  transition: "background 0.2s", // lo hace mas suave para si mas adelante le agregamos mas cosas
+  backgroundColor: "rgba(255, 255, 255, 0.15)",
+  fontWeight: "bold" as const,
+  transition: "background 0.2s",
 };

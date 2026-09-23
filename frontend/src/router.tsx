@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import Navbar from "./common/components/Navbar";
 
-// 1. Importaciones del módulo de Personal (Refactorizado con Chakra)
+// 1. Importaciones del módulo de Personal
 import { PersonalPage } from "./features/personal/components/pages/PersonalPage";
 import { PersonalCreatePage } from "./features/personal/components/pages/PersonalCreatePage";
 import { PersonalEditPage } from "./features/personal/components/pages/PersonalEditPage";
@@ -17,11 +17,18 @@ import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
 
+// 4. Importaciones del módulo de Planes de Limpieza
 import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanLimpiezaPage";
 import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
 import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/PlanLimpiezaEditPage";
 
+// 5. Importaciones del módulo de Checklist
 import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
+
+// 6. Importaciones del módulo de Insumos Químicos
+import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
+import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
+import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
@@ -137,6 +144,7 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+
   // --- RUTAS DE PLANES DE LIMPIEZA ---
   {
     path: "/planes-limpieza",
@@ -162,11 +170,39 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+
+  // --- RUTAS DE CHECKLIST ---
   {
     path: "/checklist",
     element: (
       <LayoutPrincipal>
         <ChecklistPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE INSUMOS QUÍMICOS ---
+  {
+    path: "/insumos-quimicos",
+    element: (
+      <LayoutPrincipal>
+        <InsumosQuimicosPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/insumos-quimicos/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <InsumoQuimicoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/insumos-quimicos/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <InsumoQuimicoEditPage />
       </LayoutPrincipal>
     ),
   },

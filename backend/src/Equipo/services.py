@@ -13,13 +13,10 @@ def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
 
     return nuevo_equipo
 
-def listar_equipos(db: Session) -> list[Equipo]:
-    consulta = (
-        select(Equipo)
-        .where(Equipo.activo.is_(True))
-        .order_by(Equipo.id)
-    )
-
+def listar_equipos(db: Session, incluir_inactivos: bool = False) -> list[Equipo]:
+    consulta = select(Equipo).order_by(Equipo.id)
+    if not incluir_inactivos:
+        consulta = consulta.where(Equipo.activo.is_(True))
     return list(db.scalars(consulta).all())
 
 def obtener_equipo(db: Session, equipo_id:int)-> Equipo:

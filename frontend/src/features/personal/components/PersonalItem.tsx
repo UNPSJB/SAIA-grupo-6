@@ -6,15 +6,16 @@ interface PersonalItemProps {
   persona: Persona;
   onEdit: (persona: Persona) => void;
   onDelete: (persona: Persona) => void;
+  onReactivar: (persona: Persona) => void; // Recibimos el método desde la tabla
 }
 
 const TEAL = "#468189";
 
-export function PersonalItem({ persona, onEdit, onDelete }: PersonalItemProps) {
+export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: PersonalItemProps) {
   const navigate = useNavigate();
 
   return (
-    <Table.Row style={{ borderBottom: "1px solid #eee" }}>
+    <Table.Row style={{ borderBottom: "1px solid #eee", opacity: persona.activo ? 1 : 0.65 }}>
       <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
         #{persona.id}
       </Table.Cell>
@@ -39,12 +40,21 @@ export function PersonalItem({ persona, onEdit, onDelete }: PersonalItemProps) {
       </Table.Cell>
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center" style={{ gap: "10px" }}>
-          <Button bg="#f0ad4e" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#f0ad4e" }} onClick={() => onEdit(persona)}>
-            Modificar
-          </Button>
-          <Button bg="#d9534f" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#d9534f" }} onClick={() => onDelete(persona)}>
-            Eliminar
-          </Button>
+          {persona.activo && (
+            <Button bg="#f0ad4e" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#f0ad4e" }} onClick={() => onEdit(persona)}>
+              Modificar
+            </Button>
+          )}
+          
+          {persona.activo ? (
+            <Button bg="#d9534f" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#d9534f" }} onClick={() => onDelete(persona)}>
+              Eliminar
+            </Button>
+          ) : (
+            <Button bg="#28a745" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#218838" }} onClick={() => onReactivar(persona)}>
+              Reactivar
+            </Button>
+          )}
         </HStack>
       </Table.Cell>
     </Table.Row>

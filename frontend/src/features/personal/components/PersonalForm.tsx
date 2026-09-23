@@ -20,16 +20,24 @@ const estiloLabel = { display: "block", fontSize: "14px", fontWeight: "bold" as 
 
 export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
+  const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!values.nombre.trim()) return;
+
+    if (!values.puede_operar && !values.puede_administrar) {
+        setErrorCapacidades("Debés seleccionar al menos una capacidad (Operar o Administrar).");
+        return;
+    }
+    setErrorCapacidades(null);
+
     onSubmit({
       ...values,
       apellido: values.apellido || null,
       telefono: values.telefono || null
     });
-  };
-
+};
   return (
     <Box as="form" onSubmit={handleSubmit} style={{ backgroundColor: "#ffffff", padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}>
       <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189", marginBottom: "20px" }}>{title}</Box>
@@ -62,6 +70,12 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
           <Input value={values.telefono || ""} onChange={(e) => setValues({ ...values, telefono: e.target.value })} style={estiloInput} />
         </Field.Root>
       </Box>
+      
+      {errorCapacidades && (
+      <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+        ⚠️ {errorCapacidades}
+      </Box>
+      )}
 
       <HStack gap="25px" mb="25px">
         <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>

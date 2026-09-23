@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listarEquipos } from "../services/equipoService";
 import type { Equipo } from "../types/equipo";
 
-export function useEquipos() {
+export function useEquipos(incluirInactivos = false) {
     const [equipos, setEquipos] = useState<Equipo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -11,8 +11,7 @@ export function useEquipos() {
         try {
             setLoading(true);
             setError(null);
-
-            const data = await listarEquipos();
+            const data = await listarEquipos(incluirInactivos);
             setEquipos(data);
         } catch (err) {
             setError("No se pudieron cargar los equipos");
@@ -20,7 +19,7 @@ export function useEquipos() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [incluirInactivos]); 
 
     useEffect(() => {
         cargarEquipos();
@@ -32,4 +31,6 @@ export function useEquipos() {
         error,
         cargarEquipos,
     };
+
+    
 }

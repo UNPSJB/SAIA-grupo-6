@@ -1,31 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
-import { PersonalForm } from "../PersonalForm";
-import { usePersonalABM } from "../../hooks/usePersonalABM";
+import { InsumoQuimicoForm } from "../insumoQuimicoForm";
+import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
-import type { Persona } from "../../types/personal";
+import type { InsumoQuimico } from "../../types/insumoQuimico";
 
-type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
-
-export function PersonalCreatePage() {
+export function InsumoQuimicoCreatePage() {
   const navigate = useNavigate();
-  const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = usePersonalABM();
+  const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useInsumoQuimicoABM();
   const [exito, setExito] = useState(false);
-  // Guardamos los valores que el usuario cargó para poder reutilizarlos
-  // si confirma la reactivación (no se los volvemos a pedir).
-  const [valoresPendientes, setValoresPendientes] = useState<PersonaInput | null>(null);
+  const [valoresPendientes, setValoresPendientes] = useState<Omit<InsumoQuimico, "id" | "activo"> | null>(null);
 
-  const handleSubmit = async (values: PersonaInput) => {
+  const handleSubmit = async (values: Omit<InsumoQuimico, "id" | "activo">) => {
     try {
       await alta(values);
       setExito(true);
       setTimeout(() => {
-        navigate("/personal");
+        navigate("/insumos-quimicos");
       }, 2000);
     } catch {
-      // Si fue un conflicto de inactivo, "conflicto" ya quedó seteado por el
-      // hook y el diálogo se muestra solo. Guardamos los valores para reusarlos.
       setValoresPendientes(values);
     }
   };
@@ -36,12 +30,8 @@ export function PersonalCreatePage() {
       await reactivar(conflicto.id, valoresPendientes);
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => {
-        navigate("/personal");
-      }, 2000);
-    } catch {
-      // El error ya queda reflejado en usePersonalABM().error
-    }
+      setTimeout(() => navigate("/insumos-quimicos"), 2000);
+    } catch {}
   };
 
   const handleCancelarReactivacion = () => {
@@ -53,7 +43,7 @@ export function PersonalCreatePage() {
     <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
       <HStack justify="space-between" mb="20px">
         <Heading as="h2" size="md" fontWeight="bold" color="black">
-          Nuevo Personal
+          Nuevo insumo químico
         </Heading>
         <Button
           bg="#6c757d"
@@ -64,14 +54,13 @@ export function PersonalCreatePage() {
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
           _hover={{ bg: "#6c757d" }}
-          onClick={() => navigate("/personal")}
+          onClick={() => navigate("/insumos-quimicos")}
         >
           Volver a la lista
         </Button>
       </HStack>
 
-      {/* El conflicto de "inactivo" no se muestra acá como cartel de error:
-          se resuelve con el diálogo de reactivación de abajo */}
+      {/* Cartel rojo de error */}
       {error && !conflicto && (
         <Box
           style={{
@@ -88,6 +77,7 @@ export function PersonalCreatePage() {
         </Box>
       )}
 
+      {/* Cartel verde de éxito */}
       {exito && (
         <Box
           style={{
@@ -113,21 +103,31 @@ export function PersonalCreatePage() {
             }}
           >
             <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
-            <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>
+            <Heading
+              as="h3"
+              style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+            >
               Éxito
             </Heading>
-            <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>
-              Personal agregado correctamente.
+            <Text
+              style={{
+                color: "#555",
+                marginTop: "10px",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Insumo químico agregado correctamente.
             </Text>
           </Box>
         </Box>
       )}
 
-      <PersonalForm
+      <InsumoQuimicoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Personal"
-        submitLabel="Crear personal"
+        title="Alta de Insumo Químico"
+        submitLabel="Crear insumo químico"
       />
 
       <ConfirmarReactivacionDialog
