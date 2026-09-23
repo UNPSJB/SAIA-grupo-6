@@ -20,6 +20,8 @@ from src.Equipo.router import router as equipo_router
 from src.insumos import models as insumos_models
 from src.insumos.router import router as insumos_router
 
+from src.insumoQuimico.router import router as insumoQuimico_router
+
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
 
@@ -53,6 +55,6 @@ app.include_router(personal_router)
 #app.include_router(mascotas_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
-
+app.include_router(insumoQuimico_router)
 #crear tabla registrada en SQLAlchemy
 ModeloBase.metadata.create_all(bind=engine)
