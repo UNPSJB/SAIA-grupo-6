@@ -1,3 +1,6 @@
+import os
+from fastapi.staticfiles import StaticFiles
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 #from src.database import Base, engine   si anda, esto ay que sacarlo
@@ -41,6 +44,10 @@ async def db_creation_lifespan(app: FastAPI):
 
 
 app = FastAPI(root_path=ROOT_PATH, lifespan=db_creation_lifespan)
+
+# Aseguramos que la carpeta uploads exista y la montamos para que sea accesible por HTTP
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 origins = [
     "http://localhost:5173", # para recibir requests desde app React (puerto: 5173)

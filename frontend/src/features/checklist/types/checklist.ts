@@ -8,6 +8,7 @@ export interface ChecklistTareaItem {
   completado: boolean;
   fecha_completado?: string | null;
   usuario_id?: number | null;
+  evidencia_url?: string | null; // <-- Agregá esta línea acá
 }
 
 export interface ChecklistPlanItem {

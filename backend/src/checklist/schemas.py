@@ -12,6 +12,7 @@ class ChecklistTareaItem(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
+    evidencia_url: Optional[str] = None # AGREGUE ESTO
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,5 +54,6 @@ class RegistroTareaResponse(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
+    evidencia_url: Optional[str] = None # ESTO TMB
 
     model_config = ConfigDict(from_attributes=True)

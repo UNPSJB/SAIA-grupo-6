@@ -68,6 +68,9 @@ class RegistroTarea(ModeloBase):
     usuario_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("personal.id"), nullable=True
     )
+    
+    # AGREGO LÍNEA NUEVA:
+    evidencia_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     checklist: Mapped["Checklist"] = relationship(back_populates="registros")
     tarea: Mapped[Optional["Tarea"]] = relationship()

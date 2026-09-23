@@ -74,6 +74,7 @@ def obtener_o_crear_checklist(
                         completado=False,
                         fecha_completado=None,
                         usuario_id=None,
+                        evidencia_url=None, # MODIFICACIÓN: Agregado para soportar fotos en futuros
                     )
                     for t in p.tareas
                     if t.activo
@@ -162,6 +163,7 @@ def obtener_o_crear_checklist(
                 completado=reg.completado,
                 fecha_completado=reg.fecha_completado,
                 usuario_id=reg.usuario_id,
+                evidencia_url=reg.evidencia_url, # MODIFICACIÓN: Agregada la foto a la respuesta real
             )
         )
 
@@ -184,9 +186,17 @@ def obtener_o_crear_checklist(
     )
 
 
+# MODIFICACIÓN: Se cambió la firma de la función para aceptar fotos y usuario,
+# reemplazando el viejo 'datos: schemas.RegistroTareaUpdate'
 def marcar_tarea(
-    db: Session, tarea_id: int, datos: schemas.RegistroTareaUpdate, fecha: Optional[date_] = None
+    db: Session, 
+    tarea_id: int, 
+    completado: bool, 
+    usuario_id: Optional[int], 
+    evidencia_url: Optional[str], 
+    fecha: Optional[date_] = None
 ) -> models.RegistroTarea:
+    
     tarea = leer_tarea(db, tarea_id)
     fecha_registro = fecha or date_.today()
 
@@ -221,13 +231,16 @@ def marcar_tarea(
         )
         db.add(registro)
 
-    registro.completado = datos.completado
-    registro.fecha_completado = datetime.now() if datos.completado else None
-    registro.usuario_id = datos.usuario_id
+    # MODIFICACIÓN: Se actualizan los campos nuevos
+    registro.completado = completado
+    registro.fecha_completado = datetime.now() if completado else None
+    registro.usuario_id = usuario_id
+    if evidencia_url:
+        registro.evidencia_url = evidencia_url
 
     # Actualizar estado de la cabecera automáticamente si se completan todas
     total = len(checklist.registros)
-    completadas = sum(1 for r in checklist.registros if (r.id != registro.id and r.completado) or (r.id == registro.id and datos.completado))
+    completadas = sum(1 for r in checklist.registros if (r.id != registro.id and r.completado) or (r.id == registro.id and completado))
     checklist.estado = models.EstadoChecklist.COMPLETO if (total > 0 and completadas == total) else models.EstadoChecklist.ABIERTO
 
     db.commit()

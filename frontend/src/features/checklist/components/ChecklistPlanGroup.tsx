@@ -5,7 +5,7 @@ import type { ChecklistPlanItem } from "../types/checklist";
 interface ChecklistPlanGroupProps {
   plan: ChecklistPlanItem;
   actualizandoId: number | null;
-  onToggle: (tareaId: number, estadoActual: boolean) => void;
+  onToggle: (tareaId: number, estadoActual: boolean, evidencia?: File) => void; // Acá se agrega el File
 }
 
 const TEAL = "#468189";

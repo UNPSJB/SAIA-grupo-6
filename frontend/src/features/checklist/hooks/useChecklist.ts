@@ -35,11 +35,12 @@ export function useChecklist(equipoId: number | null, fecha?: string) {
     cargarChecklist();
   }, [cargarChecklist]);
 
-  const toggleTarea = async (tareaId: number, completadoActual: boolean) => {
+  const toggleTarea = async (tareaId: number, completadoActual: boolean, evidencia?: File) => {
     try {
       setActualizandoId(tareaId);
       const nuevoEstado = !completadoActual;
 
+      // Actualización optimista en la interfaz
       setPlanes((prevPlanes) =>
         prevPlanes.map((plan) => ({
           ...plan,
@@ -49,8 +50,16 @@ export function useChecklist(equipoId: number | null, fecha?: string) {
         }))
       );
 
-      await marcarTarea(tareaId, { completado: nuevoEstado }, fecha);
+      // ID del usuario simulado por ahora (Historia #20)
+      const USUARIO_MOCK_ID = 1; 
+
+      // 1. Mandamos el cambio y la foto al backend
+      await marcarTarea(tareaId, nuevoEstado, USUARIO_MOCK_ID, evidencia, fecha);
+
+      // 2. Refrescamos los datos desde el servidor para traer la evidencia_url guardada
+      await cargarChecklist();
     } catch (err) {
+      // Si falla, revertimos el estado visual
       setPlanes((prevPlanes) =>
         prevPlanes.map((plan) => ({
           ...plan,
