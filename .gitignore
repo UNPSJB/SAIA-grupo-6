@@ -330,4 +330,8 @@ sketch
 .history/
 .lh/
 
+backend/uploads/
+
 repomix-output.xml
+
+
