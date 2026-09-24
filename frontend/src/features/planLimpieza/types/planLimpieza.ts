@@ -1,19 +1,21 @@
 export interface Tarea {
   id: number;
   nombre: string;
+  frecuencia: number;
   activo: boolean;
   plan_limpieza_id: number;
 }
 
-// Lo mínimo para crear/editar una tarea junto con su plan.
+// Lo mínimo para crear/editar una tarea junto con su plan. La frecuencia
+// ahora es propia de cada tarea (antes vivía en el plan).
 export interface TareaInput {
   nombre: string;
+  frecuencia: number;
 }
 
 export interface PlanLimpieza {
   id: number;
   nombre: string;
-  frecuencia: number;
   tareas: Tarea[];
   equipo_id: number;
   autor_id: number;

@@ -9,7 +9,6 @@ class ErrorCode(str, Enum):
     AUTOR_SIN_PERMISO_DE_ADMINISTRAR = "autor_sin_permiso_de_administrar"
     NOMBRE_PLAN_DUPLICADO = "nombre_plan_duplicado"
     NOMBRE_INVALIDO = "nombre_invalido"
-    FRECUENCIA_INVALIDA = "frecuencia_invalida"
     TAREAS_VACIAS = "tareas_vacias"
     EQUIPO_ID_INVALIDO = "equipo_id_invalido"
     AUTOR_ID_INVALIDO = "autor_id_invalido"

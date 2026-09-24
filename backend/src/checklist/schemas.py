@@ -55,3 +55,27 @@ class RegistroTareaResponse(BaseModel):
     usuario_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class TareaDelDiaItem(BaseModel):
+    id: int
+    registro_id: int
+    nombre: str
+    plan_id: Optional[int] = None
+    plan_nombre: str
+    equipo_id: int
+    equipo_nombre: str
+    completado: bool
+    fecha_completado: Optional[datetime] = None
+    usuario_id: Optional[int] = None
+    # Estado de la cabecera del checklist al que pertenece este registro.
+    # None cuando todavía no existe checklist persistido (previsualización
+    # de una fecha futura). El frontend usa esto para saber si la tarea es
+    # editable o si ya quedó "cerrada" como dato histórico.
+    checklist_estado: Optional[EstadoChecklist] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TareasDelDiaResponse(BaseModel):
+    fecha: date
+    tareas: List[TareaDelDiaItem]

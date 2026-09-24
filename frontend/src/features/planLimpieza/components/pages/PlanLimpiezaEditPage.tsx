@@ -57,8 +57,7 @@ export function PlanLimpiezaEditPage() {
             key={plan.id}
             initialValues={{
               nombre: plan.nombre,
-              frecuencia: plan.frecuencia,
-              tareas: plan.tareas.map((tarea) => ({ nombre: tarea.nombre })),
+              tareas: plan.tareas.map((tarea) => ({ nombre: tarea.nombre, frecuencia: tarea.frecuencia })),
               equipo_id: plan.equipo_id,
               autor_id: plan.autor_id,
             }}

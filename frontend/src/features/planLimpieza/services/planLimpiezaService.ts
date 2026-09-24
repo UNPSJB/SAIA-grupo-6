@@ -9,7 +9,6 @@ const API_URL = "http://localhost:8000";
 
 export interface PlanLimpiezaInput {
   nombre: string;
-  frecuencia: number;
   tareas: TareaInput[];
   equipo_id: number;
   autor_id: number;

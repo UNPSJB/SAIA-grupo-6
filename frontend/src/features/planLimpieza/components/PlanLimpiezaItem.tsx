@@ -20,13 +20,12 @@ export function PlanLimpiezaItem({ plan, nombreEquipo, onEdit, onDelete }: PlanL
         {plan.nombre}
       </Table.Cell>
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        {plan.tareas.map((tarea) => tarea.nombre).join(", ")}
+        {plan.tareas
+          .map((tarea) => `${tarea.nombre} (cada ${tarea.frecuencia} ${tarea.frecuencia === 1 ? "día" : "días"})`)
+          .join(", ")}
       </Table.Cell>
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
         {nombreEquipo}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        Cada {plan.frecuencia} {plan.frecuencia === 1 ? "día" : "días"}
       </Table.Cell>
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <Badge colorPalette={plan.activo ? "green" : "gray"} borderRadius="6px" px="8px" py="4px">

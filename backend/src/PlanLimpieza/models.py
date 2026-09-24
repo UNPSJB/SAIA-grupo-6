@@ -2,7 +2,7 @@ from datetime import datetime, date
 from typing import Optional
 from src.models import ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Boolean, Date, DateTime, Integer
+from sqlalchemy import String, Boolean, Date, DateTime
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,8 +14,6 @@ class PlanLimpieza(ModeloBase):
 
     nombre: Mapped[str] = mapped_column(String(60), unique=True, index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
 
     equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"))
     autor_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))

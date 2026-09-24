@@ -13,14 +13,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/checklist", tags=["checklist"])
 
 
-@router.get("/hoy", response_model=schemas.ChecklistResponse)
-def obtener_checklist_hoy(
-    equipo_id: int = Query(..., gt=0),
+@router.get("/tareas-del-dia", response_model=schemas.TareasDelDiaResponse)
+def listar_tareas_del_dia(
     fecha: Optional[date] = Query(None),
     db: Session = Depends(get_db),
 ):
-    logger.info(f"Consultando checklist para equipo {equipo_id} en fecha {fecha}")
-    return services.obtener_o_crear_checklist(db, equipo_id, fecha)
+    """Lista plana de las tareas de todos los equipos activos para una fecha,
+    con el nombre del plan al que pertenece cada una. Reemplaza el patrón de
+    pedir /checklist/hoy una vez por equipo desde el frontend."""
+    logger.info(f"Consultando tareas del día para fecha {fecha}")
+    return services.listar_tareas_del_dia(db, fecha)
 
 
 @router.patch("/tarea/{tarea_id}", response_model=schemas.RegistroTareaResponse)

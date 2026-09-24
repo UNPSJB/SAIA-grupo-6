@@ -35,8 +35,9 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
 
 
 def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
-    """Instancia las tareas nuevas y propias del plan (composición, no M2M)."""
-    return [Tarea(nombre=t.nombre) for t in tareas]
+    """Instancia las tareas nuevas y propias del plan (composición, no M2M).
+    Cada tarea trae su propia frecuencia."""
+    return [Tarea(nombre=t.nombre, frecuencia=t.frecuencia) for t in tareas]
 
 
 def crear_plan_limpieza(
@@ -94,22 +95,26 @@ def modificar_plan_limpieza(
     # Manejo seguro de tareas sin DELETE destructivo
     if "tareas" in datos_a_actualizar:
         tareas_input = datos_a_actualizar.pop("tareas")
-        nombres_nuevos = [t["nombre"] for t in tareas_input if t.get("nombre")]
+        # nombre -> frecuencia de cada tarea que viene en la petición
+        tareas_nuevas = {
+            t["nombre"]: t["frecuencia"] for t in tareas_input if t.get("nombre")
+        }
 
         # 1. Tareas existentes asociadas a este plan
         tareas_actuales = {t.nombre: t for t in db_plan.tareas}
 
         # 2. Desactivar tareas que se eliminaron del plan en lugar de borrarlas con DELETE
         for t in db_plan.tareas:
-            if t.nombre not in nombres_nuevos:
+            if t.nombre not in tareas_nuevas:
                 t.activo = False
 
-        # 3. Agregar o reactivar las que vienen en la petición
-        for nombre in nombres_nuevos:
+        # 3. Agregar o reactivar las que vienen en la petición, actualizando su frecuencia
+        for nombre, frecuencia in tareas_nuevas.items():
             if nombre in tareas_actuales:
                 tareas_actuales[nombre].activo = True
+                tareas_actuales[nombre].frecuencia = frecuencia
             else:
-                db_plan.tareas.append(Tarea(nombre=nombre))
+                db_plan.tareas.append(Tarea(nombre=nombre, frecuencia=frecuencia))
 
     if datos_a_actualizar:
         try:

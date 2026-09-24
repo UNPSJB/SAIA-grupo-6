@@ -1,25 +1,19 @@
 import type {
-  ChecklistResponse,
   RegistroTareaResponse,
   RegistroTareaUpdate,
+  TareasDelDiaResponse,
 } from "../types/checklist";
 
 const API_URL = "http://localhost:8000";
 
-export async function obtenerChecklistHoy(
-  equipoId: number,
-  fecha?: string
-): Promise<ChecklistResponse> {
-  const params = new URLSearchParams({ equipo_id: String(equipoId) });
-  if (fecha) {
-    params.append("fecha", fecha);
-  }
+export async function obtenerTareasDelDia(fecha?: string): Promise<TareasDelDiaResponse> {
+  const params = fecha ? `?fecha=${fecha}` : "";
 
-  const response = await fetch(`${API_URL}/checklist/hoy?${params.toString()}`);
+  const response = await fetch(`${API_URL}/checklist/tareas-del-dia${params}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener el checklist");
+    throw new Error(errorData?.detail || "Error al obtener las tareas del día");
   }
 
   return response.json();

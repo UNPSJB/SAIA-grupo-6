@@ -14,8 +14,7 @@ interface PlanLimpiezaFormProps {
 
 const emptyValues: PlanLimpiezaInput = {
   nombre: "",
-  frecuencia: 1,
-  tareas: [{ nombre: "" }],
+  tareas: [{ nombre: "", frecuencia: 1 }],
   equipo_id: 0,
   autor_id: 0,
 };
@@ -62,25 +61,32 @@ export function PlanLimpiezaForm({
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({ ...prev, nombre: e.target.value }));
 
-  const handleFrecuenciaChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, frecuencia: Number(e.target.value) }));
-
   const handleEquipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({ ...prev, equipo_id: Number(e.target.value) }));
 
   const handleAutorChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({ ...prev, autor_id: Number(e.target.value) }));
 
-  // Las tareas ahora son propias de este plan: se cargan como una lista de
-  // nombres editable, no como un <select> sobre un catálogo compartido.
-  const handleTareaChange = (index: number, nombre: string) =>
+  // Las tareas ahora son propias de este plan: se cargan como una lista
+  // editable, no como un <select> sobre un catálogo compartido. Cada una
+  // tiene su propio nombre y su propia frecuencia (en días).
+  const handleTareaNombreChange = (index: number, nombre: string) =>
     setValues((prev) => ({
       ...prev,
-      tareas: prev.tareas.map((t, i) => (i === index ? { nombre } : t)),
+      tareas: prev.tareas.map((t, i) => (i === index ? { ...t, nombre } : t)),
+    }));
+
+  const handleTareaFrecuenciaChange = (index: number, frecuencia: number) =>
+    setValues((prev) => ({
+      ...prev,
+      tareas: prev.tareas.map((t, i) => (i === index ? { ...t, frecuencia } : t)),
     }));
 
   const handleAgregarTarea = () =>
-    setValues((prev) => ({ ...prev, tareas: [...prev.tareas, { nombre: "" }] }));
+    setValues((prev) => ({
+      ...prev,
+      tareas: [...prev.tareas, { nombre: "", frecuencia: 1 }],
+    }));
 
   const handleQuitarTarea = (index: number) =>
     setValues((prev) => ({
@@ -93,7 +99,9 @@ export function PlanLimpiezaForm({
     onSubmit(values);
   };
 
-  const hayTareaVacia = values.tareas.some((t) => !t.nombre.trim());
+  const hayTareaInvalida = values.tareas.some(
+    (t) => !t.nombre.trim() || !t.frecuencia || t.frecuencia <= 0
+  );
 
   return (
     <Box
@@ -141,24 +149,7 @@ export function PlanLimpiezaForm({
         </Field.Root>
       </Box>
 
-      {/* Frecuencia */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            FRECUENCIA (en días) *
-          </Box>
-          <Input
-            type="number"
-            min={1}
-            value={values.frecuencia}
-            onChange={handleFrecuenciaChange}
-            placeholder="Ej: 1"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
-
-      {/* Tareas */}
+      {/* Tareas, cada una con su propia frecuencia */}
       <Box style={{ marginBottom: "20px" }}>
         <Box as="label" style={estiloLabel}>
           TAREAS *
@@ -167,9 +158,18 @@ export function PlanLimpiezaForm({
           <HStack key={index} gap="10px" style={{ marginBottom: "10px" }} alignItems="center">
             <Input
               value={tarea.nombre}
-              onChange={(e) => handleTareaChange(index, e.target.value)}
+              onChange={(e) => handleTareaNombreChange(index, e.target.value)}
               placeholder={`Ej: Limpiar bandeja ${index + 1}`}
-              style={estiloInput}
+              style={{ ...estiloInput, maxWidth: "320px" }}
+            />
+            <Input
+              type="number"
+              min={1}
+              value={tarea.frecuencia}
+              onChange={(e) => handleTareaFrecuenciaChange(index, Number(e.target.value))}
+              placeholder="Frecuencia (días)"
+              title="Frecuencia en días"
+              style={{ ...estiloInput, maxWidth: "140px" }}
             />
             <Button
               type="button"
@@ -259,7 +259,7 @@ export function PlanLimpiezaForm({
         <Button
           type="submit"
           loading={isLoading}
-          disabled={!values.equipo_id || !values.autor_id || hayTareaVacia}
+          disabled={!values.equipo_id || !values.autor_id || hayTareaInvalida}
           style={{
             backgroundColor: "#468189",
             color: "white",

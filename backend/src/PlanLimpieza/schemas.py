@@ -8,10 +8,9 @@ from src.tareas.schemas import TareaBase as TareaInput, Tarea as TareaSchema
 
 class PlanLimpiezaBase(BaseModel):
     nombre: str
-    frecuencia: int
     # Las tareas se crean junto con el plan: acá no se referencian tareas
     # existentes por id (ya no hay catálogo compartido), se manda el nombre
-    # de cada tarea nueva que va a pertenecer a este plan.
+    # y la frecuencia de cada tarea nueva que va a pertenecer a este plan.
     tareas: List[TareaInput]
     equipo_id: int
     autor_id: int
@@ -22,13 +21,6 @@ class PlanLimpiezaBase(BaseModel):
         if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
             raise exceptions.NombreInvalido()
         return v.strip()
-
-    @field_validator("frecuencia")
-    @classmethod
-    def validar_frecuencia(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.FrecuenciaInvalida()
-        return v
 
     @field_validator("tareas")
     @classmethod
@@ -58,7 +50,6 @@ class PlanLimpiezaCreate(PlanLimpiezaBase):
 
 class PlanLimpiezaUpdate(PlanLimpiezaBase):
     nombre: Optional[str] = None
-    frecuencia: Optional[int] = None
     tareas: Optional[List[TareaInput]] = None
     equipo_id: Optional[int] = None
     autor_id: Optional[int] = None
@@ -68,7 +59,6 @@ class PlanLimpiezaUpdate(PlanLimpiezaBase):
 class PlanLimpieza(BaseModel):
     id: int
     nombre: str
-    frecuencia: int
     tareas: List[TareaSchema]
     equipo_id: int
     autor_id: int

@@ -6,6 +6,7 @@ from src.tareas import exceptions
 
 class TareaBase(BaseModel):
     nombre: str
+    frecuencia: int
 
     @field_validator("nombre")
     @classmethod
@@ -13,6 +14,13 @@ class TareaBase(BaseModel):
         if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
             raise exceptions.NombreInvalido()
         return v.strip()
+
+    @field_validator("frecuencia")
+    @classmethod
+    def validar_frecuencia(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.FrecuenciaInvalida()
+        return v
 
 
 class TareaCreate(TareaBase):
@@ -33,6 +41,7 @@ class TareaCreate(TareaBase):
 
 class TareaUpdate(TareaBase):
     nombre: Optional[str] = None
+    frecuencia: Optional[int] = None
     activo: Optional[bool] = None
 
 

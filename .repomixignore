@@ -1,0 +1,20 @@
+# Assets y estáticos
+
+_.svg
+_.png
+\*.ico
+frontend/public/\*\*
+
+# Dependencias y artefactos
+
+backend/requirements.txt
+frontend/package-lock.json
+frontend/src/components/ui/\*\*
+\*\*/.gitkeep
+
+# Configuración de compiladores / linters (si no vas a consultar sobre ellos)
+
+frontend/tsconfig\*.json
+frontend/eslint.config.js
+frontend/vite.config.ts
+backend/tests/database.py

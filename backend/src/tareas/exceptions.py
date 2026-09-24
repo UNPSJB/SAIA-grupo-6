@@ -24,3 +24,7 @@ class PlanLimpiezaIdInvalido(BadRequest):
 
 class PlanLimpiezaNoEncontrado(NotFound):
     DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO
+
+
+class FrecuenciaInvalida(BadRequest):
+    DETAIL = ErrorCode.FRECUENCIA_INVALIDA

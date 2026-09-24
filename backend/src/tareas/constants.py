@@ -8,3 +8,4 @@ class ErrorCode(str, Enum):
     DATO_DUPLICADO = "dato_duplicado"
     PLAN_LIMPIEZA_ID_INVALIDO = "plan_limpieza_id_invalido"
     PLAN_LIMPIEZA_NO_ENCONTRADO = "plan_limpieza_no_encontrado"
+    FRECUENCIA_INVALIDA = "frecuencia_invalida"

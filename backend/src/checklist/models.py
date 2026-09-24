@@ -12,6 +12,11 @@ class EstadoChecklist(str, Enum):
     ABIERTO = "abierto"
     COMPLETO = "completo"
     OBSERVADO = "observado"
+    # Se asigna automáticamente cuando el checklist queda "atrás" en el
+    # tiempo (fecha < hoy). A partir de ahí es dato histórico: se sigue
+    # pudiendo consultar, pero ni la cabecera ni sus registro_tareas
+    # admiten modificaciones (ver services.marcar_tarea).
+    CERRADO = "cerrado"
 
 
 class Checklist(ModeloBase):

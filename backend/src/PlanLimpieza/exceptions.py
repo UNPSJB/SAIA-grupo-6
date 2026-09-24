@@ -30,10 +30,6 @@ class NombreInvalido(BadRequest):
     DETAIL = ErrorCode.NOMBRE_INVALIDO
 
 
-class FrecuenciaInvalida(BadRequest):
-    DETAIL = ErrorCode.FRECUENCIA_INVALIDA
-
-
 class TareasVacias(BadRequest):
     DETAIL = ErrorCode.TAREAS_VACIAS
 
