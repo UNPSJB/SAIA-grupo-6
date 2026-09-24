@@ -123,6 +123,7 @@ def obtener_o_crear_checklist(
                         completado=False,
                         fecha_completado=None,
                         usuario_id=None,
+                        evidencia_url=None, # MODIFICACIÓN: Agregado para soportar fotos en futuros
                     )
                     for t in tareas_del_dia_por_plan[p.id]
                 ],
@@ -218,6 +219,7 @@ def obtener_o_crear_checklist(
                 completado=reg.completado,
                 fecha_completado=reg.fecha_completado,
                 usuario_id=reg.usuario_id,
+                evidencia_url=reg.evidencia_url, # MODIFICACIÓN: Agregada la foto a la respuesta real
             )
         )
 
@@ -375,18 +377,15 @@ def listar_tareas_del_dia(
                     nombre=reg.nombre_tarea_historico,
                     plan_id=plan_id,
                     plan_nombre=plan_nombre,
-                    # Importante: el equipo de ESTE checklist, no el equipo
-                    # actual del plan. Si el plan fue reasignado después de
-                    # crearse este checklist, siguen siendo tandas distintas.
                     equipo_id=equipo_id,
                     equipo_nombre=nombres_equipo[equipo_id],
                     completado=reg.completado,
                     fecha_completado=reg.fecha_completado,
                     usuario_id=reg.usuario_id,
+                    evidencia_url=reg.evidencia_url,
                     checklist_estado=checklist.estado,
                 )
             )
-
     if hay_cambios:
         db.commit()
 
@@ -394,17 +393,18 @@ def listar_tareas_del_dia(
 
 
 def marcar_tarea(
-    db: Session, tarea_id: int, datos: schemas.RegistroTareaUpdate, fecha: Optional[date_] = None
+    db: Session, 
+    tarea_id: int, 
+    completado: bool, 
+    usuario_id: Optional[int], 
+    evidencia_url: Optional[str], 
+    fecha: Optional[date_] = None
 ) -> models.RegistroTarea:
+    
     tarea = leer_tarea(db, tarea_id)
     fecha_registro = fecha or date_.today()
     hoy = date_.today()
 
-    # El checklist de una fecha futura es pura previsualización en memoria
-    # (ver obtener_o_crear_checklist, caso de fecha futura): no se persiste
-    # nada todavía porque las tareas de ese día ni siquiera empezaron a
-    # correr. No hay nada real que marcar, así que se corta acá con un
-    # error claro en vez de intentar usar un checklist que no existe.
     if fecha_registro > hoy:
         raise ChecklistFuturo()
 
@@ -424,10 +424,7 @@ def marcar_tarea(
             )
         )
 
-    # El día ya pasó: el checklist quedó como dato histórico e inmutable.
     if checklist is not None and checklist.fecha < hoy:
-        # Deja el estado consistente en la base, por si nadie lo había
-        # vuelto a leer (y por lo tanto cerrado) todavía.
         if _cerrar_checklist_vencido(checklist, hoy):
             db.commit()
         raise ChecklistInmutable()
@@ -446,17 +443,50 @@ def marcar_tarea(
             nombre_tarea_historico=tarea.nombre,
         )
         db.add(registro)
+        db.flush()
 
-    registro.completado = datos.completado
-    registro.fecha_completado = datetime.now() if datos.completado else None
-    registro.usuario_id = datos.usuario_id
+    registro.completado = completado
+    registro.fecha_completado = datetime.now() if completado else None
+    registro.usuario_id = usuario_id
+    if evidencia_url:
+        registro.evidencia_url = evidencia_url
 
-    # Actualizar estado de la cabecera automáticamente si se completan todas.
-    # El registro ya está actualizado en memoria, así que alcanza con contar.
+    # Auditoría: se agrega un evento nuevo, nunca se pisa nada. Esta fila
+    # queda fija en el tiempo aunque el estado "actual" de arriba
+    # (registro.completado, etc.) se vuelva a sobrescribir después.
+    db.add(
+        models.HistorialRegistroTarea(
+            registro_tarea_id=registro.id,
+            completado=completado,
+            usuario_id=usuario_id,
+            evidencia_url=evidencia_url,
+        )
+    )
+
     total = len(checklist.registros)
-    completadas = sum(1 for r in checklist.registros if r.completado)
+    completadas = sum(
+        1 for r in checklist.registros
+        if (r.id != registro.id and r.completado) or (r.id == registro.id and completado)
+    )
     checklist.estado = models.EstadoChecklist.COMPLETO if (total > 0 and completadas == total) else models.EstadoChecklist.ABIERTO
 
     db.commit()
     db.refresh(registro)
     return registro
+
+
+def obtener_historial_registro(db: Session, registro_id: int) -> schemas.HistorialRegistroTareaResponse:
+    registro = db.get(models.RegistroTarea, registro_id)
+    if registro is None:
+        raise NotFound()
+
+    eventos = db.scalars(
+        select(models.HistorialRegistroTarea)
+        .where(models.HistorialRegistroTarea.registro_tarea_id == registro_id)
+        .order_by(models.HistorialRegistroTarea.fecha_evento)
+    ).all()
+
+    return schemas.HistorialRegistroTareaResponse(
+        registro_id=registro_id,
+        eventos=[schemas.HistorialRegistroTareaItem.model_validate(e) for e in eventos],
+    )

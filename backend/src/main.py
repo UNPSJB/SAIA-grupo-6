@@ -1,3 +1,6 @@
+import os
+from fastapi.staticfiles import StaticFiles
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from src.database import engine
@@ -48,6 +51,10 @@ app = FastAPI(
     lifespan=db_creation_lifespan
 )
 
+
+# Aseguramos que la carpeta uploads exista y la montamos para que sea accesible por HTTP
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 origins = [
     "http://localhost:5173",

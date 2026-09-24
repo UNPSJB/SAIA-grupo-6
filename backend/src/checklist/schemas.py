@@ -12,6 +12,7 @@ class ChecklistTareaItem(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
+    evidencia_url: Optional[str] = None # AGREGUE ESTO
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,6 +54,7 @@ class RegistroTareaResponse(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
+    evidencia_url: Optional[str] = None # ESTO TMB
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,10 +69,7 @@ class TareaDelDiaItem(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
-    # Estado de la cabecera del checklist al que pertenece este registro.
-    # None cuando todavía no existe checklist persistido (previsualización
-    # de una fecha futura). El frontend usa esto para saber si la tarea es
-    # editable o si ya quedó "cerrada" como dato histórico.
+    evidencia_url: Optional[str] = None  
     checklist_estado: Optional[EstadoChecklist] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -79,3 +78,17 @@ class TareaDelDiaItem(BaseModel):
 class TareasDelDiaResponse(BaseModel):
     fecha: date
     tareas: List[TareaDelDiaItem]
+
+class HistorialRegistroTareaItem(BaseModel):
+    id: int
+    completado: bool
+    usuario_id: Optional[int] = None
+    evidencia_url: Optional[str] = None
+    fecha_evento: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HistorialRegistroTareaResponse(BaseModel):
+    registro_id: int
+    eventos: List[HistorialRegistroTareaItem]

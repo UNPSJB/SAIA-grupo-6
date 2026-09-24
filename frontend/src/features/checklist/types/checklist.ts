@@ -8,6 +8,7 @@ export interface ChecklistTareaItem {
   completado: boolean;
   fecha_completado?: string | null;
   usuario_id?: number | null;
+  evidencia_url?: string | null; // <-- Agregá esta línea acá
 }
 
 export interface ChecklistPlanItem {
@@ -53,13 +54,24 @@ export interface TareaDelDia {
   completado: boolean;
   fecha_completado?: string | null;
   usuario_id?: number | null;
-  // Estado de la cabecera del checklist al que pertenece esta tarea.
-  // "cerrado" (o null, cuando aún no existe checklist persistido para una
-  // fecha futura) significa que no se puede tocar: es dato histórico.
+  evidencia_url?: string | null; 
   checklist_estado?: EstadoChecklist | null;
 }
 
 export interface TareasDelDiaResponse {
   fecha: string;
   tareas: TareaDelDia[];
+}
+
+export interface HistorialRegistroTareaItem {
+  id: number;
+  completado: boolean;
+  usuario_id?: number | null;
+  evidencia_url?: string | null;
+  fecha_evento: string;
+}
+
+export interface HistorialRegistroTareaResponse {
+  registro_id: number;
+  eventos: HistorialRegistroTareaItem[];
 }

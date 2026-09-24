@@ -29,20 +29,15 @@ export function useChecklist(fecha: string) {
     cargarTareas();
   }, [cargarTareas]);
 
-  const toggleTarea = async (tareaId: number, completadoActual: boolean) => {
+  const toggleTarea = async (tareaId: number, completadoActual: boolean, evidencia?: File) => {
     const tarea = tareas.find((t) => t.id === tareaId);
 
     if (tarea?.checklist_estado === "cerrado") {
-      // El checklist ya quedó cerrado como dato histórico (pasó el día):
-      // no se dispara el PATCH, que igualmente el backend rechazaría.
       setError("Este checklist corresponde a un día anterior y ya no se puede modificar.");
       return;
     }
 
     if (tarea?.registro_id === 0) {
-      // registro_id === 0 identifica una tarea de previsualización de una
-      // fecha futura: todavía no existe checklist real en la base (vive
-      // en memoria, se arma al vuelo), así que no hay nada que marcar.
       setError("Todavía no llegó ese día: por ahora es solo una vista previa de las tareas.");
       return;
     }
@@ -58,7 +53,14 @@ export function useChecklist(fecha: string) {
       setActualizandoId(tareaId);
       aplicarEstado(nuevoEstado);
 
-      await marcarTarea(tareaId, { completado: nuevoEstado }, fecha);
+      // ID del usuario simulado por ahora (Historia #20)
+      const USUARIO_MOCK_ID = 1;
+
+      // 1. Mandamos el cambio y la foto al backend
+      await marcarTarea(tareaId, nuevoEstado, USUARIO_MOCK_ID, evidencia, fecha);
+
+      // 2. Refrescamos los datos desde el servidor para traer la evidencia_url guardada
+      await cargarTareas();
     } catch (err) {
       aplicarEstado(completadoActual);
       setError(err instanceof Error ? err.message : "No se pudo actualizar la tarea");

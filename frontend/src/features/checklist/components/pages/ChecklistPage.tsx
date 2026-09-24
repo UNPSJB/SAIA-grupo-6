@@ -12,6 +12,8 @@ import {
 } from "@chakra-ui/react";
 import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia } from "../../types/checklist";
+import { obtenerHistorialRegistro } from "../../services/checklistService";
+import type { HistorialRegistroTareaItem } from "../../types/checklist";
 
 const TEAL = "#468189";
 const TEAL_CLARO = "#90BEBB";
@@ -65,10 +67,6 @@ function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
   const grupos = new Map<string, GrupoPlan>();
 
   for (const tarea of tareas) {
-    // Agrupamos por equipo + plan, no solo por plan: si un plan se
-    // reasigna de un equipo a otro, el checklist viejo del equipo
-    // anterior sigue existiendo con sus propios registros, y no debe
-    // mezclarse con los del equipo nuevo aunque compartan plan_id.
     const key = `${tarea.equipo_id}-${tarea.plan_id ?? "sin-plan"}`;
     if (!grupos.has(key)) {
       grupos.set(key, {
@@ -84,14 +82,298 @@ function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
   return Array.from(grupos.values());
 }
 
-// Ojo: Date.toISOString() convierte a UTC, así que a la noche (hora
-// Argentina, UTC-3) devuelve la fecha del día siguiente. Armamos el
-// string a partir de los componentes en horario local.
 function fechaLocalISO(fecha: Date): string {
   const year = fecha.getFullYear();
   const month = String(fecha.getMonth() + 1).padStart(2, "0");
   const day = String(fecha.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+// Fila de tarea como componente propio: cada fila necesita su propio
+// estado de archivo-pendiente y su propio modal de foto, así que no
+// puede vivir como estado único en ChecklistPage (se pisaría entre filas).
+interface FilaTareaProps {
+  tarea: TareaDelDia;
+  isLoading: boolean;
+  onToggle: (tareaId: number, estadoActual: boolean, evidencia?: File) => void;
+}
+
+function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
+  const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
+  const [imagenModalUrl, setImagenModalUrl] = useState<string | null>(null);
+  const [historial, setHistorial] = useState<
+    HistorialRegistroTareaItem[] | null
+  >(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
+
+  const verHistorial = async () => {
+    if (tarea.registro_id === 0) return; // preview de fecha futura, no hay nada que auditar todavía
+    setCargandoHistorial(true);
+    try {
+      const datos = await obtenerHistorialRegistro(tarea.registro_id);
+      setHistorial(datos.eventos);
+    } catch {
+      setHistorial([]);
+    } finally {
+      setCargandoHistorial(false);
+    }
+  };
+
+  const esHistorico = tarea.checklist_estado === "cerrado";
+  const esFuturo = tarea.registro_id === 0;
+  const esCerrado = esHistorico || esFuturo;
+
+  const urlFoto = tarea.evidencia_url
+    ? `http://localhost:8000/${tarea.evidencia_url.replace(/\\/g, "/")}`
+    : null;
+
+  const handleCheckboxClick = () => {
+    onToggle(tarea.id, tarea.completado, archivoEvidencia || undefined);
+    setArchivoEvidencia(null);
+  };
+
+  return (
+    <>
+      <Table.Row
+        key={tarea.registro_id > 0 ? `r-${tarea.registro_id}` : `p-${tarea.id}`}
+      >
+        <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
+          {tarea.nombre}
+
+          {/* Adjuntar evidencia: solo tiene sentido si todavía se puede marcar */}
+          {!tarea.completado && !esCerrado && (
+            <Box mt="8px">
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                id={`evidencia-${tarea.registro_id}-${tarea.id}`}
+                onChange={(e) =>
+                  setArchivoEvidencia(e.target.files?.[0] || null)
+                }
+              />
+              <HStack gap="10px">
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .getElementById(
+                        `evidencia-${tarea.registro_id}-${tarea.id}`,
+                      )
+                      ?.click()
+                  }
+                  style={{
+                    fontSize: "12px",
+                    padding: "4px 8px",
+                    backgroundColor: "#e2e8f0",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Adjuntar Evidencia
+                </button>
+                {archivoEvidencia && (
+                  <Text fontSize="12px" color={TEAL} fontWeight="bold">
+                    {archivoEvidencia.name} (Lista para enviar)
+                  </Text>
+                )}
+              </HStack>
+            </Box>
+          )}
+        </Table.Cell>
+
+        <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
+          {isLoading ? (
+            <Spinner size="sm" color={TEAL} />
+          ) : esFuturo ? (
+            <Text fontSize="13px" color="gray.400">
+              —
+            </Text>
+          ) : esHistorico ? (
+            <Text
+              fontSize="17px"
+              fontWeight="bold"
+              color={tarea.completado ? "#2f9e44" : "#c92a2a"}
+              title={
+                tarea.completado
+                  ? "Completada (checklist cerrado: dato histórico)"
+                  : "No completada (checklist cerrado: dato histórico)"
+              }
+            >
+              {tarea.completado ? "✔" : "✕"}
+            </Text>
+          ) : (
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="center"
+              gap="4px"
+            >
+              <input
+                type="checkbox"
+                checked={tarea.completado}
+                onChange={handleCheckboxClick}
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+              />
+              {urlFoto && (
+                <button
+                  type="button"
+                  onClick={() => setImagenModalUrl(urlFoto)}
+                  style={{
+                    fontSize: "11px",
+                    color: TEAL,
+                    background: "none",
+                    border: "none",
+                    textDecoration: "underline",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  Ver foto
+                </button>
+              )}
+              {tarea.registro_id > 0 && (
+                <button
+                  type="button"
+                  onClick={verHistorial}
+                  style={{
+                    fontSize: "11px",
+                    color: "#888",
+                    background: "none",
+                    border: "none",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  Historial
+                </button>
+              )}
+            </Box>
+          )}
+        </Table.Cell>
+      </Table.Row>
+
+      {imagenModalUrl && (
+        <Box
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            padding: "20px",
+          }}
+        >
+          <Box
+            style={{
+              backgroundColor: "white",
+              padding: "25px",
+              borderRadius: "12px",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+              maxWidth: "90%",
+              maxHeight: "90%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "15px",
+            }}
+          >
+            <img
+              src={imagenModalUrl}
+              alt="Evidencia fotográfica"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "70vh",
+                objectFit: "contain",
+                borderRadius: "8px",
+              }}
+            />
+            <Button
+              onClick={() => setImagenModalUrl(null)}
+              style={{
+                backgroundColor: TEAL,
+                color: "white",
+                padding: "8px 24px",
+                borderRadius: "6px",
+                border: "none",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Volver
+            </Button>
+          </Box>
+        </Box>
+      )}
+
+      {historial && (
+        <Box
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2100,
+            padding: "20px",
+          }}
+        >
+          <Box
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "10px",
+              maxWidth: "480px",
+              width: "100%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
+            <Text fontWeight="bold" mb="12px">
+              Historial de cambios — {tarea.nombre}
+            </Text>
+            {cargandoHistorial ? (
+              <Spinner size="sm" color={TEAL} />
+            ) : historial.length === 0 ? (
+              <Text fontSize="13px" color="gray.500">
+                Sin eventos registrados todavía.
+              </Text>
+            ) : (
+              historial.map((ev) => (
+                <Box
+                  key={ev.id}
+                  style={{ borderBottom: "1px solid #eee", padding: "8px 0" }}
+                >
+                  <Text fontSize="13px">
+                    {ev.completado ? "✔ Marcada" : "✕ Desmarcada"} —{" "}
+                    {new Date(ev.fecha_evento).toLocaleString()}
+                    {ev.evidencia_url ? " · con foto adjunta" : ""}
+                  </Text>
+                </Box>
+              ))
+            )}
+            <Button mt="12px" onClick={() => setHistorial(null)}>
+              Cerrar
+            </Button>
+          </Box>
+        </Box>
+      )}
+    </>
+  );
 }
 
 export function ChecklistPage() {
@@ -114,7 +396,8 @@ export function ChecklistPage() {
             Checklist Diario de Limpieza
           </Heading>
           <Text color="gray.600" fontSize="14px" mt="2px">
-            Control, persistencia e historial auditable por fecha, para todos los equipos.
+            Control, persistencia e historial auditable por fecha, para todos
+            los equipos.
           </Text>
         </Box>
         <Button
@@ -130,7 +413,6 @@ export function ChecklistPage() {
         </Button>
       </HStack>
 
-      {/* Barra de Filtros: solo por fecha */}
       <Box
         bg="white"
         p="20px"
@@ -253,61 +535,31 @@ export function ChecklistPage() {
               <Table.Root style={{ width: "100%", borderCollapse: "collapse" }}>
                 <Table.Header>
                   <Table.Row style={estiloHeaderFila}>
-                    <Table.ColumnHeader style={estiloHeaderCelda}>Tarea</Table.ColumnHeader>
-                    <Table.ColumnHeader style={{ ...estiloHeaderCelda, textAlign: "center", width: "140px" }}>
+                    <Table.ColumnHeader style={estiloHeaderCelda}>
+                      Tarea
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader
+                      style={{
+                        ...estiloHeaderCelda,
+                        textAlign: "center",
+                        width: "140px",
+                      }}
+                    >
                       Completada
                     </Table.ColumnHeader>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {grupo.tareas.map((t) => {
-                    const esHistorico = t.checklist_estado === "cerrado";
-                    const esFuturo = t.registro_id === 0;
-                    const esCerrado = esHistorico || esFuturo;
-                    return (
-                      <Table.Row key={t.registro_id > 0 ? `r-${t.registro_id}` : `p-${t.id}`}>
-                        <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
-                          {t.nombre}
-                        </Table.Cell>
-                        <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
-                          {actualizandoId === t.id ? (
-                            <Spinner size="sm" color={TEAL} />
-                          ) : esFuturo ? (
-                            // Fecha futura: la tarea ni se creó todavía (vive en
-                            // memoria como previsualización), así que no hay nada
-                            // que marcar. Mostrar un checkbox acá no aporta nada.
-                            <Text fontSize="13px" color="gray.400">
-                              —
-                            </Text>
-                          ) : esHistorico ? (
-                            // Checklist cerrado: se muestra el resultado ya
-                            // fijado, con color para que se distinga de un
-                            // vistazo (el checkbox nativo deshabilitado se ve
-                            // gris tanto tildado como sin tildar).
-                            <Text
-                              fontSize="17px"
-                              fontWeight="bold"
-                              color={t.completado ? "#2f9e44" : "#c92a2a"}
-                              title={
-                                t.completado
-                                  ? "Completada (checklist cerrado: dato histórico)"
-                                  : "No completada (checklist cerrado: dato histórico)"
-                              }
-                            >
-                              {t.completado ? "✔" : "✕"}
-                            </Text>
-                          ) : (
-                            <input
-                              type="checkbox"
-                              checked={t.completado}
-                              onChange={() => toggleTarea(t.id, t.completado)}
-                              style={{ width: "18px", height: "18px", cursor: "pointer" }}
-                            />
-                          )}
-                        </Table.Cell>
-                      </Table.Row>
-                    );
-                  })}
+                  {grupo.tareas.map((t) => (
+                    <FilaTarea
+                      key={
+                        t.registro_id > 0 ? `r-${t.registro_id}` : `p-${t.id}`
+                      }
+                      tarea={t}
+                      isLoading={actualizandoId === t.id}
+                      onToggle={toggleTarea}
+                    />
+                  ))}
                 </Table.Body>
               </Table.Root>
             </Box>
