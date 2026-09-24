@@ -17,6 +17,13 @@ import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
 
+
+// Impotacion De Elemento LImpieza
+import { ElementosLimpiezaPage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaPage";
+import { ElementoLimpiezaCreatePage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaCreatePage";
+import { ElementoLimpiezaEditPage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaEditPage";
+
+
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
@@ -131,4 +138,32 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+ // --- RUTAS DE elementoLimpieza ---
+  {
+    path: "/elementosLimpieza",
+    element: (
+      <LayoutPrincipal>
+        <ElementosLimpiezaPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/elementosLimpieza/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <ElementoLimpiezaCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/elementosLimpieza/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <ElementoLimpiezaEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+
+  
 ]);
