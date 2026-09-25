@@ -1,16 +1,9 @@
-from sqlalchemy import Boolean, Enum as SQLEnum
-from sqlalchemy import String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 #from src.database import Base aber si esto es lo q no anda
-from enum import Enum
 from src.models import ModeloBase
 
-class TipoEquipo(str, Enum):
-    HELADERA = "heladera"
-    HORNO = "horno"
-    BALANZA = "balanza"
-    TERMOMETRO = "termometro"
 
 class Equipo(ModeloBase):
     __tablename__ = "equipos"
@@ -19,7 +12,7 @@ class Equipo(ModeloBase):
 
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    tipo: Mapped[TipoEquipo] = mapped_column(SQLEnum(TipoEquipo), nullable = False)
+    tipo: Mapped[str] = mapped_column(String(100), nullable = False)
 
     ubicacion: Mapped[str] = mapped_column(String(100), nullable=False)
 

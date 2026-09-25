@@ -5,9 +5,9 @@ import {
   Field,
   HStack,
   Input,
-  NativeSelect,
+  Switch,
 } from "@chakra-ui/react";
-import { TIPO_EQUIPO_OPTIONS, type Equipo } from "../types/equipo";
+import type { Equipo } from "../types/equipo";
 
 type EquipoFormValues = Omit<Equipo, "id">;
 
@@ -18,9 +18,15 @@ interface EquipoFormProps {
   submitLabel?: string;
   title?: string;
   onCancel?: () => void;
+  mostrarBaja?: boolean;
 }
 
-const emptyValues: EquipoFormValues = { nombre: "", tipo: "heladera", ubicacion:"", activo:true, };
+const emptyValues: EquipoFormValues = {
+  nombre: "",
+  tipo: "",
+  ubicacion: "",
+  activo: true,
+};
 
 const estiloInput = {
   backgroundColor: "#fff",
@@ -32,14 +38,6 @@ const estiloInput = {
   fontSize: "16px",
   outline: "none",
   color: "#333",
-};
-
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
 };
 
 const estiloLabel = {
@@ -57,24 +55,34 @@ export function EquipoForm({
   submitLabel = "Guardar",
   title = "Alta de Equipo",
   onCancel,
+  mostrarBaja = false,
 }: EquipoFormProps) {
   const [values, setValues] = useState<EquipoFormValues>(initialValues);
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, nombre: e.target.value }));
-
-  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({
       ...prev,
-      tipo: e.target.value as EquipoFormValues["tipo"],
+      nombre: e.target.value,
     }));
 
+  const handleTipoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({
+      ...prev,
+      tipo: e.target.value,
+    }));
 
   const handleUbicacionChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, ubicacion: e.target.value }));
+    setValues((prev) => ({
+      ...prev,
+      ubicacion: e.target.value,
+    }));
 
-  //const handleActivoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-   // setValues((prev) => ({ ...prev, activo: e.target.checked }));
+  const handleBajaChange = (checked: boolean) => {
+    setValues((prev) => ({
+      ...prev,
+      activo: !checked,
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +101,14 @@ export function EquipoForm({
         marginBottom: "30px",
       }}
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+      <Box
+        as="h3"
+        style={{
+          marginTop: 0,
+          fontSize: "22px",
+          color: "#468189",
+        }}
+      >
         {title}
       </Box>
 
@@ -103,48 +118,39 @@ export function EquipoForm({
           <Box as="label" style={estiloLabel}>
             NOMBRE *
           </Box>
+
           <Input
             value={values.nombre}
             onChange={handleNombreChange}
-            placeholder="Ej: Fertilizante nitrogenado"
+            placeholder="Ej: Heladera industrial"
             style={estiloInput}
           />
         </Field.Root>
       </Box>
 
-      {/* 2. Tipo de Equipo */}
+      {/* Tipo */}
       <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            TIPO DE EQUIPO *
-          </Box>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={values.tipo}
-              onChange={handleTipoChange}
-              style={estiloSelect}
-            >
-              {TIPO_EQUIPO_OPTIONS.map((tipo) => (
-                <option
-                  key={tipo}
-                  value={tipo}
-                  style={{ backgroundColor: "#fff", color: "#333" }}
-                >
-                  {tipo}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
+          <Field.Label style={estiloLabel}>
+            TIPO *
+          </Field.Label>
+
+          <Input
+            value={values.tipo}
+            onChange={handleTipoChange}
+            placeholder="Ej: Heladera, horno, freidora..."
+            style={estiloInput}
+          />
         </Field.Root>
       </Box>
 
-      {/* 3. Ubicación */}
+      {/* Ubicación */}
       <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
             UBICACIÓN *
           </Box>
+
           <Input
             value={values.ubicacion}
             onChange={handleUbicacionChange}
@@ -153,6 +159,35 @@ export function EquipoForm({
           />
         </Field.Root>
       </Box>
+
+      {/* Dar de baja - solo aparece al modificar */}
+      {mostrarBaja && (
+        <Box style={{ marginBottom: "25px" }}>
+          <Switch.Root
+            checked={!values.activo}
+            onCheckedChange={(details) =>
+              handleBajaChange(details.checked)
+            }
+          >
+            <Switch.HiddenInput />
+            <Switch.Control 
+              bg={values.activo ? "green.500" : "red.500"}
+              _checked={{
+                bg: "red.500",
+              }}
+            />
+            <Switch.Label
+              style={{
+                fontSize: "14px",
+                fontWeight: "bold",
+                color: "#555",
+              }}
+            >
+              Dar de baja
+            </Switch.Label>
+          </Switch.Root>
+        </Box>
+      )}
 
       {/* Botones */}
       <HStack style={{ gap: "15px" }}>

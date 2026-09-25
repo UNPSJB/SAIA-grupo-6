@@ -139,6 +139,7 @@ export function EquipoEditPage() {
             title="Modificar Equipo"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/equipos")}
+            mostrarBaja={true}
           />
         </>
       )}
