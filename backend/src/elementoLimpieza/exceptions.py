@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from typing import List
-from src.insumos.constants import ErrorCode
+from src.elementoLimpieza.constants import ErrorCode
 from src.exceptions import NotFound, BadRequest
 from src.exceptions import BadRequest, NotFound
 
@@ -24,8 +24,11 @@ class ElementoLimpiezaYaExiste(Exception):
 class NombreVacio(BadRequest):
     DETAIL = ErrorCode.NOMBRE_VACIO
 
-class ElementoLimpiezaYaExiste(BadRequest):
-    DETAIL = "Ya existe un elemento de limpieza con ese nombre"
+class ElementoLimpiezaNoEncontrado(NotFound): 
+    DETAIL = ErrorCode.ELEMENTO_NO_ENCONTRADO 
 
-class ElementoLimpiezaNoEncontrado(NotFound):
-    DETAIL = "No se encontró el elemento de limpieza"
+class ElementoLimpiezaYaExiste(BadRequest): 
+    DETAIL = ErrorCode.ELEMENTO_YA_EXISTE 
+
+class NombreInvalido(BadRequest): 
+    DETAIL = ErrorCode.NOMBRE_INVALIDO 

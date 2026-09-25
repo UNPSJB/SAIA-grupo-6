@@ -152,7 +152,7 @@ export const router = createBrowserRouter([
 
   // --- RUTAS DE ELEMENTOS DE LIMPIEZA ---
   {
-    path: "/elementosLimpieza",
+    path: "/elementos-limpieza",
     element: (
       <LayoutPrincipal>
         <ElementosLimpiezaPage />
@@ -160,7 +160,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/elementosLimpieza/nuevo",
+    path: "/elementos-limpieza/nuevo",
     element: (
       <LayoutPrincipal>
         <ElementoLimpiezaCreatePage />
@@ -168,7 +168,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/elementosLimpieza/:id/editar",
+    path: "/elementos-limpieza/:id/editar",
     element: (
       <LayoutPrincipal>
         <ElementoLimpiezaEditPage />

@@ -2,12 +2,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from datetime import date
 
-
+from src.exceptions import ConflictoRegistroInactivo
 from .exceptions import ElementoLimpiezaNoEncontrado, ElementoLimpiezaYaExiste
 from .models import ElementoLimpieza
 from .schemas import ElementoLimpiezaCreate, ElementoLimpiezaUpdate
-
-
 
 def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> ElementoLimpieza:
 
@@ -16,17 +14,14 @@ def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> Eleme
 
   if existente:
     if existente.activo: 
-      raise ElementoLimpiezaYaExiste
-    # en caso de que este con uno inativo
-    existente.activo = True
-    existente.frecuencia_recambio_dias = datos.frecuencia_recambio_dias
-    existente.fecha_ultimo_recambio = ( datos.fecha_ultimo_recambio or date.today())
-
-    db.commit()
-    db.refresh(existente)
-    return existente
+      raise ElementoLimpiezaYaExiste()
+    
+    raise ConflictoRegistroInactivo( 
+       mensaje=f"El elemento de limpieza '{existente.nombre}' ya existe pero está dado de baja. ¿Querés reactivarlo con estos nuevos datos?", 
+       entidad_id=existente.id, 
+       campo="nombre" 
+    )
   
-
   nuevo_elementoLimpieza = datos.model_dump()
 
   # Si no se envía fecha de último recambio, se establece la fecha actual por defecto
@@ -34,12 +29,11 @@ def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> Eleme
     nuevo_elementoLimpieza["fecha_ultimo_recambio"] = date.today()
 
   
-  nuevo_elementoLimpieza = ElementoLimpieza(**nuevo_elementoLimpieza)
-  db.add(nuevo_elementoLimpieza)
-  db.commit()
-  db.refresh(nuevo_elementoLimpieza)
-
-  return nuevo_elementoLimpieza
+  instancia = ElementoLimpieza(**nuevo_elementoLimpieza) 
+  db.add(instancia) 
+  db.commit() 
+  db.refresh(instancia) 
+  return instancia
 
 
 def listar_elementos_limpieza( db: Session, incluir_inactivos: bool = False) -> list[ElementoLimpieza]:
@@ -63,18 +57,13 @@ def actualizar_elemento_limpieza(db: Session, elemento_id: int, datos: ElementoL
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
 
     # Validar si el nombre está ocupado
-    if "nombre" in cambios:
-        existente = (
-            db.query(ElementoLimpieza)
-            .filter(
-                ElementoLimpieza.nombre == cambios["nombre"],
-                ElementoLimpieza.id != elemento_id,  # Ignora el mismo elemento que se edita
-          
-            )
-            .first()
-        )
-        if existente:
-            raise ElementoLimpiezaYaExiste()
+    if "nombre" in cambios: 
+      existente = db.scalar( 
+        select(ElementoLimpieza).where( 
+          ElementoLimpieza.nombre.ilike(cambios["nombre"].strip()), 
+          ElementoLimpieza.id != elemento_id ) ) 
+      if existente: 
+        raise ElementoLimpiezaYaExiste()
 
     for atributo, valor in cambios.items():
         setattr(elemento, atributo, valor)

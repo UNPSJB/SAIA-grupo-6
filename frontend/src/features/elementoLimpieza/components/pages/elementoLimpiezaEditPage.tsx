@@ -31,7 +31,7 @@ export function ElementoLimpiezaEditPage() {
       setExito(true);
       // Espera 2 segundos para que el usuario vea el mensaje antes de redirigir
       setTimeout(() => {
-        navigate("/elementoslimpieza");
+        navigate("/elementos-limpieza");
       }, 2000);
     } catch {
       // El error queda reflejado en useElementoLimpiezaABM().error
@@ -53,7 +53,7 @@ export function ElementoLimpiezaEditPage() {
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
           _hover={{ bg: "#6c757d" }}
-          onClick={() => navigate("/elementoslimpieza")}
+          onClick={() => navigate("/elementos-limpieza")}
         >
           Volver a la lista
         </Button>
@@ -143,7 +143,7 @@ export function ElementoLimpiezaEditPage() {
             isLoading={guardando}
             title="Modificar Elemento"
             submitLabel="Guardar cambios"
-            onCancel={() => navigate("/elementoslimpieza")}
+            onCancel={() => navigate("/elementos-limpieza")}
           />
         </>
       )}

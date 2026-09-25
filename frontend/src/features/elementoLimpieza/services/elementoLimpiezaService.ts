@@ -1,5 +1,5 @@
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
-
+import { ConflictoInactivoError } from "../../../common/api/errors";
 const API_URL = "http://localhost:8000";
 
 export async function listarElementosLimpieza(
@@ -44,19 +44,26 @@ export async function crearElementoLimpieza(
     body: JSON.stringify(elemento),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al crear el elemento de limpieza"
-    );
-  }
-
-  return response.json();
+  if (response.status === 409) {
+    const errorData = await response.json().catch(() => null); 
+    const detail = errorData?.detail; 
+    if (detail && typeof detail === "object" && detail.tipo === "inactivo") { 
+      throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo); 
+    } 
+  } 
+  
+  if (!response.ok) { 
+    const errorData = await response.json().catch(() => null); 
+    throw new Error( 
+      errorData?.detail || "Error al crear el elemento de limpieza" 
+    ); 
+  } 
+  return response.json(); 
 }
 
 export async function modificarElementoLimpieza(
   id: number,
-  elemento: Partial<Omit<ElementoLimpieza, "id" | "activo">>
+  elemento: Partial<Omit<ElementoLimpieza, "id">>
 ): Promise<ElementoLimpieza> {
   const response = await fetch(`${API_URL}/elementos-limpieza/${id}`, {
     method: "PATCH",

@@ -47,21 +47,18 @@ export function ElementosLimpiezaPage() {
     return filtrados.slice(start, start + PAGE_SIZE);
   }, [elementosLimpieza, page, verInactivos]);
 
- const handleConfirmReactivar = async () => {
-  if (!elementoAReactivar) return;
-  try {
-    await reactivar({
-      nombre: elementoAReactivar.nombre,
-      fecha_ultimo_recambio: elementoAReactivar.fecha_ultimo_recambio,
-      frecuencia_recambio_dias: elementoAReactivar.frecuencia_recambio_dias,
-    });
-    setElementoAReactivar(null);
-    await cargarElementosLimpieza();
-  } catch {}
+ const handleConfirmReactivar = async () => { 
+  if (!elementoAReactivar) return; 
+  try { 
+    await reactivar(elementoAReactivar.id); 
+    setElementoAReactivar(null); 
+    await cargarElementosLimpieza(); 
+  } catch {} 
+
 };
 
   const handleEdit = (elemento: ElementoLimpieza) => {
-    navigate(`/elementoslimpieza/${elemento.id}/editar`);
+    navigate(`/elementos-limpieza/${elemento.id}/editar`);
   };
 
   const handleDeleteRequest = (elemento: ElementoLimpieza) => {
@@ -103,7 +100,7 @@ export function ElementosLimpiezaPage() {
           px="20px"
           py="10px"
           _hover={{ bg: TEAL }}
-          onClick={() => navigate("/elementoslimpieza/nuevo")}
+          onClick={() => navigate("/elementos-limpieza/nuevo")}
         >
           + Agregar
         </Button>

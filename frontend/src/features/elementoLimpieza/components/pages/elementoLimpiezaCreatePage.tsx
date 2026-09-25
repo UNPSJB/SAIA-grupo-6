@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../elementoLimpiezaForm";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
+import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import type { ElementoLimpieza } from "../../types/elementoLimpieza";
 
 type ElementoLimpiezaFormValues = Omit<
@@ -12,20 +13,42 @@ type ElementoLimpiezaFormValues = Omit<
 
 export function ElementoLimpiezaCreatePage() {
   const navigate = useNavigate();
-  const { alta, loading, error } = useElementoLimpiezaABM();
+  const { alta, reactivar, conflicto, cancelarConflicto, loading, error } =
+    useElementoLimpiezaABM();
   const [exito, setExito] = useState(false);
+  const [valoresPendientes, setValoresPendientes] =
+    useState<ElementoLimpiezaFormValues | null>(null);
 
   const handleSubmit = async (values: ElementoLimpiezaFormValues) => {
     try {
       await alta(values);
       setExito(true);
-      // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
       setTimeout(() => {
-        navigate("/elementosLimpieza");
+        navigate("/elementos-limpieza");
       }, 2000);
     } catch {
-      // El error ya queda reflejado en useElementoLimpiezaABM().error
+      // Guardamos los valores por si el usuario decide confirmar la reactivación
+      setValoresPendientes(values);
     }
+  };
+
+  const handleConfirmarReactivacion = async () => {
+    if (!conflicto || !valoresPendientes) return;
+    try {
+      await reactivar(conflicto.id, valoresPendientes);
+      setValoresPendientes(null);
+      setExito(true);
+      setTimeout(() => {
+        navigate("/elementos-limpieza");
+      }, 2000);
+    } catch {
+      // El error queda expuesto en useElementoLimpiezaABM().error
+    }
+  };
+
+  const handleCancelarReactivacion = () => {
+    cancelarConflicto();
+    setValoresPendientes(null);
   };
 
   return (
@@ -42,15 +65,15 @@ export function ElementoLimpiezaCreatePage() {
           height="auto"
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: "#6c757d" }}
-          onClick={() => navigate("/elementosLimpieza")}
+          _hover={{ bg: "#5a6268" }}
+          onClick={() => navigate("/elementos-limpieza")}
         >
           Volver a la lista
         </Button>
       </HStack>
 
-      {/* Cartel rojo de error */}
-      {error && (
+      {/* Cartel rojo de error (solo se muestra si no hay conflicto de reactivación activo) */}
+      {error && !conflicto && (
         <Box
           style={{
             backgroundColor: "#f8d7da",
@@ -117,7 +140,16 @@ export function ElementoLimpiezaCreatePage() {
         isLoading={loading}
         title="Alta de Elemento de Limpieza"
         submitLabel="Crear Elemento"
-        onCancel={() => navigate("/elementosLimpieza")}
+        onCancel={() => navigate("/elementos-limpieza")}
+      />
+
+      {/* Modal de reactivación cuando se intenta dar de alta un registro inactivo */}
+      <ConfirmarReactivacionDialog
+        isOpen={conflicto !== null}
+        mensaje={conflicto?.mensaje ?? ""}
+        isLoading={loading}
+        onCancel={handleCancelarReactivacion}
+        onConfirm={handleConfirmarReactivacion}
       />
     </Box>
   );

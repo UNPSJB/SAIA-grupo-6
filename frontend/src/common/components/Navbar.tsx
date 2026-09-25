@@ -67,8 +67,8 @@ export default function Navbar() {
         Equipos
       </Link>
 
-      <Link to="/elementosLimpieza" style={estiloLink}>
-        Elemnentos de Limpieza
+      <Link to="/elementos-limpieza" style={estiloLink}>
+        Elementos de Limpieza
       </Link>
 
       {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
