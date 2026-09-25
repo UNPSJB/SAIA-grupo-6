@@ -1,12 +1,11 @@
 from pydantic import BaseModel, ConfigDict, field_validator, Field
-from src.Equipo.models import TipoEquipo
 from src.Equipo import exceptions
 
 
 class EquipoBase(BaseModel):
     nombre: str
     ubicacion: str
-    tipo: TipoEquipo
+    tipo: str
 
     @field_validator("nombre")
     @classmethod
@@ -22,16 +21,12 @@ class EquipoBase(BaseModel):
             raise exceptions.UbicacionVacia()
         return v.strip()
 
-    @field_validator("tipo", mode="before")
+    @field_validator("tipo")
     @classmethod
-    def is_valid_tipo_unidad(cls, v: str) -> str:
-        tipos_validos = [tipo.value for tipo in TipoEquipo]
-
-        if v.lower() not in tipos_validos:
-            raise exceptions.TipoUnidadInvalido(tipos_validos)
-
-        return v.lower()
-
+    def validar_tipo_no_vacio(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("El tipo de equipo no puede estar vacio.")
+        return v.strip()
 
 
 class EquipoCreate(EquipoBase):
@@ -41,20 +36,22 @@ class EquipoCreate(EquipoBase):
 class EquipoUpdate(EquipoBase):
     nombre: str | None = None
     ubicacion: str | None = None
-    tipo: TipoEquipo | None = None
+    tipo: str | None = None
     activo: bool | None = None    
 
 
 class Equipo(EquipoBase):
     id: int
-    tipo: TipoEquipo
+    activo: bool
 
     model_config = ConfigDict(from_attributes = True)
 
 
 class EquipoDelete(EquipoBase):
     id: int
-    tipo: TipoEquipo
+    activo: bool
+
+    model_config = ConfigDict(from_attribute=True)
 
 class EquipoResponse(EquipoBase):
     id: int
