@@ -22,6 +22,9 @@ from src.Equipo.router import router as equipo_router
 from src.insumos import models as insumos_models
 from src.insumos.router import router as insumos_router
 
+
+from src.elementoLimpieza import models as elementosLimpieza_models
+from src.elementoLimpieza.router import router as elementosLimpieza_router
 from src.PlanLimpieza import models as plan_limpieza_models
 from src.PlanLimpieza.router import router as plan_limpieza_router
 
@@ -73,6 +76,10 @@ app.add_middleware(
 app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
+app.include_router(elementosLimpieza_router)
+
+#crear tabla registrada en SQLAlchemy
+ModeloBase.metadata.create_all(bind=engine)
 app.include_router(plan_limpieza_router)
 app.include_router(tareas_router)
 app.include_router(checklist_router)

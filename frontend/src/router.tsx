@@ -17,6 +17,11 @@ import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
 import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
 import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
 
+// Importación de Elementos de Limpieza
+import { ElementosLimpiezaPage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaPage";
+import { ElementoLimpiezaCreatePage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaCreatePage";
+import { ElementoLimpiezaEditPage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaEditPage";
+
 // 4. Importaciones del módulo de Planes de Limpieza
 import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanLimpiezaPage";
 import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
@@ -141,6 +146,32 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <EquipoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE ELEMENTOS DE LIMPIEZA ---
+  {
+    path: "/elementos-limpieza",
+    element: (
+      <LayoutPrincipal>
+        <ElementosLimpiezaPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/elementos-limpieza/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <ElementoLimpiezaCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/elementos-limpieza/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <ElementoLimpiezaEditPage />
       </LayoutPrincipal>
     ),
   },

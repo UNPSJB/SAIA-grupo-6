@@ -67,6 +67,13 @@ export default function Navbar() {
         Equipos
       </Link>
 
+      <Link to="/elementos-limpieza" style={estiloLink}>
+        Elementos de Limpieza
+      </Link>
+
+      {/* --- SECCIÓN DE MÓDULOS FUTUROS (INACTIVOS) --- */}
+      {/* se usa <span> en lugar de <Link> porque son vistas que todavía no están desarrolladas.
+          les dejo por ahora un cursor de "no permitido" y un color más apagado para indicar que aun no las hice lol. */}
       <Link to="/planes-limpieza" style={estiloLink}>
         Planes de Limpieza
       </Link>
