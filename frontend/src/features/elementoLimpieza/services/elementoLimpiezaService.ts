@@ -99,3 +99,19 @@ export async function darDeBajaElementoLimpieza(
 
   return response.json();
 }
+
+export async function registrarRecambioElemento(id: number): Promise<ElementoLimpieza> {
+  // ATENCIÓN: Esta es la ruta exacta que programaste en FastAPI
+  const response = await fetch(`${API_URL}/elementos-limpieza/${id}/recambio`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.detail || "Error al registrar el recambio del elemento"
+    );
+  }
+
+  return response.json();
+}

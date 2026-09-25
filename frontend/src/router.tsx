@@ -35,7 +35,9 @@ import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/i
 import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
 import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
 
-// Layout principal que mantiene el menú a la izquierda
+// Importaciones del módulo de Notificaciones
+import { NotificacionesPage } from "./features/notificaciones/components/pages/NotificacionesPage";// Layout principal que mantiene el menú a la izquierda
+
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -234,6 +236,16 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <InsumoQuimicoEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE NOTIFICACIONES ---
+  {
+    path: "/notificaciones",
+    element: (
+      <LayoutPrincipal>
+        <NotificacionesPage />
       </LayoutPrincipal>
     ),
   },
