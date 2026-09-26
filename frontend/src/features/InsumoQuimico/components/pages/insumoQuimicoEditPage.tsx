@@ -16,6 +16,7 @@ export function InsumoQuimicoEditPage() {
     loading: cargando,
     error: errorCarga,
   } = useInsumoQuimico(Number.isFinite(insumoId) ? insumoId : null);
+
   const {
     modificar,
     loading: guardando,
@@ -24,10 +25,13 @@ export function InsumoQuimicoEditPage() {
 
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<InsumoQuimico, "id" | "activo">) => {
+  const handleSubmit = async (
+    values: Omit<InsumoQuimico, "id" | "activo">
+  ) => {
     try {
       await modificar(insumoId, values);
       setExito(true);
+
       setTimeout(() => {
         navigate("/insumos-quimicos");
       }, 2000);
@@ -37,9 +41,15 @@ export function InsumoQuimicoEditPage() {
   return (
     <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
       <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+        <Heading
+          as="h2"
+          size="md"
+          fontWeight="bold"
+          color="black"
+        >
           Editar insumo químico
         </Heading>
+
         <Button
           bg="#6c757d"
           color="white"
@@ -47,7 +57,11 @@ export function InsumoQuimicoEditPage() {
           fontWeight="normal"
           height="auto"
           minW="auto"
-          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
+          style={{
+            border: "none",
+            padding: "8px 16px",
+            borderRadius: "6px",
+          }}
           _hover={{ bg: "#6c757d" }}
           onClick={() => navigate("/insumos-quimicos")}
         >
@@ -55,17 +69,23 @@ export function InsumoQuimicoEditPage() {
         </Button>
       </HStack>
 
-      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
+      {!cargando && errorCarga && (
+        <Text color="red.500">{errorCarga}</Text>
+      )}
 
       {cargando && (
-        <Text style={{ fontStyle: "italic", color: "#666" }}>
+        <Text
+          style={{
+            fontStyle: "italic",
+            color: "#666",
+          }}
+        >
           Cargando datos del insumo químico...
         </Text>
       )}
 
       {!cargando && !errorCarga && insumoQuimico && (
         <>
-          {/* Cartel rojo de error */}
           {errorGuardado && (
             <Box
               style={{
@@ -82,7 +102,6 @@ export function InsumoQuimicoEditPage() {
             </Box>
           )}
 
-          {/* Cartel verde de éxito */}
           {exito && (
             <Box
               style={{
@@ -107,13 +126,26 @@ export function InsumoQuimicoEditPage() {
                   textAlign: "center",
                 }}
               >
-                <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+                <Box
+                  style={{
+                    fontSize: "50px",
+                    marginBottom: "10px",
+                  }}
+                >
+                  ✅
+                </Box>
+
                 <Heading
                   as="h3"
-                  style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+                  style={{
+                    margin: 0,
+                    color: "#28a745",
+                    fontSize: "24px",
+                  }}
                 >
                   Éxito
                 </Heading>
+
                 <Text
                   style={{
                     color: "#555",
@@ -134,7 +166,6 @@ export function InsumoQuimicoEditPage() {
               nombre: insumoQuimico.nombre,
               tipo: insumoQuimico.tipo,
               unidad_medida: insumoQuimico.unidad_medida,
-              stock: insumoQuimico.stock         
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}

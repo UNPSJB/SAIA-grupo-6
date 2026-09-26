@@ -155,12 +155,6 @@ function FilaTarea({
         setErrorConsumo("La cantidad consumida debe ser mayor que 0.");
         return;
       }
-      if (insumoActual && cantidad > insumoActual.stock) {
-        setErrorConsumo(
-          `Stock insuficiente. Disponible: ${insumoActual.stock} ${insumoActual.unidad_medida}.`
-        );
-        return;
-      }
     }
     setErrorConsumo(null);
     onToggle(
@@ -214,7 +208,7 @@ function FilaTarea({
                 <option value="">Sin producto químico</option>
                 {insumosQuimicos.map((insumo) => (
                   <option key={insumo.id} value={insumo.id}>
-                    {insumo.nombre} — Stock: {insumo.stock} {insumo.unidad_medida}
+                    {insumo.nombre} — {insumo.unidad_medida}
                   </option>
                 ))}
               </select>

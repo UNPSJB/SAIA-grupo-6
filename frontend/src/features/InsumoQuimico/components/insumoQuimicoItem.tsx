@@ -55,16 +55,6 @@ export function InsumoQuimicoItem({
         {unidadLabel}
       </Table.Cell>
 
-      {/* Stock */}
-      <Table.Cell
-        fontSize="16px"
-        fontWeight="bold"
-        color={TEAL}
-        style={{ padding: "12px" }}
-      >
-        {insumo.stock} {insumo.unidad_medida}
-      </Table.Cell>
-
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center" style={{ gap: "10px" }}>
           {insumo.activo ? (

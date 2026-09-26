@@ -23,7 +23,6 @@ const emptyValues: InsumoQuimicoFormValues = {
   nombre: "",
   tipo: "detergente",
   unidad_medida: "l",
-  stock: 0,
 };
 
 const estiloInput = {
@@ -65,7 +64,10 @@ export function InsumoQuimicoForm({
   const [values, setValues] = useState<InsumoQuimicoFormValues>(initialValues);
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, nombre: e.target.value }));
+    setValues((prev) => ({
+      ...prev,
+      nombre: e.target.value,
+    }));
 
   const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({
@@ -79,19 +81,8 @@ export function InsumoQuimicoForm({
       unidad_medida: e.target.value as UnidadMedidaQuimico,
     }));
 
-  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({
-      ...prev,
-      stock: Number(e.target.value),
-    }));
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (values.stock < 0) {
-      return;
-    }
-
     onSubmit(values);
   };
 
@@ -107,11 +98,17 @@ export function InsumoQuimicoForm({
         marginBottom: "30px",
       }}
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+      <Box
+        as="h3"
+        style={{
+          marginTop: 0,
+          fontSize: "22px",
+          color: "#468189",
+        }}
+      >
         {title}
       </Box>
 
-      {/* Nombre */}
       <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
@@ -126,7 +123,6 @@ export function InsumoQuimicoForm({
         </Field.Root>
       </Box>
 
-      {/* Tipo de Químico */}
       <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
@@ -142,7 +138,10 @@ export function InsumoQuimicoForm({
                 <option
                   key={tipo.value}
                   value={tipo.value}
-                  style={{ backgroundColor: "#fff", color: "#333" }}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#333",
+                  }}
                 >
                   {tipo.label}
                 </option>
@@ -153,8 +152,7 @@ export function InsumoQuimicoForm({
         </Field.Root>
       </Box>
 
-      {/* Unidad de Medida */}
-      <Box style={{ marginBottom: "20px" }}>
+      <Box style={{ marginBottom: "25px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
             UNIDAD DE MEDIDA HABITUAL *
@@ -169,7 +167,10 @@ export function InsumoQuimicoForm({
                 <option
                   key={unidad.value}
                   value={unidad.value}
-                  style={{ backgroundColor: "#fff", color: "#333" }}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#333",
+                  }}
                 >
                   {unidad.label}
                 </option>
@@ -180,38 +181,6 @@ export function InsumoQuimicoForm({
         </Field.Root>
       </Box>
 
-      {/* Stock */}
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            STOCK ACTUAL *
-          </Box>
-
-          <HStack style={{ gap: "10px", maxWidth: "500px" }}>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={values.stock}
-              onChange={handleStockChange}
-              placeholder="Ej: 5000"
-              style={estiloInput}
-            />
-
-            <Box
-              style={{
-                minWidth: "60px",
-                fontWeight: "bold",
-                color: "#468189",
-              }}
-            >
-              {values.unidad_medida}
-            </Box>
-          </HStack>
-        </Field.Root>
-      </Box>
-
-      {/* Botones */}
       <HStack style={{ gap: "15px" }}>
         <Button
           type="submit"
