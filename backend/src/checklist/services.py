@@ -16,6 +16,9 @@ from src.checklist.exceptions import ChecklistFuturo, ChecklistInmutable
 from src.consumoInsumoQuimico import schemas as consumo_schemas
 from src.consumoInsumoQuimico import services as consumo_services
 
+from src.checklist.constants import ErrorCode
+from src.checklist.exceptions import FechaInvalida
+
 logger = logging.getLogger(__name__)
 
 
@@ -556,4 +559,69 @@ def obtener_historial_registro(db: Session, registro_id: int) -> schemas.Histori
     return schemas.HistorialRegistroTareaResponse(
         registro_id=registro_id,
         eventos=[schemas.HistorialRegistroTareaItem.model_validate(e) for e in eventos],
+    )
+
+# ---------------------------------------------------------
+    # ACTUALIZAMOS  para que muestres el historial 
+    # ---------------------------------------------------------
+
+def listar_historial_checklists(
+    db: Session,
+    fecha_desde: date_,
+    fecha_hasta: date_,
+    equipo_id: Optional[int] = None,
+) -> schemas.HistorialChecklistResponse:
+    if fecha_desde > fecha_hasta:
+        raise FechaInvalida()
+
+    query = (
+        select(models.Checklist)
+        .options(selectinload(models.Checklist.registros), selectinload(models.Checklist.equipo))
+        .where(
+            models.Checklist.fecha >= fecha_desde,
+            models.Checklist.fecha <= fecha_hasta,
+        )
+    )
+    if equipo_id is not None:
+        query = query.where(models.Checklist.equipo_id == equipo_id)
+
+    checklists = db.scalars(query.order_by(models.Checklist.fecha.desc())).all()
+
+    items: List[schemas.HistorialChecklistItem] = []
+    total_general = 0
+    completadas_general = 0
+
+    for cl in checklists:
+        total = len(cl.registros)
+        completadas = sum(1 for r in cl.registros if r.completado)
+        incumplidas = [
+            schemas.TareaIncumplidaItem(tarea_id=r.tarea_id, nombre=r.nombre_tarea_historico)
+            for r in cl.registros
+            if not r.completado
+        ]
+        total_general += total
+        completadas_general += completadas
+
+        items.append(
+            schemas.HistorialChecklistItem(
+                checklist_id=cl.id,
+                fecha=cl.fecha,
+                equipo_id=cl.equipo_id,
+                equipo_nombre=cl.equipo.nombre,
+                estado=cl.estado,
+                total_tareas=total,
+                tareas_completadas=completadas,
+                porcentaje_cumplimiento=(completadas / total * 100) if total else 0.0,
+                tareas_incumplidas=incumplidas,
+            )
+        )
+
+    return schemas.HistorialChecklistResponse(
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        equipo_id=equipo_id,
+        porcentaje_cumplimiento_general=(
+            completadas_general / total_general * 100 if total_general else 0.0
+        ),
+        checklists=items,
     )

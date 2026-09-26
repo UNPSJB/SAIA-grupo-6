@@ -92,3 +92,33 @@ class HistorialRegistroTareaItem(BaseModel):
 class HistorialRegistroTareaResponse(BaseModel):
     registro_id: int
     eventos: List[HistorialRegistroTareaItem]
+
+
+
+class TareaIncumplidaItem(BaseModel):
+    tarea_id: Optional[int] = None
+    nombre: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HistorialChecklistItem(BaseModel):
+    checklist_id: int
+    fecha: date
+    equipo_id: int
+    equipo_nombre: str
+    estado: EstadoChecklist
+    total_tareas: int
+    tareas_completadas: int
+    porcentaje_cumplimiento: float
+    tareas_incumplidas: List[TareaIncumplidaItem]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HistorialChecklistResponse(BaseModel):
+    fecha_desde: date
+    fecha_hasta: date
+    equipo_id: Optional[int] = None
+    porcentaje_cumplimiento_general: float
+    checklists: List[HistorialChecklistItem]

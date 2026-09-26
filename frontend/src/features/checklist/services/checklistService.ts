@@ -4,6 +4,9 @@ import type {
   HistorialRegistroTareaResponse,
 } from "../types/checklist";
 
+import type { HistorialChecklistResponse } from "../types/checklist";
+
+
 const API_URL = "http://localhost:8000";
 
 export async function obtenerTareasDelDia(
@@ -124,6 +127,28 @@ export async function obtenerHistorialRegistro(
       errorData?.detail ||
       "Error al obtener el historial de la tarea"
     );
+  }
+
+  return response.json();
+}
+
+
+export async function obtenerHistorialChecklists(
+  fechaDesde: string,
+  fechaHasta: string,
+  equipoId?: number
+): Promise<HistorialChecklistResponse> {
+  const params = new URLSearchParams({
+    fecha_desde: fechaDesde,
+    fecha_hasta: fechaHasta,
+  });
+  if (equipoId !== undefined) params.append("equipo_id", String(equipoId));
+
+  const response = await fetch(`${API_URL}/checklist/historial?${params}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener el historial de checklists");
   }
 
   return response.json();

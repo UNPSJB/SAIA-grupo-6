@@ -70,8 +70,34 @@ export interface HistorialRegistroTareaItem {
   evidencia_url?: string | null;
   fecha_evento: string;
 }
-
+// esto para el historial 
 export interface HistorialRegistroTareaResponse {
   registro_id: number;
   eventos: HistorialRegistroTareaItem[];
+}
+
+
+export interface TareaIncumplidaItem {
+  tarea_id: number | null;
+  nombre: string;
+}
+
+export interface HistorialChecklistItem {
+  checklist_id: number;
+  fecha: string;
+  equipo_id: number;
+  equipo_nombre: string;
+  estado: EstadoChecklist;
+  total_tareas: number;
+  tareas_completadas: number;
+  porcentaje_cumplimiento: number;
+  tareas_incumplidas: TareaIncumplidaItem[];
+}
+
+export interface HistorialChecklistResponse {
+  fecha_desde: string;
+  fecha_hasta: string;
+  equipo_id: number | null;
+  porcentaje_cumplimiento_general: number;
+  checklists: HistorialChecklistItem[];
 }
