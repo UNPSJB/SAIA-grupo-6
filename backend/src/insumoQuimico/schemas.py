@@ -7,7 +7,8 @@ from src.insumoQuimico import exceptions
 class InsumoQuimicoBase(BaseModel): 
     nombre: str 
     tipo: TipoQuimico 
-    unidad_medida: UnidadMedidaQuimico 
+    unidad_medida: UnidadMedidaQuimico
+    stock: float = 0
 
     @field_validator("nombre") 
     @classmethod 
@@ -23,14 +24,29 @@ class InsumoQuimicoBase(BaseModel):
             raise exceptions.NombreInvalido() 
         return texto
 
+    @field_validator("stock")
+    @classmethod
+    def validar_stock(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError("El stock no puede ser negativo.")
+        return value
+
 class InsumoQuimicoCreate(InsumoQuimicoBase): 
     pass 
 
 class InsumoQuimicoUpdate(BaseModel): 
     nombre: Optional[str] = None 
     tipo: Optional[TipoQuimico] = None 
-    unidad_medida: Optional[UnidadMedidaQuimico] = None 
-    activo: Optional[bool] = None 
+    unidad_medida: Optional[UnidadMedidaQuimico] = None
+    stock: Optional[float] = None
+    activo: Optional[bool] = None
+
+    @field_validator("stock")
+    @classmethod
+    def validar_stock(cls, value: Optional[float]) -> Optional[float]:
+        if value is not None and value < 0:
+            raise ValueError("El stock no puede ser negativo.")
+        return value
 
 class InsumoQuimicoResponse(InsumoQuimicoBase): 
     id: int 

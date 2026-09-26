@@ -13,6 +13,8 @@ from src.tareas.models import Tarea
 from src.tareas.services import leer_tarea
 from src.exceptions import NotFound
 from src.checklist.exceptions import ChecklistFuturo, ChecklistInmutable
+from src.consumoInsumoQuimico import schemas as consumo_schemas
+from src.consumoInsumoQuimico import services as consumo_services
 
 logger = logging.getLogger(__name__)
 
@@ -393,18 +395,21 @@ def listar_tareas_del_dia(
 
 
 def marcar_tarea(
-    db: Session, 
-    tarea_id: int, 
-    completado: bool, 
-    usuario_id: Optional[int], 
-    evidencia_url: Optional[str], 
-    fecha: Optional[date_] = None
+    db: Session,
+    tarea_id: int,
+    completado: bool,
+    usuario_id: Optional[int],
+    evidencia_url: Optional[str],
+    fecha: Optional[date_] = None,
+    insumo_quimico_id: Optional[int] = None,
+    cantidad_consumida: Optional[float] = None,
 ) -> models.RegistroTarea:
-    
+
     tarea = leer_tarea(db, tarea_id)
     fecha_registro = fecha or date_.today()
     hoy = date_.today()
 
+    # No se pueden modificar checklists futuros
     if fecha_registro > hoy:
         raise ChecklistFuturo()
 
@@ -415,8 +420,14 @@ def marcar_tarea(
         )
     )
 
+    # Si todavía no existe el checklist, lo creamos
     if checklist is None:
-        obtener_o_crear_checklist(db, tarea.plan.equipo_id, fecha_registro)
+        obtener_o_crear_checklist(
+            db,
+            tarea.plan.equipo_id,
+            fecha_registro
+        )
+
         checklist = db.scalar(
             select(models.Checklist).where(
                 models.Checklist.equipo_id == tarea.plan.equipo_id,
@@ -424,11 +435,15 @@ def marcar_tarea(
             )
         )
 
+    # Los checklists de días anteriores son históricos
+    # y no se pueden modificar.
     if checklist is not None and checklist.fecha < hoy:
         if _cerrar_checklist_vencido(checklist, hoy):
             db.commit()
+
         raise ChecklistInmutable()
 
+    # Buscamos el registro correspondiente a esta tarea
     registro = db.scalar(
         select(models.RegistroTarea).where(
             models.RegistroTarea.checklist_id == checklist.id,
@@ -436,24 +451,55 @@ def marcar_tarea(
         )
     )
 
+    # Si por algún motivo todavía no existe, lo creamos
     if registro is None:
         registro = models.RegistroTarea(
             checklist_id=checklist.id,
             tarea_id=tarea.id,
             nombre_tarea_historico=tarea.nombre,
         )
+
         db.add(registro)
+
+        # Necesitamos el ID antes de registrar el consumo
         db.flush()
 
+    # Actualizamos el estado de la tarea
     registro.completado = completado
     registro.fecha_completado = datetime.now() if completado else None
     registro.usuario_id = usuario_id
+
     if evidencia_url:
         registro.evidencia_url = evidencia_url
 
-    # Auditoría: se agrega un evento nuevo, nunca se pisa nada. Esta fila
-    # queda fija en el tiempo aunque el estado "actual" de arriba
-    # (registro.completado, etc.) se vuelva a sobrescribir después.
+    # ---------------------------------------------------------
+    # REGISTRO DEL CONSUMO DEL INSUMO QUÍMICO
+    # ---------------------------------------------------------
+    # Solo registramos consumo cuando:
+    # - la tarea se está marcando como completada
+    # - se seleccionó un insumo químico
+    # - se indicó una cantidad
+    if (
+        completado
+        and insumo_quimico_id is not None
+        and cantidad_consumida is not None
+    ):
+        datos_consumo = consumo_schemas.ConsumoInsumoQuimicoCreate(
+            insumo_quimico_id=insumo_quimico_id,
+            cantidad=cantidad_consumida,
+        )
+
+        consumo_services.registrar_consumo_insumo_quimico(
+            db=db,
+            registro_tarea_id=registro.id,
+            datos=datos_consumo,
+            hacer_commit=False,
+        )
+
+    # ---------------------------------------------------------
+    # AUDITORÍA
+    # ---------------------------------------------------------
+    # Se agrega un evento nuevo y nunca se pisa el historial.
     db.add(
         models.HistorialRegistroTarea(
             registro_tarea_id=registro.id,
@@ -463,15 +509,36 @@ def marcar_tarea(
         )
     )
 
+    # ---------------------------------------------------------
+    # ACTUALIZAMOS EL ESTADO GENERAL DEL CHECKLIST
+    # ---------------------------------------------------------
     total = len(checklist.registros)
-    completadas = sum(
-        1 for r in checklist.registros
-        if (r.id != registro.id and r.completado) or (r.id == registro.id and completado)
-    )
-    checklist.estado = models.EstadoChecklist.COMPLETO if (total > 0 and completadas == total) else models.EstadoChecklist.ABIERTO
 
+    completadas = sum(
+        1
+        for r in checklist.registros
+        if (
+            (r.id != registro.id and r.completado)
+            or
+            (r.id == registro.id and completado)
+        )
+    )
+
+    checklist.estado = (
+        models.EstadoChecklist.COMPLETO
+        if total > 0 and completadas == total
+        else models.EstadoChecklist.ABIERTO
+    )
+
+    # Un único commit guarda:
+    # - estado de la tarea
+    # - historial
+    # - consumo
+    # - descuento de stock
     db.commit()
+
     db.refresh(registro)
+
     return registro
 
 

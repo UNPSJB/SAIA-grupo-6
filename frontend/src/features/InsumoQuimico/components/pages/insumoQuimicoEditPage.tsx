@@ -134,6 +134,7 @@ export function InsumoQuimicoEditPage() {
               nombre: insumoQuimico.nombre,
               tipo: insumoQuimico.tipo,
               unidad_medida: insumoQuimico.unidad_medida,
+              stock: insumoQuimico.stock         
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}

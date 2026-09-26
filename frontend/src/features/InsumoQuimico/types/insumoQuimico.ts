@@ -6,6 +6,7 @@ export interface InsumoQuimico {
   nombre: string;
   tipo: TipoQuimico;
   unidad_medida: UnidadMedidaQuimico;
+  stock: number;
   activo: boolean;
 }
 
