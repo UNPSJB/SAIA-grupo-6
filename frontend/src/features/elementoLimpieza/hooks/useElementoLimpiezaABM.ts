@@ -23,12 +23,17 @@ export function useElementoLimpiezaABM() {
   const [error, setError] = useState<string | null>(null);
   const [conflicto, setConflicto] = useState<ConflictoInactivo | null>(null);
 
+  // Función auxiliar para gritarle a la campanita que algo en la BD cambió
+  const avisarCampana = () => window.dispatchEvent(new Event("actualizar_notificaciones"));
+
   const alta = async (elemento: ElementoLimpiezaInput) => {
     try {
       setLoading(true);
       setError(null);
       setConflicto(null);
-      return await crearElementoLimpieza(elemento);
+      const res = await crearElementoLimpieza(elemento);
+      avisarCampana(); // <-- ¡Avisamos a la campana!
+      return res;
     } catch (err) {
       if (err instanceof ConflictoInactivoError) {
         setConflicto({
@@ -56,12 +61,12 @@ export function useElementoLimpiezaABM() {
     try {
       setLoading(true);
       setError(null);
-      // Si se pasan datos nuevos se actualizan, y siempre se marca activo: true
       const resultado = await modificarElementoLimpieza(id, {
         ...(elemento ?? {}),
         activo: true,
       });
       setConflicto(null);
+      avisarCampana(); // <-- ¡Avisamos a la campana!
       return resultado;
     } catch (err) {
       setError(
@@ -84,7 +89,9 @@ export function useElementoLimpiezaABM() {
     try {
       setLoading(true);
       setError(null);
-      return await modificarElementoLimpieza(id, elemento);
+      const res = await modificarElementoLimpieza(id, elemento);
+      avisarCampana(); // <-- ¡Avisamos a la campana!
+      return res;
     } catch (err) {
       setError(
         err instanceof Error
@@ -101,7 +108,9 @@ export function useElementoLimpiezaABM() {
     try {
       setLoading(true);
       setError(null);
-      return await darDeBajaElementoLimpieza(id);
+      const res = await darDeBajaElementoLimpieza(id);
+      avisarCampana(); // <-- ¡Avisamos a la campana!
+      return res;
     } catch (err) {
       setError(
         err instanceof Error

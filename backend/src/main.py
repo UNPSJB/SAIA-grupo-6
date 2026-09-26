@@ -35,8 +35,10 @@ from src.checklist import models as checklist_models
 from src.checklist.router import router as checklist_router
 
 from src.insumoQuimico.router import router as insumoQuimico_router
-
 from src.consumoInsumoQuimico.router import (router as consumo_insumo_quimico_router)
+
+from src.notificaciones.router import router as notificaciones_router
+
 
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
@@ -86,3 +88,4 @@ app.include_router(tareas_router)
 app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)
 app.include_router(consumo_insumo_quimico_router)
+app.include_router(notificaciones_router)
