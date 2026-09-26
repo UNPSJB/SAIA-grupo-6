@@ -4,7 +4,7 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoForm } from "../../components/insumoForm";
 import { useInsumo } from "../../hooks/useInsumo";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
-import type { Insumo } from "../../types/insumo";
+import type { InsumoFormValues } from "../../types/insumo";
 
 export function InsumoEditPage() {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ export function InsumoEditPage() {
 
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Insumo, "id">) => {
+  const handleSubmit = async (values: InsumoFormValues) => {
     try {
       await modificar(insumoId, values);
       setExito(true);

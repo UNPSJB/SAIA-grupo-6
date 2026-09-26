@@ -12,4 +12,9 @@ export interface Insumo {
   id: number;
   nombre: string;
   tipo: TipoUnidad;
+  activo: boolean;
 }
+
+// Datos que vienen del formulario: nunca incluyen id (lo asigna el backend)
+// ni activo (lo maneja el backend al crear, o las acciones de baja/reactivar).
+export type InsumoFormValues = Omit<Insumo, "id" | "activo">;

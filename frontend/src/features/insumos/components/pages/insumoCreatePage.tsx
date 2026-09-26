@@ -3,24 +3,37 @@ import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoForm } from "../insumoForm";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
-import type { Insumo } from "../../types/insumo";
+import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import type { InsumoFormValues } from "../../types/insumo";
 
 export function InsumoCreatePage() {
   const navigate = useNavigate();
-  const { alta, loading, error } = useInsumoABM();
+  const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useInsumoABM();
   const [exito, setExito] = useState(false);
+  const [valoresPendientes, setValoresPendientes] = useState<InsumoFormValues | null>(null);
 
-  const handleSubmit = async (values: Omit<Insumo, "id">) => {
+  const handleSubmit = async (values: InsumoFormValues) => {
     try {
       await alta(values);
       setExito(true);
-      // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
-      setTimeout(() => {
-        navigate("/insumos");
-      }, 2000);
+      setTimeout(() => navigate("/insumos"), 2000);
     } catch {
-      // El error ya queda reflejado en useInsumoABM().error
+      setValoresPendientes(values);
     }
+  };
+  const handleConfirmarReactivacion = async () => {
+    if (!conflicto || !valoresPendientes) return;
+    try {
+      await reactivar(conflicto.id, valoresPendientes);
+      setValoresPendientes(null);
+      setExito(true);
+      setTimeout(() => navigate("/insumos"), 2000);
+    } catch {}
+  };
+
+  const handleCancelarReactivacion = () => {
+    cancelarConflicto();
+    setValoresPendientes(null);
   };
 
   return (
@@ -44,8 +57,7 @@ export function InsumoCreatePage() {
         </Button>
       </HStack>
 
-      {/* Cartel rojo de error */}
-      {error && (
+      {error && !conflicto && (
         <Box
           style={{
             backgroundColor: "#f8d7da",
@@ -61,7 +73,6 @@ export function InsumoCreatePage() {
         </Box>
       )}
 
-      {/* Cartel verde de éxito */}
       {exito && (
         <Box
           style={{
@@ -101,7 +112,7 @@ export function InsumoCreatePage() {
                 fontWeight: 500,
               }}
             >
-              Insumo agregado correctamente.
+              Insumo guardado correctamente.
             </Text>
           </Box>
         </Box>
@@ -112,6 +123,14 @@ export function InsumoCreatePage() {
         isLoading={loading}
         title="Alta de Insumo"
         submitLabel="Crear insumo"
+      />
+
+      <ConfirmarReactivacionDialog
+        isOpen={conflicto !== null}
+        mensaje={conflicto?.mensaje ?? ""}
+        isLoading={loading}
+        onCancel={handleCancelarReactivacion}
+        onConfirm={handleConfirmarReactivacion}
       />
     </Box>
   );

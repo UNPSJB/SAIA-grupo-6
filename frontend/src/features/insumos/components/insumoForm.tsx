@@ -7,9 +7,7 @@ import {
   Input,
   NativeSelect,
 } from "@chakra-ui/react";
-import { TIPOS_UNIDAD, type Insumo } from "../types/insumo";
-
-type InsumoFormValues = Omit<Insumo, "id">;
+import { TIPOS_UNIDAD, type InsumoFormValues } from "../types/insumo";
 
 interface InsumoFormProps {
   initialValues?: InsumoFormValues;
