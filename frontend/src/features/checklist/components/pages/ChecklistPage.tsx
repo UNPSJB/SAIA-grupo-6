@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Heading,
@@ -14,10 +14,10 @@ import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
 import type { HistorialRegistroTareaItem } from "../../types/checklist";
-
+import { listarInsumosQuimicos } from "../../../InsumoQuimico/services/insumoQuimicoService";
+import type { InsumoQuimico } from "../../../InsumoQuimico/types/insumoQuimico";
 const TEAL = "#468189";
 const TEAL_CLARO = "#90BEBB";
-
 const estiloInput = {
   backgroundColor: "#fff",
   padding: "10px 14px",
@@ -26,19 +26,16 @@ const estiloInput = {
   fontSize: "15px",
   color: "#333",
 };
-
 const estiloTarjeta = {
   backgroundColor: "#fff",
   borderRadius: "10px",
   boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
   overflow: "hidden" as const,
 };
-
 const estiloHeaderFila = {
   backgroundColor: "#EAF3F2",
   borderBottom: `2px solid ${TEAL_CLARO}`,
 };
-
 const estiloHeaderCelda = {
   color: "#333",
   fontWeight: "bold" as const,
@@ -47,7 +44,6 @@ const estiloHeaderCelda = {
   letterSpacing: "0.03em",
   padding: "10px 16px",
 };
-
 const estiloCelda = {
   color: "#333",
   fontSize: "14px",
@@ -55,17 +51,14 @@ const estiloCelda = {
   borderBottom: "1px solid #eee",
   backgroundColor: "#fff",
 };
-
 interface GrupoPlan {
   key: string;
   planNombre: string;
   equipoNombre: string;
   tareas: TareaDelDia[];
 }
-
 function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
   const grupos = new Map<string, GrupoPlan>();
-
   for (const tarea of tareas) {
     const key = `${tarea.equipo_id}-${tarea.plan_id ?? "sin-plan"}`;
     if (!grupos.has(key)) {
@@ -78,34 +71,47 @@ function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
     }
     grupos.get(key)!.tareas.push(tarea);
   }
-
   return Array.from(grupos.values());
 }
-
 function fechaLocalISO(fecha: Date): string {
   const year = fecha.getFullYear();
   const month = String(fecha.getMonth() + 1).padStart(2, "0");
   const day = String(fecha.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
 // Fila de tarea como componente propio: cada fila necesita su propio
 // estado de archivo-pendiente y su propio modal de foto, así que no
 // puede vivir como estado único en ChecklistPage (se pisaría entre filas).
 interface FilaTareaProps {
   tarea: TareaDelDia;
   isLoading: boolean;
-  onToggle: (tareaId: number, estadoActual: boolean, evidencia?: File) => void;
+  insumosQuimicos: InsumoQuimico[];
+  onToggle: (
+    tareaId: number,
+    estadoActual: boolean,
+    evidencia?: File,
+    insumoQuimicoId?: number,
+    cantidadConsumida?: number
+  ) => void;
 }
-
-function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
+function FilaTarea({
+  tarea,
+  isLoading,
+  insumosQuimicos,
+  onToggle,
+}: FilaTareaProps) {
   const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
+  const [insumoSeleccionado, setInsumoSeleccionado] = useState("");
+  const [cantidadConsumida, setCantidadConsumida] = useState("");
+  const [errorConsumo, setErrorConsumo] = useState<string | null>(null);
+  const insumoActual = insumosQuimicos.find(
+    (insumo) => insumo.id === Number(insumoSeleccionado)
+  );
   const [imagenModalUrl, setImagenModalUrl] = useState<string | null>(null);
   const [historial, setHistorial] = useState<
     HistorialRegistroTareaItem[] | null
   >(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
-
   const verHistorial = async () => {
     if (tarea.registro_id === 0) return; // preview de fecha futura, no hay nada que auditar todavía
     setCargandoHistorial(true);
@@ -118,20 +124,54 @@ function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
       setCargandoHistorial(false);
     }
   };
-
   const esHistorico = tarea.checklist_estado === "cerrado";
   const esFuturo = tarea.registro_id === 0;
   const esCerrado = esHistorico || esFuturo;
-
   const urlFoto = tarea.evidencia_url
-    ? `http://localhost:8000/${tarea.evidencia_url.replace(/\\/g, "/")}`
+    ? `http\://localhost:8000/${tarea.evidencia_url.replace(/\\\\/g, "/")}`
     : null;
-
   const handleCheckboxClick = () => {
-    onToggle(tarea.id, tarea.completado, archivoEvidencia || undefined);
+    // Si estamos desmarcando una tarea ya completada, no registramos un consumo nuevo.
+    if (tarea.completado) {
+      onToggle(tarea.id, tarea.completado, archivoEvidencia || undefined);
+      setArchivoEvidencia(null);
+      setErrorConsumo(null);
+      return;
+    }
+    const hayProducto = insumoSeleccionado !== "";
+    const hayCantidad = cantidadConsumida !== "";
+    if (hayProducto !== hayCantidad) {
+      setErrorConsumo(
+        "Seleccioná el producto químico e indicá la cantidad consumida."
+      );
+      return;
+    }
+    let cantidad: number | undefined;
+    let insumoId: number | undefined;
+    if (hayProducto && hayCantidad) {
+      cantidad = Number(cantidadConsumida);
+      insumoId = Number(insumoSeleccionado);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+        setErrorConsumo("La cantidad consumida debe ser mayor que 0.");
+        return;
+      }
+      if (insumoActual && cantidad > insumoActual.stock) {
+        setErrorConsumo(
+          `Stock insuficiente. Disponible: ${insumoActual.stock} ${insumoActual.unidad_medida}.`
+        );
+        return;
+      }
+    }
+    setErrorConsumo(null);
+    onToggle(
+      tarea.id,
+      tarea.completado,
+      archivoEvidencia || undefined,
+      insumoId,
+      cantidad
+    );
     setArchivoEvidencia(null);
   };
-
   return (
     <>
       <Table.Row
@@ -139,7 +179,85 @@ function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
       >
         <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
           {tarea.nombre}
-
+          {/* Consumo aproximado de producto químico */}
+          {!tarea.completado && !esCerrado && (
+            <Box
+              mt="10px"
+              style={{
+                padding: "10px",
+                backgroundColor: "#f7faf9",
+                border: "1px solid #d8e7e5",
+                borderRadius: "6px",
+                maxWidth: "550px",
+              }}
+            >
+              <Text fontSize="12px" fontWeight="bold" color="#555" mb="6px">
+                Producto químico utilizado
+              </Text>
+              <select
+                value={insumoSeleccionado}
+                onChange={(e) => {
+                  setInsumoSeleccionado(e.target.value);
+                  setCantidadConsumida("");
+                  setErrorConsumo(null);
+                }}
+                style={{
+                  width: "100%",
+                  maxWidth: "350px",
+                  padding: "7px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #90BEBB",
+                  backgroundColor: "white",
+                  fontSize: "13px",
+                }}
+              >
+                <option value="">Sin producto químico</option>
+                {insumosQuimicos.map((insumo) => (
+                  <option key={insumo.id} value={insumo.id}>
+                    {insumo.nombre} — Stock: {insumo.stock} {insumo.unidad_medida}
+                  </option>
+                ))}
+              </select>
+              {insumoSeleccionado && (
+                <Box mt="8px">
+                  <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
+                    Cantidad aproximada consumida
+                  </Text>
+                  <HStack gap="8px">
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={cantidadConsumida}
+                      onChange={(e) => {
+                        setCantidadConsumida(e.target.value);
+                        setErrorConsumo(null);
+                      }}
+                      placeholder="Ej: 2"
+                      style={{
+                        width: "130px",
+                        padding: "6px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid #90BEBB",
+                        backgroundColor: "white",
+                        fontSize: "13px",
+                      }}
+                    />
+                    {insumoActual && (
+                      <Text fontSize="13px" fontWeight="bold" color={TEAL}>
+                        {insumoActual.unidad_medida}
+                      </Text>
+                    )}
+                  </HStack>
+                </Box>
+              )}
+              {errorConsumo && (
+                <Text fontSize="12px" color="red.500" mt="6px" fontWeight="bold">
+                  ⚠️ {errorConsumo}
+                </Text>
+              )}
+            </Box>
+          )}
           {/* Adjuntar evidencia: solo tiene sentido si todavía se puede marcar */}
           {!tarea.completado && !esCerrado && (
             <Box mt="8px">
@@ -182,7 +300,6 @@ function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
             </Box>
           )}
         </Table.Cell>
-
         <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
           {isLoading ? (
             <Spinner size="sm" color={TEAL} />
@@ -255,7 +372,6 @@ function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
           )}
         </Table.Cell>
       </Table.Row>
-
       {imagenModalUrl && (
         <Box
           style={{
@@ -314,7 +430,6 @@ function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
           </Box>
         </Box>
       )}
-
       {historial && (
         <Box
           style={{
@@ -375,19 +490,26 @@ function FilaTarea({ tarea, isLoading, onToggle }: FilaTareaProps) {
     </>
   );
 }
-
 export function ChecklistPage() {
   const hoyISO = fechaLocalISO(new Date());
   const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
-
+  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimico[]>([]);
   const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
     useChecklist(selectedFecha);
-
+  useEffect(() => {
+    const cargarInsumosQuimicos = async () => {
+      try {
+        const datos = await listarInsumosQuimicos();
+        setInsumosQuimicos(datos);
+      } catch (err) {
+        console.error("No se pudieron cargar los insumos químicos:", err);
+      }
+    };
+    cargarInsumosQuimicos();
+  }, []);
   const grupos = useMemo(() => agruparPorPlan(tareas), [tareas]);
-
   const totalTareas = tareas.length;
   const tareasCompletadas = tareas.filter((t) => t.completado).length;
-
   return (
     <Box style={{ padding: "20px" }}>
       <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
@@ -412,7 +534,6 @@ export function ChecklistPage() {
           Actualizar
         </Button>
       </HStack>
-
       <Box
         bg="white"
         p="20px"
@@ -441,7 +562,6 @@ export function ChecklistPage() {
           </Field.Root>
         </Box>
       </Box>
-
       {error && (
         <Box
           style={{
@@ -457,14 +577,12 @@ export function ChecklistPage() {
           ⚠️ {error}
         </Box>
       )}
-
       {loading && (
         <HStack justify="center" p={10}>
           <Spinner size="lg" color={TEAL} />
           <Text color="gray.600">Cargando tareas...</Text>
         </HStack>
       )}
-
       {!loading && grupos.length === 0 && !error && (
         <Box bg="white" borderRadius="8px" p={10} textAlign="center">
           <Text fontSize="16px" color="gray.600">
@@ -472,7 +590,6 @@ export function ChecklistPage() {
           </Text>
         </Box>
       )}
-
       {!loading && grupos.length > 0 && (
         <>
           <HStack justify="space-between" mb="16px">
@@ -481,7 +598,6 @@ export function ChecklistPage() {
               <strong>{totalTareas}</strong> tareas completadas.
             </Text>
           </HStack>
-
           {grupos.map((grupo) => (
             <Box key={grupo.key} style={estiloTarjeta} mb="20px">
               <Box
@@ -531,7 +647,6 @@ export function ChecklistPage() {
                   )}
                 </HStack>
               </Box>
-
               <Table.Root style={{ width: "100%", borderCollapse: "collapse" }}>
                 <Table.Header>
                   <Table.Row style={estiloHeaderFila}>
@@ -557,6 +672,7 @@ export function ChecklistPage() {
                       }
                       tarea={t}
                       isLoading={actualizandoId === t.id}
+                      insumosQuimicos={insumosQuimicos}
                       onToggle={toggleTarea}
                     />
                   ))}

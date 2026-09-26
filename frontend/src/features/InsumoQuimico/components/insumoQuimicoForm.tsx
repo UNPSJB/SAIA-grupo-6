@@ -23,6 +23,7 @@ const emptyValues: InsumoQuimicoFormValues = {
   nombre: "",
   tipo: "detergente",
   unidad_medida: "l",
+  stock: 0,
 };
 
 const estiloInput = {
@@ -78,8 +79,19 @@ export function InsumoQuimicoForm({
       unidad_medida: e.target.value as UnidadMedidaQuimico,
     }));
 
+  const handleStockChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({
+      ...prev,
+      stock: Number(e.target.value),
+    }));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (values.stock < 0) {
+      return;
+    }
+
     onSubmit(values);
   };
 
@@ -142,7 +154,7 @@ export function InsumoQuimicoForm({
       </Box>
 
       {/* Unidad de Medida */}
-      <Box style={{ marginBottom: "25px" }}>
+      <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
             UNIDAD DE MEDIDA HABITUAL *
@@ -165,6 +177,37 @@ export function InsumoQuimicoForm({
             </NativeSelect.Field>
             <NativeSelect.Indicator />
           </NativeSelect.Root>
+        </Field.Root>
+      </Box>
+
+      {/* Stock */}
+      <Box style={{ marginBottom: "25px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            STOCK ACTUAL *
+          </Box>
+
+          <HStack style={{ gap: "10px", maxWidth: "500px" }}>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={values.stock}
+              onChange={handleStockChange}
+              placeholder="Ej: 5000"
+              style={estiloInput}
+            />
+
+            <Box
+              style={{
+                minWidth: "60px",
+                fontWeight: "bold",
+                color: "#468189",
+              }}
+            >
+              {values.unidad_medida}
+            </Box>
+          </HStack>
         </Field.Root>
       </Box>
 
