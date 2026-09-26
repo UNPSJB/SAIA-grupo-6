@@ -18,10 +18,12 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> schemas.Insumo:
 
     _insumo = Insumo(**insumo.model_dump())
     db.add(_insumo)
-    db.commit()
-    db.refresh(
-        _insumo
-    ) 
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(_insumo)
     return _insumo
 
 

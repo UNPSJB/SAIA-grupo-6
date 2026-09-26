@@ -8,7 +8,11 @@ from .schemas import EquipoCreate, EquipoUpdate
 def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
     nuevo_equipo = Equipo(**datos.model_dump())
     db.add(nuevo_equipo)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(nuevo_equipo)
 
     return nuevo_equipo
