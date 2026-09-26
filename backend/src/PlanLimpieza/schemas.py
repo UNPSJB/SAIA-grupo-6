@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from typing import List, Optional
 from datetime import datetime
 from src.PlanLimpieza import exceptions
-from src.tareas.schemas import TareaBase as TareaInput, Tarea as TareaSchema
+from src.tareas.schemas import TareaBase as TareaInput, TareaEnPlanInput, Tarea as TareaSchema
 
 
 class PlanLimpiezaBase(BaseModel):
@@ -50,7 +50,7 @@ class PlanLimpiezaCreate(PlanLimpiezaBase):
 
 class PlanLimpiezaUpdate(PlanLimpiezaBase):
     nombre: Optional[str] = None
-    tareas: Optional[List[TareaInput]] = None
+    tareas: Optional[List[TareaEnPlanInput]] = None
     equipo_id: Optional[int] = None
     autor_id: Optional[int] = None
     activo: Optional[bool] = None

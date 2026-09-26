@@ -36,8 +36,11 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
 
 def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
     """Instancia las tareas nuevas y propias del plan (composición, no M2M).
-    Cada tarea trae su propia frecuencia."""
-    return [Tarea(nombre=t.nombre, frecuencia=t.frecuencia) for t in tareas]
+    Cada tarea trae su propia frecuencia y su procedimiento."""
+    return [
+        Tarea(nombre=t.nombre, frecuencia=t.frecuencia, descripcion=t.descripcion)
+        for t in tareas
+    ]
 
 
 def crear_plan_limpieza(
@@ -64,12 +67,16 @@ def crear_plan_limpieza(
             raise exceptions.DatoDuplicado()
 
 
-def listar_planes_limpieza(db: Session) -> List[models.PlanLimpieza]:
-    logger.info("Listando planes de limpieza desde services")
-    # traigo solo los planes activos
-    return db.scalars(
-        select(models.PlanLimpieza).where(models.PlanLimpieza.activo == True)
-    ).all()
+def listar_planes_limpieza(
+    db: Session, incluir_inactivos: bool = False
+) -> List[models.PlanLimpieza]:
+    logger.info(
+        "Listando planes de limpieza (incluir_inactivos=%s)", incluir_inactivos
+    )
+    query = select(models.PlanLimpieza)
+    if not incluir_inactivos:
+        query = query.where(models.PlanLimpieza.activo == True)
+    return db.scalars(query).all()
 
 
 def leer_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
@@ -92,29 +99,39 @@ def modificar_plan_limpieza(
     if "autor_id" in datos_a_actualizar:
         _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
 
-    # Manejo seguro de tareas sin DELETE destructivo
+    # Manejo seguro de tareas sin DELETE destructivo.
+    # Se matchea por id (no por nombre): así renombrar una tarea actualiza
+    # la fila existente en vez de desactivarla y crear una tarea nueva.
     if "tareas" in datos_a_actualizar:
         tareas_input = datos_a_actualizar.pop("tareas")
-        # nombre -> frecuencia de cada tarea que viene en la petición
-        tareas_nuevas = {
-            t["nombre"]: t["frecuencia"] for t in tareas_input if t.get("nombre")
+
+        tareas_actuales_por_id = {t.id: t for t in db_plan.tareas}
+        ids_recibidos = {
+            t["id"] for t in tareas_input if t.get("id") is not None
         }
 
-        # 1. Tareas existentes asociadas a este plan
-        tareas_actuales = {t.nombre: t for t in db_plan.tareas}
+        # 1. Desactivar las tareas existentes que ya no vinieron en la petición
+        for tarea in db_plan.tareas:
+            if tarea.id not in ids_recibidos:
+                tarea.activo = False
 
-        # 2. Desactivar tareas que se eliminaron del plan en lugar de borrarlas con DELETE
-        for t in db_plan.tareas:
-            if t.nombre not in tareas_nuevas:
-                t.activo = False
-
-        # 3. Agregar o reactivar las que vienen en la petición, actualizando su frecuencia
-        for nombre, frecuencia in tareas_nuevas.items():
-            if nombre in tareas_actuales:
-                tareas_actuales[nombre].activo = True
-                tareas_actuales[nombre].frecuencia = frecuencia
+        # 2. Actualizar (por id) o crear (sin id) cada tarea recibida
+        for t in tareas_input:
+            tarea_id = t.get("id")
+            if tarea_id is not None and tarea_id in tareas_actuales_por_id:
+                tarea = tareas_actuales_por_id[tarea_id]
+                tarea.nombre = t["nombre"]
+                tarea.frecuencia = t["frecuencia"]
+                tarea.descripcion = t.get("descripcion")
+                tarea.activo = True
             else:
-                db_plan.tareas.append(Tarea(nombre=nombre, frecuencia=frecuencia))
+                db_plan.tareas.append(
+                    Tarea(
+                        nombre=t["nombre"],
+                        frecuencia=t["frecuencia"],
+                        descripcion=t.get("descripcion"),
+                    )
+                )
 
     if datos_a_actualizar:
         try:

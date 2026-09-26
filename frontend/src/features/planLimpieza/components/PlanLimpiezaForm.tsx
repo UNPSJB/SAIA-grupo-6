@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input, NativeSelect, Text } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Field,
+  HStack,
+  Input,
+  NativeSelect,
+  Text,
+} from "@chakra-ui/react";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
 
@@ -14,7 +22,7 @@ interface PlanLimpiezaFormProps {
 
 const emptyValues: PlanLimpiezaInput = {
   nombre: "",
-  tareas: [{ nombre: "", frecuencia: 1 }],
+  tareas: [{ nombre: "", frecuencia: 1, descripcion: "" }],
   equipo_id: 0,
   autor_id: 0,
 };
@@ -56,7 +64,12 @@ export function PlanLimpiezaForm({
   onCancel,
 }: PlanLimpiezaFormProps) {
   const [values, setValues] = useState<PlanLimpiezaInput>(initialValues);
-  const { equipos, personal, loading: cargandoOpciones, error: errorOpciones } = useOpcionesPlanLimpieza();
+  const {
+    equipos,
+    personal,
+    loading: cargandoOpciones,
+    error: errorOpciones,
+  } = useOpcionesPlanLimpieza();
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({ ...prev, nombre: e.target.value }));
@@ -76,22 +89,35 @@ export function PlanLimpiezaForm({
       tareas: prev.tareas.map((t, i) => (i === index ? { ...t, nombre } : t)),
     }));
 
+  const handleTareaDescripcionChange = (index: number, descripcion: string) =>
+    setValues((prev) => ({
+      ...prev,
+      tareas: prev.tareas.map((t, i) =>
+        i === index ? { ...t, descripcion } : t,
+      ),
+    }));
+
   const handleTareaFrecuenciaChange = (index: number, frecuencia: number) =>
     setValues((prev) => ({
       ...prev,
-      tareas: prev.tareas.map((t, i) => (i === index ? { ...t, frecuencia } : t)),
+      tareas: prev.tareas.map((t, i) =>
+        i === index ? { ...t, frecuencia } : t,
+      ),
     }));
 
   const handleAgregarTarea = () =>
     setValues((prev) => ({
       ...prev,
-      tareas: [...prev.tareas, { nombre: "", frecuencia: 1 }],
+      tareas: [...prev.tareas, { nombre: "", frecuencia: 1, descripcion: "" }],
     }));
 
   const handleQuitarTarea = (index: number) =>
     setValues((prev) => ({
       ...prev,
-      tareas: prev.tareas.length > 1 ? prev.tareas.filter((_, i) => i !== index) : prev.tareas,
+      tareas:
+        prev.tareas.length > 1
+          ? prev.tareas.filter((_, i) => i !== index)
+          : prev.tareas,
     }));
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -100,7 +126,7 @@ export function PlanLimpiezaForm({
   };
 
   const hayTareaInvalida = values.tareas.some(
-    (t) => !t.nombre.trim() || !t.frecuencia || t.frecuencia <= 0
+    (t) => !t.nombre.trim() || !t.frecuencia || t.frecuencia <= 0,
   );
 
   return (
@@ -155,39 +181,91 @@ export function PlanLimpiezaForm({
           TAREAS *
         </Box>
         {values.tareas.map((tarea, index) => (
-          <HStack key={index} gap="10px" style={{ marginBottom: "10px" }} alignItems="center">
-            <Input
-              value={tarea.nombre}
-              onChange={(e) => handleTareaNombreChange(index, e.target.value)}
-              placeholder={`Ej: Limpiar bandeja ${index + 1}`}
-              style={{ ...estiloInput, maxWidth: "320px" }}
-            />
-            <Input
-              type="number"
-              min={1}
-              value={tarea.frecuencia}
-              onChange={(e) => handleTareaFrecuenciaChange(index, Number(e.target.value))}
-              placeholder="Frecuencia (días)"
-              title="Frecuencia en días"
-              style={{ ...estiloInput, maxWidth: "140px" }}
-            />
-            <Button
-              type="button"
-              onClick={() => handleQuitarTarea(index)}
-              disabled={values.tareas.length === 1}
-              style={{
-                backgroundColor: "#e0e0e0",
-                color: "#333",
-                padding: "10px 14px",
-                borderRadius: "8px",
-                border: "none",
-                cursor: values.tareas.length === 1 ? "not-allowed" : "pointer",
-                fontWeight: "bold",
-              }}
+          <Box
+            key={index}
+            style={{
+              marginBottom: "14px",
+              padding: "12px",
+              backgroundColor: "#f7faf9",
+              border: "1px solid #d8e7e5",
+              borderRadius: "8px",
+            }}
+          >
+            <HStack
+              gap="10px"
+              style={{ marginBottom: "8px" }}
+              alignItems="flex-end"
             >
-              ✕
-            </Button>
-          </HStack>
+              <Box>
+                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
+                  NOMBRE DE LA TAREA
+                </Box>
+                <Input
+                  value={tarea.nombre}
+                  onChange={(e) =>
+                    handleTareaNombreChange(index, e.target.value)
+                  }
+                  placeholder={`Ej: Limpiar bandeja ${index + 1}`}
+                  style={{ ...estiloInput, maxWidth: "320px" }}
+                />
+              </Box>
+              <Box>
+                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
+                  FRECUENCIA EN DIAS
+                </Box>
+                <Input
+                  type="number"
+                  min={1}
+                  value={tarea.frecuencia}
+                  onChange={(e) =>
+                    handleTareaFrecuenciaChange(index, Number(e.target.value))
+                  }
+                  placeholder="Frecuencia (días)"
+                  title="Frecuencia en días"
+                  style={{ ...estiloInput, maxWidth: "140px" }}
+                />
+              </Box>
+              <Button
+                type="button"
+                onClick={() => handleQuitarTarea(index)}
+                disabled={values.tareas.length === 1}
+                style={{
+                  backgroundColor: "#e0e0e0",
+                  color: "#333",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor:
+                    values.tareas.length === 1 ? "not-allowed" : "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ✕
+              </Button>
+            </HStack>
+            <Box
+              as="label"
+              style={{ ...estiloLabel, fontSize: "12px", marginBottom: "4px" }}
+            >
+              PROCEDIMIENTO (opcional)
+            </Box>
+            <textarea
+              value={tarea.descripcion ?? ""}
+              onChange={(e) =>
+                handleTareaDescripcionChange(index, e.target.value)
+              }
+              placeholder={
+                "Ej:\n1. Desconectar la energía eléctrica.\n2. Retirar residuos..."
+              }
+              rows={4}
+              style={{
+                ...estiloInput,
+                maxWidth: "500px",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </Box>
         ))}
         <Button
           type="button"
@@ -214,12 +292,20 @@ export function PlanLimpiezaForm({
             EQUIPO *
           </Box>
           <NativeSelect.Root disabled={cargandoOpciones}>
-            <NativeSelect.Field value={values.equipo_id} onChange={handleEquipoChange} style={estiloSelect}>
+            <NativeSelect.Field
+              value={values.equipo_id}
+              onChange={handleEquipoChange}
+              style={estiloSelect}
+            >
               <option value={0} disabled>
                 {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
               </option>
               {equipos.map((equipo) => (
-                <option key={equipo.id} value={equipo.id} style={{ backgroundColor: "#fff", color: "#333" }}>
+                <option
+                  key={equipo.id}
+                  value={equipo.id}
+                  style={{ backgroundColor: "#fff", color: "#333" }}
+                >
                   {equipo.nombre}
                 </option>
               ))}
@@ -236,12 +322,22 @@ export function PlanLimpiezaForm({
             AUTOR *
           </Box>
           <NativeSelect.Root disabled={cargandoOpciones}>
-            <NativeSelect.Field value={values.autor_id} onChange={handleAutorChange} style={estiloSelect}>
+            <NativeSelect.Field
+              value={values.autor_id}
+              onChange={handleAutorChange}
+              style={estiloSelect}
+            >
               <option value={0} disabled>
-                {cargandoOpciones ? "Cargando..." : "Seleccioná quién crea el plan"}
+                {cargandoOpciones
+                  ? "Cargando..."
+                  : "Seleccioná quién crea el plan"}
               </option>
               {personal.map((persona) => (
-                <option key={persona.id} value={persona.id} style={{ backgroundColor: "#fff", color: "#333" }}>
+                <option
+                  key={persona.id}
+                  value={persona.id}
+                  style={{ backgroundColor: "#fff", color: "#333" }}
+                >
                   {persona.nombre} {persona.apellido || ""}
                 </option>
               ))}
@@ -250,7 +346,8 @@ export function PlanLimpiezaForm({
           </NativeSelect.Root>
         </Field.Root>
         <Text style={{ fontSize: "12px", color: "#888", marginTop: "6px" }}>
-          Se guarda de forma explícita porque el sistema todavía no tiene sesión de usuario.
+          Se guarda de forma explícita porque el sistema todavía no tiene sesión
+          de usuario.
         </Text>
       </Box>
 

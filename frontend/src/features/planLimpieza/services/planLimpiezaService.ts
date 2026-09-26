@@ -14,8 +14,11 @@ export interface PlanLimpiezaInput {
   autor_id: number;
 }
 
-export async function listarPlanesLimpieza(): Promise<PlanLimpieza[]> {
-  const response = await fetch(`${API_URL}/planes-limpieza`);
+export async function listarPlanesLimpieza(
+  incluirInactivos = false
+): Promise<PlanLimpieza[]> {
+  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+  const response = await fetch(`${API_URL}/planes-limpieza${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -103,6 +106,24 @@ export async function listarOpcionesPersonal(): Promise<PersonalOption[]> {
 
   if (!response.ok) {
     throw new Error("Error al obtener el personal");
+  }
+
+  return response.json();
+}
+
+export async function reactivarPlanLimpieza(
+  id: number,
+  plan: PlanLimpiezaInput
+): Promise<PlanLimpieza> {
+  const response = await fetch(`${API_URL}/planes-limpieza/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...plan, activo: true }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al reactivar el plan de limpieza");
   }
 
   return response.json();

@@ -1,6 +1,7 @@
+from typing import Optional
 from src.models import ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, ForeignKey, Integer
+from sqlalchemy import String, Boolean, ForeignKey, Integer, Text
 
 
 class Tarea(ModeloBase):
@@ -12,6 +13,11 @@ class Tarea(ModeloBase):
     # Cada tarea tiene su propia frecuencia (antes vivía en PlanLimpieza):
     # cada N días desde la fecha de creación del plan al que pertenece.
     frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Procedimiento / pasos para realizar la tarea. Igual que `nombre`,
+    # esto SÍ se congela en el checklist al generarse el registro del día:
+    # el checklist es una foto de cómo estaba la tarea en ese momento.
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Cada tarea pertenece a un único plan de limpieza (composición, no
     # catálogo compartido). Si se borra el plan, se borran sus tareas

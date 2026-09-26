@@ -3,6 +3,7 @@ import {
     crearPlanLimpieza,
     modificarPlanLimpieza,
     eliminarPlanLimpieza,
+    reactivarPlanLimpieza,
     type PlanLimpiezaInput,
 } from "../services/planLimpiezaService";
 
@@ -49,5 +50,18 @@ export function usePlanLimpiezaABM() {
         }
     };
 
-    return { alta, modificar, borrar, loading, error };
+    const reactivar = async (id: number, plan: PlanLimpiezaInput) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await reactivarPlanLimpieza(id, plan);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo reactivar el plan de limpieza");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return { alta, modificar, borrar, reactivar, loading, error };
 }

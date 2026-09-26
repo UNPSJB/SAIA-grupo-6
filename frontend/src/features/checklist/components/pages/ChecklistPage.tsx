@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
@@ -91,7 +92,7 @@ interface FilaTareaProps {
     estadoActual: boolean,
     evidencia?: File,
     insumoQuimicoId?: number,
-    cantidadConsumida?: number
+    cantidadConsumida?: number,
   ) => void;
 }
 function FilaTarea({
@@ -104,8 +105,9 @@ function FilaTarea({
   const [insumoSeleccionado, setInsumoSeleccionado] = useState("");
   const [cantidadConsumida, setCantidadConsumida] = useState("");
   const [errorConsumo, setErrorConsumo] = useState<string | null>(null);
+  const [mostrarProcedimiento, setMostrarProcedimiento] = useState(false);
   const insumoActual = insumosQuimicos.find(
-    (insumo) => insumo.id === Number(insumoSeleccionado)
+    (insumo) => insumo.id === Number(insumoSeleccionado),
   );
   const [imagenModalUrl, setImagenModalUrl] = useState<string | null>(null);
   const [historial, setHistorial] = useState<
@@ -142,7 +144,7 @@ function FilaTarea({
     const hayCantidad = cantidadConsumida !== "";
     if (hayProducto !== hayCantidad) {
       setErrorConsumo(
-        "Seleccioná el producto químico e indicá la cantidad consumida."
+        "Seleccioná el producto químico e indicá la cantidad consumida.",
       );
       return;
     }
@@ -157,7 +159,7 @@ function FilaTarea({
       }
       if (insumoActual && cantidad > insumoActual.stock) {
         setErrorConsumo(
-          `Stock insuficiente. Disponible: ${insumoActual.stock} ${insumoActual.unidad_medida}.`
+          `Stock insuficiente. Disponible: ${insumoActual.stock} ${insumoActual.unidad_medida}.`,
         );
         return;
       }
@@ -168,7 +170,7 @@ function FilaTarea({
       tarea.completado,
       archivoEvidencia || undefined,
       insumoId,
-      cantidad
+      cantidad,
     );
     setArchivoEvidencia(null);
   };
@@ -179,6 +181,45 @@ function FilaTarea({
       >
         <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
           {tarea.nombre}
+          {tarea.descripcion && (
+            <Box mt="4px">
+              <button
+                type="button"
+                onClick={() => setMostrarProcedimiento((v) => !v)}
+                style={{
+                  fontSize: "11px",
+                  color: TEAL,
+                  background: "none",
+                  border: "none",
+                  textDecoration: "underline",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                {mostrarProcedimiento
+                  ? "Ocultar procedimiento ▲"
+                  : "Ver procedimiento ▾"}
+              </button>
+              {mostrarProcedimiento && (
+                <Box
+                  mt="6px"
+                  style={{
+                    padding: "10px 12px",
+                    backgroundColor: "#f7faf9",
+                    border: "1px solid #d8e7e5",
+                    borderRadius: "6px",
+                    maxWidth: "550px",
+                    whiteSpace: "pre-line",
+                    fontSize: "13px",
+                    color: "#333",
+                  }}
+                >
+                  {tarea.descripcion}
+                </Box>
+              )}
+            </Box>
+          )}
           {/* Consumo aproximado de producto químico */}
           {!tarea.completado && !esCerrado && (
             <Box
@@ -214,7 +255,8 @@ function FilaTarea({
                 <option value="">Sin producto químico</option>
                 {insumosQuimicos.map((insumo) => (
                   <option key={insumo.id} value={insumo.id}>
-                    {insumo.nombre} — Stock: {insumo.stock} {insumo.unidad_medida}
+                    {insumo.nombre} — Stock: {insumo.stock}{" "}
+                    {insumo.unidad_medida}
                   </option>
                 ))}
               </select>
@@ -252,7 +294,12 @@ function FilaTarea({
                 </Box>
               )}
               {errorConsumo && (
-                <Text fontSize="12px" color="red.500" mt="6px" fontWeight="bold">
+                <Text
+                  fontSize="12px"
+                  color="red.500"
+                  mt="6px"
+                  fontWeight="bold"
+                >
                   ⚠️ {errorConsumo}
                 </Text>
               )}
@@ -510,6 +557,20 @@ export function ChecklistPage() {
   const grupos = useMemo(() => agruparPorPlan(tareas), [tareas]);
   const totalTareas = tareas.length;
   const tareasCompletadas = tareas.filter((t) => t.completado).length;
+  const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(
+    new Set(),
+  );
+  const toggleGrupo = (key: string) => {
+    setGruposExpandidos((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(key)) {
+        nuevo.delete(key);
+      } else {
+        nuevo.add(key);
+      }
+      return nuevo;
+    });
+  };
   return (
     <Box style={{ padding: "20px" }}>
       <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
@@ -598,23 +659,43 @@ export function ChecklistPage() {
               <strong>{totalTareas}</strong> tareas completadas.
             </Text>
           </HStack>
-          {grupos.map((grupo) => (
+          {grupos.map((grupo) => {
+            const colapsado = !gruposExpandidos.has(grupo.key);
+            return (
             <Box key={grupo.key} style={estiloTarjeta} mb="20px">
               <Box
+                onClick={() => toggleGrupo(grupo.key)}
+                role="button"
+                aria-expanded={!colapsado}
                 style={{
                   backgroundColor: TEAL,
                   padding: "12px 16px",
+                  cursor: "pointer",
+                  userSelect: "none",
                 }}
               >
                 <HStack justify="space-between">
-                  <Box>
-                    <Text fontSize="15px" fontWeight="bold" color="white">
-                      {grupo.planNombre}
+                  <HStack gap="10px">
+                    <Text
+                      fontSize="13px"
+                      color="white"
+                      style={{
+                        transform: colapsado ? "rotate(-90deg)" : "rotate(0deg)",
+                        transition: "transform 0.15s ease",
+                        display: "inline-block",
+                      }}
+                    >
+                      ▾
                     </Text>
-                    <Text fontSize="12px" color="#DCEEEC" mt="2px">
-                      Equipo: {grupo.equipoNombre}
-                    </Text>
-                  </Box>
+                    <Box>
+                      <Text fontSize="15px" fontWeight="bold" color="white">
+                        {grupo.planNombre}
+                      </Text>
+                      <Text fontSize="12px" color="#DCEEEC" mt="2px">
+                        Equipo: {grupo.equipoNombre}
+                      </Text>
+                    </Box>
+                  </HStack>
                   {grupo.tareas[0]?.checklist_estado === "cerrado" && (
                     <Text
                       fontSize="11px"
@@ -647,39 +728,42 @@ export function ChecklistPage() {
                   )}
                 </HStack>
               </Box>
-              <Table.Root style={{ width: "100%", borderCollapse: "collapse" }}>
-                <Table.Header>
-                  <Table.Row style={estiloHeaderFila}>
-                    <Table.ColumnHeader style={estiloHeaderCelda}>
-                      Tarea
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader
-                      style={{
-                        ...estiloHeaderCelda,
-                        textAlign: "center",
-                        width: "140px",
-                      }}
-                    >
-                      Completada
-                    </Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {grupo.tareas.map((t) => (
-                    <FilaTarea
-                      key={
-                        t.registro_id > 0 ? `r-${t.registro_id}` : `p-${t.id}`
-                      }
-                      tarea={t}
-                      isLoading={actualizandoId === t.id}
-                      insumosQuimicos={insumosQuimicos}
-                      onToggle={toggleTarea}
-                    />
-                  ))}
-                </Table.Body>
-              </Table.Root>
+              {!colapsado && (
+                <Table.Root style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <Table.Header>
+                    <Table.Row style={estiloHeaderFila}>
+                      <Table.ColumnHeader style={estiloHeaderCelda}>
+                        Tarea
+                      </Table.ColumnHeader>
+                      <Table.ColumnHeader
+                        style={{
+                          ...estiloHeaderCelda,
+                          textAlign: "center",
+                          width: "140px",
+                        }}
+                      >
+                        Completada
+                      </Table.ColumnHeader>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {grupo.tareas.map((t) => (
+                      <FilaTarea
+                        key={
+                          t.registro_id > 0 ? `r-${t.registro_id}` : `p-${t.id}`
+                        }
+                        tarea={t}
+                        isLoading={actualizandoId === t.id}
+                        insumosQuimicos={insumosQuimicos}
+                        onToggle={toggleTarea}
+                      />
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              )}
             </Box>
-          ))}
+            );
+          })}
         </>
       )}
     </Box>

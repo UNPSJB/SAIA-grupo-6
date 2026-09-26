@@ -4,9 +4,16 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from src.tareas import exceptions
 
 
+import re
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from src.tareas import exceptions
+
+
 class TareaBase(BaseModel):
     nombre: str
     frecuencia: int
+    descripcion: Optional[str] = None
 
     @field_validator("nombre")
     @classmethod
@@ -21,6 +28,17 @@ class TareaBase(BaseModel):
         if v <= 0:
             raise exceptions.FrecuenciaInvalida()
         return v
+
+    @field_validator("descripcion")
+    @classmethod
+    def limpiar_descripcion(cls, v: Optional[str]) -> Optional[str]:
+        # Texto libre (el procedimiento paso a paso): sin restricción de
+        # caracteres, solo recortamos espacios y lo dejamos en None si
+        # queda vacío.
+        if v is None:
+            return v
+        v = v.strip()
+        return v or None
 
 
 class TareaCreate(TareaBase):
@@ -51,3 +69,12 @@ class Tarea(TareaBase):
     plan_limpieza_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class TareaEnPlanInput(TareaBase):
+    """Igual que TareaBase, pero con id opcional para usar dentro de
+    PlanLimpiezaUpdate.tareas: id=None significa 'tarea nueva a crear',
+    id=<n> significa 'actualizar la tarea existente con ese id' (en vez
+    de matchear por nombre, que rompe la identidad de la tarea si se
+    renombra)."""
+
+    id: Optional[int] = None
