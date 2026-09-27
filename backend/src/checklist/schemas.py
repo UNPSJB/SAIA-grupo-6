@@ -12,7 +12,8 @@ class ChecklistTareaItem(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
-    evidencia_url: Optional[str] = None # AGREGUE ESTO
+    evidencia_url: Optional[str] = None
+    descripcion: Optional[str] = None  # procedimiento vigente de la tarea
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,8 +70,9 @@ class TareaDelDiaItem(BaseModel):
     completado: bool
     fecha_completado: Optional[datetime] = None
     usuario_id: Optional[int] = None
-    evidencia_url: Optional[str] = None  
+    evidencia_url: Optional[str] = None
     checklist_estado: Optional[EstadoChecklist] = None
+    descripcion: Optional[str] = None  # procedimiento vigente de la tarea
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -2,6 +2,7 @@ export interface Tarea {
   id: number;
   nombre: string;
   frecuencia: number;
+  descripcion?: string | null;
   activo: boolean;
   plan_limpieza_id: number;
 }
@@ -37,4 +38,15 @@ export interface PersonalOption {
   id: number;
   nombre: string;
   apellido?: string | null;
+}
+
+// Lo mínimo para crear/editar una tarea junto con su plan. La frecuencia
+// ahora es propia de cada tarea (antes vivía en el plan).
+// `id` es opcional: ausente = tarea nueva; presente = actualizar esa
+// tarea existente por id (necesario para que renombrar no la duplique).
+export interface TareaInput {
+  id?: number;
+  nombre: string;
+  frecuencia: number;
+  descripcion?: string;
 }
