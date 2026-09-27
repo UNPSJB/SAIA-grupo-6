@@ -73,15 +73,6 @@ export function InsumoQuimicoTable({
               color="white"
               fontWeight="normal"
               fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Stock
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
               style={{ padding: "12px", textAlign: "center" }}
             >
               Acciones

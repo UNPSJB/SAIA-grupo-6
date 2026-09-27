@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
@@ -157,12 +156,6 @@ function FilaTarea({
         setErrorConsumo("La cantidad consumida debe ser mayor que 0.");
         return;
       }
-      if (insumoActual && cantidad > insumoActual.stock) {
-        setErrorConsumo(
-          `Stock insuficiente. Disponible: ${insumoActual.stock} ${insumoActual.unidad_medida}.`,
-        );
-        return;
-      }
     }
     setErrorConsumo(null);
     onToggle(
@@ -255,8 +248,7 @@ function FilaTarea({
                 <option value="">Sin producto químico</option>
                 {insumosQuimicos.map((insumo) => (
                   <option key={insumo.id} value={insumo.id}>
-                    {insumo.nombre} — Stock: {insumo.stock}{" "}
-                    {insumo.unidad_medida}
+                    {insumo.nombre} — {insumo.unidad_medida}
                   </option>
                 ))}
               </select>
@@ -662,106 +654,112 @@ export function ChecklistPage() {
           {grupos.map((grupo) => {
             const colapsado = !gruposExpandidos.has(grupo.key);
             return (
-            <Box key={grupo.key} style={estiloTarjeta} mb="20px">
-              <Box
-                onClick={() => toggleGrupo(grupo.key)}
-                role="button"
-                aria-expanded={!colapsado}
-                style={{
-                  backgroundColor: TEAL,
-                  padding: "12px 16px",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <HStack justify="space-between">
-                  <HStack gap="10px">
-                    <Text
-                      fontSize="13px"
-                      color="white"
-                      style={{
-                        transform: colapsado ? "rotate(-90deg)" : "rotate(0deg)",
-                        transition: "transform 0.15s ease",
-                        display: "inline-block",
-                      }}
-                    >
-                      ▾
-                    </Text>
-                    <Box>
-                      <Text fontSize="15px" fontWeight="bold" color="white">
-                        {grupo.planNombre}
-                      </Text>
-                      <Text fontSize="12px" color="#DCEEEC" mt="2px">
-                        Equipo: {grupo.equipoNombre}
-                      </Text>
-                    </Box>
-                  </HStack>
-                  {grupo.tareas[0]?.checklist_estado === "cerrado" && (
-                    <Text
-                      fontSize="11px"
-                      fontWeight="bold"
-                      color="white"
-                      style={{
-                        backgroundColor: "rgba(0,0,0,0.25)",
-                        padding: "4px 10px",
-                        borderRadius: "999px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      🔒 Cerrado (histórico)
-                    </Text>
-                  )}
-                  {grupo.tareas[0]?.registro_id === 0 && (
-                    <Text
-                      fontSize="11px"
-                      fontWeight="bold"
-                      color="white"
-                      style={{
-                        backgroundColor: "rgba(0,0,0,0.25)",
-                        padding: "4px 10px",
-                        borderRadius: "999px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      📅 Vista previa
-                    </Text>
-                  )}
-                </HStack>
-              </Box>
-              {!colapsado && (
-                <Table.Root style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <Table.Header>
-                    <Table.Row style={estiloHeaderFila}>
-                      <Table.ColumnHeader style={estiloHeaderCelda}>
-                        Tarea
-                      </Table.ColumnHeader>
-                      <Table.ColumnHeader
+              <Box key={grupo.key} style={estiloTarjeta} mb="20px">
+                <Box
+                  onClick={() => toggleGrupo(grupo.key)}
+                  role="button"
+                  aria-expanded={!colapsado}
+                  style={{
+                    backgroundColor: TEAL,
+                    padding: "12px 16px",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <HStack justify="space-between">
+                    <HStack gap="10px">
+                      <Text
+                        fontSize="13px"
+                        color="white"
                         style={{
-                          ...estiloHeaderCelda,
-                          textAlign: "center",
-                          width: "140px",
+                          transform: colapsado
+                            ? "rotate(-90deg)"
+                            : "rotate(0deg)",
+                          transition: "transform 0.15s ease",
+                          display: "inline-block",
                         }}
                       >
-                        Completada
-                      </Table.ColumnHeader>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {grupo.tareas.map((t) => (
-                      <FilaTarea
-                        key={
-                          t.registro_id > 0 ? `r-${t.registro_id}` : `p-${t.id}`
-                        }
-                        tarea={t}
-                        isLoading={actualizandoId === t.id}
-                        insumosQuimicos={insumosQuimicos}
-                        onToggle={toggleTarea}
-                      />
-                    ))}
-                  </Table.Body>
-                </Table.Root>
-              )}
-            </Box>
+                        ▾
+                      </Text>
+                      <Box>
+                        <Text fontSize="15px" fontWeight="bold" color="white">
+                          {grupo.planNombre}
+                        </Text>
+                        <Text fontSize="12px" color="#DCEEEC" mt="2px">
+                          Equipo: {grupo.equipoNombre}
+                        </Text>
+                      </Box>
+                    </HStack>
+                    {grupo.tareas[0]?.checklist_estado === "cerrado" && (
+                      <Text
+                        fontSize="11px"
+                        fontWeight="bold"
+                        color="white"
+                        style={{
+                          backgroundColor: "rgba(0,0,0,0.25)",
+                          padding: "4px 10px",
+                          borderRadius: "999px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        🔒 Cerrado (histórico)
+                      </Text>
+                    )}
+                    {grupo.tareas[0]?.registro_id === 0 && (
+                      <Text
+                        fontSize="11px"
+                        fontWeight="bold"
+                        color="white"
+                        style={{
+                          backgroundColor: "rgba(0,0,0,0.25)",
+                          padding: "4px 10px",
+                          borderRadius: "999px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        📅 Vista previa
+                      </Text>
+                    )}
+                  </HStack>
+                </Box>
+                {!colapsado && (
+                  <Table.Root
+                    style={{ width: "100%", borderCollapse: "collapse" }}
+                  >
+                    <Table.Header>
+                      <Table.Row style={estiloHeaderFila}>
+                        <Table.ColumnHeader style={estiloHeaderCelda}>
+                          Tarea
+                        </Table.ColumnHeader>
+                        <Table.ColumnHeader
+                          style={{
+                            ...estiloHeaderCelda,
+                            textAlign: "center",
+                            width: "140px",
+                          }}
+                        >
+                          Completada
+                        </Table.ColumnHeader>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {grupo.tareas.map((t) => (
+                        <FilaTarea
+                          key={
+                            t.registro_id > 0
+                              ? `r-${t.registro_id}`
+                              : `p-${t.id}`
+                          }
+                          tarea={t}
+                          isLoading={actualizandoId === t.id}
+                          insumosQuimicos={insumosQuimicos}
+                          onToggle={toggleTarea}
+                        />
+                      ))}
+                    </Table.Body>
+                  </Table.Root>
+                )}
+              </Box>
             );
           })}
         </>

@@ -1,4 +1,8 @@
-export type EstadoChecklist = "abierto" | "completo" | "observado" | "cerrado";
+export type EstadoChecklist =
+  | "abierto"
+  | "completo"
+  | "observado"
+  | "cerrado";
 
 export interface ChecklistTareaItem {
   id: number;
@@ -10,6 +14,8 @@ export interface ChecklistTareaItem {
   usuario_id?: number | null;
   evidencia_url?: string | null;
   descripcion?: string | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
 }
 
 export interface ChecklistPlanItem {
@@ -30,20 +36,23 @@ export interface ChecklistResponse {
 export interface RegistroTareaUpdate {
   completado: boolean;
   usuario_id?: number | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
 }
 
 export interface RegistroTareaResponse {
   id: number;
   checklist_id: number;
-  tarea_id: number;
+  tarea_id: number | null;
   nombre_tarea_historico: string;
   completado: boolean;
   fecha_completado?: string | null;
   usuario_id?: number | null;
+  evidencia_url?: string | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
 }
 
-// Lista plana de tareas del día (todos los equipos), con el nombre del plan
-// al que pertenece cada una.
 export interface TareaDelDia {
   id: number;
   registro_id: number;
@@ -56,6 +65,8 @@ export interface TareaDelDia {
   fecha_completado?: string | null;
   usuario_id?: number | null;
   evidencia_url?: string | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
   checklist_estado?: EstadoChecklist | null;
   descripcion?: string | null;
 }

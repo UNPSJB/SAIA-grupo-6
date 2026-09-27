@@ -1,5 +1,5 @@
 from enum import Enum
-from sqlalchemy import String, Boolean, Float
+from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from src.models import ModeloBase
 
@@ -24,5 +24,5 @@ class InsumoQuimico(ModeloBase):
     tipo: Mapped[TipoQuimico] = mapped_column()
     unidad_medida: Mapped[UnidadMedidaQuimico] = mapped_column()
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    stock: Mapped[float] = mapped_column(Float, default=0, nullable=False) #esto es para hacer el registro de stock
+
 
