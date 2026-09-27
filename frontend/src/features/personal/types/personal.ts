@@ -5,6 +5,7 @@ export interface Persona {
   dni: string;
   email: string;
   telefono?: string | null;
+  password?: string; //
   puede_operar: boolean;
   puede_administrar: boolean;
   activo: boolean;

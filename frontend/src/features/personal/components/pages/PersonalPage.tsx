@@ -16,14 +16,12 @@ export function PersonalPage() {
   const [verInactivos, setVerInactivos] = useState(false);
   const [page, setPage] = useState(1);
 
-  // Le pedimos al backend la lista según el estado del switch
   const { personales, loading, error, cargarPersonales } = usePersonales(verInactivos);
   const { borrar, reactivar, loading: procesando } = usePersonalABM();
 
   const [personaAEliminar, setPersonaAEliminar] = useState<Persona | null>(null);
   const [personaAReactivar, setPersonaAReactivar] = useState<Persona | null>(null);
 
-  // Paginamos directamente la lista filtrada que ya nos trae el backend (o la filtramos localmente por si acaso)
   const personalPaginado = useMemo(() => {
     const filtrados = personales.filter(p => verInactivos ? !p.activo : p.activo);
     const start = (page - 1) * PAGE_SIZE;
@@ -32,12 +30,11 @@ export function PersonalPage() {
 
   const handleToggleInactivos = (checked: boolean) => {
     setVerInactivos(checked);
-    setPage(1); // Volvemos a la página 1 al cambiar de vista
+    setPage(1); 
   };
 
   const handleEdit = (persona: Persona) => navigate(`/personal/${persona.id}/editar`);
   
-  // Acciones de Borrado
   const handleDeleteRequest = (persona: Persona) => setPersonaAEliminar(persona);
   const handleCloseDeleteDialog = () => { if (!procesando) setPersonaAEliminar(null); };
   const handleConfirmDelete = async () => {
@@ -49,7 +46,6 @@ export function PersonalPage() {
     } catch { }
   };
 
-  // Acciones de Reactivación directa en la tabla (Abre el modal existente)
   const handleReactivarRequest = (persona: Persona) => setPersonaAReactivar(persona);
   const handleCloseReactivarDialog = () => { if (!procesando) setPersonaAReactivar(null); };
   const handleConfirmReactivar = async () => {
@@ -70,24 +66,26 @@ export function PersonalPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
+    <Box> {/* Sin padding extra para ganar espacio vertical */}
+      <HStack justify="space-between" mb="10px"> {/* Margen achicado */}
         <Heading as="h2" size="md" fontWeight="bold" color="black">
           {verInactivos ? "Personal Dado de Baja" : "Gestión de Personal"}
         </Heading>
-        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: TEAL }} onClick={() => navigate("/personal/nuevo")}>
+        {/* BOTÓN AGREGAR ACHICADO */}
+        <Button 
+          bg={TEAL} 
+          color="white" 
+          fontSize="14px" 
+          fontWeight="bold" 
+          borderRadius="6px" 
+          px="16px" 
+          py="6px" 
+          height="auto" 
+          _hover={{ bg: "#37666d" }} 
+          onClick={() => navigate("/personal/nuevo")}
+        >
           + Agregar
         </Button>
-      </HStack>
-
-      <HStack justify="flex-end" mb="20px">
-        <Switch.Root checked={verInactivos} onCheckedChange={(e) => handleToggleInactivos(e.checked)} colorPalette="gray">
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? "#d9534f" : "#555", fontWeight: verInactivos ? "bold" : "normal" }}>
-            Ver dados de baja
-          </Switch.Label>
-        </Switch.Root>
       </HStack>
 
       {loading && <Spinner />}
@@ -97,26 +95,49 @@ export function PersonalPage() {
         <>
           <PersonalTable personales={personalPaginado} onEdit={handleEdit} onDelete={handleDeleteRequest} onReactivar={handleReactivarRequest} />
 
-          {personales.filter(p => verInactivos ? !p.activo : p.activo).length > PAGE_SIZE && (
-            <Pagination.Root count={personales.filter(p => verInactivos ? !p.activo : p.activo).length} pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)} mt="16px">
-              <HStack justify="center">
-                <ButtonGroup variant="ghost" size="sm">
-                  <Pagination.Items render={(pageItem) => {
-                      const isSelected = pageItem.value === page;
-                      return (
-                        <IconButton aria-label={`Página ${pageItem.value}`} bg={isSelected ? TEAL : "transparent"} color={isSelected ? "white" : TEAL} border={isSelected ? "none" : `1px solid ${TEAL}`} _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}>
-                          {pageItem.value}
-                        </IconButton>
-                      );
-                  }} />
-                </ButtonGroup>
-              </HStack>
-            </Pagination.Root>
-          )}
+          <HStack justify="space-between" mt="15px" alignItems="center">
+            
+            <Switch.Root checked={verInactivos} onCheckedChange={(e) => handleToggleInactivos(e.checked)} colorPalette="gray">
+              <Switch.HiddenInput />
+              <Switch.Control />
+              <Switch.Label style={{ fontSize: "14px", color: verInactivos ? "#d9534f" : "#555", fontWeight: verInactivos ? "bold" : "normal" }}>
+                Ver dados de baja
+              </Switch.Label>
+            </Switch.Root>
+
+            {personales.filter(p => verInactivos ? !p.activo : p.activo).length > PAGE_SIZE && (
+              <Pagination.Root count={personales.filter(p => verInactivos ? !p.activo : p.activo).length} pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)}>
+                <HStack justify="center">
+                  <ButtonGroup variant="ghost" size="sm">
+                    <Pagination.Items render={(pageItem) => {
+                        const isSelected = pageItem.value === page;
+                        return (
+                          /* BOTONES DE PAGINACIÓN ACHICADOS (32x32) */
+                          <IconButton 
+                            aria-label={`Página ${pageItem.value}`} 
+                            width="32px"
+                            height="32px"
+                            minWidth="32px"
+                            fontSize="14px"
+                            padding="0"
+                            bg={isSelected ? TEAL : "transparent"} 
+                            color={isSelected ? "white" : TEAL} 
+                            border={isSelected ? "none" : `1px solid ${TEAL}`} 
+                            _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}
+                          >
+                            {pageItem.value}
+                          </IconButton>
+                        );
+                    }} />
+                  </ButtonGroup>
+                </HStack>
+              </Pagination.Root>
+            )}
+
+          </HStack>
         </>
       )}
 
-      {/* Modales de confirmación */}
       <DeletePersonalDialog isOpen={personaAEliminar !== null} persona={personaAEliminar} isLoading={procesando} onClose={handleCloseDeleteDialog} onConfirm={handleConfirmDelete} />
       
       <ConfirmarReactivacionDialog 

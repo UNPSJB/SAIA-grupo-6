@@ -1,5 +1,6 @@
 import logging
 from typing import List
+from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -165,3 +166,33 @@ def eliminar_persona(
     db.refresh(db_persona)
 
     return db_persona
+
+def autenticar_persona(db: Session, dni: str, password: str):
+    # 1. Buscamos a la persona SOLO por su DNI
+    persona = db.scalar(
+        select(Personal).where(Personal.dni == dni)
+    )
+    
+    # 2. Si no encontramos a nadie con ese DNI, tiramos el error específico
+    if not persona:
+        raise HTTPException(
+            status_code=404, 
+            detail="El DNI ingresado no está registrado en el sistema."
+        )
+    
+    # 3. Si el DNI existe, pero la contraseña está mal
+    if persona.password != password:
+        raise HTTPException(
+            status_code=401, 
+            detail="La contraseña es incorrecta."
+        )
+    
+    # 4. Si la contraseña es correcta, revisamos si está dado de baja
+    if not persona.activo:
+        raise HTTPException(
+            status_code=403, 
+            detail="Este usuario se encuentra dado de baja. Comunicate con un administrador para reactivarlo."
+        )
+    
+    # 5. Si pasó todos los filtros, lo dejamos entrar
+    return persona

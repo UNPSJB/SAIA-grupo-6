@@ -1,3 +1,5 @@
+import { Login } from './features/Login'; // Ajustá la ruta si lo guardaste en otro lado
+
 import { createBrowserRouter } from "react-router-dom";
 import Navbar from "./common/components/Navbar";
 
@@ -31,29 +33,40 @@ import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/P
 import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
 
 // 6. Importaciones del módulo de Insumos Químicos
-import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
-import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
-import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
+import { InsumosQuimicosPage } from "./features/InsumoQuimico/components/pages/insumosQuimicosPage";
+import { InsumoQuimicoCreatePage } from "./features/InsumoQuimico/components/pages/insumoQuimicoCreatePage";
+import { InsumoQuimicoEditPage } from "./features/InsumoQuimico/components/pages/insumoQuimicoEditPage";
 
 // Importaciones del módulo de Notificaciones
 import { NotificacionesPage } from "./features/notificaciones/components/pages/NotificacionesPage";// Layout principal que mantiene el menú a la izquierda
+
 
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
         display: "flex",
+        height: "100vh",         // 1. Fijamos la altura al tamaño exacto de la ventana
+        overflow: "hidden",      // 2. Cortamos el scroll general de toda la página
         minHeight: "100vh",
         backgroundColor: "#f4f7f6",
       }}
     >
       <Navbar />
-      <div style={{ flex: 1, padding: "30px" }}>{children}</div>
+      {/* Cambiamos el padding a 15px vertical y 30px horizontal */}
+      <div style={{ flex: 1, padding: "15px 30px", overflowY: "auto" }}>
+        {children}
+      </div>
     </div>
   );
 }
 
 export const router = createBrowserRouter([
+  // Agregá esta nueva ruta:
+  {
+    path: '/login',
+    element: <Login />
+  },
   {
     path: "/",
     element: (

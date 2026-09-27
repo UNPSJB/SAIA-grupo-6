@@ -4,6 +4,7 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonal } from "../../hooks/usePersonal";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
+import { useAuth } from "../../../../common/context/AuthContext";
 import type { Persona } from "../../types/personal";
 
 export function PersonalEditPage() {
@@ -11,13 +12,32 @@ export function PersonalEditPage() {
   const { id } = useParams<{ id: string }>();
   const personaId = Number(id);
 
+  // Traemos tu sesión actual para saber quién sos y poder actualizarla
+  const { user, loginUser } = useAuth();
+  const esMiPerfil = user?.id === personaId;
+
   const { persona, loading: cargando, error: errorCarga } = usePersonal(Number.isFinite(personaId) ? personaId : null);
   const { modificar, loading: guardando, error: errorGuardado } = usePersonalABM();
   const [exito, setExito] = useState(false);
 
   const handleSubmit = async (values: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">) => {
     try {
-      await modificar(personaId, values);
+      // 1. Guardamos los cambios
+      const usuarioActualizado = await modificar(personaId, values);
+      
+      // 2. Si es tu perfil, actualizamos la sesión al instante
+      if (esMiPerfil) {
+        // Adaptamos los datos para que TypeScript no se queje de apellidos nulos
+        loginUser({
+            id: usuarioActualizado.id,
+            nombre: usuarioActualizado.nombre,
+            apellido: usuarioActualizado.apellido || "", // Si está vacío, mandamos un texto en blanco
+            dni: usuarioActualizado.dni,
+            puede_operar: usuarioActualizado.puede_operar,
+            puede_administrar: usuarioActualizado.puede_administrar
+        });
+      }
+
       setExito(true);
       setTimeout(() => { navigate("/personal"); }, 2000);
     } catch { }
@@ -55,12 +75,21 @@ export function PersonalEditPage() {
 
           <PersonalForm
             key={persona.id}
-            initialValues={{ nombre: persona.nombre, apellido: persona.apellido || "", dni: persona.dni, email: persona.email, telefono: persona.telefono || "", puede_operar: persona.puede_operar, puede_administrar: persona.puede_administrar }}
+            initialValues={{ 
+              nombre: persona.nombre, 
+              apellido: persona.apellido || "", 
+              dni: persona.dni, 
+              email: persona.email, 
+              telefono: persona.telefono || "", 
+              puede_operar: persona.puede_operar, 
+              puede_administrar: persona.puede_administrar 
+            }}
             onSubmit={handleSubmit}
             isLoading={guardando}
             title="Modificar Personal"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/personal")}
+            esMiPerfil={esMiPerfil}
           />
         </>
       )}

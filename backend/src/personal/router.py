@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 # Agrupamos las rutas bajo el prefijo /personal
 router = APIRouter(prefix="/personal", tags=["personal"])
 
-@router.post("/", response_model=schemas.Persona)
+@router.post("", response_model=schemas.Persona)
 def create_persona(persona: schemas.PersonaCreate, db: Session = Depends(get_db)):
     return services.crear_persona(db, persona)
 
-@router.get("/", response_model=List[schemas.Persona])
+@router.get("", response_model=List[schemas.Persona])
 def read_personas(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
     logger.info("Consultando la lista de personal (incluir_inactivos=%s)", incluir_inactivos)
     return services.listar_personas(db, incluir_inactivos)
@@ -31,3 +31,7 @@ def update_persona(persona_id: int, persona: schemas.PersonaUpdate, db: Session 
 @router.delete("/{persona_id}", response_model=schemas.Persona)
 def delete_persona(persona_id: int, db: Session = Depends(get_db)):
     return services.eliminar_persona(db, persona_id)
+
+@router.post("/login", response_model=schemas.Persona)
+def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)):
+    return services.autenticar_persona(db, credentials.dni, credentials.password)

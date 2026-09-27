@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"])
 
 
-@router.post("/", response_model=schemas.PlanLimpieza)
+@router.post("", response_model=schemas.PlanLimpieza)
 def create_plan_limpieza(
     plan: schemas.PlanLimpiezaCreate, db: Session = Depends(get_db)
 ):
     return services.crear_plan_limpieza(db, plan)
 
 
-@router.get("/", response_model=List[schemas.PlanLimpieza])
+@router.get("", response_model=List[schemas.PlanLimpieza])
 def read_planes_limpieza(db: Session = Depends(get_db)):
     logger.info("Consultando la lista de planes de limpieza activos")
     return services.listar_planes_limpieza(db)

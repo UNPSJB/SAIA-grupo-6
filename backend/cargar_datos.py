@@ -5,7 +5,7 @@ from faker import Faker
 from src.database import SessionLocal, engine
 from src.models import ModeloBase
 from src.personal.models import Personal
-from src.Equipo.models import Equipo, TipoEquipo
+from src.Equipo.models import Equipo
 from src.insumos.models import Insumo, TipoUnidad
 #  AGREGUE
 from src.PlanLimpieza.models import PlanLimpieza
@@ -24,6 +24,9 @@ db = SessionLocal()
 try:
     print("⏳ Cargando 15 personas...")
     for _ in range(15):
+        # Esta es la línea que faltaba: crea el DNI y lo guarda en la variable
+        dni_generado = str(fake.unique.random_number(digits=8, fix_len=True))
+        
         persona = Personal(
             nombre=fake.first_name(),
             apellido=fake.last_name(),
@@ -32,8 +35,9 @@ try:
             email=fake.unique.email(),
             # Generamos un teléfono realista que no supere los 15 caracteres
             telefono=fake.numerify('+5492804######'), 
-            puede_operar=fake.boolean(),
-            puede_administrar=fake.boolean(),
+            password=dni_generado, # Y usamos la MISMA variable como contraseña
+            puede_operar=True,
+            puede_administrar=True,
             activo=True
         )
         db.add(persona)
@@ -43,7 +47,7 @@ try:
         equipo = Equipo(
             # Nombres tipo "Heladera 45" o "Balanza 12"
             nombre=f"{fake.word().capitalize()} {fake.random_int(1, 100)}",
-            tipo=random.choice(list(TipoEquipo)),
+            tipo=random.choice(["Heladera", "Horno", "Balanza", "Freidora", "Termómetro"]),
             ubicacion=f"Sector {fake.random_element(['A', 'B', 'C', 'Laboratorio', 'Cocina'])}",
             activo=True
         )

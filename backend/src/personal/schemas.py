@@ -10,6 +10,8 @@ class PersonaBase(BaseModel):
     dni: str 
     telefono: Optional[str] = None
     email: str 
+   
+    password: str
     
     puede_operar: bool = False
     puede_administrar: bool = False
@@ -42,17 +44,19 @@ class PersonaBase(BaseModel):
         return v.strip()
 
 class PersonaCreate(PersonaBase):
+    password: str
     pass
 
-class PersonaUpdate(PersonaBase):
-    nombre: Optional[str] = None
-    apellido: Optional[str] = None
-    dni: Optional[str] = None
-    telefono: Optional[str] = None
-    email: Optional[str] = None
-    puede_operar: Optional[bool] = None
-    puede_administrar: Optional[bool] = None
-    activo: Optional[bool] = None
+class PersonaUpdate(BaseModel):
+    nombre: str | None = None
+    apellido: str | None = None
+    dni: str | None = None
+    email: str | None = None
+    telefono: str | None = None
+    password: str | None = None  # ¡Esta es la línea mágica!
+    puede_operar: bool | None = None
+    puede_administrar: bool | None = None
+    activo: bool | None = None
 
 class Persona(PersonaBase):
     id: int
@@ -61,3 +65,7 @@ class Persona(PersonaBase):
     fecha_actualizacion: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+    
+class LoginRequest(BaseModel):
+    dni: str
+    password: str | None = None

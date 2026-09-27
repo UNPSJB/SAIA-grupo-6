@@ -15,6 +15,10 @@ class Personal(ModeloBase):
     telefono: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
     email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
 
+    # --- CAMPO NUEVO ---
+    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # -------------------
+
     puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
     puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
 

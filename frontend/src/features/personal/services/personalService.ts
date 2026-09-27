@@ -53,10 +53,34 @@ export async function modificarPersona(id: number, persona: PersonaInput): Promi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(persona),
     });
+    
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al modificar el registro");
+        let mensajeError = "Error al modificar el registro";
+        
+        if (errorData?.detail) {
+            if (Array.isArray(errorData.detail)) {
+                mensajeError = errorData.detail.map((d: any) => {
+                    const campo = d.loc[d.loc.length - 1];
+                    let mensaje = d.msg;
+                    
+                    // Traductor amigable de errores técnicos
+                    if (mensaje === "Field required") mensaje = "Este dato es obligatorio.";
+                    if (mensaje.includes("valid email")) mensaje = "El formato del correo es inválido.";
+                    
+                    // Formateamos el nombre del campo para que se lea mejor
+                    const nombreCampo = campo === "password" ? "Contraseña" : campo.toString().toUpperCase();
+                    
+                    return `${nombreCampo}: ${mensaje}`;
+                }).join(" | ");
+            } else if (typeof errorData.detail === 'string') {
+                mensajeError = errorData.detail;
+            }
+        }
+        
+        throw new Error(mensajeError);
     }
+    
     return response.json();
 }
 

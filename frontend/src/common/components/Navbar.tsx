@@ -1,9 +1,18 @@
-import { Link } from "react-router-dom";
+import { Navigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 
 export default function Navbar() {
+  // Traemos al usuario y la función para salir
+  const { user, logout } = useAuth();
+
+  // EL CANDADO: Si no hay nadie logueado, lo mandamos al Login
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
-    <nav
+   <nav
       style={{
         width: "250px",
         backgroundColor: "#468189",
@@ -12,7 +21,10 @@ export default function Navbar() {
         display: "flex",
         flexDirection: "column",
         gap: "15px",
-        minHeight: "100vh",
+        height: "100vh",
+        boxSizing: "border-box", // <-- Esta línea es vital para evitar el scroll hacia abajo
+        position: "sticky",
+        top: 0,
         boxShadow: "2px 0 5px rgba(0,0,0,0.1)",
       }}
     >
@@ -23,6 +35,7 @@ export default function Navbar() {
           alignItems: "center",
           justifyContent: "space-between",
           marginBottom: "20px",
+          padding: "0 10px", // <-- Esto separa sutilmente los íconos de los bordes
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -50,39 +63,60 @@ export default function Navbar() {
         <BotonNotificaciones />
       </div>
 
-      {/* --- SECCIÓN DE ENLACES --- */}
+      {/* --- ENLACES COMUNES (Los ven todos) --- */}
       <Link to="/" style={estiloLink}>
         Inicio
       </Link>
-
       <Link to="/personal" style={estiloLink}>
         Personal
       </Link>
 
-      <Link to="/insumos" style={estiloLink}>
-        Insumos
-      </Link>
+      {/* --- ENLACES DEL OPERADOR --- */}
+      {user.puede_operar && (
+        <>
+          <Link to="/checklist" style={estiloLink}>
+            Checklist Diario
+          </Link>
+          <Link to="/elementos-limpieza" style={estiloLink}>
+            Elementos de Limpieza
+          </Link>
+        </>
+      )}
 
-      <Link to="/equipos" style={estiloLink}>
-        Equipos
-      </Link>
+      {/* --- ENLACES DEL ADMINISTRADOR --- */}
+      {user.puede_administrar && (
+        <>
+          <Link to="/planes-limpieza" style={estiloLink}>
+            Planes de Limpieza
+          </Link>
+          <Link to="/equipos" style={estiloLink}>
+            Equipos
+          </Link>
+          <Link to="/insumos" style={estiloLink}>
+            Insumos
+          </Link>
+          <Link to="/insumos-quimicos" style={estiloLink}>
+            Insumos Químicos
+          </Link>
+        </>
+      )}
 
-      <Link to="/elementos-limpieza" style={estiloLink}>
-        Elementos de Limpieza
-      </Link>
-
-      <Link to="/planes-limpieza" style={estiloLink}>
-        Planes de Limpieza
-      </Link>
-
-      <Link to="/checklist" style={estiloLink}>
-        Checklist Diario
-      </Link>
-
-      <Link to="/insumos-quimicos" style={estiloLink}>
-        Insumos Químicos
-      </Link>
-
+      {/* --- BOTÓN DE CERRAR SESIÓN --- */}
+      <button
+        onClick={logout}
+        style={{
+          marginTop: "auto", // Lo empuja hacia el fondo del menú
+          backgroundColor: "#d9534f",
+          color: "white",
+          padding: "12px 15px",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Cerrar Sesión ({user.nombre})
+      </button>
     </nav>
   );
 }
