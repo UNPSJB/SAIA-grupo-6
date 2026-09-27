@@ -98,6 +98,9 @@ export default function Navbar() {
           <Link to="/insumos-quimicos" style={estiloLink}>
             Insumos Químicos
           </Link>
+          <Link to="/checklist/historial" style={estiloLink}>
+            Historial de Checklists
+          </Link>
         </>
       )}
 

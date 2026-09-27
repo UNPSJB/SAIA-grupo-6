@@ -31,6 +31,7 @@ import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/P
 
 // 5. Importaciones del módulo de Checklist
 import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
+import { HistorialChecklistPage } from "./features/checklist/components/pages/HistorialChecklistPage";
 
 // 6. Importaciones del módulo de Insumos Químicos
 import { InsumosQuimicosPage } from "./features/InsumoQuimico/components/pages/insumosQuimicosPage";
@@ -226,6 +227,16 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+
+  {
+    path: "/checklist/historial",
+    element: (
+      <LayoutPrincipal>
+        <HistorialChecklistPage />
+      </LayoutPrincipal>
+    ),
+  },
+
 
   // --- RUTAS DE INSUMOS QUÍMICOS ---
   {

@@ -82,3 +82,14 @@ def marcar_tarea(
 @router.get("/registro/{registro_id}/historial", response_model=schemas.HistorialRegistroTareaResponse)
 def obtener_historial_registro(registro_id: int, db: Session = Depends(get_db)):
     return services.obtener_historial_registro(db, registro_id)
+
+@router.get("/historial", response_model=schemas.HistorialChecklistResponse)
+def listar_historial_checklists(
+    fecha_desde: date = Query(...),
+    fecha_hasta: date = Query(...),
+    equipo_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Historial de checklists en un rango de fechas, con % de
+    cumplimiento y detalle de tareas incumplidas (Historia #13)."""
+    return services.listar_historial_checklists(db, fecha_desde, fecha_hasta, equipo_id)
