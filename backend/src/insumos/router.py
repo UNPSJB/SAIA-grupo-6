@@ -18,9 +18,9 @@ def create_insumo(insumo: schemas.InsumoCreate, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[schemas.Insumo])
-def read_insumos(db: Session = Depends(get_db)):
-    logger.info("Listando insumos desde router") 
-    return services.listar_insumos(db)
+def read_insumos(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
+    logger.info("Listando insumos desde router (incluir_inactivos=%s)", incluir_inactivos) 
+    return services.listar_insumos(db, incluir_inactivos)
 
 
 @router.get("/{insumo_id}", response_model=schemas.Insumo)
@@ -35,6 +35,6 @@ def update_insumo(
     return services.modificar_insumo(db, insumo_id, insumo)
 
 
-@router.delete("/{insumo_id}", response_model=schemas.InsumoDelete)
+@router.delete("/{insumo_id}", response_model=schemas.Insumo)
 def delete_insumo(insumo_id: int, db: Session = Depends(get_db)):
     return services.eliminar_insumo(db, insumo_id)

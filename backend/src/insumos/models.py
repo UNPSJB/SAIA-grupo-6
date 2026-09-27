@@ -1,16 +1,8 @@
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import auto, StrEnum
-from src.models import ModeloBase
-
-class TipoUnidad(StrEnum):
-    Kg = auto()
-    G = auto()
-    L = auto()
-    Ml = auto()
-    Cm3 = auto()
-    
-
+from src.models import ModeloBase    
+from src.insumos.constants import TipoUnidad
 
 class Insumo(ModeloBase):
     __tablename__ = "insumos"
@@ -18,4 +10,5 @@ class Insumo(ModeloBase):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     nombre: Mapped[str] = mapped_column(index=True, unique=True) #por defecto las columnas son not null en sqlAlchemy
     tipo: Mapped[TipoUnidad] = mapped_column() #ver si va index
+    activo: Mapped[bool] = mapped_column(default=True)
 

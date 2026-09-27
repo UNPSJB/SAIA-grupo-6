@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator, Field
 from src.insumos.models import TipoUnidad
 from src.insumos import exceptions
+from src.insumos.constants import TipoUnidad
 
 # Los siguientes schemas contienen atributos sin muchas restricciones de tipo.
 # Podemos crear atributos con ciertas reglas mediante el uso de un "Field" adecuado.
@@ -34,16 +35,15 @@ class InsumoCreate(InsumoBase):
 
 
 class InsumoUpdate(InsumoBase):
+    nombre: str | None = None
+    tipo: TipoUnidad | None = None
+    activo: bool | None = None
     pass
 
 
 class Insumo(InsumoBase):
     id: int
     tipo: TipoUnidad
+    activo: bool
 
     model_config = ConfigDict(from_attributes = True)
-
-
-class InsumoDelete(InsumoBase):
-    id: int
-    tipo: TipoUnidad

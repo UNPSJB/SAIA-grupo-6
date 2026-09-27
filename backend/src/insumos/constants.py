@@ -1,3 +1,5 @@
+from enum import StrEnum, auto
+
 class ErrorCode:
     INSUMO_NO_ENCONTRADO = "El insumo no fue encontrado."
     NOMBRE_DUPLICADO = "El nombre ya existe."
@@ -5,3 +7,10 @@ class ErrorCode:
     INSUMO_YA_EXISTE = "El insumo ya existe."
     NOMBRE_VACIO = "El nombre no puede estar vacío."
     UBICACION_VACIA = "ubicacion no puede estar vacia"
+
+class TipoUnidad(StrEnum):
+    Kg = auto()
+    G = auto()
+    L = auto()
+    Ml = auto()
+    Cm3 = auto()

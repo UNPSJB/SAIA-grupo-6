@@ -1,9 +1,11 @@
-import type { Insumo } from "../types/insumo";
+import type { Insumo, InsumoFormValues } from "../types/insumo";
+import { ConflictoInactivoError } from "../../../common/api/errors";
 
 const API_URL = "http://localhost:8000";
 
-export async function listarInsumos(): Promise<Insumo[]> {
-    const response = await fetch(`${API_URL}/insumos`);
+export async function listarInsumos(incluirInactivos = false): Promise<Insumo[]> {
+    const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+    const response = await fetch(`${API_URL}/insumos${query}`);
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -25,7 +27,7 @@ export async function obtenerInsumo(id: number): Promise<Insumo> {
 }
 
 export async function crearInsumo(
-    insumo: Omit<Insumo, "id">
+    insumo: InsumoFormValues
 ): Promise<Insumo> {
     const response = await fetch(`${API_URL}/insumos`, {
         method: "POST",
@@ -35,17 +37,24 @@ export async function crearInsumo(
         body: JSON.stringify(insumo),
     });
 
+     if (response.status === 409) {
+        const errorData = await response.json().catch(() => null);
+        const detail = errorData?.detail;
+        if (detail && typeof detail === "object" && detail.tipo === "inactivo") {
+            throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo);
+        }
+    }
+
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || "Error al crear el insumo");
     }
-
     return response.json();
 }
 
 export async function modificarInsumo(
     id: number,
-    insumo: Omit<Insumo, "id">
+    insumo: Partial<InsumoFormValues>
 ): Promise<Insumo> {
     const response = await fetch(`${API_URL}/insumos/${id}`, {
         method: "PUT",
@@ -63,13 +72,30 @@ export async function modificarInsumo(
     return response.json();
 }
 
-export async function eliminarInsumo(id: number): Promise<void> {
+export async function reactivarInsumo(id: number, insumo: InsumoFormValues): Promise<Insumo> {
+    const response = await fetch(`${API_URL}/insumos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...insumo, activo: true }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Error al reactivar el insumo");
+    }
+
+    return response.json();
+}
+
+export async function eliminarInsumo(id: number): Promise<Insumo> {
     const response = await fetch(`${API_URL}/insumos/${id}`, {
         method: "DELETE",
     });
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al eliminar el insumo");
+        throw new Error(errorData?.detail || "Error al borrar el insumo");
     }
+
+    return response.json();
 }
