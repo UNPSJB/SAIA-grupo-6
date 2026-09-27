@@ -2,6 +2,7 @@ from datetime import datetime, date
 from typing import Optional, List
 from enum import Enum
 
+from src.PlanLimpieza.schemas import PlanLimpieza
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, Enum as SQLEnum
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,14 +23,17 @@ class Checklist(ModeloBase):
     __tablename__ = "checklists"
     __table_args__ = (
         UniqueConstraint(
-            "equipo_id",
+            "plan_id",
             "fecha",
-            name="uq_checklist_equipo_fecha",
+            name="uq_checklist_plan_fecha",
         ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"), nullable=False, index=True)
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plan_limpieza.id"), nullable=False, index=True
+    )
     fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
     estado: Mapped[EstadoChecklist] = mapped_column(
@@ -53,9 +57,10 @@ class Checklist(ModeloBase):
     )
 
     equipo: Mapped["Equipo"] = relationship()
-
+    plan: Mapped["PlanLimpieza"] = relationship()
     supervisor: Mapped[Optional["Personal"]] = relationship()
 
+    
     registros: Mapped[List["RegistroTarea"]] = relationship(
         back_populates="checklist",
         cascade="all, delete-orphan"

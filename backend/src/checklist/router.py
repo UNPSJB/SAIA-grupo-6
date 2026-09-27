@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
@@ -28,6 +28,16 @@ def listar_tareas_del_dia(
     logger.info(f"Consultando tareas del día para fecha {fecha}")
     return services.listar_tareas_del_dia(db, fecha)
 
+
+@router.get("/equipo/{equipo_id}", response_model=List[schemas.ChecklistResponse])
+def obtener_checklists_del_equipo(
+    equipo_id: int,
+    fecha: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Uno o varios checklists (uno por plan vigente) para un equipo/máquina
+    en una fecha puntual."""
+    return services.obtener_o_crear_checklists_del_dia(db, equipo_id, fecha)
 
 @router.patch("/tarea/{tarea_id}", response_model=schemas.RegistroTareaResponse)
 def marcar_tarea(

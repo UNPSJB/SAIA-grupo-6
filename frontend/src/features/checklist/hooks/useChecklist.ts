@@ -4,7 +4,7 @@ import type { TareaDelDia } from "../types/checklist";
 
 // Un solo fetch para todos los equipos: el backend ya arma la lista plana
 // de tareas del día con el nombre del plan al que pertenece cada una.
-export function useChecklist(fecha: string) {
+export function useChecklist(fecha: string, usuarioId: number | undefined) {
   const [tareas, setTareas] = useState<TareaDelDia[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +56,11 @@ export function useChecklist(fecha: string) {
       return;
     }
 
+    if (!usuarioId) {
+      setError("No se pudo identificar al usuario logueado.");
+      return;
+    }
+
     const nuevoEstado = !completadoActual;
 
     const aplicarEstado = (estado: boolean) =>
@@ -73,9 +78,6 @@ export function useChecklist(fecha: string) {
 
       aplicarEstado(nuevoEstado);
 
-      // ID del usuario simulado por ahora (Historia #20)
-      const USUARIO_MOCK_ID = 1;
-
       // Mandamos:
       // - estado de la tarea
       // - usuario
@@ -86,7 +88,7 @@ export function useChecklist(fecha: string) {
       await marcarTarea(
         tareaId,
         nuevoEstado,
-        USUARIO_MOCK_ID,
+        usuarioId,   // <-- acá va el id real
         evidencia,
         fecha,
         insumoQuimicoId,

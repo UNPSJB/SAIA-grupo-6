@@ -80,6 +80,7 @@ export interface HistorialRegistroTareaItem {
   id: number;
   completado: boolean;
   usuario_id?: number | null;
+  usuario_nombre?: string | null;  
   evidencia_url?: string | null;
   fecha_evento: string;
 }

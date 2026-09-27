@@ -19,10 +19,11 @@ def create_plan_limpieza(
     return services.crear_plan_limpieza(db, plan)
 
 
-@router.get("/", response_model=List[schemas.PlanLimpieza])
+@router.get("", response_model=List[schemas.PlanLimpieza])
 def read_planes_limpieza(
     incluir_inactivos: bool = False, db: Session = Depends(get_db)
 ):
+    ...
     logger.info(
         "Consultando la lista de planes de limpieza (incluir_inactivos=%s)",
         incluir_inactivos,

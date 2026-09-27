@@ -94,178 +94,161 @@ def _planes_activos_por_equipo(
         resultado[plan.equipo_id].append(plan)
     return resultado
 
+def _obtener_o_crear_checklist_de_plan(
+    db: Session,
+    plan: PlanLimpieza,
+    tareas_del_dia: List[Tarea],
+    fecha_consulta: date_,
+    hoy: date_,
+) -> tuple[Optional[models.Checklist], bool]:
+    """Busca o crea el checklist de UN plan puntual para una fecha.
 
-def obtener_o_crear_checklist(
-    db: Session, equipo_id: int, fecha: Optional[date_] = None
-) -> schemas.ChecklistResponse:
-    obtener_equipo(db, equipo_id)
-    fecha_consulta = fecha or date_.today()
-    hoy = date_.today()
-
+    Devuelve (checklist, huso_cambios):
+    - (None, False) si no hay checklist previo y no hay tareas para
+      mostrar ese día (nada que persistir).
+    - (None, False) si la fecha es futura y no hay checklist previo: el
+      caller arma su propia previsualización sin persistir nada.
+    - (checklist, changed) en cualquier otro caso, donde `changed` indica
+      si hubo que crear el checklist o cerrarlo por vencido (para que el
+      caller decida cuándo hacer commit).
+    """
     checklist = db.scalar(
         select(models.Checklist).where(
-            models.Checklist.equipo_id == equipo_id,
+            models.Checklist.plan_id == plan.id,
             models.Checklist.fecha == fecha_consulta,
         )
     )
 
+    if checklist is None and not tareas_del_dia:
+        return None, False
+    if checklist is None and fecha_consulta > hoy:
+        return None, False
+    changed = False
+
+    if checklist is None:
+        checklist = models.Checklist(
+            equipo_id=plan.equipo_id,
+            plan_id=plan.id,
+           fecha=fecha_consulta,
+            estado=models.EstadoChecklist.ABIERTO,
+        )
+        db.add(checklist)
+        db.flush()
+        ids_candidatos = [t.id for t in tareas_del_dia]
+        ya_fotografiadas = _tareas_ya_fotografiadas_hoy(db, ids_candidatos, fecha_consulta)
+
+        for tarea in tareas_del_dia:
+            if tarea.id in ya_fotografiadas:
+                # Ya tiene registro bajo otro checklist de hoy (p. ej. el
+                # plan se reasignó de equipo a mitad del día): no se le
+                # toma una segunda foto.
+                continue
+            db.add(models.RegistroTarea(
+                checklist_id=checklist.id,
+                tarea_id=tarea.id,
+                nombre_tarea_historico=tarea.nombre,
+                descripcion_tarea_historico=tarea.descripcion,
+                completado=False,
+            ))
+        db.flush()
+        changed = True
+    # Si ya existía, NO se tocan sus registros acá: el checklist es una
+    # foto tomada en el momento de su creación. Una tarea agregada al plan
+    # después no se incorpora retroactivamente a esta checklist.
+
+    if _cerrar_checklist_vencido(checklist, hoy):
+        changed = True
+
+    return checklist, changed
+
+def obtener_o_crear_checklists_del_dia(
+    db: Session, equipo_id: int, fecha: Optional[date_] = None
+) -> List[schemas.ChecklistResponse]:
+    obtener_equipo(db, equipo_id)
+    fecha_consulta = fecha or date_.today()
+    hoy = date_.today()
+
     planes = _planes_activos(db, equipo_id)
 
-    # Tareas activas de cada plan que corresponden a fecha_consulta según
-    # su propia frecuencia (ya no la del plan).
     tareas_del_dia_por_plan: Dict[int, List[Tarea]] = {
         plan.id: [
-            t
-            for t in plan.tareas
+            t for t in plan.tareas
             if t.activo and _tarea_corresponde_a_la_fecha(t, fecha_consulta)
         ]
         for plan in planes
     }
 
-    # 1. Si no existe y no hay tareas configuradas para hoy: no se persiste nada
-    if checklist is None and not any(tareas_del_dia_por_plan.values()):
-        return schemas.ChecklistResponse(
-            checklist_id=None,
-            fecha=fecha_consulta,
-            equipo_id=equipo_id,
-            estado=None,
-            observaciones=None,
-            planes=[],
+    resultados: List[schemas.ChecklistResponse] = []
+    hay_cambios = False
+    
+    for plan in planes:
+        tareas_del_dia = tareas_del_dia_por_plan[plan.id]
+        checklist, changed = _obtener_o_crear_checklist_de_plan(
+            db, plan, tareas_del_dia, fecha_consulta, hoy
         )
+        hay_cambios = hay_cambios or changed
 
-    # 2. Si es fecha futura y no existe checklist previo: solo previsualización
-    if checklist is None and fecha_consulta > hoy:
-        planes_futuros = [
-            schemas.ChecklistPlanItem(
-                plan_id=p.id,
-                plan_nombre=p.nombre,
+        if checklist is None:
+            if not tareas_del_dia:
+                continue
+            # Fecha futura sin checklist previo: solo previsualización.
+            resultados.append(schemas.ChecklistResponse(
+                checklist_id=None,
+                fecha=fecha_consulta,
+                equipo_id=equipo_id,
+                plan_id=plan.id,
+                plan_nombre=plan.nombre,
+                estado=None,
+                observaciones=None,
                 tareas=[
                     schemas.ChecklistTareaItem(
                         id=t.id,
                         registro_id=0,
                         nombre=t.nombre,
-                        plan_limpieza_id=p.id,
+                        plan_limpieza_id=plan.id,
                         completado=False,
                         fecha_completado=None,
                         usuario_id=None,
-                        evidencia_url=None,  # MODIFICACIÓN: Agregado para soportar fotos en futuros
-                        descripcion=t.descripcion
+                        evidencia_url=None,
+                        descripcion=t.descripcion,
                     )
-                    for t in tareas_del_dia_por_plan[p.id]
+                    for t in tareas_del_dia
                 ],
-            )
-            for p in planes
-            if tareas_del_dia_por_plan[p.id]
-        ]
-        return schemas.ChecklistResponse(
-            checklist_id=None,
-            fecha=fecha_consulta,
-            equipo_id=equipo_id,
-            estado=None,
-            observaciones=None,
-            planes=planes_futuros,
-        )
+            ))
+            continue
 
-    # 3. Si no existe para la fecha actual (o previa a registrar): crear cabecera y tareas
-    if checklist is None:
-        checklist = models.Checklist(
-            equipo_id=equipo_id,
-            fecha=fecha_consulta,
-            estado=models.EstadoChecklist.ABIERTO,
-        )
-        db.add(checklist)
-        db.flush()
-
-        ids_candidatos = [
-            t.id for plan in planes for t in tareas_del_dia_por_plan[plan.id]
-        ]
-        ya_fotografiadas = _tareas_ya_fotografiadas_hoy(db, ids_candidatos, fecha_consulta)
-
-        for plan in planes:
-            for tarea in tareas_del_dia_por_plan[plan.id]:
-                if tarea.id in ya_fotografiadas:
-                    # Ya tiene registro bajo otro checklist de hoy (p. ej.
-                    # el plan se reasignó de equipo a mitad del día): no se
-                    # le toma una segunda foto.
-                    continue
-                reg = models.RegistroTarea(
-                    checklist_id=checklist.id,
-                    tarea_id=tarea.id,
-                    nombre_tarea_historico=tarea.nombre,
-                    descripcion_tarea_historico=tarea.descripcion,
-                    completado=False,
+        resultados.append(schemas.ChecklistResponse(
+            checklist_id=checklist.id,
+            fecha=checklist.fecha,
+            equipo_id=checklist.equipo_id,
+            plan_id=plan.id,
+            plan_nombre=plan.nombre,
+            estado=checklist.estado,
+            observaciones=checklist.observaciones,
+            tareas=[
+                schemas.ChecklistTareaItem(
+                    id=reg.tarea_id if reg.tarea_id is not None else 0,
+                    registro_id=reg.id,
+                    nombre=reg.nombre_tarea_historico,
+                    plan_limpieza_id=plan.id,
+                    completado=reg.completado,
+                    fecha_completado=reg.fecha_completado,
+                    usuario_id=reg.usuario_id,
+                    evidencia_url=reg.evidencia_url,
+                    insumo_quimico_id=reg.insumo_quimico_id,
+                    cantidad_consumida=reg.cantidad_consumida,
+                    descripcion=reg.descripcion_tarea_historico,
                 )
-                db.add(reg)
+                for reg in checklist.registros
+            ],
+        ))
 
+    if hay_cambios:
         db.commit()
-        db.refresh(checklist)
-    # Si el checklist ya existía, NO se tocan sus registros acá: el
-    # checklist es una foto tomada en el momento de su creación (primera
-    # consulta del día). Una tarea agregada al plan después de esa foto
-    # recién va a aparecer en la checklist de fecha posterior en la que
-    # se genere una foto nueva, nunca retroactivamente sobre esta.
 
-    # 3.5. Si el checklist quedó "atrás" en el tiempo, se cierra como dato
-    # histórico. Cubre tanto el que ya existía como el recién creado en el
-    # punto 3 (por ejemplo, la primera vez que se consulta una fecha pasada
-    # que nunca se había abierto desde el frontend).
-    if _cerrar_checklist_vencido(checklist, hoy):
-        db.commit()
-        db.refresh(checklist)
+    return resultados
 
-    # 4. ARMADO DE RESPUESTA BASADO EN LOS REGISTROS REALES DEL CHECKLIST
-    # Agrupamos los registros físicos existentes por plan
-    planes_dict = {}
 
-    for reg in checklist.registros:
-        # Si la tarea aún tiene su plan asociado, usamos sus datos; si fue reasignada/eliminada, mantenemos el histórico
-        if reg.tarea and reg.tarea.plan:
-            plan_id = reg.tarea.plan.id
-            plan_nombre = reg.tarea.plan.nombre
-        else:
-            plan_id = 0
-            plan_nombre = "Plan original"
-
-        if plan_id not in planes_dict:
-            planes_dict[plan_id] = {
-                "plan_id": plan_id,
-                "plan_nombre": plan_nombre,
-                "tareas": [],
-            }
-
-        planes_dict[plan_id]["tareas"].append(
-            schemas.ChecklistTareaItem(
-                id=reg.tarea_id if reg.tarea_id is not None else 0,
-                registro_id=reg.id,
-                nombre=reg.nombre_tarea_historico,
-                plan_limpieza_id=plan_id,
-                completado=reg.completado,
-                fecha_completado=reg.fecha_completado,
-                usuario_id=reg.usuario_id,
-                evidencia_url=reg.evidencia_url,  # MODIFICACIÓN: Agregada la foto a la respuesta real
-                insumo_quimico_id=reg.insumo_quimico_id,
-                cantidad_consumida=reg.cantidad_consumida,
-                descripcion=reg.descripcion_tarea_historico,
-            )
-        )
-
-    planes_response = [
-        schemas.ChecklistPlanItem(
-            plan_id=p["plan_id"],
-            plan_nombre=p["plan_nombre"],
-            tareas=p["tareas"],
-        )
-        for p in planes_dict.values()
-    ]
-
-    return schemas.ChecklistResponse(
-        checklist_id=checklist.id,
-        fecha=checklist.fecha,
-        equipo_id=checklist.equipo_id,
-        estado=checklist.estado,
-        observaciones=checklist.observaciones,
-        planes=planes_response,
-    )
 
 
 def listar_tareas_del_dia(
@@ -288,120 +271,73 @@ def listar_tareas_del_dia(
     equipo_ids = [e.id for e in equipos]
     nombres_equipo = {e.id: e.nombre for e in equipos}
 
+    planes_por_equipo = _planes_activos_por_equipo(db, equipo_ids)
+    plan_ids = [p.id for planes in planes_por_equipo.values() for p in planes]
+
     checklists_existentes = {
-        c.equipo_id: c
+        c.plan_id: c
         for c in db.scalars(
             select(models.Checklist)
             .options(selectinload(models.Checklist.registros))
             .where(
-                models.Checklist.equipo_id.in_(equipo_ids),
+                models.Checklist.plan_id.in_(plan_ids),
                 models.Checklist.fecha == fecha_consulta,
             )
         ).all()
-    }
+    
 
-    planes_por_equipo = _planes_activos_por_equipo(db, equipo_ids)
+    } if plan_ids else {}
 
     items: List[schemas.TareaDelDiaItem] = []
     hay_cambios = False
 
     for equipo_id in equipo_ids:
-        checklist = checklists_existentes.get(equipo_id)
         planes = planes_por_equipo[equipo_id]
-        equipo_tiene_cambios = False
-        tareas_del_dia_por_plan: Dict[int, List[Tarea]] = {
-            plan.id: [
-                t
-                for t in plan.tareas
+        for plan in planes:
+            tareas_del_dia = [
+                t for t in plan.tareas
                 if t.activo and _tarea_corresponde_a_la_fecha(t, fecha_consulta)
             ]
-            for plan in planes
-        }
+            checklist_existente = checklists_existentes.get(plan.id)
 
-        if checklist is None and not any(tareas_del_dia_por_plan.values()):
-            continue
+            if checklist_existente is None and not tareas_del_dia:
+                continue
 
-        if checklist is None and fecha_consulta > hoy:
-            # Fecha futura sin checklist real todavía: solo previsualización, no se persiste nada.
-            for plan in planes:
-                for tarea in tareas_del_dia_por_plan[plan.id]:
-                    items.append(
-                        schemas.TareaDelDiaItem(
-                            id=tarea.id,
-                            registro_id=0,
-                            nombre=tarea.nombre,
-                            plan_id=plan.id,
-                            plan_nombre=plan.nombre,
-                            equipo_id=equipo_id,
-                            equipo_nombre=nombres_equipo[equipo_id],
-                            completado=False,
-                            fecha_completado=None,
-                            usuario_id=None,
-                            descripcion=tarea.descripcion,
-                        )
-                    )
-            continue
+            if checklist_existente is None and fecha_consulta > hoy:
+                for tarea in tareas_del_dia:
+                    items.append(schemas.TareaDelDiaItem(
+                        id=tarea.id,
+                        registro_id=0,
+                        nombre=tarea.nombre,
+                        plan_id=plan.id,
+                        plan_nombre=plan.nombre,
+                        equipo_id=equipo_id,
+                        equipo_nombre=nombres_equipo[equipo_id],
+                        completado=False,
+                        fecha_completado=None,
+                        usuario_id=None,
+                        descripcion=tarea.descripcion,
+                    ))
+                continue
 
-        if checklist is None:
-            checklist = models.Checklist(
-                equipo_id=equipo_id,
-                fecha=fecha_consulta,
-                estado=models.EstadoChecklist.ABIERTO,
+            checklist, changed = (
+                (checklist_existente, False) if checklist_existente is not None
+                else _obtener_o_crear_checklist_de_plan(db, plan, tareas_del_dia, fecha_consulta, hoy)
             )
-            db.add(checklist)
-            db.flush()
+            if checklist_existente is not None and _cerrar_checklist_vencido(checklist, hoy):
+                changed = True
+            if changed:
+                db.flush()
+                db.refresh(checklist)
+                hay_cambios = True
 
-            ids_candidatos = [
-                t.id for plan in planes for t in tareas_del_dia_por_plan[plan.id]
-            ]
-            ya_fotografiadas = _tareas_ya_fotografiadas_hoy(db, ids_candidatos, fecha_consulta)
-
-            for plan in planes:
-                for tarea in tareas_del_dia_por_plan[plan.id]:
-                    if tarea.id in ya_fotografiadas:
-                        # Ya tiene registro bajo otro checklist de hoy (p. ej.
-                        # el plan se reasignó de equipo a mitad del día): no
-                        # se le toma una segunda foto.
-                        continue
-                    db.add(
-                        models.RegistroTarea(
-                            checklist_id=checklist.id,
-                            tarea_id=tarea.id,
-                            nombre_tarea_historico=tarea.nombre,
-                            descripcion_tarea_historico=tarea.descripcion,
-                            completado=False,
-                        )
-                    )
-            equipo_tiene_cambios = True
-        # Si el checklist ya existía, NO se tocan sus registros acá: es una
-        # foto tomada en el momento de su creación. Una tarea agregada al
-        # plan después no se incorpora retroactivamente a esta checklist.
-
-        if _cerrar_checklist_vencido(checklist, hoy):
-            equipo_tiene_cambios = True
-
-        if equipo_tiene_cambios:
-            db.flush()
-            db.refresh(checklist)
-            hay_cambios = True
-
-        for reg in checklist.registros:
-            if reg.tarea and reg.tarea.plan:
-                # Nombre del plan: el actual, aunque el plan haya sido
-                # reasignado a otro equipo después de crear este checklist.
-                plan_id, plan_nombre = reg.tarea.plan.id, reg.tarea.plan.nombre
-            else:
-                # La tarea original fue eliminada o desvinculada de su plan:
-                # no fingimos que pertenece a un plan real (id=0 era engañoso).
-                plan_id, plan_nombre = None, "Tarea eliminada del plan"
-
-            items.append(
-                schemas.TareaDelDiaItem(
+            for reg in checklist.registros:
+                items.append(schemas.TareaDelDiaItem(
                     id=reg.tarea_id if reg.tarea_id is not None else 0,
                     registro_id=reg.id,
                     nombre=reg.nombre_tarea_historico,
-                    plan_id=plan_id,
-                    plan_nombre=plan_nombre,
+                    plan_id=plan.id,
+                    plan_nombre=plan.nombre,
                     equipo_id=equipo_id,
                     equipo_nombre=nombres_equipo[equipo_id],
                     completado=reg.completado,
@@ -412,8 +348,7 @@ def listar_tareas_del_dia(
                     cantidad_consumida=reg.cantidad_consumida,
                     checklist_estado=checklist.estado,
                     descripcion=reg.descripcion_tarea_historico,
-                )
-            )
+                ))
     if hay_cambios:
         db.commit()
 
@@ -441,25 +376,22 @@ def marcar_tarea(
 
     checklist = db.scalar(
         select(models.Checklist).where(
-            models.Checklist.equipo_id == tarea.plan.equipo_id,
+            models.Checklist.plan_id == tarea.plan.id,
             models.Checklist.fecha == fecha_registro,
         )
     )
 
     # Si todavía no existe el checklist, lo creamos
     if checklist is None:
-        obtener_o_crear_checklist(
-            db,
-            tarea.plan.equipo_id,
-            fecha_registro
+        tareas_del_dia = [
+            t for t in tarea.plan.tareas
+            if t.activo and _tarea_corresponde_a_la_fecha(t, fecha_registro)
+        ]
+        checklist, _ = _obtener_o_crear_checklist_de_plan(
+            db, tarea.plan, tareas_del_dia, fecha_registro, hoy
         )
-
-        checklist = db.scalar(
-            select(models.Checklist).where(
-                models.Checklist.equipo_id == tarea.plan.equipo_id,
-                models.Checklist.fecha == fecha_registro,
-            )
-        )
+        if checklist is not None:
+            db.commit()
 
     # Los checklists de días anteriores son históricos
     # y no se pueden modificar.
@@ -573,12 +505,20 @@ def obtener_historial_registro(db: Session, registro_id: int) -> schemas.Histori
     eventos = db.scalars(
         select(models.HistorialRegistroTarea)
         .where(models.HistorialRegistroTarea.registro_tarea_id == registro_id)
+        .options(selectinload(models.HistorialRegistroTarea.usuario))
         .order_by(models.HistorialRegistroTarea.fecha_evento)
     ).all()
 
+    items = []
+    for e in eventos:
+        item = schemas.HistorialRegistroTareaItem.model_validate(e)
+        if e.usuario is not None:
+            item.usuario_nombre = f"{e.usuario.nombre} {e.usuario.apellido or ''}".strip()
+        items.append(item)
+
     return schemas.HistorialRegistroTareaResponse(
         registro_id=registro_id,
-        eventos=[schemas.HistorialRegistroTareaItem.model_validate(e) for e in eventos],
+        eventos=items,
     )
 
 # ---------------------------------------------------------

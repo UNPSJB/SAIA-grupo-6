@@ -23,21 +23,16 @@ class ChecklistTareaItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ChecklistPlanItem(BaseModel):
-    plan_id: int
-    plan_nombre: str
-    tareas: List[ChecklistTareaItem]
-
-    model_config = ConfigDict(from_attributes=True)
-
 
 class ChecklistResponse(BaseModel):
     checklist_id: Optional[int] = None
     fecha: date
     equipo_id: int
+    plan_id: int
+    plan_nombre: str
     estado: Optional[EstadoChecklist] = None
     observaciones: Optional[str] = None
-    planes: List[ChecklistPlanItem]
+    tareas: List[ChecklistTareaItem]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -114,6 +109,7 @@ class HistorialRegistroTareaItem(BaseModel):
     id: int
     completado: bool
     usuario_id: Optional[int] = None
+    usuario_nombre: Optional[str] = None
     evidencia_url: Optional[str] = None
     fecha_evento: datetime
 

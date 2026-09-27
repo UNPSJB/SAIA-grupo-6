@@ -16,6 +16,7 @@ import { obtenerHistorialRegistro } from "../../services/checklistService";
 import type { HistorialRegistroTareaItem } from "../../types/checklist";
 import { listarInsumosQuimicos } from "../../../InsumoQuimico/services/insumoQuimicoService";
 import type { InsumoQuimico } from "../../../InsumoQuimico/types/insumoQuimico";
+import { useAuth } from "../../../../common/context/AuthContext";
 const TEAL = "#468189";
 const TEAL_CLARO = "#90BEBB";
 const estiloInput = {
@@ -515,6 +516,7 @@ function FilaTarea({
                   <Text fontSize="13px">
                     {ev.completado ? "✔ Marcada" : "✕ Desmarcada"} —{" "}
                     {new Date(ev.fecha_evento).toLocaleString()}
+                    {ev.usuario_nombre ? ` · por ${ev.usuario_nombre}` : ""}
                     {ev.evidencia_url ? " · con foto adjunta" : ""}
                   </Text>
                 </Box>
@@ -530,11 +532,12 @@ function FilaTarea({
   );
 }
 export function ChecklistPage() {
+  const { user } = useAuth();
   const hoyISO = fechaLocalISO(new Date());
   const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
   const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimico[]>([]);
   const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
-    useChecklist(selectedFecha);
+    useChecklist(selectedFecha, user?.id);
   useEffect(() => {
     const cargarInsumosQuimicos = async () => {
       try {
