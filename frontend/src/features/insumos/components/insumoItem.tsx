@@ -1,7 +1,5 @@
 import { Button, HStack, Table } from "@chakra-ui/react";
-import { TIPOS_UNIDAD, type Insumo } from "../types/insumo";
-
-const TEAL = "#468189";
+import type { Insumo } from "../types/insumo";
 
 interface InsumoItemProps {
   insumo: Insumo;
@@ -10,9 +8,12 @@ interface InsumoItemProps {
   onReactivar: (insumo: Insumo) => void;
 }
 
+const TEAL = "#468189";
+
 export function InsumoItem({ insumo, onEdit, onDelete, onReactivar }: InsumoItemProps) {
-  const tipoLabel =
-    TIPOS_UNIDAD.find((t) => t.value === insumo.tipo)?.label ?? insumo.tipo;
+  const unidadLabel = insumo.unidad_medida
+    ? `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`
+    : `#${insumo.unidad_medida_id}`;
 
   return (
     <Table.Row style={{ borderBottom: "1px solid #eee", opacity: insumo.activo ? 1 : 0.65 }}>
@@ -23,7 +24,7 @@ export function InsumoItem({ insumo, onEdit, onDelete, onReactivar }: InsumoItem
         {insumo.nombre}
       </Table.Cell>
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        {tipoLabel}
+        {unidadLabel}
       </Table.Cell>
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center" style={{ gap: "10px" }}>

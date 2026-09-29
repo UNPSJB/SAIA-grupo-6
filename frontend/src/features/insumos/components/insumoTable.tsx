@@ -2,14 +2,14 @@ import { Box, Table, Text } from "@chakra-ui/react";
 import { InsumoItem } from "./insumoItem";
 import type { Insumo } from "../types/insumo";
 
-const TEAL = "#468189";
-
 interface InsumoTableProps {
   insumos: Insumo[];
   onEdit: (insumo: Insumo) => void;
   onDelete: (insumo: Insumo) => void;
   onReactivar: (insumo: Insumo) => void;
 }
+
+const TEAL = "#468189";
 
 export function InsumoTable({ insumos, onEdit, onDelete, onReactivar }: InsumoTableProps) {
   if (insumos.length === 0) {
@@ -27,7 +27,7 @@ export function InsumoTable({ insumos, onEdit, onDelete, onReactivar }: InsumoTa
           <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
             <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>ID</Table.ColumnHeader>
             <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Nombre</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Tipo</Table.ColumnHeader>
+            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Unidad Medida</Table.ColumnHeader>
             <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Acciones</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>

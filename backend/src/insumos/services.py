@@ -6,8 +6,18 @@ from sqlalchemy.orm import Session
 from src.exceptions import ConflictoRegistroInactivo
 from src.insumos.models import Insumo
 from src.insumos import schemas, exceptions
+from src.unidadMedida.models import UnidadMedida
 
 logger = logging.getLogger(__name__)
+
+
+def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
+    """Verifica que la unidad de medida exista y esté activa."""
+    unidad = db.scalar(select(UnidadMedida).where(UnidadMedida.id == unidad_medida_id))
+    if unidad is None:
+        raise exceptions.UnidadMedidaNoExiste()
+    if not unidad.activo:
+        raise exceptions.UnidadMedidaInactiva()
 
 
 def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
@@ -23,6 +33,9 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
                 entidad_id=existente.id,
                 campo="nombre"
             )
+
+    _verificar_unidad_medida(db, insumo.unidad_medida_id)
+
     _insumo = Insumo(**insumo.model_dump())
     db.add(_insumo)
     try:
@@ -39,6 +52,13 @@ def listar_insumos(db: Session, incluir_inactivos: bool = False) -> List[Insumo]
     if not incluir_inactivos:
         consulta = consulta.where(Insumo.activo == True)
     return list(db.scalars(consulta).all())
+
+
+def obtener_insumo(db: Session, insumo_id: int) -> Insumo:
+    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id))
+    if db_insumo is None:
+        raise exceptions.InsumoNoEncontrado()
+    return db_insumo
 
 
 def leer_insumo(db: Session, insumo_id: int) -> Insumo:

@@ -1,16 +1,10 @@
-from pydantic import BaseModel, ConfigDict, field_validator, Field
-from src.insumos.models import TipoUnidad
+from pydantic import BaseModel, ConfigDict, field_validator
 from src.insumos import exceptions
-from src.insumos.constants import TipoUnidad
-
-# Los siguientes schemas contienen atributos sin muchas restricciones de tipo.
-# Podemos crear atributos con ciertas reglas mediante el uso de un "Field" adecuado.
-# https://docs.pydantic.dev/latest/concepts/fields/
 
 
 class InsumoBase(BaseModel):
     nombre: str
-    tipo: TipoUnidad  # solo permitiremos valores de este tipo.
+    unidad_medida_id: int
 
     @field_validator("nombre")
     @classmethod
@@ -19,31 +13,28 @@ class InsumoBase(BaseModel):
             raise exceptions.NombreVacio()
         return v.strip()
 
-    @field_validator("tipo", mode="before")
-    @classmethod
-    def is_valid_tipo_unidad(cls, v: str) -> str:
-        tipos_validos = [tipo.value for tipo in TipoUnidad]
-
-        if v.lower() not in tipos_validos:
-            raise exceptions.TipoUnidadInvalido(tipos_validos)
-
-        return v.lower()
-
 
 class InsumoCreate(InsumoBase):
     pass
 
 
-class InsumoUpdate(InsumoBase):
+class InsumoUpdate(BaseModel):
     nombre: str | None = None
-    tipo: TipoUnidad | None = None
+    unidad_medida_id: int | None = None
     activo: bool | None = None
-    pass
 
 
 class Insumo(InsumoBase):
     id: int
-    tipo: TipoUnidad
     activo: bool
+    unidad_medida: "UnidadMedidaResponse"
 
-    model_config = ConfigDict(from_attributes = True)
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UnidadMedidaResponse(BaseModel):
+    id: int
+    nombre: str
+    simbolo: str
+
+    model_config = ConfigDict(from_attributes=True)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -7,7 +7,9 @@ import {
   Input,
   NativeSelect,
 } from "@chakra-ui/react";
-import { TIPOS_UNIDAD, type InsumoFormValues } from "../types/insumo";
+import type { InsumoFormValues } from "../types/insumo";
+import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
+import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 
 interface InsumoFormProps {
   initialValues?: InsumoFormValues;
@@ -18,7 +20,7 @@ interface InsumoFormProps {
   onCancel?: () => void;
 }
 
-const emptyValues: InsumoFormValues = { nombre: "", tipo: "kg" };
+const emptyValues: InsumoFormValues = { nombre: "", unidad_medida_id: 0 };
 
 const estiloInput = {
   backgroundColor: "#fff",
@@ -57,15 +59,28 @@ export function InsumoForm({
   onCancel,
 }: InsumoFormProps) {
   const [values, setValues] = useState<InsumoFormValues>(initialValues);
+  const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
+  const [cargandoUnidades, setCargandoUnidades] = useState(true);
+
+  useEffect(() => {
+    const cargarUnidades = async () => {
+      try {
+        const data = await listarUnidadesMedida(false);
+        setUnidades(data);
+      } catch (err) {
+        console.error("Error al cargar unidades de medida:", err);
+      } finally {
+        setCargandoUnidades(false);
+      }
+    };
+    cargarUnidades();
+  }, []);
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({ ...prev, nombre: e.target.value }));
 
-  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
-    setValues((prev) => ({
-      ...prev,
-      tipo: e.target.value as InsumoFormValues["tipo"],
-    }));
+  const handleUnidadChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,25 +118,28 @@ export function InsumoForm({
         </Field.Root>
       </Box>
 
-      {/* Tipo de unidad */}
+      {/* Unidad de Medida */}
       <Box style={{ marginBottom: "25px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
-            TIPO DE UNIDAD *
+            UNIDAD DE MEDIDA *
           </Box>
-          <NativeSelect.Root>
+          <NativeSelect.Root disabled={cargandoUnidades}>
             <NativeSelect.Field
-              value={values.tipo}
-              onChange={handleTipoChange}
+              value={values.unidad_medida_id}
+              onChange={handleUnidadChange}
               style={estiloSelect}
             >
-              {TIPOS_UNIDAD.map((tipo) => (
+              <option value={0} disabled>
+                {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+              </option>
+              {unidades.map((unidad) => (
                 <option
-                  key={tipo.value}
-                  value={tipo.value}
+                  key={unidad.id}
+                  value={unidad.id}
                   style={{ backgroundColor: "#fff", color: "#333" }}
                 >
-                  {tipo.label}
+                  {unidad.nombre} ({unidad.simbolo})
                 </option>
               ))}
             </NativeSelect.Field>
@@ -135,6 +153,7 @@ export function InsumoForm({
         <Button
           type="submit"
           loading={isLoading}
+          disabled={!values.unidad_medida_id}
           style={{
             backgroundColor: "#468189",
             color: "white",
