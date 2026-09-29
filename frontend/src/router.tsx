@@ -34,12 +34,17 @@ import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPa
 import { HistorialChecklistPage } from "./features/checklist/components/pages/HistorialChecklistPage";
 
 // 6. Importaciones del módulo de Insumos Químicos
-import { InsumosQuimicosPage } from "./features/InsumoQuimico/components/pages/insumosQuimicosPage";
-import { InsumoQuimicoCreatePage } from "./features/InsumoQuimico/components/pages/insumoQuimicoCreatePage";
-import { InsumoQuimicoEditPage } from "./features/InsumoQuimico/components/pages/insumoQuimicoEditPage";
+import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
+import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
+import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
 
 // Importaciones del módulo de Notificaciones
-import { NotificacionesPage } from "./features/notificaciones/components/pages/NotificacionesPage";// Layout principal que mantiene el menú a la izquierda
+import { NotificacionesPage } from "./features/notificaciones/components/pages/NotificacionesPage";
+
+// 7. Importaciones del módulo de Unidad de Medida
+import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unidadMedidaPage";
+import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
+import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";// Layout principal que mantiene el menú a la izquierda
 
 
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
@@ -270,6 +275,32 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <NotificacionesPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE UNIDAD DE MEDIDA ---
+  {
+    path: "/unidades-medida",
+    element: (
+      <LayoutPrincipal>
+        <UnidadMedidaPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/unidades-medida/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <UnidadMedidaCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/unidades-medida/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <UnidadMedidaEditPage />
       </LayoutPrincipal>
     ),
   },
