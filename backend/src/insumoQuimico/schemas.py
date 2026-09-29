@@ -3,14 +3,14 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from src.insumoQuimico.models import TipoQuimico, UnidadMedidaQuimico
+from src.insumoQuimico.models import TipoQuimico
 from src.insumoQuimico import exceptions
 
 
 class InsumoQuimicoBase(BaseModel):
     nombre: str
     tipo: TipoQuimico
-    unidad_medida: UnidadMedidaQuimico
+    unidad_medida_id: int
 
     @field_validator("nombre")
     @classmethod
@@ -41,12 +41,21 @@ class InsumoQuimicoCreate(InsumoQuimicoBase):
 class InsumoQuimicoUpdate(BaseModel):
     nombre: Optional[str] = None
     tipo: Optional[TipoQuimico] = None
-    unidad_medida: Optional[UnidadMedidaQuimico] = None
+    unidad_medida_id: Optional[int] = None
     activo: Optional[bool] = None
 
 
 class InsumoQuimicoResponse(InsumoQuimicoBase):
     id: int
     activo: bool
+    unidad_medida: "UnidadMedidaResponse"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UnidadMedidaResponse(BaseModel):
+    id: int
+    nombre: str
+    simbolo: str
 
     model_config = ConfigDict(from_attributes=True)

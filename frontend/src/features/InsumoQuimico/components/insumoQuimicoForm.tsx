@@ -1,14 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Box, Button, Field, HStack, Input, NativeSelect } from "@chakra-ui/react";
 import {
   TIPOS_QUIMICOS,
-  UNIDADES_MEDIDA,
-  type InsumoQuimico,
+  type InsumoQuimicoFormValues,
   type TipoQuimico,
-  type UnidadMedidaQuimico,
 } from "../types/insumoQuimico";
-
-type InsumoQuimicoFormValues = Omit<InsumoQuimico, "id" | "activo">;
+import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
+import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 
 interface InsumoQuimicoFormProps {
   initialValues?: InsumoQuimicoFormValues;
@@ -22,7 +20,7 @@ interface InsumoQuimicoFormProps {
 const emptyValues: InsumoQuimicoFormValues = {
   nombre: "",
   tipo: "detergente",
-  unidad_medida: "l",
+  unidad_medida_id: 0,
 };
 
 const estiloInput = {
@@ -62,6 +60,22 @@ export function InsumoQuimicoForm({
   onCancel,
 }: InsumoQuimicoFormProps) {
   const [values, setValues] = useState<InsumoQuimicoFormValues>(initialValues);
+  const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
+  const [cargandoUnidades, setCargandoUnidades] = useState(true);
+
+  useEffect(() => {
+    const cargarUnidades = async () => {
+      try {
+        const data = await listarUnidadesMedida(false);
+        setUnidades(data);
+      } catch (err) {
+        console.error("Error al cargar unidades de medida:", err);
+      } finally {
+        setCargandoUnidades(false);
+      }
+    };
+    cargarUnidades();
+  }, []);
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({
@@ -78,7 +92,7 @@ export function InsumoQuimicoForm({
   const handleUnidadChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({
       ...prev,
-      unidad_medida: e.target.value as UnidadMedidaQuimico,
+      unidad_medida_id: Number(e.target.value),
     }));
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -155,24 +169,27 @@ export function InsumoQuimicoForm({
       <Box style={{ marginBottom: "25px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
-            UNIDAD DE MEDIDA HABITUAL *
+            UNIDAD DE MEDIDA *
           </Box>
-          <NativeSelect.Root>
+          <NativeSelect.Root disabled={cargandoUnidades}>
             <NativeSelect.Field
-              value={values.unidad_medida}
+              value={values.unidad_medida_id}
               onChange={handleUnidadChange}
               style={estiloSelect}
             >
-              {UNIDADES_MEDIDA.map((unidad) => (
+              <option value={0} disabled>
+                {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+              </option>
+              {unidades.map((unidad) => (
                 <option
-                  key={unidad.value}
-                  value={unidad.value}
+                  key={unidad.id}
+                  value={unidad.id}
                   style={{
                     backgroundColor: "#fff",
                     color: "#333",
                   }}
                 >
-                  {unidad.label}
+                  {unidad.nombre} ({unidad.simbolo})
                 </option>
               ))}
             </NativeSelect.Field>
@@ -185,6 +202,7 @@ export function InsumoQuimicoForm({
         <Button
           type="submit"
           loading={isLoading}
+          disabled={!values.unidad_medida_id}
           style={{
             backgroundColor: "#468189",
             color: "white",

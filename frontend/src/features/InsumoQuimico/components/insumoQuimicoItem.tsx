@@ -1,7 +1,6 @@
 import { Button, HStack, Table } from "@chakra-ui/react";
 import {
   TIPOS_QUIMICOS,
-  UNIDADES_MEDIDA,
   type InsumoQuimico,
 } from "../types/insumoQuimico";
 
@@ -23,9 +22,9 @@ export function InsumoQuimicoItem({
   const tipoLabel =
     TIPOS_QUIMICOS.find((t) => t.value === insumo.tipo)?.label ?? insumo.tipo;
 
-  const unidadLabel =
-    UNIDADES_MEDIDA.find((u) => u.value === insumo.unidad_medida)?.label ??
-    insumo.unidad_medida;
+  const unidadLabel = insumo.unidad_medida
+    ? `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`
+    : `#${insumo.unidad_medida_id}`;
 
   return (
     <Table.Row

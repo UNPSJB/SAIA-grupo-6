@@ -8,4 +8,10 @@ class InsumoQuimicoYaExiste(BadRequest):
 class NombreVacio(BadRequest): 
     DETAIL = ErrorCode.NOMBRE_VACIO 
 class NombreInvalido(BadRequest): 
-    DETAIL = ErrorCode.NOMBRE_INVALIDO 
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+class UnidadMedidaNoExiste(BadRequest):
+    DETAIL = "La unidad de medida seleccionada no existe."
+
+class UnidadMedidaInactiva(BadRequest):
+    DETAIL = "La unidad de medida seleccionada está inactiva." 
