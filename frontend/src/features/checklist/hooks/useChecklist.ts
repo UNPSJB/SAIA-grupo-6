@@ -38,7 +38,8 @@ export function useChecklist(fecha: string, usuarioId: number | undefined) {
     completadoActual: boolean,
     evidencia?: File,
     insumoQuimicoId?: number,
-    cantidadConsumida?: number
+    cantidadConsumida?: number,
+    elementoLimpiezaId?: number
   ) => {
     const tarea = tareas.find((t) => t.id === tareaId);
 
@@ -92,7 +93,8 @@ export function useChecklist(fecha: string, usuarioId: number | undefined) {
         evidencia,
         fecha,
         insumoQuimicoId,
-        cantidadConsumida
+        cantidadConsumida,
+        elementoLimpiezaId
       );
 
       // Refrescamos los datos desde el servidor

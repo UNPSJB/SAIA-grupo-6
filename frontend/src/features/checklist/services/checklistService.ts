@@ -39,7 +39,8 @@ export async function marcarTarea(
   evidencia?: File,
   fecha?: string,
   insumoQuimicoId?: number,
-  cantidadConsumida?: number
+  cantidadConsumida?: number,
+  elementoLimpiezaId?: number
 ): Promise<RegistroTareaResponse> {
 
   const params = fecha ? `?fecha=${fecha}` : "";
@@ -80,6 +81,15 @@ export async function marcarTarea(
       String(cantidadConsumida)
     );
   }
+  
+  // Elemento Limpieza utilizado
+  if (elementoLimpiezaId !== undefined){
+    formData.append(
+      "elemento_limpieza_id",
+      String(elementoLimpiezaId)
+    );
+  } 
+
 
   const response = await fetch(
     `${API_URL}/checklist/tarea/${tareaId}${params}`,

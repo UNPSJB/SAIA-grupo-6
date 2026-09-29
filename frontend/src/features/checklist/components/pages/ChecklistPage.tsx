@@ -11,14 +11,17 @@ import {
   Table,
 } from "@chakra-ui/react";
 import { useChecklist } from "../../hooks/useChecklist";
-import type { TareaDelDia } from "../../types/checklist";
+import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
-import type { HistorialRegistroTareaItem } from "../../types/checklist";
-import { listarInsumosQuimicos } from "../../../InsumoQuimico/services/insumoQuimicoService";
+import { listarInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
 import type { InsumoQuimico } from "../../../InsumoQuimico/types/insumoQuimico";
+import { listarElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
+import type { ElementoLimpieza } from "../../../elementoLimpieza/types/elementoLimpieza";
 import { useAuth } from "../../../../common/context/AuthContext";
+
 const TEAL = "#468189";
 const TEAL_CLARO = "#90BEBB";
+
 const estiloInput = {
   backgroundColor: "#fff",
   padding: "10px 14px",
@@ -27,16 +30,19 @@ const estiloInput = {
   fontSize: "15px",
   color: "#333",
 };
+
 const estiloTarjeta = {
   backgroundColor: "#fff",
   borderRadius: "10px",
   boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
   overflow: "hidden" as const,
 };
+
 const estiloHeaderFila = {
   backgroundColor: "#EAF3F2",
   borderBottom: `2px solid ${TEAL_CLARO}`,
 };
+
 const estiloHeaderCelda = {
   color: "#333",
   fontWeight: "bold" as const,
@@ -45,6 +51,7 @@ const estiloHeaderCelda = {
   letterSpacing: "0.03em",
   padding: "10px 16px",
 };
+
 const estiloCelda = {
   color: "#333",
   fontSize: "14px",
@@ -52,12 +59,14 @@ const estiloCelda = {
   borderBottom: "1px solid #eee",
   backgroundColor: "#fff",
 };
+
 interface GrupoPlan {
   key: string;
   planNombre: string;
   equipoNombre: string;
   tareas: TareaDelDia[];
 }
+
 function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
   const grupos = new Map<string, GrupoPlan>();
   for (const tarea of tareas) {
@@ -74,48 +83,58 @@ function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
   }
   return Array.from(grupos.values());
 }
+
 function fechaLocalISO(fecha: Date): string {
   const year = fecha.getFullYear();
   const month = String(fecha.getMonth() + 1).padStart(2, "0");
   const day = String(fecha.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-// Fila de tarea como componente propio: cada fila necesita su propio
-// estado de archivo-pendiente y su propio modal de foto, así que no
-// puede vivir como estado único en ChecklistPage (se pisaría entre filas).
+
 interface FilaTareaProps {
   tarea: TareaDelDia;
   isLoading: boolean;
   insumosQuimicos: InsumoQuimico[];
+  elementosLimpieza: ElementoLimpieza[];
   onToggle: (
     tareaId: number,
     estadoActual: boolean,
     evidencia?: File,
     insumoQuimicoId?: number,
     cantidadConsumida?: number,
+    elementoLimpiezaId?: number
   ) => void;
 }
+
 function FilaTarea({
   tarea,
   isLoading,
   insumosQuimicos,
+  elementosLimpieza,
   onToggle,
 }: FilaTareaProps) {
   const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
-  const [insumoSeleccionado, setInsumoSeleccionado] = useState("");
-  const [cantidadConsumida, setCantidadConsumida] = useState("");
+  const [insumoSeleccionado, setInsumoSeleccionado] = useState<string>(
+    tarea.insumo_quimico_id ? String(tarea.insumo_quimico_id) : ""
+  );
+  const [cantidadConsumida, setCantidadConsumida] = useState<string>(
+    tarea.cantidad_consumida ? String(tarea.cantidad_consumida) : ""
+  );
+  const [elementoSeleccionado, setElementoSeleccionado] = useState<string>(
+    tarea.elemento_limpieza_id ? String(tarea.elemento_limpieza_id) : ""
+  );
   const [errorConsumo, setErrorConsumo] = useState<string | null>(null);
   const [mostrarProcedimiento, setMostrarProcedimiento] = useState(false);
-  const insumoActual = insumosQuimicos.find(
-    (insumo) => insumo.id === Number(insumoSeleccionado),
-  );
   const [imagenModalUrl, setImagenModalUrl] = useState<string | null>(null);
-  const [historial, setHistorial] = useState<
-    HistorialRegistroTareaItem[] | null
-  >(null);
+  const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
+
+  const insumoActual = insumosQuimicos.find(
+    (insumo) => insumo.id === Number(insumoSeleccionado)
+  );
+
   const verHistorial = async () => {
-    if (tarea.registro_id === 0) return; // preview de fecha futura, no hay nada que auditar todavía
+    if (tarea.registro_id === 0) return;
     setCargandoHistorial(true);
     try {
       const datos = await obtenerHistorialRegistro(tarea.registro_id);
@@ -126,30 +145,42 @@ function FilaTarea({
       setCargandoHistorial(false);
     }
   };
+
   const esHistorico = tarea.checklist_estado === "cerrado";
   const esFuturo = tarea.registro_id === 0;
   const esCerrado = esHistorico || esFuturo;
   const urlFoto = tarea.evidencia_url
-    ? `http\://localhost:8000/${tarea.evidencia_url.replace(/\\\\/g, "/")}`
+    ? `http://localhost:8000/${tarea.evidencia_url.replace(/\\/g, "/")}`
     : null;
+
   const handleCheckboxClick = () => {
-    // Si estamos desmarcando una tarea ya completada, no registramos un consumo nuevo.
     if (tarea.completado) {
-      onToggle(tarea.id, tarea.completado, archivoEvidencia || undefined);
+      onToggle(
+        tarea.id,
+        tarea.completado,
+        archivoEvidencia || undefined,
+        undefined,
+        undefined,
+        undefined
+      );
       setArchivoEvidencia(null);
       setErrorConsumo(null);
       return;
     }
+
     const hayProducto = insumoSeleccionado !== "";
     const hayCantidad = cantidadConsumida !== "";
+
     if (hayProducto !== hayCantidad) {
       setErrorConsumo(
-        "Seleccioná el producto químico e indicá la cantidad consumida.",
+        "Seleccioná el producto químico e indicá la cantidad consumida."
       );
       return;
     }
+
     let cantidad: number | undefined;
     let insumoId: number | undefined;
+
     if (hayProducto && hayCantidad) {
       cantidad = Number(cantidadConsumida);
       insumoId = Number(insumoSeleccionado);
@@ -158,6 +189,9 @@ function FilaTarea({
         return;
       }
     }
+
+    const elementoId = elementoSeleccionado ? Number(elementoSeleccionado) : undefined;
+
     setErrorConsumo(null);
     onToggle(
       tarea.id,
@@ -165,16 +199,19 @@ function FilaTarea({
       archivoEvidencia || undefined,
       insumoId,
       cantidad,
+      elementoId
     );
     setArchivoEvidencia(null);
   };
+
   return (
     <>
       <Table.Row
         key={tarea.registro_id > 0 ? `r-${tarea.registro_id}` : `p-${tarea.id}`}
       >
         <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
-          {tarea.nombre}
+          <Text fontWeight="bold">{tarea.nombre}</Text>
+
           {tarea.descripcion && (
             <Box mt="4px">
               <button
@@ -214,7 +251,8 @@ function FilaTarea({
               )}
             </Box>
           )}
-          {/* Consumo aproximado de producto químico */}
+
+          {/* Opciones de Insumo Químico y Elemento de Limpieza */}
           {!tarea.completado && !esCerrado && (
             <Box
               mt="10px"
@@ -226,7 +264,35 @@ function FilaTarea({
                 maxWidth: "550px",
               }}
             >
-              <Text fontSize="12px" fontWeight="bold" color="#555" mb="6px">
+              {/* Selector de Elemento de Limpieza */}
+              <Box mb="10px">
+                <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
+                  Elemento de limpieza utilizado
+                </Text>
+                <select
+                  value={elementoSeleccionado}
+                  onChange={(e) => setElementoSeleccionado(e.target.value)}
+                  style={{
+                    width: "100%",
+                    maxWidth: "350px",
+                    padding: "7px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #90BEBB",
+                    backgroundColor: "white",
+                    fontSize: "13px",
+                  }}
+                >
+                  <option value="">Sin elemento específico</option>
+                  {elementosLimpieza.map((elem) => (
+                    <option key={elem.id} value={elem.id}>
+                      {elem.nombre}
+                    </option>
+                  ))}
+                </select>
+              </Box>
+
+              {/* Selector de Insumo Químico */}
+              <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
                 Producto químico utilizado
               </Text>
               <select
@@ -253,6 +319,7 @@ function FilaTarea({
                   </option>
                 ))}
               </select>
+
               {insumoSeleccionado && (
                 <Box mt="8px">
                   <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
@@ -286,6 +353,7 @@ function FilaTarea({
                   </HStack>
                 </Box>
               )}
+
               {errorConsumo && (
                 <Text
                   fontSize="12px"
@@ -298,7 +366,8 @@ function FilaTarea({
               )}
             </Box>
           )}
-          {/* Adjuntar evidencia: solo tiene sentido si todavía se puede marcar */}
+
+          {/* Adjuntar evidencia */}
           {!tarea.completado && !esCerrado && (
             <Box mt="8px">
               <input
@@ -316,7 +385,7 @@ function FilaTarea({
                   onClick={() =>
                     document
                       .getElementById(
-                        `evidencia-${tarea.registro_id}-${tarea.id}`,
+                        `evidencia-${tarea.registro_id}-${tarea.id}`
                       )
                       ?.click()
                   }
@@ -340,6 +409,7 @@ function FilaTarea({
             </Box>
           )}
         </Table.Cell>
+
         <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
           {isLoading ? (
             <Spinner size="sm" color={TEAL} />
@@ -354,8 +424,8 @@ function FilaTarea({
               color={tarea.completado ? "#2f9e44" : "#c92a2a"}
               title={
                 tarea.completado
-                  ? "Completada (checklist cerrado: dato histórico)"
-                  : "No completada (checklist cerrado: dato histórico)"
+                  ? "Completada (checklist cerrado)"
+                  : "No completada (checklist cerrado)"
               }
             >
               {tarea.completado ? "✔" : "✕"}
@@ -412,6 +482,7 @@ function FilaTarea({
           )}
         </Table.Cell>
       </Table.Row>
+
       {imagenModalUrl && (
         <Box
           style={{
@@ -470,6 +541,7 @@ function FilaTarea({
           </Box>
         </Box>
       )}
+
       {historial && (
         <Box
           style={{
@@ -531,30 +603,40 @@ function FilaTarea({
     </>
   );
 }
+
 export function ChecklistPage() {
   const { user } = useAuth();
   const hoyISO = fechaLocalISO(new Date());
   const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
   const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimico[]>([]);
+  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpieza[]>([]);
+
   const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
     useChecklist(selectedFecha, user?.id);
+
   useEffect(() => {
-    const cargarInsumosQuimicos = async () => {
+    const cargarOpciones = async () => {
       try {
-        const datos = await listarInsumosQuimicos();
-        setInsumosQuimicos(datos);
+        const [datosQuimicos, datosElementos] = await Promise.all([
+          listarInsumosQuimicos().catch(() => []),
+          listarElementosLimpieza().catch(() => []),
+        ]);
+        setInsumosQuimicos(datosQuimicos);
+        setElementosLimpieza(datosElementos);
       } catch (err) {
-        console.error("No se pudieron cargar los insumos químicos:", err);
+        console.error("Error al cargar opciones auxiliares:", err);
       }
     };
-    cargarInsumosQuimicos();
+    cargarOpciones();
   }, []);
+
   const grupos = useMemo(() => agruparPorPlan(tareas), [tareas]);
   const totalTareas = tareas.length;
   const tareasCompletadas = tareas.filter((t) => t.completado).length;
   const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
+
   const toggleGrupo = (key: string) => {
     setGruposExpandidos((prev) => {
       const nuevo = new Set(prev);
@@ -566,6 +648,7 @@ export function ChecklistPage() {
       return nuevo;
     });
   };
+
   return (
     <Box style={{ padding: "20px" }}>
       <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
@@ -574,8 +657,7 @@ export function ChecklistPage() {
             Checklist Diario de Limpieza
           </Heading>
           <Text color="gray.600" fontSize="14px" mt="2px">
-            Control, persistencia e historial auditable por fecha, para todos
-            los equipos.
+            Control, persistencia e historial auditable por fecha, para todos los equipos.
           </Text>
         </Box>
         <Button
@@ -590,6 +672,7 @@ export function ChecklistPage() {
           Actualizar
         </Button>
       </HStack>
+
       <Box
         bg="white"
         p="20px"
@@ -618,6 +701,7 @@ export function ChecklistPage() {
           </Field.Root>
         </Box>
       </Box>
+
       {error && (
         <Box
           style={{
@@ -633,12 +717,14 @@ export function ChecklistPage() {
           ⚠️ {error}
         </Box>
       )}
+
       {loading && (
         <HStack justify="center" p={10}>
           <Spinner size="lg" color={TEAL} />
           <Text color="gray.600">Cargando tareas...</Text>
         </HStack>
       )}
+
       {!loading && grupos.length === 0 && !error && (
         <Box bg="white" borderRadius="8px" p={10} textAlign="center">
           <Text fontSize="16px" color="gray.600">
@@ -646,6 +732,7 @@ export function ChecklistPage() {
           </Text>
         </Box>
       )}
+
       {!loading && grupos.length > 0 && (
         <>
           <HStack justify="space-between" mb="16px">
@@ -654,6 +741,7 @@ export function ChecklistPage() {
               <strong>{totalTareas}</strong> tareas completadas.
             </Text>
           </HStack>
+
           {grupos.map((grupo) => {
             const colapsado = !gruposExpandidos.has(grupo.key);
             return (
@@ -693,6 +781,7 @@ export function ChecklistPage() {
                         </Text>
                       </Box>
                     </HStack>
+
                     {grupo.tareas[0]?.checklist_estado === "cerrado" && (
                       <Text
                         fontSize="11px"
@@ -708,6 +797,7 @@ export function ChecklistPage() {
                         🔒 Cerrado (histórico)
                       </Text>
                     )}
+
                     {grupo.tareas[0]?.registro_id === 0 && (
                       <Text
                         fontSize="11px"
@@ -725,6 +815,7 @@ export function ChecklistPage() {
                     )}
                   </HStack>
                 </Box>
+
                 {!colapsado && (
                   <Table.Root
                     style={{ width: "100%", borderCollapse: "collapse" }}
@@ -756,6 +847,7 @@ export function ChecklistPage() {
                           tarea={t}
                           isLoading={actualizandoId === t.id}
                           insumosQuimicos={insumosQuimicos}
+                          elementosLimpieza={elementosLimpieza}
                           onToggle={toggleTarea}
                         />
                       ))}

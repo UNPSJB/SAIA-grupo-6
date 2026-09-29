@@ -127,6 +127,14 @@ class RegistroTarea(ModeloBase):
         nullable=True
     )
 
+    elemento_limpieza_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            "elementos_limpieza.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True
+    )
+
     checklist: Mapped["Checklist"] = relationship(
         back_populates="registros"
     )
@@ -135,6 +143,8 @@ class RegistroTarea(ModeloBase):
     usuario: Mapped[Optional["Personal"]] = relationship()
 
     insumo_quimico: Mapped[Optional["InsumoQuimico"]] = relationship()
+    
+    elemento_limpieza: Mapped[Optional["ElementoLimpieza"]] = relationship()
 
     historial: Mapped[List["HistorialRegistroTarea"]] = relationship(
         back_populates="registro",

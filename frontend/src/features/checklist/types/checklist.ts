@@ -67,6 +67,7 @@ export interface TareaDelDia {
   evidencia_url?: string | null;
   insumo_quimico_id?: number | null;
   cantidad_consumida?: number | null;
+  elemento_limpieza_id?: number | null;
   checklist_estado?: EstadoChecklist | null;
   descripcion?: string | null;
 }

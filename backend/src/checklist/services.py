@@ -14,6 +14,7 @@ from src.tareas.services import leer_tarea
 from src.exceptions import NotFound
 from src.checklist.exceptions import ChecklistFuturo, ChecklistInmutable
 from src.insumoQuimico.models import InsumoQuimico
+from src.elementoLimpieza.models import ElementoLimpieza
 
 from src.checklist.constants import ErrorCode
 from src.checklist.exceptions import FechaInvalida
@@ -364,6 +365,7 @@ def marcar_tarea(
     fecha: Optional[date_] = None,
     insumo_quimico_id: Optional[int] = None,
     cantidad_consumida: Optional[float] = None,
+    elemento_limpieza_id: Optional[int] = None,
 ) -> models.RegistroTarea:
 
     tarea = leer_tarea(db, tarea_id)
@@ -451,7 +453,15 @@ def marcar_tarea(
         # no queda un consumo asociado al estado actual del registro.
         registro.insumo_quimico_id = None
         registro.cantidad_consumida = None
+    # Registro del elemento de limpieza utilizado
 
+    if completado and elemento_limpieza_id is not None:
+        elemento = db.get(ElementoLimpieza, elemento_limpieza_id)
+        if elemento is None or not elemento.activo:
+            raise NotFound()
+        registro.elemento_limpieza_id = elemento_limpieza_id
+    elif not completado:
+        registro.elemento_limpieza_id = None
     # ---------------------------------------------------------
     # AUDITORÍA
     # ---------------------------------------------------------

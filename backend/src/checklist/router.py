@@ -49,7 +49,7 @@ def marcar_tarea(
     # NUEVOS CAMPOS PARA EL CONSUMO
     insumo_quimico_id: Optional[int] = Form(None),
     cantidad_consumida: Optional[float] = Form(None),
-
+    elemento_limpieza_id: Optional[int] = Form(None),
     fecha: Optional[date] = Query(None),
     db: Session = Depends(get_db),
 ):
@@ -86,6 +86,7 @@ def marcar_tarea(
         fecha=fecha,
         insumo_quimico_id=insumo_quimico_id,
         cantidad_consumida=cantidad_consumida,
+        elemento_limpieza_id=elemento_limpieza_id,
     )
 
 

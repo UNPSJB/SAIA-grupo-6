@@ -19,6 +19,7 @@ class ChecklistTareaItem(BaseModel):
     # Consumo aproximado del producto químico
     insumo_quimico_id: Optional[int] = None
     cantidad_consumida: Optional[float] = None
+    elemento_limpieza_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,7 +74,8 @@ class RegistroTareaResponse(BaseModel):
     # Consumo registrado para esta tarea
     insumo_quimico_id: Optional[int] = None
     cantidad_consumida: Optional[float] = None
-
+    elemento_limpieza_id: Optional[int] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -93,6 +95,7 @@ class TareaDelDiaItem(BaseModel):
     # Consumo aproximado registrado
     insumo_quimico_id: Optional[int] = None
     cantidad_consumida: Optional[float] = None
+    elemento_limpieza_id: Optional[int] = None
 
     checklist_estado: Optional[EstadoChecklist] = None
     descripcion: Optional[str] = None  # procedimiento vigente de la tarea
