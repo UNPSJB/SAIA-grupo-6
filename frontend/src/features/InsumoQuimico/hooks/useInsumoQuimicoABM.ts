@@ -6,7 +6,7 @@ import {
   reactivarInsumoQuimico,
 } from "../services/insumoQuimicoService";
 import { ConflictoInactivoError } from "../../../common/api/errors";
-import type { InsumoQuimico } from "../types/insumoQuimico";
+import type { InsumoQuimicoFormValues } from "../types/insumoQuimico";
 
 interface ConflictoInactivo {
   id: number;
@@ -19,7 +19,7 @@ export function useInsumoQuimicoABM() {
   const [error, setError] = useState<string | null>(null);
   const [conflicto, setConflicto] = useState<ConflictoInactivo | null>(null);
 
-  const alta = async (datos: Omit<InsumoQuimico, "id" | "activo">) => {
+  const alta = async (datos: InsumoQuimicoFormValues) => {
     try {
       setLoading(true);
       setError(null);
@@ -37,7 +37,7 @@ export function useInsumoQuimicoABM() {
     }
   };
 
-  const reactivar = async (id: number, datos: Omit<InsumoQuimico, "id" | "activo">) => {
+  const reactivar = async (id: number, datos: InsumoQuimicoFormValues) => {
     try {
       setLoading(true);
       setError(null);
@@ -54,7 +54,7 @@ export function useInsumoQuimicoABM() {
 
   const cancelarConflicto = () => setConflicto(null);
 
-  const modificar = async (id: number, datos: Partial<Omit<InsumoQuimico, "id">>) => {
+  const modificar = async (id: number, datos: Partial<InsumoQuimicoFormValues>) => {
     try {
       setLoading(true);
       setError(null);

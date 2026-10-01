@@ -14,7 +14,7 @@ import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
 import { listarInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
-import type { InsumoQuimico } from "../../../InsumoQuimico/types/insumoQuimico";
+import type { InsumoQuimico } from "../../../insumoQuimico/types/insumoQuimico";
 import { listarElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { ElementoLimpieza } from "../../../elementoLimpieza/types/elementoLimpieza";
 import { useAuth } from "../../../../common/context/AuthContext";
@@ -89,6 +89,10 @@ function fechaLocalISO(fecha: Date): string {
   const month = String(fecha.getMonth() + 1).padStart(2, "0");
   const day = String(fecha.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function unidadMedidaLabel(insumo: InsumoQuimico): string {
+  return `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`;
 }
 
 interface FilaTareaProps {
@@ -315,7 +319,7 @@ function FilaTarea({
                 <option value="">Sin producto químico</option>
                 {insumosQuimicos.map((insumo) => (
                   <option key={insumo.id} value={insumo.id}>
-                    {insumo.nombre} — {insumo.unidad_medida}
+                    {insumo.nombre} — {unidadMedidaLabel(insumo)}                  
                   </option>
                 ))}
               </select>
@@ -347,7 +351,7 @@ function FilaTarea({
                     />
                     {insumoActual && (
                       <Text fontSize="13px" fontWeight="bold" color={TEAL}>
-                        {insumoActual.unidad_medida}
+                        {unidadMedidaLabel(insumoActual)}
                       </Text>
                     )}
                   </HStack>

@@ -4,7 +4,7 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../insumoQuimicoForm";
 import { useInsumoQuimico } from "../../hooks/useInsumoQuimico";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
-import type { InsumoQuimico } from "../../types/insumoQuimico";
+import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 
 export function InsumoQuimicoEditPage() {
   const navigate = useNavigate();
@@ -25,9 +25,7 @@ export function InsumoQuimicoEditPage() {
 
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (
-    values: Omit<InsumoQuimico, "id" | "activo">
-  ) => {
+  const handleSubmit = async (values: InsumoQuimicoFormValues) => {
     try {
       await modificar(insumoId, values);
       setExito(true);
@@ -165,7 +163,7 @@ export function InsumoQuimicoEditPage() {
             initialValues={{
               nombre: insumoQuimico.nombre,
               tipo: insumoQuimico.tipo,
-              unidad_medida: insumoQuimico.unidad_medida,
+              unidad_medida_id: insumoQuimico.unidad_medida_id,
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}

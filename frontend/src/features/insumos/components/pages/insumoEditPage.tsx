@@ -133,7 +133,10 @@ export function InsumoEditPage() {
 
           <InsumoForm
             key={insumo.id}
-            initialValues={{ nombre: insumo.nombre, tipo: insumo.tipo }}
+            initialValues={{
+              nombre: insumo.nombre,
+              unidad_medida_id: insumo.unidad_medida_id,
+            }}
             onSubmit={handleSubmit}
             isLoading={guardando}
             title="Modificar Insumo"

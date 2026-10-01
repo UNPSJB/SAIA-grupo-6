@@ -1,4 +1,4 @@
-import type { InsumoQuimico } from "../types/insumoQuimico";
+import type { InsumoQuimico, InsumoQuimicoFormValues } from "../types/insumoQuimico";
 import { ConflictoInactivoError } from "../../../common/api/errors";
 
 const API_URL = "http://localhost:8000";
@@ -16,7 +16,7 @@ export async function listarInsumosQuimicos(incluirInactivos = false): Promise<I
 }
 
 export async function crearInsumoQuimico(
-  datos: Omit<InsumoQuimico, "id" | "activo">
+  datos: InsumoQuimicoFormValues
 ): Promise<InsumoQuimico> {
   const response = await fetch(`${API_URL}/insumos-quimicos`, {
     method: "POST",
@@ -42,7 +42,7 @@ export async function crearInsumoQuimico(
 
 export async function modificarInsumoQuimico(
   id: number,
-  datos: Partial<Omit<InsumoQuimico, "id">>
+  datos: Partial<InsumoQuimicoFormValues>
 ): Promise<InsumoQuimico> {
   const response = await fetch(`${API_URL}/insumos-quimicos/${id}`, {
     method: "PUT",
@@ -73,9 +73,20 @@ export async function eliminarInsumoQuimico(id: number): Promise<InsumoQuimico> 
 
 export async function reactivarInsumoQuimico(
   id: number,
-  datos: Omit<InsumoQuimico, "id" | "activo">
+  datos: InsumoQuimicoFormValues
 ): Promise<InsumoQuimico> {
-  return modificarInsumoQuimico(id, { ...datos, activo: true });
+  const response = await fetch(`${API_URL}/insumos-quimicos/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...datos, activo: true }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al reactivar el insumo químico");
+  }
+
+  return response.json();
 }
 
 export async function obtenerInsumoQuimico(id: number): Promise<InsumoQuimico> {

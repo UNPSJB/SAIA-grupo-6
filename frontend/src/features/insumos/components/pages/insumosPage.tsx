@@ -65,7 +65,7 @@ export function InsumosPage() {
     try {
       await reactivar(insumoAReactivar.id, {
         nombre: insumoAReactivar.nombre,
-        tipo: insumoAReactivar.tipo,
+        unidad_medida_id: insumoAReactivar.unidad_medida_id,
       });
       setInsumoAReactivar(null);
       await cargarInsumos();

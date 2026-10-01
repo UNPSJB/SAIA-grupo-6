@@ -4,15 +4,15 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../insumoQuimicoForm";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
-import type { InsumoQuimico } from "../../types/insumoQuimico";
+import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 
 export function InsumoQuimicoCreatePage() {
   const navigate = useNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useInsumoQuimicoABM();
   const [exito, setExito] = useState(false);
-  const [valoresPendientes, setValoresPendientes] = useState<Omit<InsumoQuimico, "id" | "activo"> | null>(null);
+  const [valoresPendientes, setValoresPendientes] = useState<InsumoQuimicoFormValues | null>(null);
 
-  const handleSubmit = async (values: Omit<InsumoQuimico, "id" | "activo">) => {
+  const handleSubmit = async (values: InsumoQuimicoFormValues) => {
     try {
       await alta(values);
       setExito(true);
