@@ -44,8 +44,12 @@ import { NotificacionesPage } from "./features/notificaciones/components/pages/N
 // 7. Importaciones del módulo de Unidad de Medida
 import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unidadMedidaPage";
 import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
-import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";// Layout principal que mantiene el menú a la izquierda
+import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";
 
+// 8. Importaciones del módulo de Incidentes
+import { IncidentePage } from "./features/incidente/components/pages/IncidentePage";
+import { IncidenteCreatePage } from "./features/incidente/components/pages/IncidenteCreatePage";// Layout principal que mantiene el menú a la izquierda
+import { IncidenteDetailPage } from "./features/incidente/components/pages/IncidenteDetailPage";
 
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
@@ -301,6 +305,32 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <UnidadMedidaEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE INCIDENTES ---
+  {
+    path: "/incidentes",
+    element: (
+      <LayoutPrincipal>
+        <IncidentePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/incidentes/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <IncidenteCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/incidentes/:id",
+    element: (
+      <LayoutPrincipal>
+        <IncidenteDetailPage />
       </LayoutPrincipal>
     ),
   },

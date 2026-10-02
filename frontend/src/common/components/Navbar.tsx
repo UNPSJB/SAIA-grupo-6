@@ -80,6 +80,9 @@ export default function Navbar() {
           <Link to="/elementos-limpieza" style={estiloLink}>
             Elementos de Limpieza
           </Link>
+          <Link to="/incidentes" style={estiloLink}>
+            Incidentes
+          </Link>
         </>
       )}
 
