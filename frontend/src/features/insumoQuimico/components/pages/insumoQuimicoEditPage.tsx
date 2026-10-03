@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../insumoQuimicoForm";
 import { useInsumoQuimico } from "../../hooks/useInsumoQuimico";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 
 export function InsumoQuimicoEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const insumoId = Number(id);
 
@@ -30,9 +32,7 @@ export function InsumoQuimicoEditPage() {
       await modificar(insumoId, values);
       setExito(true);
 
-      setTimeout(() => {
-        navigate("/insumos-quimicos");
-      }, 2000);
+      delayedNavigate("/insumos-quimicos");
     } catch {}
   };
 

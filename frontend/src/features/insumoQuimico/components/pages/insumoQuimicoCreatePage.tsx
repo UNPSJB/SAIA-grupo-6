@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../insumoQuimicoForm";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 
 export function InsumoQuimicoCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useInsumoQuimicoABM();
   const [exito, setExito] = useState(false);
   const [valoresPendientes, setValoresPendientes] = useState<InsumoQuimicoFormValues | null>(null);
@@ -16,9 +18,7 @@ export function InsumoQuimicoCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      setTimeout(() => {
-        navigate("/insumos-quimicos");
-      }, 2000);
+      delayedNavigate("/insumos-quimicos");
     } catch {
       setValoresPendientes(values);
     }
@@ -30,7 +30,7 @@ export function InsumoQuimicoCreatePage() {
       await reactivar(conflicto.id, valoresPendientes);
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => navigate("/insumos-quimicos"), 2000);
+      delayedNavigate("/insumos-quimicos");
     } catch {}
   };
 
