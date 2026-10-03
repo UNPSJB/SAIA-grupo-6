@@ -5,10 +5,12 @@ import { PersonalForm } from "../PersonalForm";
 import { usePersonal } from "../../hooks/usePersonal";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { useAuth } from "../../../../common/context/AuthContext";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { Persona } from "../../types/personal";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const personaId = Number(id);
 
@@ -39,7 +41,7 @@ export function PersonalEditPage() {
       }
 
       setExito(true);
-      setTimeout(() => { navigate("/personal"); }, 2000);
+      delayedNavigate("/personal");
     } catch { }
   };
 

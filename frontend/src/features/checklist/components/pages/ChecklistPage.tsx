@@ -13,11 +13,12 @@ import {
 import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
-import { listarInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
-import type { InsumoQuimico } from "../../../insumoQuimico/types/insumoQuimico";
-import { listarElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import type { ElementoLimpieza } from "../../../elementoLimpieza/types/elementoLimpieza";
-import { useAuth } from "../../../../common/context/AuthContext";
+import { listarOpcionesInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
+import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQuimico";
+import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
+import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
+import { API_URL } from "../../../../common/api/apiClient";
+
 
 const TEAL = "#468189";
 const TEAL_CLARO = "#90BEBB";
@@ -91,15 +92,15 @@ function fechaLocalISO(fecha: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function unidadMedidaLabel(insumo: InsumoQuimico): string {
-  return `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`;
+function unidadMedidaLabel(insumo: InsumoQuimicoOpcion): string {
+  return insumo.unidad_simbolo ? `(${insumo.unidad_simbolo})` : "";
 }
 
 interface FilaTareaProps {
   tarea: TareaDelDia;
   isLoading: boolean;
-  insumosQuimicos: InsumoQuimico[];
-  elementosLimpieza: ElementoLimpieza[];
+  insumosQuimicos: InsumoQuimicoOpcion[];
+  elementosLimpieza: ElementoLimpiezaOpcion[];
   onToggle: (
     tareaId: number,
     estadoActual: boolean,
@@ -154,7 +155,7 @@ function FilaTarea({
   const esFuturo = tarea.registro_id === 0;
   const esCerrado = esHistorico || esFuturo;
   const urlFoto = tarea.evidencia_url
-    ? `http://localhost:8000/${tarea.evidencia_url.replace(/\\/g, "/")}`
+    ? `${API_URL}/${tarea.evidencia_url.replace(/\\/g, "/")}`
     : null;
 
   const handleCheckboxClick = () => {
@@ -609,21 +610,22 @@ function FilaTarea({
 }
 
 export function ChecklistPage() {
-  const { user } = useAuth();
   const hoyISO = fechaLocalISO(new Date());
   const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
-  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimico[]>([]);
-  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpieza[]>([]);
+  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimicoOpcion[]>([]);
+  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpiezaOpcion[]>([]);
 
   const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
-    useChecklist(selectedFecha, user?.id);
+    useChecklist(selectedFecha);
 
   useEffect(() => {
+    // Usamos los endpoints de "opciones": son los únicos de estos catálogos
+    // accesibles para un operario sin permisos de administración.
     const cargarOpciones = async () => {
       try {
         const [datosQuimicos, datosElementos] = await Promise.all([
-          listarInsumosQuimicos().catch(() => []),
-          listarElementosLimpieza().catch(() => []),
+          listarOpcionesInsumosQuimicos().catch(() => []),
+          listarOpcionesElementosLimpieza().catch(() => []),
         ]);
         setInsumosQuimicos(datosQuimicos);
         setElementosLimpieza(datosElementos);

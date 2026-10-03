@@ -1,6 +1,8 @@
 import { Table, Button, HStack } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../common/context/AuthContext";
+import { puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -13,6 +15,12 @@ const TEAL = "#468189";
 
 export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: PersonalItemProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Las acciones se ocultan según la jerarquía: un admin no toca a otro admin
+  // y nadie se da de baja a sí mismo.
+  const puedeEditar = puedeEditarA(user, persona);
+  const puedeBorrar = puedeDarDeBajaA(user, persona);
 
   return (
     <Table.Row style={{ borderBottom: "1px solid #eee", opacity: persona.activo ? 1 : 0.65 }}>
@@ -40,20 +48,24 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
       </Table.Cell>
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center" style={{ gap: "10px" }}>
-          {persona.activo && (
+          {persona.activo && puedeEditar && (
             <Button bg="#f0ad4e" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#f0ad4e" }} onClick={() => onEdit(persona)}>
               Modificar
             </Button>
           )}
-          
+
           {persona.activo ? (
-            <Button bg="#d9534f" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#d9534f" }} onClick={() => onDelete(persona)}>
-              Eliminar
-            </Button>
+            puedeBorrar && (
+              <Button bg="#d9534f" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#d9534f" }} onClick={() => onDelete(persona)}>
+                Eliminar
+              </Button>
+            )
           ) : (
-            <Button bg="#28a745" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#218838" }} onClick={() => onReactivar(persona)}>
-              Reactivar
-            </Button>
+            puedeEditar && (
+              <Button bg="#28a745" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#218838" }} onClick={() => onReactivar(persona)}>
+                Reactivar
+              </Button>
+            )
           )}
         </HStack>
       </Table.Cell>

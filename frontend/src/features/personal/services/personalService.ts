@@ -1,13 +1,14 @@
 import type { Persona } from "../types/personal";
 import { ConflictoInactivoError } from "../../../common/api/errors";
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
 
 export async function listarPersonal(incluirInactivos = false): Promise<Persona[]> {
     const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-    const response = await fetch(`${API_URL}/personal${query}`);
+    const response = await apiFetch(`${API_URL}/personal${query}`);
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || "Error al obtener el personal");
@@ -16,7 +17,7 @@ export async function listarPersonal(incluirInactivos = false): Promise<Persona[
 }
 
 export async function obtenerPersona(id: number): Promise<Persona> {
-    const response = await fetch(`${API_URL}/personal/${id}`);
+    const response = await apiFetch(`${API_URL}/personal/${id}`);
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.detail || "Error al obtener la persona");
@@ -25,7 +26,7 @@ export async function obtenerPersona(id: number): Promise<Persona> {
 }
 
 export async function crearPersona(persona: PersonaInput): Promise<Persona> {
-    const response = await fetch(`${API_URL}/personal`, {
+    const response = await apiFetch(`${API_URL}/personal`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(persona),
@@ -48,7 +49,7 @@ export async function crearPersona(persona: PersonaInput): Promise<Persona> {
 }
 
 export async function modificarPersona(id: number, persona: PersonaInput): Promise<Persona> {
-    const response = await fetch(`${API_URL}/personal/${id}`, {
+    const response = await apiFetch(`${API_URL}/personal/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(persona),
@@ -89,7 +90,7 @@ export async function modificarPersona(id: number, persona: PersonaInput): Promi
 // le manda `activo: true` además de los campos del formulario (PersonaUpdate
 // ya soporta ese campo).
 export async function reactivarPersona(id: number, persona: PersonaInput): Promise<Persona> {
-    const response = await fetch(`${API_URL}/personal/${id}`, {
+    const response = await apiFetch(`${API_URL}/personal/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...persona, activo: true }),
@@ -102,7 +103,7 @@ export async function reactivarPersona(id: number, persona: PersonaInput): Promi
 }
 
 export async function eliminarPersona(id: number): Promise<void> {
-    const response = await fetch(`${API_URL}/personal/${id}`, {
+    const response = await apiFetch(`${API_URL}/personal/${id}`, {
         method: "DELETE",
     });
     if (!response.ok) {

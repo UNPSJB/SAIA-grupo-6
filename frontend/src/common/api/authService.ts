@@ -1,15 +1,29 @@
 import axios from 'axios';
+import { setTokens, clearTokens, API_URL } from './apiClient';
 
-const API_URL = 'http://localhost:8000/personal';
-
-// Función para enviar las credenciales y recibir el usuario si está todo OK
+// Login: devuelve { access_token, refresh_token, user } y guarda los tokens
 export const login = async (dni: string, password: string) => {
-    const response = await axios.post(`${API_URL}/login`, { dni, password });
+    const response = await axios.post(`${API_URL}/auth/login`, { dni, password });
+    const data = response.data;
+    setTokens(data.access_token, data.refresh_token);
+    return data;
+};
+
+// Registro: crea el usuario; después conviene llamar a login para obtener tokens
+export const register = async (userData: {
+    nombre: string;
+    apellido: string | null;
+    dni: string;
+    email: string;
+    telefono: string | null;
+    password: string;
+    puede_operar: boolean;
+    puede_administrar: boolean;
+}) => {
+    const response = await axios.post(`${API_URL}/personal`, userData);
     return response.data;
 };
 
-// Función para el registro (Sign Up) de un usuario nuevo
-export const register = async (userData: any) => {
-    const response = await axios.post(`${API_URL}`, userData);
-    return response.data;
+export const logout = () => {
+    clearTokens();
 };

@@ -1,10 +1,11 @@
 import type { Equipo } from "../types/equipo";
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await fetch(`${API_URL}/equipos${query}`);
+  const response = await apiFetch(`${API_URL}/equipos${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -15,7 +16,7 @@ export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]>
 }
 
 export async function obtenerEquipo(id: number): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipos/${id}`);
+  const response = await apiFetch(`${API_URL}/equipos/${id}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -28,7 +29,7 @@ export async function obtenerEquipo(id: number): Promise<Equipo> {
 export async function crearEquipo(
   equipo: Omit<Equipo, "id">
 ): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipos`, {
+  const response = await apiFetch(`${API_URL}/equipos`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -50,7 +51,7 @@ export async function modificarEquipo(
   id: number,
   equipo: Omit<Equipo, "id">
 ): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipos/${id}`, {
+  const response = await apiFetch(`${API_URL}/equipos/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -67,7 +68,7 @@ export async function modificarEquipo(
 }
 
 export async function eliminarEquipo(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/equipos/${id}`, {
+  const response = await apiFetch(`${API_URL}/equipos/${id}`, {
     method: "DELETE",
   });
 
@@ -78,7 +79,7 @@ export async function eliminarEquipo(id: number): Promise<void> {
 }
 
 export async function reactivarEquipo(id: number, equipo: Omit<Equipo, "id">): Promise<Equipo> {
-  const response = await fetch(`${API_URL}/equipos/${id}`, {
+  const response = await apiFetch(`${API_URL}/equipos/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...equipo, activo: true }),

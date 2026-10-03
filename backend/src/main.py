@@ -15,6 +15,7 @@ from src.logger import setup_logging
 
 # Importamos los routers desde nuestros módulos
 from src.personal.router import router as personal_router
+from src.auth.router import router as auth_router
 
 from src.Equipo import models as equipo_models
 from src.Equipo.router import router as equipo_router
@@ -74,6 +75,7 @@ app.add_middleware(
 
 
 # Asociamos los routers a nuestra app
+app.include_router(auth_router)
 app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)

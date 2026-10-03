@@ -11,8 +11,6 @@ class PersonaBase(BaseModel):
     telefono: Optional[str] = None
     email: str 
    
-    password: str
-    
     puede_operar: bool = False
     puede_administrar: bool = False
 
@@ -45,7 +43,6 @@ class PersonaBase(BaseModel):
 
 class PersonaCreate(PersonaBase):
     password: str
-    pass
 
 class PersonaUpdate(BaseModel):
     nombre: str | None = None
@@ -53,7 +50,7 @@ class PersonaUpdate(BaseModel):
     dni: str | None = None
     email: str | None = None
     telefono: str | None = None
-    password: str | None = None  # ¡Esta es la línea mágica!
+    password: str | None = None
     puede_operar: bool | None = None
     puede_administrar: bool | None = None
     activo: bool | None = None
@@ -68,4 +65,4 @@ class Persona(PersonaBase):
     
 class LoginRequest(BaseModel):
     dni: str
-    password: str | None = None
+    password: str

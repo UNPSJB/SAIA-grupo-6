@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from src.database import get_db
+from src.auth.dependencies import require_admin
 from . import schemas, services
 
 router = APIRouter(
     prefix="/equipos",
-    tags=["Equipos"]
+    tags=["Equipos"],
+    dependencies=[Depends(require_admin)]
 )
 
 @router.post(

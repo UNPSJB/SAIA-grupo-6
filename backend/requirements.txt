@@ -17,6 +17,8 @@ httptools==0.8.0
 httpx==0.28.1
 idna==3.18
 Jinja2==3.1.6
+bcrypt==5.0.0
+PyJWT==2.15.1
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
 mdurl==0.1.2

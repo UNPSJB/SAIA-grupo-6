@@ -58,10 +58,10 @@ export const Login = () => {
         try {
             if (isLoginView) {
                 const loggedUser = await login(dni, password);
-                loginUser(loggedUser);
+                loginUser(loggedUser.user);
                 navigate('/');
             } else {
-                const newUser = await register({
+                await register({
                     nombre, 
                     apellido, 
                     dni, 
@@ -71,7 +71,9 @@ export const Login = () => {
                     puede_operar: puedeOperar,
                     puede_administrar: puedeAdministrar
                 });
-                loginUser(newUser);
+                // Registramos y logueamos de una para arrancar con tokens vigentes
+                const loggedUser = await login(dni, password);
+                loginUser(loggedUser.user);
                 navigate('/');
             }
         } catch (err: any) {

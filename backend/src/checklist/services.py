@@ -430,8 +430,12 @@ def marcar_tarea(
 
     # Actualizamos el estado de la tarea
     registro.completado = completado
-    registro.fecha_completado = datetime.now() if completado else None
-    registro.usuario_id = usuario_id
+
+    # La autoría y el timestamp solo se escriben al completar: al desmarcar no
+    # se pisa quién la había hecho, así el registro conserva el autor real.
+    if completado:
+        registro.fecha_completado = datetime.now()
+        registro.usuario_id = usuario_id
 
     if evidencia_url:
         registro.evidencia_url = evidencia_url
