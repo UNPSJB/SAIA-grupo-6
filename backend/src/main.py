@@ -15,7 +15,6 @@ from src.logger import setup_logging
 
 # Importamos los routers desde nuestros módulos
 from src.personal.router import router as personal_router
-from fastapi.middleware.cors import CORSMiddleware
 
 from src.Equipo import models as equipo_models
 from src.Equipo.router import router as equipo_router
@@ -63,13 +62,11 @@ app = FastAPI(
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-origins = [
-    "http://localhost:5173",
-]
+origins = settings.cors_origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,9 +78,6 @@ app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
 app.include_router(elementosLimpieza_router)
-
-#crear tabla registrada en SQLAlchemy
-ModeloBase.metadata.create_all(bind=engine)
 app.include_router(plan_limpieza_router)
 app.include_router(tareas_router)
 app.include_router(checklist_router)

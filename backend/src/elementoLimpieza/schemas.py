@@ -11,6 +11,10 @@ class ElementoLimpiezaBase(BaseModel):
     @field_validator("nombre") 
     @classmethod 
     def validar_nombre(cls, v: str) -> str: 
+        # El validador también corre en ElementoLimpiezaUpdate, donde el campo
+        # es opcional: si viene None no hay nada que validar.
+        if v is None:
+            return v
         texto = v.strip() 
         if not texto: 
             raise exceptions.NombreVacio() 
@@ -27,6 +31,15 @@ class ElementoLimpiezaUpdate(ElementoLimpiezaBase):
     frecuencia_recambio_dias: int | None = Field(default=None, ge=1)
     fecha_ultimo_recambio: date | None = None
     activo: bool | None = None    
+
+class ElementoLimpiezaOpcion(BaseModel):
+    """Datos mínimos del elemento para seleccionarlo en el checklist."""
+
+    id: int
+    nombre: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class ElementoLimpiezaResponse(ElementoLimpiezaBase):
   id: int

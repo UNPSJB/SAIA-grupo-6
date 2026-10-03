@@ -30,7 +30,7 @@ export function EquipoEditPage() {
       setExito(true);
       // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
       setTimeout(() => {
-        navigate("/Equipos");
+        navigate("/equipos");
       }, 2000);
     } catch {
       // El error ya queda reflejado en useEquipoABM().error
