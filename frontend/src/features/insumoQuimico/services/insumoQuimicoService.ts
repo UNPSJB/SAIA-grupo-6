@@ -1,11 +1,12 @@
-import type { InsumoQuimico, InsumoQuimicoFormValues } from "../types/insumoQuimico";
+import type { InsumoQuimico, InsumoQuimicoFormValues, InsumoQuimicoOpcion } from "../types/insumoQuimico";
 import { ConflictoInactivoError } from "../../../common/api/errors";
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 export async function listarInsumosQuimicos(incluirInactivos = false): Promise<InsumoQuimico[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await fetch(`${API_URL}/insumos-quimicos${query}`);
+  const response = await apiFetch(`${API_URL}/insumos-quimicos${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -15,10 +16,21 @@ export async function listarInsumosQuimicos(incluirInactivos = false): Promise<I
   return response.json();
 }
 
+export async function listarOpcionesInsumosQuimicos(): Promise<InsumoQuimicoOpcion[]> {
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/opciones`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener los productos de limpieza");
+  }
+
+  return response.json();
+}
+
 export async function crearInsumoQuimico(
   datos: InsumoQuimicoFormValues
 ): Promise<InsumoQuimico> {
-  const response = await fetch(`${API_URL}/insumos-quimicos`, {
+  const response = await apiFetch(`${API_URL}/insumos-quimicos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
@@ -44,7 +56,7 @@ export async function modificarInsumoQuimico(
   id: number,
   datos: Partial<InsumoQuimicoFormValues>
 ): Promise<InsumoQuimico> {
-  const response = await fetch(`${API_URL}/insumos-quimicos/${id}`, {
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
@@ -59,7 +71,7 @@ export async function modificarInsumoQuimico(
 }
 
 export async function eliminarInsumoQuimico(id: number): Promise<InsumoQuimico> {
-  const response = await fetch(`${API_URL}/insumos-quimicos/${id}`, {
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/${id}`, {
     method: "DELETE",
   });
 
@@ -75,7 +87,7 @@ export async function reactivarInsumoQuimico(
   id: number,
   datos: InsumoQuimicoFormValues
 ): Promise<InsumoQuimico> {
-  const response = await fetch(`${API_URL}/insumos-quimicos/${id}`, {
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...datos, activo: true }),
@@ -90,7 +102,7 @@ export async function reactivarInsumoQuimico(
 }
 
 export async function obtenerInsumoQuimico(id: number): Promise<InsumoQuimico> {
-  const response = await fetch(`${API_URL}/insumos-quimicos/${id}`);
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/${id}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Error al obtener el insumo químico");

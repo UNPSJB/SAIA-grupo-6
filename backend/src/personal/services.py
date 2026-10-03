@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
 from src.exceptions import ConflictoRegistroInactivo
+from src.auth.services import hashear_password, verificar_password, es_hash_bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,9 @@ def crear_persona(
     _verificar_disponibilidad(db, "dni", persona.dni)
     _verificar_disponibilidad(db, "email", persona.email)
 
-    _persona = Personal(**persona.model_dump())
+    datos_persona = persona.model_dump()
+    datos_persona["password"] = hashear_password(datos_persona["password"])
+    _persona = Personal(**datos_persona)
     db.add(_persona)
 
     try:
@@ -124,6 +127,9 @@ def modificar_persona(
     # Solo actualizamos los campos que realmente fueron enviados.
     datos_a_actualizar = persona.model_dump(exclude_unset=True)
 
+    if "password" in datos_a_actualizar and datos_a_actualizar["password"]:
+        datos_a_actualizar["password"] = hashear_password(datos_a_actualizar["password"])
+
     if datos_a_actualizar:
         try:
             db.execute(
@@ -181,9 +187,19 @@ def autenticar_persona(db: Session, dni: str, password: str):
         )
     
     # 3. Si el DNI existe, pero la contraseña está mal
-    if persona.password != password:
+    password_ok = verificar_password(password, persona.password)
+
+    # Migración suave: contraseñas viejas guardadas en texto plano se aceptan
+    # una vez y se reemplazan por su hash.
+    if not password_ok and not es_hash_bcrypt(persona.password) and persona.password == password:
+        persona.password = hashear_password(password)
+        db.commit()
+        db.refresh(persona)
+        password_ok = True
+
+    if not password_ok:
         raise HTTPException(
-            status_code=401, 
+            status_code=401,
             detail="La contraseña es incorrecta."
         )
     

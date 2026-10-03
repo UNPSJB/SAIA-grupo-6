@@ -4,12 +4,17 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
+import { useAuth } from "../../../../common/context/AuthContext";
+import { esSuperAdmin } from "../../../../common/api/permissions";
 import type { Persona } from "../../types/personal";
 
 type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
 
 export function PersonalCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
+  const { user } = useAuth();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = usePersonalABM();
   const [exito, setExito] = useState(false);
   // Guardamos los valores que el usuario cargó para poder reutilizarlos
@@ -20,9 +25,7 @@ export function PersonalCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      setTimeout(() => {
-        navigate("/personal");
-      }, 2000);
+      delayedNavigate("/personal");
     } catch {
       // Si fue un conflicto de inactivo, "conflicto" ya quedó seteado por el
       // hook y el diálogo se muestra solo. Guardamos los valores para reusarlos.
@@ -36,9 +39,7 @@ export function PersonalCreatePage() {
       await reactivar(conflicto.id, valoresPendientes);
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => {
-        navigate("/personal");
-      }, 2000);
+      delayedNavigate("/personal");
     } catch {
       // El error ya queda reflejado en usePersonalABM().error
     }
@@ -128,6 +129,9 @@ export function PersonalCreatePage() {
         isLoading={loading}
         title="Alta de Personal"
         submitLabel="Crear personal"
+        requierePassword
+        puedeEditarCapacidades
+        puedeAsignarSuperAdmin={esSuperAdmin(user)}
       />
 
       <ConfirmarReactivacionDialog

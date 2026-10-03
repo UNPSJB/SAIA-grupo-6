@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Button, Badge, Heading, Text, HStack } from "@chakra-ui/react";
+import { useImagenAutenticada } from "../../../common/hooks/useImagenAutenticada";
 import type { Incidente, TipoIncidente } from "../types/incidente";
 import { TIPOS_INCIDENTE } from "../types/incidente";
 
@@ -31,9 +32,13 @@ function tipoColor(tipo: TipoIncidente): string {
 }
 
 export function IncidenteDetailModal({ isOpen, incidente, onClose }: IncidenteDetailModalProps) {
-  if (!isOpen || !incidente) return null;
-
+  // Los hooks van antes de cualquier return: si se declararan después del
+  // `return null`, el orden de hooks cambiaría al abrir/cerrar el modal y
+  // React rompería la app.
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
+  const imagen = useImagenAutenticada(incidente?.foto_url);
+
+  if (!isOpen || !incidente) return null;
 
   return (
     <>
@@ -143,18 +148,30 @@ export function IncidenteDetailModal({ isOpen, incidente, onClose }: IncidenteDe
               <Text fontSize="12px" color="gray.500" fontWeight="bold" mb="4px">
                 EVIDENCIA FOTOGRÁFICA
               </Text>
-              <img
-                src={`http://localhost:8000/${incidente.foto_url.replace(/\\/g, "/")}`}
-                alt="Evidencia del incidente"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "300px",
-                  borderRadius: "8px",
-                  border: "2px solid #90BEBB",
-                  cursor: "pointer",
-                }}
-                onClick={() => setImagenAmpliada(true)}
-              />
+              {imagen.loading && (
+                <Text fontSize="13px" color="gray.500">
+                  Cargando imagen...
+                </Text>
+              )}
+              {!imagen.loading && imagen.error && (
+                <Text fontSize="13px" color="red.500">
+                  {imagen.error}
+                </Text>
+              )}
+              {imagen.src && (
+                <img
+                  src={imagen.src}
+                  alt="Evidencia del incidente"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "300px",
+                    borderRadius: "8px",
+                    border: "2px solid #90BEBB",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setImagenAmpliada(true)}
+                />
+              )}
             </Box>
           )}
 
@@ -200,7 +217,7 @@ export function IncidenteDetailModal({ isOpen, incidente, onClose }: IncidenteDe
       </Box>
 
       {/* Modal de imagen ampliada */}
-      {imagenAmpliada && incidente.foto_url && (
+      {imagenAmpliada && imagen.src && (
         <Box
           style={{
             position: "fixed",
@@ -218,7 +235,7 @@ export function IncidenteDetailModal({ isOpen, incidente, onClose }: IncidenteDe
           onClick={() => setImagenAmpliada(false)}
         >
           <img
-            src={`http://localhost:8000/${incidente.foto_url.replace(/\\/g, "/")}`}
+            src={imagen.src}
             alt="Evidencia ampliada"
             style={{
               maxWidth: "90%",

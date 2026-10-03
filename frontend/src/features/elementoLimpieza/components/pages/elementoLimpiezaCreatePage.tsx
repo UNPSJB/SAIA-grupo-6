@@ -4,6 +4,7 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../elementoLimpiezaForm";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { ElementoLimpieza } from "../../types/elementoLimpieza";
 
 type ElementoLimpiezaFormValues = Omit<
@@ -13,6 +14,7 @@ type ElementoLimpiezaFormValues = Omit<
 
 export function ElementoLimpiezaCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } =
     useElementoLimpiezaABM();
   const [exito, setExito] = useState(false);
@@ -23,9 +25,7 @@ export function ElementoLimpiezaCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      setTimeout(() => {
-        navigate("/elementos-limpieza");
-      }, 2000);
+      delayedNavigate("/elementos-limpieza");
     } catch {
       // Guardamos los valores por si el usuario decide confirmar la reactivación
       setValoresPendientes(values);
@@ -38,9 +38,7 @@ export function ElementoLimpiezaCreatePage() {
       await reactivar(conflicto.id, valoresPendientes);
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => {
-        navigate("/elementos-limpieza");
-      }, 2000);
+      delayedNavigate("/elementos-limpieza");
     } catch {
       // El error queda expuesto en useElementoLimpiezaABM().error
     }

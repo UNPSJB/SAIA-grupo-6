@@ -25,6 +25,13 @@ export type InsumoQuimicoFormValues = {
   unidad_medida_id: number;
 };
 
+/** Datos mínimos del producto para seleccionarlo en el checklist. */
+export interface InsumoQuimicoOpcion {
+  id: number;
+  nombre: string;
+  unidad_simbolo?: string | null;
+}
+
 export const TIPOS_QUIMICOS: { value: TipoQuimico; label: string }[] = [
   { value: "detergente", label: "Detergente" },
   { value: "desinfectante", label: "Desinfectante" },

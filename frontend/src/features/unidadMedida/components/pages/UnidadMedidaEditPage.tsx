@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { UnidadMedidaForm } from "../unidadMedidaForm";
 import { useUnidadMedida } from "../../hooks/useUnidadMedida";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { UnidadMedida } from "../../types/unidadMedida";
 
 export function UnidadMedidaEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const unidadId = Number(id);
 
@@ -32,9 +34,7 @@ export function UnidadMedidaEditPage() {
       await modificar(unidadId, values);
       setExito(true);
 
-      setTimeout(() => {
-        navigate("/unidades-medida");
-      }, 2000);
+      delayedNavigate("/unidades-medida");
     } catch {}
   };
 

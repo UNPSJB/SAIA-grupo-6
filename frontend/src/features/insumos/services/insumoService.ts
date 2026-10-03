@@ -1,11 +1,12 @@
 import type { Insumo, InsumoFormValues } from "../types/insumo";
 import { ConflictoInactivoError } from "../../../common/api/errors";
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 export async function listarInsumos(incluirInactivos = false): Promise<Insumo[]> {
     const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-    const response = await fetch(`${API_URL}/insumos${query}`);
+    const response = await apiFetch(`${API_URL}/insumos${query}`);
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -16,7 +17,7 @@ export async function listarInsumos(incluirInactivos = false): Promise<Insumo[]>
 }
 
 export async function obtenerInsumo(id: number): Promise<Insumo> {
-    const response = await fetch(`${API_URL}/insumos/${id}`);
+    const response = await apiFetch(`${API_URL}/insumos/${id}`);
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -29,7 +30,7 @@ export async function obtenerInsumo(id: number): Promise<Insumo> {
 export async function crearInsumo(
     insumo: InsumoFormValues
 ): Promise<Insumo> {
-    const response = await fetch(`${API_URL}/insumos`, {
+    const response = await apiFetch(`${API_URL}/insumos`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -56,7 +57,7 @@ export async function modificarInsumo(
     id: number,
     insumo: Partial<InsumoFormValues>
 ): Promise<Insumo> {
-    const response = await fetch(`${API_URL}/insumos/${id}`, {
+    const response = await apiFetch(`${API_URL}/insumos/${id}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
@@ -73,7 +74,7 @@ export async function modificarInsumo(
 }
 
 export async function reactivarInsumo(id: number, insumo: InsumoFormValues): Promise<Insumo> {
-    const response = await fetch(`${API_URL}/insumos/${id}`, {
+    const response = await apiFetch(`${API_URL}/insumos/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...insumo, activo: true }),
@@ -88,7 +89,7 @@ export async function reactivarInsumo(id: number, insumo: InsumoFormValues): Pro
 }
 
 export async function eliminarInsumo(id: number): Promise<Insumo> {
-    const response = await fetch(`${API_URL}/insumos/${id}`, {
+    const response = await apiFetch(`${API_URL}/insumos/${id}`, {
         method: "DELETE",
     });
 

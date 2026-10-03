@@ -1,7 +1,6 @@
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-#from src.database import Base aber si esto es lo q no anda
 from src.models import ModeloBase
 
 

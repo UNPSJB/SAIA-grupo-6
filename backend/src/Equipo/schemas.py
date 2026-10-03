@@ -10,6 +10,9 @@ class EquipoBase(BaseModel):
     @field_validator("nombre")
     @classmethod
     def validar_nombre(cls, v):
+        # Corre también en EquipoUpdate, donde los campos son opcionales.
+        if v is None:
+            return v
         if not v.strip():
             raise exceptions.NombreVacio()
         return v.strip()
@@ -17,6 +20,8 @@ class EquipoBase(BaseModel):
     @field_validator("ubicacion")
     @classmethod
     def validar_ubicacion_no_vacia(cls, v: str) -> str:
+        if v is None:
+            return v
         if not v.strip():
             raise exceptions.UbicacionVacia()
         return v.strip()
@@ -24,6 +29,8 @@ class EquipoBase(BaseModel):
     @field_validator("tipo")
     @classmethod
     def validar_tipo_no_vacio(cls, v: str) -> str:
+        if v is None:
+            return v
         if not v.strip():
             raise ValueError("El tipo de equipo no puede estar vacio.")
         return v.strip()

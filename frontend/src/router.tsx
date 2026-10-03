@@ -1,7 +1,8 @@
-import { Login } from './features/Login'; // Ajustá la ruta si lo guardaste en otro lado
+import { Login } from './features/Login';
 
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Outlet } from "react-router-dom";
 import Navbar from "./common/components/Navbar";
+import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
 
 // 1. Importaciones del módulo de Personal
 import { PersonalPage } from "./features/personal/components/pages/PersonalPage";
@@ -32,6 +33,7 @@ import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/P
 // 5. Importaciones del módulo de Checklist
 import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
 import { HistorialChecklistPage } from "./features/checklist/components/pages/HistorialChecklistPage";
+import { ConsumoInsumosPage } from "./features/checklist/components/pages/ConsumoInsumosPage";
 
 // 6. Importaciones del módulo de Insumos Químicos
 import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
@@ -46,292 +48,126 @@ import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unida
 import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
 import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";
 
-// 8. Importaciones del módulo de Incidentes
+// 8. Importaciones del módulo de Unidad de Medida
 import { IncidentePage } from "./features/incidente/components/pages/IncidentePage";
-import { IncidenteCreatePage } from "./features/incidente/components/pages/IncidenteCreatePage";// Layout principal que mantiene el menú a la izquierda
+import { IncidenteCreatePage } from "./features/incidente/components/pages/IncidenteCreatePage";
 import { IncidenteDetailPage } from "./features/incidente/components/pages/IncidenteDetailPage";
 
-function LayoutPrincipal({ children }: { children: React.ReactNode }) {
+// Layout principal que mantiene el menú a la izquierda
+function LayoutPrincipal() {
   return (
     <div
       style={{
         display: "flex",
-        height: "100vh",         // 1. Fijamos la altura al tamaño exacto de la ventana
-        overflow: "hidden",      // 2. Cortamos el scroll general de toda la página
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
         backgroundColor: "#f4f7f6",
       }}
     >
       <Navbar />
-      {/* Cambiamos el padding a 15px vertical y 30px horizontal */}
       <div style={{ flex: 1, padding: "15px 30px", overflowY: "auto" }}>
-        {children}
+        <Outlet />
       </div>
     </div>
   );
 }
 
 export const router = createBrowserRouter([
-  // Agregá esta nueva ruta:
   {
     path: '/login',
     element: <Login />
   },
   {
-    path: "/",
-    element: (
-      <LayoutPrincipal>
-        <div style={{ textAlign: "center", marginTop: "50px" }}>
-          <h1>Panel Principal - SAIA</h1>
-          <p>Seleccioná una opción en el menú lateral para comenzar.</p>
-        </div>
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE PERSONAL ---
-  {
-    path: "/personal",
-    element: (
-      <LayoutPrincipal>
-        <PersonalPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/personal/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <PersonalCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/personal/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <PersonalEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/personal/detalle/:id",
-    element: (
-      <LayoutPrincipal>
-        <PersonalDetailPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE INSUMOS ---
-  {
-    path: "/insumos",
-    element: (
-      <LayoutPrincipal>
-        <InsumosPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/insumos/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <InsumoCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/insumos/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <InsumoEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE EQUIPOS ---
-  {
-    path: "/equipos",
-    element: (
-      <LayoutPrincipal>
-        <EquiposPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/equipos/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <EquipoCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/equipos/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <EquipoEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE ELEMENTOS DE LIMPIEZA ---
-  {
-    path: "/elementos-limpieza",
-    element: (
-      <LayoutPrincipal>
-        <ElementosLimpiezaPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/elementos-limpieza/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <ElementoLimpiezaCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/elementos-limpieza/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <ElementoLimpiezaEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE PLANES DE LIMPIEZA ---
-  {
-    path: "/planes-limpieza",
-    element: (
-      <LayoutPrincipal>
-        <PlanLimpiezaPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/planes-limpieza/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <PlanLimpiezaCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/planes-limpieza/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <PlanLimpiezaEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE CHECKLIST ---
-  {
-    path: "/checklist",
-    element: (
-      <LayoutPrincipal>
-        <ChecklistPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  {
-    path: "/checklist/historial",
-    element: (
-      <LayoutPrincipal>
-        <HistorialChecklistPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-
-  // --- RUTAS DE INSUMOS QUÍMICOS ---
-  {
-    path: "/insumos-quimicos",
-    element: (
-      <LayoutPrincipal>
-        <InsumosQuimicosPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/insumos-quimicos/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <InsumoQuimicoCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/insumos-quimicos/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <InsumoQuimicoEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE NOTIFICACIONES ---
-  {
-    path: "/notificaciones",
-    element: (
-      <LayoutPrincipal>
-        <NotificacionesPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE UNIDAD DE MEDIDA ---
-  {
-    path: "/unidades-medida",
-    element: (
-      <LayoutPrincipal>
-        <UnidadMedidaPage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/unidades-medida/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <UnidadMedidaCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/unidades-medida/:id/editar",
-    element: (
-      <LayoutPrincipal>
-        <UnidadMedidaEditPage />
-      </LayoutPrincipal>
-    ),
-  },
-
-  // --- RUTAS DE INCIDENTES ---
-  {
-    path: "/incidentes",
-    element: (
-      <LayoutPrincipal>
-        <IncidentePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/incidentes/nuevo",
-    element: (
-      <LayoutPrincipal>
-        <IncidenteCreatePage />
-      </LayoutPrincipal>
-    ),
-  },
-  {
-    path: "/incidentes/:id",
-    element: (
-      <LayoutPrincipal>
-        <IncidenteDetailPage />
-      </LayoutPrincipal>
-    ),
+    element: <RequireAuth />,
+    children: [
+      {
+        element: <LayoutPrincipal />,
+        children: [
+          {
+            path: "/",
+            element: (
+              <div style={{ textAlign: "center", marginTop: "50px" }}>
+                <h1>Panel Principal - SAIA</h1>
+                <p>Seleccioná una opción en el menú lateral para comenzar.</p>
+              </div>
+            ),
+          },
+          // --- RUTAS DE CHECKLIST (operar o administrar) ---
+          {
+            element: <RequireRole permiso="puede_operar" />,
+            children: [
+              { path: "/checklist", element: <ChecklistPage /> },
+            ],
+          },
+          // --- RUTAS DE HISTORIAL Y NOTIFICACIONES (solo administrar) ---
+          {
+            element: <RequireRole permiso="puede_administrar" />,
+            children: [
+              // --- RUTAS DE PERSONAL ---
+              { path: "/personal", element: <PersonalPage /> },
+              { path: "/personal/nuevo", element: <PersonalCreatePage /> },
+              { path: "/personal/:id/editar", element: <PersonalEditPage /> },
+              { path: "/personal/detalle/:id", element: <PersonalDetailPage /> },
+              // --- RUTAS DE INSUMOS ---
+              { path: "/insumos", element: <InsumosPage /> },
+              { path: "/insumos/nuevo", element: <InsumoCreatePage /> },
+              { path: "/insumos/:id/editar", element: <InsumoEditPage /> },
+              // --- RUTAS DE EQUIPOS ---
+              { path: "/equipos", element: <EquiposPage /> },
+              { path: "/equipos/nuevo", element: <EquipoCreatePage /> },
+              { path: "/equipos/:id/editar", element: <EquipoEditPage /> },
+              // --- RUTAS DE ELEMENTOS DE LIMPIEZA ---
+              { path: "/elementos-limpieza", element: <ElementosLimpiezaPage /> },
+              { path: "/elementos-limpieza/nuevo", element: <ElementoLimpiezaCreatePage /> },
+              { path: "/elementos-limpieza/:id/editar", element: <ElementoLimpiezaEditPage /> },
+              // --- RUTAS DE PLANES DE LIMPIEZA ---
+              { path: "/planes-limpieza", element: <PlanLimpiezaPage /> },
+              { path: "/planes-limpieza/nuevo", element: <PlanLimpiezaCreatePage /> },
+              { path: "/planes-limpieza/:id/editar", element: <PlanLimpiezaEditPage /> },
+              { path: "/checklist/historial", element: <HistorialChecklistPage /> },
+              { path: "/consumo-productos", element: <ConsumoInsumosPage /> },
+              { path: "/notificaciones", element: <NotificacionesPage /> },
+              // --- RUTAS DE INSUMOS QUÍMICOS ---
+              { path: "/insumos-quimicos", element: <InsumosQuimicosPage /> },
+              { path: "/insumos-quimicos/nuevo", element: <InsumoQuimicoCreatePage /> },
+              { path: "/insumos-quimicos/:id/editar", element: <InsumoQuimicoEditPage /> },
+              // --- RUTAS DE UNIDAD DE MEDIDA ---
+              { path: "/unidades-medida", element: <UnidadMedidaPage /> },
+              { path: "/unidades-medida/nuevo", element: <UnidadMedidaCreatePage /> },
+              { path: "/unidades-medida/:id/editar", element: <UnidadMedidaEditPage /> },
+              // --- RUTAS DE INCIDENTES ---
+              { path: "/incidentes", element: <IncidentePage /> },
+              { path: "/incidentes/nuevo", element: <IncidenteCreatePage /> },
+              { path: "/incidentes/:id", element: <IncidenteDetailPage /> },
+            ],
+          },
+          // --- 403 y 404 ---
+          { path: "/sin-permisos", element: <SinPermisosPage /> },
+          { path: "*", element: <NotFoundPage /> },
+        ],
+      },
+    ],
   },
 ]);
+
+function NotFoundPage() {
+  return (
+    <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <h1>404</h1>
+      <p>La página que buscás no existe.</p>
+    </div>
+  );
+}
+
+function SinPermisosPage() {
+  return (
+    <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <h1>No tenés permisos</h1>
+      <p>
+        Tu usuario no tiene el permiso necesario para ver esta sección.
+        Comunicate con un administrador si necesitás acceso.
+      </p>
+    </div>
+  );
+}
+

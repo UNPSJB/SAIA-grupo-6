@@ -11,17 +11,23 @@ interface PersonalFormProps {
   submitLabel?: string;
   title?: string;
   onCancel?: () => void;
-  esMiPerfil?: boolean; // Nueva propiedad opcional
+  esMiPerfil?: boolean; // Muestra la sección de cambiar la contraseña propia
+  requierePassword?: boolean; // Alta de persona: la contraseña es obligatoria
+  // Jerarquía de roles: solo quien puede tocar capacidades las ve, y el flag
+  // de super admin únicamente lo muestra un super admin.
+  puedeEditarCapacidades?: boolean;
+  puedeAsignarSuperAdmin?: boolean;
 }
 
-const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false };
+const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false };
 
 const estiloInput = { backgroundColor: "#fff", padding: "12px", width: "100%", borderRadius: "8px", border: "2px solid #90BEBB", fontSize: "16px", outline: "none", color: "#333" };
 const estiloLabel = { display: "block", fontSize: "14px", fontWeight: "bold" as const, marginBottom: "8px", color: "#555" };
 
-export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false }: PersonalFormProps) {
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false, requierePassword = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
   const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
+  const [errorPassword, setErrorPassword] = useState<string | null>(null);
   
   // Guardamos la nueva contraseña aparte para no pisar accidentalmente la actual
   const [nuevaPassword, setNuevaPassword] = useState("");
@@ -30,24 +36,46 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       e.preventDefault();
       if (!values.nombre.trim()) return;
 
-      if (!values.puede_operar && !values.puede_administrar) {
+      if (!values.puede_operar && !values.puede_administrar && !values.es_super_admin) {
           setErrorCapacidades("Debés seleccionar al menos una capacidad (Operar o Administrar).");
           return;
       }
       setErrorCapacidades(null);
 
-      const datosEnviar: PersonalFormValues = {
+      // En el alta la contraseña es obligatoria: el backend la exige.
+      if (requierePassword && nuevaPassword.trim().length < 4) {
+          setErrorPassword("La contraseña es obligatoria y debe tener al menos 4 caracteres.");
+          return;
+      }
+      setErrorPassword(null);
+
+      const datosEnviar = {
         ...values,
         apellido: values.apellido || null,
         telefono: values.telefono || null
+      } as Partial<PersonalFormValues> & {
+          password?: string;
+          activo?: boolean;
       };
 
-      // Si es tu perfil y escribiste algo, lo sumamos al envío
-      if (esMiPerfil && nuevaPassword.trim() !== "") {
+      // Quien no puede tocar roles no los manda: evita enviar flags que el
+      // backend va a rechazar igual (y ensucia el PUT).
+      if (!puedeEditarCapacidades) {
+          delete datosEnviar.puede_operar;
+          delete datosEnviar.puede_administrar;
+      }
+      if (!puedeAsignarSuperAdmin) {
+          delete datosEnviar.es_super_admin;
+      }
+
+      // En el alta mandamos la contraseña; al editar tu perfil, solo si la cambiaste.
+      if (requierePassword) {
+          datosEnviar.password = nuevaPassword;
+      } else if (esMiPerfil && nuevaPassword.trim() !== "") {
           datosEnviar.password = nuevaPassword;
       }
 
-      onSubmit(datosEnviar);
+      onSubmit(datosEnviar as PersonalFormValues);
   };
 
   return (
@@ -89,14 +117,52 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       </Box>
       )}
 
-      <HStack gap="25px" mb="25px">
-        <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-          <input type="checkbox" checked={values.puede_operar} onChange={(e) => setValues({ ...values, puede_operar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Operar
-        </label>
-        <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-          <input type="checkbox" checked={values.puede_administrar} onChange={(e) => setValues({ ...values, puede_administrar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Administrar
-        </label>
-      </HStack>
+      {/* Capacidades y rol: solo visibles para quien puede modificarlos */}
+      {puedeEditarCapacidades && (
+        <>
+          <HStack gap="25px" mb="25px">
+            <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input type="checkbox" checked={values.puede_operar} onChange={(e) => setValues({ ...values, puede_operar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Operar
+            </label>
+            <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input type="checkbox" checked={values.puede_administrar} onChange={(e) => setValues({ ...values, puede_administrar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Administrar
+            </label>
+          </HStack>
+
+          {/* El super admin es el nivel más alto: solo otro super admin lo asigna */}
+          {puedeAsignarSuperAdmin && (
+            <Box mb="25px" p="15px" style={{ backgroundColor: "#fff8e1", border: "1px dashed #e0c36a", borderRadius: "8px" }}>
+              <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                <input type="checkbox" checked={Boolean(values.es_super_admin)} onChange={(e) => setValues({ ...values, es_super_admin: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Super administrador
+              </label>
+              <Text fontSize="13px" color="gray.600" fontStyle="italic" style={{ marginTop: "6px" }}>
+                Un super administrador puede editar a cualquier persona del sistema y
+                asignar ese mismo rol.
+              </Text>
+            </Box>
+          )}
+        </>
+      )}
+
+      {/* En el alta la contraseña es obligatoria */}
+      {requierePassword && (
+        <Box mb="25px" p="15px" style={{ backgroundColor: "#f9f9f9", border: "1px dashed #ccc", borderRadius: "8px" }}>
+          <Box as="label" style={{...estiloLabel, color: "#468189"}}>CONTRASEÑA *</Box>
+          <Input
+            type="password"
+            placeholder="Contraseña de acceso al sistema"
+            value={nuevaPassword}
+            onChange={(e) => setNuevaPassword(e.target.value)}
+            style={{...estiloInput, marginBottom: "5px"}}
+          />
+          <Text fontSize="13px" color="gray.500" fontStyle="italic">Mínimo 4 caracteres. Se guarda encriptada.</Text>
+          {errorPassword && (
+            <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "10px", borderRadius: "6px", marginTop: "10px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+              ⚠️ {errorPassword}
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* SECCIÓN ESPECIAL: Solo visible si estás editando tu propio perfil */}
       {esMiPerfil && (

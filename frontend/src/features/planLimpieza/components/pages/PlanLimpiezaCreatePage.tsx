@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
 
 export function PlanLimpiezaCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { alta, loading, error } = usePlanLimpiezaABM();
   const [exito, setExito] = useState(false);
 
@@ -14,7 +16,7 @@ export function PlanLimpiezaCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      setTimeout(() => { navigate("/planes-limpieza"); }, 2000);
+      delayedNavigate("/planes-limpieza");
     } catch { }
   };
 

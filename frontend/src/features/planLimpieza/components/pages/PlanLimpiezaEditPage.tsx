@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpieza } from "../../hooks/usePlanLimpieza";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
 
 export function PlanLimpiezaEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const planId = Number(id);
 
@@ -22,14 +24,14 @@ export function PlanLimpiezaEditPage() {
     error: errorGuardado,
   } = usePlanLimpiezaABM();
   const [exito, setExito] = useState(false);
+  const [mostrarAviso, setMostrarAviso] = useState(false);
 
   const handleSubmit = async (values: PlanLimpiezaInput) => {
     try {
       await modificar(planId, values);
       setExito(true);
-      setTimeout(() => {
-        navigate("/planes-limpieza");
-      }, 2000);
+      setMostrarAviso(true);
+      delayedNavigate("/planes-limpieza", 4000);
     } catch {}
   };
 
@@ -53,6 +55,25 @@ export function PlanLimpiezaEditPage() {
           Volver a la lista
         </Button>
       </HStack>
+
+      {mostrarAviso && (
+        <Box
+          style={{
+            backgroundColor: "#e2f0d9",
+            color: "#1e4620",
+            padding: "12px",
+            borderRadius: "6px",
+            marginBottom: "20px",
+            border: "1px solid #b6d7a8",
+            fontWeight: "bold",
+          }}
+        >
+          ✅ Plan actualizado. Tené en cuenta que el checklist de hoy es una foto
+          del plan al momento de generarse: los cambios se aplican a los
+          checklists que se generen desde mañana, así los operarios no vean
+          cambiar sus tareas mientras las siguen.
+        </Box>
+      )}
 
       {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
       {cargando && (

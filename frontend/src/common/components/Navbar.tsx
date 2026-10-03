@@ -1,5 +1,6 @@
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { puedeAdministrar, puedeOperar } from '../api/permissions';
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 
 export default function Navbar() {
@@ -59,38 +60,33 @@ export default function Navbar() {
           </h2>
         </div>
 
-        {/* ACÁ ESTÁ LA CAMPANA INTELIGENTE */}
-        <BotonNotificaciones />
+        {/* La campana de alertas es parte de la gestión del administrador */}
+        {puedeAdministrar(user) && <BotonNotificaciones />}
       </div>
 
       {/* --- ENLACES COMUNES (Los ven todos) --- */}
       <Link to="/" style={estiloLink}>
         Inicio
       </Link>
-      <Link to="/personal" style={estiloLink}>
-        Personal
-      </Link>
 
       {/* --- ENLACES DEL OPERADOR --- */}
-      {user.puede_operar && (
+      {puedeOperar(user) && (
+        <Link to="/checklist" style={estiloLink}>
+          Checklist Diario
+        </Link>
+      )}
+
+      {/* --- ENLACES DEL ADMINISTRADOR (y del super admin) --- */}
+      {puedeAdministrar(user) && (
         <>
-          <Link to="/checklist" style={estiloLink}>
-            Checklist Diario
+          <Link to="/personal" style={estiloLink}>
+            Personal
+          </Link>
+          <Link to="/planes-limpieza" style={estiloLink}>
+            Planes de Limpieza
           </Link>
           <Link to="/elementos-limpieza" style={estiloLink}>
             Elementos de Limpieza
-          </Link>
-          <Link to="/incidentes" style={estiloLink}>
-            Incidentes
-          </Link>
-        </>
-      )}
-
-      {/* --- ENLACES DEL ADMINISTRADOR --- */}
-      {user.puede_administrar && (
-        <>
-          <Link to="/planes-limpieza" style={estiloLink}>
-            Planes de Limpieza
           </Link>
           <Link to="/equipos" style={estiloLink}>
             Equipos
@@ -106,6 +102,12 @@ export default function Navbar() {
           </Link>
           <Link to="/checklist/historial" style={estiloLink}>
             Historial de Checklists
+          </Link>
+          <Link to="/consumo-productos" style={estiloLink}>
+            Consumo de Productos
+          </Link>
+          <Link to="/incidentes" style={estiloLink}>
+            Incidentes
           </Link>
         </>
       )}

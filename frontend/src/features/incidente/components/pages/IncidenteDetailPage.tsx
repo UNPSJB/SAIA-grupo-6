@@ -2,10 +2,9 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Box, Button, Badge, Heading, Text, HStack, VStack } from "@chakra-ui/react";
 import { useIncidente } from "../../hooks/useIncidente";
+import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
 import { TIPOS_INCIDENTE } from "../../types/incidente";
 import type { TipoIncidente } from "../../types/incidente";
-
-const TEAL = "#468189";
 
 function tipoLabel(tipo: TipoIncidente): string {
   return TIPOS_INCIDENTE.find((t) => t.value === tipo)?.label ?? tipo;
@@ -31,6 +30,9 @@ export function IncidenteDetailPage() {
   const navigate = useNavigate();
   const { incidente, loading, error } = useIncidente(Number(id));
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
+  // El hook va arriba de todo: no puede declararse después de los returns de
+  // loading/error porque cambiaría el orden de hooks entre renders.
+  const imagen = useImagenAutenticada(incidente?.foto_url);
 
   if (loading) {
     return <Box p="20px">Cargando incidente...</Box>;
@@ -155,20 +157,32 @@ export function IncidenteDetailPage() {
                 border: "1px solid #eee",
               }}
             >
-              <img
-                src={`http://localhost:8000/${incidente.foto_url.replace(/\\/g, "/")}`}
-                alt="Evidencia del incidente"
-                onClick={() => setImagenAmpliada(true)}
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "300px",
-                  width: "auto",
-                  height: "auto",
-                  borderRadius: "8px",
-                  objectFit: "contain",
-                  cursor: "pointer",
-                }}
-              />
+              {imagen.loading && (
+                <Text fontSize="14px" color="gray.500">
+                  Cargando imagen...
+                </Text>
+              )}
+              {!imagen.loading && imagen.error && (
+                <Text fontSize="14px" color="red.500">
+                  {imagen.error}
+                </Text>
+              )}
+              {imagen.src && (
+                <img
+                  src={imagen.src}
+                  alt="Evidencia del incidente"
+                  onClick={() => setImagenAmpliada(true)}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "300px",
+                    width: "auto",
+                    height: "auto",
+                    borderRadius: "8px",
+                    objectFit: "contain",
+                    cursor: "pointer",
+                  }}
+                />
+              )}
             </Box>
           </Box>
         )}
@@ -196,7 +210,7 @@ export function IncidenteDetailPage() {
       </Box>
 
       {/* Modal de imagen ampliada */}
-      {imagenAmpliada && incidente.foto_url && (
+      {imagenAmpliada && imagen.src && (
         <Box
           style={{
             position: "fixed",
@@ -214,7 +228,7 @@ export function IncidenteDetailPage() {
           onClick={() => setImagenAmpliada(false)}
         >
           <img
-            src={`http://localhost:8000/${incidente.foto_url.replace(/\\/g, "/")}`}
+            src={imagen.src}
             alt="Evidencia ampliada"
             style={{
               maxWidth: "90%",

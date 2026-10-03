@@ -6,11 +6,8 @@ from src.database import SessionLocal, engine
 from src.models import ModeloBase
 from src.personal.models import Personal
 from src.Equipo.models import Equipo
-from src.insumos.models import Insumo, TipoUnidad
-#  AGREGUE
-from src.PlanLimpieza.models import PlanLimpieza
-from src.tareas.models import Tarea
-from src.checklist.models import Checklist, RegistroTarea
+from src.insumos.models import Insumo
+from src.unidadMedida.models import UnidadMedida
 
 # Esto asegura que las tablas existan en la BD antes de insertar
 ModeloBase.metadata.create_all(bind=engine)
@@ -31,7 +28,7 @@ try:
             nombre=fake.first_name(),
             apellido=fake.last_name(),
             # Usamos .unique para que no repita DNIs ni correos (tu BD pide que sean únicos)
-            dni=str(fake.unique.random_number(digits=8, fix_len=True)),
+            dni=dni_generado,
             email=fake.unique.email(),
             # Generamos un teléfono realista que no supere los 15 caracteres
             telefono=fake.numerify('+5492804######'), 
@@ -53,12 +50,24 @@ try:
         )
         db.add(equipo)
 
+    print("⏳ Cargando unidades de medida...")
+    unidades = [
+        UnidadMedida(nombre="kilogramo", simbolo="kg"),
+        UnidadMedida(nombre="litro", simbolo="L"),
+        UnidadMedida(nombre="unidad", simbolo="u"),
+        UnidadMedida(nombre="gramo", simbolo="g"),
+        UnidadMedida(nombre="mililitro", simbolo="mL"),
+    ]
+    for u in unidades:
+        db.add(u)
+    db.flush()  # Necesitamos los id de las unidades antes de crear insumos
+
     print("⏳ Cargando 15 insumos...")
     for _ in range(15):
         insumo = Insumo(
             # Nombres únicos para que no salte el IntegrityError
             nombre=f"{fake.unique.word().capitalize()} {fake.random_int(1, 1000)}",
-            tipo=random.choice(list(TipoUnidad))
+            unidad_medida_id=random.choice(unidades).id
         )
         db.add(insumo)
 

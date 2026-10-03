@@ -152,3 +152,26 @@ class HistorialChecklistResponse(BaseModel):
     equipo_id: Optional[int] = None
     porcentaje_cumplimiento_general: float
     checklists: List[HistorialChecklistItem]
+
+
+class ConsumoInsumoItem(BaseModel):
+    """Consumo acumulado de un producto químico en un rango de fechas."""
+
+    insumo_quimico_id: int
+    nombre: str
+    unidad_simbolo: Optional[str] = None
+    cantidad_total: float
+    cantidad_registros: int
+
+
+class ConsumoPorFechaItem(BaseModel):
+    fecha: date
+    cantidad_total: float
+
+
+class ConsumoInsumosResponse(BaseModel):
+    fecha_desde: date
+    fecha_hasta: date
+    total_general: float
+    insumos: List[ConsumoInsumoItem]
+    por_fecha: List[ConsumoPorFechaItem]

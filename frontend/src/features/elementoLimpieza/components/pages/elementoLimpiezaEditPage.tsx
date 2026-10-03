@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../../components/elementoLimpiezaForm";
 import { useElementoLimpieza } from "../../hooks/useElementoLimpieza";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { ElementoLimpiezaFormValues } from "../../types/elementoLimpieza";
 
 export function ElementoLimpiezaEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const elementoId = Number(id);
 
@@ -30,9 +32,7 @@ export function ElementoLimpiezaEditPage() {
       await modificar(elementoId, values);
       setExito(true);
       // Espera 2 segundos para que el usuario vea el mensaje antes de redirigir
-      setTimeout(() => {
-        navigate("/elementos-limpieza");
-      }, 2000);
+      delayedNavigate("/elementos-limpieza");
     } catch {
       // El error queda reflejado en useElementoLimpiezaABM().error
     }

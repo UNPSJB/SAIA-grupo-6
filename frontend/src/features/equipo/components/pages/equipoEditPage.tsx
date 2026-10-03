@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { EquipoForm } from "../../components/equipoForm";
 import { useEquipo } from "../../hooks/useEquipo";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { Equipo } from "../../types/equipo";
 
 export function EquipoEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const equipoId = Number(id);
 
@@ -29,9 +31,7 @@ export function EquipoEditPage() {
       await modificar(equipoId, values);
       setExito(true);
       // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
-      setTimeout(() => {
-        navigate("/Equipos");
-      }, 2000);
+      delayedNavigate("/equipos");
     } catch {
       // El error ya queda reflejado en useEquipoABM().error
     }

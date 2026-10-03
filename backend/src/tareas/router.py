@@ -3,13 +3,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from src.database import get_db
+from src.auth.dependencies import require_admin
 from src.tareas import schemas, services
 
 # Creamos un logger para este módulo específico
 logger = logging.getLogger(__name__)
 
 # Agrupamos las rutas bajo el prefijo /tareas
-router = APIRouter(prefix="/tareas", tags=["tareas"])
+router = APIRouter(prefix="/tareas", tags=["tareas"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/", response_model=schemas.Tarea)

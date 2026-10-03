@@ -1,12 +1,32 @@
-import type { ElementoLimpieza } from "../types/elementoLimpieza";
+import type { ElementoLimpieza, ElementoLimpiezaOpcion } from "../types/elementoLimpieza";
 import { ConflictoInactivoError } from "../../../common/api/errors";
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
+
+/**
+ * Datos mínimos (id y nombre) para el selector del checklist.
+ * Es el único listado de este módulo accesible a un operario sin permisos
+ * de administración.
+ */
+export async function listarOpcionesElementosLimpieza(): Promise<ElementoLimpiezaOpcion[]> {
+  const response = await apiFetch(`${API_URL}/elementos-limpieza/opciones`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.detail || "Error al obtener los elementos de limpieza"
+    );
+  }
+
+  return response.json();
+}
+
 
 export async function listarElementosLimpieza(
   incluirInactivos = false
 ): Promise<ElementoLimpieza[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await fetch(`${API_URL}/elementos-limpieza${query}`);
+  const response = await apiFetch(`${API_URL}/elementos-limpieza${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -21,7 +41,7 @@ export async function listarElementosLimpieza(
 export async function obtenerElementoLimpieza(
   id: number
 ): Promise<ElementoLimpieza> {
-  const response = await fetch(`${API_URL}/elementos-limpieza/${id}`);
+  const response = await apiFetch(`${API_URL}/elementos-limpieza/${id}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -36,7 +56,7 @@ export async function obtenerElementoLimpieza(
 export async function crearElementoLimpieza(
   elemento: Omit<ElementoLimpieza, "id" | "activo">
 ): Promise<ElementoLimpieza> {
-  const response = await fetch(`${API_URL}/elementos-limpieza`, {
+  const response = await apiFetch(`${API_URL}/elementos-limpieza`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,7 +85,7 @@ export async function modificarElementoLimpieza(
   id: number,
   elemento: Partial<Omit<ElementoLimpieza, "id">>
 ): Promise<ElementoLimpieza> {
-  const response = await fetch(`${API_URL}/elementos-limpieza/${id}`, {
+  const response = await apiFetch(`${API_URL}/elementos-limpieza/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -86,7 +106,7 @@ export async function modificarElementoLimpieza(
 export async function darDeBajaElementoLimpieza(
   id: number
 ): Promise<ElementoLimpieza> {
-  const response = await fetch(`${API_URL}/elementos-limpieza/${id}`, {
+  const response = await apiFetch(`${API_URL}/elementos-limpieza/${id}`, {
     method: "DELETE",
   });
 
@@ -102,7 +122,7 @@ export async function darDeBajaElementoLimpieza(
 
 export async function registrarRecambioElemento(id: number): Promise<ElementoLimpieza> {
   // ATENCIÓN: Esta es la ruta exacta que programaste en FastAPI
-  const response = await fetch(`${API_URL}/elementos-limpieza/${id}/recambio`, {
+  const response = await apiFetch(`${API_URL}/elementos-limpieza/${id}/recambio`, {
     method: "POST",
   });
 
