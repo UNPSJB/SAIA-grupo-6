@@ -4,12 +4,6 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from src.tareas import exceptions
 
 
-import re
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, field_validator
-from src.tareas import exceptions
-
-
 class TareaBase(BaseModel):
     nombre: str
     frecuencia: int
