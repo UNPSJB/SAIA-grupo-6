@@ -13,14 +13,18 @@ interface PersonalFormProps {
   onCancel?: () => void;
   esMiPerfil?: boolean; // Muestra la sección de cambiar la contraseña propia
   requierePassword?: boolean; // Alta de persona: la contraseña es obligatoria
+  // Jerarquía de roles: solo quien puede tocar capacidades las ve, y el flag
+  // de super admin únicamente lo muestra un super admin.
+  puedeEditarCapacidades?: boolean;
+  puedeAsignarSuperAdmin?: boolean;
 }
 
-const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false };
+const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false };
 
 const estiloInput = { backgroundColor: "#fff", padding: "12px", width: "100%", borderRadius: "8px", border: "2px solid #90BEBB", fontSize: "16px", outline: "none", color: "#333" };
 const estiloLabel = { display: "block", fontSize: "14px", fontWeight: "bold" as const, marginBottom: "8px", color: "#555" };
 
-export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false, requierePassword = false }: PersonalFormProps) {
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false, requierePassword = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
   const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
   const [errorPassword, setErrorPassword] = useState<string | null>(null);
@@ -32,7 +36,7 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       e.preventDefault();
       if (!values.nombre.trim()) return;
 
-      if (!values.puede_operar && !values.puede_administrar) {
+      if (!values.puede_operar && !values.puede_administrar && !values.es_super_admin) {
           setErrorCapacidades("Debés seleccionar al menos una capacidad (Operar o Administrar).");
           return;
       }
@@ -45,11 +49,24 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       }
       setErrorPassword(null);
 
-      const datosEnviar: PersonalFormValues = {
+      const datosEnviar = {
         ...values,
         apellido: values.apellido || null,
         telefono: values.telefono || null
+      } as Partial<PersonalFormValues> & {
+          password?: string;
+          activo?: boolean;
       };
+
+      // Quien no puede tocar roles no los manda: evita enviar flags que el
+      // backend va a rechazar igual (y ensucia el PUT).
+      if (!puedeEditarCapacidades) {
+          delete datosEnviar.puede_operar;
+          delete datosEnviar.puede_administrar;
+      }
+      if (!puedeAsignarSuperAdmin) {
+          delete datosEnviar.es_super_admin;
+      }
 
       // En el alta mandamos la contraseña; al editar tu perfil, solo si la cambiaste.
       if (requierePassword) {
@@ -58,7 +75,7 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
           datosEnviar.password = nuevaPassword;
       }
 
-      onSubmit(datosEnviar);
+      onSubmit(datosEnviar as PersonalFormValues);
   };
 
   return (
@@ -100,14 +117,32 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       </Box>
       )}
 
-      <HStack gap="25px" mb="25px">
-        <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-          <input type="checkbox" checked={values.puede_operar} onChange={(e) => setValues({ ...values, puede_operar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Operar
-        </label>
-        <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-          <input type="checkbox" checked={values.puede_administrar} onChange={(e) => setValues({ ...values, puede_administrar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Administrar
-        </label>
-      </HStack>
+      {/* Capacidades y rol: solo visibles para quien puede modificarlos */}
+      {puedeEditarCapacidades && (
+        <>
+          <HStack gap="25px" mb="25px">
+            <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input type="checkbox" checked={values.puede_operar} onChange={(e) => setValues({ ...values, puede_operar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Operar
+            </label>
+            <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input type="checkbox" checked={values.puede_administrar} onChange={(e) => setValues({ ...values, puede_administrar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Administrar
+            </label>
+          </HStack>
+
+          {/* El super admin es el nivel más alto: solo otro super admin lo asigna */}
+          {puedeAsignarSuperAdmin && (
+            <Box mb="25px" p="15px" style={{ backgroundColor: "#fff8e1", border: "1px dashed #e0c36a", borderRadius: "8px" }}>
+              <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                <input type="checkbox" checked={Boolean(values.es_super_admin)} onChange={(e) => setValues({ ...values, es_super_admin: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Super administrador
+              </label>
+              <Text fontSize="13px" color="gray.600" fontStyle="italic" style={{ marginTop: "6px" }}>
+                Un super administrador puede editar a cualquier persona del sistema y
+                asignar ese mismo rol.
+              </Text>
+            </Box>
+          )}
+        </>
+      )}
 
       {/* En el alta la contraseña es obligatoria */}
       {requierePassword && (

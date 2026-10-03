@@ -5,6 +5,8 @@ import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
+import { useAuth } from "../../../../common/context/AuthContext";
+import { esSuperAdmin } from "../../../../common/api/permissions";
 import type { Persona } from "../../types/personal";
 
 type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
@@ -12,6 +14,7 @@ type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_ac
 export function PersonalCreatePage() {
   const navigate = useNavigate();
   const delayedNavigate = useDelayedNavigate();
+  const { user } = useAuth();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = usePersonalABM();
   const [exito, setExito] = useState(false);
   // Guardamos los valores que el usuario cargó para poder reutilizarlos
@@ -127,6 +130,8 @@ export function PersonalCreatePage() {
         title="Alta de Personal"
         submitLabel="Crear personal"
         requierePassword
+        puedeEditarCapacidades
+        puedeAsignarSuperAdmin={esSuperAdmin(user)}
       />
 
       <ConfirmarReactivacionDialog

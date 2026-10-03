@@ -13,10 +13,11 @@ class PersonaBase(BaseModel):
    
     puede_operar: bool = False
     puede_administrar: bool = False
+    es_super_admin: bool = False
 
     @model_validator(mode='after')
     def validar_capacidades(self):
-        if not self.puede_operar and not self.puede_administrar:
+        if not self.es_super_admin and not self.puede_operar and not self.puede_administrar:
             raise ValueError("Debe asignar al menos una capacidad (operar o administrar).")
         return self 
     
@@ -53,6 +54,7 @@ class PersonaUpdate(BaseModel):
     password: str | None = None
     puede_operar: bool | None = None
     puede_administrar: bool | None = None
+    es_super_admin: bool | None = None
     activo: bool | None = None
 
 class Persona(PersonaBase):

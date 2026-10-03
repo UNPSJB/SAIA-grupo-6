@@ -2,7 +2,6 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.database import get_db
@@ -10,11 +9,13 @@ from src.personal import schemas, services
 from src.personal.models import Personal
 from src.auth.dependencies import get_current_user, require_admin, get_current_user_opcional
 from src.auth.roles import (
+    es_super_admin,
     exige_permiso_para_editar,
     puede_administrar,
     puede_editar_a,
     puede_modificar_roles,
 )
+from src.roles_service import contar_personas, hay_administradores
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,18 @@ def create_persona(
 ):
     """Alta de personal.
 
-    Solo quien administra. Excepción de arranque: si la base no tiene ninguna
-    persona todavía se permite crear la primera sin sesión, para no quedar sin
-    acceso a un sistema recién instalado.
+    Solo quien administra (o un super admin). Excepción de arranque: mientras el
+    sistema no tenga ningún administrador, se permite crear el primero sin
+    sesión — es lo que posibilita levantar la aplicación en una base nueva sin
+    quedar afuera.
     """
-    hay_personas = (db.scalar(select(func.count(Personal.id))) or 0) > 0
+    total_personas = contar_personas(db)
+    ya_hay_admin = hay_administradores(db)
 
-    if hay_personas:
+    # Bootstrap: no hay nadie todavía, o hay usuarios pero ninguno administra.
+    es_arranque = not ya_hay_admin
+
+    if not es_arranque:
         if current_user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,11 +55,23 @@ def create_persona(
             "Se requiere permiso de administrar para dar de alta personal.",
         )
 
+    # Crear un super admin: solo otro super admin, salvo en el arranque.
+    if getattr(persona, "es_super_admin", False) and not es_arranque:
+        if not (current_user is not None and es_super_admin(current_user)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo un super administrador puede dar de alta a otro super administrador.",
+            )
+
+    if total_personas == 0:
+        logger.warning(
+            "Bootstrap: se crea el primer usuario del sistema (id=%s)",
+            getattr(current_user, "id", None),
+        )
+
     return services.crear_persona(db, persona)
 
 
-# La gestión de personal es una historia de administración: el listado y el
-# detalle quedan restringidos a quien administra.
 @router.get("", response_model=List[schemas.Persona], dependencies=[Depends(require_admin)])
 def read_personas(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
     logger.info("Consultando la lista de personal (incluir_inactivos=%s)", incluir_inactivos)
@@ -72,21 +90,26 @@ def update_persona(
     db: Session = Depends(get_db),
     current_user: Personal = Depends(get_current_user),
 ):
-    """Modificación de una persona, respetando la jerarquía de roles.
+    """Modificación de una persona, respetando la jerarquía de roles:
 
-    Editar tu propio perfil está permitido para cualquiera; tocar datos de otra
-    persona requiere permiso de administrar. Esto evita que un operador se
-    auto-asigne puede_administrar.
+    * super admin -> cualquiera
+    * admin       -> operadores y sí mismo
+    * operador    -> solo sí mismo
     """
     objetivo = services.leer_persona(db, persona_id)
 
-    exige_permiso_para_editar(
-        puede_editar_a(current_user, objetivo),
-        "No tenés permiso para modificar a esta persona.",
-    )
+    if not puede_editar_a(current_user, objetivo):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "No tenés permiso para modificar a esta persona."
+                if current_user.id != objetivo.id
+                else "No tenés permiso para modificar tu propia cuenta."
+            ),
+        )
 
     datos = persona.model_dump(exclude_unset=True)
-    toca_roles = {"puede_operar", "puede_administrar", "activo"} & datos.keys()
+    toca_roles = {"puede_operar", "puede_administrar", "es_super_admin", "activo"} & datos.keys()
 
     if toca_roles:
         exige_permiso_para_editar(

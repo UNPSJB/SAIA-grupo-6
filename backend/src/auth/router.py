@@ -15,8 +15,23 @@ from src.database import get_db
 from src.personal import schemas as personal_schemas
 from src.personal.models import Personal
 from src.personal.services import autenticar_persona
+from src.roles_service import contar_personas, hay_administradores
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/bootstrap", response_model=schemas.BootstrapStatus)
+def bootstrap_status(db: Session = Depends(get_db)):
+    """Permite a la pantalla de registro saber si el sistema ya tiene
+    administradores (y, por lo tanto, si se puede crear un super admin)."""
+    total = contar_personas(db)
+    hay_admins = hay_administradores(db)
+
+    return schemas.BootstrapStatus(
+        hay_personas=total > 0,
+        hay_administradores=hay_admins,
+        permite_super_admin=hay_admins is False,
+    )
 
 
 @router.post("/login", response_model=schemas.TokenResponse)

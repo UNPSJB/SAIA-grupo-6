@@ -100,9 +100,22 @@ def require_operador(current_user: Personal = Depends(get_current_user)) -> Pers
 
 
 def require_admin(current_user: Personal = Depends(get_current_user)) -> Personal:
-    if not current_user.puede_administrar:
+    """Permite administrar a quien tenga puede_administrar.
+
+    El super admin también pasa: administra todo el sistema.
+    """
+    if not (current_user.puede_administrar or current_user.es_super_admin):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Se requiere permiso de administrar.",
+        )
+    return current_user
+
+
+def require_super_admin(current_user: Personal = Depends(get_current_user)) -> Personal:
+    if not current_user.es_super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere permiso de super administrador.",
         )
     return current_user

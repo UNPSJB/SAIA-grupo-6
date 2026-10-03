@@ -9,6 +9,7 @@ export interface User {
     dni: string;
     puede_operar: boolean;
     puede_administrar: boolean;
+    es_super_admin: boolean;
 }
 
 interface AuthContextType {

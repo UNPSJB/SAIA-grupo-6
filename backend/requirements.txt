@@ -42,6 +42,7 @@ typing-inspection==0.4.4
 typing_extensions==4.16.0
 urllib3==2.7.0
 uvicorn==0.52.1
+Werkzeug==3.1.9
 #uvloop==0.22.1 # comentado porque con Windows daba problemas y lo reemplaza por otra herramienta
 watchfiles==1.2.0
 websockets==17.0.1

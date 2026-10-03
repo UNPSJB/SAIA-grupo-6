@@ -2,7 +2,7 @@ import { Table, Button, HStack } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../common/context/AuthContext";
-import { puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
+import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -18,7 +18,7 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
   const { user } = useAuth();
 
   // Las acciones se ocultan según la jerarquía: un admin no toca a otro admin
-  // y nadie se da de baja a sí mismo.
+  // ni a un super admin, y nadie se da de baja a sí mismo.
   const puedeEditar = puedeEditarA(user, persona);
   const puedeBorrar = puedeDarDeBajaA(user, persona);
 
@@ -35,10 +35,11 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
       </Table.Cell>
       <Table.Cell style={{ padding: "12px" }}>
         <span style={{ backgroundColor: "#f5f5f5", padding: "4px 8px", borderRadius: "4px", fontSize: "13px" }}>
-            {persona.puede_operar && "Operar"}
-            {persona.puede_operar && persona.puede_administrar && " | "}
-            {persona.puede_administrar && "Administrar"}
-            {(!persona.puede_operar && !persona.puede_administrar) && "Ninguna"}
+            {esSuperAdminDe(persona) && "Super admin"}
+            {!esSuperAdminDe(persona) && persona.puede_operar && "Operar"}
+            {!esSuperAdminDe(persona) && persona.puede_operar && persona.puede_administrar && " | "}
+            {!esSuperAdminDe(persona) && persona.puede_administrar && "Administrar"}
+            {!esSuperAdminDe(persona) && !persona.puede_operar && !persona.puede_administrar && "Ninguna"}
         </span>
       </Table.Cell>
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>

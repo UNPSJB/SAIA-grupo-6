@@ -1,5 +1,6 @@
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { puedeAdministrar, puedeOperar } from '../api/permissions';
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 
 export default function Navbar() {
@@ -60,7 +61,7 @@ export default function Navbar() {
         </div>
 
         {/* La campana de alertas es parte de la gestión del administrador */}
-        {user.puede_administrar && <BotonNotificaciones />}
+        {puedeAdministrar(user) && <BotonNotificaciones />}
       </div>
 
       {/* --- ENLACES COMUNES (Los ven todos) --- */}
@@ -69,14 +70,14 @@ export default function Navbar() {
       </Link>
 
       {/* --- ENLACES DEL OPERADOR --- */}
-      {(user.puede_operar || user.puede_administrar) && (
+      {puedeOperar(user) && (
         <Link to="/checklist" style={estiloLink}>
           Checklist Diario
         </Link>
       )}
 
-      {/* --- ENLACES DEL ADMINISTRADOR --- */}
-      {user.puede_administrar && (
+      {/* --- ENLACES DEL ADMINISTRADOR (y del super admin) --- */}
+      {puedeAdministrar(user) && (
         <>
           <Link to="/personal" style={estiloLink}>
             Personal

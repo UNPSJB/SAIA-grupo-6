@@ -1,11 +1,12 @@
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from src.database import engine
 from src.models import ModeloBase
+from src.migrations import crear_tablas_y_migrar
+from fastapi.staticfiles import StaticFiles
 
 # Importamos la configuración validada por Pydantic
 from src.config import settings
@@ -16,6 +17,7 @@ from src.logger import setup_logging
 # Importamos los routers desde nuestros módulos
 from src.personal.router import router as personal_router
 from src.auth.router import router as auth_router
+from src.auth import models as auth_models  # noqa: F401 (registra la tabla de tokens revocados)
 
 from src.Equipo import models as equipo_models
 from src.Equipo.router import router as equipo_router
@@ -49,7 +51,8 @@ setup_logging()
 
 @asynccontextmanager
 async def db_creation_lifespan(app: FastAPI):
-    ModeloBase.metadata.create_all(bind=engine)
+    # Crea las tablas faltantes y aplica las migraciones de columnas.
+    crear_tablas_y_migrar()
     yield
 
 
@@ -59,7 +62,8 @@ app = FastAPI(
 )
 
 
-# Aseguramos que la carpeta uploads exista y la montamos para que sea accesible por HTTP
+# La carpeta de evidencias se sigue sirviendo como estática por ahora:
+# pasar a un endpoint con sesión va en el siguiente commit.
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
