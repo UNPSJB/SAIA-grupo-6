@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from src.database import engine
 from src.models import ModeloBase
 from src.migrations import crear_tablas_y_migrar
-from fastapi.staticfiles import StaticFiles
+from src.uploads.router import router as uploads_router
 
 # Importamos la configuración validada por Pydantic
 from src.config import settings
@@ -62,10 +62,9 @@ app = FastAPI(
 )
 
 
-# La carpeta de evidencias se sigue sirviendo como estática por ahora:
-# pasar a un endpoint con sesión va en el siguiente commit.
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# La carpeta de evidencias existe, pero NO se sirve como carpeta estática:
+# las fotos de las tareas requieren sesión (ver src/uploads/router.py).
+os.makedirs("uploads/evidencias", exist_ok=True)
 
 origins = settings.cors_origins
 
@@ -80,6 +79,7 @@ app.add_middleware(
 
 # Asociamos los routers a nuestra app
 app.include_router(auth_router)
+app.include_router(uploads_router)
 app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
