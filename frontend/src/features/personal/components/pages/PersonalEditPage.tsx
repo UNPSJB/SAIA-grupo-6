@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
@@ -6,6 +6,10 @@ import { usePersonal } from "../../hooks/usePersonal";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { useAuth } from "../../../../common/context/AuthContext";
 import type { Persona } from "../../types/personal";
+
+
+import { useVencimientosPersonal, type VencimientosPorAptitud } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
+import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
@@ -16,32 +20,47 @@ export function PersonalEditPage() {
   const { user, loginUser } = useAuth();
   const esMiPerfil = user?.id === personaId;
 
+
+
   const { persona, loading: cargando, error: errorCarga } = usePersonal(Number.isFinite(personaId) ? personaId : null);
   const { modificar, loading: guardando, error: errorGuardado } = usePersonalABM();
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">) => {
-    try {
-      // 1. Guardamos los cambios
-      const usuarioActualizado = await modificar(personaId, values);
-      
-      // 2. Si es tu perfil, actualizamos la sesión al instante
-      if (esMiPerfil) {
-        // Adaptamos los datos para que TypeScript no se queje de apellidos nulos
-        loginUser({
-            id: usuarioActualizado.id,
-            nombre: usuarioActualizado.nombre,
-            apellido: usuarioActualizado.apellido || "", // Si está vacío, mandamos un texto en blanco
-            dni: usuarioActualizado.dni,
-            puede_operar: usuarioActualizado.puede_operar,
-            puede_administrar: usuarioActualizado.puede_administrar
-        });
-      }
+  const { vencimientos, guardarVencimientos } = useVencimientosPersonal(Number.isFinite(personaId) ? personaId : null);
+  const [valoresVencimientos, setValoresVencimientos] = useState<VencimientosPorAptitud>({});
 
-      setExito(true);
-      setTimeout(() => { navigate("/personal"); }, 2000);
-    } catch { }
-  };
+  useEffect(() => {
+    const mapa: VencimientosPorAptitud = {};
+   vencimientos.forEach((v) => { mapa[v.aptitud_id] = v.fecha_vencimiento; });
+    setValoresVencimientos(mapa);
+  }, [vencimientos]);
+  const handleSubmit = async (values: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">) => {
+  try {
+    // 1. Guardamos los cambios
+    const usuarioActualizado = await modificar(personaId, values);
+
+    
+    
+      await guardarVencimientos(personaId, valoresVencimientos);
+    
+
+    // 2. Si es tu perfil, actualizamos la sesión al instante
+    if (esMiPerfil) {
+      // Adaptamos los datos para que TypeScript no se queje de apellidos nulos
+      loginUser({
+          id: usuarioActualizado.id,
+          nombre: usuarioActualizado.nombre,
+          apellido: usuarioActualizado.apellido || "", // Si está vacío, mandamos un texto en blanco
+          dni: usuarioActualizado.dni,
+          puede_operar: usuarioActualizado.puede_operar,
+          puede_administrar: usuarioActualizado.puede_administrar
+      });
+    }
+
+    setExito(true);
+    setTimeout(() => { navigate("/personal"); }, 2000);
+  } catch { }
+};
 
   return (
     <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
@@ -72,7 +91,7 @@ export function PersonalEditPage() {
               </Box>
             </Box>
           )}
-
+          
           <PersonalForm
             key={persona.id}
             initialValues={{ 
@@ -91,7 +110,9 @@ export function PersonalEditPage() {
             onCancel={() => navigate("/personal")}
             esMiPerfil={esMiPerfil}
           />
+        <VencimientosPersonalForm valores={valoresVencimientos} onChange={setValoresVencimientos} />
         </>
+        
       )}
     </Box>
   );

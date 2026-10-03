@@ -5,6 +5,10 @@ import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import type { Persona } from "../../types/personal";
+'esto es para poder tener el vencimiento de personal'
+import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
+import { useVencimientosPersonal, type VencimientosPorAptitud } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
+
 
 type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
 
@@ -15,17 +19,19 @@ export function PersonalCreatePage() {
   // Guardamos los valores que el usuario cargó para poder reutilizarlos
   // si confirma la reactivación (no se los volvemos a pedir).
   const [valoresPendientes, setValoresPendientes] = useState<PersonaInput | null>(null);
+  // esto para alptitud
+  const [vencimientos, setVencimientos] = useState<VencimientosPorAptitud>({});
+  const { guardarVencimientos } = useVencimientosPersonal(null);
 
-  const handleSubmit = async (values: PersonaInput) => {
+ const handleSubmit = async (values: PersonaInput) => {
     try {
-      await alta(values);
+      const nuevaPersona = await alta(values);
+      if (Object.values(vencimientos).some(Boolean)) {
+        await guardarVencimientos(nuevaPersona.id, vencimientos);
+      }
       setExito(true);
-      setTimeout(() => {
-        navigate("/personal");
-      }, 2000);
+      setTimeout(() => navigate("/personal"), 2000);
     } catch {
-      // Si fue un conflicto de inactivo, "conflicto" ya quedó seteado por el
-      // hook y el diálogo se muestra solo. Guardamos los valores para reusarlos.
       setValoresPendientes(values);
     }
   };
@@ -122,14 +128,14 @@ export function PersonalCreatePage() {
           </Box>
         </Box>
       )}
-
+      
       <PersonalForm
         onSubmit={handleSubmit}
         isLoading={loading}
         title="Alta de Personal"
         submitLabel="Crear personal"
       />
-
+      <VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />
       <ConfirmarReactivacionDialog
         isOpen={conflicto !== null}
         mensaje={conflicto?.mensaje ?? ""}

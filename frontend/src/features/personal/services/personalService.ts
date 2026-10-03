@@ -1,6 +1,8 @@
 import type { Persona } from "../types/personal";
 import { ConflictoInactivoError } from "../../../common/api/errors";
 
+
+
 const API_URL = "http://localhost:8000";
 
 type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;

@@ -45,7 +45,10 @@ import { NotificacionesPage } from "./features/notificaciones/components/pages/N
 import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unidadMedidaPage";
 import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
 import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";// Layout principal que mantiene el menú a la izquierda
-
+// 8. Importamos del modulo Aptitud
+import { AptitudPage } from "./features/aptitud/components/pages/AptitudPage";
+import { AptitudCreatePage } from "./features/aptitud/components/pages/AptitudCreatePage";
+import { AptitudEditPage } from "./features/aptitud/components/pages/AptitudEditPage";
 
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
   return (
@@ -303,5 +306,33 @@ export const router = createBrowserRouter([
         <UnidadMedidaEditPage />
       </LayoutPrincipal>
     ),
+  },
+  // --- RUTAS DE APTITUDES ---
+
+  {
+  path: "/aptitudes",
+  element: (
+    <LayoutPrincipal>
+      <AptitudPage />
+    </LayoutPrincipal>
+  ),
+  },
+
+  {
+  path: "/aptitudes/nuevo",
+  element: (
+    <LayoutPrincipal>
+      <AptitudCreatePage />
+    </LayoutPrincipal>
+  ),
+  },
+
+  {
+  path: "/aptitudes/:id/editar",
+  element: (
+    <LayoutPrincipal>
+      <AptitudEditPage />
+    </LayoutPrincipal>
+  ),
   },
 ]);

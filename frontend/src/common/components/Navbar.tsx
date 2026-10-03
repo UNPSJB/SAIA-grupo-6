@@ -100,10 +100,15 @@ export default function Navbar() {
           </Link>
           <Link to="/unidades-medida" style={estiloLink}>
             Unidades de Medida
-          </Link>
+          </Link> 
           <Link to="/checklist/historial" style={estiloLink}>
             Historial de Checklists
           </Link>
+          <Link to="/aptitudes" style={estiloLink}>
+           aptitudes 
+          </Link>
+          
+          
         </>
       )}
 

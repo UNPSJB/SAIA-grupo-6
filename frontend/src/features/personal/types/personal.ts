@@ -1,3 +1,5 @@
+
+
 export interface Persona {
   id: number;
   nombre: string;
@@ -12,3 +14,5 @@ export interface Persona {
   fecha_creacion?: string;
   fecha_actualizacion?: string | null;
 }
+
+

@@ -40,6 +40,12 @@ from src.insumoQuimico.router import router as insumoQuimico_router
 from src.notificaciones.router import router as notificaciones_router
 from src.unidadMedida.router import router as unidad_medida_router
 
+from src.vencimientoPersonal import models as vencimiento_personal_models
+from src.vencimientoPersonal.router import router as vencimiento_personal_router
+
+from src.aptitud import models as aptitud_models
+from src.aptitud.router import router as aptitud_router
+
 
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
@@ -82,6 +88,7 @@ app.include_router(insumos_router)
 app.include_router(equipo_router)
 app.include_router(elementosLimpieza_router)
 
+
 #crear tabla registrada en SQLAlchemy
 ModeloBase.metadata.create_all(bind=engine)
 app.include_router(plan_limpieza_router)
@@ -90,3 +97,5 @@ app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)
 app.include_router(notificaciones_router)
 app.include_router(unidad_medida_router)
+app.include_router(vencimiento_personal_router)
+app.include_router(aptitud_router)
