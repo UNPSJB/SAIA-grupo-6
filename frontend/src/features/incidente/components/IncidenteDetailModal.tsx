@@ -109,9 +109,11 @@ export function IncidenteDetailModal({ isOpen, incidente, onClose }: IncidenteDe
               <strong>Fecha y hora:</strong>{" "}
               {new Date(incidente.fecha_reporte).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour12: false })}
             </Text>
-            <Text fontSize="14px">
-              <strong>Equipo:</strong> {incidente.equipo_nombre ?? "No asociado"}
-            </Text>
+            {incidente.equipo_nombre && (
+              <Text fontSize="14px">
+                <strong>Equipo:</strong> {incidente.equipo_nombre}
+              </Text>
+            )}
           </Box>
 
           {/* Descripción completa */}

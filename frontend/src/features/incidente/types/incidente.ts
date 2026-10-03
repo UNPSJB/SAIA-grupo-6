@@ -32,3 +32,14 @@ export const TIPOS_INCIDENTE: { value: TipoIncidente; label: string }[] = [
   { value: "higiene_contaminacion", label: "Higiene / Contaminación" },
   { value: "otro", label: "Otro" },
 ];
+
+// Tipos donde tiene sentido asociar un equipo concreto. Para el resto el
+// equipo queda en null y el detalle se describe en la descripción libre.
+export const TIPOS_CON_EQUIPO: TipoIncidente[] = [
+  "falla_equipo",
+  "higiene_contaminacion",
+];
+
+export function admiteEquipo(tipo: TipoIncidente): boolean {
+  return TIPOS_CON_EQUIPO.includes(tipo);
+}

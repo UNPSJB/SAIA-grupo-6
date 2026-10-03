@@ -61,10 +61,6 @@ export function IncidenteItem({ incidente, onDelete }: IncidenteItemProps) {
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        {incidente.equipo_nombre ?? "—"}
-      </Table.Cell>
-
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
       </Table.Cell>
 

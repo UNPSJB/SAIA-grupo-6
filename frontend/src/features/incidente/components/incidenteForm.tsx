@@ -9,7 +9,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import type { IncidenteFormValues, TipoIncidente } from "../types/incidente";
-import { TIPOS_INCIDENTE } from "../types/incidente";
+import { TIPOS_INCIDENTE, admiteEquipo } from "../types/incidente";
 import { listarEquipos } from "../../equipo/services/equipoService";
 import type { Equipo } from "../../equipo/types/equipo";
 
@@ -87,11 +87,16 @@ export function IncidenteForm({
   const handleDescripcionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) =>
     setValues((prev) => ({ ...prev, descripcion: e.target.value }));
 
-  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+  const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const tipo = e.target.value as TipoIncidente;
     setValues((prev) => ({
       ...prev,
-      tipo: e.target.value as TipoIncidente,
+      tipo,
+      // Si el nuevo tipo no admite equipo, se limpia para no dejar
+      // un equipo fantasma asociado a un incidente que no lo necesita.
+      equipo_id: admiteEquipo(tipo) ? prev.equipo_id : null,
     }));
+  };
 
   const handleEquipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -208,38 +213,40 @@ export function IncidenteForm({
         </Field.Root>
       </Box>
 
-      {/* Equipo (opcional) */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root>
-          <Box as="label" style={estiloLabel}>
-            EQUIPO (OPCIONAL)
-          </Box>
+      {/* Equipo (solo para tipos que lo admiten) */}
+      {admiteEquipo(values.tipo) && (
+        <Box style={{ marginBottom: "20px" }}>
+          <Field.Root>
+            <Box as="label" style={estiloLabel}>
+              EQUIPO (OPCIONAL)
+            </Box>
           <NativeSelect.Root disabled={cargandoEquipos}>
-            <NativeSelect.Field
-              value={values.equipo_id ?? ""}
-              onChange={handleEquipoChange}
-              style={estiloSelect}
-            >
-              <option value="">
-                {cargandoEquipos ? "Cargando..." : "Seleccionar equipo (opcional)"}
-              </option>
-              {equipos.map((equipo) => (
-                <option
-                  key={equipo.id}
-                  value={equipo.id}
-                  style={{
-                    backgroundColor: "#fff",
-                    color: "#333",
-                  }}
-                >
-                  {equipo.nombre}
+              <NativeSelect.Field
+                value={values.equipo_id ?? ""}
+                onChange={handleEquipoChange}
+                style={estiloSelect}
+              >
+                <option value="">
+                  {cargandoEquipos ? "Cargando..." : "Seleccionar equipo (opcional)"}
                 </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </Box>
+                {equipos.map((equipo) => (
+                  <option
+                    key={equipo.id}
+                    value={equipo.id}
+                    style={{
+                      backgroundColor: "#fff",
+                      color: "#333",
+                    }}
+                  >
+                    {equipo.nombre}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
+        </Box>
+      )}
 
       {/* Foto (opcional) */}
       <Box style={{ marginBottom: "25px" }}>

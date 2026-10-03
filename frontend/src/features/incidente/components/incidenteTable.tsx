@@ -59,15 +59,6 @@ export function IncidenteTable({ incidentes, onDelete }: IncidenteTableProps) {
               fontSize="16px"
               style={{ padding: "12px" }}
             >
-              Equipo
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
               Reportado por
             </Table.ColumnHeader>
 
