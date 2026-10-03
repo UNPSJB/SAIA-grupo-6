@@ -72,6 +72,27 @@ export interface TareaDelDia {
   descripcion?: string | null;
 }
 
+export interface ConsumoInsumoItem {
+  insumo_quimico_id: number;
+  nombre: string;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+  cantidad_registros: number;
+}
+
+export interface ConsumoPorFechaItem {
+  fecha: string;
+  cantidad_total: number;
+}
+
+export interface ConsumoInsumosResponse {
+  fecha_desde: string;
+  fecha_hasta: string;
+  total_general: number;
+  insumos: ConsumoInsumoItem[];
+  por_fecha: ConsumoPorFechaItem[];
+}
+
 export interface TareasDelDiaResponse {
   fecha: string;
   tareas: TareaDelDia[];
