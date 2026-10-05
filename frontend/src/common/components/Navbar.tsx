@@ -89,6 +89,9 @@ export default function Navbar() {
           <Link to="/planes-limpieza" style={estiloLink}>
             Planes de Limpieza
           </Link>
+          <Link to="/planes-calibracion-mantenimiento" style={estiloLink}>
+            Calibración/Mantenimiento
+          </Link>
           <Link to="/equipos" style={estiloLink}>
             Equipos
           </Link>

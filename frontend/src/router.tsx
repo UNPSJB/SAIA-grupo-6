@@ -29,6 +29,11 @@ import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanL
 import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
 import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/PlanLimpiezaEditPage";
 
+// Importaciones del módulo de Planes de Calibración/Mantenimiento
+import { PlanCalibracionMantenimientoPage } from "./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoPage";
+import { PlanCalibracionMantenimientoCreatePage } from "./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoCreatePage";
+import { PlanCalibracionMantenimientoEditPage } from "./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoEditPage";
+
 // 5. Importaciones del módulo de Checklist
 import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
 import { HistorialChecklistPage } from "./features/checklist/components/pages/HistorialChecklistPage";
@@ -219,6 +224,32 @@ export const router = createBrowserRouter([
     element: (
       <LayoutPrincipal>
         <PlanLimpiezaEditPage />
+      </LayoutPrincipal>
+    ),
+  },
+
+  // --- RUTAS DE PLANES DE CALIBRACIÓN/MANTENIMIENTO ---
+  {
+    path: "/planes-calibracion-mantenimiento",
+    element: (
+      <LayoutPrincipal>
+        <PlanCalibracionMantenimientoPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/planes-calibracion-mantenimiento/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <PlanCalibracionMantenimientoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/planes-calibracion-mantenimiento/:id/editar",
+    element: (
+      <LayoutPrincipal>
+        <PlanCalibracionMantenimientoEditPage />
       </LayoutPrincipal>
     ),
   },

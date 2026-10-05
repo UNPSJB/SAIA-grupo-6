@@ -28,6 +28,10 @@ from src.elementoLimpieza import models as elementosLimpieza_models
 from src.elementoLimpieza.router import router as elementosLimpieza_router
 from src.PlanLimpieza import models as plan_limpieza_models
 from src.PlanLimpieza.router import router as plan_limpieza_router
+from src.PlanCalibracionMantenimiento import models as plan_calibracion_mantenimiento_models
+from src.PlanCalibracionMantenimiento.router import (
+    router as plan_calibracion_mantenimiento_router,
+)
 
 from src.tareas import models as tareas_models
 from src.tareas.router import router as tareas_router
@@ -85,6 +89,7 @@ app.include_router(elementosLimpieza_router)
 #crear tabla registrada en SQLAlchemy
 ModeloBase.metadata.create_all(bind=engine)
 app.include_router(plan_limpieza_router)
+app.include_router(plan_calibracion_mantenimiento_router)
 app.include_router(tareas_router)
 app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)

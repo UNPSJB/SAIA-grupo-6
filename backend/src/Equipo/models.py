@@ -19,3 +19,6 @@ class Equipo(ModeloBase):
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     planes: Mapped[list["PlanLimpieza"]] = relationship(back_populates="equipo")
+    planes_calibracion_mantenimiento: Mapped[
+        list["PlanCalibracionMantenimiento"]
+    ] = relationship(back_populates="equipo")

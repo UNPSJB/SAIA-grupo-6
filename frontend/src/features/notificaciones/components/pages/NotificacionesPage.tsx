@@ -13,6 +13,14 @@ import { obtenerNotificaciones } from "../../services/notificacionService";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { Notificacion } from "../../types/notificacion";
 
+function formatearFecha(fecha?: string) {
+  if (!fecha) {
+    return "-";
+  }
+
+  return new Date(`${fecha.slice(0, 10)}T00:00:00`).toLocaleDateString("es-AR");
+}
+
 export function NotificacionesPage() {
   const navigate = useNavigate();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
@@ -125,27 +133,30 @@ export function NotificacionesPage() {
             ✅ No hay notificaciones pendientes
           </Text>
           <Text color="#6c757d">
-            Todos los elementos y vencimientos están al día.
+            Todos los vencimientos están al día.
           </Text>
         </Box>
       ) : (
         <Box bg="white" borderRadius="10px" boxShadow="0 4px 15px rgba(0,0,0,0.05)" overflow="hidden" border="1px solid #e2e8f0">
           <Table.Root variant="outline" size="md">
             <Table.Header bg="#f8fafc">
-              <Table.Row>
-                <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
-                <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
-                <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
-                <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
-              </Table.Row>
+                <Table.Row>
+                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
+                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
+                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
+                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Vencimiento</Table.ColumnHeader>
+                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
+                </Table.Row>
             </Table.Header>
             <Table.Body>
-              {notificacionesOrdenadas.map((n) => (
-                <Table.Row key={n.id_notificacion} _hover={{ bg: "#f7fafc" }} transition="background 0.2s">
-                  <Table.Cell>
-                    <Badge bg="#e9d8fd" color="#553c9a" px="2" py="1" borderRadius="md" fontWeight="bold">
-                      Elemento Limpieza
-                    </Badge>
+                {notificacionesOrdenadas.map((n) => (
+                  <Table.Row key={n.id_notificacion} _hover={{ bg: "#f7fafc" }} transition="background 0.2s">
+                    <Table.Cell>
+                      <Badge bg="#e9d8fd" color="#553c9a" px="2" py="1" borderRadius="md" fontWeight="bold">
+                        {n.tipo === "ELEMENTO_LIMPIEZA"
+                          ? "Elemento Limpieza"
+                          : "Plan Calibración/Mantenimiento"}
+                      </Badge>
                   </Table.Cell>
                   <Table.Cell>
                     <Badge 
@@ -159,10 +170,15 @@ export function NotificacionesPage() {
                   <Table.Cell>
                     <Text fontWeight="bold" color="#2d3748" mb="1">{n.titulo}</Text>
                     <Text fontSize="14px" color="#718096">
-                      {n.mensaje}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell textAlign="center">
+                        {n.mensaje}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text fontSize="14px" color="#4a5568">
+                        {formatearFecha(n.fecha_referencia)}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell textAlign="center">
                     <Button
                       size="sm"
                       bg="#3182ce"
@@ -172,7 +188,7 @@ export function NotificacionesPage() {
                       borderRadius="6px"
                       onClick={() => handleResolver(n)}
                     >
-                      Registrar Recambio
+                      {n.tipo === "ELEMENTO_LIMPIEZA" ? "Registrar Recambio" : "Ver plan"}
                     </Button>
                   </Table.Cell>
                 </Table.Row>
