@@ -5,7 +5,8 @@ import type {
   PersonalOption,
 } from "../types/planLimpieza";
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 export interface PlanLimpiezaInput {
   nombre: string;
@@ -18,7 +19,7 @@ export async function listarPlanesLimpieza(
   incluirInactivos = false
 ): Promise<PlanLimpieza[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await fetch(`${API_URL}/planes-limpieza${query}`);
+  const response = await apiFetch(`${API_URL}/planes-limpieza${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -29,7 +30,7 @@ export async function listarPlanesLimpieza(
 }
 
 export async function obtenerPlanLimpieza(id: number): Promise<PlanLimpieza> {
-  const response = await fetch(`${API_URL}/planes-limpieza/${id}`);
+  const response = await apiFetch(`${API_URL}/planes-limpieza/${id}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -42,7 +43,7 @@ export async function obtenerPlanLimpieza(id: number): Promise<PlanLimpieza> {
 export async function crearPlanLimpieza(
   plan: PlanLimpiezaInput
 ): Promise<PlanLimpieza> {
-  const response = await fetch(`${API_URL}/planes-limpieza`, {
+  const response = await apiFetch(`${API_URL}/planes-limpieza`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(plan),
@@ -60,7 +61,7 @@ export async function modificarPlanLimpieza(
   id: number,
   plan: PlanLimpiezaInput
 ): Promise<PlanLimpieza> {
-  const response = await fetch(`${API_URL}/planes-limpieza/${id}`, {
+  const response = await apiFetch(`${API_URL}/planes-limpieza/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(plan),
@@ -75,7 +76,7 @@ export async function modificarPlanLimpieza(
 }
 
 export async function eliminarPlanLimpieza(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/planes-limpieza/${id}`, {
+  const response = await apiFetch(`${API_URL}/planes-limpieza/${id}`, {
     method: "DELETE",
   });
 
@@ -92,7 +93,7 @@ export async function eliminarPlanLimpieza(id: number): Promise<void> {
 // del propio plan (ver PlanLimpiezaForm).
 
 export async function listarOpcionesEquipos(): Promise<EquipoOption[]> {
-  const response = await fetch(`${API_URL}/equipos`);
+  const response = await apiFetch(`${API_URL}/equipos`);
 
   if (!response.ok) {
     throw new Error("Error al obtener los equipos");
@@ -102,7 +103,7 @@ export async function listarOpcionesEquipos(): Promise<EquipoOption[]> {
 }
 
 export async function listarOpcionesPersonal(): Promise<PersonalOption[]> {
-  const response = await fetch(`${API_URL}/personal`);
+  const response = await apiFetch(`${API_URL}/personal`);
 
   if (!response.ok) {
     throw new Error("Error al obtener el personal");
@@ -115,7 +116,7 @@ export async function reactivarPlanLimpieza(
   id: number,
   plan: PlanLimpiezaInput
 ): Promise<PlanLimpieza> {
-  const response = await fetch(`${API_URL}/planes-limpieza/${id}`, {
+  const response = await apiFetch(`${API_URL}/planes-limpieza/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...plan, activo: true }),

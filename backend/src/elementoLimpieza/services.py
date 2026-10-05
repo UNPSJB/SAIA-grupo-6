@@ -5,7 +5,7 @@ from datetime import date
 from src.exceptions import ConflictoRegistroInactivo
 from .exceptions import ElementoLimpiezaNoEncontrado, ElementoLimpiezaYaExiste
 from .models import ElementoLimpieza
-from .schemas import ElementoLimpiezaCreate, ElementoLimpiezaUpdate
+from .schemas import ElementoLimpiezaCreate, ElementoLimpiezaUpdate, ElementoLimpiezaOpcion
 
 def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> ElementoLimpieza:
 
@@ -43,11 +43,26 @@ def listar_elementos_limpieza( db: Session, incluir_inactivos: bool = False) -> 
   return list(db.scalars(consulta).all())
 
 
+def listar_opciones_elementos(db: Session) -> list[ElementoLimpiezaOpcion]:
+  """Solo los datos necesarios para que el operario elija el elemento
+  utilizado al marcar su tarea del checklist."""
+  elementos = db.scalars(
+    select(ElementoLimpieza)
+    .where(ElementoLimpieza.activo.is_(True))
+    .order_by(ElementoLimpieza.nombre)
+  ).all()
+
+  return [
+    ElementoLimpiezaOpcion(id=elemento.id, nombre=elemento.nombre)
+    for elemento in elementos
+  ]
+
+
 def obtener_elemento_limpieza(db: Session, elemento_id: int) -> ElementoLimpieza:
   elemento: ElementoLimpieza = db.get(ElementoLimpieza, elemento_id)
 
   if elemento is None:
-    raise ElementoLimpiezaNoEncontrado(elemento_id)
+    raise ElementoLimpiezaNoEncontrado()
 
   return elemento
 

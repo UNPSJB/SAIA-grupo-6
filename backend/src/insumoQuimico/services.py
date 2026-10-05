@@ -53,11 +53,20 @@ def obtener_insumo_quimico(db: Session, insumo_id: int) -> InsumoQuimico:
     return insumo
 
 
-def obtener_insumo_quimico(db: Session, insumo_id: int) -> InsumoQuimico:
-    insumo = db.scalar(select(InsumoQuimico).where(InsumoQuimico.id == insumo_id))
-    if not insumo:
-        raise exceptions.InsumoQuimicoNoEncontrado()
-    return insumo
+def listar_opciones_insumos(db: Session) -> List[schemas.InsumoQuimicoOpcion]:
+    """Solo los datos necesarios para que el operario elija un producto
+    químico al marcar su tarea del checklist."""
+    filas = db.execute(
+        select(InsumoQuimico.id, InsumoQuimico.nombre, UnidadMedida.simbolo)
+        .join(UnidadMedida, InsumoQuimico.unidad_medida_id == UnidadMedida.id)
+        .where(InsumoQuimico.activo.is_(True))
+        .order_by(InsumoQuimico.nombre)
+    ).all()
+
+    return [
+        schemas.InsumoQuimicoOpcion(id=id_, nombre=nombre, unidad_simbolo=simbolo)
+        for id_, nombre, simbolo in filas
+    ]
 
 
 def actualizar_insumo_quimico(db: Session, insumo_id: int, datos: schemas.InsumoQuimicoUpdate) -> InsumoQuimico:

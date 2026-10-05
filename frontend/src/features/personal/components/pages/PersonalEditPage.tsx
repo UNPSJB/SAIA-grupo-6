@@ -5,10 +5,13 @@ import { PersonalForm } from "../PersonalForm";
 import { usePersonal } from "../../hooks/usePersonal";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { useAuth } from "../../../../common/context/AuthContext";
+import { esSuperAdmin, puedeModificarRoles } from "../../../../common/api/permissions";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { Persona } from "../../types/personal";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const personaId = Number(id);
 
@@ -19,6 +22,11 @@ export function PersonalEditPage() {
   const { persona, loading: cargando, error: errorCarga } = usePersonal(Number.isFinite(personaId) ? personaId : null);
   const { modificar, loading: guardando, error: errorGuardado } = usePersonalABM();
   const [exito, setExito] = useState(false);
+
+  // Jerarquía: qué puede tocar este usuario sobre la persona que se está editando.
+  const objetivo = persona ?? null;
+  const puedeEditarCapacidades = objetivo ? puedeModificarRoles(user, objetivo) : false;
+  const puedeAsignarSuperAdmin = esSuperAdmin(user);
 
   const handleSubmit = async (values: Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">) => {
     try {
@@ -34,12 +42,13 @@ export function PersonalEditPage() {
             apellido: usuarioActualizado.apellido || "", // Si está vacío, mandamos un texto en blanco
             dni: usuarioActualizado.dni,
             puede_operar: usuarioActualizado.puede_operar,
-            puede_administrar: usuarioActualizado.puede_administrar
+            puede_administrar: usuarioActualizado.puede_administrar,
+            es_super_admin: Boolean(usuarioActualizado.es_super_admin)
         });
       }
 
       setExito(true);
-      setTimeout(() => { navigate("/personal"); }, 2000);
+      delayedNavigate("/personal");
     } catch { }
   };
 
@@ -82,11 +91,14 @@ export function PersonalEditPage() {
               email: persona.email, 
               telefono: persona.telefono || "", 
               puede_operar: persona.puede_operar, 
-              puede_administrar: persona.puede_administrar 
+              puede_administrar: persona.puede_administrar,
+              es_super_admin: Boolean(persona.es_super_admin)
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
             title="Modificar Personal"
+            puedeEditarCapacidades={puedeEditarCapacidades}
+            puedeAsignarSuperAdmin={puedeAsignarSuperAdmin}
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/personal")}
             esMiPerfil={esMiPerfil}

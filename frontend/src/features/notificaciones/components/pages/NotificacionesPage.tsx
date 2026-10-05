@@ -10,6 +10,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { obtenerNotificaciones } from "../../services/notificacionService";
+import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { Notificacion } from "../../types/notificacion";
 
@@ -23,6 +24,7 @@ function formatearFecha(fecha?: string) {
 
 export function NotificacionesPage() {
   const navigate = useNavigate();
+  const delayed = useSafeTimeout();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [exito, setExito] = useState(false); // <-- Estado para el cartel verde
@@ -53,7 +55,7 @@ export function NotificacionesPage() {
         
         // Mostramos el cartel de éxito
         setExito(true);
-        setTimeout(() => {
+        delayed(() => {
           setExito(false);
           cargar(); // Recién cuando se va el cartel recargamos la tabla
         }, 1500); // 1.5 segundos es ideal para no hacerlos esperar mucho

@@ -13,14 +13,19 @@ import {
 import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
-import { listarInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
-import type { InsumoQuimico } from "../../../insumoQuimico/types/insumoQuimico";
-import { listarElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import type { ElementoLimpieza } from "../../../elementoLimpieza/types/elementoLimpieza";
-import { useAuth } from "../../../../common/context/AuthContext";
+import { listarOpcionesInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
+import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQuimico";
+import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
+import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
+import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
+
 
 const TEAL = "#468189";
 const TEAL_CLARO = "#90BEBB";
+
+// Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
+// src/checklist/router.py).
+const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 const estiloInput = {
   backgroundColor: "#fff",
@@ -91,15 +96,15 @@ function fechaLocalISO(fecha: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function unidadMedidaLabel(insumo: InsumoQuimico): string {
-  return `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`;
+function unidadMedidaLabel(insumo: InsumoQuimicoOpcion): string {
+  return insumo.unidad_simbolo ? `(${insumo.unidad_simbolo})` : "";
 }
 
 interface FilaTareaProps {
   tarea: TareaDelDia;
   isLoading: boolean;
-  insumosQuimicos: InsumoQuimico[];
-  elementosLimpieza: ElementoLimpieza[];
+  insumosQuimicos: InsumoQuimicoOpcion[];
+  elementosLimpieza: ElementoLimpiezaOpcion[];
   onToggle: (
     tareaId: number,
     estadoActual: boolean,
@@ -129,7 +134,12 @@ function FilaTarea({
   );
   const [errorConsumo, setErrorConsumo] = useState<string | null>(null);
   const [mostrarProcedimiento, setMostrarProcedimiento] = useState(false);
-  const [imagenModalUrl, setImagenModalUrl] = useState<string | null>(null);
+  const [mostrarFoto, setMostrarFoto] = useState(false);
+  const [previewEvidencia, setPreviewEvidencia] = useState<string | null>(null);
+  const [errorEvidencia, setErrorEvidencia] = useState<string | null>(null);
+  // La evidencia vive detrás de /uploads, que exige token: no se puede poner la
+  // ruta en el src del <img>, hay que bajarla con la sesión.
+  const imagen = useImagenAutenticada(tarea.evidencia_url);
   const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
@@ -153,9 +163,44 @@ function FilaTarea({
   const esHistorico = tarea.checklist_estado === "cerrado";
   const esFuturo = tarea.registro_id === 0;
   const esCerrado = esHistorico || esFuturo;
-  const urlFoto = tarea.evidencia_url
-    ? `http://localhost:8000/${tarea.evidencia_url.replace(/\\/g, "/")}`
-    : null;
+
+  const idInputEvidencia = `evidencia-${tarea.registro_id}-${tarea.id}`;
+
+  /** Limpia el archivo seleccionado, el preview y el input oculto.
+   *  También vacía el value del input para que volver a elegir la misma foto
+   *  vuelva a disparar el onChange. */
+  const limpiarEvidencia = () => {
+    setArchivoEvidencia(null);
+    setPreviewEvidencia(null);
+    setErrorEvidencia(null);
+    const input = document.getElementById(idInputEvidencia) as HTMLInputElement | null;
+    if (input) input.value = "";
+  };
+
+  const handleEvidenciaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setErrorEvidencia(null);
+
+    if (!file) {
+      limpiarEvidencia();
+      return;
+    }
+
+    if (!FORMATOS_PERMITIDOS.includes(file.type)) {
+      setErrorEvidencia(
+        "Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP)."
+      );
+      limpiarEvidencia();
+      return;
+    }
+
+    setArchivoEvidencia(file);
+
+    // Leemos el archivo como data URL para mostrarlo sin tener que subirlo.
+    const reader = new FileReader();
+    reader.onloadend = () => setPreviewEvidencia(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleCheckboxClick = () => {
     if (tarea.completado) {
@@ -167,7 +212,7 @@ function FilaTarea({
         undefined,
         undefined
       );
-      setArchivoEvidencia(null);
+      limpiarEvidencia();
       setErrorConsumo(null);
       return;
     }
@@ -205,7 +250,7 @@ function FilaTarea({
       cantidad,
       elementoId
     );
-    setArchivoEvidencia(null);
+    limpiarEvidencia();
   };
 
   return (
@@ -376,22 +421,16 @@ function FilaTarea({
             <Box mt="8px">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 style={{ display: "none" }}
-                id={`evidencia-${tarea.registro_id}-${tarea.id}`}
-                onChange={(e) =>
-                  setArchivoEvidencia(e.target.files?.[0] || null)
-                }
+                id={idInputEvidencia}
+                onChange={handleEvidenciaChange}
               />
               <HStack gap="10px">
                 <button
                   type="button"
                   onClick={() =>
-                    document
-                      .getElementById(
-                        `evidencia-${tarea.registro_id}-${tarea.id}`
-                      )
-                      ?.click()
+                    document.getElementById(idInputEvidencia)?.click()
                   }
                   style={{
                     fontSize: "12px",
@@ -410,6 +449,49 @@ function FilaTarea({
                   </Text>
                 )}
               </HStack>
+
+              {errorEvidencia && (
+                <Text fontSize="12px" color="red.500" mt="6px" fontWeight="bold">
+                  ⚠️ {errorEvidencia}
+                </Text>
+              )}
+
+              {/* Vista previa de la foto elegida, con opción de quitarla */}
+              {previewEvidencia && (
+                <Box mt="10px" position="relative" display="inline-block">
+                  <img
+                    src={previewEvidencia}
+                    alt="Vista previa de la evidencia"
+                    style={{
+                      maxWidth: "160px",
+                      maxHeight: "160px",
+                      borderRadius: "8px",
+                      border: "2px solid #90BEBB",
+                      display: "block",
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={limpiarEvidencia}
+                    aria-label="Quitar evidencia"
+                    position="absolute"
+                    top="-8px"
+                    right="-8px"
+                    size="xs"
+                    minW="22px"
+                    height="22px"
+                    padding="0"
+                    borderRadius="full"
+                    bg="#d9534f"
+                    color="white"
+                    fontWeight="bold"
+                    lineHeight="1"
+                    _hover={{ bg: "#c9302c" }}
+                  >
+                    ✕
+                  </Button>
+                </Box>
+              )}
             </Box>
           )}
         </Table.Cell>
@@ -447,10 +529,10 @@ function FilaTarea({
                 onChange={handleCheckboxClick}
                 style={{ width: "18px", height: "18px", cursor: "pointer" }}
               />
-              {urlFoto && (
+              {tarea.evidencia_url && (
                 <button
                   type="button"
-                  onClick={() => setImagenModalUrl(urlFoto)}
+                  onClick={() => setMostrarFoto(true)}
                   style={{
                     fontSize: "11px",
                     color: TEAL,
@@ -487,7 +569,7 @@ function FilaTarea({
         </Table.Cell>
       </Table.Row>
 
-      {imagenModalUrl && (
+      {mostrarFoto && (
         <Box
           style={{
             position: "fixed",
@@ -518,18 +600,30 @@ function FilaTarea({
               gap: "15px",
             }}
           >
-            <img
-              src={imagenModalUrl}
-              alt="Evidencia fotográfica"
-              style={{
-                maxWidth: "100%",
-                maxHeight: "70vh",
-                objectFit: "contain",
-                borderRadius: "8px",
-              }}
-            />
+            {imagen.loading && (
+              <Text fontSize="14px" color="gray.500">
+                Cargando imagen...
+              </Text>
+            )}
+            {!imagen.loading && imagen.error && (
+              <Text fontSize="14px" color="red.500">
+                {imagen.error}
+              </Text>
+            )}
+            {imagen.src && (
+              <img
+                src={imagen.src}
+                alt="Evidencia fotográfica"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "70vh",
+                  objectFit: "contain",
+                  borderRadius: "8px",
+                }}
+              />
+            )}
             <Button
-              onClick={() => setImagenModalUrl(null)}
+              onClick={() => setMostrarFoto(false)}
               style={{
                 backgroundColor: TEAL,
                 color: "white",
@@ -609,21 +703,22 @@ function FilaTarea({
 }
 
 export function ChecklistPage() {
-  const { user } = useAuth();
   const hoyISO = fechaLocalISO(new Date());
   const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
-  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimico[]>([]);
-  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpieza[]>([]);
+  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimicoOpcion[]>([]);
+  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpiezaOpcion[]>([]);
 
   const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
-    useChecklist(selectedFecha, user?.id);
+    useChecklist(selectedFecha);
 
   useEffect(() => {
+    // Usamos los endpoints de "opciones": son los únicos de estos catálogos
+    // accesibles para un operario sin permisos de administración.
     const cargarOpciones = async () => {
       try {
         const [datosQuimicos, datosElementos] = await Promise.all([
-          listarInsumosQuimicos().catch(() => []),
-          listarElementosLimpieza().catch(() => []),
+          listarOpcionesInsumosQuimicos().catch(() => []),
+          listarOpcionesElementosLimpieza().catch(() => []),
         ]);
         setInsumosQuimicos(datosQuimicos);
         setElementosLimpieza(datosElementos);

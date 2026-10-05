@@ -1,0 +1,105 @@
+import type { Incidente, IncidenteFormValues, EstadoIncidente } from "../types/incidente";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
+/**
+ * Lista los incidentes del más reciente al más viejo.
+ * Sin `estado` llegan abiertos y cerrados.
+ */
+export async function listarIncidentes(
+  estado?: EstadoIncidente | "",
+  tipo?: string,
+  equipoId?: number
+): Promise<Incidente[]> {
+  const params = new URLSearchParams();
+  if (estado) params.append("estado", estado);
+  if (tipo) params.append("tipo", tipo);
+  if (equipoId) params.append("equipo_id", String(equipoId));
+
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const response = await apiFetch(`${API_URL}/incidentes${query}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener los incidentes");
+  }
+
+  return response.json();
+}
+
+export async function listarMisIncidentes(): Promise<Incidente[]> {
+  const response = await apiFetch(`${API_URL}/incidentes/mios`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener tus incidentes");
+  }
+
+  return response.json();
+}
+
+export async function obtenerIncidente(id: number): Promise<Incidente> {
+  const response = await apiFetch(`${API_URL}/incidentes/${id}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al obtener el incidente");
+  }
+
+  return response.json();
+}
+
+export async function crearIncidente(
+  datos: IncidenteFormValues,
+  foto?: File
+): Promise<Incidente> {
+  const formData = new FormData();
+  formData.append("descripcion", datos.descripcion);
+  formData.append("tipo", datos.tipo);
+  if (datos.equipo_id) {
+    formData.append("equipo_id", String(datos.equipo_id));
+  }
+  // usuario_id se toma del token JWT en el backend
+  if (foto) {
+    formData.append("foto", foto);
+  }
+
+  const response = await apiFetch(`${API_URL}/incidentes`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al crear el incidente");
+  }
+
+  return response.json();
+}
+
+/**
+ * Cierra o reabre un incidente.
+ *
+ * La fecha de cierre y el responsable los completa el backend a partir del
+ * token: el frontend solo manda el estado y, al cerrar, la acción correctiva.
+ */
+export async function cambiarEstadoIncidente(
+  id: number,
+  estado: EstadoIncidente,
+  observacion_cierre?: string
+): Promise<Incidente> {
+  const response = await apiFetch(`${API_URL}/incidentes/${id}/estado`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      estado,
+      observacion_cierre: estado === "cerrado" ? observacion_cierre ?? null : null,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al cambiar el estado del incidente");
+  }
+
+  return response.json();
+}

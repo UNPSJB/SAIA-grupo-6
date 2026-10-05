@@ -2,17 +2,22 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from src.database import get_db
+from src.auth.dependencies import require_admin, require_operador
 from . import schemas, services
 
+# Sin dependencia global: cada endpoint declara lo que necesita.
+# Leer la lista de equipos es parte de lo operativo (por ejemplo, para
+# reportar un incidente), pero modificar el maestro es solo del administrador.
 router = APIRouter(
     prefix="/equipos",
-    tags=["Equipos"]
+    tags=["Equipos"],
 )
 
 @router.post(
     "",
     response_model=schemas.EquipoResponse,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)]
 )
 def crear_equipo(
     datos: schemas.EquipoCreate,
@@ -22,7 +27,8 @@ def crear_equipo(
 
 @router.get(
     "",
-    response_model=list[schemas.EquipoResponse]
+    response_model=list[schemas.EquipoResponse],
+    dependencies=[Depends(require_operador)]
 )
 def listar_equipo(
     incluir_inactivos: bool = False,
@@ -32,7 +38,8 @@ def listar_equipo(
 
 @router.get(
     "/{equipo_id}",
-    response_model=schemas.EquipoResponse
+    response_model=schemas.EquipoResponse,
+    dependencies=[Depends(require_operador)]
 )
 def obtener_equipo(
     equipo_id: int,
@@ -42,7 +49,8 @@ def obtener_equipo(
 
 @router.patch(
     "/{equipo_id}",
-    response_model=schemas.EquipoResponse
+    response_model=schemas.EquipoResponse,
+    dependencies=[Depends(require_admin)]
 )
 def actualizar_equipo(
     equipo_id: int,
@@ -57,7 +65,8 @@ def actualizar_equipo(
 
 @router.delete(
     "/{equipo_id}",
-    response_model=schemas.EquipoResponse
+    response_model=schemas.EquipoResponse,
+    dependencies=[Depends(require_admin)]
 )
 def dar_de_baja_equipo(
     equipo_id: int,

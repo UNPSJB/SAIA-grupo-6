@@ -23,6 +23,16 @@ class InsumoUpdate(BaseModel):
     unidad_medida_id: int | None = None
     activo: bool | None = None
 
+    # Igual que el alta: sin esto se podían guardar nombres vacíos al editar.
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v):
+        if v is None:
+            return None
+        if not v.strip():
+            raise exceptions.NombreVacio()
+        return v.strip()
+
 
 class Insumo(InsumoBase):
     id: int

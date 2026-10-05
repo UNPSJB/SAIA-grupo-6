@@ -12,7 +12,6 @@ import {
   Text,
   Switch,
 } from "@chakra-ui/react";
-import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { EquipoTable } from "../equipoTable";
 import { DeleteEquipoDialog } from "../DeleteEquipoDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";

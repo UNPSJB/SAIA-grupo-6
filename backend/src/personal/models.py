@@ -22,6 +22,12 @@ class Personal(ModeloBase):
     puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
     puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Jerarquía de roles:
+    #   super admin -> administra todo y puede editar a cualquiera
+    #   admin       -> administra todo, pero solo edita a operadores y a sí mismo
+    #   operador    -> solo se edita a sí mismo
+    es_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     planes: Mapped[list["PlanLimpieza"]] = relationship(

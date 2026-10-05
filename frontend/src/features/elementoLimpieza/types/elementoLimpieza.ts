@@ -6,3 +6,9 @@ export interface ElementoLimpieza {
   activo: boolean;
 }
 export type ElementoLimpiezaFormValues = Omit<ElementoLimpieza, "id" | "activo">;
+
+/** Datos mínimos del elemento para seleccionarlo en el checklist. */
+export interface ElementoLimpiezaOpcion {
+  id: number;
+  nombre: string;
+}

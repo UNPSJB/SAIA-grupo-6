@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoForm } from "../../components/insumoForm";
 import { useInsumo } from "../../hooks/useInsumo";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoFormValues } from "../../types/insumo";
 
 export function InsumoEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const insumoId = Number(id);
 
@@ -29,9 +31,7 @@ export function InsumoEditPage() {
       await modificar(insumoId, values);
       setExito(true);
       // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
-      setTimeout(() => {
-        navigate("/insumos");
-      }, 2000);
+      delayedNavigate("/insumos");
     } catch {
       // El error ya queda reflejado en useInsumoABM().error
     }

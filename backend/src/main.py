@@ -1,11 +1,12 @@
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from src.database import engine
 from src.models import ModeloBase
+from src.migrations import crear_tablas_y_migrar
+from src.uploads.router import router as uploads_router
 
 # Importamos la configuración validada por Pydantic
 from src.config import settings
@@ -15,7 +16,8 @@ from src.logger import setup_logging
 
 # Importamos los routers desde nuestros módulos
 from src.personal.router import router as personal_router
-from fastapi.middleware.cors import CORSMiddleware
+from src.auth.router import router as auth_router
+from src.auth import models as auth_models  # noqa: F401 (registra la tabla de tokens revocados)
 
 from src.Equipo import models as equipo_models
 from src.Equipo.router import router as equipo_router
@@ -43,6 +45,7 @@ from src.insumoQuimico.router import router as insumoQuimico_router
 
 from src.notificaciones.router import router as notificaciones_router
 from src.unidadMedida.router import router as unidad_medida_router
+from src.incidente.router import router as incidente_router
 
 
 ENV = settings.ENV.upper()
@@ -53,7 +56,8 @@ setup_logging()
 
 @asynccontextmanager
 async def db_creation_lifespan(app: FastAPI):
-    ModeloBase.metadata.create_all(bind=engine)
+    # Crea las tablas faltantes y aplica las migraciones de columnas.
+    crear_tablas_y_migrar()
     yield
 
 
@@ -63,17 +67,15 @@ app = FastAPI(
 )
 
 
-# Aseguramos que la carpeta uploads exista y la montamos para que sea accesible por HTTP
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# La carpeta de evidencias existe, pero NO se sirve como carpeta estática:
+# las fotos de las tareas requieren sesión (ver src/uploads/router.py).
+os.makedirs("uploads/evidencias", exist_ok=True)
 
-origins = [
-    "http://localhost:5173",
-]
+origins = settings.cors_origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,13 +83,12 @@ app.add_middleware(
 
 
 # Asociamos los routers a nuestra app
+app.include_router(auth_router)
+app.include_router(uploads_router)
 app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
 app.include_router(elementosLimpieza_router)
-
-#crear tabla registrada en SQLAlchemy
-ModeloBase.metadata.create_all(bind=engine)
 app.include_router(plan_limpieza_router)
 app.include_router(plan_calibracion_mantenimiento_router)
 app.include_router(tareas_router)
@@ -95,3 +96,4 @@ app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)
 app.include_router(notificaciones_router)
 app.include_router(unidad_medida_router)
+app.include_router(incidente_router)
