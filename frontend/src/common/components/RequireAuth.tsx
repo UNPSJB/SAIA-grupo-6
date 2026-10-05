@@ -30,7 +30,8 @@ export function RequireRole({
     return <Navigate to="/login" replace />;
   }
 
-  const tienePermiso = permiso === "puede_operar" ? puedeOperar(user) : puedeAdministrar(user);
+  const tienePermiso =
+    permiso === "puede_operar" ? puedeOperar(user) : puedeAdministrar(user);
 
   if (!tienePermiso) {
     return <Navigate to="/sin-permisos" replace />;

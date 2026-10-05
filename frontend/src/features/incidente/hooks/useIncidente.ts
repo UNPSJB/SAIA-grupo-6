@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { obtenerIncidente } from "../services/incidenteService";
 import type { Incidente } from "../types/incidente";
 
@@ -7,25 +7,24 @@ export function useIncidente(id: number | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const cargarIncidente = useCallback(async () => {
     if (id === null || isNaN(id)) return;
-
-    const cargarIncidente = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await obtenerIncidente(id);
-        setIncidente(data);
-      } catch (err) {
-        setError("No se pudo cargar el incidente");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarIncidente();
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await obtenerIncidente(id);
+      setIncidente(data);
+    } catch (err) {
+      setError("No se pudo cargar el incidente");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  return { incidente, loading, error };
+  useEffect(() => {
+    cargarIncidente();
+  }, [cargarIncidente]);
+
+  return { incidente, loading, error, recargar: cargarIncidente };
 }

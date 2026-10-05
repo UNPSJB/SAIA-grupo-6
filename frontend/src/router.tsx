@@ -48,10 +48,10 @@ import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unida
 import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
 import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";
 
-// 8. Importaciones del módulo de Unidad de Medida
-import { IncidentePage } from "./features/incidente/components/pages/IncidentePage";
-import { IncidenteCreatePage } from "./features/incidente/components/pages/IncidenteCreatePage";
+// 8. Importaciones del módulo de Incidentes
+import { IncidentesListPage } from "./features/incidente/components/pages/IncidentesListPage";
 import { IncidenteDetailPage } from "./features/incidente/components/pages/IncidenteDetailPage";
+import { ReportarIncidentePage } from "./features/incidente/components/pages/ReportarIncidentePage";
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
@@ -97,6 +97,8 @@ export const router = createBrowserRouter([
             element: <RequireRole permiso="puede_operar" />,
             children: [
               { path: "/checklist", element: <ChecklistPage /> },
+              { path: "/incidentes/reportar", element: <ReportarIncidentePage /> },
+              { path: "/incidentes/:id", element: <IncidenteDetailPage /> },
             ],
           },
           // --- RUTAS DE HISTORIAL Y NOTIFICACIONES (solo administrar) ---
@@ -135,10 +137,8 @@ export const router = createBrowserRouter([
               { path: "/unidades-medida", element: <UnidadMedidaPage /> },
               { path: "/unidades-medida/nuevo", element: <UnidadMedidaCreatePage /> },
               { path: "/unidades-medida/:id/editar", element: <UnidadMedidaEditPage /> },
-              // --- RUTAS DE INCIDENTES ---
-              { path: "/incidentes", element: <IncidentePage /> },
-              { path: "/incidentes/nuevo", element: <IncidenteCreatePage /> },
-              { path: "/incidentes/:id", element: <IncidenteDetailPage /> },
+              // --- RUTAS DE INCIDENTES (Solo Admin) ---
+              { path: "/incidentes", element: <IncidentesListPage /> },
             ],
           },
           // --- 403 y 404 ---

@@ -1,42 +1,47 @@
 import { useNavigate } from "react-router-dom";
 import { Button, HStack, Table, Badge, Text } from "@chakra-ui/react";
-import type { Incidente, TipoIncidente } from "../types/incidente";
-import { TIPOS_INCIDENTE } from "../types/incidente";
+import { CeldaFoto } from "./MiniaturaFoto";
+import {
+  estadoLabel,
+  tipoLabel,
+  tipoColor,
+  formatoFecha,
+} from "../types/incidente";
+import type { Incidente } from "../types/incidente";
 
 interface IncidenteItemProps {
   incidente: Incidente;
-  onDelete: (incidente: Incidente) => void;
+  onCerrar?: (incidente: Incidente) => void;
+  onReabrir?: (incidente: Incidente) => void;
+  onVer?: (incidente: Incidente) => void;
+  showActions?: boolean;
 }
 
 const TEAL = "#468189";
 
-function tipoLabel(tipo: TipoIncidente): string {
-  return TIPOS_INCIDENTE.find((t) => t.value === tipo)?.label ?? tipo;
-}
-
-function tipoColor(tipo: TipoIncidente): string {
-  switch (tipo) {
-    case "plagas":
-      return "red";
-    case "falla_equipo":
-      return "orange";
-    case "devolucion_cliente":
-      return "yellow";
-    case "higiene_contaminacion":
-      return "purple";
-    default:
-      return "gray";
-  }
-}
-
-export function IncidenteItem({ incidente, onDelete }: IncidenteItemProps) {
+export function IncidenteItem({
+  incidente,
+  onCerrar,
+  onReabrir,
+  onVer,
+  showActions = true,
+}: IncidenteItemProps) {
   const navigate = useNavigate();
+  const cerrado = incidente.estado === "cerrado";
+
+  const handleVer = () => {
+    if (onVer) {
+      onVer(incidente);
+    } else {
+      navigate(`/incidentes/${incidente.id}`);
+    }
+  };
 
   return (
     <Table.Row
       style={{
         borderBottom: "1px solid #eee",
-        opacity: incidente.activo ? 1 : 0.65,
+        opacity: cerrado ? 0.7 : 1,
       }}
     >
       <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
@@ -52,6 +57,15 @@ export function IncidenteItem({ incidente, onDelete }: IncidenteItemProps) {
         >
           {incidente.descripcion}
         </Text>
+        {cerrado && incidente.observacion_cierre && (
+          <Text fontSize="12px" color="gray.500" mt="4px" lineClamp={2}>
+            <strong>Resolución:</strong> {incidente.observacion_cierre}
+          </Text>
+        )}
+      </Table.Cell>
+
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        <CeldaFoto rutaFoto={incidente.foto_url} />
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
@@ -61,43 +75,74 @@ export function IncidenteItem({ incidente, onDelete }: IncidenteItemProps) {
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        <Badge
+          colorPalette={cerrado ? "green" : "red"}
+          borderRadius="md"
+          px="10px"
+          py="4px"
+        >
+          {estadoLabel(incidente.estado)}
+        </Badge>
+      </Table.Cell>
+
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
       </Table.Cell>
 
       <Table.Cell fontSize="14px" style={{ padding: "12px" }}>
-        {new Date(incidente.fecha_reporte).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour12: false })}
+        {formatoFecha(incidente.fecha_reporte)}
       </Table.Cell>
 
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
-          <Button
-            variant="ghost"
-            fontSize="18px"
-            cursor="pointer"
-            onClick={() => navigate(`/incidentes/${incidente.id}`)}
-            title="Ver Detalle"
-          >
-            👁️
-          </Button>
-          {incidente.activo && (
+      {showActions && (
+        <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+          <HStack justify="center" style={{ gap: "10px" }}>
             <Button
-              bg="#d9534f"
-              color="white"
-              fontSize="15px"
-              fontWeight="normal"
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "4px",
-              }}
-              _hover={{ bg: "#c9302c" }}
-              onClick={() => onDelete(incidente)}
+              variant="ghost"
+              fontSize="18px"
+              cursor="pointer"
+              onClick={handleVer}
+              title="Ver Detalle"
             >
-              Eliminar
+              👁️
             </Button>
-          )}
-        </HStack>
-      </Table.Cell>
+            {cerrado
+              ? onReabrir && (
+                  <Button
+                    bg="#f0ad4e"
+                    color="white"
+                    fontSize="15px"
+                    fontWeight="normal"
+                    style={{
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: "4px",
+                    }}
+                    _hover={{ bg: "#ec971f" }}
+                    onClick={() => onReabrir(incidente)}
+                  >
+                    Reabrir
+                  </Button>
+                )
+              : onCerrar && (
+                  <Button
+                    bg={TEAL}
+                    color="white"
+                    fontSize="15px"
+                    fontWeight="normal"
+                    style={{
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: "4px",
+                    }}
+                    _hover={{ bg: "#37666d" }}
+                    onClick={() => onCerrar(incidente)}
+                  >
+                    Cerrar
+                  </Button>
+                )}
+          </HStack>
+        </Table.Cell>
+      )}
     </Table.Row>
   );
 }

@@ -24,3 +24,7 @@ class UsuarioNoEncontrado(BadRequest):
 
 class UsuarioInactivo(BadRequest):
     DETAIL = ErrorCode.USUARIO_INACTIVO
+
+
+class EstadoInvalido(BadRequest):
+    DETAIL = ErrorCode.ESTADO_INVALIDO

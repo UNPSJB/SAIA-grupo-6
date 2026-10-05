@@ -4,16 +4,27 @@ import type { Incidente } from "../types/incidente";
 
 interface IncidenteTableProps {
   incidentes: Incidente[];
-  onDelete: (incidente: Incidente) => void;
+  onCerrar?: (incidente: Incidente) => void;
+  onReabrir?: (incidente: Incidente) => void;
+  onVer?: (incidente: Incidente) => void;
+  showActions?: boolean;
+  mensajeVacio?: string;
 }
 
 const TEAL = "#468189";
 
-export function IncidenteTable({ incidentes, onDelete }: IncidenteTableProps) {
+export function IncidenteTable({
+  incidentes,
+  onCerrar,
+  onReabrir,
+  onVer,
+  showActions = true,
+  mensajeVacio = "Todavía no se registraron incidentes.",
+}: IncidenteTableProps) {
   if (incidentes.length === 0) {
     return (
       <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
-        <Text color="gray.500">No hay incidentes registrados.</Text>
+        <Text color="gray.500">{mensajeVacio}</Text>
       </Box>
     );
   }
@@ -48,9 +59,27 @@ export function IncidenteTable({ incidentes, onDelete }: IncidenteTableProps) {
               color="white"
               fontWeight="normal"
               fontSize="16px"
+              style={{ padding: "12px", width: "90px" }}
+            >
+              Foto
+            </Table.ColumnHeader>
+
+            <Table.ColumnHeader
+              color="white"
+              fontWeight="normal"
+              fontSize="16px"
               style={{ padding: "12px" }}
             >
               Tipo
+            </Table.ColumnHeader>
+
+            <Table.ColumnHeader
+              color="white"
+              fontWeight="normal"
+              fontSize="16px"
+              style={{ padding: "12px", width: "130px" }}
+            >
+              Estado
             </Table.ColumnHeader>
 
             <Table.ColumnHeader
@@ -71,14 +100,16 @@ export function IncidenteTable({ incidentes, onDelete }: IncidenteTableProps) {
               Fecha
             </Table.ColumnHeader>
 
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", textAlign: "center" }}
-            >
-              Acciones
-            </Table.ColumnHeader>
+            {showActions && (
+              <Table.ColumnHeader
+                color="white"
+                fontWeight="normal"
+                fontSize="16px"
+                style={{ padding: "12px", textAlign: "center" }}
+              >
+                Acciones
+              </Table.ColumnHeader>
+            )}
           </Table.Row>
         </Table.Header>
 
@@ -87,7 +118,10 @@ export function IncidenteTable({ incidentes, onDelete }: IncidenteTableProps) {
             <IncidenteItem
               key={incidente.id}
               incidente={incidente}
-              onDelete={onDelete}
+              onCerrar={onCerrar}
+              onReabrir={onReabrir}
+              onVer={onVer}
+              showActions={showActions}
             />
           ))}
         </Table.Body>

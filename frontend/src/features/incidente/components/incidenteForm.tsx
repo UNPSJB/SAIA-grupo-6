@@ -4,7 +4,6 @@ import {
   Button,
   Field,
   HStack,
-  Input,
   NativeSelect,
   Text,
 } from "@chakra-ui/react";
@@ -18,34 +17,35 @@ interface IncidenteFormProps {
   isLoading?: boolean;
   submitLabel?: string;
   title?: string;
+  fullWidth?: boolean;
 }
 
 const emptyValues: IncidenteFormValues = {
   descripcion: "",
   tipo: "otro",
   equipo_id: null,
-  foto_url: null,
 };
 
-const estiloInput = {
+const getEstiloInput = (maxWidth: string) => ({
   backgroundColor: "#fff",
   padding: "12px",
   width: "100%",
-  maxWidth: "500px",
+  maxWidth,
   borderRadius: "8px",
   border: "2px solid #90BEBB",
   fontSize: "16px",
   outline: "none",
   color: "#333",
-};
+});
 
-const estiloSelect = {
-  ...estiloInput,
+const estiloSelectBase = {
   boxSizing: "border-box" as const,
   colorScheme: "light" as const,
   height: "auto" as const,
   lineHeight: "normal" as const,
 };
+
+
 
 const estiloLabel = {
   display: "block",
@@ -57,18 +57,26 @@ const estiloLabel = {
 
 const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
+// Mismo límite que el backend. Acá se avisa al instante; el backend vuelve a
+// validarlo porque el chequeo del navegador se puede saltear.
+const TAMANO_MAX_FOTO = 5 * 1024 * 1024;
+
 export function IncidenteForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
   title = "Registrar Incidente",
+  fullWidth = false,
 }: IncidenteFormProps) {
   const [values, setValues] = useState<IncidenteFormValues>(emptyValues);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [cargandoEquipos, setCargandoEquipos] = useState(true);
+  const [errorEquipos, setErrorEquipos] = useState<string | null>(null);
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
+
+  const maxInputWidth = fullWidth ? "720px" : "500px";
 
   useEffect(() => {
     const cargarEquipos = async () => {
@@ -77,6 +85,13 @@ export function IncidenteForm({
         setEquipos(data);
       } catch (err) {
         console.error("Error al cargar equipos:", err);
+        // Sin este aviso el select quedaba vacío sin explicación y era
+        // indistinguible de "no hay equipos cargados".
+        setErrorEquipos(
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar los equipos."
+        );
       } finally {
         setCargandoEquipos(false);
       }
@@ -113,6 +128,12 @@ export function IncidenteForm({
     if (file) {
       if (!FORMATOS_PERMITIDOS.includes(file.type)) {
         setErrorFoto("Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP).");
+        setFoto(null);
+        setFotoPreview(null);
+        return;
+      }
+      if (file.size > TAMANO_MAX_FOTO) {
+        setErrorFoto("La foto supera el máximo de 5 MB.");
         setFoto(null);
         setFotoPreview(null);
         return;
@@ -175,7 +196,7 @@ export function IncidenteForm({
             placeholder="Ej: Se rompió el termostato de la heladera"
             rows={4}
             style={{
-              ...estiloInput,
+              ...getEstiloInput(maxInputWidth),
               resize: "vertical",
               fontFamily: "inherit",
             }}
@@ -193,7 +214,7 @@ export function IncidenteForm({
             <NativeSelect.Field
               value={values.tipo}
               onChange={handleTipoChange}
-              style={estiloSelect}
+              style={{ ...getEstiloInput(maxInputWidth), ...estiloSelectBase }}
             >
               {TIPOS_INCIDENTE.map((tipo) => (
                 <option
@@ -224,7 +245,7 @@ export function IncidenteForm({
               <NativeSelect.Field
                 value={values.equipo_id ?? ""}
                 onChange={handleEquipoChange}
-                style={estiloSelect}
+                style={{ ...getEstiloInput(maxInputWidth), ...estiloSelectBase }}
               >
                 <option value="">
                   {cargandoEquipos ? "Cargando..." : "Seleccionar equipo (opcional)"}
@@ -245,6 +266,12 @@ export function IncidenteForm({
               <NativeSelect.Indicator />
             </NativeSelect.Root>
           </Field.Root>
+
+          {errorEquipos && (
+            <Text fontSize="13px" color="red.500" mt="6px" fontWeight="bold">
+              ⚠️ {errorEquipos}
+            </Text>
+          )}
         </Box>
       )}
 

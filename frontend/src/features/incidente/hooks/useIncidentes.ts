@@ -1,8 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { listarIncidentes } from "../services/incidenteService";
-import type { Incidente } from "../types/incidente";
+import type { Incidente, EstadoIncidente } from "../types/incidente";
 
-export function useIncidentes(incluirInactivos = false) {
+/**
+ * Carga el listado de incidentes.
+ * @param estado Filtro por estado; "" o undefined trae todos.
+ */
+export function useIncidentes(estado: EstadoIncidente | "" = "") {
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -11,14 +15,14 @@ export function useIncidentes(incluirInactivos = false) {
     try {
       setLoading(true);
       setError(null);
-      const data = await listarIncidentes(incluirInactivos);
+      const data = await listarIncidentes(estado);
       setIncidentes(data);
-    } catch (err) {
+    } catch {
       setError("No se pudieron cargar los incidentes");
     } finally {
       setLoading(false);
     }
-  }, [incluirInactivos]);
+  }, [estado]);
 
   useEffect(() => {
     cargarIncidentes();

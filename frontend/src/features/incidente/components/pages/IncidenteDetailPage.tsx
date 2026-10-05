@@ -2,37 +2,56 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Box, Button, Badge, Heading, Text, HStack, VStack } from "@chakra-ui/react";
 import { useIncidente } from "../../hooks/useIncidente";
+import { useIncidenteABM } from "../../hooks/useIncidenteABM";
+import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
-import { TIPOS_INCIDENTE } from "../../types/incidente";
-import type { TipoIncidente } from "../../types/incidente";
+import { useAuth } from "../../../../common/context/AuthContext";
+import { puedeAdministrar } from "../../../../common/api/permissions";
+import {
+  estadoLabel,
+  tipoLabel,
+  tipoColor,
+  formatoFechaCierre,
+} from "../../types/incidente";
 
-function tipoLabel(tipo: TipoIncidente): string {
-  return TIPOS_INCIDENTE.find((t) => t.value === tipo)?.label ?? tipo;
-}
-
-function tipoColor(tipo: TipoIncidente): string {
-  switch (tipo) {
-    case "plagas":
-      return "red";
-    case "falla_equipo":
-      return "orange";
-    case "devolucion_cliente":
-      return "yellow";
-    case "higiene_contaminacion":
-      return "purple";
-    default:
-      return "gray";
-  }
-}
+const TEAL_DETALLE = "#468189";
 
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { incidente, loading, error } = useIncidente(Number(id));
+  const { incidente, loading, error, recargar } = useIncidente(Number(id));
+  const { cerrar, reabrir, loading: procesando } = useIncidenteABM();
+  const { user } = useAuth();
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
-  // El hook va arriba de todo: no puede declararse después de los returns de
-  // loading/error porque cambiaría el orden de hooks entre renders.
+  const [dialogoCierre, setDialogoCierre] = useState(false);
   const imagen = useImagenAutenticada(incidente?.foto_url);
+
+  // Si es admin vuelve a gestión de incidentes, si es operador vuelve a reportar (sus reportes)
+  const backUrl = puedeAdministrar(user) ? "/incidentes" : "/incidentes/reportar";
+
+  const esAdmin = puedeAdministrar(user);
+  const cerrado = incidente?.estado === "cerrado";
+
+  const handleConfirmCerrar = async (observacionCierre: string) => {
+    if (!incidente) return;
+    try {
+      await cerrar(incidente.id, observacionCierre);
+      setDialogoCierre(false);
+      await recargar();
+    } catch {
+      // El mensaje de error ya quedó en el hook.
+    }
+  };
+
+  const handleReabrir = async () => {
+    if (!incidente) return;
+    try {
+      await reabrir(incidente.id);
+      await recargar();
+    } catch {
+      // El mensaje de error ya quedó en el hook.
+    }
+  };
 
   if (loading) {
     return <Box p="20px">Cargando incidente...</Box>;
@@ -40,9 +59,16 @@ export function IncidenteDetailPage() {
 
   if (error || !incidente) {
     return (
-      <Box p="20px">
+      <Box p="20px" style={{ maxWidth: "600px", margin: "0 auto" }}>
         <Text color="red.500">{error || "No se encontró el incidente"}</Text>
-        <Button mt="16px" onClick={() => navigate("/incidentes")}>
+        <Button 
+          mt="16px" 
+          bg="#6c757d" 
+          color="white" 
+          height="auto" 
+          onClick={() => navigate(backUrl)} 
+          style={{ padding: "8px 16px", borderRadius: "6px" }}
+        >
           Volver a la lista
         </Button>
       </Box>
@@ -52,35 +78,64 @@ export function IncidenteDetailPage() {
   return (
     <>
       <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-        {/* Encabezado */}
+        {/* Encabezado - ESTILO ESTÁNDAR IGUAL A OTROS MÓDULOS */}
         <HStack justify="space-between" mb="24px">
           <Heading as="h2" size="lg" fontWeight="bold" color="black">
             Incidente #{incidente.id}
           </Heading>
-          <Button
-            bg="#6c757d"
-            color="white"
-            height="auto"
-            onClick={() => navigate("/incidentes")}
+          <Button 
+            bg="#6c757d" 
+            color="white" 
+            height="auto" 
+            onClick={() => navigate(backUrl)} 
             style={{ padding: "8px 16px", borderRadius: "6px" }}
           >
             Volver a la lista
           </Button>
         </HStack>
 
-        {/* Badge de estado */}
-        <Box mb="24px">
+        {/* Badge de estado + acción de cierre (solo administradores) */}
+        <HStack justify="space-between" mb="24px">
           <Badge
-            colorPalette={incidente.activo ? "red" : "green"}
+            colorPalette={cerrado ? "green" : "red"}
             borderRadius="md"
             px="16px"
             py="6px"
             fontSize="16px"
             fontWeight="bold"
           >
-            {incidente.activo ? "ABIERTO" : "CERRADO"}
+            {estadoLabel(incidente.estado).toUpperCase()}
           </Badge>
-        </Box>
+
+          {esAdmin && (
+            <HStack gap="10px">
+              {cerrado ? (
+                <Button
+                  bg="#f0ad4e"
+                  color="white"
+                  height="auto"
+                  loading={procesando}
+                  onClick={handleReabrir}
+                  style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}
+                  _hover={{ bg: "#ec971f" }}
+                >
+                  Reabrir incidente
+                </Button>
+              ) : (
+                <Button
+                  bg={TEAL_DETALLE}
+                  color="white"
+                  height="auto"
+                  onClick={() => setDialogoCierre(true)}
+                  style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}
+                  _hover={{ bg: "#37666d" }}
+                >
+                  Cerrar incidente
+                </Button>
+              )}
+            </HStack>
+          )}
+        </HStack>
 
         {/* Tipo */}
         <Box mb="20px">
@@ -158,14 +213,10 @@ export function IncidenteDetailPage() {
               }}
             >
               {imagen.loading && (
-                <Text fontSize="14px" color="gray.500">
-                  Cargando imagen...
-                </Text>
+                <Text fontSize="14px" color="gray.500">Cargando imagen...</Text>
               )}
               {!imagen.loading && imagen.error && (
-                <Text fontSize="14px" color="red.500">
-                  {imagen.error}
-                </Text>
+                <Text fontSize="14px" color="red.500">{imagen.error}</Text>
               )}
               {imagen.src && (
                 <img
@@ -187,8 +238,8 @@ export function IncidenteDetailPage() {
           </Box>
         )}
 
-        {/* Sección de resolución (si está cerrado) */}
-        {!incidente.activo && (
+        {/* Resolución: qué se hizo, cuándo y quién lo resolvió */}
+        {cerrado && (
           <Box
             mb="24px"
             p="20px"
@@ -199,12 +250,26 @@ export function IncidenteDetailPage() {
             }}
           >
             <Text fontSize="16px" color="#276749" fontWeight="bold">
-              ✅ Incidente resuelto
+              ✅ Incidente cerrado
             </Text>
-            <Text fontSize="14px" color="#276749" mt="6px">
-              Este incidente fue marcado como cerrado. La acción correctiva se
-              registrará en una próxima actualización.
-            </Text>
+
+            <VStack align="start" gap="8px" mt="12px">
+              <Text fontSize="15px" color="#276749">
+                <strong>Acción correctiva:</strong>{" "}
+                {incidente.observacion_cierre ?? "Sin detalle registrado."}
+              </Text>
+              <Text fontSize="15px" color="#276749">
+                <strong>Fecha de cierre:</strong>{" "}
+                {formatoFechaCierre(incidente.fecha_cierre)}
+              </Text>
+              <Text fontSize="15px" color="#276749">
+                <strong>Responsable de la resolución:</strong>{" "}
+                {incidente.responsable_cierre_nombre ??
+                  (incidente.responsable_cierre_id
+                    ? `Usuario #${incidente.responsable_cierre_id}`
+                    : "-")}
+              </Text>
+            </VStack>
           </Box>
         )}
       </Box>
@@ -230,14 +295,19 @@ export function IncidenteDetailPage() {
           <img
             src={imagen.src}
             alt="Evidencia ampliada"
-            style={{
-              maxWidth: "90%",
-              maxHeight: "90%",
-              borderRadius: "8px",
-            }}
+            style={{ maxWidth: "90%", maxHeight: "90%", borderRadius: "8px" }}
           />
         </Box>
       )}
+
+      {/* Confirmación de cierre con la acción correctiva */}
+      <CerrarIncidenteDialog
+        isOpen={dialogoCierre}
+        incidente={incidente}
+        isLoading={procesando}
+        onClose={() => !procesando && setDialogoCierre(false)}
+        onConfirm={handleConfirmCerrar}
+      />
     </>
   );
 }

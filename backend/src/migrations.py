@@ -34,7 +34,81 @@ def run_migrations() -> None:
                 )
             )
 
-    # 2) Bootstrap: si nadie es super admin, se promueve al administrador más
+    # 2) Incidentes: el estado abierto/cerrado reemplaza la baja lógica.
+    #
+    # Antes `activo` mezclaba dos cosas: "dado de baja" y "resuelto". Ahora hay
+    # un `estado` explícito más la acción correctiva, la fecha de cierre y el
+    # responsable de la resolución.
+    #
+    # El orden importa: primero se agrega `estado` y se rellena usando `activo`,
+    # recién ahí se borra `activo`. Si se invirtiera, los incidentes que ya
+    # estaban dados de baja quedarían marcados como abiertos.
+    if "incidentes" in tablas:
+        columnas = _columnas_de(inspector, "incidentes")
+
+        if "estado" not in columnas:
+            logger.info("Migración: agregando columna incidentes.estado")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE incidentes "
+                        "ADD COLUMN estado VARCHAR(20) NOT NULL DEFAULT 'abierto'"
+                    )
+                )
+
+            # Los que estaban dados de baja (activo = 0) pasan a cerrado.
+            if "activo" in columnas:
+                with engine.begin() as conexion:
+                    actualizados = conexion.execute(
+                        text(
+                            "UPDATE incidentes SET estado = 'cerrado' "
+                            "WHERE activo = 0"
+                        )
+                    ).rowcount
+                if actualizados:
+                    logger.info(
+                        "Migración: %s incidentes dados de baja quedaron como "
+                        "cerrados.",
+                        actualizados,
+                    )
+
+        if "fecha_cierre" not in columnas:
+            logger.info("Migración: agregando columna incidentes.fecha_cierre")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text("ALTER TABLE incidentes ADD COLUMN fecha_cierre DATETIME")
+                )
+
+        if "observacion_cierre" not in columnas:
+            logger.info(
+                "Migración: agregando columna incidentes.observacion_cierre"
+            )
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text("ALTER TABLE incidentes ADD COLUMN observacion_cierre TEXT")
+                )
+
+        if "responsable_cierre_id" not in columnas:
+            logger.info(
+                "Migración: agregando columna incidentes.responsable_cierre_id"
+            )
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE incidentes "
+                        "ADD COLUMN responsable_cierre_id INTEGER "
+                        "REFERENCES personal(id)"
+                    )
+                )
+
+        # `activo` es NOT NULL y sin default: si quedara en la tabla, los
+        # INSERT futuros fallarían al no mandarlo. Por eso se elimina de verdad.
+        if "activo" in _columnas_de(inspector, "incidentes"):
+            logger.info("Migración: eliminando columna incidentes.activo")
+            with engine.begin() as conexion:
+                conexion.execute(text("ALTER TABLE incidentes DROP COLUMN activo"))
+
+    # 3) Bootstrap: si nadie es super admin, se promueve al administrador más
     #    antiguo. Si además no hay ningún administrador (base creada a mano o
     #    con puros operadores), se promueve al usuario activo más antiguo para
     #    que la instalación no quede sin quien pueda administrar los roles.

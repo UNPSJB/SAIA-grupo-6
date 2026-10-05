@@ -71,9 +71,14 @@ export default function Navbar() {
 
       {/* --- ENLACES DEL OPERADOR --- */}
       {puedeOperar(user) && (
-        <Link to="/checklist" style={estiloLink}>
-          Checklist Diario
-        </Link>
+        <>
+          <Link to="/checklist" style={estiloLink}>
+            Checklist Diario
+          </Link>
+          <Link to="/incidentes/reportar" style={estiloLink}>
+            Reportar Incidente
+          </Link>
+        </>
       )}
 
       {/* --- ENLACES DEL ADMINISTRADOR (y del super admin) --- */}
@@ -107,7 +112,7 @@ export default function Navbar() {
             Consumo de Productos
           </Link>
           <Link to="/incidentes" style={estiloLink}>
-            Incidentes
+            Gestión de Incidentes
           </Link>
         </>
       )}
