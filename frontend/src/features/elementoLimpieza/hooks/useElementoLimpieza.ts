@@ -9,28 +9,32 @@ export function useElementoLimpieza(id: number | null) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id === null) {
-      setElementoLimpieza(null);
-      setError(null);
-      return;
-    }
-
-    const cargarElementoLimpieza = async () => {
-      try {
-        setLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      if (id === null) {
+        setElementoLimpieza(null);
         setError(null);
-
-        const data = await obtenerElementoLimpieza(id);
-        setElementoLimpieza(data);
-      } catch (err) {
-        setError("No se pudo cargar el elemento de limpieza");
-        console.error(err);
-      } finally {
-        setLoading(false);
+        return;
       }
-    }
 
-    cargarElementoLimpieza();
+      const cargarElementoLimpieza = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const data = await obtenerElementoLimpieza(id);
+          setElementoLimpieza(data);
+        } catch (err) {
+          setError("No se pudo cargar el elemento de limpieza");
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      void cargarElementoLimpieza();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [id]);
 
   return {

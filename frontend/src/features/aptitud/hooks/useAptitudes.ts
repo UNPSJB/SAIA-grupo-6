@@ -13,7 +13,7 @@ export function useAptitudes(incluirInactivos = false) {
       setError(null);
       const data = await listarAptitudes(incluirInactivos);
       setAptitudes(data);
-    } catch (err) {
+    } catch {
       setError("No se pudieron cargar las aptitudes");
     } finally {
       setLoading(false);
@@ -21,7 +21,8 @@ export function useAptitudes(incluirInactivos = false) {
   }, [incluirInactivos]);
 
   useEffect(() => {
-    cargarAptitudes();
+    const timeoutId = window.setTimeout(cargarAptitudes, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargarAptitudes]);
 
   return { aptitudes, loading, error, cargarAptitudes };

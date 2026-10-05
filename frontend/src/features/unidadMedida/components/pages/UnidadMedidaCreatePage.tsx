@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { UnidadMedidaForm } from "../unidadMedidaForm";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { UnidadMedida } from "../../types/unidadMedida";
 
 export function UnidadMedidaCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useUnidadMedidaABM();
   const [exito, setExito] = useState(false);
   const [valoresPendientes, setValoresPendientes] = useState<Omit<UnidadMedida, "id" | "activo"> | null>(null);
@@ -16,9 +18,7 @@ export function UnidadMedidaCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      setTimeout(() => {
-        navigate("/unidades-medida");
-      }, 2000);
+      delayedNavigate("/unidades-medida");
     } catch {
       setValoresPendientes(values);
     }
@@ -30,8 +30,10 @@ export function UnidadMedidaCreatePage() {
       await reactivar(conflicto.id, valoresPendientes);
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => navigate("/unidades-medida"), 2000);
-    } catch {}
+      delayedNavigate("/unidades-medida");
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   const handleCancelarReactivacion = () => {

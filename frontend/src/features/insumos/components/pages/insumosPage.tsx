@@ -54,7 +54,9 @@ export function InsumosPage() {
       await borrar(insumoAEliminar.id);
       setInsumoAEliminar(null);
       await cargarInsumos();
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   const handleReactivarRequest = (insumo: Insumo) => setInsumoAReactivar(insumo);
@@ -69,7 +71,9 @@ export function InsumosPage() {
       });
       setInsumoAReactivar(null);
       await cargarInsumos();
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   return (

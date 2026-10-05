@@ -1,0 +1,60 @@
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from src.incidente import exceptions
+from src.incidente.constants import EstadoIncidente, TipoIncidente
+
+
+class IncidenteBase(BaseModel):
+    descripcion: str
+    tipo: TipoIncidente
+    equipo_id: Optional[int] = None
+    foto_url: Optional[str] = None
+
+    @field_validator("descripcion")
+    @classmethod
+    def validar_descripcion(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise exceptions.DescripcionVacia()
+        return texto
+
+
+class IncidenteCreate(IncidenteBase):
+    # usuario_id se asigna automáticamente desde el token JWT en el router
+    # y el estado siempre arranca como "abierto".
+    pass
+
+
+class IncidenteEstadoUpdate(BaseModel):
+    """Cierre (o reapertura) de un incidente.
+
+    Solo el administrador lo usa. La fecha de cierre y el responsable se
+    completan en el service a partir del token y del momento actual.
+    """
+
+    estado: EstadoIncidente
+    observacion_cierre: Optional[str] = None
+
+    @field_validator("observacion_cierre")
+    @classmethod
+    def validar_observacion(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        texto = v.strip()
+        return texto or None
+
+
+class IncidenteResponse(IncidenteBase):
+    id: int
+    usuario_id: int
+    fecha_reporte: datetime
+    estado: EstadoIncidente
+    fecha_cierre: Optional[datetime] = None
+    observacion_cierre: Optional[str] = None
+    responsable_cierre_id: Optional[int] = None
+    equipo_nombre: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    responsable_cierre_nombre: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)

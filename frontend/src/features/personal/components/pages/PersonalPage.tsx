@@ -43,7 +43,9 @@ export function PersonalPage() {
       await borrar(personaAEliminar.id);
       setPersonaAEliminar(null);
       await cargarPersonales();
-    } catch { }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleReactivarRequest = (persona: Persona) => setPersonaAReactivar(persona);
@@ -62,7 +64,9 @@ export function PersonalPage() {
       });
       setPersonaAReactivar(null);
       await cargarPersonales();
-    } catch { }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (

@@ -54,7 +54,7 @@ export function UnidadMedidaPage() {
       await borrar(unidadAEliminar.id);
       setUnidadAEliminar(null);
       await cargarUnidades();
-    } catch (err) {
+    } catch {
       // Cerrar el diálogo y mostrar el error
       setUnidadAEliminar(null);
     }
@@ -72,7 +72,9 @@ export function UnidadMedidaPage() {
       });
       setUnidadAReactivar(null);
       await cargarUnidades();
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   return (

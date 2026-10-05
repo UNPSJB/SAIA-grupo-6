@@ -23,7 +23,8 @@ export function useNotificaciones() {
   }, []);
 
   useEffect(() => {
-    cargarNotificaciones();
+    const timeoutId = window.setTimeout(cargarNotificaciones, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargarNotificaciones]);
 
   return {

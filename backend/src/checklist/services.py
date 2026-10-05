@@ -2,7 +2,7 @@ import logging
 from datetime import date as date_, datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from src.checklist import models, schemas
@@ -12,7 +12,11 @@ from src.PlanLimpieza.models import PlanLimpieza
 from src.tareas.models import Tarea
 from src.tareas.services import leer_tarea
 from src.exceptions import NotFound
-from src.checklist.exceptions import ChecklistFuturo, ChecklistInmutable
+from src.checklist.exceptions import (
+    CantidadConsumidaInvalida,
+    ChecklistFuturo,
+    ChecklistInmutable,
+)
 from src.insumoQuimico.models import InsumoQuimico
 from src.elementoLimpieza.models import ElementoLimpieza
 
@@ -212,6 +216,7 @@ def obtener_o_crear_checklists_del_dia(
                         usuario_id=None,
                         evidencia_url=None,
                         descripcion=t.descripcion,
+                        elemento_limpieza_id=None,
                     )
                     for t in tareas_del_dia
                 ],
@@ -238,6 +243,7 @@ def obtener_o_crear_checklists_del_dia(
                     evidencia_url=reg.evidencia_url,
                     insumo_quimico_id=reg.insumo_quimico_id,
                     cantidad_consumida=reg.cantidad_consumida,
+                    elemento_limpieza_id=reg.elemento_limpieza_id,
                     descripcion=reg.descripcion_tarea_historico,
                 )
                 for reg in checklist.registros
@@ -318,6 +324,7 @@ def listar_tareas_del_dia(
                         fecha_completado=None,
                         usuario_id=None,
                         descripcion=tarea.descripcion,
+                        elemento_limpieza_id=None,
                     ))
                 continue
 
@@ -347,6 +354,7 @@ def listar_tareas_del_dia(
                     evidencia_url=reg.evidencia_url,
                     insumo_quimico_id=reg.insumo_quimico_id,
                     cantidad_consumida=reg.cantidad_consumida,
+                    elemento_limpieza_id=reg.elemento_limpieza_id,
                     checklist_estado=checklist.estado,
                     descripcion=reg.descripcion_tarea_historico,
                 ))
@@ -360,13 +368,16 @@ def marcar_tarea(
     db: Session,
     tarea_id: int,
     completado: bool,
-    usuario_id: Optional[int],
+    usuario_id: int,
     evidencia_url: Optional[str],
     fecha: Optional[date_] = None,
     insumo_quimico_id: Optional[int] = None,
     cantidad_consumida: Optional[float] = None,
     elemento_limpieza_id: Optional[int] = None,
 ) -> models.RegistroTarea:
+
+    if cantidad_consumida is not None and cantidad_consumida <= 0:
+        raise CantidadConsumidaInvalida()
 
     tarea = leer_tarea(db, tarea_id)
     fecha_registro = fecha or date_.today()
@@ -395,9 +406,12 @@ def marcar_tarea(
         if checklist is not None:
             db.commit()
 
+    if checklist is None:
+        raise ChecklistFuturo()
+
     # Los checklists de días anteriores son históricos
     # y no se pueden modificar.
-    if checklist is not None and checklist.fecha < hoy:
+    if checklist.fecha < hoy:
         if _cerrar_checklist_vencido(checklist, hoy):
             db.commit()
 
@@ -427,8 +441,12 @@ def marcar_tarea(
 
     # Actualizamos el estado de la tarea
     registro.completado = completado
-    registro.fecha_completado = datetime.now() if completado else None
-    registro.usuario_id = usuario_id
+
+    # La autoría y el timestamp solo se escriben al completar: al desmarcar no
+    # se pisa quién la había hecho, así el registro conserva el autor real.
+    if completado:
+        registro.fecha_completado = datetime.now()
+        registro.usuario_id = usuario_id
 
     if evidencia_url:
         registro.evidencia_url = evidencia_url
@@ -594,4 +612,106 @@ def listar_historial_checklists(
             completadas_general / total_general * 100 if total_general else 0.0
         ),
         checklists=items,
+    )
+
+
+# ---------------------------------------------------------
+# CONSUMO ACUMULADO DE PRODUCTOS DE LIMPIEZA
+# ---------------------------------------------------------
+
+def listar_consumo_insumos(
+    db: Session,
+    fecha_desde: date_,
+    fecha_hasta: date_,
+) -> schemas.ConsumoInsumosResponse:
+    """Consumo acumulado por producto químico en un rango de fechas.
+
+    Solo cuenta los registros que efectivamente tienen consumo informado y
+    cuya tarea fue completada, para no arrastrar consumos de tareas que
+    después se desmarcaron.
+    """
+    if fecha_desde > fecha_hasta:
+        raise FechaInvalida()
+
+    filas = db.execute(
+        select(
+            models.RegistroTarea.insumo_quimico_id.label("insumo_quimico_id"),
+            models.Checklist.fecha.label("fecha"),
+            func.sum(models.RegistroTarea.cantidad_consumida).label("cantidad_total"),
+            func.count(models.RegistroTarea.id).label("cantidad_registros"),
+        )
+        .join(
+            models.Checklist,
+            models.Checklist.id == models.RegistroTarea.checklist_id,
+        )
+        .where(
+            models.Checklist.fecha >= fecha_desde,
+            models.Checklist.fecha <= fecha_hasta,
+            models.RegistroTarea.insumo_quimico_id.isnot(None),
+            models.RegistroTarea.cantidad_consumida.isnot(None),
+            models.RegistroTarea.cantidad_consumida > 0,
+            models.RegistroTarea.completado.is_(True),
+        )
+        .group_by(models.RegistroTarea.insumo_quimico_id, models.Checklist.fecha)
+    ).all()
+
+    # Acumulamos por producto y por fecha en un solo recorrido.
+    por_insumo: Dict[int, Dict[str, object]] = {}
+    por_fecha: Dict[date_, float] = {}
+
+    for insumo_id, fecha, cantidad_total, cantidad_registros in filas:
+        cantidad_total = float(cantidad_total or 0)
+        cantidad_registros = int(cantidad_registros or 0)
+
+        insumo = por_insumo.setdefault(
+            insumo_id,
+            {
+                "nombre": None,
+                "unidad_simbolo": None,
+                "cantidad_total": 0.0,
+                "cantidad_registros": 0,
+            },
+        )
+
+        insumo["cantidad_total"] = float(insumo["cantidad_total"]) + cantidad_total
+        insumo["cantidad_registros"] = int(insumo["cantidad_registros"]) + cantidad_registros
+
+        por_fecha[fecha] = por_fecha.get(fecha, 0.0) + cantidad_total
+
+    # Completamos nombre y unidad de cada producto con una sola consulta.
+    ids = list(por_insumo.keys())
+    nombres: Dict[int, tuple] = {}
+
+    if ids:
+        for insumo in db.scalars(
+            select(InsumoQuimico).where(InsumoQuimico.id.in_(ids))
+        ).all():
+            simbolo = getattr(insumo.unidad_medida, "simbolo", None)
+            nombres[insumo.id] = (insumo.nombre, simbolo)
+
+    items: List[schemas.ConsumoInsumoItem] = []
+
+    for insumo_id, datos in por_insumo.items():
+        nombre, simbolo = nombres.get(insumo_id, (None, None))
+        items.append(
+            schemas.ConsumoInsumoItem(
+                insumo_quimico_id=insumo_id,
+                nombre=nombre or f"Insumo {insumo_id}",
+                unidad_simbolo=simbolo,
+                cantidad_total=round(float(datos["cantidad_total"]), 2),
+                cantidad_registros=int(datos["cantidad_registros"]),
+            )
+        )
+
+    items.sort(key=lambda i: i.cantidad_total, reverse=True)
+
+    return schemas.ConsumoInsumosResponse(
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        total_general=round(sum(i.cantidad_total for i in items), 2),
+        insumos=items,
+        por_fecha=[
+            schemas.ConsumoPorFechaItem(fecha=fecha, cantidad_total=round(total, 2))
+            for fecha, total in sorted(por_fecha.items())
+        ],
     )

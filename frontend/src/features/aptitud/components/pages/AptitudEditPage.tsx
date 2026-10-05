@@ -20,7 +20,9 @@ export function AptitudEditPage() {
       await modificar(aptitudId, values);
       setExito(true);
       setTimeout(() => navigate("/aptitudes"), 2000);
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   return (

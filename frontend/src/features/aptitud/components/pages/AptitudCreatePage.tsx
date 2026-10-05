@@ -29,7 +29,9 @@ export function AptitudCreatePage() {
       setValoresPendientes(null);
       setExito(true);
       setTimeout(() => navigate("/aptitudes"), 2000);
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   const handleCancelarReactivacion = () => {

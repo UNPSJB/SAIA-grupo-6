@@ -34,7 +34,8 @@ export function useVencimientosPersonal(personaId: number | null) {
   }, [personaId]);
 
   useEffect(() => {
-    cargar();
+    const timeoutId = window.setTimeout(cargar, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargar]);
 
   const guardarVencimientos = async (

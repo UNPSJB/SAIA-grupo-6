@@ -1,11 +1,10 @@
 import type { Aptitud } from "../types/aptitud";
 import { ConflictoInactivoError } from "../../../common/api/errors";
-
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 export async function listarAptitudes(incluirInactivos = false): Promise<Aptitud[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await fetch(`${API_URL}/aptitudes${query}`);
+  const response = await apiFetch(`${API_URL}/aptitudes${query}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -18,7 +17,7 @@ export async function listarAptitudes(incluirInactivos = false): Promise<Aptitud
 export async function crearAptitud(
   datos: Omit<Aptitud, "id" | "activo">
 ): Promise<Aptitud> {
-  const response = await fetch(`${API_URL}/aptitudes`, {
+  const response = await apiFetch(`${API_URL}/aptitudes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
@@ -44,7 +43,7 @@ export async function modificarAptitud(
   id: number,
   datos: Partial<Omit<Aptitud, "id">>
 ): Promise<Aptitud> {
-  const response = await fetch(`${API_URL}/aptitudes/${id}`, {
+  const response = await apiFetch(`${API_URL}/aptitudes/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
@@ -59,7 +58,7 @@ export async function modificarAptitud(
 }
 
 export async function eliminarAptitud(id: number): Promise<Aptitud> {
-  const response = await fetch(`${API_URL}/aptitudes/${id}`, {
+  const response = await apiFetch(`${API_URL}/aptitudes/${id}`, {
     method: "DELETE",
   });
 
@@ -79,7 +78,7 @@ export async function reactivarAptitud(
 }
 
 export async function obtenerAptitud(id: number): Promise<Aptitud> {
-  const response = await fetch(`${API_URL}/aptitudes/${id}`);
+  const response = await apiFetch(`${API_URL}/aptitudes/${id}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Error al obtener la aptitud");

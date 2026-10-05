@@ -33,7 +33,8 @@ export function useHistorialChecklists(
   }, [fechaDesde, fechaHasta, equipoId]);
 
   useEffect(() => {
-    cargarHistorial();
+    const timeoutId = window.setTimeout(cargarHistorial, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargarHistorial]);
 
   return {

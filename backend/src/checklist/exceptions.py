@@ -20,6 +20,10 @@ class ChecklistFuturo(BadRequest):
     DETAIL = ErrorCode.CHECKLIST_FUTURO
 
 
+class CantidadConsumidaInvalida(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_CONSUMIDA_INVALIDA
+
+
 class ChecklistInmutable(DetailedHTTPException):
     """El checklist corresponde a un día anterior: ya quedó cerrado como
     dato histórico y no admite modificaciones (ni en su cabecera ni en

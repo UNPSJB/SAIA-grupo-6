@@ -4,10 +4,12 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { InsumoForm } from "../insumoForm";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoFormValues } from "../../types/insumo";
 
 export function InsumoCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useInsumoABM();
   const [exito, setExito] = useState(false);
   const [valoresPendientes, setValoresPendientes] = useState<InsumoFormValues | null>(null);
@@ -16,7 +18,7 @@ export function InsumoCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      setTimeout(() => navigate("/insumos"), 2000);
+      delayedNavigate("/insumos");
     } catch {
       setValoresPendientes(values);
     }
@@ -27,8 +29,10 @@ export function InsumoCreatePage() {
       await reactivar(conflicto.id, valoresPendientes);
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => navigate("/insumos"), 2000);
-    } catch {}
+      delayedNavigate("/insumos");
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   const handleCancelarReactivacion = () => {

@@ -4,7 +4,9 @@ import type { TareaDelDia } from "../types/checklist";
 
 // Un solo fetch para todos los equipos: el backend ya arma la lista plana
 // de tareas del día con el nombre del plan al que pertenece cada una.
-export function useChecklist(fecha: string, usuarioId: number | undefined) {
+// El usuario que completa cada tarea lo toma el backend del token de sesión,
+// por eso este hook no lo necesita.
+export function useChecklist(fecha: string) {
   const [tareas, setTareas] = useState<TareaDelDia[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,8 @@ export function useChecklist(fecha: string, usuarioId: number | undefined) {
   }, [fecha]);
 
   useEffect(() => {
-    cargarTareas();
+    const timeoutId = window.setTimeout(cargarTareas, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargarTareas]);
 
   const toggleTarea = async (
@@ -57,11 +60,6 @@ export function useChecklist(fecha: string, usuarioId: number | undefined) {
       return;
     }
 
-    if (!usuarioId) {
-      setError("No se pudo identificar al usuario logueado.");
-      return;
-    }
-
     const nuevoEstado = !completadoActual;
 
     const aplicarEstado = (estado: boolean) =>
@@ -81,7 +79,6 @@ export function useChecklist(fecha: string, usuarioId: number | undefined) {
 
       // Mandamos:
       // - estado de la tarea
-      // - usuario
       // - evidencia
       // - fecha
       // - insumo químico utilizado
@@ -89,7 +86,6 @@ export function useChecklist(fecha: string, usuarioId: number | undefined) {
       await marcarTarea(
         tareaId,
         nuevoEstado,
-        usuarioId,   // <-- acá va el id real
         evidencia,
         fecha,
         insumoQuimicoId,

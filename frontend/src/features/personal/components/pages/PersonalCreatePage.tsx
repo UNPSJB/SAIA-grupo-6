@@ -4,16 +4,21 @@ import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
+import { useAuth } from "../../../../common/context/AuthContext";
+import { esSuperAdmin } from "../../../../common/api/permissions";
 import type { Persona } from "../../types/personal";
-'esto es para poder tener el vencimiento de personal'
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 import { useVencimientosPersonal, type VencimientosPorAptitud } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
+import { ConflictoInactivoError } from "../../../../common/api/errors";
 
 
 type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
 
 export function PersonalCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
+  const { user } = useAuth();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = usePersonalABM();
   const [exito, setExito] = useState(false);
   // Guardamos los valores que el usuario cargó para poder reutilizarlos
@@ -21,7 +26,7 @@ export function PersonalCreatePage() {
   const [valoresPendientes, setValoresPendientes] = useState<PersonaInput | null>(null);
   // esto para alptitud
   const [vencimientos, setVencimientos] = useState<VencimientosPorAptitud>({});
-  const { guardarVencimientos } = useVencimientosPersonal(null);
+  const { guardarVencimientos, error: errorVencimientos } = useVencimientosPersonal(null);
 
  const handleSubmit = async (values: PersonaInput) => {
     try {
@@ -31,20 +36,24 @@ export function PersonalCreatePage() {
       }
       setExito(true);
       setTimeout(() => navigate("/personal"), 2000);
-    } catch {
-      setValoresPendientes(values);
+      delayedNavigate("/personal");
+    } catch (error) {
+      if (error instanceof ConflictoInactivoError) {
+        setValoresPendientes(values);
+      }
     }
   };
 
   const handleConfirmarReactivacion = async () => {
     if (!conflicto || !valoresPendientes) return;
     try {
-      await reactivar(conflicto.id, valoresPendientes);
+      const personaReactivada = await reactivar(conflicto.id, valoresPendientes);
+      if (Object.values(vencimientos).some(Boolean)) {
+        await guardarVencimientos(personaReactivada.id, vencimientos);
+      }
       setValoresPendientes(null);
       setExito(true);
-      setTimeout(() => {
-        navigate("/personal");
-      }, 2000);
+      delayedNavigate("/personal");
     } catch {
       // El error ya queda reflejado en usePersonalABM().error
     }
@@ -93,6 +102,21 @@ export function PersonalCreatePage() {
           ⚠️ {error}
         </Box>
       )}
+      {errorVencimientos && (
+        <Box
+          style={{
+            backgroundColor: "#f8d7da",
+            color: "#721c24",
+            padding: "12px",
+            borderRadius: "6px",
+            marginBottom: "20px",
+            border: "1px solid #f5c6cb",
+            fontWeight: "bold",
+          }}
+        >
+          {errorVencimientos}
+        </Box>
+      )}
 
       {exito && (
         <Box
@@ -134,6 +158,9 @@ export function PersonalCreatePage() {
         isLoading={loading}
         title="Alta de Personal"
         submitLabel="Crear personal"
+        requierePassword
+        puedeEditarCapacidades
+        puedeAsignarSuperAdmin={esSuperAdmin(user)}
       />
       <VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />
       <ConfirmarReactivacionDialog

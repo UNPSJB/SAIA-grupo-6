@@ -3,13 +3,12 @@ import type {
   VencimientoPersonalCreate,
   VencimientoPersonalUpdate,
 } from "../types/vencimientoPersonal";
-
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 export async function listarVencimientosDePersona(
   personaId: number
 ): Promise<VencimientoPersonal[]> {
-  const response = await fetch(`${API_URL}/vencimientos-personal/persona/${personaId}`);
+  const response = await apiFetch(`${API_URL}/vencimientos-personal/persona/${personaId}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.detail || "Error al obtener los vencimientos");
@@ -20,7 +19,7 @@ export async function listarVencimientosDePersona(
 export async function crearVencimiento(
   datos: VencimientoPersonalCreate
 ): Promise<VencimientoPersonal> {
-  const response = await fetch(`${API_URL}/vencimientos-personal`, {
+  const response = await apiFetch(`${API_URL}/vencimientos-personal`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
@@ -36,7 +35,7 @@ export async function actualizarVencimiento(
   id: number,
   datos: VencimientoPersonalUpdate
 ): Promise<VencimientoPersonal> {
-  const response = await fetch(`${API_URL}/vencimientos-personal/${id}`, {
+  const response = await apiFetch(`${API_URL}/vencimientos-personal/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
@@ -49,7 +48,7 @@ export async function actualizarVencimiento(
 }
 
 export async function eliminarVencimiento(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/vencimientos-personal/${id}`, {
+  const response = await apiFetch(`${API_URL}/vencimientos-personal/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {

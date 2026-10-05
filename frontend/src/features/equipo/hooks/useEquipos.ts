@@ -22,7 +22,8 @@ export function useEquipos(incluirInactivos = false) {
     }, [incluirInactivos]); 
 
     useEffect(() => {
-        cargarEquipos();
+        const timeoutId = window.setTimeout(cargarEquipos, 0);
+        return () => window.clearTimeout(timeoutId);
     }, [cargarEquipos]);
 
     return {

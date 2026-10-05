@@ -1,9 +1,10 @@
 import type { Notificacion } from "../types/notificacion";
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 export async function obtenerNotificaciones(): Promise<Notificacion[]> {
-  const response = await fetch(`${API_URL}/notificaciones`);
+  const response = await apiFetch(`${API_URL}/notificaciones`);
   if (!response.ok) {
     throw new Error("Error al obtener las notificaciones del sistema");
   }

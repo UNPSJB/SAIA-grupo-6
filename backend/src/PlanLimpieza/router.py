@@ -3,13 +3,14 @@ from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from src.database import get_db
+from src.auth.dependencies import require_admin
 from src.PlanLimpieza import schemas, services
 
 # Creamos un logger para este módulo específico
 logger = logging.getLogger(__name__)
 
 # Agrupamos las rutas bajo el prefijo /planes-limpieza
-router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"])
+router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"], dependencies=[Depends(require_admin)])
 
 
 @router.post("", response_model=schemas.PlanLimpieza)

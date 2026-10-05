@@ -13,7 +13,7 @@ export function useUnidadesMedida(incluirInactivos = false) {
       setError(null);
       const data = await listarUnidadesMedida(incluirInactivos);
       setUnidades(data);
-    } catch (err) {
+    } catch {
       setError("No se pudieron cargar las unidades de medida");
     } finally {
       setLoading(false);
@@ -21,7 +21,8 @@ export function useUnidadesMedida(incluirInactivos = false) {
   }, [incluirInactivos]);
 
   useEffect(() => {
-    cargarUnidades();
+    const timeoutId = window.setTimeout(cargarUnidades, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargarUnidades]);
 
   return { unidades, loading, error, cargarUnidades };

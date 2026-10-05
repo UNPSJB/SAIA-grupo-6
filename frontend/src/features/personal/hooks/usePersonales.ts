@@ -22,7 +22,8 @@ export function usePersonales(incluirInactivos = false) {
     }, [incluirInactivos]);
 
     useEffect(() => {
-        cargarPersonales();
+        const timeoutId = window.setTimeout(cargarPersonales, 0);
+        return () => window.clearTimeout(timeoutId);
     }, [cargarPersonales]);
 
     return { personales, loading, error, cargarPersonales };

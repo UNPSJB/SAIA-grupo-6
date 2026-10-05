@@ -7,14 +7,15 @@ import type {
 import type { HistorialChecklistResponse } from "../types/checklist";
 
 
-const API_URL = "http://localhost:8000";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
 
 export async function obtenerTareasDelDia(
   fecha?: string
 ): Promise<TareasDelDiaResponse> {
   const params = fecha ? `?fecha=${fecha}` : "";
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_URL}/checklist/tareas-del-dia${params}`
   );
 
@@ -35,7 +36,6 @@ export async function obtenerTareasDelDia(
 export async function marcarTarea(
   tareaId: number,
   completado: boolean,
-  usuarioId: number,
   evidencia?: File,
   fecha?: string,
   insumoQuimicoId?: number,
@@ -53,10 +53,9 @@ export async function marcarTarea(
     String(completado)
   );
 
-  formData.append(
-    "usuario_id",
-    String(usuarioId)
-  );
+  // El usuario que completa la tarea lo determina el backend a partir del
+  // token de sesión: no se envía desde el cliente para que no se pueda
+  // atribuir la tarea a otra persona.
 
   // Evidencia fotográfica
   if (evidencia) {
@@ -91,7 +90,7 @@ export async function marcarTarea(
   } 
 
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_URL}/checklist/tarea/${tareaId}${params}`,
     {
       method: "PATCH",
@@ -124,7 +123,7 @@ export async function obtenerHistorialRegistro(
   registroId: number
 ): Promise<HistorialRegistroTareaResponse> {
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_URL}/checklist/registro/${registroId}/historial`
   );
 
@@ -154,7 +153,7 @@ export async function obtenerHistorialChecklists(
   });
   if (equipoId !== undefined) params.append("equipo_id", String(equipoId));
 
-  const response = await fetch(`${API_URL}/checklist/historial?${params}`);
+  const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);

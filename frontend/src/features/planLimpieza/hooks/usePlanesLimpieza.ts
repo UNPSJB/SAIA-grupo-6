@@ -22,7 +22,8 @@ export function usePlanesLimpieza(incluirInactivos = false) {
     }, [incluirInactivos]);
 
     useEffect(() => {
-        cargarPlanes();
+        const timeoutId = window.setTimeout(cargarPlanes, 0);
+        return () => window.clearTimeout(timeoutId);
     }, [cargarPlanes]);
 
     return { planes, loading, error, cargarPlanes };

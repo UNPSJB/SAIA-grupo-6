@@ -23,7 +23,8 @@ export function useInsumos(incluirInactivos = false) {
     }, [incluirInactivos]);
 
     useEffect(() => {
-        cargarInsumos();
+        const timeoutId = window.setTimeout(cargarInsumos, 0);
+        return () => window.clearTimeout(timeoutId);
     }, [cargarInsumos]);
 
     return {

@@ -6,3 +6,4 @@ class ErrorCode(str, Enum):
     EQUIPO_ID_INVALIDO = "equipo_id_invalido"
     CHECKLIST_INMUTABLE = "checklist_inmutable"
     CHECKLIST_FUTURO = "checklist_futuro"
+    CANTIDAD_CONSUMIDA_INVALIDA = "cantidad_consumida_invalida"

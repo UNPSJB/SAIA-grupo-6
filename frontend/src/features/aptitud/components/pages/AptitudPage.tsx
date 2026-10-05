@@ -49,7 +49,9 @@ export function AptitudPage() {
       });
       setAptitudAReactivar(null);
       await cargarAptitudes();
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   return (

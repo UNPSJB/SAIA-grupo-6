@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import { EquipoForm } from "../equipoForm";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { Equipo } from "../../types/equipo";
 
 export function EquipoCreatePage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { alta, loading, error } = useEquipoABM();
   const [exito, setExito] = useState(false);
 
@@ -15,11 +17,9 @@ export function EquipoCreatePage() {
       await alta(values);
       setExito(true);
       // Espera 2 segundos para que el usuario lea el cartel antes de volver a la lista
-      setTimeout(() => {
-        navigate("/equipos");
-      }, 2000);
+      delayedNavigate("/equipos");
     } catch {
-      // El error ya queda reflejado en useInsumoABM().error
+      // El error ya queda reflejado en useEquipoABM().error
     }
   };
 

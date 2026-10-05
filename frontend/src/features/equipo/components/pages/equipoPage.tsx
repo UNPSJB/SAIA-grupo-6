@@ -12,7 +12,6 @@ import {
   Text,
   Switch,
 } from "@chakra-ui/react";
-import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { EquipoTable } from "../equipoTable";
 import { DeleteEquipoDialog } from "../DeleteEquipoDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -51,7 +50,9 @@ export function EquiposPage() {
       });
       setEquipoAReactivar(null);
       await cargarEquipos();
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   const handleEdit = (equipo: Equipo) => {
@@ -73,7 +74,9 @@ export function EquiposPage() {
       await borrar(equipoAEliminar.id);
       setEquipoAEliminar(null);
       await cargarEquipos();
-    } catch { }
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   return (

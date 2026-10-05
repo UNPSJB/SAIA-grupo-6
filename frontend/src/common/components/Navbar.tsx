@@ -1,5 +1,6 @@
-import { Navigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Navigate, Link } from "react-router-dom";
+import { useAuth } from "../context/useAuth";
+import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 
 export default function Navbar() {
@@ -12,7 +13,7 @@ export default function Navbar() {
   }
 
   return (
-   <nav
+    <nav
       style={{
         width: "250px",
         backgroundColor: "#468189",
@@ -22,7 +23,7 @@ export default function Navbar() {
         flexDirection: "column",
         gap: "15px",
         height: "100vh",
-        boxSizing: "border-box", // <-- Esta línea es vital para evitar el scroll hacia abajo
+        boxSizing: "border-box",
         position: "sticky",
         top: 0,
         boxShadow: "2px 0 5px rgba(0,0,0,0.1)",
@@ -35,7 +36,7 @@ export default function Navbar() {
           alignItems: "center",
           justifyContent: "space-between",
           marginBottom: "20px",
-          padding: "0 10px", // <-- Esto separa sutilmente los íconos de los bordes
+          padding: "0 10px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -59,56 +60,82 @@ export default function Navbar() {
           </h2>
         </div>
 
-        {/* ACÁ ESTÁ LA CAMPANA INTELIGENTE */}
-        <BotonNotificaciones />
+        {/* La campana de alertas es parte de la gestión del administrador */}
+        {puedeAdministrar(user) && <BotonNotificaciones />}
       </div>
 
-      {/* --- ENLACES COMUNES (Los ven todos) --- */}
+      {/* --- ENLACES COMUNES --- */}
       <Link to="/" style={estiloLink}>
         Inicio
       </Link>
-      <Link to="/personal" style={estiloLink}>
-        Personal
-      </Link>
 
       {/* --- ENLACES DEL OPERADOR --- */}
-      {user.puede_operar && (
+      {puedeOperar(user) && (
         <>
           <Link to="/checklist" style={estiloLink}>
             Checklist Diario
           </Link>
-          <Link to="/elementos-limpieza" style={estiloLink}>
-            Elementos de Limpieza
+
+          <Link to="/incidentes/reportar" style={estiloLink}>
+            Reportar Incidente
           </Link>
         </>
       )}
 
       {/* --- ENLACES DEL ADMINISTRADOR --- */}
-      {user.puede_administrar && (
+      {puedeAdministrar(user) && (
         <>
+          <Link to="/personal" style={estiloLink}>
+            Personal
+          </Link>
+
           <Link to="/planes-limpieza" style={estiloLink}>
             Planes de Limpieza
           </Link>
+
+          <Link
+            to="/planes-calibracion-mantenimiento"
+            style={estiloLink}
+          >
+            Calibración/Mantenimiento
+          </Link>
+
+          <Link to="/elementos-limpieza" style={estiloLink}>
+            Elementos de Limpieza
+          </Link>
+
           <Link to="/equipos" style={estiloLink}>
             Equipos
           </Link>
+
           <Link to="/insumos" style={estiloLink}>
             Insumos
           </Link>
+
           <Link to="/insumos-quimicos" style={estiloLink}>
             Insumos Químicos
           </Link>
+
           <Link to="/unidades-medida" style={estiloLink}>
             Unidades de Medida
           </Link> 
+
+          <Link to="/aptitudes" style={estiloLink}>
+           Aptitudes 
+          </Link>
+
+
           <Link to="/checklist/historial" style={estiloLink}>
             Historial de Checklists
           </Link>
-          <Link to="/aptitudes" style={estiloLink}>
-           aptitudes 
+
+          <Link to="/consumo-productos" style={estiloLink}>
+            Consumo de Productos
           </Link>
-          
-          
+
+          <Link to="/incidentes" style={estiloLink}>
+            Gestión de Incidentes
+          </Link>
         </>
       )}
 
@@ -116,7 +143,7 @@ export default function Navbar() {
       <button
         onClick={logout}
         style={{
-          marginTop: "auto", // Lo empuja hacia el fondo del menú
+          marginTop: "auto",
           backgroundColor: "#d9534f",
           color: "white",
           padding: "12px 15px",

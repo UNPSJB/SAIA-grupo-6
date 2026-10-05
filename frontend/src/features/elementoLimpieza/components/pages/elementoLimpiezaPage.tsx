@@ -53,7 +53,9 @@ export function ElementosLimpiezaPage() {
     await reactivar(elementoAReactivar.id); 
     setElementoAReactivar(null); 
     await cargarElementosLimpieza(); 
-  } catch {} 
+  } catch {
+    // The mutation hook exposes the failure state to this page.
+  }
 
 };
 
@@ -76,7 +78,9 @@ export function ElementosLimpiezaPage() {
       await borrar(elementoAEliminar.id);
       setElementoAEliminar(null);
       await cargarElementosLimpieza();
-    } catch {}
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
   };
 
   const totalElementos = elementosLimpieza.filter((e) =>

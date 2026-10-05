@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { login, register } from '../common/api/authService';
-import { useAuth } from '../common/context/AuthContext';
+import { login, register, getBootstrapStatus } from '../common/api/authService';
+import { useAuth } from '../common/context/useAuth';
 
 export const Login = () => {
     const navigate = useNavigate();
@@ -18,6 +18,17 @@ export const Login = () => {
     const [telefono, setTelefono] = useState('');
     const [puedeOperar, setPuedeOperar] = useState(false);
     const [puedeAdministrar, setPuedeAdministrar] = useState(false);
+    const [esSuperAdmin, setEsSuperAdmin] = useState(false);
+
+    // Mientras el sistema no tenga ningún administrador se permite elegir el
+    // rol de super admin en el registro (arranque de una base nueva).
+    const [permiteSuperAdmin, setPermiteSuperAdmin] = useState(false);
+
+    useEffect(() => {
+        getBootstrapStatus()
+            .then((status) => setPermiteSuperAdmin(status.permite_super_admin))
+            .catch(() => setPermiteSuperAdmin(false));
+    }, []);
 
     if (user) {
         return <Navigate to="/" replace />;
@@ -44,7 +55,7 @@ export const Login = () => {
             if (!password.trim()) {
                 return setError('La contraseña es obligatoria.');
             }
-            if (!puedeOperar && !puedeAdministrar) {
+            if (!puedeOperar && !puedeAdministrar && !esSuperAdmin) {
                 return setError('Debe elegir al menos un permiso (Operar o Administrar).');
             }
         } else {
@@ -58,34 +69,51 @@ export const Login = () => {
         try {
             if (isLoginView) {
                 const loggedUser = await login(dni, password);
-                loginUser(loggedUser);
+                loginUser(loggedUser.user);
                 navigate('/');
             } else {
-                const newUser = await register({
+                await register({
                     nombre, 
                     apellido, 
                     dni, 
                     email, 
                     telefono, 
                     password,
-                    puede_operar: puedeOperar,
-                    puede_administrar: puedeAdministrar
+                    puede_operar: puedeOperar || esSuperAdmin,
+                    puede_administrar: puedeAdministrar || esSuperAdmin,
+                    es_super_admin: permiteSuperAdmin && esSuperAdmin
                 });
-                loginUser(newUser);
+                // Registramos y logueamos de una para arrancar con tokens vigentes
+                const loggedUser = await login(dni, password);
+                loginUser(loggedUser.user);
                 navigate('/');
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             let mensajeError = 'Error al procesar la solicitud';
-            
-            if (err.response?.data?.detail) {
-                const detail = err.response.data.detail;
+
+            const responseError = err as {
+                response?: { data?: { detail?: unknown } };
+                message?: unknown;
+            };
+            const detail = responseError.response?.data?.detail;
+
+            if (detail) {
                 if (Array.isArray(detail)) {
-                    mensajeError = detail.map(d => `${d.loc[d.loc.length - 1]}: ${d.msg}`).join(', ');
+                    mensajeError = detail
+                        .map((item) => {
+                            const validationError = item as {
+                                loc?: unknown[];
+                                msg?: unknown;
+                            };
+                            const field = validationError.loc?.at(-1);
+                            return `${field}: ${validationError.msg}`;
+                        })
+                        .join(', ');
                 } else if (typeof detail === 'string') {
                     mensajeError = detail;
                 }
-            } else if (err.message) {
-                mensajeError = err.message;
+            } else if (typeof responseError.message === 'string') {
+                mensajeError = responseError.message;
             }
             
             setError(mensajeError);
@@ -134,7 +162,7 @@ export const Login = () => {
                     <input type="password" placeholder="Contraseña *" value={password} onChange={e => setPassword(e.target.value)} style={estiloInput} />
 
                     {!isLoginView && (
-                        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
                             <label style={{ cursor: 'pointer', color: '#555', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <input type="checkbox" checked={puedeOperar} onChange={e => setPuedeOperar(e.target.checked)} style={{ width: '18px', height: '18px' }} />
                                 Operar
@@ -143,7 +171,44 @@ export const Login = () => {
                                 <input type="checkbox" checked={puedeAdministrar} onChange={e => setPuedeAdministrar(e.target.checked)} style={{ width: '18px', height: '18px' }} />
                                 Administrar
                             </label>
+
+                            {/* Solo mientras el sistema no tenga ningún administrador:
+                                es el arranque de una base nueva. */}
+                            {permiteSuperAdmin && (
+                                <label
+                                    style={{
+                                        cursor: 'pointer', color: '#8a6d1a', fontWeight: 'bold',
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                        padding: '4px 10px', borderRadius: '6px',
+                                        backgroundColor: '#fff8e1', border: '1px dashed #e0c36a'
+                                    }}
+                                    title="Porque el sistema todavía no tiene administradores"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={esSuperAdmin}
+                                        onChange={e => {
+                                            setEsSuperAdmin(e.target.checked);
+                                            // Un super admin administra todo: activamos también las capacidades.
+                                            if (e.target.checked) {
+                                                setPuedeOperar(true);
+                                                setPuedeAdministrar(true);
+                                            }
+                                        }}
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    Super administrador
+                                </label>
+                            )}
                         </div>
+                    )}
+
+                    {!isLoginView && permiteSuperAdmin && (
+                        <p style={{ fontSize: '12px', color: '#8a6d1a', textAlign: 'center', marginTop: '-10px', marginBottom: '15px' }}>
+                            El sistema todavía no tiene administradores: el primer usuario puede ser
+                            super administrador. Cuando exista uno, el registro público ya no podrá
+                            asignar ese rol.
+                        </p>
                     )}
 
                     <button type="submit" style={{ padding: '12px', backgroundColor: '#468189', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}>

@@ -22,7 +22,8 @@ export function useElementosLimpieza(incluirInactivos = false) {
   }, [incluirInactivos]);
 
   useEffect(() => {
-    cargarElementosLimpieza();
+    const timeoutId = window.setTimeout(cargarElementosLimpieza, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cargarElementosLimpieza]);
 
   return {

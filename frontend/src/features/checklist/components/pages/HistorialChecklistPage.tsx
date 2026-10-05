@@ -68,10 +68,15 @@ function colorPorcentaje(pct: number): string {
 }
 
 export function HistorialChecklistPage() {
-  const hoyISO = fechaLocalISO(new Date());
-  const hace7DiasISO = fechaLocalISO(
-    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  );
+  const [{ hace7DiasISO, hoyISO }] = useState(() => {
+    const hoy = new Date();
+    return {
+      hoyISO: fechaLocalISO(hoy),
+      hace7DiasISO: fechaLocalISO(
+        new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000)
+      ),
+    };
+  });
 
   const [fechaDesde, setFechaDesde] = useState(hace7DiasISO);
   const [fechaHasta, setFechaHasta] = useState(hoyISO);

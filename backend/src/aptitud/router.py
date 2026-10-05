@@ -4,10 +4,15 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.aptitud import schemas, services
+from src.auth.dependencies import require_admin
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/aptitudes", tags=["Aptitudes"])
+router = APIRouter(
+    prefix="/aptitudes",
+    tags=["Aptitudes"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 @router.post("", response_model=schemas.AptitudResponse, status_code=status.HTTP_201_CREATED)

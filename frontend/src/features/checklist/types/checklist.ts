@@ -16,21 +16,18 @@ export interface ChecklistTareaItem {
   descripcion?: string | null;
   insumo_quimico_id?: number | null;
   cantidad_consumida?: number | null;
-}
-
-export interface ChecklistPlanItem {
-  plan_id: number;
-  plan_nombre: string;
-  tareas: ChecklistTareaItem[];
+  elemento_limpieza_id?: number | null;
 }
 
 export interface ChecklistResponse {
   checklist_id: number | null;
   fecha: string;
   equipo_id: number;
+  plan_id: number;
+  plan_nombre: string;
   estado: EstadoChecklist | null;
   observaciones?: string | null;
-  planes: ChecklistPlanItem[];
+  tareas: ChecklistTareaItem[];
 }
 
 export interface RegistroTareaUpdate {
@@ -38,6 +35,7 @@ export interface RegistroTareaUpdate {
   usuario_id?: number | null;
   insumo_quimico_id?: number | null;
   cantidad_consumida?: number | null;
+  elemento_limpieza_id?: number | null;
 }
 
 export interface RegistroTareaResponse {
@@ -70,6 +68,27 @@ export interface TareaDelDia {
   elemento_limpieza_id?: number | null;
   checklist_estado?: EstadoChecklist | null;
   descripcion?: string | null;
+}
+
+export interface ConsumoInsumoItem {
+  insumo_quimico_id: number;
+  nombre: string;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+  cantidad_registros: number;
+}
+
+export interface ConsumoPorFechaItem {
+  fecha: string;
+  cantidad_total: number;
+}
+
+export interface ConsumoInsumosResponse {
+  fecha_desde: string;
+  fecha_hasta: string;
+  total_general: number;
+  insumos: ConsumoInsumoItem[];
+  por_fecha: ConsumoPorFechaItem[];
 }
 
 export interface TareasDelDiaResponse {
