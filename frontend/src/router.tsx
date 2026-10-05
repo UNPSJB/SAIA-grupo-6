@@ -34,9 +34,9 @@ import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPa
 import { HistorialChecklistPage } from "./features/checklist/components/pages/HistorialChecklistPage";
 
 // 6. Importaciones del módulo de Insumos Químicos
-import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
-import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
-import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
+import { InsumosQuimicosPage } from "./features/InsumoQuimico/components/pages/insumosQuimicosPage";
+import { InsumoQuimicoCreatePage } from "./features/InsumoQuimico/components/pages/insumoQuimicoCreatePage";
+import { InsumoQuimicoEditPage } from "./features/InsumoQuimico/components/pages/insumoQuimicoEditPage";
 
 // Importaciones del módulo de Notificaciones
 import { NotificacionesPage } from "./features/notificaciones/components/pages/NotificacionesPage";
@@ -45,6 +45,13 @@ import { NotificacionesPage } from "./features/notificaciones/components/pages/N
 import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unidadMedidaPage";
 import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
 import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";// Layout principal que mantiene el menú a la izquierda
+
+// 8. Importaciones del módulo de Documentos
+import { DocumentosPage } from "./features/documentos/pages/documentosPages";
+import { DocumentoCreatePage } from "./features/documentos/pages/documentoCreatePage";
+import { DocumentoNuevaVersionPage } from "./features/documentos/pages/documentoNuevaVersionPage";
+import { DocumentoHistorialPage } from "./features/documentos/pages/documentoHistorialPage";
+import { ConsultaDocumentosPage } from "./features/documentos/pages/consultaDocumentosPage";
 
 
 function LayoutPrincipal({ children }: { children: React.ReactNode }) {
@@ -304,4 +311,48 @@ export const router = createBrowserRouter([
       </LayoutPrincipal>
     ),
   },
+
+    // --- RUTAS DE DOCUMENTOS ---
+  {
+    path: "/documentos",
+    element: (
+      <LayoutPrincipal>
+        <DocumentosPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/documentos/nuevo",
+    element: (
+      <LayoutPrincipal>
+        <DocumentoCreatePage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/documentos/:id/nueva-version",
+    element: (
+      <LayoutPrincipal>
+        <DocumentoNuevaVersionPage />
+      </LayoutPrincipal>
+    ),
+  },
+  {
+    path: "/documentos/:id/historial",
+    element: (
+      <LayoutPrincipal>
+        <DocumentoHistorialPage />
+      </LayoutPrincipal>
+    ),
+  },
+  // Historia 3: consulta de la versión vigente (operadores)
+  {
+    path: "/consulta-documentos",
+    element: (
+      <LayoutPrincipal>
+        <ConsultaDocumentosPage />
+      </LayoutPrincipal>
+    ),
+  },
+  
 ]);

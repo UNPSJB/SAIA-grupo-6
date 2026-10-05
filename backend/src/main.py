@@ -40,6 +40,8 @@ from src.insumoQuimico.router import router as insumoQuimico_router
 from src.notificaciones.router import router as notificaciones_router
 from src.unidadMedida.router import router as unidad_medida_router
 
+from src.documentos import models as documentos_models
+from src.documentos.router import router as documentos_router
 
 ENV = settings.ENV.upper()
 ROOT_PATH = getattr(settings, f"ROOT_PATH_{ENV}", "")
@@ -90,3 +92,4 @@ app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)
 app.include_router(notificaciones_router)
 app.include_router(unidad_medida_router)
+app.include_router(documentos_router)

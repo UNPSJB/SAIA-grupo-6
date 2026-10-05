@@ -80,6 +80,9 @@ export default function Navbar() {
           <Link to="/elementos-limpieza" style={estiloLink}>
             Elementos de Limpieza
           </Link>
+          <Link to="/consulta-documentos" style={estiloLink}>
+            Consultar Documentos
+          </Link>
         </>
       )}
 
@@ -103,6 +106,9 @@ export default function Navbar() {
           </Link>
           <Link to="/checklist/historial" style={estiloLink}>
             Historial de Checklists
+          </Link>
+          <Link to="/documentos" style={estiloLink}>
+            Documentos
           </Link>
         </>
       )}
