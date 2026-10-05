@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { crearEquipo, modificarEquipo, eliminarEquipo, reactivarEquipo } from "../services/equipoService";
+import { crearEquipo, modificarEquipo, eliminarEquipo, reactivarEquipo, registrarCalibracion } from "../services/equipoService";
 import type { Equipo } from "../types/equipo";
 
 export function useEquipoABM() {
@@ -67,11 +67,25 @@ export function useEquipoABM() {
         }
     };
 
+    const calibrar = async (equipoId: number, fecha: string, archivo: File) => {
+        try {
+            setLoading(true);
+            setError(null);
+            return await registrarCalibracion(equipoId, fecha, archivo);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Error al calibrar");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         alta,
         modificar,
         borrar,
         reactivar,
+        calibrar, // <-- No te olvides de exportarla acá
         loading,
         error,
     };

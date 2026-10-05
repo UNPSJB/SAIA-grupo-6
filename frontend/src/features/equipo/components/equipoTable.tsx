@@ -7,11 +7,13 @@ interface EquipoTableProps {
   onEdit: (equipo: Equipo) => void;
   onDelete: (equipo: Equipo) => void;
   onReactivar: (equipo: Equipo) => void;
+  onCalibrar: (equipo: Equipo) => void;
+  onVerHistorial: (equipo: Equipo) => void; // <-- Propagamos la nueva función
 }
 
 const TEAL = "#468189";
 
-export function EquipoTable({ equipos, onEdit, onDelete, onReactivar }: EquipoTableProps) {
+export function EquipoTable({ equipos, onEdit, onDelete, onReactivar, onCalibrar, onVerHistorial }: EquipoTableProps) {
   if (equipos.length === 0) {
     return (
       <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
@@ -40,6 +42,8 @@ export function EquipoTable({ equipos, onEdit, onDelete, onReactivar }: EquipoTa
               onEdit={onEdit}
               onDelete={onDelete}
               onReactivar={onReactivar}
+              onCalibrar={onCalibrar}
+              onVerHistorial={onVerHistorial} // <-- Se la pasamos al Item
             />
           ))}
         </Table.Body>

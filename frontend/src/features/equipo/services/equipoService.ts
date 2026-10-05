@@ -89,3 +89,33 @@ export async function reactivarEquipo(id: number, equipo: Omit<Equipo, "id">): P
   }
   return response.json();
 }
+
+export async function registrarCalibracion(
+  equipoId: number,
+  fechaRealizacion: string,
+  certificado: File
+): Promise<any> {
+  const formData = new FormData();
+  formData.append("fecha_realizacion", fechaRealizacion);
+  formData.append("certificado", certificado);
+
+  const response = await fetch(`${API_URL}/equipos/${equipoId}/calibraciones`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || "Error al registrar la calibración");
+  }
+
+  return response.json();
+}
+
+export async function obtenerHistorialCalibraciones(equipoId: number): Promise<any[]> {
+  const response = await fetch(`${API_URL}/equipos/${equipoId}/calibraciones`);
+  if (!response.ok) {
+    throw new Error("Error al obtener el historial de calibraciones");
+  }
+  return response.json();
+}
