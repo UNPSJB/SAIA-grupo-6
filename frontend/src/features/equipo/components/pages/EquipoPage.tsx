@@ -16,6 +16,8 @@ import {
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
+import { RegistrarCalibracionDialog } from "../RegistrarCalibracionDialog";
+import { HistorialCalibracionesDialog } from "../HistorialCalibracionesDialog";
 import { useEquipos } from "../../hooks/useEquipos";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import type { Equipo } from "../../types/equipo";
@@ -28,7 +30,14 @@ export function EquiposPage() {
   const [verInactivos, setVerInactivos] = useState(false);
 
   const { equipos, loading, error, cargarEquipos } = useEquipos(verInactivos);
-  const { borrar, reactivar, loading: procesando } = useEquipoABM();
+  const { borrar, reactivar, calibrar, loading: procesando } = useEquipoABM();
+
+  const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
+  const [equipoAReactivar, setEquipoAReactivar] = useState<Equipo | null>(null);
+  const [equipoACalibrar, setEquipoACalibrar] = useState<Equipo | null>(null);
+  const [equipoVerHistorial, setEquipoVerHistorial] = useState<Equipo | null>(null);
+  const [exitoCalibracion, setExitoCalibracion] = useState(false);
+
   const {
     paginados: equiposPaginados,
     totalPaginas,
@@ -36,10 +45,6 @@ export function EquiposPage() {
     setPage,
     hayVariasPaginas,
   } = usePaginacion(equipos, verInactivos, PAGE_SIZE);
-
-  const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
-  const [equipoAReactivar, setEquipoAReactivar] = useState<Equipo | null>(null);
-
 
   const handleConfirmReactivar = async () => {
     if (!equipoAReactivar) return;
@@ -57,18 +62,9 @@ export function EquiposPage() {
     }
   };
 
-  const handleEdit = (equipo: Equipo) => {
-    navigate(`/equipos/${equipo.id}/editar`);
-  };
-
-  const handleDeleteRequest = (equipo: Equipo) => {
-    setEquipoAEliminar(equipo);
-  };
-
-  const handleCloseDeleteDialog = () => {
-    if (procesando) return;
-    setEquipoAEliminar(null);
-  };
+  const handleEdit = (equipo: Equipo) => navigate(`/equipos/${equipo.id}/editar`);
+  const handleDeleteRequest = (equipo: Equipo) => setEquipoAEliminar(equipo);
+  const handleCloseDeleteDialog = () => { if (!procesando) setEquipoAEliminar(null); };
 
   const handleConfirmDelete = async () => {
     if (!equipoAEliminar) return;
@@ -78,6 +74,21 @@ export function EquiposPage() {
       await cargarEquipos();
     } catch {
       // The mutation hook exposes the failure state to this page.
+    }
+  };
+
+  const handleConfirmCalibrar = async (fecha: string, archivo: File) => {
+    if (!equipoACalibrar) return;
+    try {
+      await calibrar(equipoACalibrar.id, fecha, archivo);
+      setEquipoACalibrar(null); 
+      setExitoCalibracion(true); 
+      
+      setTimeout(() => {
+        setExitoCalibracion(false);
+      }, 2500);
+    } catch (error) {
+      console.error("Falló la calibración", error);
     }
   };
 
@@ -105,6 +116,18 @@ export function EquiposPage() {
         </Switch.Root>
       </HStack>
 
+      {exitoCalibracion && (
+        <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
+            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
+            <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>Éxito</Heading>
+            <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>
+              Calibración registrada y calculada correctamente.
+            </Text>
+          </Box>
+        </Box>
+      )}
+
       {loading && <Spinner />}
       {!loading && error && <Text color="red.500">{error}</Text>}
 
@@ -115,6 +138,8 @@ export function EquiposPage() {
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onReactivar={(equipo) => setEquipoAReactivar(equipo)}
+            onCalibrar={(equipo) => setEquipoACalibrar(equipo)}
+            onVerHistorial={(equipo) => setEquipoVerHistorial(equipo)} // <-- Le decimos que abra la ventana de historial
           />
 
           {hayVariasPaginas && (
@@ -164,6 +189,21 @@ export function EquiposPage() {
         isLoading={procesando}
         onCancel={() => { if (!procesando) setEquipoAReactivar(null); }}
         onConfirm={handleConfirmReactivar}
+      />
+
+      <RegistrarCalibracionDialog
+        isOpen={equipoACalibrar !== null}
+        equipo={equipoACalibrar}
+        isLoading={procesando}
+        onClose={() => setEquipoACalibrar(null)}
+        onConfirm={handleConfirmCalibrar}
+      />
+
+      {/* <-- Montamos la ventana del historial de calibraciones --> */}
+      <HistorialCalibracionesDialog
+        isOpen={equipoVerHistorial !== null}
+        equipo={equipoVerHistorial}
+        onClose={() => setEquipoVerHistorial(null)}
       />
     </Box>
   );

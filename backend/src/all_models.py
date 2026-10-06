@@ -31,7 +31,7 @@ from src.personal.models import Personal  # noqa: F401
 from src.unidadMedida.models import UnidadMedida  # noqa: F401
 from src.aptitud.models import Aptitud  # noqa: F401
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: F401
-from src.Equipo.models import Equipo  # noqa: F401
+from src.Equipo.models import Calibracion, Equipo  # noqa: F401
 from src.insumos.models import Insumo  # noqa: F401
 from src.insumoQuimico.models import InsumoQuimico  # noqa: F401
 from src.elementoLimpieza.models import ElementoLimpieza  # noqa: F401
@@ -44,6 +44,7 @@ from src.auth.models import TokenRevocado  # noqa: F401
 
 __all__ = [
     "Aptitud",
+    "Calibracion",
     "Checklist",
     "ElementoLimpieza",
     "Equipo",

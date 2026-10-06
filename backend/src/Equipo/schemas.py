@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.common.validators import texto_no_vacio
 from src.Equipo import exceptions
@@ -43,5 +45,18 @@ class EquipoUpdate(EquipoBase):
 class EquipoResponse(EquipoBase):
     id: int
     activo: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CalibracionResponse(BaseModel):
+    """Una calibración registrada, para el historial del equipo."""
+
+    id: int
+    fecha_realizacion: date
+    proximo_vencimiento: date
+    # Relativa a la carpeta de uploads: el frontend la pide por /uploads, que
+    # exige sesión.
+    certificado_url: str
 
     model_config = ConfigDict(from_attributes=True)

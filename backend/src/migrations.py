@@ -161,7 +161,48 @@ def run_migrations() -> None:
                 )
             )
 
-    # 4) Bootstrap del primer super admin.
+    # 4) Frecuencia de calibración del equipo.
+    #
+    #    `create_all()` crea tablas faltantes pero NO agrega columnas a las que ya
+    #    existen, así que sin esto toda base creada antes del registro de
+    #    calibraciones fallaba con "no such column: equipos.frecuencia_calibracion_dias"
+    #    al listado de equipos, que selecciona el modelo completo.
+    #
+    #    Va antes del bootstrap porque ese bloque corta con `return` cuando ya
+    #    corrió: lo que se agregue después jamás se aplicaría a bases existentes.
+    if "equipos" in tablas and "frecuencia_calibracion_dias" not in _columnas_de(
+        inspector, "equipos"
+    ):
+        logger.info(
+            "Migración: agregando columna equipos.frecuencia_calibracion_dias"
+        )
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "ALTER TABLE equipos "
+                    "ADD COLUMN frecuencia_calibracion_dias INTEGER"
+                )
+            )
+
+    # 5) Calibraciones: sacar la columna `activo` espuria.
+    #
+    #    La primera versión del merge declaraba un `activo` NOT NULL en
+    #    Calibracion que ningún endpoint ni vista usa (quedó colado al
+    #    resolver el conflicto a mano). La tabla se creó con ese esquema, así
+    #    que los INSERT del modelo definitivo —que no conoce la columna—
+    #    fallaban con "NOT NULL constraint failed: calibraciones.activo".
+    #    Mismo precedente que `incidentes.activo`: se borra de verdad.
+    if (
+        "calibraciones" in tablas
+        and "activo" in _columnas_de(inspector, "calibraciones")
+    ):
+        logger.info("Migración: eliminando columna calibraciones.activo")
+        with engine.begin() as conexion:
+            conexion.execute(
+                text("ALTER TABLE calibraciones DROP COLUMN activo")
+            )
+
+    # 6) Bootstrap del primer super admin.
     #
     #    Antes corría en cada arranque: un super admin que se degradaba a
     #    propósito (para pasar el control) volvía a ser promovido en el
