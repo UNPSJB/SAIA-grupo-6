@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime
 from typing import List, Optional
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+from src.common.persistence import guardar
 from src.incidente import models, schemas, exceptions
 from src.incidente.constants import EstadoIncidente
 from src.Equipo.models import Equipo
@@ -44,7 +44,7 @@ def _verificar_equipo(db: Session, equipo_id: Optional[int]) -> None:
     if equipo is None:
         raise exceptions.EquipoNoEncontrado()
     if not equipo.activo:
-        raise exceptions.EquipoNoEncontrado()
+        raise exceptions.EquipoInactivo()
 
 
 def _verificar_usuario(db: Session, usuario_id: int) -> None:
@@ -70,9 +70,7 @@ def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int
         estado=EstadoIncidente.ABIERTO.value,
     )
     db.add(incidente)
-    db.commit()
-    db.refresh(incidente)
-    return incidente
+    return guardar(db, incidente)
 
 
 def listar_incidentes(
@@ -112,10 +110,7 @@ def obtener_incidente(db: Session, incidente_id: int, current_user: Personal) ->
     # Operador solo ve sus propios incidentes
     if not (current_user.puede_administrar or current_user.es_super_admin):
         if incidente.usuario_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tenés permiso para ver este incidente"
-            )
+            raise exceptions.PermisoDenegado()
 
     _completar_nombres([incidente])
     return incidente
@@ -155,7 +150,10 @@ def cambiar_estado_incidente(
 
     if incidente.estado == estado.value:
         # Ya está en ese estado: no se pisa la fecha de cierre original.
-        return incidente
+        # Aun así hay que completar los nombres: sin esto, este camino
+        # devolvía los tres campos de nombre en null (son Optional, así que
+        # la inconsistencia con el GET pasaba inadvertida).
+        return _completar_nombres([incidente])[0]
 
     if estado == EstadoIncidente.CERRADO:
         _verificar_usuario(db, current_user.id)
@@ -173,8 +171,7 @@ def cambiar_estado_incidente(
         incidente.observacion_cierre = None
         logger.info("Incidente %s reabierto por %s", incidente.id, current_user.id)
 
-    db.commit()
-    db.refresh(incidente)
+    guardar(db, incidente)
 
     # refresh deja las relaciones sin cargar: hay que volver a consultarlas.
     return obtener_incidente(db, incidente_id, current_user)

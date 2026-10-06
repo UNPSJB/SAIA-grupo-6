@@ -1,7 +1,13 @@
-import logging
+from pathlib import Path
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Raiz del backend (este archivo vive en backend/src/config.py). Anclar aca
+# evita que la configuracion dependa del directorio desde el que se arrancó.
+RAIZ_BACKEND = Path(__file__).resolve().parent.parent
+ARCHIVO_ENV = RAIZ_BACKEND / ".env"
+CARPETA_UPLOADS = RAIZ_BACKEND / "uploads"
 
 LONGITUD_MINIMA_SECRET_KEY = 32
 SECRET_KEY_DE_EJEMPLO = "cambiar-en-produccion"
@@ -33,6 +39,42 @@ class Settings(BaseSettings):
     # por ejemplo: "http://localhost:5173,http://192.168.0.10:5173"
     CORS_ORIGINS: str = "http://localhost:5173"
 
+    @field_validator("DB_URL")
+    @classmethod
+    def anclar_sqlite(cls, v: str) -> str:
+        """Convierte a absoluta la ruta de una base SQLite relativa.
+
+        `sqlite:///db.sqlite3` es una ruta RELATIVA, y SQLite la resuelve
+        contra el directorio del proceso, no contra el lugar del `.env`. Eso
+        significa que arrancar el server desde la raíz del repo en lugar de
+        desde `backend/` crea y usa OTRA base: una vacía en la raíz y la real
+        acá adentro. Es exactamente lo que había pasado, y explica por qué
+        existían dos archivos `.sqlite3`.
+
+        Se deja intacto lo que ya es absoluto, y también `sqlite://` (base en
+        memoria, usada por los tests) y los esquemas de servidor.
+        """
+        if not v.startswith("sqlite"):
+            return v
+
+        # sqlite://  -> memoria, sin archivo
+        # sqlite://:memory: -> memoria
+        # sqlite:///relativo -> hay que anclarlo
+        try:
+            from sqlalchemy.engine import make_url
+
+            ruta = make_url(v).database
+        except Exception:
+            return v
+
+        if not ruta or ruta == ":memory:" or ruta.startswith(":memory:"):
+            return v
+
+        if Path(ruta).is_absolute():
+            return v
+
+        return f"sqlite:///{(RAIZ_BACKEND / ruta).as_posix()}"
+
     @field_validator("SECRET_KEY")
     @classmethod
     def validar_secret_key(cls, v: str) -> str:
@@ -53,9 +95,10 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         return [origen.strip() for origen in self.CORS_ORIGINS.split(",") if origen.strip()]
 
-    # Configuración para que lea automáticamente el archivo .env
+    # Configuración para que lea automáticamente el archivo .env.
+    # Ruta absoluta: si fuera relativo, dependería del CWD del proceso.
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ARCHIVO_ENV),
         env_file_encoding="utf-8",
         extra="ignore",  # Ignora otras variables que estén en el .env y no definamos en este archivo
     )

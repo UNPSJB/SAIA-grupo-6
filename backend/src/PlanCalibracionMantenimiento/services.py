@@ -3,12 +3,23 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.common.persistence import (
+    aplicar_cambios,
+    baja_logica,
+    guardar,
+    mapa_por_campo,
+)
+from src.auth.roles import puede_administrar
 from src.Equipo.models import Equipo
 from src.PlanCalibracionMantenimiento import exceptions, models, schemas
 from src.personal.models import Personal
 
 
 logger = logging.getLogger(__name__)
+
+_MAPEA_CONFLICTO = mapa_por_campo(
+    por_defecto=exceptions.PlanActivoDuplicado,
+)
 
 
 def _verificar_equipo_activo(db: Session, equipo_id: int) -> Equipo:
@@ -29,7 +40,7 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
         raise exceptions.AutorNoEncontrado()
     if not autor.activo:
         raise exceptions.AutorInactivo()
-    if not (autor.puede_administrar or autor.es_super_admin):
+    if not puede_administrar(autor):
         raise exceptions.AutorSinPermisoDeAdministrar()
 
     return autor
@@ -61,9 +72,15 @@ def crear_plan_calibracion_mantenimiento(
         **plan.model_dump(), autor_id=autor_id
     )
     db.add(nuevo_plan)
-    db.commit()
-    db.refresh(nuevo_plan)
-    return nuevo_plan
+    return guardar(db, nuevo_plan, _MAPEA_CONFLICTO)
+
+
+def dar_de_baja_plan_calibracion_mantenimiento(
+    db: Session, plan_id: int
+) -> models.PlanCalibracionMantenimiento:
+    """Baja lógica. Reutiliza el helper compartido en vez de repetir el
+    `activo = False; commit; refresh` que estaba copiado en cada modulo."""
+    return baja_logica(db, leer_plan_calibracion_mantenimiento(db, plan_id))
 
 
 def listar_planes_calibracion_mantenimiento(
@@ -107,9 +124,4 @@ def modificar_plan_calibracion_mantenimiento(
     if "equipo_id" in cambios or "tipo" in cambios:
         _verificar_plan_activo_duplicado(db, equipo_id, tipo, plan.id)
 
-    for atributo, valor in cambios.items():
-        setattr(plan, atributo, valor)
-
-    db.commit()
-    db.refresh(plan)
-    return plan
+    return aplicar_cambios(db, plan, cambios, _MAPEA_CONFLICTO)

@@ -1,10 +1,11 @@
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.auth.services import decodificar_token, token_revocado
+from src.exceptions import NotAuthenticated, PermissionDenied
 from src.database import get_db
 from src.personal.models import Personal
 
@@ -16,43 +17,25 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> Personal:
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No se proporcionó un token de autenticación.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise NotAuthenticated("No se proporcionó un token de autenticación.")
 
     payload = decodificar_token(credentials.credentials, token_type="access")
     if not payload or not payload.get("sub"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise NotAuthenticated("Token inválido o expirado.")
 
     # Token revocado (por ejemplo al cerrar sesión): se invalida de inmediato,
     # sin esperar a que venza.
     if token_revocado(db, payload.get("jti")):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="La sesión fue cerrada. Volvé a iniciar sesión.",
-        )
+        raise NotAuthenticated("La sesión fue cerrada. Volvé a iniciar sesión.")
 
     try:
         user_id = int(payload["sub"])
     except (TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise NotAuthenticated("Token inválido.")
 
     user = db.get(Personal, user_id)
     if user is None or not user.activo:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no encontrado o dado de baja.",
-        )
+        raise NotAuthenticated("Usuario no encontrado o dado de baja.")
 
     return user
 
@@ -92,10 +75,7 @@ def require_operador(current_user: Personal = Depends(get_current_user)) -> Pers
     administrador dicen "todo lo anterior + los maestros").
     """
     if not (current_user.puede_operar or current_user.puede_administrar):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requiere permiso de operar.",
-        )
+        raise PermissionDenied("Se requiere permiso de operar.")
     return current_user
 
 
@@ -105,17 +85,11 @@ def require_admin(current_user: Personal = Depends(get_current_user)) -> Persona
     El super admin también pasa: administra todo el sistema.
     """
     if not (current_user.puede_administrar or current_user.es_super_admin):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requiere permiso de administrar.",
-        )
+        raise PermissionDenied("Se requiere permiso de administrar.")
     return current_user
 
 
 def require_super_admin(current_user: Personal = Depends(get_current_user)) -> Personal:
     if not current_user.es_super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requiere permiso de super administrador.",
-        )
+        raise PermissionDenied("Se requiere permiso de super administrador.")
     return current_user

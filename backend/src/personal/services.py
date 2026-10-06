@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
+from src.common.persistence import es_violacion_nulo, es_violacion_unica
 from src.exceptions import ConflictoRegistroInactivo
 from src.auth.services import hashear_password, verificar_password, es_hash_bcrypt
 
@@ -71,16 +72,25 @@ def crear_persona(
 
         # Dejamos este manejo como respaldo por si la BD
         # detecta una restricción de integridad que no verificamos antes.
+        # Ojo: el substring match anterior era tan laxo que un
+        # "NOT NULL constraint failed: personal.dni" se le reportaba al
+        # usuario como "ese DNI ya está registrado". Solo una violación
+        # UNIQUE es un duplicado; el resto se propaga como error real.
         mensaje_error = str(e.orig).lower()
+
+        if es_violacion_nulo(mensaje_error):
+            raise exceptions.DatoInvalido()
+
+        if not es_violacion_unica(mensaje_error):
+            raise
 
         if "dni" in mensaje_error:
             raise exceptions.DniDuplicado()
 
-        elif "email" in mensaje_error:
+        if "email" in mensaje_error:
             raise exceptions.EmailDuplicado()
 
-        else:
-            raise exceptions.DatoDuplicado()
+        raise exceptions.DatoDuplicado()
 
 
 def listar_personas(

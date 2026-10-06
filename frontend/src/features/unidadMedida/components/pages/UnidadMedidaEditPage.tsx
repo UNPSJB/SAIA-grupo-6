@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
-import { UnidadMedidaForm } from "../unidadMedidaForm";
+import { UnidadMedidaForm } from "../UnidadMedidaForm";
 import { useUnidadMedida } from "../../hooks/useUnidadMedida";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { UnidadMedida } from "../../types/unidadMedida";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_TERCIARIO,
+} from "../../../../common/theme/tokens";
 
 export function UnidadMedidaEditPage() {
   const navigate = useNavigate();
@@ -53,7 +61,7 @@ export function UnidadMedidaEditPage() {
         </Heading>
 
         <Button
-          bg="#6c757d"
+          bg={GRIS_MEDIO}
           color="white"
           fontSize="16px"
           fontWeight="normal"
@@ -64,7 +72,7 @@ export function UnidadMedidaEditPage() {
             padding: "8px 16px",
             borderRadius: "6px",
           }}
-          _hover={{ bg: "#6c757d" }}
+          _hover={{ bg: GRIS_MEDIO }}
           onClick={() => navigate("/unidades-medida")}
         >
           Volver a la lista
@@ -79,7 +87,7 @@ export function UnidadMedidaEditPage() {
         <Text
           style={{
             fontStyle: "italic",
-            color: "#666",
+            color: TEXTO_TERCIARIO,
           }}
         >
           Cargando datos de la unidad de medida...
@@ -91,8 +99,8 @@ export function UnidadMedidaEditPage() {
           {errorGuardado && (
             <Box
               style={{
-                backgroundColor: "#f8d7da",
-                color: "#721c24",
+                backgroundColor: ERROR_FONDO,
+                color: ERROR_TEXTO,
                 padding: "12px",
                 borderRadius: "6px",
                 marginBottom: "20px",
@@ -141,7 +149,7 @@ export function UnidadMedidaEditPage() {
                   as="h3"
                   style={{
                     margin: 0,
-                    color: "#28a745",
+                    color: EXITO,
                     fontSize: "24px",
                   }}
                 >
@@ -150,7 +158,7 @@ export function UnidadMedidaEditPage() {
 
                 <Text
                   style={{
-                    color: "#555",
+                    color: TEXTO_SECUNDARIO,
                     marginTop: "10px",
                     fontSize: "16px",
                     fontWeight: 500,

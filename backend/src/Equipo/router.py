@@ -30,7 +30,7 @@ def crear_equipo(
     response_model=list[schemas.EquipoResponse],
     dependencies=[Depends(require_operador)]
 )
-def listar_equipo(
+def listar_equipos(
     incluir_inactivos: bool = False,
     db:Session = Depends(get_db)
 ):

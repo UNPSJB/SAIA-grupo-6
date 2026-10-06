@@ -1,4 +1,3 @@
-import logging
 from datetime import date as date_, datetime
 from typing import Dict, List, Optional
 
@@ -11,19 +10,18 @@ from src.Equipo.services import obtener_equipo
 from src.PlanLimpieza.models import PlanLimpieza
 from src.tareas.models import Tarea
 from src.tareas.services import leer_tarea
-from src.exceptions import NotFound
+from src.checklist import exceptions
 from src.checklist.exceptions import (
     CantidadConsumidaInvalida,
     ChecklistFuturo,
     ChecklistInmutable,
 )
 from src.insumoQuimico.models import InsumoQuimico
+from src.unidadMedida.models import UnidadMedida
 from src.elementoLimpieza.models import ElementoLimpieza
 
-from src.checklist.constants import ErrorCode
 from src.checklist.exceptions import FechaInvalida
 
-logger = logging.getLogger(__name__)
 
 
 def _cerrar_checklist_vencido(checklist: models.Checklist, hoy: date_) -> bool:
@@ -335,8 +333,10 @@ def listar_tareas_del_dia(
             if checklist_existente is not None and _cerrar_checklist_vencido(checklist, hoy):
                 changed = True
             if changed:
+                # Con un flush alcanza: el refresh de antes suma un round-trip
+                # por plan y ademas expiraba `checklist.registros`, que se lee
+                # justo despues del bucle.
                 db.flush()
-                db.refresh(checklist)
                 hay_cambios = True
 
             for reg in checklist.registros:
@@ -463,7 +463,7 @@ def marcar_tarea(
     ):
         insumo = db.get(InsumoQuimico, insumo_quimico_id)
         if insumo is None or not insumo.activo:
-            raise NotFound()
+            raise exceptions.InsumoQuimicoNoEncontrado()
         registro.insumo_quimico_id = insumo_quimico_id
         registro.cantidad_consumida = cantidad_consumida
     else:
@@ -476,7 +476,7 @@ def marcar_tarea(
     if completado and elemento_limpieza_id is not None:
         elemento = db.get(ElementoLimpieza, elemento_limpieza_id)
         if elemento is None or not elemento.activo:
-            raise NotFound()
+            raise exceptions.ElementoLimpiezaNoEncontrado()
         registro.elemento_limpieza_id = elemento_limpieza_id
     elif not completado:
         registro.elemento_limpieza_id = None
@@ -528,7 +528,7 @@ def marcar_tarea(
 def obtener_historial_registro(db: Session, registro_id: int) -> schemas.HistorialRegistroTareaResponse:
     registro = db.get(models.RegistroTarea, registro_id)
     if registro is None:
-        raise NotFound()
+        raise exceptions.RegistroTareaNoEncontrado()
 
     eventos = db.scalars(
         select(models.HistorialRegistroTarea)
@@ -683,11 +683,17 @@ def listar_consumo_insumos(
     nombres: Dict[int, tuple] = {}
 
     if ids:
-        for insumo in db.scalars(
-            select(InsumoQuimico).where(InsumoQuimico.id.in_(ids))
-        ).all():
-            simbolo = getattr(insumo.unidad_medida, "simbolo", None)
-            nombres[insumo.id] = (insumo.nombre, simbolo)
+        # Un SELECT con join: acceder a `insumo.unidad_medida` dentro del
+        # dispara un lazy-load por fila (1 + N consultas), que es lo que
+        # hacia este bloque pese al comentario.
+        nombres = {
+            id_: (nombre, simbolo)
+            for id_, nombre, simbolo in db.execute(
+                select(InsumoQuimico.id, InsumoQuimico.nombre, UnidadMedida.simbolo)
+                .join(UnidadMedida, InsumoQuimico.unidad_medida_id == UnidadMedida.id)
+                .where(InsumoQuimico.id.in_(ids))
+            ).all()
+        }
 
     items: List[schemas.ConsumoInsumoItem] = []
 

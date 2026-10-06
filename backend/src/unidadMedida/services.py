@@ -1,69 +1,64 @@
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from src.exceptions import ConflictoRegistroInactivo
+from src.common.persistence import (
+    aplicar_cambios,
+    baja_logica,
+    guardar,
+    listar,
+    mapa_por_campo,
+    obtener,
+    verificar_disponibilidad,
+)
 from src.unidadMedida.models import UnidadMedida
 from src.unidadMedida import schemas, exceptions
 
+# `unidades_medida.nombre` y `.simbolo` son UNIQUE. El orden importa: primero
+# el campo mas especifico, porque un mensaje del driver puede mentionar la
+# tabla completa y no el column.
+_MAPEA_CONFLICTO = mapa_por_campo(
+    ("unidades_medida.simbolo", exceptions.SimboloYaExiste),
+    ("unidades_medida.nombre", exceptions.UnidadMedidaYaExiste),
+    por_defecto=exceptions.DatoDuplicado,
+)
+
 
 def crear_unidad_medida(db: Session, datos: schemas.UnidadMedidaCreate) -> UnidadMedida:
-    existente_nombre = db.scalar(
-        select(UnidadMedida).where(UnidadMedida.nombre == datos.nombre)
+    verificar_disponibilidad(
+        db,
+        UnidadMedida,
+        "nombre",
+        datos.nombre,
+        ya_existe=exceptions.UnidadMedidaYaExiste,
+        etiqueta="unidad de medida",
+        femenina=True,
     )
-    if existente_nombre:
-        if existente_nombre.activo:
-            raise exceptions.UnidadMedidaYaExiste()
-        else:
-            raise ConflictoRegistroInactivo(
-                mensaje=f"La unidad de medida '{existente_nombre.nombre}' ya existe pero está dada de baja. ¿Querés reactivarla con estos nuevos datos?",
-                entidad_id=existente_nombre.id,
-                campo="nombre"
-            )
-
-    existente_simbolo = db.scalar(
-        select(UnidadMedida).where(UnidadMedida.simbolo == datos.simbolo)
+    verificar_disponibilidad(
+        db,
+        UnidadMedida,
+        "simbolo",
+        datos.simbolo,
+        ya_existe=exceptions.SimboloYaExiste,
+        etiqueta="símbolo",
     )
-    if existente_simbolo:
-        if existente_simbolo.activo:
-            raise exceptions.SimboloYaExiste()
-        else:
-            raise ConflictoRegistroInactivo(
-                mensaje=f"El símbolo '{existente_simbolo.simbolo}' ya existe pero está dado de baja. ¿Querés reactivarlo con estos nuevos datos?",
-                entidad_id=existente_simbolo.id,
-                campo="simbolo"
-            )
 
     nueva_unidad = UnidadMedida(**datos.model_dump())
     db.add(nueva_unidad)
-    db.commit()
-    db.refresh(nueva_unidad)
-    return nueva_unidad
+    return guardar(db, nueva_unidad, _MAPEA_CONFLICTO)
 
 
 def listar_unidades_medida(db: Session, incluir_inactivos: bool = False) -> List[UnidadMedida]:
-    consulta = select(UnidadMedida).order_by(UnidadMedida.id)
-    if not incluir_inactivos:
-        consulta = consulta.where(UnidadMedida.activo == True)
-    return list(db.scalars(consulta).all())
+    return listar(db, UnidadMedida, incluir_inactivos=incluir_inactivos)
 
 
 def obtener_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:
-    unidad = db.scalar(select(UnidadMedida).where(UnidadMedida.id == unidad_id))
-    if not unidad:
-        raise exceptions.UnidadMedidaNoEncontrada()
-    return unidad
+    return obtener(db, UnidadMedida, unidad_id, exceptions.UnidadMedidaNoEncontrada)
 
 
 def actualizar_unidad_medida(db: Session, unidad_id: int, datos: schemas.UnidadMedidaUpdate) -> UnidadMedida:
     unidad = obtener_unidad_medida(db, unidad_id)
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
-
-    for clave, valor in cambios.items():
-        setattr(unidad, clave, valor)
-
-    db.commit()
-    db.refresh(unidad)
-    return unidad
+    return aplicar_cambios(db, unidad, cambios, _MAPEA_CONFLICTO)
 
 
 def eliminar_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:
@@ -90,7 +85,4 @@ def eliminar_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:
             mensaje=f"La unidad de medida '{unidad.nombre}' está en uso por el insumo químico '{insumo_quimico_en_uso.nombre}'."
         )
 
-    unidad.activo = False
-    db.commit()
-    db.refresh(unidad)
-    return unidad
+    return baja_logica(db, unidad)

@@ -1,3 +1,4 @@
+import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,27 +14,25 @@ import {
   Field,
   NativeSelect,
 } from "@chakra-ui/react";
-import { IncidenteTable } from "../incidenteTable";
+import { IncidenteTable } from "../IncidenteTable";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
 import { useIncidentes } from "../../hooks/useIncidentes";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { ESTADOS_INCIDENTE, TIPOS_INCIDENTE, estadoLabel } from "../../types/incidente";
 import type { Incidente, TipoIncidente, EstadoIncidente } from "../../types/incidente";
+import {
+  EXITO_FONDO_CLARO,
+  EXITO_TEXTO,
+  TEAL,
+  TEAL_OSCURO,
+  TEXTO_SECUNDARIO,
+  estiloInputCompacto,
+} from "../../../../common/theme/tokens";
 
-const TEAL = "#468189";
 const PAGE_SIZE = 10;
 
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "10px 14px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "15px",
-  color: "#333",
-};
-
 const estiloSelect = {
-  ...estiloInput,
+  ...estiloInputCompacto,
   boxSizing: "border-box" as const,
   colorScheme: "light" as const,
   height: "auto" as const,
@@ -50,12 +49,7 @@ export function IncidentesListPage() {
   const { cerrar, reabrir, loading: procesando } = useIncidenteABM();
 
   const [incidenteACerrar, setIncidenteACerrar] = useState<Incidente | null>(null);
-  const [mensaje, setMensaje] = useState<string | null>(null);
-
-  const avisar = (texto: string) => {
-    setMensaje(texto);
-    window.setTimeout(() => setMensaje(null), 3500);
-  };
+  const { valor: mensajeAviso, avisar } = useAvisoTemporal<string>(3500);
 
   const incidentesFiltrados = useMemo(() => {
     // El estado ya viene filtrado del backend; el tipo se filtra acá porque es
@@ -132,7 +126,7 @@ export function IncidentesListPage() {
           borderRadius="6px"
           px="20px"
           py="10px"
-          _hover={{ bg: "#37666d" }}
+          _hover={{ bg: TEAL_OSCURO }}
           onClick={() => navigate("/incidentes/reportar")}
         >
           + Registrar Incidente
@@ -150,7 +144,7 @@ export function IncidentesListPage() {
         <HStack gap="20px" flexWrap="wrap" align="flex-end">
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 ESTADO
               </Box>
               <NativeSelect.Root>
@@ -173,7 +167,7 @@ export function IncidentesListPage() {
 
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 TIPO
               </Box>
               <NativeSelect.Root>
@@ -199,18 +193,18 @@ export function IncidentesListPage() {
       {loading && <Spinner />}
       {!loading && error && <Text color="red.500">{error}</Text>}
 
-      {mensaje && (
+      {mensajeAviso && (
         <Box
           mb="16px"
           p="12px 16px"
           borderRadius="8px"
           style={{
-            backgroundColor: "#f0fff4",
+            backgroundColor: EXITO_FONDO_CLARO,
             border: "1px solid #c6f6d5",
           }}
         >
-          <Text fontSize="14px" color="#276749" fontWeight="bold">
-            {mensaje}
+          <Text fontSize="14px" color={EXITO_TEXTO} fontWeight="bold">
+            {mensajeAviso}
           </Text>
         </Box>
       )}

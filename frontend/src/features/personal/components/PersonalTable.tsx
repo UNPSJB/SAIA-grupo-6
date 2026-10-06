@@ -1,6 +1,7 @@
 import { Box, Table, Text } from "@chakra-ui/react";
 import { PersonalItem } from "./PersonalItem";
 import type { Persona } from "../types/personal";
+import { TEAL } from "../../../common/theme/tokens";
 
 interface PersonalTableProps {
   personales: Persona[];
@@ -8,8 +9,6 @@ interface PersonalTableProps {
   onDelete: (persona: Persona) => void;
   onReactivar: (persona: Persona) => void; // <- NUEVO
 }
-
-const TEAL = "#468189";
 
 export function PersonalTable({ personales, onEdit, onDelete, onReactivar }: PersonalTableProps) {
   if (personales.length === 0) {

@@ -1,8 +1,14 @@
-from datetime import datetime, date
-from typing import Optional, List
+from datetime import date, datetime
 from enum import Enum
+from typing import List, Optional
 
-from src.PlanLimpieza.schemas import PlanLimpieza
+from src.Equipo.models import Equipo
+from src.PlanLimpieza.models import PlanLimpieza
+from src.personal.models import Personal
+from src.tareas.models import Tarea
+from src.insumoQuimico.models import InsumoQuimico
+from src.elementoLimpieza.models import ElementoLimpieza
+
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, Enum as SQLEnum
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship

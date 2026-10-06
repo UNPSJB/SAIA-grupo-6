@@ -1,32 +1,39 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, ButtonGroup, Heading, HStack, IconButton, Pagination, Spinner, Switch, Text } from "@chakra-ui/react";
 import { PersonalTable } from "../PersonalTable";
-import { DeletePersonalDialog } from "../DeletePersonalDialog";
+import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePersonales } from "../../hooks/usePersonales";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import type { Persona } from "../../types/personal";
+import {
+  PELIGRO,
+  TEAL,
+  TEAL_OSCURO,
+  TEXTO_SECUNDARIO,
+} from "../../../../common/theme/tokens";
 
-const TEAL = "#468189";
 const PAGE_SIZE = 10;
 
 export function PersonalPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
-  const [page, setPage] = useState(1);
 
   const { personales, loading, error, cargarPersonales } = usePersonales(verInactivos);
   const { borrar, reactivar, loading: procesando } = usePersonalABM();
+  const {
+    paginados: personalPaginado,
+    totalPaginas,
+    page,
+    setPage,
+    hayVariasPaginas,
+  } = usePaginacion(personales, verInactivos, PAGE_SIZE);
 
   const [personaAEliminar, setPersonaAEliminar] = useState<Persona | null>(null);
   const [personaAReactivar, setPersonaAReactivar] = useState<Persona | null>(null);
 
-  const personalPaginado = useMemo(() => {
-    const filtrados = personales.filter(p => verInactivos ? !p.activo : p.activo);
-    const start = (page - 1) * PAGE_SIZE;
-    return filtrados.slice(start, start + PAGE_SIZE);
-  }, [personales, page, verInactivos]);
 
   const handleToggleInactivos = (checked: boolean) => {
     setVerInactivos(checked);
@@ -85,7 +92,7 @@ export function PersonalPage() {
           px="16px" 
           py="6px" 
           height="auto" 
-          _hover={{ bg: "#37666d" }} 
+          _hover={{ bg: TEAL_OSCURO }} 
           onClick={() => navigate("/personal/nuevo")}
         >
           + Agregar
@@ -104,13 +111,13 @@ export function PersonalPage() {
             <Switch.Root checked={verInactivos} onCheckedChange={(e) => handleToggleInactivos(e.checked)} colorPalette="gray">
               <Switch.HiddenInput />
               <Switch.Control />
-              <Switch.Label style={{ fontSize: "14px", color: verInactivos ? "#d9534f" : "#555", fontWeight: verInactivos ? "bold" : "normal" }}>
+              <Switch.Label style={{ fontSize: "14px", color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO, fontWeight: verInactivos ? "bold" : "normal" }}>
                 Ver dados de baja
               </Switch.Label>
             </Switch.Root>
 
-            {personales.filter(p => verInactivos ? !p.activo : p.activo).length > PAGE_SIZE && (
-              <Pagination.Root count={personales.filter(p => verInactivos ? !p.activo : p.activo).length} pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)}>
+            {hayVariasPaginas && (
+              <Pagination.Root count={totalPaginas} pageSize={PAGE_SIZE} page={page} onPageChange={(e) => setPage(e.page)}>
                 <HStack justify="center">
                   <ButtonGroup variant="ghost" size="sm">
                     <Pagination.Items render={(pageItem) => {
@@ -142,11 +149,23 @@ export function PersonalPage() {
         </>
       )}
 
-      <DeletePersonalDialog isOpen={personaAEliminar !== null} persona={personaAEliminar} isLoading={procesando} onClose={handleCloseDeleteDialog} onConfirm={handleConfirmDelete} />
+      <ConfirmDialog
+        isOpen={personaAEliminar !== null}
+        titulo={
+          <>
+            ¿Está seguro que desea eliminar a{" "}
+            <strong>{personaAEliminar?.nombre}</strong>?
+          </>
+        }
+        mensaje="Esta acción no se puede deshacer."
+        isLoading={procesando}
+        onCancel={handleCloseDeleteDialog}
+        onConfirm={handleConfirmDelete}
+      />
       
       <ConfirmarReactivacionDialog 
         isOpen={personaAReactivar !== null} 
-        mensaje={`¿Estás seguro que deseas reactivar al empleado ${personaAReactivar?.nombre}?`} 
+        mensaje={`¿Está seguro que desea reactivar al empleado ${personaAReactivar?.nombre}?`} 
         isLoading={procesando} 
         onCancel={handleCloseReactivarDialog} 
         onConfirm={handleConfirmReactivar} 

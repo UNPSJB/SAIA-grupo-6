@@ -52,11 +52,6 @@ class RegistroTareaUpdate(BaseModel):
     )
 
 
-class ChecklistCierre(BaseModel):
-    supervisor_id: Optional[int] = None
-    observaciones: Optional[str] = None
-
-
 class RegistroTareaResponse(BaseModel):
     id: int
     checklist_id: int

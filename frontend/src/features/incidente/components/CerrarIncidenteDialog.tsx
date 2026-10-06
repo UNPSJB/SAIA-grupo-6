@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Box, Button, Portal, Text } from "@chakra-ui/react";
 import type { Incidente } from "../types/incidente";
+import {
+  BLANCO,
+  BORDE_CONTROL,
+  TEAL,
+  TEXTO_PRIMARIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_TERCIARIO,
+} from "../../../common/theme/tokens";
 
 interface CerrarIncidenteDialogProps {
   isOpen: boolean;
@@ -39,13 +47,13 @@ export function CerrarIncidenteDialog({
   const estiloInput = {
     width: "100%",
     boxSizing: "border-box" as const,
-    backgroundColor: "#fff",
+    backgroundColor: BLANCO,
     padding: "10px 12px",
     borderRadius: "8px",
     border: "2px solid #90BEBB",
     fontSize: "14px",
     fontFamily: "inherit",
-    color: "#333",
+    color: TEXTO_PRIMARIO,
     resize: "vertical" as const,
   };
 
@@ -76,11 +84,11 @@ export function CerrarIncidenteDialog({
             textAlign: "left",
           }}
         >
-          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+          <Box as="h3" style={{ marginTop: 0, color: TEXTO_PRIMARIO }}>
             Cerrar incidente <strong>#{incidente.id}</strong>
           </Box>
 
-          <Text style={{ color: "#666", marginBottom: "15px" }}>
+          <Text style={{ color: TEXTO_TERCIARIO, marginBottom: "15px" }}>
             Se deja asentada la acción correctiva, la fecha de cierre y vos
             como responsable de la resolución.
           </Text>
@@ -92,7 +100,7 @@ export function CerrarIncidenteDialog({
               fontSize: "14px",
               fontWeight: "bold",
               marginBottom: "6px",
-              color: "#555",
+              color: TEXTO_SECUNDARIO,
             }}
           >
             Acción correctiva (opcional)
@@ -121,8 +129,8 @@ export function CerrarIncidenteDialog({
               style={{
                 padding: "8px 16px",
                 borderRadius: "6px",
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
+                border: `1px solid ${BORDE_CONTROL}`,
+                backgroundColor: BLANCO,
                 cursor: "pointer",
                 fontWeight: "bold",
               }}
@@ -138,7 +146,7 @@ export function CerrarIncidenteDialog({
                 padding: "8px 16px",
                 borderRadius: "6px",
                 border: "none",
-                backgroundColor: "#468189",
+                backgroundColor: TEAL,
                 color: "white",
                 cursor: "pointer",
                 fontWeight: "bold",

@@ -1,4 +1,5 @@
 import type { Incidente, IncidenteFormValues, EstadoIncidente } from "../types/incidente";
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 /**
@@ -18,34 +19,19 @@ export async function listarIncidentes(
   const query = params.toString() ? `?${params.toString()}` : "";
   const response = await apiFetch(`${API_URL}/incidentes${query}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener los incidentes");
-  }
-
-  return response.json();
+  return pedir<Incidente[]>(response, "Error al obtener los incidentes");
 }
 
 export async function listarMisIncidentes(): Promise<Incidente[]> {
   const response = await apiFetch(`${API_URL}/incidentes/mios`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener tus incidentes");
-  }
-
-  return response.json();
+  return pedir<Incidente[]>(response, "Error al obtener tus incidentes");
 }
 
 export async function obtenerIncidente(id: number): Promise<Incidente> {
   const response = await apiFetch(`${API_URL}/incidentes/${id}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener el incidente");
-  }
-
-  return response.json();
+  return pedir<Incidente>(response, "Error al obtener el incidente");
 }
 
 export async function crearIncidente(
@@ -68,12 +54,7 @@ export async function crearIncidente(
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al crear el incidente");
-  }
-
-  return response.json();
+  return pedir<Incidente>(response, "Error al crear el incidente");
 }
 
 /**
@@ -96,10 +77,5 @@ export async function cambiarEstadoIncidente(
     }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al cambiar el estado del incidente");
-  }
-
-  return response.json();
+  return pedir<Incidente>(response, "Error al cambiar el estado del incidente");
 }

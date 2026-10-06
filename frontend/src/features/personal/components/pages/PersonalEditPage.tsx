@@ -6,20 +6,28 @@ import { PersonalForm } from "../PersonalForm";
 import { usePersonal } from "../../hooks/usePersonal";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 
-import { useAuth } from "../../../../common/context/AuthContext";
+import { useAuth } from "../../../../common/context/useAuth";
 import {
   esSuperAdmin,
   puedeModificarRoles,
 } from "../../../../common/api/permissions";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 
-import type { Persona } from "../../types/personal";
+import type { PersonaInput } from "../../types/personal";
 
 import {
   useVencimientosPersonal,
   type VencimientosPorAptitud,
 } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_TERCIARIO,
+} from "../../../../common/theme/tokens";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
@@ -83,12 +91,7 @@ export function PersonalEditPage() {
   // =====================================================
   // GUARDAR CAMBIOS
   // =====================================================
-  const handleSubmit = async (
-    values: Omit<
-      Persona,
-      "id" | "activo" | "fecha_creacion" | "fecha_actualizacion"
-    >
-  ) => {
+  const handleSubmit = async (values: PersonaInput) => {
     try {
       // 1. Guardamos los datos personales
       const usuarioActualizado = await modificar(personaId, values);
@@ -139,7 +142,7 @@ export function PersonalEditPage() {
         </Heading>
 
         <Button
-          bg="#6c757d"
+          bg={GRIS_MEDIO}
           color="white"
           fontSize="16px"
           fontWeight="normal"
@@ -150,7 +153,7 @@ export function PersonalEditPage() {
             padding: "8px 16px",
             borderRadius: "6px",
           }}
-          _hover={{ bg: "#6c757d" }}
+          _hover={{ bg: GRIS_MEDIO }}
           onClick={() => navigate("/personal")}
         >
           Volver a la lista
@@ -165,7 +168,7 @@ export function PersonalEditPage() {
         <Text
           style={{
             fontStyle: "italic",
-            color: "#666",
+            color: TEXTO_TERCIARIO,
           }}
         >
           Cargando datos del personal...
@@ -177,8 +180,8 @@ export function PersonalEditPage() {
           {errorGuardado && (
             <Box
               style={{
-                backgroundColor: "#f8d7da",
-                color: "#721c24",
+                backgroundColor: ERROR_FONDO,
+                color: ERROR_TEXTO,
                 padding: "12px",
                 borderRadius: "6px",
                 marginBottom: "20px",
@@ -192,8 +195,8 @@ export function PersonalEditPage() {
           {errorVencimientos && (
             <Box
               style={{
-                backgroundColor: "#f8d7da",
-                color: "#721c24",
+                backgroundColor: ERROR_FONDO,
+                color: ERROR_TEXTO,
                 padding: "12px",
                 borderRadius: "6px",
                 marginBottom: "20px",
@@ -242,7 +245,7 @@ export function PersonalEditPage() {
                   as="h3"
                   style={{
                     margin: 0,
-                    color: "#28a745",
+                    color: EXITO,
                     fontSize: "24px",
                   }}
                 >
@@ -251,7 +254,7 @@ export function PersonalEditPage() {
 
                 <Text
                   style={{
-                    color: "#555",
+                    color: TEXTO_SECUNDARIO,
                     marginTop: "10px",
                     fontSize: "16px",
                     fontWeight: 500,

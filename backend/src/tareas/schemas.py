@@ -1,6 +1,11 @@
-import re
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.validators import (
+    RE_NOMBRE_SOLO_LETRAS,
+    id_positivo,
+    texto_obligatorio,
+    texto_opcional,
+)
 from src.tareas import exceptions
 
 
@@ -11,17 +16,15 @@ class TareaBase(BaseModel):
 
     @field_validator("nombre")
     @classmethod
-    def validar_nombre(cls, v: str) -> str:
-        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
-            raise exceptions.NombreInvalido()
-        return v.strip()
+    def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
+        return texto_obligatorio(
+            v, invalido=exceptions.NombreInvalido, patron=RE_NOMBRE_SOLO_LETRAS
+        )
 
     @field_validator("frecuencia")
     @classmethod
-    def validar_frecuencia(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.FrecuenciaInvalida()
-        return v
+    def validar_frecuencia(cls, v: Optional[int]) -> Optional[int]:
+        return id_positivo(v, invalido=exceptions.FrecuenciaInvalida)
 
     @field_validator("descripcion")
     @classmethod
@@ -29,10 +32,7 @@ class TareaBase(BaseModel):
         # Texto libre (el procedimiento paso a paso): sin restricción de
         # caracteres, solo recortamos espacios y lo dejamos en None si
         # queda vacío.
-        if v is None:
-            return v
-        v = v.strip()
-        return v or None
+        return texto_opcional(v)
 
 
 class TareaCreate(TareaBase):

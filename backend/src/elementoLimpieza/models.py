@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import date
 from typing import Optional
 from src.models import ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column

@@ -12,33 +12,35 @@ import {
 } from "@chakra-ui/react";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
-
-const TEAL = "#468189";
-const TEAL_CLARO = "#90BEBB";
-
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "10px 14px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "15px",
-  color: "#333",
-};
+import {
+  BLANCO,
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO_ALT,
+  FONDO_TEAL,
+  GRIS_CLARO,
+  PELIGRO_TEXTO,
+  TEAL,
+  TEAL_CLARO,
+  TEXTO_PRIMARIO,
+  TEXTO_SECUNDARIO,
+  estiloInputCompacto,
+} from "../../../../common/theme/tokens";
 
 const estiloTarjeta = {
-  backgroundColor: "#fff",
+  backgroundColor: BLANCO,
   borderRadius: "10px",
   boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
   overflow: "hidden" as const,
 };
 
 const estiloHeaderFila = {
-  backgroundColor: "#EAF3F2",
+  backgroundColor: FONDO_TEAL,
   borderBottom: `2px solid ${TEAL_CLARO}`,
 };
 
 const estiloHeaderCelda = {
-  color: "#333",
+  color: TEXTO_PRIMARIO,
   fontWeight: "bold" as const,
   fontSize: "13px",
   textTransform: "uppercase" as const,
@@ -47,11 +49,11 @@ const estiloHeaderCelda = {
 };
 
 const estiloCelda = {
-  color: "#333",
+  color: TEXTO_PRIMARIO,
   fontSize: "14px",
   padding: "10px 16px",
   borderBottom: "1px solid #eee",
-  backgroundColor: "#fff",
+  backgroundColor: BLANCO,
 };
 
 function fechaLocalISO(fecha: Date): string {
@@ -62,9 +64,9 @@ function fechaLocalISO(fecha: Date): string {
 }
 
 function colorPorcentaje(pct: number): string {
-  if (pct >= 80) return "#2f9e44";
+  if (pct >= 80) return EXITO_ALT;
   if (pct >= 50) return "#e8a13d";
-  return "#c92a2a";
+  return PELIGRO_TEXTO;
 }
 
 export function HistorialChecklistPage() {
@@ -119,8 +121,8 @@ export function HistorialChecklistPage() {
           </Text>
         </Box>
         <Button
-          bg="#e0e0e0"
-          color="#333"
+          bg={GRIS_CLARO}
+          color={TEXTO_PRIMARIO}
           fontSize="14px"
           fontWeight="bold"
           height="auto"
@@ -141,39 +143,39 @@ export function HistorialChecklistPage() {
         <HStack gap="20px" flexWrap="wrap" align="flex-end">
           <Box minW="180px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 DESDE
               </Box>
               <Input
                 type="date"
                 value={fechaDesde}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                style={estiloInput}
+                style={estiloInputCompacto}
               />
             </Field.Root>
           </Box>
           <Box minW="180px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 HASTA
               </Box>
               <Input
                 type="date"
                 value={fechaHasta}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                style={estiloInput}
+                style={estiloInputCompacto}
               />
             </Field.Root>
           </Box>
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 EQUIPO
               </Box>
               <select
                 value={equipoSeleccionado}
                 onChange={(e) => setEquipoSeleccionado(e.target.value)}
-                style={{ ...estiloInput, width: "100%" }}
+                style={{ ...estiloInputCompacto, width: "100%" }}
               >
                 <option value="">Todos los equipos</option>
                 {equipos.map((equipo) => (
@@ -190,8 +192,8 @@ export function HistorialChecklistPage() {
       {error && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "12px",
             borderRadius: "8px",
             marginBottom: "20px",
@@ -286,11 +288,11 @@ export function HistorialChecklistPage() {
                     {expandidos.has(cl.checklist_id) && (
                       <Table.Row>
                         <Table.Cell colSpan={5} style={{ ...estiloCelda, backgroundColor: "#faf5f5" }}>
-                          <Text fontSize="13px" fontWeight="bold" color="#721c24" mb="6px">
+                          <Text fontSize="13px" fontWeight="bold" color={ERROR_TEXTO} mb="6px">
                             Tareas incumplidas:
                           </Text>
                           {cl.tareas_incumplidas.map((t, i) => (
-                            <Text key={t.tarea_id ?? i} fontSize="13px" color="#555">
+                            <Text key={t.tarea_id ?? i} fontSize="13px" color={TEXTO_SECUNDARIO}>
                               • {t.nombre}
                             </Text>
                           ))}

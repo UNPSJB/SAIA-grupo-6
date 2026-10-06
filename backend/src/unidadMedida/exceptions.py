@@ -3,6 +3,10 @@ from src.exceptions import NotFound, BadRequest
 from src.unidadMedida.constants import ErrorCode
 
 
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+
+
 class UnidadMedidaNoEncontrada(NotFound):
     DETAIL = ErrorCode.UNIDAD_MEDIDA_NO_ENCONTRADA
 

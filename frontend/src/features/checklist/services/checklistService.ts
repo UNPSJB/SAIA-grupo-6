@@ -4,9 +4,10 @@ import type {
   HistorialRegistroTareaResponse,
 } from "../types/checklist";
 
-import type { HistorialChecklistResponse } from "../types/checklist";
+import type { ConsumoInsumosResponse, HistorialChecklistResponse } from "../types/checklist";
 
 
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 
@@ -19,14 +20,10 @@ export async function obtenerTareasDelDia(
     `${API_URL}/checklist/tareas-del-dia${params}`
   );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al obtener las tareas del día"
-    );
-  }
-
-  return response.json();
+  return pedir<TareasDelDiaResponse>(
+    response,
+    "Error al obtener las tareas del día"
+  );
 }
 
 
@@ -101,18 +98,10 @@ export async function marcarTarea(
     }
   );
 
-  if (!response.ok) {
-    const errorData = await response
-      .json()
-      .catch(() => null);
-
-    throw new Error(
-      errorData?.detail ||
-      "Error al actualizar la tarea"
-    );
-  }
-
-  return response.json();
+  return pedir<RegistroTareaResponse>(
+    response,
+    "Error al actualizar la tarea"
+  );
 }
 
 
@@ -127,18 +116,10 @@ export async function obtenerHistorialRegistro(
     `${API_URL}/checklist/registro/${registroId}/historial`
   );
 
-  if (!response.ok) {
-    const errorData = await response
-      .json()
-      .catch(() => null);
-
-    throw new Error(
-      errorData?.detail ||
-      "Error al obtener el historial de la tarea"
-    );
-  }
-
-  return response.json();
+  return pedir<HistorialRegistroTareaResponse>(
+    response,
+    "Error al obtener el historial de la tarea"
+  );
 }
 
 
@@ -155,10 +136,29 @@ export async function obtenerHistorialChecklists(
 
   const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener el historial de checklists");
-  }
+  return pedir<HistorialChecklistResponse>(
+    response,
+    "Error al obtener el historial de checklists"
+  );
+}
 
-  return response.json();
+
+// ---------------------------------------------------------
+// CONSUMO DE INSUMOS EN UN RANGO DE FECHAS
+// ---------------------------------------------------------
+export async function obtenerConsumoInsumos(
+  fechaDesde: string,
+  fechaHasta: string
+): Promise<ConsumoInsumosResponse> {
+  const params = new URLSearchParams({
+    fecha_desde: fechaDesde,
+    fecha_hasta: fechaHasta,
+  });
+
+  const response = await apiFetch(`${API_URL}/checklist/consumo?${params}`);
+
+  return pedir<ConsumoInsumosResponse>(
+    response,
+    "Error al obtener el consumo"
+  );
 }

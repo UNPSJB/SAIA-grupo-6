@@ -1,17 +1,12 @@
 import type { Aptitud } from "../types/aptitud";
-import { ConflictoInactivoError } from "../../../common/api/errors";
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 export async function listarAptitudes(incluirInactivos = false): Promise<Aptitud[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
   const response = await apiFetch(`${API_URL}/aptitudes${query}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener las aptitudes");
-  }
-
-  return response.json();
+  return pedir<Aptitud[]>(response, "Error al obtener las aptitudes");
 }
 
 export async function crearAptitud(
@@ -23,20 +18,7 @@ export async function crearAptitud(
     body: JSON.stringify(datos),
   });
 
-  if (response.status === 409) {
-    const errorData = await response.json().catch(() => null);
-    const detail = errorData?.detail;
-    if (detail && typeof detail === "object" && detail.tipo === "inactivo") {
-      throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo);
-    }
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al crear la aptitud");
-  }
-
-  return response.json();
+  return pedir<Aptitud>(response, "Error al crear la aptitud");
 }
 
 export async function modificarAptitud(
@@ -49,12 +31,7 @@ export async function modificarAptitud(
     body: JSON.stringify(datos),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al modificar la aptitud");
-  }
-
-  return response.json();
+  return pedir<Aptitud>(response, "Error al modificar la aptitud");
 }
 
 export async function eliminarAptitud(id: number): Promise<Aptitud> {
@@ -62,12 +39,7 @@ export async function eliminarAptitud(id: number): Promise<Aptitud> {
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al eliminar la aptitud");
-  }
-
-  return response.json();
+  return pedir<Aptitud>(response, "Error al eliminar la aptitud");
 }
 
 export async function reactivarAptitud(
@@ -79,9 +51,5 @@ export async function reactivarAptitud(
 
 export async function obtenerAptitud(id: number): Promise<Aptitud> {
   const response = await apiFetch(`${API_URL}/aptitudes/${id}`);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener la aptitud");
-  }
-  return response.json();
+  return pedir<Aptitud>(response, "Error al obtener la aptitud");
 }

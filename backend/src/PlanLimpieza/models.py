@@ -1,10 +1,12 @@
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
-from src.models import ModeloBase
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Boolean, Date, DateTime
-from sqlalchemy import ForeignKey, String
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.Equipo.models import Equipo
+from src.personal.models import Personal
+from src.models import ModeloBase
 
 
 class PlanLimpieza(ModeloBase):

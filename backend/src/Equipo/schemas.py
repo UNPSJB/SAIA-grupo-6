@@ -1,4 +1,5 @@
-from pydantic import BaseModel, ConfigDict, field_validator, Field
+from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.validators import texto_no_vacio
 from src.Equipo import exceptions
 
 
@@ -19,21 +20,13 @@ class EquipoBase(BaseModel):
 
     @field_validator("ubicacion")
     @classmethod
-    def validar_ubicacion_no_vacia(cls, v: str) -> str:
-        if v is None:
-            return v
-        if not v.strip():
-            raise exceptions.UbicacionVacia()
-        return v.strip()
+    def validar_ubicacion_no_vacia(cls, v: str | None) -> str | None:
+        return texto_no_vacio(v, vacio=exceptions.UbicacionVacia)
 
     @field_validator("tipo")
     @classmethod
-    def validar_tipo_no_vacio(cls, v: str) -> str:
-        if v is None:
-            return v
-        if not v.strip():
-            raise ValueError("El tipo de equipo no puede estar vacio.")
-        return v.strip()
+    def validar_tipo_no_vacia(cls, v: str | None) -> str | None:
+        return texto_no_vacio(v, vacio=exceptions.TipoVacio)
 
 
 class EquipoCreate(EquipoBase):
@@ -46,19 +39,6 @@ class EquipoUpdate(EquipoBase):
     tipo: str | None = None
     activo: bool | None = None    
 
-
-class Equipo(EquipoBase):
-    id: int
-    activo: bool
-
-    model_config = ConfigDict(from_attributes = True)
-
-
-class EquipoDelete(EquipoBase):
-    id: int
-    activo: bool
-
-    model_config = ConfigDict(from_attribute=True)
 
 class EquipoResponse(EquipoBase):
     id: int

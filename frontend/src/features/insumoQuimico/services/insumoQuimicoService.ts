@@ -1,5 +1,5 @@
 import type { InsumoQuimico, InsumoQuimicoFormValues, InsumoQuimicoOpcion } from "../types/insumoQuimico";
-import { ConflictoInactivoError } from "../../../common/api/errors";
+import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
@@ -8,23 +8,13 @@ export async function listarInsumosQuimicos(incluirInactivos = false): Promise<I
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
   const response = await apiFetch(`${API_URL}/insumos-quimicos${query}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener los insumos químicos");
-  }
-
-  return response.json();
+  return pedir<InsumoQuimico[]>(response, "Error al obtener los insumos químicos");
 }
 
 export async function listarOpcionesInsumosQuimicos(): Promise<InsumoQuimicoOpcion[]> {
   const response = await apiFetch(`${API_URL}/insumos-quimicos/opciones`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener los productos de limpieza");
-  }
-
-  return response.json();
+  return pedir<InsumoQuimicoOpcion[]>(response, "Error al obtener los productos de limpieza");
 }
 
 export async function crearInsumoQuimico(
@@ -36,20 +26,7 @@ export async function crearInsumoQuimico(
     body: JSON.stringify(datos),
   });
 
-  if (response.status === 409) {
-    const errorData = await response.json().catch(() => null);
-    const detail = errorData?.detail;
-    if (detail && typeof detail === "object" && detail.tipo === "inactivo") {
-      throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo);
-    }
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al crear el insumo químico");
-  }
-
-  return response.json();
+  return pedir<InsumoQuimico>(response, "Error al crear el insumo químico");
 }
 
 export async function modificarInsumoQuimico(
@@ -62,12 +39,7 @@ export async function modificarInsumoQuimico(
     body: JSON.stringify(datos),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al modificar el insumo químico");
-  }
-
-  return response.json();
+  return pedir<InsumoQuimico>(response, "Error al modificar el insumo químico");
 }
 
 export async function eliminarInsumoQuimico(id: number): Promise<InsumoQuimico> {
@@ -75,12 +47,7 @@ export async function eliminarInsumoQuimico(id: number): Promise<InsumoQuimico> 
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al eliminar el insumo químico");
-  }
-
-  return response.json();
+  return pedir<InsumoQuimico>(response, "Error al eliminar el insumo químico");
 }
 
 export async function reactivarInsumoQuimico(
@@ -93,19 +60,10 @@ export async function reactivarInsumoQuimico(
     body: JSON.stringify({ ...datos, activo: true }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al reactivar el insumo químico");
-  }
-
-  return response.json();
+  return pedir<InsumoQuimico>(response, "Error al reactivar el insumo químico");
 }
 
 export async function obtenerInsumoQuimico(id: number): Promise<InsumoQuimico> {
   const response = await apiFetch(`${API_URL}/insumos-quimicos/${id}`);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener el insumo químico");
-  }
-  return response.json();
+  return pedir<InsumoQuimico>(response, "Error al obtener el insumo químico");
 }

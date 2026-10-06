@@ -29,4 +29,5 @@ class ErrorCode:
     USUARIO_NO_ENCONTRADO = "El usuario que reporta no existe."
     USUARIO_INACTIVO = "El usuario que reporta está inactivo."
     ESTADO_INVALIDO = "El estado del incidente no es válido."
-    ESTADO_INMUTABLE = "El estado del incidente no es válido."
+    EQUIPO_INACTIVO = "El equipo seleccionado está dado de baja."
+    PERMISO_DENEGADO = "No tenés permiso para ver este incidente."

@@ -13,8 +13,17 @@ import {
   tipoColor,
   formatoFechaCierre,
 } from "../../types/incidente";
-
-const TEAL_DETALLE = "#468189";
+import {
+  ADVERTENCIA,
+  ADVERTENCIA_HOVER,
+  EXITO_FONDO_CLARO,
+  EXITO_TEXTO,
+  FONDO_CARD,
+  FONDO_NEUTRO,
+  GRIS_MEDIO,
+  TEAL,
+  TEAL_OSCURO,
+} from "../../../../common/theme/tokens";
 
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +72,7 @@ export function IncidenteDetailPage() {
         <Text color="red.500">{error || "No se encontró el incidente"}</Text>
         <Button 
           mt="16px" 
-          bg="#6c757d" 
+          bg={GRIS_MEDIO} 
           color="white" 
           height="auto" 
           onClick={() => navigate(backUrl)} 
@@ -84,7 +93,7 @@ export function IncidenteDetailPage() {
             Incidente #{incidente.id}
           </Heading>
           <Button 
-            bg="#6c757d" 
+            bg={GRIS_MEDIO} 
             color="white" 
             height="auto" 
             onClick={() => navigate(backUrl)} 
@@ -111,24 +120,24 @@ export function IncidenteDetailPage() {
             <HStack gap="10px">
               {cerrado ? (
                 <Button
-                  bg="#f0ad4e"
+                  bg={ADVERTENCIA}
                   color="white"
                   height="auto"
                   loading={procesando}
                   onClick={handleReabrir}
                   style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}
-                  _hover={{ bg: "#ec971f" }}
+                  _hover={{ bg: ADVERTENCIA_HOVER }}
                 >
                   Reabrir incidente
                 </Button>
               ) : (
                 <Button
-                  bg={TEAL_DETALLE}
+                  bg={TEAL}
                   color="white"
                   height="auto"
                   onClick={() => setDialogoCierre(true)}
                   style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}
-                  _hover={{ bg: "#37666d" }}
+                  _hover={{ bg: TEAL_OSCURO }}
                 >
                   Cerrar incidente
                 </Button>
@@ -152,7 +161,7 @@ export function IncidenteDetailPage() {
           mb="24px"
           p="20px"
           style={{
-            backgroundColor: "#f7faf9",
+            backgroundColor: FONDO_CARD,
             border: "1px solid #d8e7e5",
             borderRadius: "10px",
           }}
@@ -186,7 +195,7 @@ export function IncidenteDetailPage() {
               whiteSpace: "pre-line",
               overflowWrap: "break-word",
               padding: "16px",
-              backgroundColor: "#f9f9f9",
+              backgroundColor: FONDO_NEUTRO,
               borderRadius: "8px",
               border: "1px solid #eee",
               lineHeight: "1.6",
@@ -207,7 +216,7 @@ export function IncidenteDetailPage() {
                 display: "flex",
                 justifyContent: "center",
                 padding: "16px",
-                backgroundColor: "#f9f9f9",
+                backgroundColor: FONDO_NEUTRO,
                 borderRadius: "10px",
                 border: "1px solid #eee",
               }}
@@ -244,25 +253,25 @@ export function IncidenteDetailPage() {
             mb="24px"
             p="20px"
             style={{
-              backgroundColor: "#f0fff4",
+              backgroundColor: EXITO_FONDO_CLARO,
               border: "1px solid #c6f6d5",
               borderRadius: "10px",
             }}
           >
-            <Text fontSize="16px" color="#276749" fontWeight="bold">
+            <Text fontSize="16px" color={EXITO_TEXTO} fontWeight="bold">
               ✅ Incidente cerrado
             </Text>
 
             <VStack align="start" gap="8px" mt="12px">
-              <Text fontSize="15px" color="#276749">
+              <Text fontSize="15px" color={EXITO_TEXTO}>
                 <strong>Acción correctiva:</strong>{" "}
                 {incidente.observacion_cierre ?? "Sin detalle registrado."}
               </Text>
-              <Text fontSize="15px" color="#276749">
+              <Text fontSize="15px" color={EXITO_TEXTO}>
                 <strong>Fecha de cierre:</strong>{" "}
                 {formatoFechaCierre(incidente.fecha_cierre)}
               </Text>
-              <Text fontSize="15px" color="#276749">
+              <Text fontSize="15px" color={EXITO_TEXTO}>
                 <strong>Responsable de la resolución:</strong>{" "}
                 {incidente.responsable_cierre_nombre ??
                   (incidente.responsable_cierre_id

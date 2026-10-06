@@ -2,24 +2,15 @@ import { useState } from "react";
 import { Box, Button, Field, HStack, Input } from "@chakra-ui/react";
 import { useAptitudes } from "../../aptitud/hooks/useAptitudes";
 import type { VencimientosPorAptitud } from "../hooks/useVencimientosPersonal";
-
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "12px",
-  width: "100%",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: "#333",
-};
-const estiloLabel = {
-  display: "block",
-  fontSize: "14px",
-  fontWeight: "bold" as const,
-  marginBottom: "8px",
-  color: "#555",
-};
+import {
+  BLANCO,
+  PELIGRO_TEXTO,
+  TEAL,
+  TEXTO_PRIMARIO,
+  TEXTO_TENUE,
+  estiloInputAncho,
+  estiloLabel,
+} from "../../../common/theme/tokens";
 
 interface VencimientosPersonalFormProps {
   valores: VencimientosPorAptitud;
@@ -52,22 +43,22 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
   return (
     <Box
       style={{
-        backgroundColor: "#ffffff",
+        backgroundColor: BLANCO,
         padding: "30px",
         borderRadius: "12px",
         boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
         marginBottom: "30px",
       }}
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189", marginBottom: "8px" }}>
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL, marginBottom: "8px" }}>
         Vencimientos de Aptitud
       </Box>
-      <Box style={{ fontSize: "13px", color: "#888", marginBottom: "20px" }}>
+      <Box style={{ fontSize: "13px", color: TEXTO_TENUE, marginBottom: "20px" }}>
         Opcional — cargá solo los que tengas a mano.
       </Box>
 
       {loading && (
-        <Box style={{ fontSize: "14px", color: "#888", fontStyle: "italic" }}>
+        <Box style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>
           Cargando aptitudes...
         </Box>
       )}
@@ -80,13 +71,13 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
               justify="space-between"
               style={{ padding: "10px 14px", backgroundColor: "#f4f9f8", borderRadius: "8px", marginBottom: "8px" }}
             >
-              <Box style={{ fontSize: "15px", color: "#333" }}>
+              <Box style={{ fontSize: "15px", color: TEXTO_PRIMARIO }}>
                 <strong>{apt.nombre}</strong> — vence el {valores[apt.id]}
               </Box>
               <Button
                 type="button"
                 onClick={() => quitarVencimiento(apt.id)}
-                style={{ background: "none", border: "none", color: "#c92a2a", fontWeight: "bold", cursor: "pointer", padding: 0 }}
+                style={{ background: "none", border: "none", color: PELIGRO_TEXTO, fontWeight: "bold", cursor: "pointer", padding: 0 }}
               >
                 Quitar
               </Button>
@@ -103,7 +94,7 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
               <select
                 value={aptitudSeleccionada}
                 onChange={(e) => setAptitudSeleccionada(e.target.value)}
-                style={{ ...estiloInput, minWidth: "200px" }}
+                style={{ ...estiloInputAncho, minWidth: "200px" }}
               >
                 <option value="">Seleccionar...</option>
                 {aptitudesDisponibles.map((apt) => (
@@ -120,7 +111,7 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
                 value={fechaSeleccionada}
                 min={new Date().toISOString().split("T")[0]}
                 onChange={(e) => setFechaSeleccionada(e.target.value)}
-                style={estiloInput}
+                style={estiloInputAncho}
               />
             </Field.Root>
             <Button
@@ -128,7 +119,7 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
               onClick={agregarVencimiento}
               disabled={!aptitudSeleccionada || !fechaSeleccionada}
               style={{
-                backgroundColor: "#468189",
+                backgroundColor: TEAL,
                 color: "white",
                 padding: "12px 20px",
                 borderRadius: "8px",
@@ -142,7 +133,7 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
             </Button>
           </HStack>
         ) : (
-          <Box style={{ fontSize: "14px", color: "#888", fontStyle: "italic" }}>
+          <Box style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>
             {aptitudes.length === 0
               ? "Todavía no hay aptitudes cargadas en el sistema. Creá una desde la sección Aptitudes."
               : "Ya cargaste todas las aptitudes disponibles."}

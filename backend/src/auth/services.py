@@ -7,7 +7,7 @@ from typing import Optional
 import bcrypt
 import jwt
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from src.config import settings
@@ -199,8 +199,12 @@ def token_revocado(db: Session, jti: Optional[str]) -> bool:
     return db.get(TokenRevocado, jti) is not None
 
 
-def purgar_revocados_vencidos(db: Session) -> None:
-    """Elimina los registros de revocación cuyo token ya expiró."""
+def purgar_revocados_vencidos(db: Session) -> int:
+    """Elimina los registros de revocacion cuyo token ya expiro.
+
+    Se invoca desde el lifespan de `src.main` (por eso recibe la `Session` y
+    no el engine). Devuelve cuantas filas borro, para poder loguearlo.
+    """
     from src.auth.models import TokenRevocado
 
     ahora = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -210,3 +214,4 @@ def purgar_revocados_vencidos(db: Session) -> None:
 
     if borrados:
         db.commit()
+    return borrados

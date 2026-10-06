@@ -1,4 +1,3 @@
-import logging
 from typing import List
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -8,7 +7,6 @@ from src.insumos.models import Insumo
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
-logger = logging.getLogger(__name__)
 
 
 def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
@@ -52,13 +50,6 @@ def listar_insumos(db: Session, incluir_inactivos: bool = False) -> List[Insumo]
     if not incluir_inactivos:
         consulta = consulta.where(Insumo.activo == True)
     return list(db.scalars(consulta).all())
-
-
-def obtener_insumo(db: Session, insumo_id: int) -> Insumo:
-    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id))
-    if db_insumo is None:
-        raise exceptions.InsumoNoEncontrado()
-    return db_insumo
 
 
 def leer_insumo(db: Session, insumo_id: int) -> Insumo:

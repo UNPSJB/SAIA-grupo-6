@@ -1,3 +1,4 @@
+import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,29 +14,33 @@ import { obtenerNotificaciones } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { Notificacion } from "../../types/notificacion";
-
-function formatearFecha(fecha?: string) {
-  if (!fecha) {
-    return "-";
-  }
-
-  return new Date(`${fecha.slice(0, 10)}T00:00:00`).toLocaleDateString("es-AR");
-}
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_SUAVE,
+} from "../../../../common/theme/tokens";
 
 export function NotificacionesPage() {
   const navigate = useNavigate();
   const delayed = useSafeTimeout();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false); // <-- Estado para el cartel verde
 
   const cargar = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await obtenerNotificaciones();
       setNotificaciones(data);
-    } catch {
-      // Manejo simple de error
+    } catch (e) {
+      // Antes el catch era vacío: un 500 mostraba "No hay notificaciones
+      // pendientes", que es exactamente lo contrario de lo que pasó.
+      setError(e instanceof Error ? e.message : "No se pudieron cargar las notificaciones");
     } finally {
       setLoading(false);
     }
@@ -110,13 +115,13 @@ export function NotificacionesPage() {
             <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
             <Heading
               as="h3"
-              style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+              style={{ margin: 0, color: EXITO, fontSize: "24px" }}
             >
               Éxito
             </Heading>
             <Text
               style={{
-                color: "#555",
+                color: TEXTO_SECUNDARIO,
                 marginTop: "10px",
                 fontSize: "16px",
                 fontWeight: 500,
@@ -128,14 +133,22 @@ export function NotificacionesPage() {
         </Box>
       )}
 
+      {error && (
+        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px",
+          borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb",
+          fontWeight: "bold" }}>
+          ⚠️ {error}
+        </Box>
+      )}
+
       {loading ? (
         <Spinner />
       ) : notificacionesOrdenadas.length === 0 ? (
         <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
-          <Text fontSize="18px" color="#28a745" fontWeight="bold">
+          <Text fontSize="18px" color={EXITO} fontWeight="bold">
             ✅ No hay notificaciones pendientes
           </Text>
-          <Text color="#6c757d">
+          <Text color={GRIS_MEDIO}>
             Todos los vencimientos están al día.
           </Text>
         </Box>
@@ -144,11 +157,11 @@ export function NotificacionesPage() {
           <Table.Root variant="outline" size="md">
             <Table.Header bg="#f8fafc">
                 <Table.Row>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Vencimiento</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Vencimiento</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
                 </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -177,8 +190,8 @@ export function NotificacionesPage() {
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
-                      <Text fontSize="14px" color="#4a5568">
-                        {formatearFecha(n.fecha_referencia)}
+                      <Text fontSize="14px" color={TEXTO_SUAVE}>
+                        {formatoFechaOCorta(n.fecha_referencia)}
                       </Text>
                     </Table.Cell>
                     <Table.Cell textAlign="center">

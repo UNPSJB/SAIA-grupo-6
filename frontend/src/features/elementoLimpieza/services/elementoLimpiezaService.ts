@@ -1,5 +1,5 @@
 import type { ElementoLimpieza, ElementoLimpiezaOpcion } from "../types/elementoLimpieza";
-import { ConflictoInactivoError } from "../../../common/api/errors";
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 
@@ -11,14 +11,10 @@ import { apiFetch, API_URL } from "../../../common/api/apiClient";
 export async function listarOpcionesElementosLimpieza(): Promise<ElementoLimpiezaOpcion[]> {
   const response = await apiFetch(`${API_URL}/elementos-limpieza/opciones`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al obtener los elementos de limpieza"
-    );
-  }
-
-  return response.json();
+  return pedir<ElementoLimpiezaOpcion[]>(
+    response,
+    "Error al obtener los elementos de limpieza",
+  );
 }
 
 
@@ -28,14 +24,10 @@ export async function listarElementosLimpieza(
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
   const response = await apiFetch(`${API_URL}/elementos-limpieza${query}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al obtener los elementos de limpieza"
-    );
-  }
-
-  return response.json();
+  return pedir<ElementoLimpieza[]>(
+    response,
+    "Error al obtener los elementos de limpieza",
+  );
 }
 
 export async function obtenerElementoLimpieza(
@@ -43,14 +35,10 @@ export async function obtenerElementoLimpieza(
 ): Promise<ElementoLimpieza> {
   const response = await apiFetch(`${API_URL}/elementos-limpieza/${id}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al obtener el elemento de limpieza"
-    );
-  }
-
-  return response.json();
+  return pedir<ElementoLimpieza>(
+    response,
+    "Error al obtener el elemento de limpieza",
+  );
 }
 
 export async function crearElementoLimpieza(
@@ -64,21 +52,10 @@ export async function crearElementoLimpieza(
     body: JSON.stringify(elemento),
   });
 
-  if (response.status === 409) {
-    const errorData = await response.json().catch(() => null); 
-    const detail = errorData?.detail; 
-    if (detail && typeof detail === "object" && detail.tipo === "inactivo") { 
-      throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo); 
-    } 
-  } 
-  
-  if (!response.ok) { 
-    const errorData = await response.json().catch(() => null); 
-    throw new Error( 
-      errorData?.detail || "Error al crear el elemento de limpieza" 
-    ); 
-  } 
-  return response.json(); 
+  return pedir<ElementoLimpieza>(
+    response,
+    "Error al crear el elemento de limpieza",
+  );
 }
 
 export async function modificarElementoLimpieza(
@@ -93,14 +70,10 @@ export async function modificarElementoLimpieza(
     body: JSON.stringify(elemento),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al modificar el elemento de limpieza"
-    );
-  }
-
-  return response.json();
+  return pedir<ElementoLimpieza>(
+    response,
+    "Error al modificar el elemento de limpieza",
+  );
 }
 
 export async function darDeBajaElementoLimpieza(
@@ -110,14 +83,10 @@ export async function darDeBajaElementoLimpieza(
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al dar de baja el elemento de limpieza"
-    );
-  }
-
-  return response.json();
+  return pedir<ElementoLimpieza>(
+    response,
+    "Error al dar de baja el elemento de limpieza",
+  );
 }
 
 export async function registrarRecambioElemento(id: number): Promise<ElementoLimpieza> {
@@ -126,12 +95,8 @@ export async function registrarRecambioElemento(id: number): Promise<ElementoLim
     method: "POST",
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail || "Error al registrar el recambio del elemento"
-    );
-  }
-
-  return response.json();
+  return pedir<ElementoLimpieza>(
+    response,
+    "Error al registrar el recambio del elemento",
+  );
 }

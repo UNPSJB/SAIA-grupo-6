@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { login, register, getBootstrapStatus } from '../common/api/authService';
 import { useAuth } from '../common/context/useAuth';
+import { BLANCO, TEXTO_PRIMARIO } from "../common/theme/tokens";
 
 export const Login = () => {
     const navigate = useNavigate();
@@ -121,14 +122,14 @@ export const Login = () => {
     };
 
     const estiloInput = {
-        backgroundColor: "#fff",
+        backgroundColor: BLANCO,
         padding: "12px",
         width: "100%",
         borderRadius: "8px",
         border: "2px solid #90BEBB",
         fontSize: "16px",
         outline: "none",
-        color: "#333",
+        color: TEXTO_PRIMARIO,
         marginBottom: "15px"
     };
 

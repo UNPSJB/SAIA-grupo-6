@@ -3,6 +3,8 @@ from typing import Optional
 from sqlalchemy import String, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.incidente.constants import EstadoIncidente
+from src.Equipo.models import Equipo
+from src.personal.models import Personal
 from src.models import ModeloBase
 
 

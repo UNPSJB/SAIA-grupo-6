@@ -18,38 +18,45 @@ import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQui
 import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
+import {
+  BLANCO,
+  BORDE_SUAVE,
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO_ALT,
+  FONDO_CARD,
+  FONDO_TEAL,
+  GRIS_CLARO,
+  PELIGRO,
+  PELIGRO_HOVER,
+  PELIGRO_TEXTO,
+  TEAL,
+  TEAL_CLARO,
+  TEXTO_PRIMARIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_TENUE,
+  estiloInputCompacto,
+} from "../../../../common/theme/tokens";
 
-
-const TEAL = "#468189";
-const TEAL_CLARO = "#90BEBB";
 
 // Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
 // src/checklist/router.py).
 const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "10px 14px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "15px",
-  color: "#333",
-};
-
 const estiloTarjeta = {
-  backgroundColor: "#fff",
+  backgroundColor: BLANCO,
   borderRadius: "10px",
   boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
   overflow: "hidden" as const,
 };
 
 const estiloHeaderFila = {
-  backgroundColor: "#EAF3F2",
+  backgroundColor: FONDO_TEAL,
   borderBottom: `2px solid ${TEAL_CLARO}`,
 };
 
 const estiloHeaderCelda = {
-  color: "#333",
+  color: TEXTO_PRIMARIO,
   fontWeight: "bold" as const,
   fontSize: "13px",
   textTransform: "uppercase" as const,
@@ -58,11 +65,11 @@ const estiloHeaderCelda = {
 };
 
 const estiloCelda = {
-  color: "#333",
+  color: TEXTO_PRIMARIO,
   fontSize: "14px",
   padding: "10px 16px",
   borderBottom: "1px solid #eee",
-  backgroundColor: "#fff",
+  backgroundColor: BLANCO,
 };
 
 interface GrupoPlan {
@@ -139,7 +146,11 @@ function FilaTarea({
   const [errorEvidencia, setErrorEvidencia] = useState<string | null>(null);
   // La evidencia vive detrás de /uploads, que exige token: no se puede poner la
   // ruta en el src del <img>, hay que bajarla con la sesión.
-  const imagen = useImagenAutenticada(tarea.evidencia_url);
+  //
+  // Se pide SOLO con el modal abierto: pasar siempre la ruta hacía que cada
+  // fila bajara su foto al renderizarse (30 filas = 30 descargas) aunque nadie
+  // haya abierto ninguna. El hook no dispara nada cuando recibe `null`.
+  const imagen = useImagenAutenticada(mostrarFoto ? tarea.evidencia_url : null);
   const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
@@ -286,13 +297,13 @@ function FilaTarea({
                   mt="6px"
                   style={{
                     padding: "10px 12px",
-                    backgroundColor: "#f7faf9",
+                    backgroundColor: FONDO_CARD,
                     border: "1px solid #d8e7e5",
                     borderRadius: "6px",
                     maxWidth: "550px",
                     whiteSpace: "pre-line",
                     fontSize: "13px",
-                    color: "#333",
+                    color: TEXTO_PRIMARIO,
                   }}
                 >
                   {tarea.descripcion}
@@ -307,7 +318,7 @@ function FilaTarea({
               mt="10px"
               style={{
                 padding: "10px",
-                backgroundColor: "#f7faf9",
+                backgroundColor: FONDO_CARD,
                 border: "1px solid #d8e7e5",
                 borderRadius: "6px",
                 maxWidth: "550px",
@@ -315,7 +326,7 @@ function FilaTarea({
             >
               {/* Selector de Elemento de Limpieza */}
               <Box mb="10px">
-                <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
+                <Text fontSize="12px" fontWeight="bold" color={TEXTO_SECUNDARIO} mb="4px">
                   Elemento de limpieza utilizado
                 </Text>
                 <select
@@ -341,7 +352,7 @@ function FilaTarea({
               </Box>
 
               {/* Selector de Insumo Químico */}
-              <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
+              <Text fontSize="12px" fontWeight="bold" color={TEXTO_SECUNDARIO} mb="4px">
                 Producto químico utilizado
               </Text>
               <select
@@ -371,7 +382,7 @@ function FilaTarea({
 
               {insumoSeleccionado && (
                 <Box mt="8px">
-                  <Text fontSize="12px" fontWeight="bold" color="#555" mb="4px">
+                  <Text fontSize="12px" fontWeight="bold" color={TEXTO_SECUNDARIO} mb="4px">
                     Cantidad aproximada consumida
                   </Text>
                   <HStack gap="8px">
@@ -435,7 +446,7 @@ function FilaTarea({
                   style={{
                     fontSize: "12px",
                     padding: "4px 8px",
-                    backgroundColor: "#e2e8f0",
+                    backgroundColor: BORDE_SUAVE,
                     border: "none",
                     borderRadius: "4px",
                     cursor: "pointer",
@@ -482,11 +493,11 @@ function FilaTarea({
                     height="22px"
                     padding="0"
                     borderRadius="full"
-                    bg="#d9534f"
+                    bg={PELIGRO}
                     color="white"
                     fontWeight="bold"
                     lineHeight="1"
-                    _hover={{ bg: "#c9302c" }}
+                    _hover={{ bg: PELIGRO_HOVER }}
                   >
                     ✕
                   </Button>
@@ -507,7 +518,7 @@ function FilaTarea({
             <Text
               fontSize="17px"
               fontWeight="bold"
-              color={tarea.completado ? "#2f9e44" : "#c92a2a"}
+              color={tarea.completado ? EXITO_ALT : PELIGRO_TEXTO}
               title={
                 tarea.completado
                   ? "Completada (checklist cerrado)"
@@ -553,7 +564,7 @@ function FilaTarea({
                   onClick={verHistorial}
                   style={{
                     fontSize: "11px",
-                    color: "#888",
+                    color: TEXTO_TENUE,
                     background: "none",
                     border: "none",
                     textDecoration: "underline",
@@ -760,8 +771,8 @@ export function ChecklistPage() {
           </Text>
         </Box>
         <Button
-          bg="#e0e0e0"
-          color="#333"
+          bg={GRIS_CLARO}
+          color={TEXTO_PRIMARIO}
           fontSize="14px"
           fontWeight="bold"
           height="auto"
@@ -787,7 +798,7 @@ export function ChecklistPage() {
               fontSize="14px"
               fontWeight="bold"
               mb="6px"
-              color="#555"
+              color={TEXTO_SECUNDARIO}
             >
               FECHA
             </Box>
@@ -795,7 +806,7 @@ export function ChecklistPage() {
               type="date"
               value={selectedFecha}
               onChange={(e) => setSelectedFecha(e.target.value)}
-              style={estiloInput}
+              style={estiloInputCompacto}
             />
           </Field.Root>
         </Box>
@@ -804,8 +815,8 @@ export function ChecklistPage() {
       {error && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "12px",
             borderRadius: "8px",
             marginBottom: "20px",

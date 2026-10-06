@@ -1,4 +1,5 @@
 import { Box, Text } from "@chakra-ui/react";
+import { TEXTO_PRIMARIO, TEXTO_TERCIARIO } from "../../../../common/theme/tokens";
 
 export function ReportarIncidenteEmptyState() {
   return (
@@ -15,10 +16,10 @@ export function ReportarIncidenteEmptyState() {
       <Box style={{ fontSize: "64px", marginBottom: "16px" }}>
         📋
       </Box>
-      <Text fontSize="20px" fontWeight="bold" color="#333" mb="8px">
+      <Text fontSize="20px" fontWeight="bold" color={TEXTO_PRIMARIO} mb="8px">
         Aún no has reportado incidentes
       </Text>
-      <Text fontSize="15px" color="#666" maxW="400px" mx="auto" lineHeight="1.6">
+      <Text fontSize="15px" color={TEXTO_TERCIARIO} maxW="400px" mx="auto" lineHeight="1.6">
         Cuando reportes tu primer incidente, aparecerá aquí con su estado,
         fecha y tipo. Podrás ver el detalle haciendo clic en "Ver".
       </Text>

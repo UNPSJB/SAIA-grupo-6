@@ -3,6 +3,7 @@ import type {
   PlanCalibracionMantenimientoCreate,
   PlanCalibracionMantenimientoUpdate,
 } from "../types/planCalibracionMantenimiento";
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 export async function listarPlanesCalibracionMantenimiento(
@@ -13,15 +14,10 @@ export async function listarPlanesCalibracionMantenimiento(
     `${API_URL}/planes-calibracion-mantenimiento${query}`,
   );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail ||
-        "Error al obtener los planes de calibración y mantenimiento",
-    );
-  }
-
-  return response.json();
+  return pedir<PlanCalibracionMantenimiento[]>(
+    response,
+    "Error al obtener los planes de calibración y mantenimiento",
+  );
 }
 
 export async function obtenerPlanCalibracionMantenimiento(
@@ -31,15 +27,10 @@ export async function obtenerPlanCalibracionMantenimiento(
     `${API_URL}/planes-calibracion-mantenimiento/${id}`,
   );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail ||
-        "Error al obtener el plan de calibración y mantenimiento",
-    );
-  }
-
-  return response.json();
+  return pedir<PlanCalibracionMantenimiento>(
+    response,
+    "Error al obtener el plan de calibración y mantenimiento",
+  );
 }
 
 export async function crearPlanCalibracionMantenimiento(
@@ -51,15 +42,10 @@ export async function crearPlanCalibracionMantenimiento(
     body: JSON.stringify(plan),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail ||
-        "Error al crear el plan de calibración y mantenimiento",
-    );
-  }
-
-  return response.json();
+  return pedir<PlanCalibracionMantenimiento>(
+    response,
+    "Error al crear el plan de calibración y mantenimiento",
+  );
 }
 
 export async function modificarPlanCalibracionMantenimiento(
@@ -75,13 +61,25 @@ export async function modificarPlanCalibracionMantenimiento(
     },
   );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.detail ||
-        "Error al modificar el plan de calibración y mantenimiento",
-    );
-  }
+  return pedir<PlanCalibracionMantenimiento>(
+    response,
+    "Error al modificar el plan de calibración y mantenimiento",
+  );
+}
+/**
+ * Baja lógica del plan. El backend expone `DELETE /planes-calibracion-mantenimiento/{id}`
+ * y marca `activo = False`; el registro se puede reactivar con un PUT.
+ */
+export async function eliminarPlanCalibracionMantenimiento(
+  id: number,
+): Promise<PlanCalibracionMantenimiento> {
+  const response = await apiFetch(
+    `${API_URL}/planes-calibracion-mantenimiento/${id}`,
+    { method: "DELETE" },
+  );
 
-  return response.json();
+  return pedir<PlanCalibracionMantenimiento>(
+    response,
+    "Error al eliminar el plan de calibración y mantenimiento",
+  );
 }

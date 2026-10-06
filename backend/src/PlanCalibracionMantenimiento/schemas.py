@@ -26,11 +26,16 @@ class PlanCalibracionMantenimientoCreate(PlanCalibracionMantenimientoBase):
     pass
 
 
-class PlanCalibracionMantenimientoUpdate(BaseModel):
+class PlanCalibracionMantenimientoUpdate(PlanCalibracionMantenimientoBase):
+    """Ensancha la base para heredar sus validadores, y suma `activo` para que
+    el plan se pueda dar de baja (antes `activo` era de solo lectura y ningun
+    endpoint podia moverlo)."""
+
     equipo_id: Optional[int] = None
     tipo: Optional[TipoPlanCalibracionMantenimiento] = None
     fecha_ultima_intervencion: Optional[date] = None
     periodicidad_dias: Optional[int] = Field(default=None, ge=1)
+    activo: Optional[bool] = None
 
     @field_validator("equipo_id")
     @classmethod

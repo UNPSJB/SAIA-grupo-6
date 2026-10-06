@@ -1,5 +1,5 @@
 import type { UnidadMedida } from "../types/unidadMedida";
-import { ConflictoInactivoError } from "../../../common/api/errors";
+import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
@@ -8,12 +8,7 @@ export async function listarUnidadesMedida(incluirInactivos = false): Promise<Un
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
   const response = await apiFetch(`${API_URL}/unidades-medida${query}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener las unidades de medida");
-  }
-
-  return response.json();
+  return pedir<UnidadMedida[]>(response, "Error al obtener las unidades de medida");
 }
 
 export async function crearUnidadMedida(
@@ -25,20 +20,7 @@ export async function crearUnidadMedida(
     body: JSON.stringify(datos),
   });
 
-  if (response.status === 409) {
-    const errorData = await response.json().catch(() => null);
-    const detail = errorData?.detail;
-    if (detail && typeof detail === "object" && detail.tipo === "inactivo") {
-      throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo);
-    }
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al crear la unidad de medida");
-  }
-
-  return response.json();
+  return pedir<UnidadMedida>(response, "Error al crear la unidad de medida");
 }
 
 export async function modificarUnidadMedida(
@@ -51,12 +33,7 @@ export async function modificarUnidadMedida(
     body: JSON.stringify(datos),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al modificar la unidad de medida");
-  }
-
-  return response.json();
+  return pedir<UnidadMedida>(response, "Error al modificar la unidad de medida");
 }
 
 export async function eliminarUnidadMedida(id: number): Promise<UnidadMedida> {
@@ -64,12 +41,7 @@ export async function eliminarUnidadMedida(id: number): Promise<UnidadMedida> {
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al eliminar la unidad de medida");
-  }
-
-  return response.json();
+  return pedir<UnidadMedida>(response, "Error al eliminar la unidad de medida");
 }
 
 export async function reactivarUnidadMedida(
@@ -81,9 +53,5 @@ export async function reactivarUnidadMedida(
 
 export async function obtenerUnidadMedida(id: number): Promise<UnidadMedida> {
   const response = await apiFetch(`${API_URL}/unidades-medida/${id}`);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener la unidad de medida");
-  }
-  return response.json();
+  return pedir<UnidadMedida>(response, "Error al obtener la unidad de medida");
 }

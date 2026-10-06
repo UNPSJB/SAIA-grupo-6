@@ -1,30 +1,20 @@
-import type { Persona } from "../types/personal";
-import { ConflictoInactivoError } from "../../../common/api/errors";
-
+import type { Persona, PersonaInput } from "../types/personal";
+import { pedir } from "../../../common/api/errors";
 
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 
-type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
 
 export async function listarPersonal(incluirInactivos = false): Promise<Persona[]> {
     const query = incluirInactivos ? "?incluir_inactivos=true" : "";
     const response = await apiFetch(`${API_URL}/personal${query}`);
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al obtener el personal");
-    }
-    return response.json();
+    return pedir<Persona[]>(response, "Error al obtener el personal");
 }
 
 export async function obtenerPersona(id: number): Promise<Persona> {
     const response = await apiFetch(`${API_URL}/personal/${id}`);
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al obtener la persona");
-    }
-    return response.json();
+    return pedir<Persona>(response, "Error al obtener la persona");
 }
 
 export async function crearPersona(persona: PersonaInput): Promise<Persona> {
@@ -34,20 +24,7 @@ export async function crearPersona(persona: PersonaInput): Promise<Persona> {
         body: JSON.stringify(persona),
     });
 
-    if (response.status === 409) {
-        const errorData = await response.json().catch(() => null);
-        const detail = errorData?.detail;
-        if (detail && typeof detail === "object" && detail.tipo === "inactivo") {
-            throw new ConflictoInactivoError(detail.mensaje, detail.id, detail.campo);
-        }
-    }
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al crear el registro");
-    }
-
-    return response.json();
+    return pedir<Persona>(response, "Error al crear el registro");
 }
 
 export async function modificarPersona(id: number, persona: PersonaInput): Promise<Persona> {
@@ -56,35 +33,8 @@ export async function modificarPersona(id: number, persona: PersonaInput): Promi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(persona),
     });
-    
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        let mensajeError = "Error al modificar el registro";
-        
-        if (errorData?.detail) {
-            if (Array.isArray(errorData.detail)) {
-                mensajeError = errorData.detail.map((d: { loc: (string | number)[]; msg: string }) => {
-                    const campo = d.loc[d.loc.length - 1];
-                    let mensaje = d.msg;
-                    
-                    // Traductor amigable de errores técnicos
-                    if (mensaje === "Field required") mensaje = "Este dato es obligatorio.";
-                    if (mensaje.includes("valid email")) mensaje = "El formato del correo es inválido.";
-                    
-                    // Formateamos el nombre del campo para que se lea mejor
-                    const nombreCampo = campo === "password" ? "Contraseña" : campo.toString().toUpperCase();
-                    
-                    return `${nombreCampo}: ${mensaje}`;
-                }).join(" | ");
-            } else if (typeof errorData.detail === 'string') {
-                mensajeError = errorData.detail;
-            }
-        }
-        
-        throw new Error(mensajeError);
-    }
-    
-    return response.json();
+
+    return pedir<Persona>(response, "Error al modificar el registro");
 }
 
 // Reactiva a alguien dado de baja, pisando sus datos con los valores nuevos.
@@ -97,19 +47,12 @@ export async function reactivarPersona(id: number, persona: PersonaInput): Promi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...persona, activo: true }),
     });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al reactivar el personal");
-    }
-    return response.json();
+    return pedir<Persona>(response, "Error al reactivar el personal");
 }
 
 export async function eliminarPersona(id: number): Promise<void> {
     const response = await apiFetch(`${API_URL}/personal/${id}`, {
         method: "DELETE",
     });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al eliminar el registro");
-    }
+    return pedir<void>(response, "Error al eliminar el registro");
 }

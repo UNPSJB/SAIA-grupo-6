@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -7,7 +7,7 @@ class DetailedHTTPException(HTTPException):
     STATUS_CODE = status.HTTP_500_INTERNAL_SERVER_ERROR
     DETAIL = "Error del servidor"
 
-    def __init__(self, **kwargs: Dict[str, Any]) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(status_code=self.STATUS_CODE, detail=self.DETAIL, **kwargs)
 
 
@@ -35,8 +35,12 @@ class NotAuthenticated(DetailedHTTPException):
     STATUS_CODE = status.HTTP_401_UNAUTHORIZED
     DETAIL = "Usuario no autorizado"
 
-    def __init__(self) -> None:
+    def __init__(self, detalle: str | None = None) -> None:
+        # `WWW-Authenticate` es obligatorio en un 401 segun el RFC 7235.
         super().__init__(headers={"WWW-Authenticate": "Bearer"})
+        if detalle:
+            self.detail = detalle
+
 
 class ConflictoRegistroInactivo(HTTPException):
     """

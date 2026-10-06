@@ -1,30 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { listarPersonal } from "../services/personalService";
 import type { Persona } from "../types/personal";
 
 export function usePersonales(incluirInactivos = false) {
-    const [personales, setPersonales] = useState<Persona[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const cargarPersonales = useCallback(() => listarPersonal(incluirInactivos), [incluirInactivos]);
 
-    const cargarPersonales = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const data = await listarPersonal(incluirInactivos);
-            setPersonales(data);
-        } catch (err) {
-            setError("No se pudo cargar el personal");
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [incluirInactivos]);
+    const { items, loading, error, recargar } = useLista<Persona[]>({
+        cargar: cargarPersonales,
+        dependencias: [incluirInactivos],
+        valorInicial: [],
+        mensajeError: "No se pudo cargar el personal",
+    });
 
-    useEffect(() => {
-        const timeoutId = window.setTimeout(cargarPersonales, 0);
-        return () => window.clearTimeout(timeoutId);
-    }, [cargarPersonales]);
-
-    return { personales, loading, error, cargarPersonales };
+    return {
+        personales: items,
+        loading,
+        error,
+        cargarPersonales: recargar,
+    };
 }

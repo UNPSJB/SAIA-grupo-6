@@ -1,70 +1,171 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
+import { lazy, Suspense, type ReactNode } from "react";
+import { createBrowserRouter, Outlet } from "react-router-dom";
+import { Box, Spinner } from "@chakra-ui/react";
+
+// La pantalla de login NO es lazy a propósito: es lo primero que ve quien
+// entra, y pedirla después de pintar el bundle agrega un round trip visible.
 import { Login } from "./features/Login";
 
-import { createBrowserRouter, Outlet } from "react-router-dom";
+// Las páginas usan export nombrado, no default (que es lo que pide
+// `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
+// las 35 páginas entraban al bundle inicial.
 
 import Navbar from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
+import { FONDO_APP } from "./common/theme/tokens";
 
 // 1. Personal
-import { PersonalPage } from "./features/personal/components/pages/PersonalPage";
-import { PersonalCreatePage } from "./features/personal/components/pages/PersonalCreatePage";
-import { PersonalEditPage } from "./features/personal/components/pages/PersonalEditPage";
-import { PersonalDetailPage } from "./features/personal/components/pages/PersonalDetailPage";
+const PersonalPage = lazy(() =>
+  import("./features/personal/components/pages/PersonalPage").then((mod) => ({ default: mod.PersonalPage })),
+);
+const PersonalCreatePage = lazy(() =>
+  import("./features/personal/components/pages/PersonalCreatePage").then((mod) => ({ default: mod.PersonalCreatePage })),
+);
+const PersonalEditPage = lazy(() =>
+  import("./features/personal/components/pages/PersonalEditPage").then((mod) => ({ default: mod.PersonalEditPage })),
+);
+const PersonalDetailPage = lazy(() =>
+  import("./features/personal/components/pages/PersonalDetailPage").then((mod) => ({ default: mod.PersonalDetailPage })),
+);
 
 // 2. Insumos
-import { InsumosPage } from "./features/insumos/components/pages/insumosPage";
-import { InsumoCreatePage } from "./features/insumos/components/pages/insumoCreatePage";
-import { InsumoEditPage } from "./features/insumos/components/pages/insumoEditPage";
+const InsumosPage = lazy(() =>
+  import("./features/insumos/components/pages/InsumosPage").then((mod) => ({ default: mod.InsumosPage })),
+);
+const InsumoCreatePage = lazy(() =>
+  import("./features/insumos/components/pages/InsumoCreatePage").then((mod) => ({ default: mod.InsumoCreatePage })),
+);
+const InsumoEditPage = lazy(() =>
+  import("./features/insumos/components/pages/InsumoEditPage").then((mod) => ({ default: mod.InsumoEditPage })),
+);
 
 // 3. Equipos
-import { EquiposPage } from "./features/equipo/components/pages/equipoPage";
-import { EquipoCreatePage } from "./features/equipo/components/pages/equipoCreatePage";
-import { EquipoEditPage } from "./features/equipo/components/pages/equipoEditPage";
+const EquiposPage = lazy(() =>
+  import("./features/equipo/components/pages/EquipoPage").then((mod) => ({ default: mod.EquiposPage })),
+);
+const EquipoCreatePage = lazy(() =>
+  import("./features/equipo/components/pages/EquipoCreatePage").then((mod) => ({ default: mod.EquipoCreatePage })),
+);
+const EquipoEditPage = lazy(() =>
+  import("./features/equipo/components/pages/EquipoEditPage").then((mod) => ({ default: mod.EquipoEditPage })),
+);
 
 // Elementos de Limpieza
-import { ElementosLimpiezaPage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaPage";
-import { ElementoLimpiezaCreatePage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaCreatePage";
-import { ElementoLimpiezaEditPage } from "./features/elementoLimpieza/components/pages/elementoLimpiezaEditPage";
+const ElementosLimpiezaPage = lazy(() =>
+  import("./features/elementoLimpieza/components/pages/ElementoLimpiezaPage").then((mod) => ({ default: mod.ElementosLimpiezaPage })),
+);
+const ElementoLimpiezaCreatePage = lazy(() =>
+  import("./features/elementoLimpieza/components/pages/ElementoLimpiezaCreatePage").then((mod) => ({ default: mod.ElementoLimpiezaCreatePage })),
+);
+const ElementoLimpiezaEditPage = lazy(() =>
+  import("./features/elementoLimpieza/components/pages/ElementoLimpiezaEditPage").then((mod) => ({ default: mod.ElementoLimpiezaEditPage })),
+);
 
 // 4. Planes de Limpieza
-import { PlanLimpiezaPage } from "./features/planLimpieza/components/pages/PlanLimpiezaPage";
-import { PlanLimpiezaCreatePage } from "./features/planLimpieza/components/pages/PlanLimpiezaCreatePage";
-import { PlanLimpiezaEditPage } from "./features/planLimpieza/components/pages/PlanLimpiezaEditPage";
+const PlanLimpiezaPage = lazy(() =>
+  import("./features/planLimpieza/components/pages/PlanLimpiezaPage").then((mod) => ({ default: mod.PlanLimpiezaPage })),
+);
+const PlanLimpiezaCreatePage = lazy(() =>
+  import("./features/planLimpieza/components/pages/PlanLimpiezaCreatePage").then((mod) => ({ default: mod.PlanLimpiezaCreatePage })),
+);
+const PlanLimpiezaEditPage = lazy(() =>
+  import("./features/planLimpieza/components/pages/PlanLimpiezaEditPage").then((mod) => ({ default: mod.PlanLimpiezaEditPage })),
+);
 
 // Planes de Calibración/Mantenimiento
-import { PlanCalibracionMantenimientoPage } from "./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoPage";
-import { PlanCalibracionMantenimientoCreatePage } from "./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoCreatePage";
-import { PlanCalibracionMantenimientoEditPage } from "./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoEditPage";
+const PlanCalibracionMantenimientoPage = lazy(() =>
+  import("./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoPage").then((mod) => ({ default: mod.PlanCalibracionMantenimientoPage })),
+);
+const PlanCalibracionMantenimientoCreatePage = lazy(() =>
+  import("./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoCreatePage").then((mod) => ({ default: mod.PlanCalibracionMantenimientoCreatePage })),
+);
+const PlanCalibracionMantenimientoEditPage = lazy(() =>
+  import("./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoEditPage").then((mod) => ({ default: mod.PlanCalibracionMantenimientoEditPage })),
+);
 
 // 5. Checklist
-import { ChecklistPage } from "./features/checklist/components/pages/ChecklistPage";
-import { HistorialChecklistPage } from "./features/checklist/components/pages/HistorialChecklistPage";
-import { ConsumoInsumosPage } from "./features/checklist/components/pages/ConsumoInsumosPage";
+const ChecklistPage = lazy(() =>
+  import("./features/checklist/components/pages/ChecklistPage").then((mod) => ({ default: mod.ChecklistPage })),
+);
+const HistorialChecklistPage = lazy(() =>
+  import("./features/checklist/components/pages/HistorialChecklistPage").then((mod) => ({ default: mod.HistorialChecklistPage })),
+);
+const ConsumoInsumosPage = lazy(() =>
+  import("./features/checklist/components/pages/ConsumoInsumosPage").then((mod) => ({ default: mod.ConsumoInsumosPage })),
+);
 
 // 6. Insumos Químicos
-import { InsumosQuimicosPage } from "./features/insumoQuimico/components/pages/insumosQuimicosPage";
-import { InsumoQuimicoCreatePage } from "./features/insumoQuimico/components/pages/insumoQuimicoCreatePage";
-import { InsumoQuimicoEditPage } from "./features/insumoQuimico/components/pages/insumoQuimicoEditPage";
+const InsumosQuimicosPage = lazy(() =>
+  import("./features/insumoQuimico/components/pages/InsumosQuimicosPage").then((mod) => ({ default: mod.InsumosQuimicosPage })),
+);
+const InsumoQuimicoCreatePage = lazy(() =>
+  import("./features/insumoQuimico/components/pages/InsumoQuimicoCreatePage").then((mod) => ({ default: mod.InsumoQuimicoCreatePage })),
+);
+const InsumoQuimicoEditPage = lazy(() =>
+  import("./features/insumoQuimico/components/pages/InsumoQuimicoEditPage").then((mod) => ({ default: mod.InsumoQuimicoEditPage })),
+);
 
 // Notificaciones
-import { NotificacionesPage } from "./features/notificaciones/components/pages/NotificacionesPage";
+const NotificacionesPage = lazy(() =>
+  import("./features/notificaciones/components/pages/NotificacionesPage").then((mod) => ({ default: mod.NotificacionesPage })),
+);
 
 // 7. Unidad de Medida
-import { UnidadMedidaPage } from "./features/unidadMedida/components/pages/unidadMedidaPage";
-import { UnidadMedidaCreatePage } from "./features/unidadMedida/components/pages/UnidadMedidaCreatePage";
-import { UnidadMedidaEditPage } from "./features/unidadMedida/components/pages/UnidadMedidaEditPage";// Layout principal que mantiene el menú a la izquierda
+const UnidadMedidaPage = lazy(() =>
+  import("./features/unidadMedida/components/pages/UnidadMedidaPage").then((mod) => ({ default: mod.UnidadMedidaPage })),
+);
+const UnidadMedidaCreatePage = lazy(() =>
+  import("./features/unidadMedida/components/pages/UnidadMedidaCreatePage").then((mod) => ({ default: mod.UnidadMedidaCreatePage })),
+);
+const UnidadMedidaEditPage = lazy(() =>
+  import("./features/unidadMedida/components/pages/UnidadMedidaEditPage").then(
+    (mod) => ({ default: mod.UnidadMedidaEditPage }),
+  ),
+);
 // 8. Importamos del modulo Aptitud
-import { AptitudPage } from "./features/aptitud/components/pages/AptitudPage";
-import { AptitudCreatePage } from "./features/aptitud/components/pages/AptitudCreatePage";
-import { AptitudEditPage } from "./features/aptitud/components/pages/AptitudEditPage";
+const AptitudPage = lazy(() =>
+  import("./features/aptitud/components/pages/AptitudPage").then((mod) => ({ default: mod.AptitudPage })),
+);
+const AptitudCreatePage = lazy(() =>
+  import("./features/aptitud/components/pages/AptitudCreatePage").then((mod) => ({ default: mod.AptitudCreatePage })),
+);
+const AptitudEditPage = lazy(() =>
+  import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
+);
 
 
-// 8. Incidentes
-import { IncidentesListPage } from "./features/incidente/components/pages/IncidentesListPage";
-import { IncidenteDetailPage } from "./features/incidente/components/pages/IncidenteDetailPage";
-import { ReportarIncidentePage } from "./features/incidente/components/pages/ReportarIncidentePage";
+// 9. Incidentes
+const IncidentesListPage = lazy(() =>
+  import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
+);
+const IncidenteDetailPage = lazy(() =>
+  import("./features/incidente/components/pages/IncidenteDetailPage").then((mod) => ({ default: mod.IncidenteDetailPage })),
+);
+const ReportarIncidentePage = lazy(() =>
+  import("./features/incidente/components/pages/ReportarIncidentePage").then((mod) => ({ default: mod.ReportarIncidentePage })),
+);
 
+/**
+ * Cada ruta se baja en su propio chunk (ver los `lazy()` de arriba). El primer
+ * render de una página llega con el chunk todavía en vuelo, así que hace falta
+ * un `<Suspense>`: sin él React tira al error boundary en cada navegación.
+ */
+function ConSuspense({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <Box style={{ padding: "40px", textAlign: "center" }}>
+          <Spinner size="lg" />
+        </Box>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
+
+// Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
   return (
     <div
@@ -72,7 +173,7 @@ function LayoutPrincipal() {
         display: "flex",
         height: "100vh",
         overflow: "hidden",
-        backgroundColor: "#f4f7f6",
+        backgroundColor: FONDO_APP,
       }}
     >
       <Navbar />
@@ -93,7 +194,11 @@ function LayoutPrincipal() {
 export const router = createBrowserRouter([
   {
     path: "/login",
-    element: <Login />,
+    element: (
+        <ConSuspense>
+          <Login />
+        </ConSuspense>
+      ),
   },
 
   {
@@ -130,15 +235,27 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "/checklist",
-                element: <ChecklistPage />,
+                element: (
+                <ConSuspense>
+                  <ChecklistPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/incidentes/reportar",
-                element: <ReportarIncidentePage />,
+                element: (
+                <ConSuspense>
+                  <ReportarIncidentePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/incidentes/:id",
-                element: <IncidenteDetailPage />,
+                element: (
+                <ConSuspense>
+                  <IncidenteDetailPage />
+                </ConSuspense>
+              ),
               },
             ],
           },
@@ -153,153 +270,281 @@ export const router = createBrowserRouter([
               // ---------------- PERSONAL ----------------
               {
                 path: "/personal",
-                element: <PersonalPage />,
+                element: (
+                <ConSuspense>
+                  <PersonalPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/personal/nuevo",
-                element: <PersonalCreatePage />,
+                element: (
+                <ConSuspense>
+                  <PersonalCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/personal/:id/editar",
-                element: <PersonalEditPage />,
+                element: (
+                <ConSuspense>
+                  <PersonalEditPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/personal/detalle/:id",
-                element: <PersonalDetailPage />,
+                element: (
+                <ConSuspense>
+                  <PersonalDetailPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- INSUMOS ----------------
               {
                 path: "/insumos",
-                element: <InsumosPage />,
+                element: (
+                <ConSuspense>
+                  <InsumosPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/insumos/nuevo",
-                element: <InsumoCreatePage />,
+                element: (
+                <ConSuspense>
+                  <InsumoCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/insumos/:id/editar",
-                element: <InsumoEditPage />,
+                element: (
+                <ConSuspense>
+                  <InsumoEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- EQUIPOS ----------------
               {
                 path: "/equipos",
-                element: <EquiposPage />,
+                element: (
+                <ConSuspense>
+                  <EquiposPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/equipos/nuevo",
-                element: <EquipoCreatePage />,
+                element: (
+                <ConSuspense>
+                  <EquipoCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/equipos/:id/editar",
-                element: <EquipoEditPage />,
+                element: (
+                <ConSuspense>
+                  <EquipoEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- ELEMENTOS DE LIMPIEZA ----------------
               {
                 path: "/elementos-limpieza",
-                element: <ElementosLimpiezaPage />,
+                element: (
+                <ConSuspense>
+                  <ElementosLimpiezaPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/elementos-limpieza/nuevo",
-                element: <ElementoLimpiezaCreatePage />,
+                element: (
+                <ConSuspense>
+                  <ElementoLimpiezaCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/elementos-limpieza/:id/editar",
-                element: <ElementoLimpiezaEditPage />,
+                element: (
+                <ConSuspense>
+                  <ElementoLimpiezaEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- PLANES DE LIMPIEZA ----------------
               {
                 path: "/planes-limpieza",
-                element: <PlanLimpiezaPage />,
+                element: (
+                <ConSuspense>
+                  <PlanLimpiezaPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/planes-limpieza/nuevo",
-                element: <PlanLimpiezaCreatePage />,
+                element: (
+                <ConSuspense>
+                  <PlanLimpiezaCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/planes-limpieza/:id/editar",
-                element: <PlanLimpiezaEditPage />,
+                element: (
+                <ConSuspense>
+                  <PlanLimpiezaEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- PLANES DE CALIBRACIÓN/MANTENIMIENTO ----------------
               {
                 path: "/planes-calibracion-mantenimiento",
-                element: <PlanCalibracionMantenimientoPage />,
+                element: (
+                <ConSuspense>
+                  <PlanCalibracionMantenimientoPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/planes-calibracion-mantenimiento/nuevo",
-                element: <PlanCalibracionMantenimientoCreatePage />,
+                element: (
+                <ConSuspense>
+                  <PlanCalibracionMantenimientoCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/planes-calibracion-mantenimiento/:id/editar",
-                element: <PlanCalibracionMantenimientoEditPage />,
+                element: (
+                <ConSuspense>
+                  <PlanCalibracionMantenimientoEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- APTITUDES ----------------
               {
                 path: "/aptitudes",
-                element: <AptitudPage />,
+                element: (
+                <ConSuspense>
+                  <AptitudPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/aptitudes/nuevo",
-                element: <AptitudCreatePage />,
+                element: (
+                <ConSuspense>
+                  <AptitudCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/aptitudes/:id/editar",
-                element: <AptitudEditPage />,
+                element: (
+                <ConSuspense>
+                  <AptitudEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- CHECKLIST ----------------
               {
                 path: "/checklist/historial",
-                element: <HistorialChecklistPage />,
+                element: (
+                <ConSuspense>
+                  <HistorialChecklistPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/consumo-productos",
-                element: <ConsumoInsumosPage />,
+                element: (
+                <ConSuspense>
+                  <ConsumoInsumosPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- NOTIFICACIONES ----------------
               {
                 path: "/notificaciones",
-                element: <NotificacionesPage />,
+                element: (
+                <ConSuspense>
+                  <NotificacionesPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- INSUMOS QUÍMICOS ----------------
               {
                 path: "/insumos-quimicos",
-                element: <InsumosQuimicosPage />,
+                element: (
+                <ConSuspense>
+                  <InsumosQuimicosPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/insumos-quimicos/nuevo",
-                element: <InsumoQuimicoCreatePage />,
+                element: (
+                <ConSuspense>
+                  <InsumoQuimicoCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/insumos-quimicos/:id/editar",
-                element: <InsumoQuimicoEditPage />,
+                element: (
+                <ConSuspense>
+                  <InsumoQuimicoEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- UNIDAD DE MEDIDA ----------------
               {
                 path: "/unidades-medida",
-                element: <UnidadMedidaPage />,
+                element: (
+                <ConSuspense>
+                  <UnidadMedidaPage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/unidades-medida/nuevo",
-                element: <UnidadMedidaCreatePage />,
+                element: (
+                <ConSuspense>
+                  <UnidadMedidaCreatePage />
+                </ConSuspense>
+              ),
               },
               {
                 path: "/unidades-medida/:id/editar",
-                element: <UnidadMedidaEditPage />,
+                element: (
+                <ConSuspense>
+                  <UnidadMedidaEditPage />
+                </ConSuspense>
+              ),
               },
 
               // ---------------- INCIDENTES ----------------
               {
                 path: "/incidentes",
-                element: <IncidentesListPage />,
+                element: (
+                <ConSuspense>
+                  <IncidentesListPage />
+                </ConSuspense>
+              ),
               },
             ],
           },
@@ -309,12 +554,20 @@ export const router = createBrowserRouter([
           // =====================================================
           {
             path: "/sin-permisos",
-            element: <SinPermisosPage />,
+            element: (
+                <ConSuspense>
+                  <SinPermisosPage />
+                </ConSuspense>
+              ),
           },
 
           {
             path: "*",
-            element: <NotFoundPage />,
+            element: (
+                <ConSuspense>
+                  <NotFoundPage />
+                </ConSuspense>
+              ),
           },
         ],
       },

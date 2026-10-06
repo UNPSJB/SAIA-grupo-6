@@ -1,35 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { listarElementosLimpieza } from "../services/elementoLimpiezaService";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
 
 export function useElementosLimpieza(incluirInactivos = false) {
-  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpieza[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cargarElementosLimpieza = useCallback(
+    () => listarElementosLimpieza(incluirInactivos),
+    [incluirInactivos],
+  );
 
-  const cargarElementosLimpieza = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await listarElementosLimpieza(incluirInactivos);
-      setElementosLimpieza(data);
-    } catch (err) {
-      setError("No se pudieron cargar los elementos de limpieza");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [incluirInactivos]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(cargarElementosLimpieza, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [cargarElementosLimpieza]);
+  const { items, loading, error, recargar } = useLista<ElementoLimpieza[]>({
+    cargar: cargarElementosLimpieza,
+    dependencias: [incluirInactivos],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los elementos de limpieza",
+  });
 
   return {
-    elementosLimpieza,
+    elementosLimpieza: items,
     loading,
     error,
-    cargarElementosLimpieza,
+    cargarElementosLimpieza: recargar,
   };
 }

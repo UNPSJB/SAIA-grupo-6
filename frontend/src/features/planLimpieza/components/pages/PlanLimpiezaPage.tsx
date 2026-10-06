@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import {
   Box,
   Button,
@@ -13,24 +14,30 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { PlanLimpiezaTable } from "../PlanLimpiezaTable";
-import { DeletePlanLimpiezaDialog } from "../DeletePlanLimpiezaDialog";
+import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePlanesLimpieza } from "../../hooks/usePlanesLimpieza";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
 import { useOpcionesPlanLimpieza } from "../../hooks/useOpcionesPlanLimpieza";
 import type { PlanLimpieza } from "../../types/planLimpieza";
+import { PELIGRO, TEAL, TEXTO_SECUNDARIO } from "../../../../common/theme/tokens";
 
-const TEAL = "#468189";
 const PAGE_SIZE = 10;
 
 export function PlanLimpiezaPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
-  const [page, setPage] = useState(1);
 
   const { planes, loading, error, cargarPlanes } =
     usePlanesLimpieza(verInactivos);
   const { equipos } = useOpcionesPlanLimpieza();
+  const {
+    paginados: planesPaginados,
+    totalPaginas,
+    page,
+    setPage,
+    hayVariasPaginas,
+  } = usePaginacion(planes, verInactivos, PAGE_SIZE);
   const { borrar, reactivar, loading: procesando } = usePlanLimpiezaABM();
 
   const [planAEliminar, setPlanAEliminar] = useState<PlanLimpieza | null>(null);
@@ -38,15 +45,6 @@ export function PlanLimpiezaPage() {
     null,
   );
 
-  const planesFiltrados = useMemo(
-    () => planes.filter((p) => (verInactivos ? !p.activo : p.activo)),
-    [planes, verInactivos],
-  );
-
-  const planesPaginados = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return planesFiltrados.slice(start, start + PAGE_SIZE);
-  }, [planesFiltrados, page]);
 
   const handleToggleInactivos = (checked: boolean) => {
     setVerInactivos(checked);
@@ -131,7 +129,7 @@ export function PlanLimpiezaPage() {
           <Switch.Label
             style={{
               fontSize: "14px",
-              color: verInactivos ? "#d9534f" : "#555",
+              color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO,
               fontWeight: verInactivos ? "bold" : "normal",
             }}
           >
@@ -153,9 +151,9 @@ export function PlanLimpiezaPage() {
             onReactivar={handleReactivarRequest}
           />
 
-          {planesFiltrados.length > PAGE_SIZE && (
+          {hayVariasPaginas && (
             <Pagination.Root
-              count={planesFiltrados.length}
+              count={totalPaginas}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={(e) => setPage(e.page)}
@@ -186,17 +184,23 @@ export function PlanLimpiezaPage() {
         </>
       )}
 
-      <DeletePlanLimpiezaDialog
+      <ConfirmDialog
         isOpen={planAEliminar !== null}
-        plan={planAEliminar}
+        titulo={
+          <>
+            ¿Está seguro que desea eliminar el plan{" "}
+            <strong>{planAEliminar?.nombre}</strong>?
+          </>
+        }
+        mensaje="Esta acción no se puede deshacer."
         isLoading={procesando}
-        onClose={handleCloseDialog}
+        onCancel={handleCloseDialog}
         onConfirm={handleConfirmDelete}
       />
 
       <ConfirmarReactivacionDialog
         isOpen={planAReactivar !== null}
-        mensaje={`¿Estás seguro que deseas reactivar el plan "${planAReactivar?.nombre}"?`}
+        mensaje={`¿Está seguro que desea reactivar el plan "${planAReactivar?.nombre}"?`}
         isLoading={procesando}
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}

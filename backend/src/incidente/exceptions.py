@@ -10,12 +10,22 @@ class DescripcionVacia(BadRequest):
     DETAIL = ErrorCode.DESCRIPCION_VACIA
 
 
-class TipoInvalido(BadRequest):
-    DETAIL = ErrorCode.TIPO_INVALIDO
+class EquipoNoEncontrado(NotFound):
+    """404. Antes era BadRequest (400), a diferencia del mismo nombre en los
+    demas módulos."""
 
-
-class EquipoNoEncontrado(BadRequest):
     DETAIL = ErrorCode.EQUIPO_NO_ENCONTRADO
+
+
+class EquipoInactivo(BadRequest):
+    DETAIL = ErrorCode.EQUIPO_INACTIVO
+
+
+class PermisoDenegado(BadRequest):
+    """403. Reemplaza al HTTPException crudo que se lanzaba desde el service."""
+
+    STATUS_CODE = 403
+    DETAIL = ErrorCode.PERMISO_DENEGADO
 
 
 class UsuarioNoEncontrado(BadRequest):

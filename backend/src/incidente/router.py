@@ -1,4 +1,3 @@
-import logging
 import os
 from datetime import datetime
 from typing import List, Optional
@@ -12,7 +11,6 @@ from src.incidente import schemas, services
 from src.incidente.constants import EstadoIncidente, TipoIncidente
 from src.personal.models import Personal
 
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidentes", tags=["Incidentes"])
 

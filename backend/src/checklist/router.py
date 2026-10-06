@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
 from src.database import get_db
-from src.auth.dependencies import get_current_user, require_operador, require_admin
+from src.auth.dependencies import require_operador, require_admin
 from src.checklist import schemas, services
 from src.personal.models import Personal
 

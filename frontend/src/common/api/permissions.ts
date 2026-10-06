@@ -23,10 +23,14 @@ export function esSuperAdmin(usuario: ConRoles | User | null | undefined): boole
   return Boolean(usuario?.es_super_admin);
 }
 
+/**
+ * Debe calcar `require_operador` del backend, que solo mira `puede_operar` y
+ * `puede_administrar`. Antes sumaba `es_super_admin` acá pero no allá: un super
+ * admin con ambos flags en false (combinación legal) pasaba este guard y
+ * recibía un 403.
+ */
 export function puedeOperar(usuario: ConRoles | User | null | undefined): boolean {
-  return Boolean(
-    usuario && (usuario.puede_operar || usuario.puede_administrar || usuario.es_super_admin)
-  );
+  return Boolean(usuario && (usuario.puede_operar || usuario.puede_administrar));
 }
 
 export function puedeAdministrar(usuario: ConRoles | User | null | undefined): boolean {

@@ -1,6 +1,7 @@
 import { Box, Table, Text } from "@chakra-ui/react";
 import { PlanLimpiezaItem } from "./PlanLimpiezaItem";
 import type { EquipoOption, PlanLimpieza } from "../types/planLimpieza";
+import { TEAL } from "../../../common/theme/tokens";
 
 interface PlanLimpiezaTableProps {
   planes: PlanLimpieza[];
@@ -9,8 +10,6 @@ interface PlanLimpiezaTableProps {
   onDelete: (plan: PlanLimpieza) => void;
   onReactivar: (plan: PlanLimpieza) => void;
 }
-
-const TEAL = "#468189";
 
 export function PlanLimpiezaTable({
   planes,

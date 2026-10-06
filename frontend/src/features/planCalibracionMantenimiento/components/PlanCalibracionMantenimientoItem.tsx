@@ -1,17 +1,20 @@
+import { formatoFecha } from "../../../common/utils/fechas";
 import { Badge, Button, HStack, Table } from "@chakra-ui/react";
 
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
+import {
+  ADVERTENCIA,
+  ADVERTENCIA_HOVER,
+  PELIGRO,
+  PELIGRO_HOVER,
+  TEAL,
+} from "../../../common/theme/tokens";
 
 interface PlanCalibracionMantenimientoItemProps {
   plan: PlanCalibracionMantenimiento;
   nombreEquipo: string;
   onEdit: (plan: PlanCalibracionMantenimiento) => void;
-}
-
-const TEAL = "#468189";
-
-function formatearFecha(fecha: string) {
-  return new Date(`${fecha.slice(0, 10)}T00:00:00`).toLocaleDateString("es-AR");
+  onDelete: (plan: PlanCalibracionMantenimiento) => void;
 }
 
 function obtenerEstado(diasRestantes: number) {
@@ -28,6 +31,7 @@ export function PlanCalibracionMantenimientoItem({
   plan,
   nombreEquipo,
   onEdit,
+  onDelete,
 }: PlanCalibracionMantenimientoItemProps) {
   const estado = obtenerEstado(plan.dias_restantes);
 
@@ -43,13 +47,13 @@ export function PlanCalibracionMantenimientoItem({
         {plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
       </Table.Cell>
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        {formatearFecha(plan.fecha_ultima_intervencion)}
+        {formatoFecha(plan.fecha_ultima_intervencion)}
       </Table.Cell>
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
         Cada {plan.periodicidad_dias} {plan.periodicidad_dias === 1 ? "día" : "días"}
       </Table.Cell>
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        {formatearFecha(plan.proxima_fecha_vencimiento)}
+        {formatoFecha(plan.proxima_fecha_vencimiento)}
       </Table.Cell>
       <Table.Cell fontSize="16px" textAlign="center" style={{ padding: "12px" }}>
         {plan.dias_restantes}
@@ -62,15 +66,26 @@ export function PlanCalibracionMantenimientoItem({
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center">
           <Button
-            bg="#f0ad4e"
+            bg={ADVERTENCIA}
             color="white"
             fontSize="16px"
             fontWeight="normal"
             style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-            _hover={{ bg: "#f0ad4e" }}
+            _hover={{ bg: ADVERTENCIA_HOVER }}
             onClick={() => onEdit(plan)}
           >
             Modificar
+          </Button>
+          <Button
+            bg={PELIGRO}
+            color="white"
+            fontSize="16px"
+            fontWeight="normal"
+            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
+            _hover={{ bg: PELIGRO_HOVER }}
+            onClick={() => onDelete(plan)}
+          >
+            Eliminar
           </Button>
         </HStack>
       </Table.Cell>
