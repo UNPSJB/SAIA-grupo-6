@@ -95,6 +95,23 @@ const ConsumoInsumosPage = lazy(() =>
   import("./features/checklist/components/pages/ConsumoInsumosPage").then((mod) => ({ default: mod.ConsumoInsumosPage })),
 );
 
+// 9. Documentos
+const DocumentosPage = lazy(() =>
+  import("./features/documentos/pages/documentosPages").then((mod) => ({ default: mod.DocumentosPage })),
+);
+const DocumentoCreatePage = lazy(() =>
+  import("./features/documentos/pages/documentoCreatePage").then((mod) => ({ default: mod.DocumentoCreatePage })),
+);
+const DocumentoNuevaVersionPage = lazy(() =>
+  import("./features/documentos/pages/documentoNuevaVersionPage").then((mod) => ({ default: mod.DocumentoNuevaVersionPage })),
+);
+const DocumentoHistorialPage = lazy(() =>
+  import("./features/documentos/pages/documentoHistorialPage").then((mod) => ({ default: mod.DocumentoHistorialPage })),
+);
+const ConsultaDocumentosPage = lazy(() =>
+  import("./features/documentos/pages/consultaDocumentosPage").then((mod) => ({ default: mod.ConsultaDocumentosPage })),
+);
+
 // 6. Insumos Químicos
 const InsumosQuimicosPage = lazy(() =>
   import("./features/insumoQuimico/components/pages/InsumosQuimicosPage").then((mod) => ({ default: mod.InsumosQuimicosPage })),
@@ -133,7 +150,6 @@ const AptitudCreatePage = lazy(() =>
 const AptitudEditPage = lazy(() =>
   import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
 );
-
 
 // 9. Incidentes
 const IncidentesListPage = lazy(() =>
@@ -547,6 +563,51 @@ export const router = createBrowserRouter([
               ),
               },
             ],
+          },
+
+          // =====================================================
+          // DOCUMENTOS
+          // =====================================================
+          {
+            path: "/documentos",
+            element: (
+              <ConSuspense>
+                <DocumentosPage />
+              </ConSuspense>
+            ),
+          },
+          {
+            path: "/documentos/nuevo",
+            element: (
+              <ConSuspense>
+                <DocumentoCreatePage />
+              </ConSuspense>
+            ),
+          },
+          {
+            path: "/documentos/:id/nueva-version",
+            element: (
+              <ConSuspense>
+                <DocumentoNuevaVersionPage />
+              </ConSuspense>
+            ),
+          },
+          {
+            path: "/documentos/:id/historial",
+            element: (
+              <ConSuspense>
+                <DocumentoHistorialPage />
+              </ConSuspense>
+            ),
+          },
+          // Historia 3: consulta de la versión vigente (operadores)
+          {
+            path: "/consulta-documentos",
+            element: (
+              <ConSuspense>
+                <ConsultaDocumentosPage />
+              </ConSuspense>
+            ),
           },
 
           // =====================================================

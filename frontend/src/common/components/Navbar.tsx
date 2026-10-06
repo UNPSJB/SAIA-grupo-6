@@ -80,6 +80,9 @@ export default function Navbar() {
           <Link to="/incidentes/reportar" style={estiloLink}>
             Reportar Incidente
           </Link>
+          <Link to="/consulta-documentos" style={estiloLink}>
+            Consultar Documentos
+          </Link>
         </>
       )}
 
@@ -129,13 +132,16 @@ export default function Navbar() {
           <Link to="/checklist/historial" style={estiloLink}>
             Historial de Checklists
           </Link>
-
           <Link to="/consumo-productos" style={estiloLink}>
             Consumo de Productos
           </Link>
 
           <Link to="/incidentes" style={estiloLink}>
             Gestión de Incidentes
+          </Link>
+
+          <Link to="/documentos" style={estiloLink}>
+            Documentos
           </Link>
         </>
       )}

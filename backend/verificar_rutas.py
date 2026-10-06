@@ -12,6 +12,10 @@ Comprueba tres cosas:
   3. que los catálogos con baja lógica expongan el verbo DELETE — el
      `PlanCalibracionMantenimiento` era el único sin él, aunque su modelo
      tuviera `activo`.
+
+Nota: los endpoints de `/documentos` ahora requieren autenticación
+(`require_operador` para lectura, `require_admin` para escritura), así que
+ya no aparecen como públicos.
 """
 
 import sys
