@@ -7,7 +7,16 @@ from src.elementoLimpieza.models import ElementoLimpieza
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 
+from src.aptitud.models import Aptitud
+from src.notificaciones.models import ConfiguracionAlerta
+from src.personal.models import Personal
+from src.vencimientoPersonal.models import VencimientoPersonal
+
 MARGEN_DIAS_ALERTA = 3
+CLAVE_DIAS_VENCIMIENTO_PERSONAL = "dias_alerta_vencimiento_personal"
+DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
+
+
 
 def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionResponse]:
     notificaciones: List[NotificacionResponse] = []
@@ -109,10 +118,81 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
 
     return notificaciones
 
+def obtener_dias_alerta_vencimiento_personal(db: Session) -> int:
+    config = db.get(ConfiguracionAlerta, CLAVE_DIAS_VENCIMIENTO_PERSONAL)
+    return config.valor if config else DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO
+
+
+def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
+    config = db.get(ConfiguracionAlerta, CLAVE_DIAS_VENCIMIENTO_PERSONAL)
+    if config:
+        config.valor = dias
+    else:
+        db.add(ConfiguracionAlerta(clave=CLAVE_DIAS_VENCIMIENTO_PERSONAL, valor=dias))
+    db.commit()
+    return dias
+
+
+def _nombre_persona(persona: Personal) -> str:
+    return f"{persona.nombre} {persona.apellido or ''}".strip()
+
+def obtener_notificaciones_vencimientos_personal(db: Session) -> List[NotificacionResponse]:
+    notificaciones: List[NotificacionResponse] = []
+    hoy = date.today()
+    dias_alerta = obtener_dias_alerta_vencimiento_personal(db)
+    limite = hoy + timedelta(days=dias_alerta)
+
+    vencimientos = db.scalars(
+        select(VencimientoPersonal)
+        .join(Personal, VencimientoPersonal.persona_id == Personal.id)
+        .join(Aptitud, VencimientoPersonal.aptitud_id == Aptitud.id)
+        .options(
+            selectinload(VencimientoPersonal.persona),
+            selectinload(VencimientoPersonal.aptitud),
+        )
+        .where(
+            VencimientoPersonal.activo.is_(True),
+            Personal.activo.is_(True),
+            Aptitud.activo.is_(True),
+            VencimientoPersonal.fecha_vencimiento <= limite,
+        )
+        .order_by(VencimientoPersonal.fecha_vencimiento)
+    ).all()
+
+    for venc in vencimientos:
+        persona = _nombre_persona(venc.persona)
+        aptitud = venc.aptitud.nombre
+        dias_restantes = (venc.fecha_vencimiento - hoy).days
+
+        if dias_restantes <= 0:
+            titulo = "Vencimiento de Personal Vencido"
+            mensaje = f"'{aptitud}' de {persona} venció el {venc.fecha_vencimiento:%d/%m/%Y}."
+            nivel = "VENCIDO"
+        else:
+            titulo = "Vencimiento de Personal Próximo a Vencer"
+            mensaje = f"'{aptitud}' de {persona} vence en {dias_restantes} día(s)."
+            nivel = "PROXIMO_A_VENCER"
+
+        notificaciones.append(
+            NotificacionResponse(
+                id_notificacion=f"vencimiento-personal-{venc.id}",
+                tipo="VENCIMIENTO_PERSONAL",
+                entidad_id=venc.id,          # <- id del vencimiento
+                titulo=titulo,
+                mensaje=mensaje,
+                nivel=nivel,
+                link_destino=f"/personal/detalle/{venc.persona_id}",
+                fecha_referencia=venc.fecha_vencimiento,
+            )
+        )
+
+    return notificaciones
+
 
 def obtener_todas_notificaciones(db: Session) -> List[NotificacionResponse]:
     lista_total: List[NotificacionResponse] = []
     lista_total.extend(obtener_notificaciones_elementos_limpieza(db))
     lista_total.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
+    lista_total.extend(obtener_notificaciones_vencimientos_personal(db))
     lista_total.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
     return lista_total

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Máximo de intentos fallidos de login por combinación IP + DNI.
     LOGIN_MAX_INTENTOS: int = 5
     LOGIN_VENTANA_MINUTOS: int = 5
+   
 
     # Orígenes permitidos por CORS, separados por coma.
     # Para probar desde el celular hay que agregar la IP de la red local,

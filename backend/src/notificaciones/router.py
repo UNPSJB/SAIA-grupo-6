@@ -16,3 +16,20 @@ router = APIRouter(
 @router.get("", response_model=List[schemas.NotificacionResponse])
 def listar_notificaciones(db: Session = Depends(get_db)):
     return services.obtener_todas_notificaciones(db)
+
+
+@router.get("/configuracion", response_model=schemas.ConfiguracionAlertasResponse)
+def obtener_configuracion(db: Session = Depends(get_db)):
+    return schemas.ConfiguracionAlertasResponse(
+        dias_alerta_vencimiento_personal=services.obtener_dias_alerta_vencimiento_personal(db)
+    )
+
+
+@router.put("/configuracion", response_model=schemas.ConfiguracionAlertasResponse)
+def actualizar_configuracion(
+    datos: schemas.ConfiguracionAlertasUpdate, db: Session = Depends(get_db)
+):
+    dias = services.actualizar_dias_alerta_vencimiento_personal(
+        db, datos.dias_alerta_vencimiento_personal
+    )
+    return schemas.ConfiguracionAlertasResponse(dias_alerta_vencimiento_personal=dias)

@@ -13,6 +13,9 @@ import { obtenerNotificaciones } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { Notificacion } from "../../types/notificacion";
+import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
+import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
+
 
 function formatearFecha(fecha?: string) {
   if (!fecha) {
@@ -21,13 +24,34 @@ function formatearFecha(fecha?: string) {
 
   return new Date(`${fecha.slice(0, 10)}T00:00:00`).toLocaleDateString("es-AR");
 }
+function etiquetaOrigen(tipo: string) {
+  switch (tipo) {
+    case "ELEMENTO_LIMPIEZA":
+      return "Elemento Limpieza";
+    case "VENCIMIENTO_PERSONAL":
+      return "Vencimiento Personal";
+    default:
+      return "Plan Calibración/Mantenimiento";
+  }
+}
 
+function etiquetaAccion(tipo: string) {
+  switch (tipo) {
+    case "ELEMENTO_LIMPIEZA":
+      return "Registrar Recambio";
+    case "VENCIMIENTO_PERSONAL":
+      return "Cambiar fecha";
+    default:
+      return "Ver plan";
+  }
+}
 export function NotificacionesPage() {
   const navigate = useNavigate();
   const delayed = useSafeTimeout();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exito, setExito] = useState(false); // <-- Estado para el cartel verde
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null); // <-- Cartel verde
+  const [notifEditando, setNotifEditando] = useState<Notificacion | null>(null);
 
   const cargar = async () => {
     try {
@@ -46,28 +70,37 @@ export function NotificacionesPage() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  const handleResolver = async (notif: Notificacion) => {
-    if (notif.tipo === "ELEMENTO_LIMPIEZA") {
-      try {
-        await registrarRecambioElemento(notif.entidad_id);
-        
-        // Avisamos a la campana
-        window.dispatchEvent(new Event("actualizar_notificaciones"));
-        
-        // Mostramos el cartel de éxito
-        setExito(true);
-        delayed(() => {
-          setExito(false);
-          cargar(); // Recién cuando se va el cartel recargamos la tabla
-        }, 1500); // 1.5 segundos es ideal para no hacerlos esperar mucho
+  const mostrarExito = (mensaje: string) => {
+  // Avisamos a la campana
+  window.dispatchEvent(new Event("actualizar_notificaciones"));
 
-      } catch (error) {
-        console.error("Error al registrar recambio:", error);
-      }
-    } else {
-      navigate(notif.link_destino);
+  // Mostramos el cartel de éxito
+  setMensajeExito(mensaje);
+  delayed(() => {
+    setMensajeExito(null);
+    cargar(); // Recién cuando se va el cartel recargamos la tabla
+  }, 1500);
+};
+
+ const handleResolver = async (notif: Notificacion) => {
+  if (notif.tipo === "ELEMENTO_LIMPIEZA") {
+    try {
+      await registrarRecambioElemento(notif.entidad_id);
+      mostrarExito("Recambio registrado correctamente.");
+    } catch (error) {
+      console.error("Error al registrar recambio:", error);
     }
-  };
+  } else if (notif.tipo === "VENCIMIENTO_PERSONAL") {
+    setNotifEditando(notif); // abre el diálogo
+  } else {
+    navigate(notif.link_destino);
+  }
+}; 
+
+  const handleFechaGuardada = () => {
+    setNotifEditando(null);
+   mostrarExito("Fecha de vencimiento actualizada correctamente.");
+};
 
   // Ordenamos para que los VENCIDOS (rojos) queden siempre primeros en la lista
   const notificacionesOrdenadas = [...notificaciones].sort((a, b) => {
@@ -81,9 +114,13 @@ export function NotificacionesPage() {
       <Heading as="h2" size="md" mb="20px">
         🔔 Centro de Notificaciones del Sistema
       </Heading>
+      <ConfiguracionAlertasPanel
+        onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
+      />
+      
 
       {/* CARTEL VERDE DE ÉXITO ESTILO SAIA */}
-      {exito && (
+      {mensajeExito && (
         <Box
           style={{
             position: "fixed",
@@ -122,12 +159,21 @@ export function NotificacionesPage() {
                 fontWeight: 500,
               }}
             >
-              Recambio registrado correctamente.
+              mensajeExito
             </Text>
           </Box>
         </Box>
+        
       )}
-
+      {/* DIÁLOGO PARA CAMBIAR LA FECHA DE UN VENCIMIENTO DE PERSONAL */}
+      {notifEditando && (
+        <CambiarFechaVencimientoDialog
+          key={notifEditando.id_notificacion}
+          notificacion={notifEditando}
+          onClose={() => setNotifEditando(null)}
+          onSaved={handleFechaGuardada}
+        />
+      )}
       {loading ? (
         <Spinner />
       ) : notificacionesOrdenadas.length === 0 ? (
@@ -191,7 +237,7 @@ export function NotificacionesPage() {
                       borderRadius="6px"
                       onClick={() => handleResolver(n)}
                     >
-                      {n.tipo === "ELEMENTO_LIMPIEZA" ? "Registrar Recambio" : "Ver plan"}
+                      {etiquetaOrigen(n.tipo)}
                     </Button>
                   </Table.Cell>
                 </Table.Row>
