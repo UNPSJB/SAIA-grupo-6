@@ -1,5 +1,4 @@
-import logging
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
@@ -8,7 +7,6 @@ from src.database import get_db
 from src.auth.dependencies import require_admin, require_operador
 from . import schemas, services
 
-logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/elementos-limpieza",

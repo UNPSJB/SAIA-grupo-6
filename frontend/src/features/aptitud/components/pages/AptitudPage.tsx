@@ -2,14 +2,20 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Spinner, Switch, Text } from "@chakra-ui/react";
 import { AptitudTable } from "../AptitudTable";
-import { DeleteAptitudDialog } from "../DeleteAptitudDialog";
+import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useAptitudes } from "../../hooks/useAptitudes";
 import { useAptitudABM } from "../../hooks/useAptitudABM";
 import type { Aptitud } from "../../types/aptitud";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  PELIGRO,
+  TEAL,
+  TEAL_OSCURO,
+  TEXTO_SECUNDARIO,
+} from "../../../../common/theme/tokens";
 
-
-const TEAL = "#468189";
 
 export function AptitudPage() {
   const navigate = useNavigate();
@@ -60,13 +66,13 @@ export function AptitudPage() {
         <Heading as="h2" size="md" fontWeight="bold" color="black">
           {verInactivos ? "Aptitudes Dadas de Baja" : "Gestión de Aptitudes"}
         </Heading>
-        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: "#37666d" }} onClick={() => navigate("/aptitudes/nuevo")}>
+        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: TEAL_OSCURO }} onClick={() => navigate("/aptitudes/nuevo")}>
           + Agregar
         </Button>
       </HStack>
 
       {errorEliminar && (
-        <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
           ⚠️ {errorEliminar}
         </Box>
       )}
@@ -75,7 +81,7 @@ export function AptitudPage() {
         <Switch.Root checked={verInactivos} onCheckedChange={(e) => setVerInactivos(e.checked)} colorPalette="gray">
           <Switch.HiddenInput />
           <Switch.Control />
-          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? "#d9534f" : "#555", fontWeight: verInactivos ? "bold" : "normal" }}>
+          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO, fontWeight: verInactivos ? "bold" : "normal" }}>
             Ver dadas de baja
           </Switch.Label>
         </Switch.Root>
@@ -93,17 +99,23 @@ export function AptitudPage() {
         />
       )}
 
-      <DeleteAptitudDialog
+      <ConfirmDialog
         isOpen={aptitudAEliminar !== null}
-        aptitud={aptitudAEliminar}
+        titulo={
+          <>
+            ¿Está seguro que desea eliminar la aptitud{" "}
+            <strong>{aptitudAEliminar?.nombre}</strong>?
+          </>
+        }
+        mensaje="Esta acción no se puede deshacer."
         isLoading={procesando}
-        onClose={handleCloseDeleteDialog}
+        onCancel={handleCloseDeleteDialog}
         onConfirm={handleConfirmDelete}
       />
 
       <ConfirmarReactivacionDialog
         isOpen={aptitudAReactivar !== null}
-        mensaje={`¿Estás seguro que deseas reactivar la aptitud ${aptitudAReactivar?.nombre}?`}
+        mensaje={`¿Está seguro que desea reactivar la aptitud ${aptitudAReactivar?.nombre}?`}
         isLoading={procesando}
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}

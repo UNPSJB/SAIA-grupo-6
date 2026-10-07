@@ -8,8 +8,3 @@ def setup_logging():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Retorna una instancia de logger configurada para el módulo que lo solicite."""
-    return logging.getLogger(name)

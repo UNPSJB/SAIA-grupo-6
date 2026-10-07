@@ -5,6 +5,7 @@ import type {
   PersonalOption,
 } from "../types/planLimpieza";
 
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 
@@ -21,23 +22,13 @@ export async function listarPlanesLimpieza(
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
   const response = await apiFetch(`${API_URL}/planes-limpieza${query}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener los planes de limpieza");
-  }
-
-  return response.json();
+  return pedir<PlanLimpieza[]>(response, "Error al obtener los planes de limpieza");
 }
 
 export async function obtenerPlanLimpieza(id: number): Promise<PlanLimpieza> {
   const response = await apiFetch(`${API_URL}/planes-limpieza/${id}`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener el plan de limpieza");
-  }
-
-  return response.json();
+  return pedir<PlanLimpieza>(response, "Error al obtener el plan de limpieza");
 }
 
 export async function crearPlanLimpieza(
@@ -49,12 +40,7 @@ export async function crearPlanLimpieza(
     body: JSON.stringify(plan),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al crear el plan de limpieza");
-  }
-
-  return response.json();
+  return pedir<PlanLimpieza>(response, "Error al crear el plan de limpieza");
 }
 
 export async function modificarPlanLimpieza(
@@ -67,12 +53,7 @@ export async function modificarPlanLimpieza(
     body: JSON.stringify(plan),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al modificar el plan de limpieza");
-  }
-
-  return response.json();
+  return pedir<PlanLimpieza>(response, "Error al modificar el plan de limpieza");
 }
 
 export async function eliminarPlanLimpieza(id: number): Promise<void> {
@@ -80,10 +61,7 @@ export async function eliminarPlanLimpieza(id: number): Promise<void> {
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al eliminar el plan de limpieza");
-  }
+  return pedir<void>(response, "Error al eliminar el plan de limpieza");
 }
 
 // --- Opciones para los <select> del formulario ---
@@ -95,21 +73,13 @@ export async function eliminarPlanLimpieza(id: number): Promise<void> {
 export async function listarOpcionesEquipos(): Promise<EquipoOption[]> {
   const response = await apiFetch(`${API_URL}/equipos`);
 
-  if (!response.ok) {
-    throw new Error("Error al obtener los equipos");
-  }
-
-  return response.json();
+  return pedir<EquipoOption[]>(response, "Error al obtener los equipos");
 }
 
 export async function listarOpcionesPersonal(): Promise<PersonalOption[]> {
   const response = await apiFetch(`${API_URL}/personal`);
 
-  if (!response.ok) {
-    throw new Error("Error al obtener el personal");
-  }
-
-  return response.json();
+  return pedir<PersonalOption[]>(response, "Error al obtener el personal");
 }
 
 export async function reactivarPlanLimpieza(
@@ -122,10 +92,5 @@ export async function reactivarPlanLimpieza(
     body: JSON.stringify({ ...plan, activo: true }),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al reactivar el plan de limpieza");
-  }
-
-  return response.json();
+  return pedir<PlanLimpieza>(response, "Error al reactivar el plan de limpieza");
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { obtenerConsumoInsumos } from "../services/checklistService";
 import type { ConsumoInsumosResponse } from "../types/checklist";
 
 const hoyISO = (): string => {
@@ -40,15 +40,7 @@ export function useConsumoInsumos() {
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams({ fecha_desde: desde, fecha_hasta: hasta });
-      const response = await apiFetch(`${API_URL}/checklist/consumo?${params}`);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || "Error al obtener el consumo");
-      }
-
-      setData(await response.json());
+      setData(await obtenerConsumoInsumos(desde, hasta));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al obtener el consumo");
       setData(null);

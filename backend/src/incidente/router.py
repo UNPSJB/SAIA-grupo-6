@@ -1,4 +1,3 @@
-import logging
 import os
 from datetime import datetime
 from typing import List, Optional
@@ -7,12 +6,12 @@ from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
 from src.auth.dependencies import require_admin, require_operador
+from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.incidente import schemas, services
 from src.incidente.constants import EstadoIncidente, TipoIncidente
 from src.personal.models import Personal
 
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidentes", tags=["Incidentes"])
 
@@ -65,13 +64,17 @@ def _guardar_foto(foto: Optional[UploadFile]) -> Optional[str]:
 
     nombre_archivo = f"incidente_{datetime.now().strftime('%Y%m%d%H%M%S')}_{base}{extension}"
 
-    upload_dir = "uploads/incidentes"
-    os.makedirs(upload_dir, exist_ok=True)
+    upload_dir = CARPETA_UPLOADS / "incidentes"
+    upload_dir.mkdir(parents=True, exist_ok=True)
 
     # La ruta se guarda con "/" para que sea la misma en la base y en la URL.
     ruta_relativa = f"uploads/incidentes/{nombre_archivo}"
 
-    with open(os.path.join(upload_dir, nombre_archivo), "wb") as buffer:
+    # La carpeta se ancla a CARPETA_UPLOADS (raíz del backend) y no al
+    # directorio de trabajo: si el server se arranca desde otro lado, con
+    # ruta relativa la foto se guardaría en un uploads distinto al que
+    # sirve GET /uploads y la imagen daría 404.
+    with open(upload_dir / nombre_archivo, "wb") as buffer:
         buffer.write(contenido)
 
     return ruta_relativa
@@ -79,6 +82,7 @@ def _guardar_foto(foto: Optional[UploadFile]) -> Optional[str]:
 
 @router.post("", response_model=schemas.IncidenteResponse)
 def crear_incidente(
+    titulo: str = Form(...),
     descripcion: str = Form(...),
     tipo: TipoIncidente = Form(...),
     equipo_id: Optional[int] = Form(None),
@@ -89,6 +93,7 @@ def crear_incidente(
     ruta_foto = _guardar_foto(foto)
 
     datos = schemas.IncidenteCreate(
+        titulo=titulo,
         descripcion=descripcion,
         tipo=tipo,
         equipo_id=equipo_id,
@@ -149,3 +154,13 @@ def cambiar_estado_incidente(
         current_user,
         datos.observacion_cierre,
     )
+
+
+@router.get("/{incidente_id}/historial", response_model=schemas.HistorialIncidenteResponse)
+def obtener_historial_incidente(
+    incidente_id: int,
+    current_user: Personal = Depends(require_operador),
+    db: Session = Depends(get_db),
+):
+    """Obtiene el historial de cierre/reapertura de un incidente."""
+    return services.obtener_historial_incidente(db, incidente_id, current_user)

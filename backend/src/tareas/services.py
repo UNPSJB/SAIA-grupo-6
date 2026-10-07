@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from src.common.persistence import es_violacion_unica
 from src.tareas import models, schemas, exceptions
 
 # logger para este módulo específico
@@ -41,10 +42,13 @@ def crear_tarea(db: Session, tarea: schemas.TareaCreate) -> models.Tarea:
     try:
         db.commit()
         db.refresh(_tarea)
-    except Exception as e:
+    except IntegrityError as e:
+        # Antes era `except Exception`: convertia en "dato_duplicado" (400)
+        # desde una base trabada, un error de programacion o un fallo de
+        # serializacion. Solo una violacion de restriccion es un conflicto.
         db.rollback()
-        logger.error(f"Error al crear tarea: {e}")
-        raise exceptions.DatoDuplicado()
+        logger.error("Error de integridad al crear tarea: %s", e)
+        raise exceptions.NombreDuplicado() if es_violacion_unica(str(e.orig).lower()) else e
 
     return _tarea
 

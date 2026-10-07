@@ -1,5 +1,13 @@
 import { Table, Button, HStack, Badge } from "@chakra-ui/react";
 import type { PlanLimpieza } from "../types/planLimpieza";
+import {
+  ADVERTENCIA,
+  ADVERTENCIA_HOVER,
+  EXITO,
+  EXITO_HOVER,
+  PELIGRO,
+  TEAL,
+} from "../../../common/theme/tokens";
 
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
@@ -8,8 +16,6 @@ interface PlanLimpiezaItemProps {
   onDelete: (plan: PlanLimpieza) => void;
   onReactivar: (plan: PlanLimpieza) => void;
 }
-
-const TEAL = "#468189";
 
 export function PlanLimpiezaItem({
   plan,
@@ -61,7 +67,7 @@ export function PlanLimpiezaItem({
         <HStack justify="center" style={{ gap: "10px" }}>
           {plan.activo && (
             <Button
-              bg="#f0ad4e"
+              bg={ADVERTENCIA}
               color="white"
               fontSize="16px"
               fontWeight="normal"
@@ -70,7 +76,7 @@ export function PlanLimpiezaItem({
                 padding: "6px 12px",
                 borderRadius: "4px",
               }}
-              _hover={{ bg: "#f0ad4e" }}
+              _hover={{ bg: ADVERTENCIA_HOVER }}
               onClick={() => onEdit(plan)}
             >
               Modificar
@@ -79,7 +85,7 @@ export function PlanLimpiezaItem({
 
           {plan.activo ? (
             <Button
-              bg="#d9534f"
+              bg={PELIGRO}
               color="white"
               fontSize="16px"
               fontWeight="normal"
@@ -88,14 +94,14 @@ export function PlanLimpiezaItem({
                 padding: "6px 12px",
                 borderRadius: "4px",
               }}
-              _hover={{ bg: "#d9534f" }}
+              _hover={{ bg: PELIGRO }}
               onClick={() => onDelete(plan)}
             >
               Eliminar
             </Button>
           ) : (
             <Button
-              bg="#28a745"
+              bg={EXITO}
               color="white"
               fontSize="16px"
               fontWeight="normal"
@@ -104,7 +110,7 @@ export function PlanLimpiezaItem({
                 padding: "6px 12px",
                 borderRadius: "4px",
               }}
-              _hover={{ bg: "#218838" }}
+              _hover={{ bg: EXITO_HOVER }}
               onClick={() => onReactivar(plan)}
             >
               Reactivar

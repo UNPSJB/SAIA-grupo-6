@@ -1,4 +1,5 @@
 from typing import Optional
+from src.PlanLimpieza.models import PlanLimpieza
 from src.models import ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, ForeignKey, Integer, Text

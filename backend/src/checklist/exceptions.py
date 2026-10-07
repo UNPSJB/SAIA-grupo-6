@@ -1,15 +1,11 @@
 from fastapi import status
 
-from src.exceptions import BadRequest, DetailedHTTPException
+from src.exceptions import BadRequest, DetailedHTTPException, NotFound
 from src.checklist.constants import ErrorCode
 
 
 class FechaInvalida(BadRequest):
     DETAIL = ErrorCode.FECHA_INVALIDA
-
-
-class EquipoIdInvalido(BadRequest):
-    DETAIL = ErrorCode.EQUIPO_ID_INVALIDO
 
 
 class ChecklistFuturo(BadRequest):
@@ -35,3 +31,15 @@ class ChecklistInmutable(DetailedHTTPException):
 # Nota: para "tarea no encontrada" y "equipo no encontrado" reutilizamos las
 # excepciones ya definidas en src.tareas.exceptions y src.Equipo.exceptions,
 # para no duplicar mensajes de error entre módulos.
+
+
+class InsumoQuimicoNoEncontrado(NotFound):
+    DETAIL = ErrorCode.INSUMO_QUIMICO_NO_ENCONTRADO
+
+
+class ElementoLimpiezaNoEncontrado(NotFound):
+    DETAIL = ErrorCode.ELEMENTO_LIMPIEZA_NO_ENCONTRADO
+
+
+class RegistroTareaNoEncontrado(NotFound):
+    DETAIL = ErrorCode.REGISTRO_TAREA_NO_ENCONTRADO

@@ -3,6 +3,13 @@ import { Box, Button, Heading, HStack, Table, Text } from "@chakra-ui/react";
 import { usePersonal } from "../../hooks/usePersonal";
 import { useVencimientosPersonal } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { useAptitudes } from "../../../aptitud/hooks/useAptitudes";
+import {
+  EXITO_ALT,
+  GRIS_MEDIO,
+  PELIGRO_TEXTO,
+  TEXTO_SECUNDARIO,
+  TEXTO_TENUE,
+} from "../../../../common/theme/tokens";
 
 export function PersonalDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +34,7 @@ export function PersonalDetailPage() {
     <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
       <HStack justify="space-between" mb="20px">
         <Heading as="h2" size="md" fontWeight="bold" color="black">Ficha de Personal #{persona.id}</Heading>
-        <Button bg="#6c757d" color="white" height="auto" onClick={() => navigate("/personal")} style={{ padding: "8px 16px", borderRadius: "6px" }}>Volver a la lista</Button>
+        <Button bg={GRIS_MEDIO} color="white" height="auto" onClick={() => navigate("/personal")} style={{ padding: "8px 16px", borderRadius: "6px" }}>Volver a la lista</Button>
       </HStack>
 
       <Box style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
@@ -48,11 +55,11 @@ export function PersonalDetailPage() {
           <Heading as="h4" size="sm" mb="3">Vencimientos de aptitud:</Heading>
 
           {cargandoVencimientos && (
-            <Text style={{ fontSize: "14px", color: "#888", fontStyle: "italic" }}>Cargando...</Text>
+            <Text style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>Cargando...</Text>
           )}
 
           {!cargandoVencimientos && vencimientos.length === 0 && (
-            <Text style={{ fontSize: "14px", color: "#888", fontStyle: "italic" }}>
+            <Text style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>
               No tiene vencimientos cargados.
             </Text>
           )}
@@ -61,9 +68,9 @@ export function PersonalDetailPage() {
             <Table.Root style={{ width: "100%" }}>
               <Table.Header>
                 <Table.Row>
-                  <Table.ColumnHeader style={{ fontSize: "13px", color: "#555" }}>Aptitud</Table.ColumnHeader>
-                  <Table.ColumnHeader style={{ fontSize: "13px", color: "#555" }}>Vence</Table.ColumnHeader>
-                  <Table.ColumnHeader style={{ fontSize: "13px", color: "#555" }}>Estado</Table.ColumnHeader>
+                  <Table.ColumnHeader style={{ fontSize: "13px", color: TEXTO_SECUNDARIO }}>Aptitud</Table.ColumnHeader>
+                  <Table.ColumnHeader style={{ fontSize: "13px", color: TEXTO_SECUNDARIO }}>Vence</Table.ColumnHeader>
+                  <Table.ColumnHeader style={{ fontSize: "13px", color: TEXTO_SECUNDARIO }}>Estado</Table.ColumnHeader>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
@@ -81,7 +88,7 @@ export function PersonalDetailPage() {
                           style={{
                             fontSize: "13px",
                             fontWeight: "bold",
-                            color: vencido ? "#c92a2a" : "#2f9e44",
+                            color: vencido ? PELIGRO_TEXTO : EXITO_ALT,
                           }}
                         >
                           {vencido ? "Vencido" : "Vigente"}

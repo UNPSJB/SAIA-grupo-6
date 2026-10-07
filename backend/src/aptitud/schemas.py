@@ -1,5 +1,5 @@
-import re
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.validators import texto_obligatorio
 from src.aptitud import exceptions
 
 
@@ -9,20 +9,19 @@ class AptitudBase(BaseModel):
 
     @field_validator("nombre")
     @classmethod
-    def validar_nombre(cls, v: str) -> str:
-        texto = v.strip()
-        if not texto:
-            raise exceptions.NombreVacio()
-        if not re.match(r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ \-\.()]+$", texto):
-            raise exceptions.NombreInvalido()
-        return texto
+    def validar_nombre(cls, v: str | None) -> str | None:
+        return texto_obligatorio(
+            v, vacio=exceptions.NombreVacio, invalido=exceptions.NombreInvalido
+        )
 
 
 class AptitudCreate(AptitudBase):
     pass
 
 
-class AptitudUpdate(BaseModel):
+class AptitudUpdate(AptitudBase):
+    """Ensancha la base para heredar sus validadores (que toleran `None`)."""
+
     nombre: str | None = None
     descripcion: str | None = None
     activo: bool | None = None

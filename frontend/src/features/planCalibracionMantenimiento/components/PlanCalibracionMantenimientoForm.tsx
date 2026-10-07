@@ -14,6 +14,17 @@ import type {
   PlanCalibracionMantenimientoFormValues,
   TipoPlanCalibracionMantenimiento,
 } from "../types/planCalibracionMantenimiento";
+import {
+  BLANCO,
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  GRIS_CLARO,
+  TEAL,
+  TEXTO_PRIMARIO,
+  TEXTO_TENUE,
+  estiloInput,
+  estiloLabel,
+} from "../../../common/theme/tokens";
 
 interface PlanCalibracionMantenimientoFormProps {
   initialValues?: PlanCalibracionMantenimientoFormValues;
@@ -31,32 +42,12 @@ const emptyValues: PlanCalibracionMantenimientoFormValues = {
   periodicidad_dias: 30,
 };
 
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "12px",
-  width: "100%",
-  maxWidth: "500px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: "#333",
-};
-
 const estiloSelect = {
   ...estiloInput,
   boxSizing: "border-box" as const,
   colorScheme: "light" as const,
   height: "auto" as const,
   lineHeight: "normal" as const,
-};
-
-const estiloLabel = {
-  display: "block",
-  fontSize: "14px",
-  fontWeight: "bold" as const,
-  marginBottom: "8px",
-  color: "#555",
 };
 
 export function PlanCalibracionMantenimientoForm({
@@ -118,22 +109,22 @@ export function PlanCalibracionMantenimientoForm({
       as="form"
       onSubmit={handleSubmit}
       style={{
-        backgroundColor: "#ffffff",
+        backgroundColor: BLANCO,
         padding: "30px",
         borderRadius: "12px",
         boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
         marginBottom: "30px",
       }}
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
         {title}
       </Box>
 
       {errorEquipos && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "10px",
             borderRadius: "6px",
             marginBottom: "20px",
@@ -167,7 +158,7 @@ export function PlanCalibracionMantenimientoForm({
             <NativeSelect.Indicator />
           </NativeSelect.Root>
         </Field.Root>
-        <Text style={{ fontSize: "12px", color: "#888", marginTop: "6px" }}>
+        <Text style={{ fontSize: "12px", color: TEXTO_TENUE, marginTop: "6px" }}>
           Sólo se muestran equipos activos.
         </Text>
       </Box>
@@ -227,7 +218,7 @@ export function PlanCalibracionMantenimientoForm({
           loading={isLoading}
           disabled={cargandoEquipos || formularioInvalido}
           style={{
-            backgroundColor: "#468189",
+            backgroundColor: TEAL,
             color: "white",
             padding: "12px 24px",
             borderRadius: "8px",
@@ -245,8 +236,8 @@ export function PlanCalibracionMantenimientoForm({
             type="button"
             onClick={onCancel}
             style={{
-              backgroundColor: "#e0e0e0",
-              color: "#333",
+              backgroundColor: GRIS_CLARO,
+              color: TEXTO_PRIMARIO,
               padding: "12px 24px",
               borderRadius: "8px",
               border: "none",

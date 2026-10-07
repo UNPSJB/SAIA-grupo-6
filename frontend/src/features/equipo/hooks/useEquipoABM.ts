@@ -1,78 +1,50 @@
 import { useState } from "react";
-import { crearEquipo, modificarEquipo, eliminarEquipo, reactivarEquipo } from "../services/equipoService";
-import type { Equipo } from "../types/equipo";
+import { useABM } from "../../../common/hooks/useABM";
+import {
+  crearEquipo,
+  modificarEquipo,
+  eliminarEquipo,
+  reactivarEquipo,
+  registrarCalibracion,
+} from "../services/equipoService";
+import type { Calibracion, Equipo } from "../types/equipo";
+
+type EquipoInput = Omit<Equipo, "id">;
 
 export function useEquipoABM() {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const abm = useABM<EquipoInput, Equipo>({
+    crear: crearEquipo,
+    modificar: modificarEquipo,
+    eliminar: eliminarEquipo,
+    reactivar: reactivarEquipo,
+    etiqueta: "el equipo",
+  });
 
-    const alta = async (equipo: Omit<Equipo, "id">) => {
-        try {
-            setLoading(true);
-            setError(null);
+  const [registrandoCalibracion, setRegistrandoCalibracion] = useState(false);
 
-            return await crearEquipo(equipo);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "No se pudo crear el equipo");
-            console.error(err);
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    };
+  /**
+   * Registra una calibración con su certificado.
+   *
+   * Va aparte del `useABM` porque no es un alta/baja de equipos: no usa el
+   * `loading` global (que bloquea la tabla entera) sino el suyo, para que el
+   * resto de la página siga funcionando mientras se sube el archivo.
+   */
+  const calibrar = async (
+    equipoId: number,
+    fecha: string,
+    archivo: File
+  ): Promise<Calibracion> => {
+    setRegistrandoCalibracion(true);
+    try {
+      return await registrarCalibracion(equipoId, fecha, archivo);
+    } finally {
+      setRegistrandoCalibracion(false);
+    }
+  };
 
-    const modificar = async (
-        id: number,
-        equipo: Omit<Equipo, "id">
-    ) => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            return await modificarEquipo(id, equipo);
-        } catch (err) {
-            setError("No se pudo modificar el equipo");
-            console.error(err);
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const borrar = async (id: number) => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            await eliminarEquipo(id);
-        } catch (err) {
-            setError("No se pudo eliminar el equipo");
-            console.error(err);
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const reactivar = async (id: number, equipo: Omit<Equipo, "id">) => {
-        try {
-            setLoading(true);
-            setError(null);
-            return await reactivarEquipo(id, equipo);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Error al reactivar");
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return {
-        alta,
-        modificar,
-        borrar,
-        reactivar,
-        loading,
-        error,
-    };
+  return {
+    ...abm,
+    calibrar,
+    registrandoCalibracion,
+  };
 }

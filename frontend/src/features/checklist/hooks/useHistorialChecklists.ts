@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { obtenerHistorialChecklists } from "../services/checklistService";
 import type { HistorialChecklistResponse } from "../types/checklist";
 
@@ -7,40 +8,29 @@ export function useHistorialChecklists(
   fechaHasta: string,
   equipoId?: number
 ) {
-  const [historial, setHistorial] = useState<HistorialChecklistResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const cargarHistorial = useCallback(async () => {
+  const cargarHistorial = useCallback(() => {
+    // El backend no valida el rango, así que se avisa acá y no se gasta un
+    // request en un 422 que igual se iba a mostrar como error.
     if (fechaDesde > fechaHasta) {
-      setError("La fecha 'desde' no puede ser posterior a la fecha 'hasta'.");
-      setHistorial(null);
-      return;
+      throw new Error("La fecha 'desde' no puede ser posterior a la fecha 'hasta'.");
     }
-    try {
-      setLoading(true);
-      setError(null);
-      const datos = await obtenerHistorialChecklists(fechaDesde, fechaHasta, equipoId);
-      setHistorial(datos);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al cargar el historial de checklists"
-      );
-      setHistorial(null);
-    } finally {
-      setLoading(false);
-    }
+
+    return obtenerHistorialChecklists(fechaDesde, fechaHasta, equipoId);
   }, [fechaDesde, fechaHasta, equipoId]);
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(cargarHistorial, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [cargarHistorial]);
+  const { items, loading, error, recargar } = useLista<HistorialChecklistResponse | null>({
+    cargar: cargarHistorial,
+    dependencias: [fechaDesde, fechaHasta, equipoId],
+    valorInicial: null,
+    mensajeError: "Error al cargar el historial de checklists",
+    preferirMensajeDelBackend: true,
+    vaciarAlFallar: true,
+  });
 
   return {
-    historial,
+    historial: items,
     loading,
     error,
-    recargar: cargarHistorial,
+    recargar,
   };
 }

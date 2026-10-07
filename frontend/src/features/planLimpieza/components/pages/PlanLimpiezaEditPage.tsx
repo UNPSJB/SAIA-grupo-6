@@ -6,6 +6,14 @@ import { usePlanLimpieza } from "../../hooks/usePlanLimpieza";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_TERCIARIO,
+} from "../../../../common/theme/tokens";
 
 export function PlanLimpiezaEditPage() {
   const navigate = useNavigate();
@@ -44,14 +52,14 @@ export function PlanLimpiezaEditPage() {
           Editar Plan de Limpieza
         </Heading>
         <Button
-          bg="#6c757d"
+          bg={GRIS_MEDIO}
           color="white"
           fontSize="16px"
           fontWeight="normal"
           height="auto"
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: "#6c757d" }}
+          _hover={{ bg: GRIS_MEDIO }}
           onClick={() => navigate("/planes-limpieza")}
         >
           Volver a la lista
@@ -79,7 +87,7 @@ export function PlanLimpiezaEditPage() {
 
       {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
       {cargando && (
-        <Text style={{ fontStyle: "italic", color: "#666" }}>
+        <Text style={{ fontStyle: "italic", color: TEXTO_TERCIARIO }}>
           Cargando datos del plan...
         </Text>
       )}
@@ -89,8 +97,8 @@ export function PlanLimpiezaEditPage() {
           {errorGuardado && (
             <Box
               style={{
-                backgroundColor: "#f8d7da",
-                color: "#721c24",
+                backgroundColor: ERROR_FONDO,
+                color: ERROR_TEXTO,
                 padding: "12px",
                 borderRadius: "6px",
                 marginBottom: "20px",
@@ -129,13 +137,13 @@ export function PlanLimpiezaEditPage() {
                 <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
                 <Heading
                   as="h3"
-                  style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+                  style={{ margin: 0, color: EXITO, fontSize: "24px" }}
                 >
                   Éxito
                 </Heading>
                 <Text
                   style={{
-                    color: "#555",
+                    color: TEXTO_SECUNDARIO,
                     marginTop: "10px",
                     fontSize: "16px",
                     fontWeight: 500,

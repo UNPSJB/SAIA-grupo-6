@@ -1,5 +1,14 @@
 import { Button, HStack, Table, Text } from "@chakra-ui/react";
 import type { Aptitud } from "../types/aptitud";
+import {
+  ADVERTENCIA,
+  ADVERTENCIA_HOVER,
+  EXITO,
+  EXITO_HOVER,
+  PELIGRO,
+  PELIGRO_HOVER,
+  TEAL,
+} from "../../../common/theme/tokens";
 
 interface AptitudItemProps {
   aptitud: Aptitud;
@@ -7,8 +16,6 @@ interface AptitudItemProps {
   onDelete: (aptitud: Aptitud) => void;
   onReactivar: (aptitud: Aptitud) => void;
 }
-
-const TEAL = "#468189";
 
 export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudItemProps) {
   return (
@@ -24,15 +31,15 @@ export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudI
         <HStack justify="center" style={{ gap: "10px" }}>
           {aptitud.activo ? (
             <>
-              <Button bg="#f0ad4e" color="white" fontSize="15px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#ec971f" }} onClick={() => onEdit(aptitud)}>
+              <Button bg={ADVERTENCIA} color="white" fontSize="15px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: ADVERTENCIA_HOVER }} onClick={() => onEdit(aptitud)}>
                 Modificar
               </Button>
-              <Button bg="#d9534f" color="white" fontSize="15px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#c9302c" }} onClick={() => onDelete(aptitud)}>
+              <Button bg={PELIGRO} color="white" fontSize="15px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: PELIGRO_HOVER }} onClick={() => onDelete(aptitud)}>
                 Eliminar
               </Button>
             </>
           ) : (
-            <Button bg="#28a745" color="white" fontSize="15px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#218838" }} onClick={() => onReactivar(aptitud)}>
+            <Button bg={EXITO} color="white" fontSize="15px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: EXITO_HOVER }} onClick={() => onReactivar(aptitud)}>
               Reactivar
             </Button>
           )}

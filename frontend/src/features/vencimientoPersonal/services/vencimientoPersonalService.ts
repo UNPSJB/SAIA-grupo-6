@@ -3,17 +3,14 @@ import type {
   VencimientoPersonalCreate,
   VencimientoPersonalUpdate,
 } from "../types/vencimientoPersonal";
+import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
 export async function listarVencimientosDePersona(
   personaId: number
 ): Promise<VencimientoPersonal[]> {
   const response = await apiFetch(`${API_URL}/vencimientos-personal/persona/${personaId}`);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al obtener los vencimientos");
-  }
-  return response.json();
+  return pedir<VencimientoPersonal[]>(response, "Error al obtener los vencimientos");
 }
 
 export async function crearVencimiento(
@@ -24,11 +21,7 @@ export async function crearVencimiento(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al cargar el vencimiento");
-  }
-  return response.json();
+  return pedir<VencimientoPersonal>(response, "Error al cargar el vencimiento");
 }
 
 export async function actualizarVencimiento(
@@ -40,19 +33,12 @@ export async function actualizarVencimiento(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al actualizar el vencimiento");
-  }
-  return response.json();
+  return pedir<VencimientoPersonal>(response, "Error al actualizar el vencimiento");
 }
 
 export async function eliminarVencimiento(id: number): Promise<void> {
   const response = await apiFetch(`${API_URL}/vencimientos-personal/${id}`, {
     method: "DELETE",
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || "Error al eliminar el vencimiento");
-  }
+  return pedir<void>(response, "Error al eliminar el vencimiento");
 }

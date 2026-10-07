@@ -10,6 +10,19 @@ import {
 } from "@chakra-ui/react";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
+import {
+  BLANCO,
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  FONDO_CARD,
+  GRIS_CLARO,
+  TEAL,
+  TEAL_CLARO,
+  TEXTO_PRIMARIO,
+  TEXTO_TENUE,
+  estiloInput,
+  estiloLabel,
+} from "../../../common/theme/tokens";
 
 interface PlanLimpiezaFormProps {
   initialValues?: PlanLimpiezaInput;
@@ -27,32 +40,12 @@ const emptyValues: PlanLimpiezaInput = {
   autor_id: 0,
 };
 
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "12px",
-  width: "100%",
-  maxWidth: "500px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: "#333",
-};
-
 const estiloSelect = {
   ...estiloInput,
   boxSizing: "border-box" as const,
   colorScheme: "light" as const,
   height: "auto" as const,
   lineHeight: "normal" as const,
-};
-
-const estiloLabel = {
-  display: "block",
-  fontSize: "14px",
-  fontWeight: "bold" as const,
-  marginBottom: "8px",
-  color: "#555",
 };
 
 export function PlanLimpiezaForm({
@@ -134,22 +127,22 @@ export function PlanLimpiezaForm({
       as="form"
       onSubmit={handleSubmit}
       style={{
-        backgroundColor: "#ffffff",
+        backgroundColor: BLANCO,
         padding: "30px",
         borderRadius: "12px",
         boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
         marginBottom: "30px",
       }}
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
         {title}
       </Box>
 
       {errorOpciones && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "10px",
             borderRadius: "6px",
             marginBottom: "20px",
@@ -186,7 +179,7 @@ export function PlanLimpiezaForm({
             style={{
               marginBottom: "14px",
               padding: "12px",
-              backgroundColor: "#f7faf9",
+              backgroundColor: FONDO_CARD,
               border: "1px solid #d8e7e5",
               borderRadius: "8px",
             }}
@@ -230,8 +223,8 @@ export function PlanLimpiezaForm({
                 onClick={() => handleQuitarTarea(index)}
                 disabled={values.tareas.length === 1}
                 style={{
-                  backgroundColor: "#e0e0e0",
-                  color: "#333",
+                  backgroundColor: GRIS_CLARO,
+                  color: TEXTO_PRIMARIO,
                   padding: "10px 14px",
                   borderRadius: "8px",
                   border: "none",
@@ -271,8 +264,8 @@ export function PlanLimpiezaForm({
           type="button"
           onClick={handleAgregarTarea}
           style={{
-            backgroundColor: "#90BEBB",
-            color: "#fff",
+            backgroundColor: TEAL_CLARO,
+            color: BLANCO,
             padding: "8px 16px",
             borderRadius: "8px",
             border: "none",
@@ -304,7 +297,7 @@ export function PlanLimpiezaForm({
                 <option
                   key={equipo.id}
                   value={equipo.id}
-                  style={{ backgroundColor: "#fff", color: "#333" }}
+                  style={{ backgroundColor: BLANCO, color: TEXTO_PRIMARIO }}
                 >
                   {equipo.nombre}
                 </option>
@@ -336,7 +329,7 @@ export function PlanLimpiezaForm({
                 <option
                   key={persona.id}
                   value={persona.id}
-                  style={{ backgroundColor: "#fff", color: "#333" }}
+                  style={{ backgroundColor: BLANCO, color: TEXTO_PRIMARIO }}
                 >
                   {persona.nombre} {persona.apellido || ""}
                 </option>
@@ -345,7 +338,7 @@ export function PlanLimpiezaForm({
             <NativeSelect.Indicator />
           </NativeSelect.Root>
         </Field.Root>
-        <Text style={{ fontSize: "12px", color: "#888", marginTop: "6px" }}>
+        <Text style={{ fontSize: "12px", color: TEXTO_TENUE, marginTop: "6px" }}>
           Se guarda de forma explícita porque el sistema todavía no tiene sesión
           de usuario.
         </Text>
@@ -358,7 +351,7 @@ export function PlanLimpiezaForm({
           loading={isLoading}
           disabled={!values.equipo_id || !values.autor_id || hayTareaInvalida}
           style={{
-            backgroundColor: "#468189",
+            backgroundColor: TEAL,
             color: "white",
             padding: "12px 24px",
             borderRadius: "8px",
@@ -376,8 +369,8 @@ export function PlanLimpiezaForm({
             type="button"
             onClick={onCancel}
             style={{
-              backgroundColor: "#e0e0e0",
-              color: "#333",
+              backgroundColor: GRIS_CLARO,
+              color: TEXTO_PRIMARIO,
               padding: "12px 24px",
               borderRadius: "8px",
               border: "none",

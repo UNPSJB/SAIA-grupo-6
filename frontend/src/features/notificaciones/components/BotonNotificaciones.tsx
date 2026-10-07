@@ -1,30 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, IconButton, Badge } from "@chakra-ui/react";
-import { obtenerNotificaciones } from "../services/notificacionService";
+import { useNotificaciones } from "../hooks/useNotificaciones";
+import { escucharCambioNotificaciones } from "../eventoNotificaciones";
 import { FaBell } from "react-icons/fa"; // Usamos FaBell que es la versión rellena
 
 export function BotonNotificaciones() {
   const navigate = useNavigate();
-  const [cantidad, setCantidad] = useState(0);
+  // Antes este componente reimplementaba el fetch del hook `useNotificaciones`,
+  // que quedaba sin usar en todo el proyecto. Ahora es el único lugar que
+  // trae el dato.
+  const { cantidad, recargar } = useNotificaciones();
 
-  useEffect(() => {
-    const cargarCantidad = async () => {
-      try {
-        const data = await obtenerNotificaciones();
-        setCantidad(data.length);
-      } catch {
-        setCantidad(0);
-      }
-    };
-
-    cargarCantidad();
-    window.addEventListener("actualizar_notificaciones", cargarCantidad);
-
-    return () => {
-      window.removeEventListener("actualizar_notificaciones", cargarCantidad);
-    };
-  }, []);
+  useEffect(() => escucharCambioNotificaciones(() => void recargar()), [recargar]);
 
   return (
     <Box position="relative" display="inline-block">

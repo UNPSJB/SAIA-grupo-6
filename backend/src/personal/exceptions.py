@@ -10,6 +10,10 @@ class DatoDuplicado(BadRequest):
     DETAIL = ErrorCode.DATO_DUPLICADO
 
 
+class DatoInvalido(BadRequest):
+    DETAIL = ErrorCode.DATO_INVALIDO
+
+
 class DniDuplicado(BadRequest):
     DETAIL = ErrorCode.DNI_DUPLICADO
 

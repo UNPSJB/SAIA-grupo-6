@@ -1,8 +1,16 @@
 import { Table, Button, HStack } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../common/context/AuthContext";
+import { useAuth } from "../../../common/context/useAuth";
 import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
+import {
+  ADVERTENCIA,
+  ADVERTENCIA_HOVER,
+  EXITO,
+  EXITO_HOVER,
+  PELIGRO,
+  TEAL,
+} from "../../../common/theme/tokens";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -10,8 +18,6 @@ interface PersonalItemProps {
   onDelete: (persona: Persona) => void;
   onReactivar: (persona: Persona) => void; // Recibimos el método desde la tabla
 }
-
-const TEAL = "#468189";
 
 export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: PersonalItemProps) {
   const navigate = useNavigate();
@@ -50,20 +56,20 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
       <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
         <HStack justify="center" style={{ gap: "10px" }}>
           {persona.activo && puedeEditar && (
-            <Button bg="#f0ad4e" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#f0ad4e" }} onClick={() => onEdit(persona)}>
+            <Button bg={ADVERTENCIA} color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: ADVERTENCIA_HOVER }} onClick={() => onEdit(persona)}>
               Modificar
             </Button>
           )}
 
           {persona.activo ? (
             puedeBorrar && (
-              <Button bg="#d9534f" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#d9534f" }} onClick={() => onDelete(persona)}>
+              <Button bg={PELIGRO} color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: PELIGRO }} onClick={() => onDelete(persona)}>
                 Eliminar
               </Button>
             )
           ) : (
             puedeEditar && (
-              <Button bg="#28a745" color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: "#218838" }} onClick={() => onReactivar(persona)}>
+              <Button bg={EXITO} color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: EXITO_HOVER }} onClick={() => onReactivar(persona)}>
                 Reactivar
               </Button>
             )

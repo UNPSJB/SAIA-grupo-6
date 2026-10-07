@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Box, Button, Field, HStack, Input, Textarea } from "@chakra-ui/react";
 import type { AptitudFormValues } from "../types/aptitud";
+import {
+  BLANCO,
+  GRIS_CLARO,
+  TEAL,
+  TEXTO_PRIMARIO,
+  estiloInput,
+  estiloLabel,
+} from "../../../common/theme/tokens";
 
 interface AptitudFormProps {
   initialValues?: AptitudFormValues;
@@ -12,26 +20,6 @@ interface AptitudFormProps {
 }
 
 const emptyValues: AptitudFormValues = { nombre: "", descripcion: "" };
-
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "12px",
-  width: "100%",
-  maxWidth: "500px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: "#333",
-};
-
-const estiloLabel = {
-  display: "block",
-  fontSize: "14px",
-  fontWeight: "bold" as const,
-  marginBottom: "8px",
-  color: "#555",
-};
 
 export function AptitudForm({
   initialValues = emptyValues,
@@ -52,9 +40,9 @@ export function AptitudForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{ backgroundColor: "#ffffff", padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}
+      style={{ backgroundColor: BLANCO, padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>{title}</Box>
+      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>{title}</Box>
 
       <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
@@ -81,11 +69,11 @@ export function AptitudForm({
       </Box>
 
       <HStack style={{ gap: "15px" }}>
-        <Button type="submit" loading={isLoading} style={{ backgroundColor: "#468189", color: "white", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
+        <Button type="submit" loading={isLoading} style={{ backgroundColor: TEAL, color: "white", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
           {submitLabel}
         </Button>
         {onCancel && (
-          <Button type="button" onClick={onCancel} style={{ backgroundColor: "#e0e0e0", color: "#333", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
+          <Button type="button" onClick={onCancel} style={{ backgroundColor: GRIS_CLARO, color: TEXTO_PRIMARIO, padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
             Cancelar
           </Button>
         )}

@@ -3,6 +3,10 @@ from src.insumoQuimico.constants import ErrorCode
 
 class InsumoQuimicoNoEncontrado(NotFound): 
     DETAIL = ErrorCode.INSUMO_QUIMICO_NO_ENCONTRADO 
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+
+
 class InsumoQuimicoYaExiste(BadRequest): 
     DETAIL = ErrorCode.INSUMO_QUIMICO_YA_EXISTE 
 class NombreVacio(BadRequest): 

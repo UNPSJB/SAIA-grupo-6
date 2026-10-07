@@ -1,29 +1,17 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { listarMisIncidentes } from "../services/incidenteService";
 import type { Incidente } from "../types/incidente";
 
 export function useMisIncidentes() {
-  const [misIncidentes, setMisIncidentes] = useState<Incidente[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cargarMisIncidentes = useCallback(() => listarMisIncidentes(), []);
 
-  const cargarMisIncidentes = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await listarMisIncidentes();
-      setMisIncidentes(data);
-    } catch {
-      setError("No se pudieron cargar tus incidentes");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { items, loading, error, recargar } = useLista<Incidente[]>({
+    cargar: cargarMisIncidentes,
+    dependencias: [],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar tus incidentes",
+  });
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(cargarMisIncidentes, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [cargarMisIncidentes]);
-
-  return { misIncidentes, loading, error, cargarMisIncidentes };
+  return { misIncidentes: items, loading, error, cargarMisIncidentes: recargar };
 }

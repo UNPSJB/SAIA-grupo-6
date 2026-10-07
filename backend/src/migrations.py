@@ -9,6 +9,7 @@ import logging
 
 from sqlalchemy import inspect, text
 
+import src.all_models  # noqa: F401  (registra todos los modelos)
 from src.database import engine
 from src.models import ModeloBase
 
@@ -19,9 +20,44 @@ def _columnas_de(inspector, tabla: str) -> set:
     return {columna["name"] for columna in inspector.get_columns(tabla)}
 
 
+def _marcar_migracion(clave: str) -> None:
+    """Registra que una migración de una sola vez ya corrió."""
+    with engine.begin() as conexion:
+        conexion.execute(
+            text("INSERT OR IGNORE INTO schema_migrations (clave) VALUES (:clave)"),
+            {"clave": clave},
+        )
+
+
+def _migracion_ya_corrio(clave: str) -> bool:
+    inspector = inspect(engine)
+    if "schema_migrations" not in set(inspector.get_table_names()):
+        return False
+    with engine.begin() as conexion:
+        return (
+            conexion.execute(
+                text("SELECT 1 FROM schema_migrations WHERE clave = :clave"),
+                {"clave": clave},
+            ).scalar_one_or_none()
+            is not None
+        )
+
+
 def run_migrations() -> None:
     inspector = inspect(engine)
     tablas = set(inspector.get_table_names())
+
+    # Bitácora de las migraciones que no deben repetirse.
+    if "schema_migrations" not in tablas:
+        logger.info("Migración: creando la tabla schema_migrations")
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS schema_migrations ("
+                    "clave TEXT PRIMARY KEY, "
+                    "aplicada_en DATETIME DEFAULT CURRENT_TIMESTAMP)"
+                )
+            )
 
     # 1) Rol de super admin
     if "personal" in tablas and "es_super_admin" not in _columnas_de(inspector, "personal"):
@@ -125,10 +161,59 @@ def run_migrations() -> None:
                 )
             )
 
-    # 4) Bootstrap: si nadie es super admin, se promueve al administrador más
-    #    antiguo. Si además no hay ningún administrador (base creada a mano o
-    #    con puros operadores), se promueve al usuario activo más antiguo para
-    #    que la instalación no quede sin quien pueda administrar los roles.
+    # 4) Frecuencia de calibración del equipo.
+    #
+    #    `create_all()` crea tablas faltantes pero NO agrega columnas a las que ya
+    #    existen, así que sin esto toda base creada antes del registro de
+    #    calibraciones fallaba con "no such column: equipos.frecuencia_calibracion_dias"
+    #    al listado de equipos, que selecciona el modelo completo.
+    #
+    #    Va antes del bootstrap porque ese bloque corta con `return` cuando ya
+    #    corrió: lo que se agregue después jamás se aplicaría a bases existentes.
+    if "equipos" in tablas and "frecuencia_calibracion_dias" not in _columnas_de(
+        inspector, "equipos"
+    ):
+        logger.info(
+            "Migración: agregando columna equipos.frecuencia_calibracion_dias"
+        )
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "ALTER TABLE equipos "
+                    "ADD COLUMN frecuencia_calibracion_dias INTEGER"
+                )
+            )
+
+    # 5) Calibraciones: sacar la columna `activo` espuria.
+    #
+    #    La primera versión del merge declaraba un `activo` NOT NULL en
+    #    Calibracion que ningún endpoint ni vista usa (quedó colado al
+    #    resolver el conflicto a mano). La tabla se creó con ese esquema, así
+    #    que los INSERT del modelo definitivo —que no conoce la columna—
+    #    fallaban con "NOT NULL constraint failed: calibraciones.activo".
+    #    Mismo precedente que `incidentes.activo`: se borra de verdad.
+    if (
+        "calibraciones" in tablas
+        and "activo" in _columnas_de(inspector, "calibraciones")
+    ):
+        logger.info("Migración: eliminando columna calibraciones.activo")
+        with engine.begin() as conexion:
+            conexion.execute(
+                text("ALTER TABLE calibraciones DROP COLUMN activo")
+            )
+
+    # 6) Bootstrap del primer super admin.
+    #
+    #    Antes corría en cada arranque: un super admin que se degradaba a
+    #    propósito (para pasar el control) volvía a ser promovido en el
+    #    siguiente reinicio, y degradar era imposible sin editar la base a mano.
+    #    Ahora es de una sola vez, con bitácora en `schema_migrations`.
+    if _migracion_ya_corrio("bootstrap_super_admin"):
+        return
+
+    promovido = None
+    motivo = ""
+
     with engine.begin() as conexion:
         total = conexion.execute(text("SELECT COUNT(*) FROM personal")).scalar_one()
         ya_hay_super = conexion.execute(
@@ -162,11 +247,17 @@ def run_migrations() -> None:
                     text("UPDATE personal SET es_super_admin = 1 WHERE id = :id"),
                     {"id": candidato},
                 )
-                logger.warning(
-                    "Bootstrap: el usuario %s fue promovido a super admin (%s).",
-                    candidato,
-                    motivo,
-                )
+                promovido = candidato
+
+    # Fuera del `with`: abrir una transaccion anidada sobre la misma conexion
+    # puede dejarla esperando el lock en SQLite.
+    if promovido is not None:
+        _marcar_migracion("bootstrap_super_admin")
+        logger.warning(
+            "Bootstrap: el usuario %s fue promovido a super admin (%s).",
+            promovido,
+            motivo,
+        )
 
 
 def crear_tablas_y_migrar() -> None:

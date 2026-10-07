@@ -1,5 +1,7 @@
+import { formatoFecha } from "../../../../common/utils/fechas";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 
 import { usePlanCalibracionMantenimiento } from "../../hooks/usePlanCalibracionMantenimiento";
@@ -10,13 +12,18 @@ import type {
   PlanCalibracionMantenimientoFormValues,
   PlanCalibracionMantenimientoUpdate,
 } from "../../types/planCalibracionMantenimiento";
-
-function formatearFecha(fecha: string) {
-  return new Date(`${fecha.slice(0, 10)}T00:00:00`).toLocaleDateString("es-AR");
-}
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO_FONDO,
+  EXITO_TEXTO_HOVER,
+  GRIS_MEDIO,
+  TEXTO_TERCIARIO,
+} from "../../../../common/theme/tokens";
 
 export function PlanCalibracionMantenimientoEditPage() {
   const navigate = useNavigate();
+  const delayedNavigate = useDelayedNavigate();
   const { id } = useParams<{ id: string }>();
   const planId = Number(id);
   const {
@@ -54,9 +61,7 @@ export function PlanCalibracionMantenimientoEditPage() {
     try {
       const actualizado = await modificar(plan.id, cambios);
       setPlanActualizado(actualizado);
-      setTimeout(() => {
-        navigate("/planes-calibracion-mantenimiento");
-      }, 2500);
+      delayedNavigate("/planes-calibracion-mantenimiento", 2500);
     } catch {
       // El error queda expuesto por usePlanCalibracionMantenimientoABM().error.
     }
@@ -69,14 +74,14 @@ export function PlanCalibracionMantenimientoEditPage() {
           Editar plan de calibración/mantenimiento
         </Heading>
         <Button
-          bg="#6c757d"
+          bg={GRIS_MEDIO}
           color="white"
           fontSize="16px"
           fontWeight="normal"
           height="auto"
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: "#6c757d" }}
+          _hover={{ bg: GRIS_MEDIO }}
           onClick={() => navigate("/planes-calibracion-mantenimiento")}
         >
           Volver a la lista
@@ -85,7 +90,7 @@ export function PlanCalibracionMantenimientoEditPage() {
 
       {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
       {cargando && (
-        <Text style={{ fontStyle: "italic", color: "#666" }}>
+        <Text style={{ fontStyle: "italic", color: TEXTO_TERCIARIO }}>
           Cargando datos del plan...
         </Text>
       )}
@@ -95,8 +100,8 @@ export function PlanCalibracionMantenimientoEditPage() {
           {errorGuardado && (
             <Box
               style={{
-                backgroundColor: "#f8d7da",
-                color: "#721c24",
+                backgroundColor: ERROR_FONDO,
+                color: ERROR_TEXTO,
                 padding: "12px",
                 borderRadius: "6px",
                 marginBottom: "20px",
@@ -111,8 +116,8 @@ export function PlanCalibracionMantenimientoEditPage() {
           {planActualizado && (
             <Box
               style={{
-                backgroundColor: "#d4edda",
-                color: "#155724",
+                backgroundColor: EXITO_FONDO,
+                color: EXITO_TEXTO_HOVER,
                 padding: "16px",
                 borderRadius: "6px",
                 marginBottom: "20px",
@@ -121,7 +126,7 @@ export function PlanCalibracionMantenimientoEditPage() {
             >
               <Text fontWeight="bold">Plan actualizado correctamente.</Text>
               <Text>
-                Próximo vencimiento: {formatearFecha(planActualizado.proxima_fecha_vencimiento)}.
+                Próximo vencimiento: {formatoFecha(planActualizado.proxima_fecha_vencimiento)}.
               </Text>
               <Text>Días restantes: {planActualizado.dias_restantes}.</Text>
             </Box>

@@ -1,6 +1,7 @@
 class ErrorCode:
     PERSONA_NO_ENCONTRADA = "El Personal solicitado no existe o fue dado de baja."
-    DATO_DUPLICADO = "El DNI o Email ingresado ya se encuentra registrado en el sistema."
+    DATO_DUPLICADO = "Ya existe un registro activo con esos datos en el sistema."
+    DATO_INVALIDO = "Alguno de los datos ingresados no es válido para este registro."
     DNI_DUPLICADO = "El DNI ingresado ya se encuentra registrado para otra persona activa."
     EMAIL_DUPLICADO = "El correo electrónico ingresado ya está en uso por otra persona activa."
     NOMBRE_INVALIDO = "El nombre no puede estar vacío y debe contener solo letras."

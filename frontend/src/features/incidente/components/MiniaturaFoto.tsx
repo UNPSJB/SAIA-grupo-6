@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Portal, Text } from "@chakra-ui/react";
 import { useImagenAutenticada } from "../../../common/hooks/useImagenAutenticada";
+import { BORDE_SUAVE, FONDO_APP, TEAL, TEAL_CLARO } from "../../../common/theme/tokens";
 
 /**
  * Marco fijo de la miniatura. Se comparte entre los tres estados (cargando,
@@ -13,7 +14,7 @@ const MARCO = {
   overflow: "hidden",
   border: "1px solid",
   borderColor: "#e8f0ef",
-  backgroundColor: "#f4f7f6",
+  backgroundColor: FONDO_APP,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -40,7 +41,7 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
           width="100%"
           height="100%"
           borderRadius="6px"
-          backgroundColor="#e2e8f0"
+          backgroundColor={BORDE_SUAVE}
         />
       </Box>
     );
@@ -60,11 +61,11 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
     <>
       <Box
         {...MARCO}
-        borderColor="#90BEBB"
+        borderColor={TEAL_CLARO}
         cursor="pointer"
         title="Ver foto ampliada"
         onClick={() => setAmpliada(true)}
-        _hover={{ borderColor: "#468189" }}
+        _hover={{ borderColor: TEAL }}
       >
         <img
           src={imagen.src}

@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
-import { UnidadMedidaForm } from "../unidadMedidaForm";
+import { UnidadMedidaForm } from "../UnidadMedidaForm";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { UnidadMedida } from "../../types/unidadMedida";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+} from "../../../../common/theme/tokens";
 
 export function UnidadMedidaCreatePage() {
   const navigate = useNavigate();
@@ -48,14 +55,14 @@ export function UnidadMedidaCreatePage() {
           Nueva unidad de medida
         </Heading>
         <Button
-          bg="#6c757d"
+          bg={GRIS_MEDIO}
           color="white"
           fontSize="16px"
           fontWeight="normal"
           height="auto"
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: "#6c757d" }}
+          _hover={{ bg: GRIS_MEDIO }}
           onClick={() => navigate("/unidades-medida")}
         >
           Volver a la lista
@@ -65,8 +72,8 @@ export function UnidadMedidaCreatePage() {
       {error && !conflicto && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "12px",
             borderRadius: "6px",
             marginBottom: "20px",
@@ -105,13 +112,13 @@ export function UnidadMedidaCreatePage() {
             <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
             <Heading
               as="h3"
-              style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+              style={{ margin: 0, color: EXITO, fontSize: "24px" }}
             >
               Éxito
             </Heading>
             <Text
               style={{
-                color: "#555",
+                color: TEXTO_SECUNDARIO,
                 marginTop: "10px",
                 fontSize: "16px",
                 fontWeight: 500,

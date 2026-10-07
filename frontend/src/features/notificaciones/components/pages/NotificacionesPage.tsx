@@ -1,3 +1,4 @@
+import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,15 +16,15 @@ import { registrarRecambioElemento } from "../../../elementoLimpieza/services/el
 import type { Notificacion } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+  TEXTO_SUAVE,
+} from "../../../../common/theme/tokens";
 
-
-function formatearFecha(fecha?: string) {
-  if (!fecha) {
-    return "-";
-  }
-
-  return new Date(`${fecha.slice(0, 10)}T00:00:00`).toLocaleDateString("es-AR");
-}
 function etiquetaOrigen(tipo: string) {
   switch (tipo) {
     case "ELEMENTO_LIMPIEZA":
@@ -45,21 +46,26 @@ function etiquetaAccion(tipo: string) {
       return "Ver plan";
   }
 }
+
 export function NotificacionesPage() {
   const navigate = useNavigate();
   const delayed = useSafeTimeout();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null); // <-- Cartel verde
   const [notifEditando, setNotifEditando] = useState<Notificacion | null>(null);
 
   const cargar = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await obtenerNotificaciones();
       setNotificaciones(data);
-    } catch {
-      // Manejo simple de error
+    } catch (e) {
+      // Antes el catch era vacío: un 500 mostraba "No hay notificaciones
+      // pendientes", que es exactamente lo contrario de lo que pasó.
+      setError(e instanceof Error ? e.message : "No se pudieron cargar las notificaciones");
     } finally {
       setLoading(false);
     }
@@ -71,36 +77,36 @@ export function NotificacionesPage() {
   }, []);
 
   const mostrarExito = (mensaje: string) => {
-  // Avisamos a la campana
-  window.dispatchEvent(new Event("actualizar_notificaciones"));
+    // Avisamos a la campana
+    window.dispatchEvent(new Event("actualizar_notificaciones"));
 
-  // Mostramos el cartel de éxito
-  setMensajeExito(mensaje);
-  delayed(() => {
-    setMensajeExito(null);
-    cargar(); // Recién cuando se va el cartel recargamos la tabla
-  }, 1500);
-};
+    // Mostramos el cartel de éxito
+    setMensajeExito(mensaje);
+    delayed(() => {
+      setMensajeExito(null);
+      cargar(); // Recién cuando se va el cartel recargamos la tabla
+    }, 1500);
+  };
 
- const handleResolver = async (notif: Notificacion) => {
-  if (notif.tipo === "ELEMENTO_LIMPIEZA") {
-    try {
-      await registrarRecambioElemento(notif.entidad_id);
-      mostrarExito("Recambio registrado correctamente.");
-    } catch (error) {
-      console.error("Error al registrar recambio:", error);
+  const handleResolver = async (notif: Notificacion) => {
+    if (notif.tipo === "ELEMENTO_LIMPIEZA") {
+      try {
+        await registrarRecambioElemento(notif.entidad_id);
+        mostrarExito("Recambio registrado correctamente.");
+      } catch (error) {
+        console.error("Error al registrar recambio:", error);
+      }
+    } else if (notif.tipo === "VENCIMIENTO_PERSONAL") {
+      setNotifEditando(notif); // abre el diálogo
+    } else {
+      navigate(notif.link_destino);
     }
-  } else if (notif.tipo === "VENCIMIENTO_PERSONAL") {
-    setNotifEditando(notif); // abre el diálogo
-  } else {
-    navigate(notif.link_destino);
-  }
-}; 
+  };
 
   const handleFechaGuardada = () => {
     setNotifEditando(null);
-   mostrarExito("Fecha de vencimiento actualizada correctamente.");
-};
+    mostrarExito("Fecha de vencimiento actualizada correctamente.");
+  };
 
   // Ordenamos para que los VENCIDOS (rojos) queden siempre primeros en la lista
   const notificacionesOrdenadas = [...notificaciones].sort((a, b) => {
@@ -114,10 +120,10 @@ export function NotificacionesPage() {
       <Heading as="h2" size="md" mb="20px">
         🔔 Centro de Notificaciones del Sistema
       </Heading>
+
       <ConfiguracionAlertasPanel
         onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
-      
 
       {/* CARTEL VERDE DE ÉXITO ESTILO SAIA */}
       {mensajeExito && (
@@ -147,24 +153,24 @@ export function NotificacionesPage() {
             <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
             <Heading
               as="h3"
-              style={{ margin: 0, color: "#28a745", fontSize: "24px" }}
+              style={{ margin: 0, color: EXITO, fontSize: "24px" }}
             >
               Éxito
             </Heading>
             <Text
               style={{
-                color: "#555",
+                color: TEXTO_SECUNDARIO,
                 marginTop: "10px",
                 fontSize: "16px",
                 fontWeight: 500,
               }}
             >
-              mensajeExito
+              {mensajeExito}
             </Text>
           </Box>
         </Box>
-        
       )}
+
       {/* DIÁLOGO PARA CAMBIAR LA FECHA DE UN VENCIMIENTO DE PERSONAL */}
       {notifEditando && (
         <CambiarFechaVencimientoDialog
@@ -174,14 +180,23 @@ export function NotificacionesPage() {
           onSaved={handleFechaGuardada}
         />
       )}
+
+      {error && (
+        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px",
+          borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb",
+          fontWeight: "bold" }}>
+          ⚠️ {error}
+        </Box>
+      )}
+
       {loading ? (
         <Spinner />
       ) : notificacionesOrdenadas.length === 0 ? (
         <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
-          <Text fontSize="18px" color="#28a745" fontWeight="bold">
+          <Text fontSize="18px" color={EXITO} fontWeight="bold">
             ✅ No hay notificaciones pendientes
           </Text>
-          <Text color="#6c757d">
+          <Text color={GRIS_MEDIO}>
             Todos los vencimientos están al día.
           </Text>
         </Box>
@@ -190,11 +205,11 @@ export function NotificacionesPage() {
           <Table.Root variant="outline" size="md">
             <Table.Header bg="#f8fafc">
                 <Table.Row>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px">Vencimiento</Table.ColumnHeader>
-                  <Table.ColumnHeader color="#4a5568" fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Vencimiento</Table.ColumnHeader>
+                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
                 </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -202,9 +217,7 @@ export function NotificacionesPage() {
                   <Table.Row key={n.id_notificacion} _hover={{ bg: "#f7fafc" }} transition="background 0.2s">
                     <Table.Cell>
                       <Badge bg="#e9d8fd" color="#553c9a" px="2" py="1" borderRadius="md" fontWeight="bold">
-                        {n.tipo === "ELEMENTO_LIMPIEZA"
-                          ? "Elemento Limpieza"
-                          : "Plan Calibración/Mantenimiento"}
+                        {etiquetaOrigen(n.tipo)}
                       </Badge>
                   </Table.Cell>
                   <Table.Cell>
@@ -223,8 +236,12 @@ export function NotificacionesPage() {
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
-                      <Text fontSize="14px" color="#4a5568">
-                        {formatearFecha(n.fecha_referencia)}
+                      <Text
+                        fontSize="14px"
+                        color={n.nivel === "VENCIDO" ? ERROR_TEXTO : TEXTO_SUAVE}
+                        fontWeight={n.nivel === "VENCIDO" ? "bold" : "normal"}
+                      >
+                        {formatoFechaOCorta(n.fecha_referencia)}
                       </Text>
                     </Table.Cell>
                     <Table.Cell textAlign="center">
@@ -237,7 +254,7 @@ export function NotificacionesPage() {
                       borderRadius="6px"
                       onClick={() => handleResolver(n)}
                     >
-                      {etiquetaOrigen(n.tipo)}
+                      {etiquetaAccion(n.tipo)}
                     </Button>
                   </Table.Cell>
                 </Table.Row>

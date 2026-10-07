@@ -1,4 +1,11 @@
 import { Box, Button, Portal } from "@chakra-ui/react";
+import {
+  BLANCO,
+  BORDE_CONTROL,
+  TEAL,
+  TEXTO_PRIMARIO,
+  TEXTO_TERCIARIO,
+} from "../theme/tokens";
 
 interface ConfirmarReactivacionDialogProps {
   isOpen: boolean;
@@ -48,10 +55,10 @@ export function ConfirmarReactivacionDialog({
           }}
         >
           <Box style={{ fontSize: "36px", marginBottom: "8px" }}>♻️</Box>
-          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+          <Box as="h3" style={{ marginTop: 0, color: TEXTO_PRIMARIO }}>
             Registro dado de baja encontrado
           </Box>
-          <Box style={{ color: "#666", marginBottom: "20px", fontSize: "15px" }}>
+          <Box style={{ color: TEXTO_TERCIARIO, marginBottom: "20px", fontSize: "15px" }}>
             {mensaje}
           </Box>
           <Box
@@ -64,8 +71,8 @@ export function ConfirmarReactivacionDialog({
               style={{
                 padding: "8px 16px",
                 borderRadius: "6px",
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
+                border: `1px solid ${BORDE_CONTROL}`,
+                backgroundColor: BLANCO,
                 cursor: "pointer",
                 fontWeight: "bold",
               }}
@@ -81,7 +88,7 @@ export function ConfirmarReactivacionDialog({
                 padding: "8px 16px",
                 borderRadius: "6px",
                 border: "none",
-                backgroundColor: "#468189",
+                backgroundColor: TEAL,
                 color: "white",
                 cursor: "pointer",
                 fontWeight: "bold",

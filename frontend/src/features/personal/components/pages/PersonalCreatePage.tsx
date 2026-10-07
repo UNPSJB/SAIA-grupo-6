@@ -5,15 +5,21 @@ import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { useAuth } from "../../../../common/context/AuthContext";
+import { useAuth } from "../../../../common/context/useAuth";
 import { esSuperAdmin } from "../../../../common/api/permissions";
-import type { Persona } from "../../types/personal";
+import type { PersonaInput } from "../../types/personal";
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 import { useVencimientosPersonal, type VencimientosPorAptitud } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { ConflictoInactivoError } from "../../../../common/api/errors";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO,
+  GRIS_MEDIO,
+  TEXTO_SECUNDARIO,
+} from "../../../../common/theme/tokens";
 
 
-type PersonaInput = Omit<Persona, "id" | "activo" | "fecha_creacion" | "fecha_actualizacion">;
 
 export function PersonalCreatePage() {
   const navigate = useNavigate();
@@ -35,7 +41,6 @@ export function PersonalCreatePage() {
         await guardarVencimientos(nuevaPersona.id, vencimientos);
       }
       setExito(true);
-      setTimeout(() => navigate("/personal"), 2000);
       delayedNavigate("/personal");
     } catch (error) {
       if (error instanceof ConflictoInactivoError) {
@@ -71,14 +76,14 @@ export function PersonalCreatePage() {
           Nuevo Personal
         </Heading>
         <Button
-          bg="#6c757d"
+          bg={GRIS_MEDIO}
           color="white"
           fontSize="16px"
           fontWeight="normal"
           height="auto"
           minW="auto"
           style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: "#6c757d" }}
+          _hover={{ bg: GRIS_MEDIO }}
           onClick={() => navigate("/personal")}
         >
           Volver a la lista
@@ -90,8 +95,8 @@ export function PersonalCreatePage() {
       {error && !conflicto && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "12px",
             borderRadius: "6px",
             marginBottom: "20px",
@@ -105,8 +110,8 @@ export function PersonalCreatePage() {
       {errorVencimientos && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "12px",
             borderRadius: "6px",
             marginBottom: "20px",
@@ -143,10 +148,10 @@ export function PersonalCreatePage() {
             }}
           >
             <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
-            <Heading as="h3" style={{ margin: 0, color: "#28a745", fontSize: "24px" }}>
+            <Heading as="h3" style={{ margin: 0, color: EXITO, fontSize: "24px" }}>
               Éxito
             </Heading>
-            <Text style={{ color: "#555", marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>
+            <Text style={{ color: TEXTO_SECUNDARIO, marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>
               Personal agregado correctamente.
             </Text>
           </Box>

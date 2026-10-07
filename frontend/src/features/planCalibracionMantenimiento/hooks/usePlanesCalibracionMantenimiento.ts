@@ -1,31 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
-
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { listarPlanesCalibracionMantenimiento } from "../services/planCalibracionMantenimientoService";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
 
 export function usePlanesCalibracionMantenimiento(incluirInactivos = false) {
-  const [planes, setPlanes] = useState<PlanCalibracionMantenimiento[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cargarPlanes = useCallback(
+    () => listarPlanesCalibracionMantenimiento(incluirInactivos),
+    [incluirInactivos],
+  );
 
-  const cargarPlanes = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await listarPlanesCalibracionMantenimiento(incluirInactivos);
-      setPlanes(data);
-    } catch (err) {
-      setError("No se pudieron cargar los planes de calibración y mantenimiento");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [incluirInactivos]);
+  const { items, loading, error, recargar } = useLista<PlanCalibracionMantenimiento[]>({
+    cargar: cargarPlanes,
+    dependencias: [incluirInactivos],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los planes de calibración y mantenimiento",
+  });
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(cargarPlanes, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [cargarPlanes]);
-
-  return { planes, loading, error, cargarPlanes };
+  return { planes: items, loading, error, cargarPlanes: recargar };
 }

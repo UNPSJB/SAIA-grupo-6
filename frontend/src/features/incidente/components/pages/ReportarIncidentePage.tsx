@@ -1,15 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Heading, Text, VStack, Badge, Flex } from "@chakra-ui/react";
-import { IncidenteForm } from "../incidenteForm";
+import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { useMisIncidentes } from "../../hooks/useMisIncidentes";
 import { ReportarIncidenteEmptyState } from "./ReportarIncidenteEmptyState";
+import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
 import type { IncidenteFormValues, Incidente } from "../../types/incidente";
-
-const TEAL = "#468189";
+import {
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  EXITO_FONDO,
+  EXITO_TEXTO,
+  EXITO_TEXTO_HOVER,
+  FONDO_CARD,
+  TEAL,
+  TEXTO_FUERTE,
+  TEXTO_SUAVE,
+} from "../../../../common/theme/tokens";
 
 /**
  * Pills de navegación.
@@ -48,7 +58,7 @@ function TabButton({
         background: isActive
           ? "linear-gradient(135deg, #468189 0%, #3d737a 100%)"
           : "white",
-        color: isActive ? "white" : "#4a5568",
+        color: isActive ? "white" : TEXTO_SUAVE,
       }}
       _hover={{
         transform: "translateY(-2px)",
@@ -57,7 +67,7 @@ function TabButton({
           : "0 4px 12px rgba(0,0,0,0.1)",
         background: isActive
           ? "linear-gradient(135deg, #3d737a 0%, #356368 100%)"
-          : "#f7faf9",
+          : FONDO_CARD,
       }}
       _active={{ transform: "translateY(0)" }}
     >
@@ -108,8 +118,8 @@ function IncidenteCard({
         <Box style={{ flex: 1, minWidth: 0 }}>
           {/* ID + tipo + estado */}
           <Flex align="center" gap="8px" style={{ flexWrap: "wrap", marginBottom: "8px" }}>
-            <Text fontWeight={700} fontSize="15px" color="#1a202c">
-              #{incidente.id}
+            <Text fontWeight={700} fontSize="15px" color={TEXTO_FUERTE}>
+              #{incidente.id} — {incidente.titulo}
             </Text>
             <Badge
               colorPalette={tipoColor(incidente.tipo)}
@@ -135,19 +145,26 @@ function IncidenteCard({
             </Badge>
           </Flex>
 
-          {/* Descripción */}
+          {/* Descripción con "Ver más" */}
           <Text
             fontSize="14px"
             color="#374151"
             lineHeight={1.55}
             style={{ wordBreak: "break-word" }}
           >
-            {incidente.descripcion}
+            {incidente.descripcion.length > 120
+              ? `${incidente.descripcion.substring(0, 117)}...`
+              : incidente.descripcion}
+            {incidente.descripcion.length > 120 && (
+              <Text as="span" color={TEAL} fontWeight={600} ml="4px">
+                Ver más
+              </Text>
+            )}
           </Text>
 
           {/* Si ya fue resuelto, el operador ve qué se hizo */}
           {cerrado && incidente.observacion_cierre && (
-            <Text fontSize="13px" color="#276749" mt="8px" lineHeight={1.5}>
+            <Text fontSize="13px" color={EXITO_TEXTO} mt="8px" lineHeight={1.5}>
               <strong>Resolución:</strong> {incidente.observacion_cierre}
             </Text>
           )}
@@ -180,7 +197,10 @@ export function ReportarIncidentePage() {
     cargarMisIncidentes,
   } = useMisIncidentes();
   const [exito, setExito] = useState(false);
-  const [activeTab, setActiveTab] = useState<"nuevo" | "mis-reportes">("nuevo");
+  // `setTimeout` a mano: sin cleanup, si el usuario navega antes de los 3s
+  // el setState corre sobre un componente ya desmontado.
+  const programarAviso = useSafeTimeout();
+  const [activeTab, setActiveTab] = useState<"mis-reportes" | "nuevo-incidente">("mis-reportes");
 
   const handleSubmit = async (values: IncidenteFormValues, foto?: File) => {
     try {
@@ -188,27 +208,27 @@ export function ReportarIncidentePage() {
       setExito(true);
       setActiveTab("mis-reportes");
       await cargarMisIncidentes();
-      setTimeout(() => setExito(false), 3000);
+      programarAviso(() => setExito(false), 3000);
     } catch {
       // El mensaje de error ya quedó en errorAlta.
     }
   };
 
   const handleVerDetalle = (incidente: Incidente) => {
-    navigate(`/incidentes/${incidente.id}`);
+    navigate(`/incidentes/${incidente.id}`, { state: { from: "mis-reportes" } });
   };
 
   return (
     <Box style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
-      <Heading as="h2" size="lg" fontWeight="bold" color="#1a202c" mb="24px">
+      <Heading as="h2" size="lg" fontWeight="bold" color={TEXTO_FUERTE} mb="24px">
         Reportar Incidente
       </Heading>
 
       {exito && (
         <Box
           style={{
-            backgroundColor: "#d4edda",
-            color: "#155724",
+            backgroundColor: EXITO_FONDO,
+            color: EXITO_TEXTO_HOVER,
             padding: "14px 20px",
             borderRadius: "10px",
             marginBottom: "24px",
@@ -224,8 +244,8 @@ export function ReportarIncidentePage() {
       {errorAlta && (
         <Box
           style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
+            backgroundColor: ERROR_FONDO,
+            color: ERROR_TEXTO,
             padding: "14px 20px",
             borderRadius: "10px",
             marginBottom: "24px",
@@ -244,25 +264,25 @@ export function ReportarIncidentePage() {
         style={{
           display: "flex",
           gap: "12px",
-          background: "#f7faf9",
+          background: FONDO_CARD,
           padding: "6px",
           borderRadius: "12px",
           border: "1px solid #e8f0ef",
         }}
       >
         <TabButton
-          label="Nuevo Incidente"
-          isActive={activeTab === "nuevo"}
-          onClick={() => setActiveTab("nuevo")}
-        />
-        <TabButton
           label="Mis Reportes"
           isActive={activeTab === "mis-reportes"}
           onClick={() => setActiveTab("mis-reportes")}
         />
+        <TabButton
+          label="Nuevo Incidente"
+          isActive={activeTab === "nuevo-incidente"}
+          onClick={() => setActiveTab("nuevo-incidente")}
+        />
       </Box>
 
-      {activeTab === "nuevo" && (
+      {activeTab === "nuevo-incidente" && (
         <Box
           style={{
             background: "white",
@@ -314,7 +334,7 @@ export function ReportarIncidentePage() {
               <Box
                 style={{
                   padding: "14px 20px",
-                  backgroundColor: "#f7faf9",
+                  backgroundColor: FONDO_CARD,
                   border: "1px solid #d8e7e5",
                   borderRadius: "10px 10px 0 0",
                   fontWeight: 600,

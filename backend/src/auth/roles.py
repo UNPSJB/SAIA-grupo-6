@@ -14,12 +14,6 @@ from fastapi import HTTPException, status
 from src.personal.models import Personal
 
 
-class Rol:
-    OPERADOR = "operador"
-    ADMIN = "admin"
-    SUPER_ADMIN = "super admin"
-
-
 def es_super_admin(usuario: Personal) -> bool:
     return bool(usuario.es_super_admin)
 
@@ -30,14 +24,6 @@ def puede_operar(usuario: Personal) -> bool:
 
 def puede_administrar(usuario: Personal) -> bool:
     return bool(usuario.puede_administrar or usuario.es_super_admin)
-
-
-def nivel_de(usuario: Personal) -> str:
-    if usuario.es_super_admin:
-        return Rol.SUPER_ADMIN
-    if usuario.puede_administrar:
-        return Rol.ADMIN
-    return Rol.OPERADOR
 
 
 def puede_editar_a(actor: Personal, objetivo: Personal) -> bool:

@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime
 from typing import List, Optional
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+from src.common.persistence import guardar
 from src.incidente import models, schemas, exceptions
 from src.incidente.constants import EstadoIncidente
 from src.Equipo.models import Equipo
@@ -44,7 +44,7 @@ def _verificar_equipo(db: Session, equipo_id: Optional[int]) -> None:
     if equipo is None:
         raise exceptions.EquipoNoEncontrado()
     if not equipo.activo:
-        raise exceptions.EquipoNoEncontrado()
+        raise exceptions.EquipoInactivo()
 
 
 def _verificar_usuario(db: Session, usuario_id: int) -> None:
@@ -61,6 +61,7 @@ def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int
     _verificar_usuario(db, usuario_id)
 
     incidente = models.Incidente(
+        titulo=datos.titulo,
         descripcion=datos.descripcion,
         tipo=datos.tipo,
         equipo_id=datos.equipo_id,
@@ -70,9 +71,7 @@ def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int
         estado=EstadoIncidente.ABIERTO.value,
     )
     db.add(incidente)
-    db.commit()
-    db.refresh(incidente)
-    return incidente
+    return guardar(db, incidente)
 
 
 def listar_incidentes(
@@ -112,10 +111,7 @@ def obtener_incidente(db: Session, incidente_id: int, current_user: Personal) ->
     # Operador solo ve sus propios incidentes
     if not (current_user.puede_administrar or current_user.es_super_admin):
         if incidente.usuario_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tenés permiso para ver este incidente"
-            )
+            raise exceptions.PermisoDenegado()
 
     _completar_nombres([incidente])
     return incidente
@@ -143,7 +139,7 @@ def cambiar_estado_incidente(
 
     Al cerrar se asienta la acción correctiva, cuándo se cerró y quién lo
     resolvió. Al reabrir se limpia esa información para que no quede
-    desactualizada.
+    desactualizada. Además, guarda un evento en el historial de incidentes.
     """
     incidente = db.scalar(
         select(models.Incidente)
@@ -155,7 +151,12 @@ def cambiar_estado_incidente(
 
     if incidente.estado == estado.value:
         # Ya está en ese estado: no se pisa la fecha de cierre original.
-        return incidente
+        # Aun así hay que completar los nombres: sin esto, este camino
+        # devolvía los tres campos de nombre en null (son Optional, así que
+        # la inconsistencia con el GET pasaba inadvertida).
+        return _completar_nombres([incidente])[0]
+
+    estado_anterior = incidente.estado
 
     if estado == EstadoIncidente.CERRADO:
         _verificar_usuario(db, current_user.id)
@@ -173,8 +174,56 @@ def cambiar_estado_incidente(
         incidente.observacion_cierre = None
         logger.info("Incidente %s reabierto por %s", incidente.id, current_user.id)
 
-    db.commit()
-    db.refresh(incidente)
+    # Guardar evento en el historial
+    db.add(
+        models.HistorialIncidente(
+            incidente_id=incidente.id,
+            estado_anterior=estado_anterior,
+            estado_nuevo=estado.value,
+            usuario_id=current_user.id,
+            observacion=observacion_cierre,
+        )
+    )
+
+    guardar(db, incidente)
 
     # refresh deja las relaciones sin cargar: hay que volver a consultarlas.
     return obtener_incidente(db, incidente_id, current_user)
+
+
+def obtener_historial_incidente(
+    db: Session, incidente_id: int, current_user: Personal
+) -> schemas.HistorialIncidenteResponse:
+    """Obtiene el historial de cierre/reapertura de un incidente.
+
+    Igual que en el detalle, un operador solo ve el historial de sus propios
+    incidentes: este endpoint no expone el historial (ni la observación de
+    cierre) de incidentes ajenos por ID.
+    """
+    incidente = db.scalar(
+        select(models.Incidente).where(models.Incidente.id == incidente_id)
+    )
+    if incidente is None:
+        raise exceptions.IncidenteNoEncontrado()
+    if not (current_user.puede_administrar or current_user.es_super_admin):
+        if incidente.usuario_id != current_user.id:
+            raise exceptions.PermisoDenegado()
+
+    eventos = db.scalars(
+        select(models.HistorialIncidente)
+        .where(models.HistorialIncidente.incidente_id == incidente_id)
+        .options(selectinload(models.HistorialIncidente.usuario))
+        .order_by(models.HistorialIncidente.fecha_evento)
+    ).all()
+
+    items = []
+    for e in eventos:
+        item = schemas.HistorialIncidenteItem.model_validate(e)
+        if e.usuario is not None:
+            item.usuario_nombre = _nombre_completo(e.usuario)
+        items.append(item)
+
+    return schemas.HistorialIncidenteResponse(
+        incidente_id=incidente_id,
+        eventos=items,
+    )

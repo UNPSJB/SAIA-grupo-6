@@ -1,3 +1,4 @@
+import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,27 +14,26 @@ import {
   Field,
   NativeSelect,
 } from "@chakra-ui/react";
-import { IncidenteTable } from "../incidenteTable";
+import { IncidenteTable } from "../IncidenteTable";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
+import { ReabrirIncidenteDialog } from "../ReabrirIncidenteDialog";
 import { useIncidentes } from "../../hooks/useIncidentes";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { ESTADOS_INCIDENTE, TIPOS_INCIDENTE, estadoLabel } from "../../types/incidente";
 import type { Incidente, TipoIncidente, EstadoIncidente } from "../../types/incidente";
+import {
+  EXITO_FONDO_CLARO,
+  EXITO_TEXTO,
+  TEAL,
+  TEAL_OSCURO,
+  TEXTO_SECUNDARIO,
+  estiloInputCompacto,
+} from "../../../../common/theme/tokens";
 
-const TEAL = "#468189";
 const PAGE_SIZE = 10;
 
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "10px 14px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "15px",
-  color: "#333",
-};
-
 const estiloSelect = {
-  ...estiloInput,
+  ...estiloInputCompacto,
   boxSizing: "border-box" as const,
   colorScheme: "light" as const,
   height: "auto" as const,
@@ -44,25 +44,36 @@ export function IncidentesListPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [filtroTipo, setFiltroTipo] = useState<string>("");
-  const [filtroEstado, setFiltroEstado] = useState<EstadoIncidente | "">("");
+  const [filtroEstado, setFiltroEstado] = useState<EstadoIncidente | "">("abierto");
+  const [busqueda, setBusqueda] = useState("");
 
   const { incidentes, loading, error, cargarIncidentes } = useIncidentes(filtroEstado);
   const { cerrar, reabrir, loading: procesando } = useIncidenteABM();
 
   const [incidenteACerrar, setIncidenteACerrar] = useState<Incidente | null>(null);
-  const [mensaje, setMensaje] = useState<string | null>(null);
-
-  const avisar = (texto: string) => {
-    setMensaje(texto);
-    window.setTimeout(() => setMensaje(null), 3500);
-  };
+  const [incidenteAReabrir, setIncidenteAReabrir] = useState<Incidente | null>(null);
+  const { valor: mensajeAviso, avisar } = useAvisoTemporal<string>(3500);
 
   const incidentesFiltrados = useMemo(() => {
-    // El estado ya viene filtrado del backend; el tipo se filtra acá porque es
-    // un filtro de la tabla y no condensa la respuesta.
-    if (!filtroTipo) return incidentes;
-    return incidentes.filter((i) => i.tipo === filtroTipo);
-  }, [incidentes, filtroTipo]);
+    // El estado ya viene filtrado del backend; el tipo y la búsqueda se filtran
+    // acá porque son filtros de la tabla y no condensan la respuesta.
+    let resultado = incidentes;
+    if (filtroTipo) {
+      resultado = resultado.filter((i) => i.tipo === filtroTipo);
+    }
+    if (busqueda.trim()) {
+      // Normaliza acentos: "López" y "lopez" son lo mismo para la búsqueda.
+      const normalizar = (s: string) =>
+        s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const termino = normalizar(busqueda.trim());
+      resultado = resultado.filter(
+        (i) =>
+          normalizar(i.titulo).includes(termino) ||
+          normalizar(i.usuario_nombre ?? "").includes(termino)
+      );
+    }
+    return resultado;
+  }, [incidentes, filtroTipo, busqueda]);
 
   const incidentesPaginados = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -95,11 +106,17 @@ export function IncidentesListPage() {
     }
   };
 
-  const handleReabrir = async (incidente: Incidente) => {
+  const handleReabrirRequest = (incidente: Incidente) => setIncidenteAReabrir(incidente);
+  const handleReabrirDialogClose = () => { if (!procesando) setIncidenteAReabrir(null); };
+
+  const handleConfirmReabrir = async (motivo: string) => {
+    if (!incidenteAReabrir) return;
+    const id = incidenteAReabrir.id;
     try {
-      await reabrir(incidente.id);
+      await reabrir(id, motivo);
+      setIncidenteAReabrir(null);
       await cargarIncidentes();
-      avisar(`Incidente #${incidente.id} reabierto.`);
+      avisar(`Incidente #${id} reabierto. El motivo quedó registrado en el historial.`);
     } catch {
       // El mensaje de error ya quedó en el hook.
     }
@@ -107,7 +124,7 @@ export function IncidentesListPage() {
 
   // Sin filtros el mensaje es "no hay nada registrado"; con filtros hay que
   // decir que el filtro no arrojó resultados, que es otra situación.
-  const hayFiltros = filtroEstado !== "" || filtroTipo !== "";
+  const hayFiltros = filtroEstado !== "" || filtroTipo !== "" || busqueda.trim() !== "";
   const etiquetaTipo = TIPOS_INCIDENTE.find((t) => t.value === filtroTipo)?.label;
 
   let mensajeVacio = "Todavía no se registraron incidentes.";
@@ -115,6 +132,7 @@ export function IncidentesListPage() {
     const partes: string[] = [];
     if (filtroEstado) partes.push(`en estado ${estadoLabel(filtroEstado)}`);
     if (etiquetaTipo) partes.push(`de tipo ${etiquetaTipo}`);
+    if (busqueda.trim()) partes.push(`que coincidan con "${busqueda.trim()}"`);
     mensajeVacio = `No hay incidentes ${partes.join(" ")}.`;
   }
 
@@ -132,7 +150,7 @@ export function IncidentesListPage() {
           borderRadius="6px"
           px="20px"
           py="10px"
-          _hover={{ bg: "#37666d" }}
+          _hover={{ bg: TEAL_OSCURO }}
           onClick={() => navigate("/incidentes/reportar")}
         >
           + Registrar Incidente
@@ -150,7 +168,7 @@ export function IncidentesListPage() {
         <HStack gap="20px" flexWrap="wrap" align="flex-end">
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 ESTADO
               </Box>
               <NativeSelect.Root>
@@ -173,7 +191,7 @@ export function IncidentesListPage() {
 
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color="#555">
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
                 TIPO
               </Box>
               <NativeSelect.Root>
@@ -193,24 +211,44 @@ export function IncidentesListPage() {
               </NativeSelect.Root>
             </Field.Root>
           </Box>
+
+          <Box minW="250px" flex="1">
+            <Field.Root>
+              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
+                BÚSQUEDA
+              </Box>
+              <input
+                type="text"
+                value={busqueda}
+                onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
+                placeholder="Buscar por título o reportado por..."
+                style={{
+                  ...estiloSelect,
+                  padding: "10px 12px",
+                  fontSize: "14px",
+                  width: "28%",
+                }}
+              />
+            </Field.Root>
+          </Box>
         </HStack>
       </Box>
 
       {loading && <Spinner />}
       {!loading && error && <Text color="red.500">{error}</Text>}
 
-      {mensaje && (
+      {mensajeAviso && (
         <Box
           mb="16px"
           p="12px 16px"
           borderRadius="8px"
           style={{
-            backgroundColor: "#f0fff4",
+            backgroundColor: EXITO_FONDO_CLARO,
             border: "1px solid #c6f6d5",
           }}
         >
-          <Text fontSize="14px" color="#276749" fontWeight="bold">
-            {mensaje}
+          <Text fontSize="14px" color={EXITO_TEXTO} fontWeight="bold">
+            {mensajeAviso}
           </Text>
         </Box>
       )}
@@ -220,7 +258,7 @@ export function IncidentesListPage() {
           <IncidenteTable
             incidentes={incidentesPaginados}
             onCerrar={handleCerrarRequest}
-            onReabrir={handleReabrir}
+            onReabrir={handleReabrirRequest}
             onVer={(inc) => navigate(`/incidentes/${inc.id}`)}
             showActions={true}
             mensajeVacio={mensajeVacio}
@@ -268,6 +306,14 @@ export function IncidentesListPage() {
         isLoading={procesando}
         onClose={handleCloseDialog}
         onConfirm={handleConfirmCerrar}
+      />
+
+      <ReabrirIncidenteDialog
+        isOpen={incidenteAReabrir !== null}
+        incidente={incidenteAReabrir}
+        isLoading={procesando}
+        onClose={handleReabrirDialogClose}
+        onConfirm={handleConfirmReabrir}
       />
     </Box>
   );

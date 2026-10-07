@@ -1,32 +1,31 @@
 import { useEffect } from "react";
 import { Box, Button, Field, Heading, HStack, Input, Spinner, Table, Text } from "@chakra-ui/react";
 import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
-
-const TEAL = "#468189";
-const TEAL_CLARO = "#90BEBB";
-
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "10px 14px",
-  borderRadius: "8px",
-  border: `2px solid ${TEAL_CLARO}`,
-  fontSize: "15px",
-  color: "#333",
-};
+import {
+  BLANCO,
+  ERROR_FONDO,
+  ERROR_TEXTO,
+  FONDO_TEAL,
+  TEAL,
+  TEAL_CLARO,
+  TEXTO_PRIMARIO,
+  TEXTO_SECUNDARIO,
+  estiloInputCompacto,
+} from "../../../../common/theme/tokens";
 
 const estiloTarjeta = {
-  backgroundColor: "#fff",
+  backgroundColor: BLANCO,
   borderRadius: "10px",
   boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
   overflow: "hidden" as const,
 };
 
 const estiloCelda = {
-  color: "#333",
+  color: TEXTO_PRIMARIO,
   fontSize: "14px",
   padding: "10px 16px",
   borderBottom: "1px solid #eee",
-  backgroundColor: "#fff",
+  backgroundColor: BLANCO,
 };
 
 export function ConsumoInsumosPage() {
@@ -54,17 +53,17 @@ export function ConsumoInsumosPage() {
 
       <HStack gap="20px" mb="20px" flexWrap="wrap">
         <Field.Root>
-          <Box as="label" style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px", color: "#555" }}>
+          <Box as="label" style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px", color: TEXTO_SECUNDARIO }}>
             DESDE
           </Box>
-          <Input type="date" value={fechaDesde} max={fechaHasta} onChange={(e) => setFechaDesde(e.target.value)} style={estiloInput} />
+          <Input type="date" value={fechaDesde} max={fechaHasta} onChange={(e) => setFechaDesde(e.target.value)} style={estiloInputCompacto} />
         </Field.Root>
 
         <Field.Root>
-          <Box as="label" style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px", color: "#555" }}>
+          <Box as="label" style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px", color: TEXTO_SECUNDARIO }}>
             HASTA
           </Box>
-          <Input type="date" value={fechaHasta} min={fechaDesde} onChange={(e) => setFechaHasta(e.target.value)} style={estiloInput} />
+          <Input type="date" value={fechaHasta} min={fechaDesde} onChange={(e) => setFechaHasta(e.target.value)} style={estiloInputCompacto} />
         </Field.Root>
 
         <Button
@@ -80,7 +79,7 @@ export function ConsumoInsumosPage() {
       </HStack>
 
       {error && (
-        <Box style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
           ⚠️ {error}
         </Box>
       )}
@@ -95,9 +94,9 @@ export function ConsumoInsumosPage() {
         <>
           <Box style={estiloTarjeta}>
             <Box style={{ padding: "16px", borderBottom: `2px solid ${TEAL_CLARO}` }}>
-              <Text style={{ color: "#555", fontSize: "14px" }}>
+              <Text style={{ color: TEXTO_SECUNDARIO, fontSize: "14px" }}>
                 Total consumido en el período:{" "}
-                <strong style={{ color: "#333", fontSize: "18px" }}>
+                <strong style={{ color: TEXTO_PRIMARIO, fontSize: "18px" }}>
                   {consumo.total_general}
                 </strong>
               </Text>
@@ -111,15 +110,15 @@ export function ConsumoInsumosPage() {
               </Box>
             ) : (
               <Table.Root size="sm">
-                <Table.Header style={{ backgroundColor: "#EAF3F2" }}>
+                <Table.Header style={{ backgroundColor: FONDO_TEAL }}>
                   <Table.Row>
-                    <Table.ColumnHeader style={{ padding: "10px 16px", fontSize: "13px", color: "#333" }}>
+                    <Table.ColumnHeader style={{ padding: "10px 16px", fontSize: "13px", color: TEXTO_PRIMARIO }}>
                       Producto
                     </Table.ColumnHeader>
-                    <Table.ColumnHeader style={{ padding: "10px 16px", fontSize: "13px", color: "#333" }}>
+                    <Table.ColumnHeader style={{ padding: "10px 16px", fontSize: "13px", color: TEXTO_PRIMARIO }}>
                       Cantidad acumulada
                     </Table.ColumnHeader>
-                    <Table.ColumnHeader style={{ padding: "10px 16px", fontSize: "13px", color: "#333" }}>
+                    <Table.ColumnHeader style={{ padding: "10px 16px", fontSize: "13px", color: TEXTO_PRIMARIO }}>
                       Registros
                     </Table.ColumnHeader>
                   </Table.Row>
@@ -142,7 +141,7 @@ export function ConsumoInsumosPage() {
           {consumo.por_fecha.length > 0 && (
             <Box style={{ ...estiloTarjeta, marginTop: "20px" }}>
               <Box style={{ padding: "16px", borderBottom: `2px solid ${TEAL_CLARO}` }}>
-                <Text style={{ color: "#555", fontSize: "14px", fontWeight: "bold" }}>
+                <Text style={{ color: TEXTO_SECUNDARIO, fontSize: "14px", fontWeight: "bold" }}>
                   Consumo por día
                 </Text>
               </Box>
@@ -156,7 +155,7 @@ export function ConsumoInsumosPage() {
 
                   return (
                     <Box key={item.fecha} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <Text style={{ width: "100px", fontSize: "13px", color: "#555" }}>{item.fecha}</Text>
+                      <Text style={{ width: "100px", fontSize: "13px", color: TEXTO_SECUNDARIO }}>{item.fecha}</Text>
                       <Box style={{ flex: 1, backgroundColor: "#eee", borderRadius: "4px", height: "16px", overflow: "hidden" }}>
                         <Box
                           style={{
@@ -166,7 +165,7 @@ export function ConsumoInsumosPage() {
                           }}
                         />
                       </Box>
-                      <Text style={{ width: "70px", textAlign: "right", fontSize: "13px", fontWeight: "bold", color: "#333" }}>
+                      <Text style={{ width: "70px", textAlign: "right", fontSize: "13px", fontWeight: "bold", color: TEXTO_PRIMARIO }}>
                         {item.cantidad_total}
                       </Text>
                     </Box>

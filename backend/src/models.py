@@ -1,25 +1,29 @@
-from sqlalchemy.orm import declarative_base
-
-Base = declarative_base()
-
-
-# autor original: https://stackoverflow.com/a/54034230
-def keyvalgen(obj):
-    """Genera pares nombre/valor, quitando/filtrando los atributos de SQLAlchemy."""
-    excl = ("_sa_adapter", "_sa_instance_state")
-    for k, v in vars(obj).items():
-        if not k.startswith("_") and not any(hasattr(v, a) for a in excl):
-            yield k, v
+from sqlalchemy import inspect
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class ModeloBase(Base):
-    """Modelo base para los módulos de nuestra app."""
-    __abstract__ = True
+class ModeloBase(DeclarativeBase):
+    """Base declarativa de todos los modelos del dominio."""
 
-    def __repr__(self):
-        # Define un formato de representacion como cadena para el modelo base.
-        params = ", ".join(f"{k}={v}" for k, v in keyvalgen(self))
-        return f"{self.__class__.__name__}({params})"
+    def __repr__(self) -> str:
+        """Representación legible sin disparar cargas perezosas.
+
+        Antes usaba `vars(obj)`, que fuerza el lazy-load de cada relación: un
+        `logger.debug(f"{equipo}")` se convertía en una consulta por relación,
+        en un contexto que no espera I/O y con la sesión ya cerrada.
+
+        `inspect(obj).attrs` entrega los atributos mapeados sin tocar las
+        relaciones, así que el repr es barato y no puede fallar.
+        """
+        estado = inspect(self)
+        partes = []
+        for atributo in estado.mapper.column_attrs:
+            partes.append(f"{atributo.key}={getattr(self, atributo.key, None)!r}")
+        return f"{type(self).__name__}({', '.join(partes)})"
+
+
+# Alias conservado por compatibilidad con los módulos que lo importan.
+Base = ModeloBase
 
 
 # Nota: acá vivía `plan_limpieza_tareas`, la tabla intermedia de la relación

@@ -1,7 +1,11 @@
-import re
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import List, Optional
 from datetime import datetime
+from src.common.validators import (
+    RE_NOMBRE_SOLO_LETRAS,
+    id_positivo,
+    texto_obligatorio,
+)
 from src.PlanLimpieza import exceptions
 from src.tareas.schemas import TareaBase as TareaInput, TareaEnPlanInput, Tarea as TareaSchema
 
@@ -17,31 +21,27 @@ class PlanLimpiezaBase(BaseModel):
 
     @field_validator("nombre")
     @classmethod
-    def validar_nombre(cls, v: str) -> str:
-        if not v.strip() or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$", v):
-            raise exceptions.NombreInvalido()
-        return v.strip()
+    def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
+        return texto_obligatorio(
+            v, invalido=exceptions.NombreInvalido, patron=RE_NOMBRE_SOLO_LETRAS
+        )
 
     @field_validator("tareas")
     @classmethod
-    def validar_tareas(cls, v: List[TareaInput]) -> List[TareaInput]:
-        if not v:
+    def validar_tareas(cls, v: Optional[List[TareaInput]]) -> Optional[List[TareaInput]]:
+        if v is not None and not v:
             raise exceptions.TareasVacias()
         return v
 
     @field_validator("equipo_id")
     @classmethod
-    def validar_equipo_id(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.EquipoIdInvalido()
-        return v
+    def validar_equipo_id(cls, v: Optional[int]) -> Optional[int]:
+        return id_positivo(v, invalido=exceptions.EquipoIdInvalido)
 
     @field_validator("autor_id")
     @classmethod
-    def validar_autor_id(cls, v: int) -> int:
-        if v <= 0:
-            raise exceptions.AutorIdInvalido()
-        return v
+    def validar_autor_id(cls, v: Optional[int]) -> Optional[int]:
+        return id_positivo(v, invalido=exceptions.AutorIdInvalido)
 
 
 class PlanLimpiezaCreate(PlanLimpiezaBase):

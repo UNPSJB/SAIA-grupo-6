@@ -13,6 +13,7 @@ export type EstadoIncidente = "abierto" | "cerrado";
 
 export interface Incidente {
   id: number;
+  titulo: string;
   descripcion: string;
   tipo: TipoIncidente;
   equipo_id: number | null;
@@ -29,6 +30,7 @@ export interface Incidente {
 }
 
 export type IncidenteFormValues = {
+  titulo: string;
   descripcion: string;
   tipo: TipoIncidente;
   equipo_id: number | null;
@@ -51,6 +53,14 @@ export const TIPOS_CON_EQUIPO: TipoIncidente[] = [
 
 export function admiteEquipo(tipo: TipoIncidente): boolean {
   return TIPOS_CON_EQUIPO.includes(tipo);
+}
+
+// Tipos donde el equipo es obligatorio. Para higiene_contaminacion el equipo
+// es opcional (no siempre se contamina un equipo).
+export const TIPOS_EQUIPO_OBLIGATORIO: TipoIncidente[] = ["falla_equipo"];
+
+export function requiereEquipoObligatorio(tipo: TipoIncidente): boolean {
+  return TIPOS_EQUIPO_OBLIGATORIO.includes(tipo);
 }
 
 export const ESTADOS_INCIDENTE: { value: EstadoIncidente; label: string }[] = [
@@ -94,4 +104,21 @@ export function formatoFecha(iso: string): string {
 
 export function formatoFechaCierre(fecha: string | null): string {
   return fecha ? formatoFecha(fecha) : "-";
+}
+
+// --- Historial de incidente ---
+
+export interface HistorialIncidenteItem {
+  id: number;
+  estado_anterior: string;
+  estado_nuevo: string;
+  usuario_id: number;
+  usuario_nombre: string | null;
+  observacion: string | null;
+  fecha_evento: string;
+}
+
+export interface HistorialIncidenteResponse {
+  incidente_id: number;
+  eventos: HistorialIncidenteItem[];
 }

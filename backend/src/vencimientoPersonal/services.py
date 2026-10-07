@@ -9,7 +9,12 @@ from src.vencimientoPersonal import schemas, exceptions
 
 
 def _obtener_persona_o_error(db: Session, persona_id: int) -> Personal:
-    persona = db.scalar(select(Personal).where(Personal.id == persona_id))
+    # El mensaje dice "no existe o fue dada de baja", así que el filtro tiene
+    # que mirar `activo`: antes no lo hacía y se podían cargar vencimientos
+    # para personal desactivado.
+    persona = db.scalar(
+        select(Personal).where(Personal.id == persona_id, Personal.activo.is_(True))
+    )
     if not persona:
         raise exceptions.PersonaNoEncontrada()
     return persona
@@ -17,7 +22,7 @@ def _obtener_persona_o_error(db: Session, persona_id: int) -> Personal:
 
 def _obtener_aptitud_o_error(db: Session, aptitud_id: int) -> Aptitud:
     aptitud = db.scalar(
-        select(Aptitud).where(Aptitud.id == aptitud_id, Aptitud.activo == True)
+        select(Aptitud).where(Aptitud.id == aptitud_id, Aptitud.activo.is_(True))
     )
     if not aptitud:
         raise exceptions.AptitudNoEncontrada()

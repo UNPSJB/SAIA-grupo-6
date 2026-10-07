@@ -1,53 +1,54 @@
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from src.exceptions import ConflictoRegistroInactivo
+from src.common.persistence import (
+    aplicar_cambios,
+    baja_logica,
+    guardar,
+    listar,
+    mapa_por_campo,
+    obtener,
+    verificar_disponibilidad,
+)
 from src.aptitud.models import Aptitud
 from src.aptitud import schemas, exceptions
 
+# `aptitudes.nombre` es UNIQUE: sin este mapeo, un PUT con un nombre repetido
+# escapaba como 500 en vez de un 400 de negocio.
+_MAPEA_CONFLICTO = mapa_por_campo(
+    ("aptitudes.nombre", exceptions.AptitudYaExiste),
+    por_defecto=exceptions.AptitudYaExiste,
+)
+
 
 def crear_aptitud(db: Session, datos: schemas.AptitudCreate) -> Aptitud:
-    existente = db.scalar(select(Aptitud).where(Aptitud.nombre == datos.nombre))
-    if existente:
-        if existente.activo:
-            raise exceptions.AptitudYaExiste()
-        raise ConflictoRegistroInactivo(
-            mensaje=f"La aptitud '{existente.nombre}' ya existe pero está dada de baja. ¿Querés reactivarla con estos nuevos datos?",
-            entidad_id=existente.id,
-            campo="nombre",
-        )
+    verificar_disponibilidad(
+        db,
+        Aptitud,
+        "nombre",
+        datos.nombre,
+        ya_existe=exceptions.AptitudYaExiste,
+        etiqueta="aptitud",
+        femenina=True,
+    )
 
     nueva = Aptitud(**datos.model_dump())
     db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-    return nueva
+    return guardar(db, nueva, _MAPEA_CONFLICTO)
 
 
 def listar_aptitudes(db: Session, incluir_inactivos: bool = False) -> List[Aptitud]:
-    consulta = select(Aptitud).order_by(Aptitud.id)
-    if not incluir_inactivos:
-        consulta = consulta.where(Aptitud.activo == True)
-    return list(db.scalars(consulta).all())
+    return listar(db, Aptitud, incluir_inactivos=incluir_inactivos)
 
 
 def obtener_aptitud(db: Session, aptitud_id: int) -> Aptitud:
-    aptitud = db.scalar(select(Aptitud).where(Aptitud.id == aptitud_id))
-    if not aptitud:
-        raise exceptions.AptitudNoEncontrada()
-    return aptitud
+    return obtener(db, Aptitud, aptitud_id, exceptions.AptitudNoEncontrada)
 
 
 def actualizar_aptitud(db: Session, aptitud_id: int, datos: schemas.AptitudUpdate) -> Aptitud:
     aptitud = obtener_aptitud(db, aptitud_id)
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
-
-    for clave, valor in cambios.items():
-        setattr(aptitud, clave, valor)
-
-    db.commit()
-    db.refresh(aptitud)
-    return aptitud
+    return aplicar_cambios(db, aptitud, cambios, _MAPEA_CONFLICTO)
 
 
 def eliminar_aptitud(db: Session, aptitud_id: int) -> Aptitud:
@@ -69,7 +70,4 @@ def eliminar_aptitud(db: Session, aptitud_id: int) -> Aptitud:
             mensaje=f"La aptitud '{aptitud.nombre}' está en uso por un vencimiento de personal activo."
         )
 
-    aptitud.activo = False
-    db.commit()
-    db.refresh(aptitud)
-    return aptitud
+    return baja_logica(db, aptitud)

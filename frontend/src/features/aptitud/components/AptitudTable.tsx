@@ -1,6 +1,7 @@
 import { Box, Table, Text } from "@chakra-ui/react";
 import { AptitudItem } from "./AptitudItem";
 import type { Aptitud } from "../types/aptitud";
+import { TEAL } from "../../../common/theme/tokens";
 
 interface AptitudTableProps {
   aptitudes: Aptitud[];
@@ -8,8 +9,6 @@ interface AptitudTableProps {
   onDelete: (aptitud: Aptitud) => void;
   onReactivar: (aptitud: Aptitud) => void;
 }
-
-const TEAL = "#468189";
 
 export function AptitudTable({ aptitudes, onEdit, onDelete, onReactivar }: AptitudTableProps) {
   if (aptitudes.length === 0) {

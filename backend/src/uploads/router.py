@@ -1,28 +1,32 @@
-import logging
 import mimetypes
-import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 
 from src.auth.dependencies import get_current_user
-
-logger = logging.getLogger(__name__)
+from src.config import CARPETA_UPLOADS
 
 router = APIRouter(prefix="/uploads", tags=["evidencias"])
 
-CARPETA_BASE = os.path.abspath("uploads")
+# Anclada al backend y no al CWD del proceso: antes, arrancar el server desde
+# otra carpeta hacia que las evidencias se guardaran (y se sirvieran) en un
+# lugar distinto al esperado.
+CARPETA_BASE = CARPETA_UPLOADS.resolve()
 
 
-def _resolver_ruta_segura(ruta_relativa: str) -> str:
+def _resolver_ruta_segura(ruta_relativa: str) -> Path:
     """Convierte la ruta relativa guardada en una ruta absoluta dentro de uploads/.
 
     Si alguien intenta salir de la carpeta (por ejemplo '../../secretos.txt')
     se rechaza.
     """
-    ruta_absoluta = os.path.abspath(os.path.join(CARPETA_BASE, ruta_relativa))
+    raiz = CARPETA_BASE
+    ruta_absoluta = (raiz / ruta_relativa).resolve()
 
-    if not ruta_absoluta.startswith(CARPETA_BASE + os.sep) and ruta_absoluta != CARPETA_BASE:
+    # `is_relative_to` evita el Startswith sobre strings, que daba falsos
+    # positivos con carpetas hermanas del tipo "uploads_secreto".
+    if ruta_absoluta != raiz and not ruta_absoluta.is_relative_to(raiz):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ruta de archivo inválida.",
@@ -43,16 +47,16 @@ def obtener_evidencia(
     """
     ruta = _resolver_ruta_segura(ruta_relativa)
 
-    if not os.path.isfile(ruta):
+    if not ruta.is_file():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El archivo no existe.",
         )
 
-    tipo, _ = mimetypes.guess_type(ruta)
+    tipo, _ = mimetypes.guess_type(str(ruta))
 
     return FileResponse(
-        ruta,
+        str(ruta),
         media_type=tipo or "application/octet-stream",
         headers={"Cache-Control": "private, max-age=3600"},
     )

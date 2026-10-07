@@ -2,6 +2,7 @@ import { Navigate, Link } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
+import { PELIGRO, TEAL } from "../theme/tokens";
 
 export default function Navbar() {
   // Traemos al usuario y la función para salir
@@ -16,7 +17,7 @@ export default function Navbar() {
     <nav
       style={{
         width: "250px",
-        backgroundColor: "#468189",
+        backgroundColor: TEAL,
         color: "white",
         padding: "20px",
         display: "flex",
@@ -79,6 +80,9 @@ export default function Navbar() {
           <Link to="/incidentes/reportar" style={estiloLink}>
             Reportar Incidente
           </Link>
+          <Link to="/consulta-documentos" style={estiloLink}>
+            Consultar Documentos
+          </Link>
         </>
       )}
 
@@ -128,13 +132,16 @@ export default function Navbar() {
           <Link to="/checklist/historial" style={estiloLink}>
             Historial de Checklists
           </Link>
-
           <Link to="/consumo-productos" style={estiloLink}>
             Consumo de Productos
           </Link>
 
           <Link to="/incidentes" style={estiloLink}>
             Gestión de Incidentes
+          </Link>
+
+          <Link to="/documentos" style={estiloLink}>
+            Documentos
           </Link>
         </>
       )}
@@ -144,7 +151,7 @@ export default function Navbar() {
         onClick={logout}
         style={{
           marginTop: "auto",
-          backgroundColor: "#d9534f",
+          backgroundColor: PELIGRO,
           color: "white",
           padding: "12px 15px",
           border: "none",

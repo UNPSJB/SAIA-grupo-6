@@ -1,37 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { listarEquipos } from "../services/equipoService";
 import type { Equipo } from "../types/equipo";
 
 export function useEquipos(incluirInactivos = false) {
-    const [equipos, setEquipos] = useState<Equipo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const cargarEquipos = useCallback(() => listarEquipos(incluirInactivos), [incluirInactivos]);
 
-    const cargarEquipos = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const data = await listarEquipos(incluirInactivos);
-            setEquipos(data);
-        } catch (err) {
-            setError("No se pudieron cargar los equipos");
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [incluirInactivos]); 
-
-    useEffect(() => {
-        const timeoutId = window.setTimeout(cargarEquipos, 0);
-        return () => window.clearTimeout(timeoutId);
-    }, [cargarEquipos]);
+    const { items, loading, error, recargar } = useLista<Equipo[]>({
+        cargar: cargarEquipos,
+        dependencias: [incluirInactivos],
+        valorInicial: [],
+        mensajeError: "No se pudieron cargar los equipos",
+    });
 
     return {
-        equipos,
+        equipos: items,
         loading,
         error,
-        cargarEquipos,
+        cargarEquipos: recargar,
     };
-
-    
 }

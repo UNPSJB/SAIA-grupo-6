@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
 from src.database import get_db
-from src.auth.dependencies import get_current_user, require_operador, require_admin
+from src.auth.dependencies import require_operador, require_admin
 from src.checklist import schemas, services
+from src.config import CARPETA_UPLOADS
 from src.personal.models import Personal
 
 
@@ -58,8 +59,8 @@ def _guardar_evidencia(evidencia: Optional[UploadFile], tarea_id: int) -> Option
                    f"{TAMANO_MAX_EVIDENCIA // (1024 * 1024)} MB.",
         )
 
-    upload_dir = "uploads/evidencias"
-    os.makedirs(upload_dir, exist_ok=True)
+    upload_dir = CARPETA_UPLOADS / "evidencias"
+    upload_dir.mkdir(parents=True, exist_ok=True)
 
     # secure_filename elimina rutas y caracteres peligrosos del nombre original
     nombre_seguro = secure_filename(evidencia.filename) or "evidencia"
@@ -71,8 +72,12 @@ def _guardar_evidencia(evidencia: Optional[UploadFile], tarea_id: int) -> Option
 
     # Guardamos la ruta con "/" (no os.sep) para que sea la misma en la base y
     # en la URL, sin importar el sistema operativo donde corre el backend.
-    ruta_evidencia = f"{upload_dir}/{nombre_archivo}"
-    ruta_absoluta = os.path.join(upload_dir, nombre_archivo)
+    # La carpeta se ancla a CARPETA_UPLOADS (raíz del backend) en lugar del
+    # directorio de trabajo: si el server se arranca desde otro lado, con ruta
+    # relativa la evidencia se guardaría en un uploads distinto al que sirve
+    # GET /uploads y la imagen daría 404.
+    ruta_evidencia = f"uploads/evidencias/{nombre_archivo}"
+    ruta_absoluta = upload_dir / nombre_archivo
 
     with open(ruta_absoluta, "wb") as buffer:
         buffer.write(contenido)

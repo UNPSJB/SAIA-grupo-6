@@ -37,11 +37,11 @@ export function useIncidenteABM() {
   };
 
   /** Reabre un incidente cerrado y limpia los datos de la resolución. */
-  const reabrir = async (id: number) => {
+  const reabrir = async (id: number, motivo?: string) => {
     try {
       setLoading(true);
       setError(null);
-      return await cambiarEstadoIncidente(id, "abierto");
+      return await cambiarEstadoIncidente(id, "abierto", motivo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo reabrir el incidente");
       throw err;

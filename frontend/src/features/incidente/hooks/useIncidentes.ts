@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { listarIncidentes } from "../services/incidenteService";
 import type { Incidente, EstadoIncidente } from "../types/incidente";
 
@@ -7,27 +8,14 @@ import type { Incidente, EstadoIncidente } from "../types/incidente";
  * @param estado Filtro por estado; "" o undefined trae todos.
  */
 export function useIncidentes(estado: EstadoIncidente | "" = "") {
-  const [incidentes, setIncidentes] = useState<Incidente[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cargarIncidentes = useCallback(() => listarIncidentes(estado), [estado]);
 
-  const cargarIncidentes = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await listarIncidentes(estado);
-      setIncidentes(data);
-    } catch {
-      setError("No se pudieron cargar los incidentes");
-    } finally {
-      setLoading(false);
-    }
-  }, [estado]);
+  const { items, loading, error, recargar } = useLista<Incidente[]>({
+    cargar: cargarIncidentes,
+    dependencias: [estado],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los incidentes",
+  });
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(cargarIncidentes, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [cargarIncidentes]);
-
-  return { incidentes, loading, error, cargarIncidentes };
+  return { incidentes: items, loading, error, cargarIncidentes: recargar };
 }

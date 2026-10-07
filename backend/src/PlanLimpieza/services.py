@@ -1,10 +1,12 @@
 import logging
 from typing import List
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.auth.roles import puede_administrar
+from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.PlanLimpieza import models, schemas, exceptions
 from src.personal.models import Personal
 from src.tareas.models import Tarea
@@ -12,6 +14,13 @@ from src.tareas.schemas import TareaBase as TareaInput
 
 # logger para este módulo específico
 logger = logging.getLogger(__name__)
+
+# `plan_limpieza.nombre` es UNIQUE. El pre-chequeo no existia en este modulo,
+# asi que un PUT con nombre repetido llegaba hasta el commit.
+_MAPEA_CONFLICTO = mapa_por_campo(
+    ("plan_limpieza.nombre", exceptions.NombrePlanDuplicado),
+    por_defecto=exceptions.DatoDuplicado,
+)
 
 # ==========================================
 # OPERACIONES CRUD PARA PLAN DE LIMPIEZA
@@ -28,7 +37,7 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
     if not db_autor.activo:
         raise exceptions.AutorInactivo()
 
-    if not db_autor.puede_administrar:
+    if not puede_administrar(db_autor):
         raise exceptions.AutorSinPermisoDeAdministrar()
 
     return db_autor
@@ -133,25 +142,7 @@ def modificar_plan_limpieza(
                     )
                 )
 
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(models.PlanLimpieza)
-                .where(models.PlanLimpieza.id == plan_id)
-                .values(**datos_a_actualizar)
-            )
-        except IntegrityError as e:
-            db.rollback()
-            mensaje_error = str(e.orig).lower()
-            if "nombre" in mensaje_error:
-                raise exceptions.NombrePlanDuplicado()
-            else:
-                raise exceptions.DatoDuplicado()
-
-    db.commit()
-    db.refresh(db_plan)
-
-    return db_plan
+    return aplicar_cambios(db, db_plan, datos_a_actualizar, _MAPEA_CONFLICTO)
 
 
 def eliminar_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:

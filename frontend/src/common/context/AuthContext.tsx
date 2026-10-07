@@ -1,28 +1,24 @@
 import { useState, type ReactNode } from 'react';
 import { clearTokens, getAccessToken, getRefreshToken, API_URL } from '../api/apiClient';
-import { AuthContext, type User } from './auth-context';
-
-// Protected personal screens retain this legacy import path.
-// eslint-disable-next-line react-refresh/only-export-components
-export { useAuth } from './useAuth';
+import { AuthContext, CLAVE_USUARIO, type User } from './auth-context';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Recuperamos la sesión guardada desde el primer render (lazy init),
     // así RequireAuth no redirige al login antes de consultar localStorage.
     const [user, setUser] = useState<User | null>(() => {
         try {
-            const storedUser = localStorage.getItem('saia_user');
+            const storedUser = localStorage.getItem(CLAVE_USUARIO);
             return storedUser ? JSON.parse(storedUser) : null;
         } catch {
             // Si el dato quedó corrupto en localStorage, lo limpiamos
-            localStorage.removeItem('saia_user');
+            localStorage.removeItem(CLAVE_USUARIO);
             return null;
         }
     });
 
     const loginUser = (userData: User) => {
         setUser(userData);
-        localStorage.setItem('saia_user', JSON.stringify(userData)); // Guarda la sesión
+        localStorage.setItem(CLAVE_USUARIO, JSON.stringify(userData)); // Guarda la sesión
     };
 
     const logout = async () => {
@@ -48,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setUser(null);
-        localStorage.removeItem('saia_user'); // Borra la sesión al salir
+        localStorage.removeItem(CLAVE_USUARIO); // Borra la sesión al salir
         clearTokens(); // Borra los tokens JWT guardados
     };
 

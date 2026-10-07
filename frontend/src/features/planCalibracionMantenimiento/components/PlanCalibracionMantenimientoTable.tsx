@@ -2,19 +2,20 @@ import { Box, Table, Text } from "@chakra-ui/react";
 
 import { PlanCalibracionMantenimientoItem } from "./PlanCalibracionMantenimientoItem";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
+import { TEAL } from "../../../common/theme/tokens";
 
 interface PlanCalibracionMantenimientoTableProps {
   planes: PlanCalibracionMantenimiento[];
   nombresEquipos: Map<number, string>;
   onEdit: (plan: PlanCalibracionMantenimiento) => void;
+  onDelete: (plan: PlanCalibracionMantenimiento) => void;
 }
-
-const TEAL = "#468189";
 
 export function PlanCalibracionMantenimientoTable({
   planes,
   nombresEquipos,
   onEdit,
+  onDelete,
 }: PlanCalibracionMantenimientoTableProps) {
   if (planes.length === 0) {
     return (
@@ -47,6 +48,7 @@ export function PlanCalibracionMantenimientoTable({
               plan={plan}
               nombreEquipo={nombresEquipos.get(plan.equipo_id) || `Equipo #${plan.equipo_id}`}
               onEdit={onEdit}
+              onDelete={onDelete}
             />
           ))}
         </Table.Body>
