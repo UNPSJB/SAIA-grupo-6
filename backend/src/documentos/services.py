@@ -18,6 +18,7 @@ from src.documentos.constants import (
     TAMANO_MAXIMO_BYTES,
     TipoDocumento,
 )
+from src.config import CARPETA_UPLOADS
 from src.documentos.models import Documento, VersionDocumento
 from src.personal.models import Personal
 
@@ -54,18 +55,27 @@ def _validar_archivo(archivo: UploadFile) -> str:
 
 
 def _guardar_archivo(archivo: UploadFile, extension: str) -> str:
-    """Guarda el archivo en disco con nombre único y devuelve su ruta relativa."""
-    os.makedirs(CARPETA_DOCUMENTOS, exist_ok=True)
-    ruta = f"{CARPETA_DOCUMENTOS}/{uuid.uuid4().hex}{extension}"
-    with open(ruta, "wb") as destino:
+    """Guarda el archivo en disco con nombre único y devuelve su ruta relativa.
+
+    La carpeta se ancla a CARPETA_UPLOADS (raíz del backend) y no al
+    directorio de trabajo: si el server se arranca desde otro lado, con ruta
+    relativa el archivo se guardaría en un uploads distinto al que sirve
+    GET /uploads y el documento daría 404.
+    """
+    carpeta = CARPETA_UPLOADS / "documentos"
+    carpeta.mkdir(parents=True, exist_ok=True)
+    nombre = f"{uuid.uuid4().hex}{extension}"
+    ruta = f"{CARPETA_DOCUMENTOS}/{nombre}"
+    with open(carpeta / nombre, "wb") as destino:
         shutil.copyfileobj(archivo.file, destino)
     return ruta
 
 
 def _borrar_archivo(ruta: str) -> None:
     """Solo para deshacer un guardado si falla el commit (evita archivos huérfanos)."""
+    ruta_absoluta = CARPETA_UPLOADS / ruta[len("uploads/"):]
     try:
-        os.remove(ruta)
+        os.remove(ruta_absoluta)
     except OSError:
         logger.warning("No se pudo borrar el archivo huérfano %s", ruta)
 
