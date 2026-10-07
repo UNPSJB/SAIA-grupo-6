@@ -119,7 +119,7 @@ function IncidenteCard({
           {/* ID + tipo + estado */}
           <Flex align="center" gap="8px" style={{ flexWrap: "wrap", marginBottom: "8px" }}>
             <Text fontWeight={700} fontSize="15px" color={TEXTO_FUERTE}>
-              #{incidente.id}
+              #{incidente.id} — {incidente.titulo}
             </Text>
             <Badge
               colorPalette={tipoColor(incidente.tipo)}
@@ -145,14 +145,21 @@ function IncidenteCard({
             </Badge>
           </Flex>
 
-          {/* Descripción */}
+          {/* Descripción con "Ver más" */}
           <Text
             fontSize="14px"
             color="#374151"
             lineHeight={1.55}
             style={{ wordBreak: "break-word" }}
           >
-            {incidente.descripcion}
+            {incidente.descripcion.length > 120
+              ? `${incidente.descripcion.substring(0, 117)}...`
+              : incidente.descripcion}
+            {incidente.descripcion.length > 120 && (
+              <Text as="span" color={TEAL} fontWeight={600} ml="4px">
+                Ver más
+              </Text>
+            )}
           </Text>
 
           {/* Si ya fue resuelto, el operador ve qué se hizo */}
@@ -193,7 +200,7 @@ export function ReportarIncidentePage() {
   // `setTimeout` a mano: sin cleanup, si el usuario navega antes de los 3s
   // el setState corre sobre un componente ya desmontado.
   const programarAviso = useSafeTimeout();
-  const [activeTab, setActiveTab] = useState<"nuevo" | "mis-reportes">("nuevo");
+  const [activeTab, setActiveTab] = useState<"mis-reportes" | "nuevo-incidente">("mis-reportes");
 
   const handleSubmit = async (values: IncidenteFormValues, foto?: File) => {
     try {
@@ -208,7 +215,7 @@ export function ReportarIncidentePage() {
   };
 
   const handleVerDetalle = (incidente: Incidente) => {
-    navigate(`/incidentes/${incidente.id}`);
+    navigate(`/incidentes/${incidente.id}`, { state: { from: "mis-reportes" } });
   };
 
   return (
@@ -264,18 +271,18 @@ export function ReportarIncidentePage() {
         }}
       >
         <TabButton
-          label="Nuevo Incidente"
-          isActive={activeTab === "nuevo"}
-          onClick={() => setActiveTab("nuevo")}
-        />
-        <TabButton
           label="Mis Reportes"
           isActive={activeTab === "mis-reportes"}
           onClick={() => setActiveTab("mis-reportes")}
         />
+        <TabButton
+          label="Nuevo Incidente"
+          isActive={activeTab === "nuevo-incidente"}
+          onClick={() => setActiveTab("nuevo-incidente")}
+        />
       </Box>
 
-      {activeTab === "nuevo" && (
+      {activeTab === "nuevo-incidente" && (
         <Box
           style={{
             background: "white",

@@ -42,7 +42,7 @@ export function IncidenteTable({
               fontSize="16px"
               style={{ padding: "12px" }}
             >
-              ID
+              Fecha
             </Table.ColumnHeader>
 
             <Table.ColumnHeader
@@ -51,7 +51,7 @@ export function IncidenteTable({
               fontSize="16px"
               style={{ padding: "12px", width: "220px" }}
             >
-              Descripción
+              Título
             </Table.ColumnHeader>
 
             <Table.ColumnHeader
@@ -88,15 +88,6 @@ export function IncidenteTable({
               style={{ padding: "12px" }}
             >
               Reportado por
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Fecha
             </Table.ColumnHeader>
 
             {showActions && (

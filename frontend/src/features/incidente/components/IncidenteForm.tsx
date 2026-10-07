@@ -8,7 +8,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import type { IncidenteFormValues, TipoIncidente } from "../types/incidente";
-import { TIPOS_INCIDENTE, admiteEquipo } from "../types/incidente";
+import { TIPOS_INCIDENTE, admiteEquipo, requiereEquipoObligatorio } from "../types/incidente";
 import { listarEquipos } from "../../equipo/services/equipoService";
 import type { Equipo } from "../../equipo/types/equipo";
 import {
@@ -29,11 +29,12 @@ interface IncidenteFormProps {
   fullWidth?: boolean;
 }
 
-const emptyValues: IncidenteFormValues = {
-  descripcion: "",
-  tipo: "otro",
-  equipo_id: null,
-};
+  const emptyValues: IncidenteFormValues = {
+    titulo: "",
+    descripcion: "",
+    tipo: "otro",
+    equipo_id: null,
+  };
 
 const getEstiloInput = (maxWidth: string) => ({
   backgroundColor: BLANCO,
@@ -100,6 +101,9 @@ export function IncidenteForm({
     cargarEquipos();
   }, []);
 
+  const handleTituloChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, titulo: e.target.value }));
+
   const handleDescripcionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) =>
     setValues((prev) => ({ ...prev, descripcion: e.target.value }));
 
@@ -157,9 +161,17 @@ export function IncidenteForm({
     setErrorFoto(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const equipoObligatorio = requiereEquipoObligatorio(values.tipo);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(values, foto ?? undefined);
+    if (equipoObligatorio && (values.equipo_id === null || values.equipo_id === undefined)) {
+      return;
+    }
+    if (!values.titulo.trim() || !values.descripcion.trim()) {
+      return;
+    }
+    await onSubmit(values, foto ?? undefined);
   };
 
   return (
@@ -185,22 +197,19 @@ export function IncidenteForm({
         {title}
       </Box>
 
-      {/* Descripción */}
+      {/* Título */}
       <Box style={{ marginBottom: "20px" }}>
         <Field.Root required>
           <Box as="label" style={estiloLabel}>
-            DESCRIPCIÓN *
+            TÍTULO *
           </Box>
-          <textarea
-            value={values.descripcion}
-            onChange={handleDescripcionChange}
-            placeholder="Ej: Se rompió el termostato de la heladera"
-            rows={4}
-            style={{
-              ...getEstiloInput(maxInputWidth),
-              resize: "vertical",
-              fontFamily: "inherit",
-            }}
+          <input
+            type="text"
+            value={values.titulo}
+            onChange={handleTituloChange}
+            placeholder="Ej: Termostato de heladera roto"
+            maxLength={60}
+            style={getEstiloInput(maxInputWidth)}
           />
         </Field.Root>
       </Box>
@@ -235,21 +244,24 @@ export function IncidenteForm({
         </Field.Root>
       </Box>
 
-      {/* Equipo (solo para tipos que lo admiten) */}
       {admiteEquipo(values.tipo) && (
         <Box style={{ marginBottom: "20px" }}>
-          <Field.Root>
+          <Field.Root required={equipoObligatorio}>
             <Box as="label" style={estiloLabel}>
-              EQUIPO (OPCIONAL)
+              {equipoObligatorio ? "EQUIPO *" : "EQUIPO (OPCIONAL)"}
             </Box>
-          <NativeSelect.Root disabled={cargandoEquipos}>
+            <NativeSelect.Root disabled={cargandoEquipos}>
               <NativeSelect.Field
                 value={values.equipo_id ?? ""}
                 onChange={handleEquipoChange}
                 style={{ ...getEstiloInput(maxInputWidth), ...estiloSelectBase }}
               >
                 <option value="">
-                  {cargandoEquipos ? "Cargando..." : "Seleccionar equipo (opcional)"}
+                  {cargandoEquipos
+                    ? "Cargando..."
+                    : equipoObligatorio
+                      ? "Seleccionar equipo"
+                      : "Seleccionar equipo (opcional)"}
                 </option>
                 {equipos.map((equipo) => (
                   <option
@@ -276,7 +288,25 @@ export function IncidenteForm({
         </Box>
       )}
 
-      {/* Foto (opcional) */}
+      {/* Descripción */}
+      <Box style={{ marginBottom: "20px" }}>
+        <Field.Root required>
+          <Box as="label" style={estiloLabel}>
+            DESCRIPCIÓN *
+          </Box>
+          <textarea
+            value={values.descripcion}
+            onChange={handleDescripcionChange}
+            placeholder="Ej: Describa lo ocurrido"
+            rows={4}
+            style={{
+              ...getEstiloInput(maxInputWidth),
+              resize: "vertical",
+              fontFamily: "inherit",
+            }}
+          />
+        </Field.Root>
+      </Box>
       <Box style={{ marginBottom: "25px" }}>
         <Box as="label" style={estiloLabel}>
           FOTO (OPCIONAL)

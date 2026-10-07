@@ -39,7 +39,7 @@ from src.PlanLimpieza.models import PlanLimpieza  # noqa: F401
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento  # noqa: F401
 from src.tareas.models import Tarea  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
-from src.incidente.models import Incidente  # noqa: F401
+from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
 
 __all__ = [

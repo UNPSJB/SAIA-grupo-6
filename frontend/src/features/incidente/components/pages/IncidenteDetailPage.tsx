@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Box, Button, Badge, Heading, Text, HStack, VStack } from "@chakra-ui/react";
 import { useIncidente } from "../../hooks/useIncidente";
-import { useIncidenteABM } from "../../hooks/useIncidenteABM";
-import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
+import { useHistorialIncidente } from "../../hooks/useHistorialIncidente";
+import { HistorialIncidenteModal } from "../HistorialIncidenteModal";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
-import { useAuth } from "../../../../common/context/useAuth";
-import { puedeAdministrar } from "../../../../common/api/permissions";
 import {
   estadoLabel,
   tipoLabel,
@@ -14,8 +12,6 @@ import {
   formatoFechaCierre,
 } from "../../types/incidente";
 import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
   EXITO_FONDO_CLARO,
   EXITO_TEXTO,
   FONDO_CARD,
@@ -28,39 +24,20 @@ import {
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { incidente, loading, error, recargar } = useIncidente(Number(id));
-  const { cerrar, reabrir, loading: procesando } = useIncidenteABM();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { incidente, loading, error } = useIncidente(Number(id));
+  const { historial, loading: loadingHistorial, cargarHistorial, limpiarHistorial } = useHistorialIncidente();
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
-  const [dialogoCierre, setDialogoCierre] = useState(false);
+  const [mostrarHistorial, setMostrarHistorial] = useState(false);
+
+  // Si el usuario viene de "Mis Reportes" (operador), vuelve ahí. Si viene de
+  // la gestión (admin), vuelve a la lista de gestión.
+  const backUrl = location.state?.from === "mis-reportes" ? "/incidentes/reportar" : "/incidentes";
+
+  // El hook de imagen debe ir ANTES de los early returns: si no, cuando loading
+  // es true o hay error, el componente retorna antes de llegar al hook y React
+  // se queja de que el número de hooks cambió entre renders.
   const imagen = useImagenAutenticada(incidente?.foto_url);
-
-  // Si es admin vuelve a gestión de incidentes, si es operador vuelve a reportar (sus reportes)
-  const backUrl = puedeAdministrar(user) ? "/incidentes" : "/incidentes/reportar";
-
-  const esAdmin = puedeAdministrar(user);
-  const cerrado = incidente?.estado === "cerrado";
-
-  const handleConfirmCerrar = async (observacionCierre: string) => {
-    if (!incidente) return;
-    try {
-      await cerrar(incidente.id, observacionCierre);
-      setDialogoCierre(false);
-      await recargar();
-    } catch {
-      // El mensaje de error ya quedó en el hook.
-    }
-  };
-
-  const handleReabrir = async () => {
-    if (!incidente) return;
-    try {
-      await reabrir(incidente.id);
-      await recargar();
-    } catch {
-      // El mensaje de error ya quedó en el hook.
-    }
-  };
 
   if (loading) {
     return <Box p="20px">Cargando incidente...</Box>;
@@ -70,12 +47,12 @@ export function IncidenteDetailPage() {
     return (
       <Box p="20px" style={{ maxWidth: "600px", margin: "0 auto" }}>
         <Text color="red.500">{error || "No se encontró el incidente"}</Text>
-        <Button 
-          mt="16px" 
-          bg={GRIS_MEDIO} 
-          color="white" 
-          height="auto" 
-          onClick={() => navigate(backUrl)} 
+        <Button
+          mt="16px"
+          bg={GRIS_MEDIO}
+          color="white"
+          height="auto"
+          onClick={() => navigate(backUrl)}
           style={{ padding: "8px 16px", borderRadius: "6px" }}
         >
           Volver a la lista
@@ -84,27 +61,42 @@ export function IncidenteDetailPage() {
     );
   }
 
+  const cerrado = incidente.estado === "cerrado";
+
+  const handleVerHistorial = async () => {
+    setMostrarHistorial(true);
+    await cargarHistorial(incidente.id);
+  };
+
+  const handleCerrarHistorial = () => {
+    setMostrarHistorial(false);
+    limpiarHistorial();
+  };
+
   return (
     <>
       <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-        {/* Encabezado - ESTILO ESTÁNDAR IGUAL A OTROS MÓDULOS */}
-        <HStack justify="space-between" mb="24px">
+        {/* Encabezado */}
+        <HStack justify="space-between" mb="16px">
           <Heading as="h2" size="lg" fontWeight="bold" color="black">
-            Incidente #{incidente.id}
+            {incidente.titulo} #{incidente.id}
           </Heading>
-          <Button 
-            bg={GRIS_MEDIO} 
-            color="white" 
-            height="auto" 
-            onClick={() => navigate(backUrl)} 
+          <Button
+            bg={GRIS_MEDIO}
+            color="white"
+            height="auto"
+            onClick={() => navigate(backUrl)}
             style={{ padding: "8px 16px", borderRadius: "6px" }}
           >
             Volver a la lista
           </Button>
         </HStack>
 
-        {/* Badge de estado + acción de cierre (solo administradores) */}
-        <HStack justify="space-between" mb="24px">
+        {/* Estado */}
+        <Box mb="20px">
+          <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="6px" textTransform="uppercase">
+            Estado
+          </Text>
           <Badge
             colorPalette={cerrado ? "green" : "red"}
             borderRadius="md"
@@ -115,36 +107,7 @@ export function IncidenteDetailPage() {
           >
             {estadoLabel(incidente.estado).toUpperCase()}
           </Badge>
-
-          {esAdmin && (
-            <HStack gap="10px">
-              {cerrado ? (
-                <Button
-                  bg={ADVERTENCIA}
-                  color="white"
-                  height="auto"
-                  loading={procesando}
-                  onClick={handleReabrir}
-                  style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}
-                  _hover={{ bg: ADVERTENCIA_HOVER }}
-                >
-                  Reabrir incidente
-                </Button>
-              ) : (
-                <Button
-                  bg={TEAL}
-                  color="white"
-                  height="auto"
-                  onClick={() => setDialogoCierre(true)}
-                  style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}
-                  _hover={{ bg: TEAL_OSCURO }}
-                >
-                  Cerrar incidente
-                </Button>
-              )}
-            </HStack>
-          )}
-        </HStack>
+        </Box>
 
         {/* Tipo */}
         <Box mb="20px">
@@ -154,6 +117,25 @@ export function IncidenteDetailPage() {
           <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="12px" py="6px" fontSize="16px">
             {tipoLabel(incidente.tipo)}
           </Badge>
+        </Box>
+
+        {/* Descripción */}
+        <Box mb="24px">
+          <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="10px" textTransform="uppercase">
+            Descripción
+          </Text>
+          <Box
+            p="20px"
+            style={{
+              backgroundColor: FONDO_CARD,
+              border: "1px solid #d8e7e5",
+              borderRadius: "10px",
+              whiteSpace: "pre-line",
+              lineHeight: 1.7,
+            }}
+          >
+            <Text fontSize="16px">{incidente.descripcion}</Text>
+          </Box>
         </Box>
 
         {/* Metadatos */}
@@ -181,28 +163,6 @@ export function IncidenteDetailPage() {
               </Text>
             )}
           </VStack>
-        </Box>
-
-        {/* Descripción completa */}
-        <Box mb="24px">
-          <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="6px" textTransform="uppercase">
-            Descripción
-          </Text>
-          <Text
-            fontSize="16px"
-            wordBreak="break-word"
-            style={{
-              whiteSpace: "pre-line",
-              overflowWrap: "break-word",
-              padding: "16px",
-              backgroundColor: FONDO_NEUTRO,
-              borderRadius: "8px",
-              border: "1px solid #eee",
-              lineHeight: "1.6",
-            }}
-          >
-            {incidente.descripcion}
-          </Text>
         </Box>
 
         {/* Evidencia fotográfica */}
@@ -233,12 +193,10 @@ export function IncidenteDetailPage() {
                   alt="Evidencia del incidente"
                   onClick={() => setImagenAmpliada(true)}
                   style={{
-                    maxWidth: "100%",
-                    maxHeight: "300px",
-                    width: "auto",
-                    height: "auto",
-                    borderRadius: "8px",
+                    width: "100%",
+                    maxHeight: "400px",
                     objectFit: "contain",
+                    borderRadius: "8px",
                     cursor: "pointer",
                   }}
                 />
@@ -281,9 +239,30 @@ export function IncidenteDetailPage() {
             </VStack>
           </Box>
         )}
+
+        {/* Botón de historial */}
+        <HStack gap="10px" mt="20px">
+          <Button
+            bg={TEAL}
+            color="white"
+            height="auto"
+            loading={loadingHistorial}
+            onClick={handleVerHistorial}
+            style={{
+              padding: "10px 20px",
+              borderRadius: "6px",
+              border: "none",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+            _hover={{ bg: TEAL_OSCURO }}
+          >
+            Ver historial
+          </Button>
+        </HStack>
       </Box>
 
-      {/* Modal de imagen ampliada */}
+      {/* Imagen ampliada */}
       {imagenAmpliada && imagen.src && (
         <Box
           style={{
@@ -309,13 +288,12 @@ export function IncidenteDetailPage() {
         </Box>
       )}
 
-      {/* Confirmación de cierre con la acción correctiva */}
-      <CerrarIncidenteDialog
-        isOpen={dialogoCierre}
-        incidente={incidente}
-        isLoading={procesando}
-        onClose={() => !procesando && setDialogoCierre(false)}
-        onConfirm={handleConfirmCerrar}
+      {/* Modal de historial */}
+      <HistorialIncidenteModal
+        isOpen={mostrarHistorial}
+        historial={historial}
+        loading={loadingHistorial}
+        onClose={handleCerrarHistorial}
       />
     </>
   );

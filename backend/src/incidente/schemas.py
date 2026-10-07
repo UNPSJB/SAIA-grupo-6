@@ -1,15 +1,24 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.incidente import exceptions
 from src.incidente.constants import EstadoIncidente, TipoIncidente
 
 
 class IncidenteBase(BaseModel):
+    titulo: str 
     descripcion: str
     tipo: TipoIncidente
     equipo_id: Optional[int] = None
     foto_url: Optional[str] = None
+
+    @field_validator("titulo")
+    @classmethod
+    def validar_titulo(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise exceptions.DescripcionVacia()
+        return texto
 
     @field_validator("descripcion")
     @classmethod
@@ -58,3 +67,24 @@ class IncidenteResponse(IncidenteBase):
     responsable_cierre_nombre: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HistorialIncidenteItem(BaseModel):
+    """Un evento del historial de un incidente."""
+
+    id: int
+    estado_anterior: str
+    estado_nuevo: str
+    usuario_id: int
+    usuario_nombre: Optional[str] = None
+    observacion: Optional[str] = None
+    fecha_evento: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HistorialIncidenteResponse(BaseModel):
+    """Historial completo de un incidente."""
+
+    incidente_id: int
+    eventos: List[HistorialIncidenteItem]

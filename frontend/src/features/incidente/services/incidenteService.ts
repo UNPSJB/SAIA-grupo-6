@@ -1,4 +1,4 @@
-import type { Incidente, IncidenteFormValues, EstadoIncidente } from "../types/incidente";
+import type { Incidente, IncidenteFormValues, EstadoIncidente, HistorialIncidenteResponse } from "../types/incidente";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
@@ -39,6 +39,7 @@ export async function crearIncidente(
   foto?: File
 ): Promise<Incidente> {
   const formData = new FormData();
+  formData.append("titulo", datos.titulo);
   formData.append("descripcion", datos.descripcion);
   formData.append("tipo", datos.tipo);
   if (datos.equipo_id) {
@@ -61,7 +62,9 @@ export async function crearIncidente(
  * Cierra o reabre un incidente.
  *
  * La fecha de cierre y el responsable los completa el backend a partir del
- * token: el frontend solo manda el estado y, al cerrar, la acción correctiva.
+ * token: el frontend solo manda el estado y la observación (la acción
+ * correctiva al cerrar, o el motivo de reapertura al reabrir). El backend
+ * guarda esa observación en el historial en ambos casos.
  */
 export async function cambiarEstadoIncidente(
   id: number,
@@ -73,9 +76,20 @@ export async function cambiarEstadoIncidente(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       estado,
-      observacion_cierre: estado === "cerrado" ? observacion_cierre ?? null : null,
+      observacion_cierre: observacion_cierre?.trim() ? observacion_cierre.trim() : null,
     }),
   });
 
   return pedir<Incidente>(response, "Error al cambiar el estado del incidente");
+}
+
+/**
+ * Obtiene el historial de cierre/reapertura de un incidente.
+ */
+export async function obtenerHistorialIncidente(
+  id: number
+): Promise<HistorialIncidenteResponse> {
+  const response = await apiFetch(`${API_URL}/incidentes/${id}/historial`);
+
+  return pedir<HistorialIncidenteResponse>(response, "Error al obtener el historial del incidente");
 }

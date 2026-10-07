@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { Button, HStack, Table, Badge, Text } from "@chakra-ui/react";
-import { CeldaFoto } from "./MiniaturaFoto";
 import {
   estadoLabel,
   tipoLabel,
@@ -48,8 +47,8 @@ export function IncidenteItem({
         opacity: cerrado ? 0.7 : 1,
       }}
     >
-      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
-        #{incidente.id}
+      <Table.Cell fontSize="14px" style={{ padding: "12px", whiteSpace: "nowrap" }}>
+        {formatoFecha(incidente.fecha_reporte)}
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px", maxWidth: "220px" }}>
@@ -57,19 +56,18 @@ export function IncidenteItem({
           lineClamp={2}
           wordBreak="break-word"
           whiteSpace="pre-line"
-          title={incidente.descripcion}
+          title={incidente.titulo}
         >
-          {incidente.descripcion}
+          {incidente.titulo}
         </Text>
-        {cerrado && incidente.observacion_cierre && (
-          <Text fontSize="12px" color="gray.500" mt="4px" lineClamp={2}>
-            <strong>Resolución:</strong> {incidente.observacion_cierre}
-          </Text>
-        )}
       </Table.Cell>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        <CeldaFoto rutaFoto={incidente.foto_url} />
+      <Table.Cell fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>
+        {incidente.foto_url ? (
+          <Text fontSize="18px" title="Ver detalle para ver la foto">📷</Text>
+        ) : (
+          <Text color="gray.400">-</Text>
+        )}
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
@@ -91,10 +89,6 @@ export function IncidenteItem({
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
-      </Table.Cell>
-
-      <Table.Cell fontSize="14px" style={{ padding: "12px" }}>
-        {formatoFecha(incidente.fecha_reporte)}
       </Table.Cell>
 
       {showActions && (
