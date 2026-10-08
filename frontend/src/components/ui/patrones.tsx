@@ -2,64 +2,108 @@ import {
   Box,
   Button,
   ButtonGroup,
+  Field,
   Heading,
   HStack,
   IconButton,
+  Input,
+  NativeSelect,
   Pagination,
+  Spinner,
+  Stack,
   Switch,
   Table,
   Text,
   type BoxProps,
   type ButtonProps,
+  type InputProps,
 } from "@chakra-ui/react";
-import type { ReactNode } from "react";
+import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
-  DialogContent,
-  DialogRoot,
-  DialogTitle,
-} from "./dialog";
+  LuCircleCheck,
+  LuPlus,
+  LuTriangleAlert,
+} from "react-icons/lu";
+import { DialogContent, DialogRoot, DialogTitle } from "./dialog";
 
 /**
- * Patrones de tabla y tarjeta compartidos por todas las features.
+ * Patrones compartidos: la fuente de verdad del formato de toda la app.
  *
- * Antes cada archivo de página declaraba sus propios `Celda` /
- * `ColumnaHeader` / `Tarjeta` con valores ligeramente distintos que se
- * colaban sin que nadie los notara. Acá vive la fuente de verdad del
- * formato: si cambia el padding de las celdas, cambia una vez.
+ * Reglas que respetan (ver `CRITERIOS-VISUALES.md`):
  *
- * Los colores son todos tokens del sistema (`src/theme/index.ts`); nada
- * de hex sueltos.
+ *   - Espaciado solo con tokens de Chakra (múltiplos de 4px). Nunca `px`.
+ *   - Tipografía de 5 tamaños: 2xl / lg / md / sm / xs. Nunca `fontSize="NNpx"`.
+ *   - Color por rol: `fg`, `fg.muted`, `fg.subtle`, `bg.panel`, `bg.subtle`,
+ *     `border`. El teal es acción principal; rojo/ámbar/verde, estados.
+ *   - Labels y encabezados de tabla en caja normal, nunca en mayúsculas.
  */
 
-/** Label compacto de filtro de formulario (fechas, selects, etc.). */
-export function LabelFiltro({ children }: { children: ReactNode }) {
+/* ─────────────────────────── Encabezados de página ─────────────────────── */
+
+interface PageHeaderProps {
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  mb?: string;
+}
+
+/**
+ * Título de página. Todo listado tiene que usarlo: si cada página arma su
+ * `HStack` + `Heading` por su cuenta, los títulos quedan en distintos tamaños.
+ */
+export function PageHeader({
+  title,
+  description,
+  actions,
+  mb = "6",
+}: PageHeaderProps) {
   return (
-    <Box
-      as="label"
-      display="block"
-      fontSize="14px"
-      fontWeight="bold"
-      mb="8px"
-      color="gray.600"
+    <Stack
+      direction={{ base: "column", md: "row" }}
+      align={{ base: "stretch", md: "center" }}
+      justify="space-between"
+      gap="4"
+      mb={mb}
     >
-      {children}
-    </Box>
+      <Box>
+        <Heading as="h2" size="2xl" fontWeight="bold" color="fg">
+          {title}
+        </Heading>
+        {description ? (
+          <Text mt="1" fontSize="sm" color="fg.muted">
+            {description}
+          </Text>
+        ) : null}
+      </Box>
+      {actions ? (
+        <HStack gap="3" flexWrap="wrap">
+          {actions}
+        </HStack>
+      ) : null}
+    </Stack>
   );
 }
 
-/** Tarjeta blanca contenedora de tablas y secciones de reporte. */
+/* ─────────────────────────────── Tablas ────────────────────────────────── */
+
+/**
+ * Superficie clara: tarjetas, tablas y bloques de detalle.
+ *
+ * `overflow="hidden"` es lo que redondea de verdad las esquinas: sin él, una
+ * franja de encabezado (la tabla, o el botón de los grupos del checklist) se
+ * pinta por encima del borde y sobresale con las esquinas rectas.
+ */
 export function Tarjeta({
   children,
-  mt,
   ...rest
-}: { children: ReactNode; mt?: string } & BoxProps) {
+}: { children: ReactNode } & BoxProps) {
   return (
     <Box
-      bg="white"
-      rounded="10px"
-      boxShadow="0 2px 6px rgba(0,0,0,0.05)"
+      bg="bg.panel"
+      rounded="lg"
+      borderWidth="1px"
+      borderColor="border.subtle"
       overflow="hidden"
-      mt={mt}
       {...rest}
     >
       {children}
@@ -67,7 +111,69 @@ export function Tarjeta({
   );
 }
 
-/** Celda de cuerpo de tabla con el formato estándar de la app. */
+/**
+ * Estado vacío de un listado. Todos los listados lo usan: antes cada uno
+ * armaba su `Tarjeta` con un padding distinto (`p="6"` / `p="8"` / `p={8}`).
+ */
+export function EstadoVacio({ children }: { children: ReactNode }) {
+  return (
+    <Tarjeta p="8" textAlign="center">
+      <Text color="fg.muted">{children}</Text>
+    </Tarjeta>
+  );
+}
+
+/** Indicador de carga de una página o de una sección. */
+export function EstadoCargando({
+  children = "Cargando...",
+}: {
+  children?: ReactNode;
+}) {
+  return (
+    <HStack justify="center" gap="3" p="8" role="status" aria-live="polite">
+      <Spinner size="md" color="brand.500" />
+      <Text color="fg.muted" fontSize="sm">
+        {children}
+      </Text>
+    </HStack>
+  );
+}
+
+/** Botón principal de alta ("Agregar", "Registrar..."), con ícono en vez de "+". */
+export function BotonAgregar({ children, ...rest }: ButtonProps) {
+  return (
+    <Button type="button" colorPalette="brand" {...rest}>
+      <LuPlus aria-hidden />
+      {children}
+    </Button>
+  );
+}
+
+/** Mensaje de error corto, debajo de un campo o de un bloque. */
+export function MensajeError({
+  children,
+  ...rest
+}: { children: ReactNode } & Pick<BoxProps, "mt" | "mb">) {
+  return (
+    <HStack
+      role="alert"
+      align="flex-start"
+      gap="2"
+      color="red.fg"
+      fontSize="sm"
+      fontWeight="medium"
+      mt="2"
+      {...rest}
+    >
+      <Box as="span" mt="0.5" flexShrink={0} aria-hidden>
+        <LuTriangleAlert size={16} />
+      </Box>
+      <Text as="span">{children}</Text>
+    </HStack>
+  );
+}
+
+/** Fila de cuerpo de tabla. Padding y borde ya resueltos. */
 export function Celda({
   children,
   center = false,
@@ -75,12 +181,12 @@ export function Celda({
 }: { children?: ReactNode; center?: boolean } & BoxProps) {
   return (
     <Table.Cell
-      color="gray.800"
-      fontSize="14px"
-      p="10px 16px"
-      borderBottom="1px solid"
-      borderColor="gray.100"
-      bg="white"
+      px="4"
+      py="3"
+      color="fg"
+      fontSize="sm"
+      borderBottomWidth="1px"
+      borderColor="border.subtle"
       textAlign={center ? "center" : undefined}
       {...rest}
     >
@@ -89,7 +195,11 @@ export function Celda({
   );
 }
 
-/** Columna de encabezado con el formato estándar de la app. */
+/**
+ * Columna de encabezado para tablas de detalle (fondo claro).
+ * El texto va en caja normal: los nombres largos en mayúsculas se leen peor
+ * y antes era exactamente lo que rompía la legibilidad de los listados.
+ */
 export function ColumnaHeader({
   children,
   center = false,
@@ -98,15 +208,45 @@ export function ColumnaHeader({
 }: { children: ReactNode; center?: boolean; width?: string } & BoxProps) {
   return (
     <Table.ColumnHeader
-      color="gray.800"
+      px="4"
+      py="3"
+      color="fg"
       fontWeight="bold"
-      fontSize="13px"
-      textTransform="uppercase"
-      letterSpacing="0.03em"
-      p="10px 16px"
-      borderBottom="2px solid"
-      borderColor="brand.300"
-      bg="brand.100"
+      fontSize="sm"
+      textAlign={center ? "center" : undefined}
+      width={width}
+      borderBottomWidth="2px"
+      borderColor="border"
+      bg="bg.muted"
+      {...rest}
+    >
+      {children}
+    </Table.ColumnHeader>
+  );
+}
+
+/** Franja de encabezado oscura: es el patrón de TODOS los listados. */
+export function FilaEncabezado({ children }: { children: ReactNode }) {
+  // `brand.600` y no `brand.500`: con el 500 el blanco quedaba en 4.4:1, por
+  // debajo del 4.5:1 que pide WCAG AA para texto de 14px.
+  return <Table.Row bg="brand.600">{children}</Table.Row>;
+}
+
+export function EncabezadoOscuro({
+  children,
+  center = false,
+  width,
+  ...rest
+}: { children: ReactNode; center?: boolean; width?: string } & BoxProps) {
+  return (
+    <Table.ColumnHeader
+      px="4"
+      py="3"
+      color="white"
+      fontWeight="bold"
+      fontSize="sm"
+      borderBottomWidth="none"
+      borderColor="transparent"
       textAlign={center ? "center" : undefined}
       width={width}
       {...rest}
@@ -115,66 +255,6 @@ export function ColumnaHeader({
     </Table.ColumnHeader>
   );
 }
-
-/** Botón de texto subrayado para acciones dentro de tablas. */
-export function BotonTexto({
-  children,
-  color = "brand.500",
-  onClick,
-  title,
-  ...rest
-}: {
-  children: ReactNode;
-  color?: string;
-  onClick: () => void;
-  title?: string;
-} & Omit<ButtonProps, "onClick" | "children">) {
-  return (
-    <Button
-      type="button"
-      variant="plain"
-      size="xs"
-      color={color}
-      bg="transparent"
-      p={0}
-      h="auto"
-      fontWeight="bold"
-      textDecoration="underline"
-      onClick={onClick}
-      title={title}
-      {...rest}
-    >
-      {children}
-    </Button>
-  );
-}
-
-/** Píldora oscura para el header de un grupo colapsable. */
-export function BadgeEstado({ children }: { children: ReactNode }) {
-  return (
-    <Text
-      fontSize="11px"
-      fontWeight="bold"
-      color="white"
-      bg="blackAlpha.300"
-      p="4px 10px"
-      rounded="999px"
-      whiteSpace="nowrap"
-    >
-      {children}
-    </Text>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────
- * Patrones agregados en la segunda etapa de la migración.
- *
- * Los cuatro siguientes estaban re-declarados dentro de cada feature:
- * el botón de acción de tabla (idéntico en los 13 `*Item.tsx`), el
- * encabezado oscuro de tabla (4 props de override por columna en cada
- * `*Table.tsx`), el banner de error de formulario y el par de botones
- * Guardar/Cancelar.
- * ───────────────────────────────────────────────────────────────────── */
 
 /** Paletas de las acciones de fila. */
 export type AccionTabla =
@@ -193,20 +273,11 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   reactivar: "green",
   marca: "brand",
   historial: "brand",
-  calibrar: "gray",
+  calibrar: "neutral",
   cerrar: "brand",
   reabrir: "orange",
 };
 
-/**
- * Botón de acción dentro de una fila de tabla.
- *
- * Reemplaza al trío `bg={ADVERTENCIA} color="white" border="none"
- * p="6px 12px" rounded="4px" _hover={{ bg: ADVERTENCIA_HOVER }}` que se
- * repetía en cada `*Item.tsx` con los hex de la capa de compatibilidad.
- * Ahora la paleta se resuelve con `colorPalette` y el hover con
- * `colorPalette.solid`, así que no hay que mantener un color por estado.
- */
 export function BotonTabla({
   accion,
   children,
@@ -221,11 +292,45 @@ export function BotonTabla({
       colorPalette={PALETA_ACCION[accion]}
       variant="solid"
       size="sm"
-      fontWeight="normal"
+      fontWeight="medium"
       h="auto"
       px="3"
-      py="1.5"
-      rounded="md"
+      py="1"
+      rounded="sm"
+      {...rest}
+    >
+      {children}
+    </Button>
+  );
+}
+
+/** Acción textual dentro de una celda (links, "ver historial"). */
+export function BotonTexto({
+  children,
+  color = "brand.fg",
+  onClick,
+  title,
+  ...rest
+}: {
+  children: ReactNode;
+  color?: string;
+  onClick: () => void;
+  title?: string;
+} & Omit<ButtonProps, "onClick" | "children">) {
+  return (
+    <Button
+      type="button"
+      variant="plain"
+      size="xs"
+      color={color}
+      bg="transparent"
+      p={0}
+      h="auto"
+      fontWeight="medium"
+      textDecoration="underline"
+      textUnderlineOffset="2px"
+      onClick={onClick}
+      title={title}
       {...rest}
     >
       {children}
@@ -234,108 +339,203 @@ export function BotonTabla({
 }
 
 /**
- * Encabezado de columna para la franja oscura de las tablas.
+ * Píldora de estado. El color solo codifica estado, nunca decoración.
  *
- * Antes cada columna repetía los mismos cuatro overrides sobre
- * `ColumnaHeader` (`bg="brand.500" color="white" fontWeight="normal"
- * fontSize="16px" borderColor="transparent" p="3"`), que además pisaban
- * el formato por defecto de `ColumnaHeader`. Acá queda en un solo lugar.
+ * Antes iba en `bg.emphasized` con texto blanco: ese token es un gris claro,
+ * así que el texto casi no se leía. `brand.800` da más de 7:1 con el blanco
+ * y se distingue tanto sobre una superficie clara como sobre la franja
+ * `brand.600` de los grupos del checklist.
  */
-export function EncabezadoOscuro({
+export function BadgeEstado({
   children,
-  center = false,
-  width,
-  ...rest
-}: { children: ReactNode; center?: boolean; width?: string } & BoxProps) {
+  icono,
+}: {
+  children: ReactNode;
+  /** Ícono opcional (de `react-icons`), a la izquierda del texto. */
+  icono?: ReactNode;
+}) {
   return (
-    <Table.ColumnHeader
-      bg="brand.500"
+    <Text
+      as="span"
+      fontSize="xs"
+      fontWeight="bold"
       color="white"
-      fontWeight="normal"
-      fontSize="md"
-      borderColor="transparent"
-      borderBottom="none"
-      p="3"
-      textAlign={center ? "center" : undefined}
-      width={width}
+      bg="brand.800"
+      px="3"
+      py="1"
+      rounded="full"
+      whiteSpace="nowrap"
+      display="inline-flex"
+      alignItems="center"
+      gap="1.5"
+    >
+      {icono ? (
+        <Box as="span" display="inline-flex" aria-hidden>
+          {icono}
+        </Box>
+      ) : null}
+      {children}
+    </Text>
+  );
+}
+
+/* ───────────────────────────── Formularios ──────────────────────────────── */
+
+export function LabelFiltro({ children }: { children: ReactNode }) {
+  return (
+    <Text
+      as="label"
+      display="block"
+      fontSize="sm"
+      fontWeight="medium"
+      color="fg.muted"
+      mb="2"
+    >
+      {children}
+    </Text>
+  );
+}
+
+interface FormFieldProps {
+  label: ReactNode;
+  required?: boolean;
+  invalid?: boolean;
+  helper?: ReactNode;
+  mb?: string;
+  children: ReactNode;
+}
+
+/** Campo con label. El label se asocia al control (accesibilidad). */
+export function FormField({
+  label,
+  required = false,
+  invalid,
+  helper,
+  mb = "6",
+  children,
+}: FormFieldProps) {
+  return (
+    <Field.Root required={required} invalid={invalid} mb={mb}>
+      <Field.Label color="fg.muted" fontWeight="medium">
+        {label}
+      </Field.Label>
+      {children}
+      {helper ? (
+        <Field.HelperText mt="2" fontSize="xs" color="fg.subtle">
+          {helper}
+        </Field.HelperText>
+      ) : null}
+    </Field.Root>
+  );
+}
+
+/** El aspecto del input viene de la receta `input` del tema. */
+export function FormInput(props: InputProps) {
+  return <Input {...props} />;
+}
+
+interface FormNativeSelectProps
+  extends Omit<
+      SelectHTMLAttributes<HTMLSelectElement>,
+      "children" | "disabled" | "size"
+    >,
+    Pick<BoxProps, "maxW" | "minW" | "w" | "mt" | "mb"> {
+  children: ReactNode;
+  disabled?: boolean;
+  invalid?: boolean;
+}
+
+/**
+ * `NativeSelect.Field` no consume la receta `input`, así que se le da el
+ * mismo lenguaje visual a mano para que no quede un control distinto al
+ * lado de los inputs.
+ */
+export function FormNativeSelect({
+  children,
+  disabled,
+  invalid,
+  maxW,
+  minW,
+  w,
+  mt,
+  mb,
+  ...rest
+}: FormNativeSelectProps) {
+  return (
+    <NativeSelect.Root disabled={disabled}>
+      <NativeSelect.Field
+        {...rest}
+        w={w ?? "100%"}
+        maxW={maxW}
+        minW={minW}
+        mt={mt}
+        mb={mb}
+        bg="bg.panel"
+        color="fg"
+        borderWidth="2px"
+        borderStyle="solid"
+        borderColor={invalid ? "red.500" : "brand.300"}
+        borderRadius="lg"
+        h="10"
+        px="3"
+        fontSize="sm"
+        outline="none"
+        transitionProperty="border-color, box-shadow"
+        transitionDuration="fast"
+        aria-disabled={disabled || undefined}
+        _hover={!disabled ? { borderColor: "brand.400" } : undefined}
+        _focusVisible={{
+          borderColor: "brand.500",
+          boxShadow: "0 0 0 3px var(--chakra-colors-brand-100)",
+        }}
+        _disabled={{ opacity: 0.6, cursor: "not-allowed" }}
+      >
+        {children}
+      </NativeSelect.Field>
+      <NativeSelect.Indicator color="fg.muted" />
+    </NativeSelect.Root>
+  );
+}
+
+export function SelectPlaceholder({
+  value = 0,
+  children,
+}: {
+  value?: number | string;
+  children: ReactNode;
+}) {
+  return (
+    <option value={value} disabled>
+      {children}
+    </option>
+  );
+}
+
+/** Superficie de un formulario de alta/edición. */
+export function TarjetaFormulario({ children, ...rest }: BoxProps) {
+  return (
+    <Box
+      bg="bg.panel"
+      rounded="lg"
+      borderWidth="1px"
+      borderColor="border.subtle"
+      p={{ base: "6", md: "8" }}
+      mb="8"
       {...rest}
     >
       {children}
-    </Table.ColumnHeader>
+    </Box>
   );
 }
 
-/** Franja de encabezado oscura de una tabla. */
-export function FilaEncabezado({ children }: { children: ReactNode }) {
+export function TituloFormulario({ children }: { children: ReactNode }) {
   return (
-    <Table.Row bg="brand.500" color="white" textAlign="left">
+    <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="6">
       {children}
-    </Table.Row>
+    </Heading>
   );
 }
 
-/**
- * Banner de error de los formularios y las páginas.
- *
- * Reemplaza al `Box bg="red.100" color="red.800" borderColor="red.200"`
- * repetido, que venía de `ERROR_FONDO`/`ERROR_BORDE`/`ERROR_TEXTO`.
- */
-export function BannerError({
-  children,
-  mb = "5",
-}: {
-  children: ReactNode;
-  mb?: string;
-}) {
-  return (
-    <Box
-      role="alert"
-      bg="red.100"
-      color="red.800"
-      borderWidth="1px"
-      borderColor="red.200"
-      rounded="md"
-      p="3"
-      mb={mb}
-      fontWeight="bold"
-    >
-      ⚠️ {children}
-    </Box>
-  );
-}
-
-/** Banner de confirmación exitosa. */
-export function BannerExito({
-  children,
-  mb = "5",
-}: {
-  children: ReactNode;
-  mb?: string;
-}) {
-  return (
-    <Box
-      role="status"
-      bg="green.100"
-      color="green.800"
-      borderWidth="1px"
-      borderColor="green.200"
-      rounded="md"
-      p="3"
-      mb={mb}
-      fontWeight="bold"
-    >
-      ✓ {children}
-    </Box>
-  );
-}
-
-/**
- * Botones del pie de un formulario.
- *
- * Reemplaza al par de `<Button>` con `style={{ backgroundColor: TEAL… }}` /
- * `style={{ backgroundColor: GRIS_CLARO… }}` que estaba duplicado en los
- * 8 `*Form.tsx`.
- */
 export function AccionesFormulario({ children }: { children: ReactNode }) {
   return (
     <HStack gap="4" flexWrap="wrap" mt="6">
@@ -344,68 +544,99 @@ export function AccionesFormulario({ children }: { children: ReactNode }) {
   );
 }
 
-/** Botón primario de formulario. */
+/** Acción principal del formulario. Teal: una sola por pantalla. */
 export function BotonGuardar(props: ButtonProps) {
   return (
-    <Button
-      type="submit"
-      colorPalette="brand"
-      variant="solid"
-      rounded="lg"
-      fontWeight="bold"
-      px="6"
-      py="3"
-      {...props}
-    />
+    <Button type="submit" colorPalette="brand" size="md" {...props} />
   );
 }
 
-/** Botón secundario de formulario ("Cancelar", "Volver"). */
+/** Acción secundaria: cancelar, volver. */
 export function BotonCancelar(props: ButtonProps) {
   return (
-    <Button
-      type="button"
-      variant="plain"
-      bg="gray.200"
-      color="gray.800"
-      rounded="lg"
-      fontWeight="bold"
-      px="6"
-      py="3"
-      _hover={{ bg: "gray.300" }}
-      {...props}
-    />
+    <Button type="button" colorPalette="neutral" variant="outline" size="md" {...props} />
   );
 }
 
-/**
- * Botón neutro de "Volver a la lista", en el encabezado de las páginas de
- * alta y edición. Estaba duplicado en 12 páginas con las mismas ocho props.
- */
+/** "Volver a la lista", en el encabezado de las páginas de edición. */
 export function BotonVolver(props: ButtonProps) {
   return (
     <Button
       type="button"
-      colorPalette="gray"
-      variant="solid"
-      fontSize="md"
-      fontWeight="normal"
-      h="auto"
-      minW="auto"
-      px="4"
-      py="2"
-      rounded="md"
+      colorPalette="neutral"
+      variant="outline"
+      size="sm"
       {...props}
     />
   );
 }
 
-/**
- * Paginación de los listados.
- *
- * El bloque `Pagination.Root` + `ButtonGroup` + `IconButton` con el estado
- * seleccionado en `brand.500` estaba copiado en 6 páginas de listado.
- */
+/* ─────────────────────── Estado, paginación y filtros ──────────────────── */
+
+export function BannerError({
+  children,
+  mb = "6",
+}: {
+  children: ReactNode;
+  mb?: string;
+}) {
+  return (
+    <Box
+      role="alert"
+      bg="red.50"
+      color="red.fg"
+      borderWidth="1px"
+      borderColor="red.200"
+      rounded="md"
+      px="4"
+      py="3"
+      mb={mb}
+      fontSize="sm"
+      fontWeight="medium"
+      display="flex"
+      alignItems="flex-start"
+      gap="2"
+    >
+      <Box as="span" mt="0.5" flexShrink={0} aria-hidden>
+        <LuTriangleAlert size={16} />
+      </Box>
+      <Box>{children}</Box>
+    </Box>
+  );
+}
+
+export function BannerExito({
+  children,
+  mb = "6",
+}: {
+  children: ReactNode;
+  mb?: string;
+}) {
+  return (
+    <Box
+      role="status"
+      bg="green.50"
+      color="green.fg"
+      borderWidth="1px"
+      borderColor="green.200"
+      rounded="md"
+      px="4"
+      py="3"
+      mb={mb}
+      fontSize="sm"
+      fontWeight="medium"
+      display="flex"
+      alignItems="flex-start"
+      gap="2"
+    >
+      <Box as="span" mt="0.5" flexShrink={0} aria-hidden>
+        <LuCircleCheck size={16} />
+      </Box>
+      <Box>{children}</Box>
+    </Box>
+  );
+}
+
 export function Paginacion({
   count,
   page,
@@ -423,7 +654,7 @@ export function Paginacion({
       pageSize={pageSize}
       page={page}
       onPageChange={(e) => onPageChange(e.page)}
-      mt="4"
+      mt="6"
     >
       <HStack justify="center">
         <ButtonGroup variant="ghost" size="sm">
@@ -434,10 +665,11 @@ export function Paginacion({
                 <IconButton
                   aria-label={`Página ${pageItem.value}`}
                   bg={isSelected ? "brand.500" : "transparent"}
-                  color={isSelected ? "white" : "brand.500"}
+                  color={isSelected ? "white" : "brand.fg"}
                   borderWidth={isSelected ? "0" : "1px"}
-                  borderColor="brand.500"
-                  _hover={{ bg: isSelected ? "brand.500" : "brand.500/10" }}
+                  borderColor="border"
+                  rounded="md"
+                  _hover={{ bg: isSelected ? "brand.500" : "brand.subtle" }}
                 >
                   {pageItem.value}
                 </IconButton>
@@ -450,33 +682,27 @@ export function Paginacion({
   );
 }
 
-/**
- * Interruptor "Ver dados de baja" de los listados.
- *
- * Repetido en 6 páginas con el mismo `Switch` y el `Switch.Label` que
- * cambia de color según el estado.
- */
 export function ToggleInactivos({
   checked,
   onChange,
-  children = "Ver dados de baja",
+  children = "Ver dadas de baja",
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   children?: ReactNode;
 }) {
   return (
-    <HStack justify="flex-end" mb="5">
+    <HStack justify="flex-end" mb="6">
       <Switch.Root
         checked={checked}
         onCheckedChange={(e) => onChange(e.checked)}
-        colorPalette="gray"
+        colorPalette="neutral"
       >
         <Switch.HiddenInput />
         <Switch.Control />
         <Switch.Label
           fontSize="sm"
-          color={checked ? "red.600" : "gray.600"}
+          color="fg.muted"
           fontWeight={checked ? "bold" : "normal"}
         >
           {children}
@@ -487,38 +713,17 @@ export function ToggleInactivos({
 }
 
 /**
- * Superficie blanca de los formularios de alta y edición.
- *
- * `bg="white" p="8" rounded="xl" boxShadow="card" mb="8"` estaba copiado en
- * los 9 `*Form.tsx` del proyecto.
+ * Aviso de operación exitosa antes de volver al listado.
+ * Usa `Dialog` para que traiga foco atrapado y roles ARIA; no tiene acción
+ * de cierre, conserva el comportamiento de "mostrar y redirigir".
  */
-export function TarjetaFormulario({ children, ...rest }: BoxProps) {
-  return (
-    <Box bg="white" p="8" rounded="xl" boxShadow="card" mb="8" {...rest}>
-      {children}
-    </Box>
-  );
-}
-
-/** Título de los formularios de alta y edición. */
-export function TituloFormulario({ children }: { children: ReactNode }) {
-  return (
-    <Heading as="h3" mt={0} fontSize="2xl" fontWeight="bold" color="brand.500" mb="6">
-      {children}
-    </Heading>
-  );
-}
-
-/**
- * Aviso de operación exitosa que se muestra antes de volver al listado.
- *
- * Reemplaza al overlay escrito a mano (`position: fixed`, `inset: 0`,
- * `rgba(0,0,0,0.4)`, `zIndex: 1000`, tarjeta blanca centrada) que estaba
- * duplicado en las páginas de alta y de edición de casi todas las features.
- * Al usar `Dialog` gana foco atrapado y roles ARIA; y como no tiene acción
- * de cierre, conserva el comportamiento original de mostrar y redirigir.
- */
-export function DialogoExito({ isOpen, mensaje }: { isOpen: boolean; mensaje: string }) {
+export function DialogoExito({
+  isOpen,
+  mensaje,
+}: {
+  isOpen: boolean;
+  mensaje: string;
+}) {
   if (!isOpen) return null;
 
   return (
@@ -530,21 +735,21 @@ export function DialogoExito({ isOpen, mensaje }: { isOpen: boolean; mensaje: st
       closeOnInteractOutside={false}
     >
       <DialogContent
-        width="350px"
-        maxWidth="350px"
+        width="400px"
+        maxWidth="400px"
         p="8"
-        rounded="l2"
-        bg="white"
+        rounded="lg"
+        bg="bg.panel"
         textAlign="center"
         boxShadow="dialog"
       >
-        <Text fontSize="3xl" mb="2" aria-hidden>
-          ✅
-        </Text>
-        <DialogTitle fontSize="2xl" fontWeight="bold" color="green.600">
+        <Box color="green.fg" display="flex" justifyContent="center" mb="2" aria-hidden>
+          <LuCircleCheck size={32} />
+        </Box>
+        <DialogTitle fontSize="lg" fontWeight="bold" color="green.fg">
           Éxito
         </DialogTitle>
-        <Text mt="3" color="gray.600" fontSize="md">
+        <Text mt="3" color="fg.muted" fontSize="sm">
           {mensaje}
         </Text>
       </DialogContent>

@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function PlanLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -24,15 +29,16 @@ export function PlanLimpiezaCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="650px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo Plan de Limpieza
-        </Heading>
-        <BotonVolver onClick={() => navigate("/planes-limpieza")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+    <Box p="5" maxW="600px" mx="auto">
+      <PageHeader
+        title="Nuevo Plan de Limpieza"
+        description="Definí las tareas, con qué frecuencia se repiten y a qué equipo aplican."
+        actions={
+          <BotonVolver onClick={() => navigate("/planes-limpieza")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && <BannerError>{error}</BannerError>}
 

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, HStack, Spinner, Table, Text } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 import {
   BannerError,
   BotonTabla,
@@ -7,6 +7,7 @@ import {
   Celda,
   EncabezadoOscuro,
   FilaEncabezado,
+  PageHeader,
   Tarjeta,
 } from "../../../components/ui/patrones";
 import { useDocumentos } from "../hooks/useDocumentos";
@@ -19,29 +20,22 @@ export function DocumentosPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Documentos
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/documentos/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
+      <PageHeader
+        title="Documentos"
+        description="Manuales, procedimientos y registros del sistema de calidad."
+        actions={
+          <Button colorPalette="brand" onClick={() => navigate("/documentos/nuevo")}>
+            + Agregar
+          </Button>
+        }
+      />
 
       {loading && <Spinner color="brand.500" />}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && documentos.length === 0 && (
-        <Tarjeta p={8} textAlign="center">
-          <Text color="gray.500">Todavía no hay documentos cargados.</Text>
+        <Tarjeta p="6" textAlign="center">
+          <Text color="fg.muted">Todavía no hay documentos cargados.</Text>
         </Tarjeta>
       )}
 
@@ -62,13 +56,9 @@ export function DocumentosPage() {
                 const vigente = doc.version_vigente;
                 return (
                   <Table.Row key={doc.id}>
-                    <Celda p="3" fontSize="md">
-                      {doc.nombre}
-                    </Celda>
-                    <Celda p="3" fontSize="md">
-                      {etiquetaTipo(doc.tipo)}
-                    </Celda>
-                    <Celda p="3" fontSize="md">
+                    <Celda p="3">{doc.nombre}</Celda>
+                    <Celda p="3">{etiquetaTipo(doc.tipo)}</Celda>
+                    <Celda p="3">
                       {vigente ? (
                         <>
                           <BotonTexto
@@ -80,19 +70,17 @@ export function DocumentosPage() {
                           >
                             v{vigente.numero_version}
                           </BotonTexto>{" "}
-                          <Text as="span" color="gray.500" fontSize="xs">
+                          <Text as="span" color="fg.muted" fontSize="xs">
                             (desde {fechaCorta(vigente.vigente_desde)})
                           </Text>
                         </>
                       ) : (
-                        <Text as="span" color="gray.400">
+                        <Text as="span" color="fg.subtle">
                           Sin vigente
                         </Text>
                       )}
                     </Celda>
-                    <Celda p="3" fontSize="md">
-                      {doc.cantidad_archivadas}
-                    </Celda>
+                    <Celda p="3">{doc.cantidad_archivadas}</Celda>
                     <Celda p="3" center>
                       <HStack justify="center" gap="2">
                         <BotonTabla
@@ -101,22 +89,12 @@ export function DocumentosPage() {
                         >
                           Subir nueva versión
                         </BotonTabla>
-                        {/* Acción de marca: `BotonTabla` no tiene una paleta
-                            "principal" para este caso (ver informe). */}
-                        <Button
-                          type="button"
-                          colorPalette="brand"
-                          variant="solid"
-                          size="sm"
-                          fontWeight="normal"
-                          h="auto"
-                          px="3"
-                          py="1.5"
-                          rounded="md"
+                        <BotonTabla
+                          accion="historial"
                           onClick={() => navigate(`/documentos/${doc.id}/historial`)}
                         >
                           Ver historial
-                        </Button>
+                        </BotonTabla>
                       </HStack>
                     </Celda>
                   </Table.Row>

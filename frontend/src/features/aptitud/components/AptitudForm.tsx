@@ -1,6 +1,15 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input, Textarea } from "@chakra-ui/react";
+import { Box, Textarea } from "@chakra-ui/react";
 import type { AptitudFormValues } from "../types/aptitud";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+  FormInput,
+  TarjetaFormulario,
+  TituloFormulario,
+} from "../../../components/ui/patrones";
 
 interface AptitudFormProps {
   initialValues?: AptitudFormValues;
@@ -14,22 +23,9 @@ interface AptitudFormProps {
 const emptyValues: AptitudFormValues = { nombre: "", descripcion: "" };
 
 /**
- * Estilo de input de formulario, expresado con tokens del tema.
- * Reemplaza al objeto `estiloInput` de tokens.ts. Cuando el resto de
- * las features migre, esto sube a una receta del tema.
+ * El aspecto de los controles lo dan `FormInput` y la receta del tema; acá no
+ * hay objetos de estilo. El ancho (`maxW="500px"`) es una decisión de layout.
  */
-const propsFormulario = {
-  input: {
-    w: "100%",
-    maxW: "500px",
-    p: "3",
-    rounded: "lg",
-    borderWidth: "2px",
-    borderColor: "brand.300",
-    _focus: { borderColor: "brand.500" },
-  },
-} as const;
-
 export function AptitudForm({
   initialValues = emptyValues,
   onSubmit,
@@ -46,70 +42,42 @@ export function AptitudForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="0 4px 6px rgba(0,0,0,0.05)"
-      mb="8"
-    >
-      <Box as="h3" mt={0} fontSize="22px" color="brand.500" fontWeight="bold" mb="5">{title}</Box>
+    <Box as="form" onSubmit={handleSubmit}>
+      <TarjetaFormulario>
+        <TituloFormulario>{title}</TituloFormulario>
 
-      <Box mb="5">
-        <Field.Root required>
-          <Field.Label display="block" fontSize="14px" fontWeight="bold" mb="2" color="gray.600">NOMBRE *</Field.Label>
-          <Input
+        <FormField label="Nombre" required mb="4">
+          <FormInput
             value={values.nombre}
             onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
             placeholder="Ej: Carnet de Manipulador"
-            {...propsFormulario.input}
+            maxW="500px"
           />
-        </Field.Root>
-      </Box>
+        </FormField>
 
-      <Box mb="5">
-        <Field.Root>
-          <Field.Label display="block" fontSize="14px" fontWeight="bold" mb="2" color="gray.600">DESCRIPCIÓN</Field.Label>
+        <FormField
+          label="Descripción"
+          helper="Opcional: qué certifica esta aptitud."
+          mb="0"
+        >
           <Textarea
             value={values.descripcion || ""}
             onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
             placeholder="Opcional: qué certifica esta aptitud"
             minH="80px"
-            {...propsFormulario.input}
+            maxW="500px"
           />
-        </Field.Root>
-      </Box>
+        </FormField>
 
-      <HStack gap="15px">
-        <Button
-          type="submit"
-          loading={isLoading}
-          colorPalette="brand"
-          rounded="lg"
-          fontWeight="bold"
-          px="6"
-          py="3"
-        >
-          {submitLabel}
-        </Button>
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            bg="gray.200"
-            color="gray.800"
-            rounded="lg"
-            fontWeight="bold"
-            px="6"
-            py="3"
-            _hover={{ bg: "gray.300" }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+        <AccionesFormulario>
+          <BotonGuardar loading={isLoading} disabled={!values.nombre.trim()}>
+            {submitLabel}
+          </BotonGuardar>
+          {onCancel && (
+            <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>
+          )}
+        </AccionesFormulario>
+      </TarjetaFormulario>
     </Box>
   );
 }

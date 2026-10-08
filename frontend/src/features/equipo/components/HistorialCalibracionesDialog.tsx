@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
+import { Box, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 
 import { apiFetchImagen } from "../../../common/api/apiClient";
 import {
+  BotonCancelar,
   BotonTexto,
   Celda,
   EncabezadoOscuro,
@@ -59,7 +60,7 @@ function BotonVerCertificado({ ruta }: { ruta: string }) {
         {cargando ? "Abriendo…" : "Ver archivo"}
       </BotonTexto>
       {error && (
-        <Text color="gray.400" fontSize="xs">
+        <Text color="red.fg" fontSize="xs">
           {error}
         </Text>
       )}
@@ -129,18 +130,25 @@ export function HistorialCalibracionesDialog({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        bg="white"
+        bg="bg.panel"
         p="6"
-        rounded="l2"
+        rounded="lg"
         boxShadow="dialog"
-        width="650px"
-        maxWidth="650px"
+        width="400px"
+        maxWidth="90vw"
         maxHeight="80vh"
         display="flex"
         flexDirection="column"
       >
-        <DialogTitle as="h3" mt={0} mb="4" fontWeight="bold" color="brand.500">
-          Historial de Calibraciones: <br />
+        <DialogTitle
+          as="h3"
+          mt={0}
+          mb="4"
+          fontSize="lg"
+          fontWeight="bold"
+          color="fg"
+        >
+          Historial de calibraciones: <br />
           <strong>{equipo.nombre}</strong>
         </DialogTitle>
 
@@ -150,11 +158,11 @@ export function HistorialCalibracionesDialog({
               <Spinner color="brand.500" />
             </HStack>
           ) : error ? (
-            <Text color="red.600" textAlign="center" p="5" role="alert">
+            <Text color="red.fg" textAlign="center" p="5" role="alert">
               {error}
             </Text>
           ) : historial.length === 0 ? (
-            <Text color="gray.400" textAlign="center" p="5">
+            <Text color="fg.subtle" textAlign="center" p="5">
               No hay calibraciones registradas para este equipo.
             </Text>
           ) : (
@@ -171,7 +179,7 @@ export function HistorialCalibracionesDialog({
                   <Table.Row
                     key={calib.id}
                     borderBottomWidth="1px"
-                    borderColor="gray.100"
+                    borderColor="border.subtle"
                   >
                     <Celda p="3" center>
                       {calib.fecha_realizacion}
@@ -190,21 +198,7 @@ export function HistorialCalibracionesDialog({
         </Box>
 
         <HStack justify="center">
-          <Button
-            type="button"
-            onClick={onClose}
-            height="auto"
-            minW="auto"
-            px="6"
-            py="2"
-            rounded="md"
-            bg="gray.200"
-            color="gray.800"
-            fontWeight="bold"
-            _hover={{ bg: "gray.300" }}
-          >
-            Cerrar
-          </Button>
+          <BotonCancelar onClick={onClose}>Cerrar</BotonCancelar>
         </HStack>
       </DialogContent>
     </DialogRoot>

@@ -2,16 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   Field,
-  Heading,
   HStack,
+  IconButton,
   Image,
-  Input,
-  NativeSelect,
   Spinner,
   Table,
   Text,
 } from "@chakra-ui/react";
+import {
+  LuCalendarClock,
+  LuCheck,
+  LuChevronDown,
+  LuChevronUp,
+  LuLock,
+  LuPaperclip,
+  LuRefreshCw,
+  LuX,
+} from "react-icons/lu";
 import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
@@ -21,10 +30,26 @@ import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/servi
 import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
 import {
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../../components/ui/dialog";
+import {
   BadgeEstado,
+  BannerError,
+  BotonCancelar,
   BotonTexto,
   Celda,
   ColumnaHeader,
+  EstadoCargando,
+  EstadoVacio,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  LabelFiltro,
+  MensajeError,
+  PageHeader,
+  SelectPlaceholder,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 
@@ -234,24 +259,32 @@ function FilaTarea({
           <Text fontWeight="bold">{tarea.nombre}</Text>
 
           {tarea.descripcion && (
-            <Box mt="4px">
-              <BotonTexto onClick={() => setMostrarProcedimiento((v) => !v)}>
+            <Box mt="1">
+              <BotonTexto
+                onClick={() => setMostrarProcedimiento((v) => !v)}
+                aria-expanded={mostrarProcedimiento}
+              >
                 {mostrarProcedimiento
-                  ? "Ocultar procedimiento ▲"
-                  : "Ver procedimiento ▾"}
+                  ? "Ocultar procedimiento"
+                  : "Ver procedimiento"}
+                {mostrarProcedimiento ? (
+                  <LuChevronUp aria-hidden />
+                ) : (
+                  <LuChevronDown aria-hidden />
+                )}
               </BotonTexto>
               {mostrarProcedimiento && (
                 <Box
-                  mt="6px"
-                  p="10px 12px"
-                  bg="gray.50"
-                  border="1px solid"
+                  mt="2"
+                  p="3"
+                  bg="bg.subtle"
+                  borderWidth="1px"
                   borderColor="brand.200"
                   rounded="md"
-                  maxW="550px"
+                  maxW="500px"
                   whiteSpace="pre-line"
-                  fontSize="13px"
-                  color="gray.800"
+                  fontSize="sm"
+                  color="fg"
                 >
                   {tarea.descripcion}
                 </Box>
@@ -262,161 +295,115 @@ function FilaTarea({
           {/* Opciones de Insumo Químico y Elemento de Limpieza */}
           {!tarea.completado && !esCerrado && (
             <Box
-              mt="10px"
-              p="10px"
-              bg="gray.50"
-              border="1px solid"
+              mt="3"
+              p="3"
+              bg="bg.subtle"
+              borderWidth="1px"
               borderColor="brand.200"
               rounded="md"
-              maxW="550px"
+              maxW="500px"
             >
               {/* Selector de Elemento de Limpieza */}
-              <Box mb="10px">
-                <Text fontSize="12px" fontWeight="bold" color="gray.600" mb="4px">
-                  Elemento de limpieza utilizado
-                </Text>
-                <NativeSelect.Root
-                  w="100%"
+              <FormField label="Elemento de limpieza utilizado" mb="4">
+                <FormNativeSelect
+                  value={elementoSeleccionado}
+                  onChange={(e) => setElementoSeleccionado(e.target.value)}
                   maxW="350px"
-                  rounded="md"
                 >
-                  <NativeSelect.Field
-                    value={elementoSeleccionado}
-                    onChange={(e) => setElementoSeleccionado(e.target.value)}
-                    p="7px 10px"
-                    borderWidth={1}
-                    borderColor="brand.300"
-                    bg="white"
-                    fontSize="13px"
-                  >
-                    <option value="">Sin elemento específico</option>
-                    {elementosLimpieza.map((elem) => (
-                      <option key={elem.id} value={elem.id}>
-                        {elem.nombre}
-                      </option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </Box>
+                  <SelectPlaceholder value="">
+                    Sin elemento específico
+                  </SelectPlaceholder>
+                  {elementosLimpieza.map((elem) => (
+                    <option key={elem.id} value={elem.id}>
+                      {elem.nombre}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
 
               {/* Selector de Insumo Químico */}
-              <Text fontSize="12px" fontWeight="bold" color="gray.600" mb="4px">
-                Producto químico utilizado
-              </Text>
-              <NativeSelect.Root
-                w="100%"
-                maxW="350px"
-                rounded="md"
-              >
-                <NativeSelect.Field
+              <FormField label="Producto químico utilizado" mb="4">
+                <FormNativeSelect
                   value={insumoSeleccionado}
                   onChange={(e) => {
                     setInsumoSeleccionado(e.target.value);
                     setCantidadConsumida("");
                     setErrorConsumo(null);
                   }}
-                  p="7px 10px"
-                  borderWidth={1}
-                  borderColor="brand.300"
-                  bg="white"
-                  fontSize="13px"
+                  maxW="350px"
                 >
-                  <option value="">Sin producto químico</option>
+                  <SelectPlaceholder value="">
+                    Sin producto químico
+                  </SelectPlaceholder>
                   {insumosQuimicos.map((insumo) => (
                     <option key={insumo.id} value={insumo.id}>
                       {insumo.nombre} — {unidadMedidaLabel(insumo)}
                     </option>
                   ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
+                </FormNativeSelect>
+              </FormField>
 
               {insumoSeleccionado && (
-                <Box mt="8px">
-                  <Text fontSize="12px" fontWeight="bold" color="gray.600" mb="4px">
-                    Cantidad aproximada consumida
-                  </Text>
-                  <HStack gap="8px">
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={cantidadConsumida}
-                      onChange={(e) => {
-                        setCantidadConsumida(e.target.value);
-                        setErrorConsumo(null);
-                      }}
-                      placeholder="Ej: 2"
-                      w="130px"
-                      p="6px 8px"
-                      rounded="md"
-                      borderWidth={1}
-                      borderColor="brand.300"
-                      bg="white"
-                      fontSize="13px"
-                    />
-                    {insumoActual && (
-                      <Text fontSize="13px" fontWeight="bold" color="brand.500">
-                        {unidadMedidaLabel(insumoActual)}
-                      </Text>
-                    )}
-                  </HStack>
+                <Box mt="2">
+                  <FormField label="Cantidad aproximada consumida" mb="0">
+                    <Box display="flex" alignItems="center" gap="2">
+                      <FormInput
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={cantidadConsumida}
+                        onChange={(e) => {
+                          setCantidadConsumida(e.target.value);
+                          setErrorConsumo(null);
+                        }}
+                        placeholder="Ej: 2"
+                        w="130px"
+                      />
+                      {insumoActual && (
+                        <Text fontSize="sm" fontWeight="bold" color="brand.fg">
+                          {unidadMedidaLabel(insumoActual)}
+                        </Text>
+                      )}
+                    </Box>
+                  </FormField>
                 </Box>
               )}
 
-              {errorConsumo && (
-                <Text
-                  fontSize="12px"
-                  color="red.500"
-                  mt="6px"
-                  fontWeight="bold"
-                >
-                  ⚠️ {errorConsumo}
-                </Text>
-              )}
+              {errorConsumo && <MensajeError>{errorConsumo}</MensajeError>}
             </Box>
           )}
 
           {/* Adjuntar evidencia */}
           {!tarea.completado && !esCerrado && (
-            <Box mt="8px">
-              <Input
+            <Box mt="2">
+              <FormInput
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
                 display="none"
                 id={idInputEvidencia}
                 onChange={handleEvidenciaChange}
               />
-              <HStack gap="10px">
-                <Button
-                  type="button"
-                  size="xs"
-                  bg="gray.200"
-                  border="none"
-                  rounded="4px"
+              <Box display="flex" alignItems="center" gap="3">
+                <BotonCancelar
                   onClick={() =>
                     document.getElementById(idInputEvidencia)?.click()
                   }
                 >
-                  Adjuntar Evidencia
-                </Button>
+                  <LuPaperclip aria-hidden />
+                  Adjuntar evidencia
+                </BotonCancelar>
                 {archivoEvidencia && (
-                  <Text fontSize="12px" color="brand.500" fontWeight="bold">
-                    {archivoEvidencia.name} (Lista para enviar)
+                  <Text fontSize="sm" color="brand.fg" fontWeight="bold">
+                    {archivoEvidencia.name} (lista para enviar)
                   </Text>
                 )}
-              </HStack>
+              </Box>
 
-              {errorEvidencia && (
-                <Text fontSize="12px" color="red.500" mt="6px" fontWeight="bold">
-                  ⚠️ {errorEvidencia}
-                </Text>
-              )}
+              {errorEvidencia && <MensajeError>{errorEvidencia}</MensajeError>}
 
               {/* Vista previa de la foto elegida, con opción de quitarla */}
               {previewEvidencia && (
-                <Box mt="10px" position="relative" display="inline-block">
+                <Box mt="3" position="relative" display="inline-block">
                   <Image
                     src={previewEvidencia}
                     alt="Vista previa de la evidencia"
@@ -427,26 +414,19 @@ function FilaTarea({
                     borderColor="brand.300"
                     display="block"
                   />
-                  <Button
+                  <IconButton
                     type="button"
                     onClick={limpiarEvidencia}
                     aria-label="Quitar evidencia"
                     position="absolute"
-                    top="-8px"
-                    right="-8px"
+                    top="-2"
+                    right="-2"
                     size="xs"
-                    minW="22px"
-                    height="22px"
-                    padding="0"
                     rounded="full"
-                    bg="red.600"
-                    color="white"
-                    fontWeight="bold"
-                    lineHeight="1"
-                    _hover={{ bg: "red.700" }}
+                    colorPalette="red"
                   >
-                    ✕
-                  </Button>
+                    <LuX />
+                  </IconButton>
                 </Box>
               )}
             </Box>
@@ -457,44 +437,62 @@ function FilaTarea({
           {isLoading ? (
             <Spinner size="sm" color="brand.500" />
           ) : esFuturo ? (
-            <Text fontSize="13px" color="gray.400">
+            <Text fontSize="sm" color="fg.subtle">
               —
             </Text>
           ) : esHistorico ? (
-            <Text
-              fontSize="17px"
-              fontWeight="bold"
-              color={tarea.completado ? "green.600" : "red.700"}
+            <Box
+              display="inline-flex"
+              color={tarea.completado ? "green.fg" : "red.fg"}
+              role="img"
+              aria-label={
+                tarea.completado
+                  ? "Completada (checklist cerrado)"
+                  : "No completada (checklist cerrado)"
+              }
               title={
                 tarea.completado
                   ? "Completada (checklist cerrado)"
                   : "No completada (checklist cerrado)"
               }
             >
-              {tarea.completado ? "✔" : "✕"}
-            </Text>
+              {tarea.completado ? <LuCheck size={22} /> : <LuX size={22} />}
+            </Box>
           ) : (
             <Box
               display="flex"
               flexDirection="column"
               alignItems="center"
-              gap="4px"
+              gap="1"
             >
-              <Input
-                type="checkbox"
+              {/*
+                Era un `<Input type="checkbox">`: la receta `input` del tema le
+                pone `appearance: none`, borde de 2px y fondo blanco, así que
+                el tilde nunca se dibujaba. `Checkbox` de Chakra trae su propio
+                control con el indicador, y sigue siendo controlado por
+                `tarea.completado`: si la validación del consumo falla, la
+                casilla queda sin marcar.
+              */}
+              <Checkbox.Root
                 checked={tarea.completado}
-                onChange={handleCheckboxClick}
-                w="18px"
-                h="18px"
+                onCheckedChange={handleCheckboxClick}
+                colorPalette="brand"
                 cursor="pointer"
-              />
+              >
+                <Checkbox.HiddenInput
+                  aria-label={`Marcar "${tarea.nombre}" como completada`}
+                />
+                <Checkbox.Control cursor="pointer">
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+              </Checkbox.Root>
               {tarea.evidencia_url && (
                 <BotonTexto onClick={() => setMostrarFoto(true)}>
                   Ver foto
                 </BotonTexto>
               )}
               {tarea.registro_id > 0 && (
-                <BotonTexto color="gray.400" onClick={verHistorial}>
+                <BotonTexto color="fg.muted" onClick={verHistorial}>
                   Historial
                 </BotonTexto>
               )}
@@ -503,104 +501,106 @@ function FilaTarea({
         </Celda>
       </Table.Row>
 
+      {/*
+        Los dos modales eran `Box position="fixed"` armados a mano, y además
+        quedaban dentro del `<tbody>` (un `div` dentro de una tabla). Con
+        `Dialog` van en un portal, atrapan el foco y se ven igual que el resto
+        de los diálogos de la app.
+      */}
       {mostrarFoto && (
-        <Box
-          position="fixed"
-          inset={0}
-          bg="blackAlpha.700"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          zIndex={2000}
-          p="20px"
+        <DialogRoot
+          open
+          placement="center"
+          motionPreset="none"
+          closeOnEscape={false}
+          closeOnInteractOutside={false}
         >
-          <Box
-            bg="white"
-            p="25px"
-            rounded="xl"
-            boxShadow="0 10px 25px rgba(0,0,0,0.3)"
-            maxW="90%"
-            maxH="90%"
-            display="flex"
-            flexDirection="column"
+          <DialogContent
+            bg="bg.panel"
+            p="6"
+            rounded="lg"
+            boxShadow="dialog"
+            width="auto"
+            minW="320px"
+            maxW="90vw"
+            maxH="90vh"
             alignItems="center"
-            gap="15px"
+            gap="4"
           >
-            {imagen.loading && (
-              <Text fontSize="14px" color="gray.500">
-                Cargando imagen...
-              </Text>
-            )}
+            <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
+              Evidencia fotográfica
+            </DialogTitle>
+            {imagen.loading && <EstadoCargando>Cargando imagen...</EstadoCargando>}
             {!imagen.loading && imagen.error && (
-              <Text fontSize="14px" color="red.500">
-                {imagen.error}
-              </Text>
+              <MensajeError>{imagen.error}</MensajeError>
             )}
             {imagen.src && (
               <Image
                 src={imagen.src}
                 alt="Evidencia fotográfica"
                 maxW="100%"
-                maxH="70vh"
+                maxH="60vh"
                 objectFit="contain"
                 rounded="lg"
               />
             )}
-            <Button
-              onClick={() => setMostrarFoto(false)}
-              colorPalette="brand"
-              p="8px 24px"
-              rounded="md"
-              fontWeight="bold"
-              height="auto"
-            >
-              Volver
-            </Button>
-          </Box>
-        </Box>
+            <BotonCancelar onClick={() => setMostrarFoto(false)}>
+              Cerrar
+            </BotonCancelar>
+          </DialogContent>
+        </DialogRoot>
       )}
 
       {historial && (
-        <Box
-          position="fixed"
-          inset={0}
-          bg="blackAlpha.700"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          zIndex={2100}
-          p="20px"
+        <DialogRoot
+          open
+          placement="center"
+          motionPreset="none"
+          closeOnEscape={false}
+          closeOnInteractOutside={false}
         >
-          <Box
-            bg="white"
-            p="20px"
-            rounded="10px"
-            maxW="480px"
-            w="100%"
+          <DialogContent
+            bg="bg.panel"
+            p="6"
+            rounded="lg"
+            boxShadow="dialog"
+            width="400px"
+            maxW="90vw"
             maxH="80vh"
             overflowY="auto"
+            textAlign="left"
           >
-            <Text fontWeight="bold" mb="12px">
+            <DialogTitle fontSize="lg" fontWeight="bold" color="brand.fg" mb="4">
               Historial de cambios — {tarea.nombre}
-            </Text>
+            </DialogTitle>
             {cargandoHistorial ? (
-              <Spinner size="sm" color="brand.500" />
+              <EstadoCargando>Cargando historial...</EstadoCargando>
             ) : historial.length === 0 ? (
-              <Text fontSize="13px" color="gray.500">
+              <Text fontSize="sm" color="fg.muted">
                 Sin eventos registrados todavía.
               </Text>
             ) : (
               historial.map((ev) => (
                 <Box
                   key={ev.id}
-                  borderBottom="1px solid"
-                  borderColor="gray.100"
-                  p="8px 0"
+                  borderBottomWidth="1px"
+                  borderColor="border.subtle"
+                  py="2"
                 >
-                  <Text fontSize="13px">
-                    {ev.completado ? "✔ Marcada" : "✕ Desmarcada"} —{" "}
+                  <HStack gap="2" align="center" fontSize="sm" fontWeight="bold">
+                    <Box
+                      as="span"
+                      display="inline-flex"
+                      color={ev.completado ? "green.fg" : "red.fg"}
+                      aria-hidden
+                    >
+                      {ev.completado ? <LuCheck size={16} /> : <LuX size={16} />}
+                    </Box>
+                    <Text as="span" color="fg">
+                      {ev.completado ? "Marcada" : "Desmarcada"}
+                    </Text>
+                  </HStack>
+                  <Text fontSize="xs" color="fg.muted" mt="1">
                     {new Date(ev.fecha_evento).toLocaleString()}
                     {ev.usuario_nombre ? ` · por ${ev.usuario_nombre}` : ""}
                     {ev.evidencia_url ? " · con foto adjunta" : ""}
@@ -608,11 +608,13 @@ function FilaTarea({
                 </Box>
               ))
             )}
-            <Button mt="12px" colorPalette="brand" onClick={() => setHistorial(null)}>
-              Cerrar
-            </Button>
-          </Box>
-        </Box>
+            <HStack mt="6">
+              <BotonCancelar onClick={() => setHistorial(null)}>
+                Cerrar
+              </BotonCancelar>
+            </HStack>
+          </DialogContent>
+        </DialogRoot>
       )}
     </>
   );
@@ -665,152 +667,116 @@ export function ChecklistPage() {
   };
 
   return (
-    <Box p="20px">
-      <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
-        <Box>
-          <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-            Checklist Diario de Limpieza
-          </Heading>
-          <Text color="gray.600" fontSize="14px" mt="2px">
-            Control, persistencia e historial auditable por fecha, para todos los equipos.
-          </Text>
-        </Box>
-        <Button
-          bg="gray.200"
-          color="gray.800"
-          fontSize="14px"
-          fontWeight="bold"
-          height="auto"
-          onClick={recargar}
-          p="8px 16px"
-          rounded="md"
-          _hover={{ bg: "gray.300" }}
-        >
-          Actualizar
-        </Button>
-      </HStack>
+    <Box p="5">
+      <PageHeader
+        title="Checklist diario de limpieza"
+        description="Control, persistencia e historial auditable por fecha, para todos los equipos."
+        actions={
+          <BotonCancelar onClick={recargar}>
+            <LuRefreshCw aria-hidden />
+            Actualizar
+          </BotonCancelar>
+        }
+      />
 
-      <Box
-        bg="white"
-        p="20px"
-        rounded="10px"
-        boxShadow="0 2px 6px rgba(0,0,0,0.05)"
-        mb="25px"
-      >
+      <Tarjeta p="4" mb="6">
         <Box minW="180px">
           <Field.Root>
-            <Box
-              as="label"
-              display="block"
-              fontSize="14px"
-              fontWeight="bold"
-              mb="6px"
-              color="gray.600"
-            >
-              FECHA
-            </Box>
-            <Input
+            <LabelFiltro>Fecha</LabelFiltro>
+            <FormInput
               type="date"
               value={selectedFecha}
               onChange={(e) => setSelectedFecha(e.target.value)}
-              p="10px 14px"
-              rounded="lg"
-              borderWidth={2}
-              borderColor="brand.300"
-              fontSize="15px"
               w="auto"
             />
           </Field.Root>
         </Box>
-      </Box>
+      </Tarjeta>
 
-      {error && (
-        <Box
-          bg="red.100"
-          color="red.800"
-          p="12px"
-          rounded="lg"
-          mb="20px"
-          border="1px solid"
-          borderColor="red.200"
-          fontWeight="bold"
-        >
-          ⚠️ {error}
-        </Box>
-      )}
+      {error && <BannerError>{error}</BannerError>}
 
-      {loading && (
-        <HStack justify="center" p={10}>
-          <Spinner size="lg" color="brand.500" />
-          <Text color="gray.600">Cargando tareas...</Text>
-        </HStack>
-      )}
+      {loading && <EstadoCargando>Cargando tareas...</EstadoCargando>}
 
       {!loading && grupos.length === 0 && !error && (
-        <Box bg="white" rounded="lg" p={10} textAlign="center">
-          <Text fontSize="16px" color="gray.600">
-            No hay tareas de limpieza programadas para la fecha seleccionada.
-          </Text>
-        </Box>
+        <EstadoVacio>
+          No hay tareas de limpieza programadas para la fecha seleccionada.
+        </EstadoVacio>
       )}
 
       {!loading && grupos.length > 0 && (
         <>
-          <HStack justify="space-between" mb="16px">
-            <Text fontSize="14px" color="gray.600">
-              Progreso general: <strong>{tareasCompletadas}</strong> de{" "}
-              <strong>{totalTareas}</strong> tareas completadas.
-            </Text>
-          </HStack>
+          <Text fontSize="sm" color="fg.muted" mb="4">
+            Progreso general: <strong>{tareasCompletadas}</strong> de{" "}
+            <strong>{totalTareas}</strong> tareas completadas.
+          </Text>
 
           {grupos.map((grupo) => {
             const colapsado = !gruposExpandidos.has(grupo.key);
             return (
-              <Tarjeta key={grupo.key} mb="20px">
-                <Box
+              <Tarjeta key={grupo.key} mb="6">
+                {/*
+                  Era un `div` con `role="button"`: no respondía al teclado y no
+                  se podía enfocar con Tab. Ahora es un `<button>` real, que
+                  trae Enter y Espacio de vuelta. `brand.600` para que el
+                  blanco llegue a 4.5:1, igual que la franja de las tablas.
+                */}
+                <Button
+                  type="button"
                   onClick={() => toggleGrupo(grupo.key)}
-                  role="button"
                   aria-expanded={!colapsado}
-                  bg="brand.500"
-                  p="12px 16px"
+                  variant="ghost"
+                  bg="brand.600"
+                  color="white"
+                  _hover={{ bg: "brand.700" }}
+                  w="100%"
+                  h="auto"
+                  px="4"
+                  py="3"
+                  rounded="none"
+                  justifyContent="space-between"
+                  textAlign="left"
                   cursor="pointer"
                   userSelect="none"
                 >
-                  <HStack justify="space-between">
-                    <HStack gap="10px">
-                      <Text
-                        fontSize="13px"
+                  <HStack justify="space-between" align="center" w="100%">
+                    <HStack align="center" gap="3">
+                      <Box
                         color="white"
                         transform={colapsado ? "rotate(-90deg)" : "rotate(0deg)"}
                         transition="transform 0.15s ease"
-                        display="inline-block"
+                        display="inline-flex"
+                        aria-hidden
                       >
-                        ▾
-                      </Text>
+                        <LuChevronDown size={18} />
+                      </Box>
                       <Box>
-                        <Text fontSize="15px" fontWeight="bold" color="white">
+                        <Text fontSize="md" fontWeight="bold" color="white">
                           {grupo.planNombre}
                         </Text>
-                        <Text fontSize="12px" color="brand.100" mt="2px">
+                        <Text fontSize="xs" color="brand.50" mt="1">
                           Equipo: {grupo.equipoNombre}
                         </Text>
                       </Box>
                     </HStack>
 
                     {grupo.tareas[0]?.checklist_estado === "cerrado" && (
-                      <BadgeEstado>🔒 Cerrado (histórico)</BadgeEstado>
+                      <BadgeEstado icono={<LuLock size={12} />}>
+                        Cerrado (histórico)
+                      </BadgeEstado>
                     )}
 
                     {grupo.tareas[0]?.registro_id === 0 && (
-                      <BadgeEstado>📅 Vista previa</BadgeEstado>
+                      <BadgeEstado icono={<LuCalendarClock size={12} />}>
+                        Vista previa
+                      </BadgeEstado>
                     )}
                   </HStack>
-                </Box>
+                </Button>
 
                 {!colapsado && (
                   <Table.Root w="100%">
                     <Table.Header>
-                      <Table.Row bg="brand.100" borderBottom="2px solid" borderColor="brand.300">
+                      <Table.Row bg="brand.100" borderBottomWidth="2px" borderColor="brand.300">
                         <ColumnaHeader>Tarea</ColumnaHeader>
                         <ColumnaHeader center width="140px">
                           Completada

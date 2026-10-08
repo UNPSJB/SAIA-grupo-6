@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
+import { Box, Button, Spinner } from "@chakra-ui/react";
 import { InsumoTable } from "../InsumoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useInsumos } from "../../hooks/useInsumos";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import type { Insumo } from "../../types/insumo";
-import { BannerError, Paginacion, ToggleInactivos } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  PageHeader,
+  Paginacion,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -75,29 +80,22 @@ export function InsumosPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          {verInactivos ? "Insumos Dados de Baja" : "Gestión de Insumos"}
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/insumos/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
-
+      <PageHeader
+        title={
+          verInactivos ? "Insumos dados de baja" : "Gestión de insumos"
+        }
+        description="Alta, modificación y baja de los insumos del laboratorio."
+        actions={
+          <Button colorPalette="brand" onClick={() => navigate("/insumos/nuevo")}>
+            + Agregar
+          </Button>
+        }
+      />
 
       <ToggleInactivos
         checked={verInactivos}
-        
-         onChange={handleToggleInactivos}
-         children="Ver dados de baja"
+        onChange={handleToggleInactivos}
+        children="Ver dados de baja"
       />
 
       {error && <BannerError>{error}</BannerError>}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Heading, HStack, Stack, Spinner, Text } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpieza } from "../../hooks/usePlanLimpieza";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
@@ -10,6 +10,8 @@ import {
   BannerError,
   BannerExito,
   BotonVolver,
+  EstadoCargando,
+  PageHeader,
 } from "../../../../components/ui/patrones";
 
 export function PlanLimpiezaEditPage() {
@@ -46,14 +48,15 @@ export function PlanLimpiezaEditPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Editar Plan de Limpieza
-        </Heading>
-        <BotonVolver onClick={() => navigate("/planes-limpieza")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Editar Plan de Limpieza"
+        description="Los cambios rigen para los checklists que se generen desde mañana."
+        actions={
+          <BotonVolver onClick={() => navigate("/planes-limpieza")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {mostrarAviso && (
         <BannerExito>
@@ -65,12 +68,7 @@ export function PlanLimpiezaEditPage() {
       )}
 
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
-      {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
-          <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">Cargando datos del plan...</Text>
-        </Stack>
-      )}
+      {cargando && <EstadoCargando>Cargando datos del plan...</EstadoCargando>}
 
       {!cargando && !errorCarga && plan && (
         <>

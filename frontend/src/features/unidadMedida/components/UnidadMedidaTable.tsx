@@ -22,8 +22,8 @@ export function UnidadMedidaTable({
 }: UnidadMedidaTableProps) {
   if (unidades.length === 0) {
     return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay unidades de medida registradas.</Text>
+      <Tarjeta p="8" textAlign="center">
+        <Text color="fg.muted">No hay unidades de medida registradas.</Text>
       </Tarjeta>
     );
   }

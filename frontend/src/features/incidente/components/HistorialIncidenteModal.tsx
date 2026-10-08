@@ -1,9 +1,15 @@
-import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react";
+import { Box, HStack, Text, VStack } from "@chakra-ui/react";
+import { LuLock, LuLockOpen } from "react-icons/lu";
 import {
   DialogContent,
   DialogRoot,
   DialogTitle,
 } from "../../../components/ui/dialog";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  EstadoCargando,
+} from "../../../components/ui/patrones";
 import type { HistorialIncidenteItem } from "../types/incidente";
 import { formatoFecha } from "../types/incidente";
 
@@ -36,24 +42,24 @@ export function HistorialIncidenteModal({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        bg="white"
+        bg="bg.panel"
         p="6"
-        rounded="l2"
+        rounded="lg"
         boxShadow="dialog"
-        width="500px"
+        width="400px"
         maxWidth="90vw"
         maxHeight="80vh"
         overflowY="auto"
         textAlign="left"
       >
-        <DialogTitle as="h3" mt={0} mb="4" fontWeight="bold" color="brand.500">
+        <DialogTitle as="h3" mt={0} mb="4" fontSize="lg" fontWeight="bold" color="brand.fg">
           Historial del incidente
         </DialogTitle>
 
-        {loading && <Text color="gray.600">Cargando historial...</Text>}
+        {loading && <EstadoCargando>Cargando historial...</EstadoCargando>}
 
         {!loading && historial && historial.length === 0 && (
-          <Text color="gray.600">
+          <Text color="fg.muted">
             Este incidente todavía no tiene eventos registrados.
           </Text>
         )}
@@ -67,14 +73,23 @@ export function HistorialIncidenteModal({
                 borderLeftColor="brand.500"
                 pl="3"
               >
-                <Text fontSize="sm" fontWeight="bold" color="gray.800">
-                  {evento.estado_nuevo === "abierto" ? "🔓 Reapertura" : "🔒 Cierre"}
-                </Text>
-                <Text fontSize="xs" color="gray.600">
+                <HStack gap="2" fontSize="sm" fontWeight="bold" color="fg">
+                  <Box as="span" display="inline-flex" aria-hidden>
+                    {evento.estado_nuevo === "abierto" ? (
+                      <LuLockOpen size={16} />
+                    ) : (
+                      <LuLock size={16} />
+                    )}
+                  </Box>
+                  <Text as="span">
+                    {evento.estado_nuevo === "abierto" ? "Reapertura" : "Cierre"}
+                  </Text>
+                </HStack>
+                <Text fontSize="xs" color="fg.muted">
                   {formatoFecha(evento.fecha_evento)} — {evento.usuario_nombre ?? `Usuario #${evento.usuario_id}`}
                 </Text>
                 {evento.observacion && (
-                  <Text fontSize="xs" color="gray.600" mt="1">
+                  <Text fontSize="xs" color="fg.muted" mt="1">
                     {evento.observacion}
                   </Text>
                 )}
@@ -83,24 +98,9 @@ export function HistorialIncidenteModal({
           </VStack>
         )}
 
-        <HStack justify="flex-end" mt="5">
-          <Button
-            type="button"
-            onClick={onClose}
-            height="auto"
-            minW="auto"
-            px="4"
-            py="2"
-            rounded="md"
-            bg="gray.200"
-            color="gray.800"
-            colorPalette="gray"
-            fontWeight="bold"
-            _hover={{ bg: "gray.300" }}
-          >
-            Cerrar
-          </Button>
-        </HStack>
+        <AccionesFormulario>
+          <BotonCancelar onClick={onClose}>Cerrar</BotonCancelar>
+        </AccionesFormulario>
       </DialogContent>
     </DialogRoot>
   );

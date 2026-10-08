@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { UnidadMedidaForm } from "../UnidadMedidaForm";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { UnidadMedida } from "../../types/unidadMedida";
-import { BannerError, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function UnidadMedidaCreatePage() {
   const navigate = useNavigate();
@@ -44,33 +49,26 @@ export function UnidadMedidaCreatePage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nueva unidad de medida
-        </Heading>
-        <Button
-          colorPalette="gray"
-          fontSize="md"
-          fontWeight="normal"
-          h="auto"
-          minW="auto"
-          px="4"
-          py="2"
-          rounded="md"
-          onClick={() => navigate("/unidades-medida")}
-        >
-          Volver a la lista
-        </Button>
-      </HStack>
+      <PageHeader
+        title="Nueva unidad de medida"
+        actions={
+          <BotonVolver onClick={() => navigate("/unidades-medida")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
-      {exito && <DialogoExito isOpen={exito} mensaje="Unidad de medida guardada correctamente." />}
+      <DialogoExito
+        isOpen={exito}
+        mensaje="Unidad de medida guardada correctamente."
+      />
 
       <UnidadMedidaForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Unidad de Medida"
+        title="Alta de unidad de medida"
         submitLabel="Crear unidad de medida"
       />
 

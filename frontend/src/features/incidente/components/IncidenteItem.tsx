@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Badge, Button, HStack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, IconButton, Table, Text } from "@chakra-ui/react";
+import { LuCamera, LuEye } from "react-icons/lu";
 import {
   estadoLabel,
   tipoLabel,
@@ -7,7 +8,7 @@ import {
   formatoFecha,
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
-import { Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface IncidenteItemProps {
   incidente: Incidente;
@@ -16,23 +17,6 @@ interface IncidenteItemProps {
   onVer?: (incidente: Incidente) => void;
   showActions?: boolean;
 }
-
-/**
- * Métricas del botón de acción de fila.
- *
- * `BotonTabla` cubre "editar"/"eliminar"/"reactivar", pero acá las dos
- * acciones posibles son cerrar (marca) y reabrir (naranja), que no están
- * en esa paleta. Se replican las mismas medidas para que la fila no se
- * desalinee respecto de las tablas de las demás features.
- */
-const BOTON_ACCION = {
-  size: "sm",
-  fontWeight: "normal",
-  h: "auto",
-  px: "3",
-  py: "1.5",
-  rounded: "md",
-} as const;
 
 export function IncidenteItem({
   incidente,
@@ -55,14 +39,14 @@ export function IncidenteItem({
   return (
     <Table.Row
       borderBottomWidth="1px"
-      borderColor="gray.100"
+      borderColor="border.subtle"
       opacity={cerrado ? 0.7 : 1}
     >
       <Celda p="3" whiteSpace="nowrap">
         {formatoFecha(incidente.fecha_reporte)}
       </Celda>
 
-      <Celda p="3" fontSize="md" maxW="220px">
+      <Celda p="3" maxW="220px">
         <Text
           lineClamp={2}
           wordBreak="break-word"
@@ -75,70 +59,65 @@ export function IncidenteItem({
 
       <Celda p="3" center>
         {incidente.foto_url ? (
-          <Text fontSize="lg" title="Ver detalle para ver la foto" aria-hidden>
-            📷
-          </Text>
+          <Box
+            display="inline-flex"
+            color="brand.fg"
+            title="Ver detalle para ver la foto"
+            role="img"
+            aria-label="Tiene foto adjunta"
+          >
+            <LuCamera size={20} />
+          </Box>
         ) : (
-          <Text color="gray.400">-</Text>
+          <Text color="fg.subtle">-</Text>
         )}
       </Celda>
 
-      <Celda p="3" fontSize="md">
-        <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="8px" py="4px">
+      <Celda p="3">
+        <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="2" py="1">
           {tipoLabel(incidente.tipo)}
         </Badge>
       </Celda>
 
-      <Celda p="3" fontSize="md">
+      <Celda p="3">
         <Badge
           colorPalette={cerrado ? "green" : "red"}
           borderRadius="md"
-          px="10px"
-          py="4px"
+          px="3"
+          py="1"
         >
           {estadoLabel(incidente.estado)}
         </Badge>
       </Celda>
 
-      <Celda p="3" fontSize="md">
+      <Celda p="3">
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
       </Celda>
 
       {showActions && (
         <Celda p="3" center>
           <HStack justify="center" gap="2">
-            <Button
+            <IconButton
               type="button"
               variant="ghost"
-              fontSize="lg"
+              size="sm"
+              colorPalette="neutral"
               aria-label="Ver detalle"
               onClick={handleVer}
-              title="Ver Detalle"
+              title="Ver detalle"
             >
-              <Text as="span" aria-hidden>
-                👁️
-              </Text>
-            </Button>
+              <LuEye />
+            </IconButton>
             {cerrado
               ? onReabrir && (
-                  <Button
-                    {...BOTON_ACCION}
-                    colorPalette="orange"
-                    variant="solid"
-                    onClick={() => onReabrir(incidente)}
-                  >
+                  <BotonTabla accion="reabrir" onClick={() => onReabrir(incidente)}>
                     Reabrir
-                  </Button>
+                  </BotonTabla>
                 )
               : onCerrar && (
-                  <Button
-                    {...BOTON_ACCION}
-                    colorPalette="brand"
-                    variant="solid"
-                    onClick={() => onCerrar(incidente)}
-                  >
+                  <BotonTabla accion="cerrar" onClick={() => onCerrar(incidente)}>
                     Cerrar
-                  </Button>
+                  </BotonTabla>
                 )}
           </HStack>
         </Celda>

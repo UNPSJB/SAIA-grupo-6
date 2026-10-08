@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, Button, Flex, Heading, Text, VStack } from "@chakra-ui/react";
+import { Badge, Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
 import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
@@ -9,7 +9,13 @@ import { ReportarIncidenteEmptyState } from "./ReportarIncidenteEmptyState";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
 import type { IncidenteFormValues, Incidente } from "../../types/incidente";
-import { BannerError } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BannerExito,
+  EstadoCargando,
+  PageHeader,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
 
 /**
  * Pills de navegación.
@@ -32,19 +38,15 @@ function TabButton({
       type="button"
       onClick={onClick}
       variant={isActive ? "solid" : "outline"}
-      colorPalette={isActive ? "brand" : "gray"}
+      colorPalette={isActive ? "brand" : "neutral"}
       fontWeight="bold"
       fontSize="sm"
       rounded="full"
       minW="180px"
-      h="48px"
-      borderWidth={isActive ? 0 : "2px"}
-      borderColor={isActive ? "transparent" : "gray.300"}
-      boxShadow={isActive ? "0 4px 14px var(--chakra-colors-brand-200)" : "xs"}
-      transition="all 0.2s ease"
-      color={isActive ? "white" : "gray.700"}
-      _hover={{ transform: "translateY(-2px)" }}
-      _active={{ transform: "translateY(0)" }}
+      h="12"
+      borderWidth="1px"
+      borderColor={isActive ? "transparent" : "border.muted"}
+      color={isActive ? "white" : "fg.muted"}
     >
       {label}
     </Button>
@@ -75,16 +77,16 @@ function IncidenteCard({
         if (e.key === "Enter" || e.key === " ") onVer(incidente);
       }}
       w="100%"
-      p="4 5"
+      p="4"
       rounded="lg"
       borderWidth="1px"
-      borderColor="brand.100"
-      bg="white"
+      borderColor="border"
+      bg="bg.panel"
       transition="all 0.15s ease"
       cursor="pointer"
       _hover={{
-        bg: "gray.50",
-        borderColor: "brand.200",
+        bg: "bg.subtle",
+        borderColor: "border.muted",
         boxShadow: "sm",
       }}
     >
@@ -92,17 +94,17 @@ function IncidenteCard({
         <Box flex="1" minW={0}>
           {/* ID + tipo + estado */}
           <Flex align="center" gap="2" flexWrap="wrap" mb="2">
-            <Text fontWeight="bold" fontSize="sm" color="gray.900">
+            <Text fontWeight="bold" fontSize="sm" color="fg">
               #{incidente.id} — {incidente.titulo}
             </Text>
             <Badge
               colorPalette={tipoColor(incidente.tipo)}
               variant="solid"
               borderRadius="md"
-              px="8px"
-              py="3px"
-              fontSize="11px"
-              fontWeight="semibold"
+              px="2"
+              py="1"
+              fontSize="xs"
+              fontWeight="medium"
             >
               {tipoLabel(incidente.tipo)}
             </Badge>
@@ -110,22 +112,22 @@ function IncidenteCard({
               colorPalette={cerrado ? "green" : "red"}
               variant="subtle"
               borderRadius="md"
-              px="8px"
-              py="3px"
-              fontSize="11px"
-              fontWeight="semibold"
+              px="2"
+              py="1"
+              fontSize="xs"
+              fontWeight="medium"
             >
               {estadoLabel(incidente.estado)}
             </Badge>
           </Flex>
 
           {/* Descripción con "Ver más" */}
-          <Text fontSize="sm" color="gray.800" lineHeight={1.55} wordBreak="break-word">
+          <Text fontSize="sm" color="fg" lineHeight={1.55} wordBreak="break-word">
             {incidente.descripcion.length > 120
               ? `${incidente.descripcion.substring(0, 117)}...`
               : incidente.descripcion}
             {incidente.descripcion.length > 120 && (
-              <Text as="span" color="brand.500" fontWeight="semibold" ml="4px">
+              <Text as="span" color="brand.fg" fontWeight="bold" ml="1">
                 Ver más
               </Text>
             )}
@@ -133,7 +135,7 @@ function IncidenteCard({
 
           {/* Si ya fue resuelto, el operador ve qué se hizo */}
           {cerrado && incidente.observacion_cierre && (
-            <Text fontSize="xs" color="green.700" mt="2" lineHeight={1.5}>
+            <Text fontSize="xs" color="green.fg" mt="2" lineHeight={1.5}>
               <strong>Resolución:</strong> {incidente.observacion_cierre}
             </Text>
           )}
@@ -143,9 +145,9 @@ function IncidenteCard({
             align="center"
             gap="4"
             fontSize="xs"
-            color="gray.500"
+            color="fg.muted"
             flexWrap="wrap"
-            mt="2.5"
+            mt="2"
           >
             <Text as="span">{formatoFecha(incidente.fecha_reporte)}</Text>
             {incidente.equipo_nombre && <Text as="span">{incidente.equipo_nombre}</Text>}
@@ -191,27 +193,13 @@ export function ReportarIncidentePage() {
   };
 
   return (
-    <Box p="6" maxW="1100px" mx="auto">
-      <Heading as="h2" size="lg" fontWeight="bold" color="gray.900" mb="6">
-        Reportar Incidente
-      </Heading>
+    <Box p="5" maxW="1100px" mx="auto">
+      <PageHeader
+        title="Reportar incidente"
+        description="Registrá un incidente nuevo o seguí el estado de los que ya reportaste."
+      />
 
-      {exito && (
-        <Box
-          role="status"
-          bg="green.100"
-          color="green.800"
-          p="3.5 5"
-          rounded="lg"
-          mb="6"
-          borderWidth="1px"
-          borderColor="green.200"
-          fontWeight="semibold"
-          boxShadow="0 4px 12px var(--chakra-colors-green-100)"
-        >
-          ✓ Incidente registrado correctamente
-        </Box>
-      )}
+      {exito && <BannerExito>Incidente registrado correctamente</BannerExito>}
 
       {errorAlta && <BannerError>{errorAlta}</BannerError>}
 
@@ -219,84 +207,48 @@ export function ReportarIncidentePage() {
       <Flex
         mb="6"
         gap="3"
-        bg="gray.50"
-        p="1.5"
-        rounded="xl"
+        bg="bg.subtle"
+        p="1"
+        rounded="full"
         borderWidth="1px"
-        borderColor="brand.100"
+        borderColor="border.subtle"
       >
         <TabButton
-          label="Mis Reportes"
+          label="Mis reportes"
           isActive={activeTab === "mis-reportes"}
           onClick={() => setActiveTab("mis-reportes")}
         />
         <TabButton
-          label="Nuevo Incidente"
+          label="Nuevo incidente"
           isActive={activeTab === "nuevo-incidente"}
           onClick={() => setActiveTab("nuevo-incidente")}
         />
       </Flex>
 
       {activeTab === "nuevo-incidente" && (
-        <Box
-          bg="white"
-          rounded="2xl"
-          p="8"
-          boxShadow="sm"
-          borderWidth="1px"
-          borderColor="brand.100"
-        >
-          <IncidenteForm
-            onSubmit={handleSubmit}
-            isLoading={loadingAlta}
-            title="Registrar Nuevo Incidente"
-            submitLabel="Reportar Incidente"
-            fullWidth
-          />
-        </Box>
+        <IncidenteForm
+          onSubmit={handleSubmit}
+          isLoading={loadingAlta}
+          title="Registrar nuevo incidente"
+          submitLabel="Reportar incidente"
+          fullWidth
+        />
       )}
 
       {activeTab === "mis-reportes" && (
-        <Box
-          bg="white"
-          rounded="2xl"
-          p="6"
-          boxShadow="sm"
-          borderWidth="1px"
-          borderColor="brand.100"
-        >
-          {loadingMis && (
-            <Box textAlign="center" p="15 5">
-              <Text color="gray.500" fontSize="md">
-                Cargando tus reportes...
-              </Text>
-            </Box>
-          )}
+        <Tarjeta p="6">
+          {loadingMis && <EstadoCargando>Cargando tus reportes...</EstadoCargando>}
           {errorMis && (
-            <Box textAlign="center" p="15 5">
-              <Text color="red.600" fontSize="md" role="alert">
-                Error al cargar: {errorMis}
-              </Text>
-            </Box>
+            <BannerError mb="0">Error al cargar: {errorMis}</BannerError>
           )}
           {!loadingMis && !errorMis && misIncidentes.length === 0 && (
             <ReportarIncidenteEmptyState />
           )}
           {!loadingMis && !errorMis && misIncidentes.length > 0 && (
             <VStack align="stretch" gap="3">
-              <Box
-                p="3.5 5"
-                bg="gray.50"
-                borderWidth="1px"
-                borderColor="brand.200"
-                roundedTop="lg"
-                borderBottomWidth="0"
-                fontWeight="semibold"
-                fontSize="sm"
-                color="brand.500"
-              >
+              <Text fontWeight="bold" fontSize="sm" color="fg.muted">
                 Tus incidentes reportados (más recientes primero)
-              </Box>
+              </Text>
               <VStack align="stretch" gap="2">
                 {misIncidentes.map((inc) => (
                   <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
@@ -304,7 +256,7 @@ export function ReportarIncidentePage() {
               </VStack>
             </VStack>
           )}
-        </Box>
+        </Tarjeta>
       )}
     </Box>
   );

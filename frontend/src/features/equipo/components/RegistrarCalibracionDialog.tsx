@@ -1,12 +1,19 @@
 import { useRef, useState } from "react";
-import { Button, Field, HStack, Input, Text } from "@chakra-ui/react";
+import { Button, HStack, Input, Text } from "@chakra-ui/react";
 
 import {
   DialogContent,
   DialogRoot,
   DialogTitle,
 } from "../../../components/ui/dialog";
-import { BannerError } from "../../../components/ui/patrones";
+import {
+  AccionesFormulario,
+  BannerError,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+  FormInput,
+} from "../../../components/ui/patrones";
 import { DialogForm } from "../../../common/components/DialogForm";
 import type { Equipo } from "../types/equipo";
 
@@ -99,9 +106,9 @@ export function RegistrarCalibracionDialog({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        bg="white"
+        bg="bg.panel"
         p="6"
-        rounded="l2"
+        rounded="lg"
         boxShadow="dialog"
         width="400px"
         maxWidth="400px"
@@ -111,8 +118,9 @@ export function RegistrarCalibracionDialog({
             as="h3"
             mt={0}
             mb="4"
+            fontSize="lg"
             fontWeight="bold"
-            color="brand.500"
+            color="fg"
           >
             Registrar calibración: <br />
             <strong>{equipo.nombre}</strong>
@@ -124,24 +132,25 @@ export function RegistrarCalibracionDialog({
             <BannerError mb="4">{errorValidacion}</BannerError>
           )}
 
-          <Field.Root mb="4">
-            <Field.Label color="gray.600">FECHA DE REALIZACIÓN *</Field.Label>
-            <Input
+          <FormField label="Fecha de realización" required mb="4">
+            <FormInput
               type="date"
               min={minDate}
               max={maxDate}
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
             />
-          </Field.Root>
+          </FormField>
 
-          <Field.Root mb="6">
-            <Field.Label color="gray.600">
-              CERTIFICADO ADJUNTO (PDF / Imagen) *
-            </Field.Label>
-
+          <FormField
+            label="Certificado adjunto (PDF / imagen)"
+            required
+            mb="6"
+          >
             {/* El input real queda oculto: lo dispara el botón de abajo, que
-                es el que el usuario ve y con el que navega por teclado. */}
+                es el que el usuario ve y con el que navega por teclado. Es el
+                `Input` de Chakra y no `FormInput` porque sólo éste acepta el
+                `ref` que necesita el input de archivo. */}
             <Input
               type="file"
               accept={FORMATOS_ACEPTADOS}
@@ -160,27 +169,21 @@ export function RegistrarCalibracionDialog({
               borderWidth="2px"
               borderStyle="dashed"
               borderColor="brand.300"
-              bg="gray.50"
+              bg="bg.subtle"
               alignItems="center"
             >
               <Button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 variant="outline"
-                colorPalette="gray"
+                colorPalette="neutral"
                 size="sm"
-                h="auto"
-                minW="auto"
-                px="3"
-                py="1.5"
-                rounded="md"
-                fontWeight="bold"
               >
-                Seleccionar Archivo
+                Seleccionar archivo
               </Button>
               <Text
                 fontSize="sm"
-                color={archivo ? "gray.800" : "gray.400"}
+                color={archivo ? "fg" : "fg.subtle"}
                 overflow="hidden"
                 textOverflow="ellipsis"
                 whiteSpace="nowrap"
@@ -189,39 +192,14 @@ export function RegistrarCalibracionDialog({
                 {archivo ? archivo.name : "Ningún archivo seleccionado"}
               </Text>
             </HStack>
-          </Field.Root>
+          </FormField>
 
-          <HStack justify="center" gap="3">
-            <Button
-              type="button"
-              onClick={handleCerrar}
-              disabled={isLoading}
-              variant="outline"
-              colorPalette="gray"
-              h="auto"
-              minW="auto"
-              px="4"
-              py="2"
-              rounded="md"
-              fontWeight="bold"
-            >
+          <AccionesFormulario>
+            <BotonGuardar loading={isLoading}>Subir y guardar</BotonGuardar>
+            <BotonCancelar onClick={handleCerrar} disabled={isLoading}>
               Cancelar
-            </Button>
-            <Button
-              type="submit"
-              loading={isLoading}
-              colorPalette="brand"
-              variant="solid"
-              h="auto"
-              minW="auto"
-              px="4"
-              py="2"
-              rounded="md"
-              fontWeight="bold"
-            >
-              Subir y Guardar
-            </Button>
-          </HStack>
+            </BotonCancelar>
+          </AccionesFormulario>
         </DialogForm>
       </DialogContent>
     </DialogRoot>

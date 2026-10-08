@@ -1,20 +1,13 @@
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Badge,
-  Box,
-  Button,
-  Heading,
-  HStack,
-  Spinner,
-  Table,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Badge, Spinner, Table } from "@chakra-ui/react";
 import {
   BannerError,
   BotonTexto,
+  BotonVolver,
   Celda,
   EncabezadoOscuro,
   FilaEncabezado,
+  PageHeader,
   Tarjeta,
 } from "../../../components/ui/patrones";
 import { useHistorialDocumento } from "../hooks/useHistorialDocumento";
@@ -42,33 +35,19 @@ export function DocumentoHistorialPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Box>
-          <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-            Historial{historial ? `: ${historial.nombre}` : ""}
-          </Heading>
-          {historial && (
-            <Text color="gray.600">
-              {etiquetaTipo(historial.tipo)} · Solo lectura: las versiones
-              anteriores no pueden editarse ni eliminarse.
-            </Text>
-          )}
-        </Box>
-        <Button
-          colorPalette="gray"
-          variant="solid"
-          fontSize="md"
-          fontWeight="normal"
-          h="auto"
-          minW="auto"
-          px="4"
-          py="2"
-          rounded="md"
-          onClick={() => navigate(-1)}
-        >
-          Volver
-        </Button>
-      </HStack>
+      <PageHeader
+        title={`Historial${historial ? `: ${historial.nombre}` : ""}`}
+        description={
+          historial
+            ? `${etiquetaTipo(historial.tipo)} · Solo lectura: las versiones anteriores no pueden editarse ni eliminarse.`
+            : undefined
+        }
+        actions={
+          <BotonVolver onClick={() => navigate(-1)}>
+            Volver
+          </BotonVolver>
+        }
+      />
 
       {loading && <Spinner color="brand.500" />}
       {!loading && error && <BannerError>{error}</BannerError>}
@@ -89,14 +68,14 @@ export function DocumentoHistorialPage() {
             <Table.Body>
               {historial.versiones.map((v) => (
                 <Table.Row key={v.id}>
-                  <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+                  <Celda p="3" color="brand.fg" fontWeight="bold">
                     v{v.numero_version}
                   </Celda>
                   <Celda p="3">
                     <Badge
                       colorPalette={PALETA_ESTADO[v.estado]}
                       rounded="full"
-                      px="2.5"
+                      px="2"
                       py="1"
                       fontSize="xs"
                       fontWeight="bold"
@@ -104,16 +83,14 @@ export function DocumentoHistorialPage() {
                       {ETIQUETA_ESTADO[v.estado]}
                     </Badge>
                   </Celda>
-                  <Celda p="3" fontSize="sm">
-                    {fechaHora(v.vigente_desde)}
-                  </Celda>
-                  <Celda p="3" fontSize="sm">
+                  <Celda p="3">{fechaHora(v.vigente_desde)}</Celda>
+                  <Celda p="3">
                     {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
                   </Celda>
-                  <Celda p="3" fontSize="sm">
+                  <Celda p="3">
                     {v.autor.nombre} {v.autor.apellido ?? ""}
                   </Celda>
-                  <Celda p="3" fontSize="md">
+                  <Celda p="3">
                     <BotonTexto
                       onClick={() =>
                         abrirArchivo(v.archivo_url).catch(() =>

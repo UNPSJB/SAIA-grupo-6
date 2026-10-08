@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Heading, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../../components/ElementoLimpiezaForm";
 import { useElementoLimpieza } from "../../hooks/useElementoLimpieza";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { ElementoLimpiezaFormValues } from "../../types/elementoLimpieza";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  EstadoCargando,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function ElementoLimpiezaEditPage() {
   const navigate = useNavigate();
@@ -41,22 +47,19 @@ export function ElementoLimpiezaEditPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Editar Elemento de Limpieza
-        </Heading>
-        <BotonVolver onClick={() => navigate("/elementos-limpieza")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Editar elemento de limpieza"
+        actions={
+          <BotonVolver onClick={() => navigate("/elementos-limpieza")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
-          <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">
-            Cargando datos del elemento de limpieza...
-          </Text>
-        </Stack>
+        <EstadoCargando>
+          Cargando datos del elemento de limpieza...
+        </EstadoCargando>
       )}
 
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
@@ -75,7 +78,7 @@ export function ElementoLimpiezaEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Elemento"
+            title="Modificar elemento de limpieza"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/elementos-limpieza")}
           />

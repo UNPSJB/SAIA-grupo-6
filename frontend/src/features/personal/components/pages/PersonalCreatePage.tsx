@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -11,7 +11,12 @@ import type { PersonaInput } from "../../types/personal";
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 import { useVencimientosPersonal, type VencimientosPorAptitud } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { ConflictoInactivoError } from "../../../../common/api/errors";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 
 
@@ -65,14 +70,14 @@ export function PersonalCreatePage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo Personal
-        </Heading>
-        <BotonVolver onClick={() => navigate("/personal")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Nuevo personal"
+        actions={
+          <BotonVolver onClick={() => navigate("/personal")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {/* El conflicto de "inactivo" no se muestra acá como cartel de error:
           se resuelve con el diálogo de reactivación de abajo */}

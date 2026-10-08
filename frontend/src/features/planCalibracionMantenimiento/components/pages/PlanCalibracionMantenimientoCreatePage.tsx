@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 
 import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibracionMantenimientoABM";
 import { PlanCalibracionMantenimientoForm } from "../PlanCalibracionMantenimientoForm";
 import type { PlanCalibracionMantenimientoFormValues } from "../../types/planCalibracionMantenimiento";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function PlanCalibracionMantenimientoCreatePage() {
   const navigate = useNavigate();
@@ -25,15 +30,16 @@ export function PlanCalibracionMantenimientoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="700px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo plan de calibración/mantenimiento
-        </Heading>
-        <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+    <Box p="5" maxW="600px" mx="auto">
+      <PageHeader
+        title="Nuevo plan de calibración/mantenimiento"
+        description="Asociá un plan de calibración o de mantenimiento a un equipo."
+        actions={
+          <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && <BannerError>{error}</BannerError>}
 

@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../InsumoQuimicoForm";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function InsumoQuimicoCreatePage() {
   const navigate = useNavigate();
@@ -52,21 +57,21 @@ export function InsumoQuimicoCreatePage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo insumo químico
-        </Heading>
-        <BotonVolver onClick={() => navigate("/insumos-quimicos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Nuevo insumo químico"
+        actions={
+          <BotonVolver onClick={() => navigate("/insumos-quimicos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <InsumoQuimicoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Insumo Químico"
+        title="Alta de insumo químico"
         submitLabel="Crear insumo químico"
       />
 

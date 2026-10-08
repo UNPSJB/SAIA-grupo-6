@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { DocumentoForm } from "../components/documentoForm";
 import { useDocumentoABM } from "../hooks/useDocumentoABM";
 import type { DocumentoFormValues } from "../types/documento";
 import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
-import { BannerError, BannerExito, BotonVolver } from "../../../components/ui/patrones";
+import {
+  BannerError,
+  BannerExito,
+  BotonVolver,
+  PageHeader,
+} from "../../../components/ui/patrones";
 
 export function DocumentoCreatePage() {
   const navigate = useNavigate();
@@ -25,14 +30,15 @@ export function DocumentoCreatePage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo documento
-        </Heading>
-        <BotonVolver onClick={() => navigate("/documentos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Nuevo documento"
+        description="Cargá un documento con su nombre y tipo; queda como versión 1 vigente."
+        actions={
+          <BotonVolver onClick={() => navigate("/documentos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && <BannerError>{error}</BannerError>}
 
@@ -46,6 +52,7 @@ export function DocumentoCreatePage() {
         isLoading={loading}
         title="Alta de documento"
         submitLabel="Subir documento"
+        onCancel={() => navigate("/documentos")}
       />
     </Box>
   );

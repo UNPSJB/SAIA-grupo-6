@@ -3,7 +3,6 @@ import {
   Badge,
   Box,
   Heading,
-  HStack,
   SimpleGrid,
   Spinner,
   Stack,
@@ -18,8 +17,8 @@ import {
   BannerError,
   BotonVolver,
   Celda,
-  EncabezadoOscuro,
-  FilaEncabezado,
+  ColumnaHeader,
+  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 
@@ -27,10 +26,10 @@ import {
 function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <Box>
-      <Text fontSize="xs" fontWeight="bold" color="gray.500" textTransform="uppercase">
+      <Text fontSize="sm" fontWeight="medium" color="fg.muted">
         {etiqueta}
       </Text>
-      <Text fontSize="md" color="gray.800">
+      <Text fontSize="md" color="fg">
         {valor}
       </Text>
     </Box>
@@ -54,7 +53,7 @@ export function PersonalDetailPage() {
   if (loading) {
     return (
       <Box p="5">
-        <Stack direction="row" gap="3" align="center" color="gray.600">
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
           <Text fontStyle="italic">Cargando información...</Text>
         </Stack>
@@ -76,14 +75,14 @@ export function PersonalDetailPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Ficha de Personal #{persona.id}
-        </Heading>
-        <BotonVolver onClick={() => navigate("/personal")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title={`Ficha de personal #${persona.id}`}
+        actions={
+          <BotonVolver onClick={() => navigate("/personal")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       <Tarjeta p="5">
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
@@ -96,33 +95,33 @@ export function PersonalDetailPage() {
           <Campo etiqueta="Teléfono" valor={persona.telefono || "No registrado"} />
         </SimpleGrid>
 
-        <Box mt="5" pt="5" borderTopWidth="1px" borderColor="gray.200">
-          <Heading as="h4" size="sm" mb="3">
-            Permisos en el sistema:
+        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
+          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
+            Permisos en el sistema
           </Heading>
           <SimpleGrid columns={{ base: 1, sm: 2 }} gap="2">
-            <Text fontSize="sm" color="gray.800">
+            <Text fontSize="sm" color="fg">
               {persona.puede_operar ? "✅" : "❌"} Puede Operar
             </Text>
-            <Text fontSize="sm" color="gray.800">
+            <Text fontSize="sm" color="fg">
               {persona.puede_administrar ? "✅" : "❌"} Puede Administrar
             </Text>
           </SimpleGrid>
         </Box>
 
-        <Box mt="5" pt="5" borderTopWidth="1px" borderColor="gray.200">
-          <Heading as="h4" size="sm" mb="3">
-            Vencimientos de aptitud:
+        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
+          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
+            Vencimientos de aptitud
           </Heading>
 
           {cargandoVencimientos && (
-            <Text fontSize="sm" color="gray.500" fontStyle="italic">
+            <Text fontSize="sm" color="fg.muted" fontStyle="italic">
               Cargando...
             </Text>
           )}
 
           {!cargandoVencimientos && vencimientos.length === 0 && (
-            <Text fontSize="sm" color="gray.500" fontStyle="italic">
+            <Text fontSize="sm" color="fg.muted" fontStyle="italic">
               No tiene vencimientos cargados.
             </Text>
           )}
@@ -130,11 +129,13 @@ export function PersonalDetailPage() {
           {!cargandoVencimientos && vencimientos.length > 0 && (
             <Table.Root variant="outline" w="100%">
               <Table.Header>
-                <FilaEncabezado>
-                  <EncabezadoOscuro>Aptitud</EncabezadoOscuro>
-                  <EncabezadoOscuro>Vence</EncabezadoOscuro>
-                  <EncabezadoOscuro center>Estado</EncabezadoOscuro>
-                </FilaEncabezado>
+                {/* Es una tabla de detalle embebida en la ficha, no un
+                    listado: va con el encabezado claro. */}
+                <Table.Row>
+                  <ColumnaHeader>Aptitud</ColumnaHeader>
+                  <ColumnaHeader>Vence</ColumnaHeader>
+                  <ColumnaHeader center>Estado</ColumnaHeader>
+                </Table.Row>
               </Table.Header>
               <Table.Body>
                 {vencimientos.map((v) => {

@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
-import { Box, Field, Input, NativeSelect } from "@chakra-ui/react";
 import {
   AccionesFormulario,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 import type { InsumoFormValues } from "../types/insumo";
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
@@ -20,17 +25,12 @@ interface InsumoFormProps {
 
 const emptyValues: InsumoFormValues = { nombre: "", unidad_medida_id: 0 };
 
-/**
- * El aspecto del input lo aporta la receta `input` del tema
- * (`src/theme/index.ts`), así que acá no hay ningún objeto de estilo. El
- * ancho sí es una decisión de layout y queda como prop del call site.
- */
 export function InsumoForm({
   initialValues = emptyValues,
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Insumo",
+  title = "Alta de insumo",
   onCancel,
 }: InsumoFormProps) {
   const [values, setValues] = useState<InsumoFormValues>(initialValues);
@@ -66,60 +66,35 @@ export function InsumoForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Box
-        as="h3"
-        mt={0}
-        fontSize="2xl"
-        fontWeight="bold"
-        color="brand.500"
-        mb="6"
-      >
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">NOMBRE *</Field.Label>
-        <Input
+      <FormField label="Nombre" required>
+        <FormInput
           value={values.nombre}
           onChange={handleNombreChange}
           placeholder="Ej: Fertilizante nitrogenado"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
-      <Field.Root required mb="6">
-        <Field.Label color="gray.600">UNIDAD DE MEDIDA *</Field.Label>
-        <NativeSelect.Root disabled={cargandoUnidades}>
-          <NativeSelect.Field
-            value={values.unidad_medida_id}
-            onChange={handleUnidadChange}
-            maxW="500px"
-            borderWidth="2px"
-            borderColor="brand.300"
-            borderRadius="lg"
-            bg="white"
-          >
-            <option value={0} disabled>
-              {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+      <FormField label="Unidad de medida" required mb="0">
+        <FormNativeSelect
+          value={values.unidad_medida_id}
+          onChange={handleUnidadChange}
+          disabled={cargandoUnidades}
+          maxW="500px"
+        >
+          <SelectPlaceholder>
+            {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+          </SelectPlaceholder>
+          {unidades.map((unidad) => (
+            <option key={unidad.id} value={unidad.id}>
+              {unidad.nombre} ({unidad.simbolo})
             </option>
-            {unidades.map((unidad) => (
-              <option key={unidad.id} value={unidad.id}>
-                {unidad.nombre} ({unidad.simbolo})
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
       <AccionesFormulario>
         <BotonGuardar loading={isLoading} disabled={!values.unidad_medida_id}>
@@ -127,6 +102,6 @@ export function InsumoForm({
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

@@ -22,8 +22,8 @@ export function InsumoTable({
 }: InsumoTableProps) {
   if (insumos.length === 0) {
     return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay insumos para mostrar.</Text>
+      <Tarjeta p="8" textAlign="center">
+        <Text color="fg.muted">No hay insumos para mostrar.</Text>
       </Tarjeta>
     );
   }

@@ -17,8 +17,8 @@ interface PersonalTableProps {
 export function PersonalTable({ personales, onEdit, onDelete, onReactivar }: PersonalTableProps) {
   if (personales.length === 0) {
     return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay personal para mostrar.</Text>
+      <Tarjeta p="8" textAlign="center">
+        <Text color="fg.muted">No hay personal para mostrar.</Text>
       </Tarjeta>
     );
   }

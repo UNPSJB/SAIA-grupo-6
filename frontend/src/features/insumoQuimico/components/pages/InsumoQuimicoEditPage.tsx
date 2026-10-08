@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Heading, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../InsumoQuimicoForm";
 import { useInsumoQuimico } from "../../hooks/useInsumoQuimico";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function InsumoQuimicoEditPage() {
   const navigate = useNavigate();
@@ -41,20 +46,19 @@ export function InsumoQuimicoEditPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Editar insumo químico
-        </Heading>
-
-        <BotonVolver onClick={() => navigate("/insumos-quimicos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Editar insumo químico"
+        actions={
+          <BotonVolver onClick={() => navigate("/insumos-quimicos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">
+          <Text fontStyle="italic" fontSize="sm">
             Cargando datos del insumo químico...
           </Text>
         </Stack>
@@ -75,7 +79,7 @@ export function InsumoQuimicoEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Insumo Químico"
+            title="Modificar insumo químico"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/insumos-quimicos")}
           />

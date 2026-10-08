@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Heading, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
 import { InsumoForm } from "../../components/InsumoForm";
 import { useInsumo } from "../../hooks/useInsumo";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoFormValues } from "../../types/insumo";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function InsumoEditPage() {
   const navigate = useNavigate();
@@ -40,19 +45,21 @@ export function InsumoEditPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Editar insumo
-        </Heading>
-        <BotonVolver onClick={() => navigate("/insumos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Editar insumo"
+        actions={
+          <BotonVolver onClick={() => navigate("/insumos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">Cargando datos del insumo...</Text>
+          <Text fontStyle="italic" fontSize="sm">
+            Cargando datos del insumo...
+          </Text>
         </Stack>
       )}
 
@@ -70,7 +77,7 @@ export function InsumoEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Insumo"
+            title="Modificar insumo"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/insumos")}
           />

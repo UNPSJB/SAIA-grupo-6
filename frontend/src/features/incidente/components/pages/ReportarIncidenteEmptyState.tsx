@@ -1,30 +1,41 @@
 import { Box, Text } from "@chakra-ui/react";
+import { LuClipboardList, LuLightbulb } from "react-icons/lu";
 
 export function ReportarIncidenteEmptyState() {
   return (
     <Box
       textAlign="center"
-      p="15"
-      mt="5"
-      bg="gray.50"
-      borderWidth="2px"
+      p="8"
+      mt="4"
+      bg="bg.subtle"
+      borderWidth="1px"
       borderStyle="dashed"
-      borderColor="brand.200"
-      rounded="xl"
+      borderColor="border"
+      rounded="lg"
     >
-      <Text fontSize="5xl" mb="4" aria-hidden>
-        📋
-      </Text>
-      <Text fontSize="xl" fontWeight="bold" color="gray.800" mb="2">
+      <Box color="brand.fg" display="flex" justifyContent="center" mb="4" aria-hidden>
+        <LuClipboardList size={40} />
+      </Box>
+      <Text fontSize="lg" fontWeight="bold" color="fg" mb="2">
         Aún no has reportado incidentes
       </Text>
-      <Text fontSize="sm" color="gray.600" maxW="400px" mx="auto" lineHeight="1.6">
+      <Text fontSize="sm" color="fg.muted" maxW="400px" mx="auto" lineHeight={1.6}>
         Cuando reportes tu primer incidente, aparecerá aquí con su estado,
-        fecha y tipo. Podrás ver el detalle haciendo clic en "Ver".
+        fecha y tipo. Podrás ver el detalle haciendo clic sobre el reporte.
       </Text>
-      <Text mt="5" fontSize="xs" color="gray.500">
-        💡 Usa la pestaña <Text as="span" fontWeight="bold">"Nuevo Incidente"</Text>{" "}
-        para crear uno.
+      <Text
+        mt="4"
+        fontSize="xs"
+        color="fg.muted"
+        display="inline-flex"
+        alignItems="center"
+        gap="2"
+      >
+        <LuLightbulb size={14} aria-hidden />
+        <span>
+          Usa la pestaña <Text as="span" fontWeight="bold">"Nuevo incidente"</Text>{" "}
+          para crear uno.
+        </span>
       </Text>
     </Box>
   );

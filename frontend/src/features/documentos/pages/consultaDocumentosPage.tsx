@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Button,
-  Heading,
-  HStack,
-  Input,
-  NativeSelect,
-  SimpleGrid,
-  Spinner,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Button, Field, HStack, SimpleGrid, Text } from "@chakra-ui/react";
+import { LuExternalLink, LuHistory } from "react-icons/lu";
 import { useAuth } from "../../../common/context/useAuth";
+import { usePaginas } from "../../../common/hooks/usePaginas";
 import {
   BannerError,
+  EstadoCargando,
+  EstadoVacio,
+  FormInput,
+  FormNativeSelect,
+  LabelFiltro,
+  PageHeader,
+  Paginacion,
+  SelectPlaceholder,
   Tarjeta,
 } from "../../../components/ui/patrones";
 import { useDocumentosVigentes } from "../hooks/useDocumentosVigentes";
@@ -22,131 +22,157 @@ import type { TipoDocumento } from "../types/documento";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
 import { abrirArchivo } from "../services/documentoService";
 
+// 9 tarjetas = 3 filas de 3 en pantallas anchas. Sin tope, la grilla crecía
+// hacia abajo con cada documento nuevo.
+const PAGE_SIZE = 9;
+
 export function ConsultaDocumentosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [buscar, setBuscar] = useState("");
   const [tipo, setTipo] = useState<TipoDocumento | "">("");
 
+  const [errorApertura, setErrorApertura] = useState<string | null>(null);
+
   const { documentos, loading, error } = useDocumentosVigentes(buscar, tipo);
+  const {
+    paginados: documentosPaginados,
+    page,
+    setPage,
+    totalPaginas,
+    hayVariasPaginas,
+  } = usePaginas(documentos, PAGE_SIZE, `${buscar}|${tipo}`);
+
+  const handleAbrir = (archivoUrl: string) => {
+    setErrorApertura(null);
+    abrirArchivo(archivoUrl).catch(() =>
+      setErrorApertura("No se pudo abrir el documento."),
+    );
+  };
 
   return (
     <Box p="5">
-      <Heading as="h2" size="md" fontWeight="bold" color="gray.900" mb="1">
-        Consultar documentos
-      </Heading>
-      <Text color="gray.600" mb="5">
-        Documentos vigentes
-      </Text>
+      <PageHeader
+        title="Consultar documentos"
+        description="Documentos vigentes del sistema de calidad, con su versión al día."
+      />
 
       {/* Buscador y filtro: se apilan en pantallas chicas */}
-      <HStack gap="3" flexWrap="wrap" mb="6" align="flex-end">
-        <Box flex="1 1 220px" minW={0}>
-          <Input
-            type="search"
-            value={buscar}
-            onChange={(e) => setBuscar(e.target.value)}
-            placeholder="Buscar por nombre…"
-            aria-label="Buscar documentos por nombre"
-          />
-        </Box>
-        <Box flex="0 1 220px">
-          <NativeSelect.Root w="100%">
-            <NativeSelect.Field
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as TipoDocumento | "")}
-              aria-label="Filtrar documentos por tipo"
-              bg="white"
-              borderWidth="2px"
-              borderColor="brand.300"
-              borderRadius="lg"
-            >
-              <option value="">Todos los tipos</option>
-              {TIPOS_DOCUMENTO.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Box>
-      </HStack>
+      <Tarjeta p="4" mb="6">
+        <HStack gap="4" flexWrap="wrap" align="flex-end">
+          <Box flex="1 1 220px" minW={0}>
+            <Field.Root>
+              <LabelFiltro>Buscar por nombre</LabelFiltro>
+              <FormInput
+                type="search"
+                value={buscar}
+                onChange={(e) => setBuscar(e.target.value)}
+                placeholder="Buscar por nombre…"
+                aria-label="Buscar documentos por nombre"
+              />
+            </Field.Root>
+          </Box>
+          <Box flex="0 1 220px">
+            <Field.Root>
+              <LabelFiltro>Tipo</LabelFiltro>
+              <FormNativeSelect
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as TipoDocumento | "")}
+                aria-label="Filtrar documentos por tipo"
+              >
+                <SelectPlaceholder value="">Todos los tipos</SelectPlaceholder>
+                {TIPOS_DOCUMENTO.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </Field.Root>
+          </Box>
+        </HStack>
+      </Tarjeta>
 
-      {loading && documentos.length === 0 && <Spinner color="brand.500" />}
+      {loading && documentos.length === 0 && (
+        <EstadoCargando>Cargando documentos...</EstadoCargando>
+      )}
       {error && <BannerError>{error}</BannerError>}
+      {errorApertura && <BannerError>{errorApertura}</BannerError>}
 
       {!loading && !error && documentos.length === 0 && (
-        <Tarjeta p={8} textAlign="center">
-          <Text color="gray.500">No se encontraron documentos.</Text>
-        </Tarjeta>
+        <EstadoVacio>No se encontraron documentos.</EstadoVacio>
       )}
 
       {documentos.length > 0 && (
-        <SimpleGrid minChildWidth="260px" gap="4">
-          {documentos.map((doc) => {
-            const v = doc.version_vigente;
-            return (
-              <Tarjeta
-                key={doc.id}
-                p="4.5"
-                borderTopWidth="5px"
-                borderTopColor="brand.500"
-              >
-                <Text fontSize="xs" fontWeight="bold" color="gray.500">
-                  {etiquetaTipo(doc.tipo).toUpperCase()}
-                </Text>
-                <Heading as="h3" size="lg" color="gray.900" mt="1" mb="2.5">
-                  {doc.nombre}
-                </Heading>
-                <Text color="gray.600" mb="1.5">
-                  Versión vigente:{" "}
-                  <Text as="span" color="brand.500" fontWeight="bold">
-                    v{v.numero_version}
+        <>
+          <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="4">
+            {documentosPaginados.map((doc) => {
+              const v = doc.version_vigente;
+              return (
+                <Tarjeta
+                  key={doc.id}
+                  p="4"
+                  borderTopWidth="4px"
+                  borderTopColor="brand.500"
+                >
+                  <Text fontSize="xs" fontWeight="bold" color="fg.muted">
+                    {etiquetaTipo(doc.tipo)}
                   </Text>
-                </Text>
-                <Text color="gray.600" mb="3.5">
-                  Vigente desde {fechaCorta(v.vigente_desde)}
-                </Text>
-
-                <HStack gap="2.5" flexWrap="wrap">
-                  <Button
-                    colorPalette="brand"
-                    variant="solid"
-                    rounded="lg"
+                  <Text
+                    fontSize="lg"
                     fontWeight="bold"
-                    px="4"
-                    py="2.5"
-                    onClick={() =>
-                      abrirArchivo(v.archivo_url).catch(() =>
-                        alert("No se pudo abrir el documento"),
-                      )
-                    }
+                    color="fg"
+                    mt="1"
+                    mb="2"
                   >
-                    Abrir documento
-                  </Button>
+                    {doc.nombre}
+                  </Text>
+                  <Text color="fg.muted" fontSize="sm" mb="1">
+                    Versión vigente:{" "}
+                    <Text as="span" color="brand.fg" fontWeight="bold">
+                      v{v.numero_version}
+                    </Text>
+                  </Text>
+                  <Text color="fg.muted" fontSize="sm" mb="4">
+                    Vigente desde {fechaCorta(v.vigente_desde)}
+                  </Text>
 
-                  {/* Acción explícita: solo para quien puede administrar (historia 4) */}
-                  {user?.puede_administrar && (
+                  <HStack gap="2" flexWrap="wrap">
                     <Button
-                      variant="plain"
-                      bg="gray.200"
-                      color="gray.800"
-                      rounded="lg"
-                      fontWeight="bold"
-                      px="4"
-                      py="2.5"
-                      _hover={{ bg: "gray.300" }}
-                      onClick={() => navigate(`/documentos/${doc.id}/historial`)}
+                      colorPalette="brand"
+                      onClick={() => handleAbrir(v.archivo_url)}
                     >
-                      Ver historial
+                      <LuExternalLink aria-hidden />
+                      Abrir documento
                     </Button>
-                  )}
-                </HStack>
-              </Tarjeta>
-            );
-          })}
-        </SimpleGrid>
+
+                    {/* Acción explícita: solo para quien puede administrar (historia 4) */}
+                    {user?.puede_administrar && (
+                      <Button
+                        variant="outline"
+                        colorPalette="neutral"
+                        onClick={() =>
+                          navigate(`/documentos/${doc.id}/historial`)
+                        }
+                      >
+                        <LuHistory aria-hidden />
+                        Ver historial
+                      </Button>
+                    )}
+                  </HStack>
+                </Tarjeta>
+              );
+            })}
+          </SimpleGrid>
+
+          {hayVariasPaginas && (
+            <Paginacion
+              count={totalPaginas}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
     </Box>
   );

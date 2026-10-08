@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { InsumoForm } from "../InsumoForm";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { InsumoFormValues } from "../../types/insumo";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function InsumoCreatePage() {
   const navigate = useNavigate();
@@ -52,21 +57,21 @@ export function InsumoCreatePage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo insumo
-        </Heading>
-        <BotonVolver onClick={() => navigate("/insumos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Nuevo insumo"
+        actions={
+          <BotonVolver onClick={() => navigate("/insumos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <InsumoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Insumo"
+        title="Alta de insumo"
         submitLabel="Crear insumo"
       />
 

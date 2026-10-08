@@ -30,26 +30,20 @@ export function PlanCalibracionMantenimientoItem({
 
   return (
     <Table.Row>
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+      <Celda p="3" color="brand.fg" fontWeight="bold">
         #{plan.id}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {nombreEquipo}
-      </Celda>
-      <Celda p="3" fontSize="md">
+      <Celda p="3">{nombreEquipo}</Celda>
+      <Celda p="3">
         {plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {formatoFecha(plan.fecha_ultima_intervencion)}
-      </Celda>
-      <Celda p="3" fontSize="md">
+      <Celda p="3">{formatoFecha(plan.fecha_ultima_intervencion)}</Celda>
+      <Celda p="3">
         Cada {plan.periodicidad_dias}{" "}
         {plan.periodicidad_dias === 1 ? "día" : "días"}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {formatoFecha(plan.proxima_fecha_vencimiento)}
-      </Celda>
-      <Celda p="3" center fontSize="md">
+      <Celda p="3">{formatoFecha(plan.proxima_fecha_vencimiento)}</Celda>
+      <Celda p="3" center>
         {plan.dias_restantes}
       </Celda>
       <Celda p="3" center>

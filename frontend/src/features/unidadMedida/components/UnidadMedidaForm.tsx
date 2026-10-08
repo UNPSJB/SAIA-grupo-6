@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Box, Field, Input } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import {
   AccionesFormulario,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 import type { UnidadMedidaFormValues } from "../types/unidadMedida";
 
@@ -26,7 +30,7 @@ export function UnidadMedidaForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Unidad de Medida",
+  title = "Alta de unidad de medida",
   onCancel,
 }: UnidadMedidaFormProps) {
   const [values, setValues] = useState<UnidadMedidaFormValues>(initialValues);
@@ -49,50 +53,33 @@ export function UnidadMedidaForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Box
-        as="h3"
-        mt={0}
-        fontSize="2xl"
-        fontWeight="bold"
-        color="brand.500"
-        mb="6"
-      >
-        {title}
-      </Box>
+    <Box as="form" onSubmit={handleSubmit}>
+      <TarjetaFormulario>
+        <TituloFormulario>{title}</TituloFormulario>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">NOMBRE *</Field.Label>
-        <Input
-          value={values.nombre}
-          onChange={handleNombreChange}
-          placeholder="Ej: Litros, Kilogramos, Gramos"
-          maxW="500px"
-        />
-      </Field.Root>
+        <FormField label="Nombre" required>
+          <FormInput
+            value={values.nombre}
+            onChange={handleNombreChange}
+            placeholder="Ej: Litros, Kilogramos, Gramos"
+            maxW="500px"
+          />
+        </FormField>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">SÍMBOLO *</Field.Label>
-        <Input
-          value={values.simbolo}
-          onChange={handleSimboloChange}
-          placeholder="Ej: L, KG, G"
-          maxW="500px"
-        />
-      </Field.Root>
+        <FormField label="Símbolo" required mb="0">
+          <FormInput
+            value={values.simbolo}
+            onChange={handleSimboloChange}
+            placeholder="Ej: L, KG, G"
+            maxW="500px"
+          />
+        </FormField>
 
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
-        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-      </AccionesFormulario>
+        <AccionesFormulario>
+          <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+        </AccionesFormulario>
+      </TarjetaFormulario>
     </Box>
   );
 }

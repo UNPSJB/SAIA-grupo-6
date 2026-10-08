@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Box, Field, Input, NativeSelect } from "@chakra-ui/react";
 import {
   TIPOS_QUIMICOS,
   type InsumoQuimicoFormValues,
@@ -11,6 +10,12 @@ import {
   AccionesFormulario,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 
 interface InsumoQuimicoFormProps {
@@ -28,18 +33,12 @@ const emptyValues: InsumoQuimicoFormValues = {
   unidad_medida_id: 0,
 };
 
-/**
- * El aspecto del input lo aporta la receta `input` del tema
- * (`src/theme/index.ts`), así que los `<Input>` no llevan objeto de estilo.
- * `NativeSelect.Field` NO usa esa receta, así que hay que darle a mano el
- * borde/fondo que antes venía del `estiloSelect`.
- */
 export function InsumoQuimicoForm({
   initialValues = emptyValues,
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Insumo Químico",
+  title = "Alta de insumo químico",
   onCancel,
 }: InsumoQuimicoFormProps) {
   const [values, setValues] = useState<InsumoQuimicoFormValues>(initialValues);
@@ -84,82 +83,49 @@ export function InsumoQuimicoForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Box
-        as="h3"
-        mt={0}
-        fontSize="2xl"
-        fontWeight="bold"
-        color="brand.500"
-        mb="6"
-      >
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">NOMBRE *</Field.Label>
-        <Input
+      <FormField label="Nombre" required>
+        <FormInput
           value={values.nombre}
           onChange={handleNombreChange}
-          placeholder="Ej: Detergente Industrial Concentrado"
+          placeholder="Ej: Detergente industrial concentrado"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">TIPO DE PRODUCTO QUÍMICO *</Field.Label>
-        <NativeSelect.Root>
-          <NativeSelect.Field
-            value={values.tipo}
-            onChange={handleTipoChange}
-            maxW="500px"
-            borderWidth="2px"
-            borderColor="brand.300"
-            borderRadius="lg"
-            bg="white"
-          >
-            {TIPOS_QUIMICOS.map((tipo) => (
-              <option key={tipo.value} value={tipo.value}>
-                {tipo.label}
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
-
-      <Field.Root required mb="6">
-        <Field.Label color="gray.600">UNIDAD DE MEDIDA *</Field.Label>
-        <NativeSelect.Root disabled={cargandoUnidades}>
-          <NativeSelect.Field
-            value={values.unidad_medida_id}
-            onChange={handleUnidadChange}
-            maxW="500px"
-            borderWidth="2px"
-            borderColor="brand.300"
-            borderRadius="lg"
-            bg="white"
-          >
-            <option value={0} disabled>
-              {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+      <FormField label="Tipo de producto químico" required>
+        <FormNativeSelect
+          value={values.tipo}
+          onChange={handleTipoChange}
+          maxW="500px"
+        >
+          {TIPOS_QUIMICOS.map((tipo) => (
+            <option key={tipo.value} value={tipo.value}>
+              {tipo.label}
             </option>
-            {unidades.map((unidad) => (
-              <option key={unidad.id} value={unidad.id}>
-                {unidad.nombre} ({unidad.simbolo})
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
+          ))}
+        </FormNativeSelect>
+      </FormField>
+
+      <FormField label="Unidad de medida" required mb="0">
+        <FormNativeSelect
+          value={values.unidad_medida_id}
+          onChange={handleUnidadChange}
+          disabled={cargandoUnidades}
+          maxW="500px"
+        >
+          <SelectPlaceholder>
+            {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+          </SelectPlaceholder>
+          {unidades.map((unidad) => (
+            <option key={unidad.id} value={unidad.id}>
+              {unidad.nombre} ({unidad.simbolo})
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
       <AccionesFormulario>
         <BotonGuardar loading={isLoading} disabled={!values.unidad_medida_id}>
@@ -167,6 +133,6 @@ export function InsumoQuimicoForm({
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

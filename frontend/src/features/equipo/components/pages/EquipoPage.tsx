@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
+import { Box, Button, Spinner } from "@chakra-ui/react";
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -10,7 +10,13 @@ import { HistorialCalibracionesDialog } from "../HistorialCalibracionesDialog";
 import { useEquipos } from "../../hooks/useEquipos";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import type { Equipo } from "../../types/equipo";
-import { BannerError, DialogoExito, Paginacion, ToggleInactivos } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  DialogoExito,
+  PageHeader,
+  Paginacion,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -94,22 +100,17 @@ export function EquiposPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          {verInactivos ? "Equipos Dados de Baja" : "Gestión de Equipos"}
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/equipos/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
+      <PageHeader
+        title={
+          verInactivos ? "Equipos dados de baja" : "Gestión de equipos"
+        }
+        description="Alta, modificación y baja de los equipos del laboratorio, con su historial de calibraciones."
+        actions={
+          <Button colorPalette="brand" onClick={() => navigate("/equipos/nuevo")}>
+            + Agregar
+          </Button>
+        }
+      />
 
       <ToggleInactivos
         checked={verInactivos}

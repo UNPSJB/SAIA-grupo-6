@@ -1,6 +1,6 @@
-import { Button, HStack, Table, Text } from "@chakra-ui/react";
+import { HStack, Table, Text } from "@chakra-ui/react";
 import type { Aptitud } from "../types/aptitud";
-import { Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface AptitudItemProps {
   aptitud: Aptitud;
@@ -11,29 +11,33 @@ interface AptitudItemProps {
 
 export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudItemProps) {
   return (
-    <Table.Row borderBottom="1px solid" borderColor="gray.100" opacity={aptitud.activo ? 1 : 0.65}>
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="16px">
+    <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={aptitud.activo ? 1 : 0.65}>
+      <Celda p="3" color="brand.fg" fontWeight="bold">
         #{aptitud.id}
       </Celda>
-      <Celda p="3" fontSize="16px">{aptitud.nombre}</Celda>
-      <Celda p="3" fontSize="14px">
-        {aptitud.descripcion || <Text as="span" color="gray.400" fontStyle="italic">Sin descripción</Text>}
+      <Celda p="3">{aptitud.nombre}</Celda>
+      <Celda p="3">
+        {aptitud.descripcion || (
+          <Text as="span" color="fg.subtle" fontStyle="italic">
+            Sin descripción
+          </Text>
+        )}
       </Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="10px">
+        <HStack justify="center" gap="2">
           {aptitud.activo ? (
             <>
-              <Button bg="orange.400" color="white" fontSize="15px" fontWeight="normal" border="none" p="6px 12px" rounded="4px" _hover={{ bg: "orange.500" }} onClick={() => onEdit(aptitud)}>
+              <BotonTabla accion="editar" onClick={() => onEdit(aptitud)}>
                 Modificar
-              </Button>
-              <Button bg="red.600" color="white" fontSize="15px" fontWeight="normal" border="none" p="6px 12px" rounded="4px" _hover={{ bg: "red.700" }} onClick={() => onDelete(aptitud)}>
+              </BotonTabla>
+              <BotonTabla accion="eliminar" onClick={() => onDelete(aptitud)}>
                 Eliminar
-              </Button>
+              </BotonTabla>
             </>
           ) : (
-            <Button bg="green.500" color="white" fontSize="15px" fontWeight="normal" border="none" p="6px 12px" rounded="4px" _hover={{ bg: "green.600" }} onClick={() => onReactivar(aptitud)}>
+            <BotonTabla accion="reactivar" onClick={() => onReactivar(aptitud)}>
               Reactivar
-            </Button>
+            </BotonTabla>
           )}
         </HStack>
       </Celda>

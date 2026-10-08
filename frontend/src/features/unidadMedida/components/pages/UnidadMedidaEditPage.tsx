@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Heading, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
 import { UnidadMedidaForm } from "../UnidadMedidaForm";
 import { useUnidadMedida } from "../../hooks/useUnidadMedida";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
@@ -8,7 +8,9 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { UnidadMedida } from "../../types/unidadMedida";
 import {
   BannerError,
+  BotonVolver,
   DialogoExito,
+  PageHeader,
 } from "../../../../components/ui/patrones";
 
 export function UnidadMedidaEditPage() {
@@ -46,37 +48,21 @@ export function UnidadMedidaEditPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="20px">
-        <Heading
-          as="h2"
-          size="md"
-          fontWeight="bold"
-          color="black"
-        >
-          Editar unidad de medida
-        </Heading>
-
-        <Button
-          colorPalette="gray"
-          fontSize="md"
-          fontWeight="normal"
-          h="auto"
-          minW="auto"
-          px="4"
-          py="2"
-          rounded="md"
-          onClick={() => navigate("/unidades-medida")}
-        >
-          Volver a la lista
-        </Button>
-      </HStack>
+      <PageHeader
+        title="Editar unidad de medida"
+        actions={
+          <BotonVolver onClick={() => navigate("/unidades-medida")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
       {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">
+          <Text fontStyle="italic" fontSize="sm">
             Cargando datos de la unidad de medida...
           </Text>
         </Stack>
@@ -99,7 +85,7 @@ export function UnidadMedidaEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Unidad de Medida"
+            title="Modificar unidad de medida"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/unidades-medida")}
           />

@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { Button, Field, HStack, Textarea } from "@chakra-ui/react";
+import { Textarea } from "@chakra-ui/react";
 import {
   DialogContent,
   DialogDescription,
   DialogRoot,
   DialogTitle,
 } from "../../../components/ui/dialog";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+} from "../../../components/ui/patrones";
 import type { Incidente } from "../types/incidente";
 
 interface CerrarIncidenteDialogProps {
@@ -51,69 +57,45 @@ export function CerrarIncidenteDialog({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        bg="white"
+        bg="bg.panel"
         p="6"
-        rounded="l2"
+        rounded="lg"
         boxShadow="dialog"
-        width="450px"
+        width="400px"
         maxWidth="90vw"
         textAlign="left"
       >
-        <DialogTitle as="h3" mt={0} mb="4" fontWeight="bold" color="gray.800">
+        <DialogTitle as="h3" mt={0} mb="4" fontSize="lg" fontWeight="bold" color="fg">
           Cerrar incidente <strong>#{incidente.id}</strong>
         </DialogTitle>
 
-        <DialogDescription color="gray.600" mb="4">
+        <DialogDescription color="fg.muted" mb="4">
           Se deja asentada la acción correctiva, la fecha de cierre y vos
           como responsable de la resolución.
         </DialogDescription>
 
-        <Field.Root mb="5">
-          <Field.Label fontSize="sm" fontWeight="bold" color="gray.600">
-            Acción correctiva (opcional)
-          </Field.Label>
+        <FormField label="Acción correctiva (opcional)" mb="6">
           <Textarea
             value={observacion}
             onChange={(e) => setObservacion(e.target.value)}
             rows={4}
             placeholder="Ej: Se lavó y desinfectó el equipo y se cambió el termostato."
-            fontSize="sm"
             resize="vertical"
           />
-        </Field.Root>
+        </FormField>
 
-        <HStack justify="flex-end" gap="2.5">
-          <Button
-            type="button"
-            onClick={onClose}
-            height="auto"
-            minW="auto"
-            px="4"
-            py="2"
-            rounded="md"
-            variant="outline"
-            borderColor="gray.300"
-            colorPalette="gray"
-            fontWeight="bold"
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
-          <Button
+        <AccionesFormulario>
+          <BotonGuardar
             type="button"
             onClick={() => onConfirm(observacion)}
             loading={isLoading}
-            height="auto"
-            minW="auto"
-            px="4"
-            py="2"
-            rounded="md"
-            colorPalette="brand"
-            fontWeight="bold"
           >
             Cerrar incidente
-          </Button>
-        </HStack>
+          </BotonGuardar>
+          <BotonCancelar onClick={onClose} disabled={isLoading}>
+            Cancelar
+          </BotonCancelar>
+        </AccionesFormulario>
       </DialogContent>
     </DialogRoot>
   );

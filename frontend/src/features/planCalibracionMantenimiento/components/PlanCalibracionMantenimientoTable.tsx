@@ -1,8 +1,9 @@
-import { Table, Text } from "@chakra-ui/react";
+import { Table } from "@chakra-ui/react";
 import { PlanCalibracionMantenimientoItem } from "./PlanCalibracionMantenimientoItem";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
 import {
   EncabezadoOscuro,
+  EstadoVacio,
   FilaEncabezado,
   Tarjeta,
 } from "../../../components/ui/patrones";
@@ -21,11 +22,7 @@ export function PlanCalibracionMantenimientoTable({
   onDelete,
 }: PlanCalibracionMantenimientoTableProps) {
   if (planes.length === 0) {
-    return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay planes para mostrar.</Text>
-      </Tarjeta>
-    );
+    return <EstadoVacio>No hay planes para mostrar.</EstadoVacio>;
   }
 
   return (

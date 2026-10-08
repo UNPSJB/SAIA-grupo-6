@@ -18,20 +18,16 @@ export function UnidadMedidaItem({
   return (
     <Table.Row
       borderBottomWidth="1px"
-      borderColor="gray.100"
+      borderColor="border.subtle"
       opacity={unidad.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+      <Celda p="3" color="fg" fontWeight="bold">
         #{unidad.id}
       </Celda>
 
-      <Celda p="3" fontSize="md">
-        {unidad.nombre}
-      </Celda>
+      <Celda p="3">{unidad.nombre}</Celda>
 
-      <Celda p="3" fontSize="md">
-        {unidad.simbolo}
-      </Celda>
+      <Celda p="3">{unidad.simbolo}</Celda>
 
       <Celda p="3" center>
         <HStack justify="center" gap="2">

@@ -5,7 +5,7 @@ import {
   Badge,
   Box,
   Button,
-  Heading,
+  HStack,
   Spinner,
   Table,
   Text,
@@ -20,6 +20,7 @@ import {
   DialogoExito,
   EncabezadoOscuro,
   FilaEncabezado,
+  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 
@@ -101,9 +102,15 @@ export function NotificacionesPage() {
 
   return (
     <Box p="5" maxW="1000px" mx="auto">
-      <Heading as="h2" size="md" mb="5">
-        🔔 Centro de Notificaciones del Sistema
-      </Heading>
+      <PageHeader
+        title={
+          <HStack gap="2">
+            <span aria-hidden>🔔</span>
+            Centro de notificaciones
+          </HStack>
+        }
+        description="Vencimientos pendientes del sistema."
+      />
 
       {/* CARTEL VERDE DE ÉXITO */}
       <DialogoExito
@@ -116,16 +123,16 @@ export function NotificacionesPage() {
       {loading ? (
         <Spinner color="brand.500" />
       ) : notificacionesOrdenadas.length === 0 ? (
-        <Box p="8" textAlign="center" bg="gray.50" rounded="lg">
-          <Text fontSize="lg" color="green.600" fontWeight="bold">
+        <Tarjeta p="8" textAlign="center">
+          <Text fontSize="lg" color="green.fg" fontWeight="bold">
             ✅ No hay notificaciones pendientes
           </Text>
-          <Text color="gray.600">
+          <Text color="fg.muted" fontSize="sm">
             Todos los vencimientos están al día.
           </Text>
-        </Box>
+        </Tarjeta>
       ) : (
-        <Tarjeta borderWidth="1px" borderColor="gray.200">
+        <Tarjeta>
           <Table.Root variant="outline" size="md">
             <Table.Header>
               <FilaEncabezado>
@@ -170,8 +177,8 @@ export function NotificacionesPage() {
                       </Badge>
                     </Celda>
                     <Celda>
-                      <Text fontWeight="bold" color="gray.900" mb="1">{n.titulo}</Text>
-                      <Text fontSize="sm" color="gray.600">
+                      <Text fontWeight="bold" color="fg" mb="1">{n.titulo}</Text>
+                      <Text fontSize="sm" color="fg.muted">
                         {n.mensaje}
                       </Text>
                     </Celda>
@@ -183,7 +190,6 @@ export function NotificacionesPage() {
                         size="sm"
                         colorPalette="brand"
                         fontWeight="bold"
-                        rounded="md"
                         onClick={() => handleResolver(n)}
                       >
                         {n.tipo === "ELEMENTO_LIMPIEZA" ? "Registrar Recambio" : "Ver plan"}

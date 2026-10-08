@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
+import { Box, Button, Spinner } from "@chakra-ui/react";
 import { InsumoQuimicoTable } from "../InsumoQuimicoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useInsumosQuimicos } from "../../hooks/useInsumosQuimicos";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import type { InsumoQuimico } from "../../types/insumoQuimico";
-import { BannerError, Paginacion, ToggleInactivos } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  PageHeader,
+  Paginacion,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -79,31 +84,27 @@ export function InsumosQuimicosPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          {verInactivos
-            ? "Insumos Químicos Dados de Baja"
-            : "Gestión de Insumos Químicos"}
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/insumos-quimicos/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
-
+      <PageHeader
+        title={
+          verInactivos
+            ? "Insumos químicos dados de baja"
+            : "Gestión de insumos químicos"
+        }
+        description="Alta, modificación y baja de los productos químicos del laboratorio."
+        actions={
+          <Button
+            colorPalette="brand"
+            onClick={() => navigate("/insumos-quimicos/nuevo")}
+          >
+            + Agregar
+          </Button>
+        }
+      />
 
       <ToggleInactivos
         checked={verInactivos}
-        
-         onChange={handleToggleInactivos}
-         children="Ver dados de baja"
+        onChange={handleToggleInactivos}
+        children="Ver dados de baja"
       />
 
       {error && <BannerError>{error}</BannerError>}

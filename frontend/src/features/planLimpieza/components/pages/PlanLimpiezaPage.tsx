@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { PlanLimpiezaTable } from "../PlanLimpiezaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -9,7 +9,14 @@ import { usePlanesLimpieza } from "../../hooks/usePlanesLimpieza";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
 import { useOpcionesPlanLimpieza } from "../../hooks/useOpcionesPlanLimpieza";
 import type { PlanLimpieza } from "../../types/planLimpieza";
-import { BannerError, Paginacion, ToggleInactivos } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonAgregar,
+  EstadoCargando,
+  PageHeader,
+  Paginacion,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -85,34 +92,23 @@ export function PlanLimpiezaPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          {verInactivos
-            ? "Planes de Limpieza Dados de Baja"
-            : "Planes de Limpieza"}
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/planes-limpieza/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
-
+      <PageHeader
+        title={verInactivos ? "Planes de limpieza dados de baja" : "Planes de limpieza"}
+        description="Tareas de limpieza con su frecuencia y el equipo al que aplican."
+        actions={
+          <BotonAgregar onClick={() => navigate("/planes-limpieza/nuevo")}>
+            Agregar
+          </BotonAgregar>
+        }
+      />
 
       <ToggleInactivos
         checked={verInactivos}
-        
-         onChange={handleToggleInactivos}
-         children="Ver dados de baja"
+        onChange={handleToggleInactivos}
+        children="Ver dados de baja"
       />
 
-      {loading && <Spinner color="brand.500" />}
+      {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && (

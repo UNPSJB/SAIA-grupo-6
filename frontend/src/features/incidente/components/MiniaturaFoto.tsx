@@ -12,8 +12,8 @@ const MARCO: BoxProps = {
   rounded: "lg",
   overflow: "hidden",
   borderWidth: "1px",
-  borderColor: "gray.200",
-  bg: "gray.50",
+  borderColor: "border",
+  bg: "bg.subtle",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -35,12 +35,12 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
     // Skeleton: un texto "Cargando..." no entra en una caja de 72px, y con
     // varias filas a la vez el parpadeo se vuelve un distraction.
     return (
-      <Box {...MARCO} p="8px">
+      <Box {...MARCO} p="2">
         <Box
           w="100%"
           h="100%"
           rounded="sm"
-          bg="gray.200"
+          bg="bg.muted"
           aria-hidden
         />
       </Box>
@@ -50,7 +50,7 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
   if (imagen.error || !imagen.src) {
     return (
       <Box {...MARCO} title={imagen.error || "No se pudo cargar la foto"}>
-        <Text fontSize="12px" color="gray.400">
+        <Text fontSize="xs" color="fg.subtle">
           —
         </Text>
       </Box>
@@ -86,7 +86,7 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
             alignItems="center"
             justifyContent="center"
             zIndex={2000}
-            p="20px"
+            p="5"
             cursor="zoom-out"
             onClick={() => setAmpliada(false)}
           >
@@ -108,7 +108,7 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
 export function CeldaFoto({ rutaFoto }: { rutaFoto: string | null }) {
   if (!rutaFoto) {
     return (
-      <Text fontSize="16px" color="gray.300" title="Sin foto">
+      <Text fontSize="md" color="fg.subtle" title="Sin foto">
         —
       </Text>
     );

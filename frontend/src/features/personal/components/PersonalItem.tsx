@@ -33,25 +33,16 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
   const puedeBorrar = puedeDarDeBajaA(user, persona);
 
   return (
-    <Table.Row borderBottomWidth="1px" borderColor="gray.100" opacity={persona.activo ? 1 : 0.65}>
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+    <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={persona.activo ? 1 : 0.65}>
+      <Celda p="3" color="brand.fg" fontWeight="bold">
         #{persona.id}
       </Celda>
-      <Celda p="3" fontSize="md">
+      <Celda p="3">
         {persona.nombre} {persona.apellido || ""}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {persona.dni}
-      </Celda>
+      <Celda p="3">{persona.dni}</Celda>
       <Celda p="3">
-        <Text
-          as="span"
-          bg="gray.100"
-          px="2"
-          py="1"
-          rounded="sm"
-          fontSize="xs"
-        >
+        <Text as="span" bg="bg.muted" px="2" py="1" rounded="sm" fontSize="xs">
           {resumenPermisos(persona)}
         </Text>
       </Celda>

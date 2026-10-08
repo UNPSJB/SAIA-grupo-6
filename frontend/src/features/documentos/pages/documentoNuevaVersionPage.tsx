@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Heading, HStack, Spinner, Text } from "@chakra-ui/react";
+import { Box, Spinner, Text } from "@chakra-ui/react";
 import { DocumentoForm } from "../components/documentoForm";
 import { useDocumento } from "../hooks/useDocumento";
 import { useDocumentoABM } from "../hooks/useDocumentoABM";
 import type { DocumentoFormValues } from "../types/documento";
 import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
-import { BannerError, BannerExito, BotonVolver } from "../../../components/ui/patrones";
+import {
+  BannerError,
+  BannerExito,
+  BotonVolver,
+  PageHeader,
+} from "../../../components/ui/patrones";
 
 export function DocumentoNuevaVersionPage() {
   const { id } = useParams();
@@ -32,21 +37,22 @@ export function DocumentoNuevaVersionPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nueva versión{documento ? `: ${documento.nombre}` : ""}
-        </Heading>
-        <BotonVolver onClick={() => navigate("/documentos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title={`Nueva versión${documento ? `: ${documento.nombre}` : ""}`}
+        description="La versión anterior queda archivada: no se borra ni se sobrescribe."
+        actions={
+          <BotonVolver onClick={() => navigate("/documentos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {cargando && <Spinner color="brand.500" />}
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
       {documento && (
         <>
-          <Text mb="4" color="gray.600">
+          <Text mb="4" color="fg.muted" fontSize="sm">
             Se va a crear la{" "}
             <Text as="span" fontWeight="bold">
               versión {documento.proximo_numero_version}
@@ -73,6 +79,7 @@ export function DocumentoNuevaVersionPage() {
             isLoading={loading}
             title="Subir nueva versión"
             submitLabel="Subir versión"
+            onCancel={() => navigate("/documentos")}
           />
         </>
       )}

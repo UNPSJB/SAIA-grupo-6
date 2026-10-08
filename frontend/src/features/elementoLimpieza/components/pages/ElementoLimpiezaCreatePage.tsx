@@ -1,12 +1,17 @@
 import type { ElementoLimpiezaFormValues } from "../../types/elementoLimpieza";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../ElementoLimpiezaForm";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function ElementoLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -47,22 +52,22 @@ export function ElementoLimpiezaCreatePage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Nuevo elemento de limpieza
-        </Heading>
-        <BotonVolver onClick={() => navigate("/elementos-limpieza")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Nuevo elemento de limpieza"
+        actions={
+          <BotonVolver onClick={() => navigate("/elementos-limpieza")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <ElementoLimpiezaForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Elemento de Limpieza"
-        submitLabel="Crear Elemento"
+        title="Alta de elemento de limpieza"
+        submitLabel="Crear elemento"
         onCancel={() => navigate("/elementos-limpieza")}
       />
 

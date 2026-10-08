@@ -1,8 +1,9 @@
-import { Table, Text } from "@chakra-ui/react";
+import { Table } from "@chakra-ui/react";
 import { PlanLimpiezaItem } from "./PlanLimpiezaItem";
 import type { EquipoOption, PlanLimpieza } from "../types/planLimpieza";
 import {
   EncabezadoOscuro,
+  EstadoVacio,
   FilaEncabezado,
   Tarjeta,
 } from "../../../components/ui/patrones";
@@ -23,11 +24,7 @@ export function PlanLimpiezaTable({
   onReactivar,
 }: PlanLimpiezaTableProps) {
   if (planes.length === 0) {
-    return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay planes de limpieza cargados.</Text>
-      </Tarjeta>
-    );
+    return <EstadoVacio>No hay planes de limpieza cargados.</EstadoVacio>;
   }
 
   const nombreEquipo = (id: number) =>

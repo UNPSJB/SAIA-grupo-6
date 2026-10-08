@@ -1,8 +1,9 @@
-import { Table, Text } from "@chakra-ui/react";
+import { Table } from "@chakra-ui/react";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
 import { ElementoLimpiezaItem } from "./ElementoLimpiezaItem";
 import {
   EncabezadoOscuro,
+  EstadoVacio,
   FilaEncabezado,
   Tarjeta,
 } from "../../../components/ui/patrones";
@@ -21,11 +22,7 @@ export function ElementoLimpiezaTable({
   onReactivar,
 }: ElementoLimpiezaTableProps) {
   if (elementos.length === 0) {
-    return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay elementos de limpieza para mostrar.</Text>
-      </Tarjeta>
-    );
+    return <EstadoVacio>No hay elementos de limpieza para mostrar.</EstadoVacio>;
   }
 
   return (

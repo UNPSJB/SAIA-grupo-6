@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Box, Field, Heading, Input, NativeSelect, Text } from "@chakra-ui/react";
 
 import { useEquipos } from "../../equipo/hooks/useEquipos";
 import { hoyISO } from "../../../common/utils/fechas";
@@ -12,6 +11,12 @@ import {
   BannerError,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoFormProps {
@@ -31,18 +36,6 @@ const emptyValues: PlanCalibracionMantenimientoFormValues = {
   fecha_ultima_intervencion: hoyISO(),
   periodicidad_dias: 30,
 };
-
-/**
- * `NativeSelect.Field` no consume la receta `input` del tema, así que el
- * borde y el fondo hay que pasarlos a mano.
- */
-const propsSelect = {
-  bg: "white",
-  borderWidth: "2px",
-  borderColor: "brand.300",
-  rounded: "lg",
-  maxW: "500px",
-} as const;
 
 export function PlanCalibracionMantenimientoForm({
   initialValues = emptyValues,
@@ -99,73 +92,51 @@ export function PlanCalibracionMantenimientoForm({
     values.periodicidad_dias <= 0;
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Heading as="h3" mt={0} size="lg" color="brand.500" fontWeight="bold" mb="6">
-        {title}
-      </Heading>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
+      <TituloFormulario>{title}</TituloFormulario>
 
       {errorEquipos && <BannerError>{errorEquipos}</BannerError>}
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">EQUIPO *</Field.Label>
-        <NativeSelect.Root disabled={cargandoEquipos}>
-          <NativeSelect.Field
-            value={values.equipo_id}
-            onChange={handleEquipoChange}
-            {...propsSelect}
-          >
-            <option value={0} disabled>
-              {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
+      <FormField label="Equipo" required helper="Sólo se muestran equipos activos.">
+        <FormNativeSelect
+          value={values.equipo_id}
+          onChange={handleEquipoChange}
+          disabled={cargandoEquipos}
+          maxW="500px"
+        >
+          <SelectPlaceholder>
+            {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
+          </SelectPlaceholder>
+          {equipos.map((equipo) => (
+            <option key={equipo.id} value={equipo.id}>
+              {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
             </option>
-            {equipos.map((equipo) => (
-              <option key={equipo.id} value={equipo.id}>
-                {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-        <Text fontSize="xs" color="gray.400" mt={0}>
-          Sólo se muestran equipos activos.
-        </Text>
-      </Field.Root>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">TIPO DE PLAN *</Field.Label>
-        <NativeSelect.Root>
-          <NativeSelect.Field
-            value={values.tipo}
-            onChange={handleTipoChange}
-            {...propsSelect}
-          >
-            <option value="calibracion">Calibración</option>
-            <option value="mantenimiento">Mantenimiento</option>
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
+      <FormField label="Tipo de plan" required>
+        <FormNativeSelect
+          value={values.tipo}
+          onChange={handleTipoChange}
+          maxW="500px"
+        >
+          <option value="calibracion">Calibración</option>
+          <option value="mantenimiento">Mantenimiento</option>
+        </FormNativeSelect>
+      </FormField>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">FECHA DE LA ÚLTIMA INTERVENCIÓN *</Field.Label>
-        <Input
+      <FormField label="Fecha de la última intervención" required>
+        <FormInput
           type="date"
           value={values.fecha_ultima_intervencion}
           onChange={handleFechaChange}
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
-      <Field.Root required mb="6">
-        <Field.Label color="gray.600">PERIODICIDAD (DÍAS) *</Field.Label>
-        <Input
+      <FormField label="Periodicidad (días)" required mb="0">
+        <FormInput
           type="number"
           min={1}
           value={values.periodicidad_dias}
@@ -173,7 +144,7 @@ export function PlanCalibracionMantenimientoForm({
           placeholder="Ej: 30"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
       <AccionesFormulario>
         <BotonGuardar
@@ -184,6 +155,6 @@ export function PlanCalibracionMantenimientoForm({
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

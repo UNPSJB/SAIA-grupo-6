@@ -27,7 +27,7 @@ export function EquipoTable({
   if (equipos.length === 0) {
     return (
       <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">No hay equipos para mostrar.</Text>
+        <Text color="fg.muted">No hay equipos para mostrar.</Text>
       </Tarjeta>
     );
   }

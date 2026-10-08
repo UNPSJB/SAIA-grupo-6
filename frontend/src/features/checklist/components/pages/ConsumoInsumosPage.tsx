@@ -1,13 +1,18 @@
 import { useEffect } from "react";
-import { Box, Button, Field, Heading, HStack, Input, Spinner, Table, Text } from "@chakra-ui/react";
+import { Box, Button, Field, HStack, Table, Text } from "@chakra-ui/react";
+import { LuSearch } from "react-icons/lu";
 import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
 import {
+  BannerError,
   Celda,
-  ColumnaHeader,
+  EncabezadoOscuro,
+  EstadoCargando,
+  FilaEncabezado,
+  FormInput,
   LabelFiltro,
+  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
-
 
 export function ConsumoInsumosPage() {
   const {
@@ -27,107 +32,80 @@ export function ConsumoInsumosPage() {
   }, []);
 
   return (
-    <Box p="20px" maxW="1000px" margin="0 auto">
-      <Heading as="h2" size="md" fontWeight="bold" color="gray.900" mb="20px">
-        Consumo de productos de limpieza
-      </Heading>
+    <Box p="5" maxW="1000px" mx="auto">
+      <PageHeader
+        title="Consumo de productos de limpieza"
+        description="Totales consumidos en el período seleccionado, por producto y por día."
+      />
 
-      <HStack gap="20px" mb="20px" flexWrap="wrap">
-        <Field.Root>
-          <LabelFiltro>DESDE</LabelFiltro>
-          <Input
-            type="date"
-            value={fechaDesde}
-            max={fechaHasta}
-            onChange={(e) => setFechaDesde(e.target.value)}
-            p="10px 14px"
-            rounded="lg"
-            borderWidth={2}
-            borderColor="brand.300"
-            fontSize="15px"
-            w="auto"
-          />
-        </Field.Root>
+      <Tarjeta p="4" mb="6">
+        <HStack gap="4" flexWrap="wrap" align="flex-end">
+          <Box>
+            <Field.Root>
+              <LabelFiltro>Desde</LabelFiltro>
+              <FormInput
+                type="date"
+                value={fechaDesde}
+                max={fechaHasta}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                w="auto"
+              />
+            </Field.Root>
+          </Box>
 
-        <Field.Root>
-          <LabelFiltro>HASTA</LabelFiltro>
-          <Input
-            type="date"
-            value={fechaHasta}
-            min={fechaDesde}
-            onChange={(e) => setFechaHasta(e.target.value)}
-            p="10px 14px"
-            rounded="lg"
-            borderWidth={2}
-            borderColor="brand.300"
-            fontSize="15px"
-            w="auto"
-          />
-        </Field.Root>
+          <Box>
+            <Field.Root>
+              <LabelFiltro>Hasta</LabelFiltro>
+              <FormInput
+                type="date"
+                value={fechaHasta}
+                min={fechaDesde}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                w="auto"
+              />
+            </Field.Root>
+          </Box>
 
-        <Button
-          mt="26px"
-          bg="brand.500"
-          color="white"
-          onClick={() => cargar()}
-          loading={loading}
-          border="none"
-          p="10px 20px"
-          rounded="lg"
-          fontWeight="bold"
-          _hover={{ bg: "brand.700" }}
-        >
-          Consultar
-        </Button>
-      </HStack>
+          <Button colorPalette="brand" onClick={() => cargar()} loading={loading}>
+            <LuSearch aria-hidden />
+            Consultar
+          </Button>
+        </HStack>
+      </Tarjeta>
 
-      {error && (
-        <Box
-          bg="red.100"
-          color="red.800"
-          p="12px"
-          rounded="md"
-          mb="20px"
-          border="1px solid"
-          borderColor="red.200"
-          fontWeight="bold"
-        >
-          ⚠️ {error}
-        </Box>
-      )}
+      {error && <BannerError>{error}</BannerError>}
 
-      {loading && (
-        <Box display="flex" justifyContent="center" p="40px">
-          <Spinner color="brand.500" />
-        </Box>
-      )}
+      {loading && <EstadoCargando>Cargando consumo...</EstadoCargando>}
 
       {!loading && consumo && (
         <>
           <Tarjeta>
-            <Box p="16px" borderBottom="2px solid" borderColor="brand.300">
-              <Text color="gray.600" fontSize="14px">
+            <Box p="4" borderBottomWidth="1px" borderColor="border">
+              <Text color="fg.muted" fontSize="sm">
                 Total consumido en el período:{" "}
-                <Text as="span" color="gray.800" fontSize="18px" fontWeight="bold">
+                <Text as="span" color="fg" fontSize="lg" fontWeight="bold">
                   {consumo.total_general}
                 </Text>
               </Text>
             </Box>
 
             {consumo.insumos.length === 0 ? (
-              <Box p="30px" textAlign="center">
-                <Text color="gray.500">
+              <Box p="8" textAlign="center">
+                <Text color="fg.muted">
                   No hay consumos registrados en el período seleccionado.
                 </Text>
               </Box>
             ) : (
-              <Table.Root size="sm">
+              // `borderRadius="0"`: la tabla va debajo del bloque del total, y
+              // con el radio del tema el encabezado oscuro quedaba con las
+              // esquinas superiores redondeadas en mitad de la tarjeta.
+              <Table.Root variant="outline" size="sm" borderRadius="0">
                 <Table.Header>
-                  <Table.Row>
-                    <ColumnaHeader>Producto</ColumnaHeader>
-                    <ColumnaHeader>Cantidad acumulada</ColumnaHeader>
-                    <ColumnaHeader>Registros</ColumnaHeader>
-                  </Table.Row>
+                  <FilaEncabezado>
+                    <EncabezadoOscuro>Producto</EncabezadoOscuro>
+                    <EncabezadoOscuro>Cantidad acumulada</EncabezadoOscuro>
+                    <EncabezadoOscuro>Registros</EncabezadoOscuro>
+                  </FilaEncabezado>
                 </Table.Header>
                 <Table.Body>
                   {consumo.insumos.map((insumo) => (
@@ -145,13 +123,13 @@ export function ConsumoInsumosPage() {
           </Tarjeta>
 
           {consumo.por_fecha.length > 0 && (
-            <Tarjeta mt="20px">
-              <Box p="16px" borderBottom="2px solid" borderColor="brand.300">
-                <Text color="gray.600" fontSize="14px" fontWeight="bold">
+            <Tarjeta mt="6">
+              <Box p="4" borderBottomWidth="1px" borderColor="border">
+                <Text color="fg.muted" fontSize="sm" fontWeight="bold">
                   Consumo por día
                 </Text>
               </Box>
-              <Box p="16px" display="flex" flexDirection="column" gap="8px">
+              <Box p="4" display="flex" flexDirection="column" gap="2">
                 {consumo.por_fecha.map((item) => {
                   const maximo = Math.max(
                     ...consumo.por_fecha.map((i) => i.cantidad_total),
@@ -160,12 +138,20 @@ export function ConsumoInsumosPage() {
                   const porcentaje = (item.cantidad_total / maximo) * 100;
 
                   return (
-                    <Box key={item.fecha} display="flex" alignItems="center" gap="12px">
-                      <Text w="100px" fontSize="13px" color="gray.600">{item.fecha}</Text>
-                      <Box flex={1} bg="gray.100" rounded="4px" h="16px" overflow="hidden">
+                    <Box key={item.fecha} display="flex" alignItems="center" gap="3">
+                      <Text w="100px" fontSize="sm" color="fg.muted">
+                        {item.fecha}
+                      </Text>
+                      <Box flex={1} bg="bg.muted" rounded="full" h="3" overflow="hidden">
                         <Box w={`${porcentaje}%`} h="100%" bg="brand.500" />
                       </Box>
-                      <Text w="70px" textAlign="right" fontSize="13px" fontWeight="bold" color="gray.800">
+                      <Text
+                        w="70px"
+                        textAlign="right"
+                        fontSize="sm"
+                        fontWeight="bold"
+                        color="fg"
+                      >
                         {item.cantidad_total}
                       </Text>
                     </Box>

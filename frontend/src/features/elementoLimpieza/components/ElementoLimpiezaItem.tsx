@@ -19,23 +19,19 @@ export function ElementoLimpiezaItem({
   return (
     <Table.Row
       borderBottomWidth="1px"
-      borderColor="gray.100"
+      borderColor="border.subtle"
       opacity={elemento.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+      <Celda p="3" color="brand.fg" fontWeight="bold">
         #{elemento.id}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {elemento.nombre}
-      </Celda>
-      <Celda p="3" fontSize="md">
+      <Celda p="3">{elemento.nombre}</Celda>
+      <Celda p="3">
         {elemento.fecha_ultimo_recambio
           ? formatoFecha(elemento.fecha_ultimo_recambio)
           : "-"}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {elemento.frecuencia_recambio_dias ?? "Sin definir"}
-      </Celda>
+      <Celda p="3">{elemento.frecuencia_recambio_dias ?? "Sin definir"}</Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2">
           {elemento.activo && (

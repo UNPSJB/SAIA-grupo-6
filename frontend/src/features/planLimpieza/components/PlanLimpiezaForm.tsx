@@ -1,16 +1,6 @@
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Field,
-  Heading,
-  HStack,
-  Input,
-  NativeSelect,
-  Stack,
-  Text,
-  Textarea,
-} from "@chakra-ui/react";
+import { Button, HStack, Stack, Textarea } from "@chakra-ui/react";
+import { LuPlus, LuTrash2 } from "react-icons/lu";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
 import {
@@ -18,6 +8,12 @@ import {
   BannerError,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 
 interface PlanLimpiezaFormProps {
@@ -37,18 +33,10 @@ const emptyValues: PlanLimpiezaInput = {
 };
 
 /**
- * `NativeSelect.Field` no consume la receta `input` del tema (solo los
- * `<Input>`/`<Textarea>` de Chakra la toman), así que el borde y el fondo
- * hay que pasarlos a mano.
+ * El aspecto de los controles lo dan `FormInput` y `FormNativeSelect`: este
+ * último arma el `NativeSelect.Root`/`Indicator` para que el desplegable
+ * tenga el mismo lenguaje visual que los inputs.
  */
-const propsSelect = {
-  bg: "white",
-  borderWidth: "2px",
-  borderColor: "brand.300",
-  rounded: "lg",
-  maxW: "500px",
-} as const;
-
 export function PlanLimpiezaForm({
   initialValues = emptyValues,
   onSubmit,
@@ -124,89 +112,75 @@ export function PlanLimpiezaForm({
   );
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Heading as="h3" mt={0} size="lg" color="brand.500" fontWeight="bold" mb="6">
-        {title}
-      </Heading>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
       {errorOpciones && <BannerError>{errorOpciones}</BannerError>}
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">NOMBRE *</Field.Label>
-        <Input
+      <FormField label="Nombre" required mb="4">
+        <FormInput
           value={values.nombre}
           onChange={handleNombreChange}
           placeholder="Ej: Limpieza diaria de heladeras"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
-      {/* Tareas, cada una con su propia frecuencia */}
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">TAREAS *</Field.Label>
-        <Stack gap="3.5">
+      {/*
+        Tareas, cada una con su propia frecuencia.
+
+        Los controles de cada tarea ocupan todo el ancho del recuadro. Antes
+        venían con `maxW="500px"`, que es el ancho pensado para un campo de
+        formulario suelto: como acá cada tarea ya es un recuadro anidado,
+        quedaban pegados al borde izquierdo con medio recuadro de aire a la
+        derecha.
+      */}
+      <FormField label="Tareas" required mb="4">
+        {/*
+          `w="100%"` explícito: `Field.Root` usa `align-items: flex-start`, así
+          que un `Stack` sin ancho se ajusta al contenido y las tareas quedan
+          angostas contra el borde izquierdo.
+        */}
+        <Stack gap="4" w="100%">
           {values.tareas.map((tarea, index) => (
-            <Box
+            <Stack
               key={index}
-              p="3"
-              bg="gray.50"
+              gap="4"
+              p="4"
+              w="100%"
+              bg="bg.subtle"
               borderWidth="1px"
-              borderColor="brand.100"
+              borderColor="border.subtle"
               rounded="lg"
             >
-              <HStack gap="2.5" align="end" mb="2" flexWrap="wrap">
-                <Field.Root>
-                  <Field.Label color="gray.600" fontSize="xs">
-                    NOMBRE DE LA TAREA
-                  </Field.Label>
-                  <Input
-                    value={tarea.nombre}
-                    onChange={(e) =>
-                      handleTareaNombreChange(index, e.target.value)
-                    }
-                    placeholder={`Ej: Limpiar bandeja ${index + 1}`}
-                    maxW="320px"
-                  />
-                </Field.Root>
-                <Field.Root>
-                  <Field.Label color="gray.600" fontSize="xs">
-                    FRECUENCIA EN DIAS
-                  </Field.Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={tarea.frecuencia}
-                    onChange={(e) =>
-                      handleTareaFrecuenciaChange(index, Number(e.target.value))
-                    }
-                    placeholder="Frecuencia (días)"
-                    title="Frecuencia en días"
-                    maxW="140px"
-                  />
-                </Field.Root>
-                <BotonCancelar
-                  aria-label={`Quitar tarea ${index + 1}`}
-                  fontWeight="bold"
-                  px="3.5"
-                  py="2.5"
-                  onClick={() => handleQuitarTarea(index)}
-                  disabled={values.tareas.length === 1}
-                >
-                  ✕
-                </BotonCancelar>
-              </HStack>
-              <Field.Root>
-                <Field.Label color="gray.600" fontSize="xs" mb="1">
-                  PROCEDIMIENTO (opcional)
-                </Field.Label>
+              <FormField label="Nombre de la tarea" mb="0">
+                <FormInput
+                  value={tarea.nombre}
+                  onChange={(e) =>
+                    handleTareaNombreChange(index, e.target.value)
+                  }
+                  placeholder={`Ej: Limpiar bandeja ${index + 1}`}
+                />
+              </FormField>
+
+              <FormField
+                label="Frecuencia en días"
+                helper="Cada cuántos días se repite."
+                mb="0"
+              >
+                <FormInput
+                  type="number"
+                  min={1}
+                  value={tarea.frecuencia}
+                  onChange={(e) =>
+                    handleTareaFrecuenciaChange(index, Number(e.target.value))
+                  }
+                  placeholder="Frecuencia (días)"
+                  title="Frecuencia en días"
+                />
+              </FormField>
+
+              <FormField label="Procedimiento (opcional)" mb="0">
                 <Textarea
                   value={tarea.descripcion ?? ""}
                   onChange={(e) =>
@@ -217,74 +191,76 @@ export function PlanLimpiezaForm({
                   }
                   rows={4}
                   resize="vertical"
-                  maxW="500px"
                 />
-              </Field.Root>
-            </Box>
+              </FormField>
+
+              <HStack justify="flex-end">
+                <BotonCancelar
+                  aria-label={`Quitar tarea ${index + 1}`}
+                  onClick={() => handleQuitarTarea(index)}
+                  disabled={values.tareas.length === 1}
+                >
+                  <LuTrash2 aria-hidden />
+                  Quitar tarea
+                </BotonCancelar>
+              </HStack>
+            </Stack>
           ))}
         </Stack>
-        <Button
-          type="button"
-          variant="outline"
-          colorPalette="brand"
-          rounded="lg"
-          fontWeight="bold"
-          px="4"
-          py="2"
-          mt="3"
-          onClick={handleAgregarTarea}
+      </FormField>
+
+      <Button
+        type="button"
+        variant="outline"
+        colorPalette="brand"
+        size="sm"
+        mb="6"
+        onClick={handleAgregarTarea}
+      >
+        <LuPlus aria-hidden />
+        Agregar tarea
+      </Button>
+
+      <FormField label="Equipo" required mb="4">
+        <FormNativeSelect
+          value={values.equipo_id}
+          onChange={handleEquipoChange}
+          disabled={cargandoOpciones}
+          maxW="500px"
         >
-          + Agregar tarea
-        </Button>
-      </Field.Root>
-
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">EQUIPO *</Field.Label>
-        <NativeSelect.Root disabled={cargandoOpciones}>
-          <NativeSelect.Field
-            value={values.equipo_id}
-            onChange={handleEquipoChange}
-            {...propsSelect}
-          >
-            <option value={0} disabled>
-              {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+          <SelectPlaceholder value={0}>
+            {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+          </SelectPlaceholder>
+          {equipos.map((equipo) => (
+            <option key={equipo.id} value={equipo.id}>
+              {equipo.nombre}
             </option>
-            {equipos.map((equipo) => (
-              <option key={equipo.id} value={equipo.id}>
-                {equipo.nombre}
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">AUTOR *</Field.Label>
-        <NativeSelect.Root disabled={cargandoOpciones}>
-          <NativeSelect.Field
-            value={values.autor_id}
-            onChange={handleAutorChange}
-            {...propsSelect}
-          >
-            <option value={0} disabled>
-              {cargandoOpciones
-                ? "Cargando..."
-                : "Seleccioná quién crea el plan"}
+      <FormField
+        label="Autor"
+        required
+        helper="Se guarda de forma explícita porque el sistema todavía no tiene sesión de usuario."
+        mb="0"
+      >
+        <FormNativeSelect
+          value={values.autor_id}
+          onChange={handleAutorChange}
+          disabled={cargandoOpciones}
+          maxW="500px"
+        >
+          <SelectPlaceholder value={0}>
+            {cargandoOpciones ? "Cargando..." : "Seleccioná quién crea el plan"}
+          </SelectPlaceholder>
+          {personal.map((persona) => (
+            <option key={persona.id} value={persona.id}>
+              {persona.nombre} {persona.apellido || ""}
             </option>
-            {personal.map((persona) => (
-              <option key={persona.id} value={persona.id}>
-                {persona.nombre} {persona.apellido || ""}
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-        <Text fontSize="xs" color="gray.400" mt={0}>
-          Se guarda de forma explícita porque el sistema todavía no tiene sesión
-          de usuario.
-        </Text>
-      </Field.Root>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
       <AccionesFormulario>
         <BotonGuardar
@@ -295,6 +271,6 @@ export function PlanLimpiezaForm({
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

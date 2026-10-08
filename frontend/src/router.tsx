@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Outlet } from "react-router-dom";
-import { Box, Flex, Spinner, Heading, Text } from "@chakra-ui/react";
+import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
+import { PageHeader } from "./components/ui/patrones";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -219,13 +220,13 @@ export const router = createBrowserRouter([
           {
             path: "/",
             element: (
-              <Box textAlign="center" mt="50px">
-                <Heading as="h1" size="xl" mb="2">
-                  Panel Principal - SAIA
-                </Heading>
-                <Text>
-                  Seleccioná una opción en el menú lateral para comenzar.
-                </Text>
+              // `PageHeader` para que el título de Inicio tenga el mismo
+              // tamaño que el de cualquier otra pantalla.
+              <Box>
+                <PageHeader
+                  title="Panel principal"
+                  description="Seleccioná una opción del menú lateral para comenzar."
+                />
               </Box>
             ),
           },
@@ -627,22 +628,25 @@ export const router = createBrowserRouter([
 
 function NotFoundPage() {
   return (
-    <Box textAlign="center" mt="50px">
-      <Heading as="h1" size="xl" mb="2">404</Heading>
-      <Text>La página que buscás no existe.</Text>
-    </Box>
+    <Stack gap="2" mt="8" maxW="600px">
+      <Heading as="h1" size="2xl" color="fg">
+        404
+      </Heading>
+      <Text color="fg.muted">La página que buscás no existe.</Text>
+    </Stack>
   );
 }
 
 function SinPermisosPage() {
   return (
-    <Box textAlign="center" mt="50px">
-      <Heading as="h1" size="xl" mb="2">No tenés permisos</Heading>
-
-      <Text>
+    <Stack gap="2" mt="8" maxW="600px">
+      <Heading as="h1" size="2xl" color="fg">
+        No tenés permisos
+      </Heading>
+      <Text color="fg.muted">
         Tu usuario no tiene el permiso necesario para ver esta sección.
         Comunicate con un administrador si necesitás acceso.
       </Text>
-    </Box>
+    </Stack>
   );
 }

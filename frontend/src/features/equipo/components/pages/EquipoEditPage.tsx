@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Heading, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
 import { EquipoForm } from "../../components/EquipoForm";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { useEquipo } from "../../hooks/useEquipo";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { Equipo } from "../../types/equipo";
-import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function EquipoEditPage() {
   const navigate = useNavigate();
@@ -50,17 +55,18 @@ export function EquipoEditPage() {
 
   return (
     <Box p="5" maxW="600px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Editar Equipo
-        </Heading>
-        <BotonVolver onClick={() => navigate("/equipos")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+      <PageHeader
+        title="Editar Equipo"
+        description="Modificá los datos del equipo. La baja lo saca de los listados y por eso pide confirmación."
+        actions={
+          <BotonVolver onClick={() => navigate("/equipos")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
           <Text fontStyle="italic">Cargando datos del Equipo...</Text>
         </Stack>

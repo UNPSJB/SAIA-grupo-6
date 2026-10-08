@@ -1,11 +1,16 @@
 import { useState } from "react";
-import { Button, Field, HStack, Textarea } from "@chakra-ui/react";
+import { Button, Textarea } from "@chakra-ui/react";
 import {
   DialogContent,
   DialogDescription,
   DialogRoot,
   DialogTitle,
 } from "../../../components/ui/dialog";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  FormField,
+} from "../../../components/ui/patrones";
 import type { Incidente } from "../types/incidente";
 
 interface ReabrirIncidenteDialogProps {
@@ -49,69 +54,49 @@ export function ReabrirIncidenteDialog({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        bg="white"
+        bg="bg.panel"
         p="6"
-        rounded="l2"
+        rounded="lg"
         boxShadow="dialog"
-        width="450px"
+        width="400px"
         maxWidth="90vw"
         textAlign="left"
       >
-        <DialogTitle as="h3" mt={0} mb="4" fontWeight="bold" color="gray.800">
+        <DialogTitle as="h3" mt={0} mb="4" fontSize="lg" fontWeight="bold" color="fg">
           Reabrir incidente <strong>#{incidente.id}</strong>
         </DialogTitle>
 
-        <DialogDescription color="gray.600" mb="4">
+        <DialogDescription color="fg.muted" mb="4">
           El incidente vuelve a estado abierto. Podés dejar un motivo
           (opcional) para dejar registro del cambio.
         </DialogDescription>
 
-        <Field.Root mb="5">
-          <Field.Label fontSize="sm" fontWeight="bold" color="gray.600">
-            Motivo de reapertura (opcional)
-          </Field.Label>
+        <FormField label="Motivo de reapertura (opcional)" mb="6">
           <Textarea
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             rows={4}
             placeholder="Ej: La solución no funcionó, el equipo sigue fallando."
-            fontSize="sm"
             resize="vertical"
           />
-        </Field.Root>
+        </FormField>
 
-        <HStack justify="flex-end" gap="2.5">
-          <Button
-            type="button"
-            onClick={onClose}
-            height="auto"
-            minW="auto"
-            px="4"
-            py="2"
-            rounded="md"
-            variant="outline"
-            borderColor="gray.300"
-            colorPalette="gray"
-            fontWeight="bold"
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
+        <AccionesFormulario>
+          {/* Reabrir no es la acción principal de la app: por eso no usa
+              `BotonGuardar` (teal) sino el ámbar de "reabrir". */}
           <Button
             type="button"
             onClick={() => onConfirm(motivo)}
             loading={isLoading}
-            height="auto"
-            minW="auto"
-            px="4"
-            py="2"
-            rounded="md"
             colorPalette="orange"
-            fontWeight="bold"
+            size="md"
           >
             Reabrir incidente
           </Button>
-        </HStack>
+          <BotonCancelar onClick={onClose} disabled={isLoading}>
+            Cancelar
+          </BotonCancelar>
+        </AccionesFormulario>
       </DialogContent>
     </DialogRoot>
   );

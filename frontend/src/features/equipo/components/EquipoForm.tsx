@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { Box, Field, Input, Switch } from "@chakra-ui/react";
+import { Box, Switch } from "@chakra-ui/react";
 import type { Equipo } from "../types/equipo";
 import {
   AccionesFormulario,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 
 type EquipoFormValues = Omit<Equipo, "id">;
@@ -87,62 +91,42 @@ export function EquipoForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Box
-        as="h3"
-        mt={0}
-        fontSize="2xl"
-        fontWeight="bold"
-        color="brand.500"
-        mb="6"
-      >
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
       {/* Nombre */}
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">NOMBRE *</Field.Label>
-        <Input
+      <FormField label="Nombre" required mb="4">
+        <FormInput
           value={values.nombre}
           onChange={handleNombreChange}
           placeholder="Ej: Heladera industrial"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
       {/* Tipo */}
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">TIPO *</Field.Label>
-        <Input
+      <FormField label="Tipo" required mb="4">
+        <FormInput
           value={values.tipo}
           onChange={handleTipoChange}
           placeholder="Ej: Heladera, horno, freidora..."
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
       {/* Ubicación */}
-      <Field.Root required mb={mostrarBaja ? "6" : "5"}>
-        <Field.Label color="gray.600">UBICACIÓN *</Field.Label>
-        <Input
+      <FormField label="Ubicación" required mb={mostrarBaja ? "4" : "0"}>
+        <FormInput
           value={values.ubicacion}
           onChange={handleUbicacionChange}
           placeholder="Ej: Sector A - Laboratorio"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
       {/* Dar de baja - solo aparece al modificar */}
       {mostrarBaja && (
-        <Box mb="6">
+        <Box mb="0">
           <Switch.Root
             checked={!values.activo || bajaConfirmada}
             onCheckedChange={(details) => handleBajaChange(details.checked)}
@@ -150,7 +134,7 @@ export function EquipoForm({
           >
             <Switch.HiddenInput />
             <Switch.Control />
-            <Switch.Label fontSize="sm" fontWeight="bold" color="gray.600">
+            <Switch.Label fontSize="sm" fontWeight="bold" color="fg.muted">
               Dar de baja
             </Switch.Label>
           </Switch.Root>
@@ -162,6 +146,6 @@ export function EquipoForm({
         <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

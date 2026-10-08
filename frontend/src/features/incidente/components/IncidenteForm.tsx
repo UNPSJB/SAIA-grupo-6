@@ -2,21 +2,31 @@ import { useState, useEffect } from "react";
 import {
   Box,
   Button,
-  Field,
   HStack,
+  IconButton,
   Image,
   Input,
-  NativeSelect,
   Text,
   Textarea,
 } from "@chakra-ui/react";
+import { LuPaperclip, LuX } from "react-icons/lu";
 import type { IncidenteFormValues, TipoIncidente } from "../types/incidente";
-import { TIPOS_INCIDENTE, admiteEquipo, requiereEquipoObligatorio } from "../types/incidente";
+import {
+  TIPOS_INCIDENTE,
+  admiteEquipo,
+  requiereEquipoObligatorio,
+} from "../types/incidente";
 import { listarEquipos } from "../../equipo/services/equipoService";
 import type { Equipo } from "../../equipo/types/equipo";
 import {
   AccionesFormulario,
   BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  MensajeError,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 
 interface IncidenteFormProps {
@@ -34,20 +44,6 @@ const emptyValues: IncidenteFormValues = {
   equipo_id: null,
 };
 
-/**
- * Props del `NativeSelect.Field` de este formulario.
- *
- * `NativeSelect.Field` no consume la receta `input` del tema, así que hay que
- * darle a mano el mismo borde que llevan los `<Input>` de la app.
- */
-const SELECT_BASE = {
-  bg: "white",
-  borderWidth: "2px",
-  borderColor: "brand.300",
-  borderRadius: "lg",
-  fontSize: "md",
-} as const;
-
 const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 // Mismo límite que el backend. Acá se avisa al instante; el backend vuelve a
@@ -58,7 +54,7 @@ export function IncidenteForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Registrar Incidente",
+  title = "Registrar incidente",
   fullWidth = false,
 }: IncidenteFormProps) {
   const [values, setValues] = useState<IncidenteFormValues>(emptyValues);
@@ -69,7 +65,8 @@ export function IncidenteForm({
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
 
-  const maxInputWidth = fullWidth ? "720px" : "500px";
+  // Ancho del campo: es layout, no estilo, así que queda como prop.
+  const anchoCampo = fullWidth ? undefined : "500px";
 
   useEffect(() => {
     const cargarEquipos = async () => {
@@ -123,7 +120,9 @@ export function IncidenteForm({
 
     if (file) {
       if (!FORMATOS_PERMITIDOS.includes(file.type)) {
-        setErrorFoto("Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP).");
+        setErrorFoto(
+          "Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP)."
+        );
         setFoto(null);
         setFotoPreview(null);
         return;
@@ -156,7 +155,10 @@ export function IncidenteForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (equipoObligatorio && (values.equipo_id === null || values.equipo_id === undefined)) {
+    if (
+      equipoObligatorio &&
+      (values.equipo_id === null || values.equipo_id === undefined)
+    ) {
       return;
     }
     if (!values.titulo.trim() || !values.descripcion.trim()) {
@@ -166,110 +168,76 @@ export function IncidenteForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Box
-        as="h3"
-        mt={0}
-        fontSize="2xl"
-        fontWeight="bold"
-        color="brand.500"
-        mb="6"
-      >
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
-      {/* Título */}
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">TÍTULO *</Field.Label>
-        <Input
+      <FormField label="Título" required>
+        <FormInput
           type="text"
           value={values.titulo}
           onChange={handleTituloChange}
           placeholder="Ej: Termostato de heladera roto"
           maxLength={60}
-          maxW={maxInputWidth}
+          maxW={anchoCampo}
         />
-      </Field.Root>
+      </FormField>
 
-      {/* Tipo de Incidente */}
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">TIPO DE INCIDENTE *</Field.Label>
-        <NativeSelect.Root>
-          <NativeSelect.Field
-            value={values.tipo}
-            onChange={handleTipoChange}
-            maxW={maxInputWidth}
-            {...SELECT_BASE}
-          >
-            {TIPOS_INCIDENTE.map((tipo) => (
-              <option key={tipo.value} value={tipo.value}>
-                {tipo.label}
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
+      <FormField label="Tipo de incidente" required>
+        <FormNativeSelect
+          value={values.tipo}
+          onChange={handleTipoChange}
+          maxW={anchoCampo}
+        >
+          {TIPOS_INCIDENTE.map((tipo) => (
+            <option key={tipo.value} value={tipo.value}>
+              {tipo.label}
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
       {admiteEquipo(values.tipo) && (
-        <Field.Root required={equipoObligatorio} mb="5">
-          <Field.Label color="gray.600">
-            {equipoObligatorio ? "EQUIPO *" : "EQUIPO (OPCIONAL)"}
-          </Field.Label>
-          <NativeSelect.Root disabled={cargandoEquipos}>
-            <NativeSelect.Field
-              value={values.equipo_id ?? ""}
-              onChange={handleEquipoChange}
-              maxW={maxInputWidth}
-              {...SELECT_BASE}
-            >
-              <option value="">
-                {cargandoEquipos
-                  ? "Cargando..."
-                  : equipoObligatorio
-                    ? "Seleccionar equipo"
-                    : "Seleccionar equipo (opcional)"}
+        <FormField
+          label={equipoObligatorio ? "Equipo" : "Equipo (opcional)"}
+          required={equipoObligatorio}
+          helper={errorEquipos ?? undefined}
+          invalid={Boolean(errorEquipos)}
+        >
+          <FormNativeSelect
+            value={values.equipo_id ?? ""}
+            onChange={handleEquipoChange}
+            disabled={cargandoEquipos}
+            invalid={Boolean(errorEquipos)}
+            maxW={anchoCampo}
+          >
+            <option value="">
+              {cargandoEquipos
+                ? "Cargando..."
+                : equipoObligatorio
+                  ? "Seleccionar equipo"
+                  : "Seleccionar equipo (opcional)"}
+            </option>
+            {equipos.map((equipo) => (
+              <option key={equipo.id} value={equipo.id}>
+                {equipo.nombre}
               </option>
-              {equipos.map((equipo) => (
-                <option key={equipo.id} value={equipo.id}>
-                  {equipo.nombre}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-
-          {errorEquipos && (
-            <Text fontSize="xs" color="red.600" mt="1" fontWeight="bold">
-              ⚠️ {errorEquipos}
-            </Text>
-          )}
-        </Field.Root>
+            ))}
+          </FormNativeSelect>
+        </FormField>
       )}
 
-      {/* Descripción */}
-      <Field.Root required mb="5">
-        <Field.Label color="gray.600">DESCRIPCIÓN *</Field.Label>
+      <FormField label="Descripción" required>
         <Textarea
           value={values.descripcion}
           onChange={handleDescripcionChange}
           placeholder="Ej: Describa lo ocurrido"
           rows={4}
-          maxW={maxInputWidth}
+          maxW={anchoCampo}
           resize="vertical"
         />
-      </Field.Root>
+      </FormField>
 
-      <Field.Root mb="6">
-        <Field.Label color="gray.600">FOTO (OPCIONAL)</Field.Label>
+      <FormField label="Foto (opcional)" invalid={Boolean(errorFoto)} mb="6">
         <Input
           type="file"
           accept="image/jpeg,image/png,image/gif,image/webp"
@@ -277,39 +245,29 @@ export function IncidenteForm({
           id="foto-incidente"
           onChange={handleFotoChange}
         />
-        <HStack gap="2.5">
+        <HStack gap="3">
           <Button
             type="button"
             onClick={() => document.getElementById("foto-incidente")?.click()}
             variant="outline"
-            colorPalette="gray"
-            bg="gray.200"
-            color="gray.800"
-            px="4"
-            py="2"
-            rounded="md"
-            fontSize="sm"
-            fontWeight="bold"
-            _hover={{ bg: "gray.300" }}
+            colorPalette="neutral"
+            size="sm"
           >
-            Adjuntar Foto
+            <LuPaperclip aria-hidden />
+            Adjuntar foto
           </Button>
           {foto && (
-            <Text fontSize="sm" color="brand.500" fontWeight="bold">
+            <Text fontSize="sm" color="brand.fg" fontWeight="medium">
               {foto.name}
             </Text>
           )}
         </HStack>
 
-        {errorFoto && (
-          <Text fontSize="xs" color="red.600" mt="1" fontWeight="bold">
-            ⚠️ {errorFoto}
-          </Text>
-        )}
+        {errorFoto && <MensajeError>{errorFoto}</MensajeError>}
 
         {/* Preview de la foto */}
         {fotoPreview && (
-          <Box mt="3" position="relative" display="inline-block">
+          <Box mt="4" position="relative" display="inline-block">
             <Image
               src={fotoPreview}
               alt="Vista previa de la foto adjunta"
@@ -320,34 +278,26 @@ export function IncidenteForm({
               borderColor="brand.300"
               display="block"
             />
-            <Button
+            <IconButton
               type="button"
               onClick={handleRemoverFoto}
               aria-label="Quitar foto adjunta"
               position="absolute"
-              top="-8px"
-              right="-8px"
-              size="sm"
-              minW="22px"
-              height="22px"
-              padding="0"
+              top="-2"
+              right="-2"
+              size="xs"
               rounded="full"
-              bg="red.600"
-              color="white"
-              fontWeight="bold"
-              lineHeight="1"
-              _hover={{ bg: "red.700" }}
+              colorPalette="red"
             >
-              ✕
-            </Button>
+              <LuX />
+            </IconButton>
           </Box>
         )}
-      </Field.Root>
+      </FormField>
 
-      {/* Botones */}
       <AccionesFormulario>
         <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

@@ -28,24 +28,18 @@ export function InsumoQuimicoItem({
   return (
     <Table.Row
       borderBottomWidth="1px"
-      borderColor="gray.100"
+      borderColor="border.subtle"
       opacity={insumo.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+      <Celda p="3" color="fg" fontWeight="bold">
         #{insumo.id}
       </Celda>
 
-      <Celda p="3" fontSize="md">
-        {insumo.nombre}
-      </Celda>
+      <Celda p="3">{insumo.nombre}</Celda>
 
-      <Celda p="3" fontSize="md">
-        {tipoLabel}
-      </Celda>
+      <Celda p="3">{tipoLabel}</Celda>
 
-      <Celda p="3" fontSize="md">
-        {unidadLabel}
-      </Celda>
+      <Celda p="3">{unidadLabel}</Celda>
 
       <Celda p="3" center>
         <HStack justify="center" gap="2">

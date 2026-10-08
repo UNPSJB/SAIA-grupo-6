@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Box, Field, Heading, Input, NativeSelect } from "@chakra-ui/react";
 import {
   AccionesFormulario,
   BotonCancelar,
   BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  TarjetaFormulario,
+  TituloFormulario,
 } from "../../../components/ui/patrones";
 import { TIPOS_DOCUMENTO } from "../types/documento";
 import type { DocumentoFormValues, TipoDocumento } from "../types/documento";
@@ -42,68 +46,54 @@ export function DocumentoForm({
   const incompleto = !values.archivo || (conDatosDelDocumento && !values.nombre.trim());
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      bg="white"
-      p="8"
-      rounded="xl"
-      boxShadow="card"
-      mb="8"
-    >
-      <Heading as="h3" size="lg" mt={0} color="brand.500" mb="5">
-        {title}
-      </Heading>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
+      <TituloFormulario>{title}</TituloFormulario>
 
       {conDatosDelDocumento && (
         <>
-          <Field.Root required mb="5">
-            <Field.Label color="gray.600">NOMBRE DEL DOCUMENTO *</Field.Label>
-            <Input
+          <FormField label="Nombre del documento" required>
+            <FormInput
               value={values.nombre}
               onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
               placeholder="Ej: Manual de BPM"
               maxW="500px"
             />
-          </Field.Root>
+          </FormField>
 
-          <Field.Root required mb="5">
-            <Field.Label color="gray.600">TIPO *</Field.Label>
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={values.tipo}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, tipo: e.target.value as TipoDocumento }))
-                }
-                maxW="500px"
-                bg="white"
-                borderWidth="2px"
-                borderColor="brand.300"
-                borderRadius="lg"
-              >
-                {TIPOS_DOCUMENTO.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </Field.Root>
+          <FormField label="Tipo" required>
+            <FormNativeSelect
+              value={values.tipo}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, tipo: e.target.value as TipoDocumento }))
+              }
+              maxW="500px"
+            >
+              {TIPOS_DOCUMENTO.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
         </>
       )}
 
-      <Field.Root required mb="6">
-        <Field.Label color="gray.600">ARCHIVO *</Field.Label>
-        <Input
+      <FormField
+        label="Archivo"
+        required
+        helper="Formatos admitidos: PDF, Word, Excel, PNG y JPG."
+        mb="0"
+      >
+        <FormInput
           type="file"
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
           onChange={(e) =>
             setValues((prev) => ({ ...prev, archivo: e.target.files?.[0] ?? null }))
           }
+          p="2"
           maxW="500px"
         />
-      </Field.Root>
+      </FormField>
 
       <AccionesFormulario>
         <BotonGuardar loading={isLoading} disabled={incompleto}>
@@ -111,6 +101,6 @@ export function DocumentoForm({
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
-    </Box>
+    </TarjetaFormulario>
   );
 }

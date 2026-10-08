@@ -1,25 +1,29 @@
 import { Fragment, useMemo, useState } from "react";
-import {
-  Box,
-  Button,
-  Heading,
-  HStack,
-  Input,
-  NativeSelect,
-  Spinner,
-  Text,
-  Field,
-  Table,
-} from "@chakra-ui/react";
+import { Badge, Box, Field, HStack, Table, Text } from "@chakra-ui/react";
+import { LuRefreshCw } from "react-icons/lu";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
+import { formatoFecha } from "../../../../common/utils/fechas";
 import {
+  BannerError,
+  BotonCancelar,
   BotonTexto,
   Celda,
-  ColumnaHeader,
+  EncabezadoOscuro,
+  EstadoCargando,
+  EstadoVacio,
+  FilaEncabezado,
+  FormInput,
+  FormNativeSelect,
   LabelFiltro,
+  PageHeader,
+  Paginacion,
+  SelectPlaceholder,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+
+const PAGE_SIZE = 10;
 
 function fechaLocalISO(fecha: Date): string {
   const year = fecha.getFullYear();
@@ -75,6 +79,20 @@ export function HistorialChecklistPage() {
 
   const checklists = useMemo(() => historial?.checklists ?? [], [historial]);
 
+  // Un rango largo dejaba la tabla creciendo hacia abajo: se pagina de a 10 y
+  // se vuelve a la primera página cuando cambia cualquier filtro.
+  const {
+    paginados: checklistsPaginados,
+    page,
+    setPage,
+    totalPaginas,
+    hayVariasPaginas,
+  } = usePaginas(
+    checklists,
+    PAGE_SIZE,
+    `${fechaDesde}|${fechaHasta}|${equipoSeleccionado}`,
+  );
+
   /** Botón de "Ver/ocultar N incumplidas" dentro de la celda. */
   const botonIncumplidas = (checklistId: number, cantidad: number) => (
     <BotonTexto onClick={() => toggleExpandido(checklistId)}>
@@ -83,168 +101,129 @@ export function HistorialChecklistPage() {
   );
 
   return (
-    <Box p="20px">
-      <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
-        <Box>
-          <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-            Historial de Checklists
-          </Heading>
-          <Text color="gray.600" fontSize="14px" mt="2px">
-            Cumplimiento por período, filtrado por rango de fechas y equipo.
-          </Text>
-        </Box>
-        <Button
-          bg="gray.200"
-          color="gray.800"
-          fontSize="14px"
-          fontWeight="bold"
-          height="auto"
-          p="8px 16px"
-          rounded="md"
-          onClick={recargar}
-          _hover={{ bg: "gray.300" }}
-        >
-          Actualizar
-        </Button>
-      </HStack>
+    <Box p="5">
+      <PageHeader
+        title="Historial de checklists"
+        description="Cumplimiento por período, filtrado por rango de fechas y equipo."
+        actions={
+          <BotonCancelar onClick={recargar}>
+            <LuRefreshCw aria-hidden />
+            Actualizar
+          </BotonCancelar>
+        }
+      />
 
-      <Tarjeta p="20px" mb="25px">
-        <HStack gap="20px" flexWrap="wrap" align="flex-end">
+      <Tarjeta p="4" mb="6">
+        <HStack gap="4" flexWrap="wrap" align="flex-end">
           <Box minW="180px">
             <Field.Root>
-              <LabelFiltro>DESDE</LabelFiltro>
-              <Input
+              <LabelFiltro>Desde</LabelFiltro>
+              <FormInput
                 type="date"
                 value={fechaDesde}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                p="10px 14px"
-                rounded="lg"
-                borderWidth={2}
-                borderColor="brand.300"
-                fontSize="15px"
                 w="auto"
               />
             </Field.Root>
           </Box>
           <Box minW="180px">
             <Field.Root>
-              <LabelFiltro>HASTA</LabelFiltro>
-              <Input
+              <LabelFiltro>Hasta</LabelFiltro>
+              <FormInput
                 type="date"
                 value={fechaHasta}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                p="10px 14px"
-                rounded="lg"
-                borderWidth={2}
-                borderColor="brand.300"
-                fontSize="15px"
                 w="auto"
               />
             </Field.Root>
           </Box>
           <Box minW="200px">
             <Field.Root>
-              <LabelFiltro>EQUIPO</LabelFiltro>
-              <NativeSelect.Root w="100%" rounded="lg">
-                <NativeSelect.Field
-                  value={equipoSeleccionado}
-                  onChange={(e) => setEquipoSeleccionado(e.target.value)}
-                  p="10px 14px"
-                  borderWidth={2}
-                  borderColor="brand.300"
-                  fontSize="15px"
-                  bg="white"
-                >
-                  <option value="">Todos los equipos</option>
-                  {equipos.map((equipo) => (
-                    <option key={equipo.id} value={equipo.id}>
-                      {equipo.nombre}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
+              <LabelFiltro>Equipo</LabelFiltro>
+              <FormNativeSelect
+                value={equipoSeleccionado}
+                onChange={(e) => setEquipoSeleccionado(e.target.value)}
+              >
+                <SelectPlaceholder value="">
+                  Todos los equipos
+                </SelectPlaceholder>
+                {equipos.map((equipo) => (
+                  <option key={equipo.id} value={equipo.id}>
+                    {equipo.nombre}
+                  </option>
+                ))}
+              </FormNativeSelect>
             </Field.Root>
           </Box>
         </HStack>
       </Tarjeta>
 
-      {error && (
-        <Box
-          bg="red.100"
-          color="red.800"
-          p="12px"
-          rounded="lg"
-          mb="20px"
-          border="1px solid"
-          borderColor="red.200"
-          fontWeight="bold"
-        >
-          ⚠️ {error}
-        </Box>
-      )}
+      {error && <BannerError>{error}</BannerError>}
 
-      {loading && (
-        <HStack justify="center" p={10}>
-          <Spinner size="lg" color="brand.500" />
-          <Text color="gray.600">Cargando historial...</Text>
-        </HStack>
-      )}
+      {loading && <EstadoCargando>Cargando historial...</EstadoCargando>}
 
       {!loading && historial && checklists.length === 0 && !error && (
-        <Box bg="white" rounded="lg" p={10} textAlign="center">
-          <Text fontSize="16px" color="gray.600">
-            No hay checklists registrados en el rango seleccionado.
-          </Text>
-        </Box>
+        <EstadoVacio>
+          No hay checklists registrados en el rango seleccionado.
+        </EstadoVacio>
       )}
 
       {!loading && historial && checklists.length > 0 && (
         <>
-          <HStack justify="space-between" mb="16px">
-            <Text fontSize="14px" color="gray.600">
-              Cumplimiento general del período:{" "}
-              <Text
-                as="span"
-                fontWeight="bold"
-                color={colorPorcentaje(historial.porcentaje_cumplimiento_general)}
-              >
-                {historial.porcentaje_cumplimiento_general.toFixed(0)}%
-              </Text>
+          <Text fontSize="sm" color="fg.muted" mb="4">
+            Cumplimiento general del período:{" "}
+            <Text
+              as="span"
+              fontWeight="bold"
+              color={colorPorcentaje(historial.porcentaje_cumplimiento_general)}
+            >
+              {historial.porcentaje_cumplimiento_general.toFixed(0)}%
             </Text>
-          </HStack>
+          </Text>
 
           <Tarjeta>
-            <Table.Root w="100%">
+            <Table.Root variant="outline" w="100%">
               <Table.Header>
-                <Table.Row>
-                  <ColumnaHeader>Fecha</ColumnaHeader>
-                  <ColumnaHeader>Equipo</ColumnaHeader>
-                  <ColumnaHeader>Estado</ColumnaHeader>
-                  <ColumnaHeader center>Cumplimiento</ColumnaHeader>
-                  <ColumnaHeader center width="160px">
+                <FilaEncabezado>
+                  <EncabezadoOscuro>Fecha</EncabezadoOscuro>
+                  <EncabezadoOscuro>Equipo</EncabezadoOscuro>
+                  <EncabezadoOscuro>Estado</EncabezadoOscuro>
+                  <EncabezadoOscuro center>Cumplimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro center width="160px">
                     Incumplidas
-                  </ColumnaHeader>
-                </Table.Row>
+                  </EncabezadoOscuro>
+                </FilaEncabezado>
               </Table.Header>
               <Table.Body>
-                {checklists.map((cl) => (
+                {checklistsPaginados.map((cl) => (
                   <Fragment key={cl.checklist_id}>
                     <Table.Row>
-                      <Celda>{cl.fecha}</Celda>
+                      <Celda>{formatoFecha(cl.fecha)}</Celda>
                       <Celda>{cl.equipo_nombre}</Celda>
-                      <Celda>{cl.estado}</Celda>
+                      <Celda>
+                        <Badge
+                          colorPalette={cl.estado === "cerrado" ? "green" : "orange"}
+                          rounded="md"
+                          px="2"
+                          py="1"
+                          textTransform="capitalize"
+                        >
+                          {cl.estado}
+                        </Badge>
+                      </Celda>
                       <Celda center>
                         <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
                           {cl.porcentaje_cumplimiento.toFixed(0)}%
                         </Text>
-                        <Text fontSize="12px" color="gray.500">
+                        <Text fontSize="xs" color="fg.muted">
                           {cl.tareas_completadas}/{cl.total_tareas}
                         </Text>
                       </Celda>
                       <Celda center>
                         {cl.tareas_incumplidas.length === 0 ? (
-                          <Text fontSize="13px" color="gray.400">—</Text>
+                          <Text fontSize="sm" color="fg.subtle">
+                            —
+                          </Text>
                         ) : (
                           botonIncumplidas(cl.checklist_id, cl.tareas_incumplidas.length)
                         )}
@@ -254,18 +233,19 @@ export function HistorialChecklistPage() {
                       <Table.Row>
                         <Table.Cell
                           colSpan={5}
-                          color="gray.800"
-                          fontSize="14px"
-                          p="10px 16px"
-                          borderBottom="1px solid"
-                          borderColor="gray.100"
+                          color="fg"
+                          fontSize="sm"
+                          px="4"
+                          py="3"
+                          borderBottomWidth="1px"
+                          borderColor="border.subtle"
                           bg="red.50"
                         >
-                          <Text fontSize="13px" fontWeight="bold" color="red.800" mb="6px">
+                          <Text fontSize="sm" fontWeight="bold" color="red.fg" mb="2">
                             Tareas incumplidas:
                           </Text>
                           {cl.tareas_incumplidas.map((t, i) => (
-                            <Text key={t.tarea_id ?? i} fontSize="13px" color="gray.600">
+                            <Text key={t.tarea_id ?? i} fontSize="sm" color="fg.muted">
                               • {t.nombre}
                             </Text>
                           ))}
@@ -277,6 +257,15 @@ export function HistorialChecklistPage() {
               </Table.Body>
             </Table.Root>
           </Tarjeta>
+
+          {hayVariasPaginas && (
+            <Paginacion
+              count={totalPaginas}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
         </>
       )}
     </Box>

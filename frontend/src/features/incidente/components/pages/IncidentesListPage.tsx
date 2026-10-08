@@ -1,19 +1,7 @@
 import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Heading,
-  HStack,
-  IconButton,
-  Input,
-  Pagination,
-  Spinner,
-  Field,
-  NativeSelect,
-} from "@chakra-ui/react";
+import { Box, HStack, Field } from "@chakra-ui/react";
 import { IncidenteTable } from "../IncidenteTable";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
 import { ReabrirIncidenteDialog } from "../ReabrirIncidenteDialog";
@@ -24,22 +12,17 @@ import type { Incidente, TipoIncidente, EstadoIncidente } from "../../types/inci
 import {
   BannerError,
   BannerExito,
+  BotonAgregar,
+  EstadoCargando,
+  FormInput,
+  FormNativeSelect,
   LabelFiltro,
+  PageHeader,
+  Paginacion,
+  Tarjeta,
 } from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
-
-/**
- * `NativeSelect.Field` no usa la receta `input`, así que el borde de los
- * filtros hay que pasarlo a mano. El `<Input>` de búsqueda ya lo trae.
- */
-const SELECT_BASE = {
-  bg: "white",
-  borderWidth: "2px",
-  borderColor: "brand.300",
-  borderRadius: "lg",
-  fontSize: "sm",
-} as const;
 
 export function IncidentesListPage() {
   const navigate = useNavigate();
@@ -139,91 +122,65 @@ export function IncidentesListPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Gestión de Incidentes
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/incidentes/reportar")}
-        >
-          + Registrar Incidente
-        </Button>
-      </HStack>
+      <PageHeader
+        title="Gestión de incidentes"
+        description="Reportes, cierres y reaperturas del laboratorio."
+        actions={
+          <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>
+            Registrar incidente
+          </BotonAgregar>
+        }
+      />
 
       {/* Filtros */}
-      <Box
-        bg="white"
-        p="5"
-        rounded="lg"
-        boxShadow="panel"
-        mb="6"
-      >
-        <HStack gap="5" flexWrap="wrap" align="flex-end">
+      <Tarjeta p="4" mb="6">
+        <HStack gap="4" flexWrap="wrap" align="flex-end">
           <Box minW="200px">
             <Field.Root>
-              <LabelFiltro>ESTADO</LabelFiltro>
-              <NativeSelect.Root>
-                <NativeSelect.Field
-                  value={filtroEstado}
-                  onChange={handleEstadoChange}
-                  {...SELECT_BASE}
-                >
-                  <option value="">Todos los estados</option>
-                  {ESTADOS_INCIDENTE.map((estado) => (
-                    <option key={estado.value} value={estado.value}>
-                      {estado.label}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
+              <LabelFiltro>Estado</LabelFiltro>
+              <FormNativeSelect
+                value={filtroEstado}
+                onChange={handleEstadoChange}
+              >
+                <option value="">Todos los estados</option>
+                {ESTADOS_INCIDENTE.map((estado) => (
+                  <option key={estado.value} value={estado.value}>
+                    {estado.label}
+                  </option>
+                ))}
+              </FormNativeSelect>
             </Field.Root>
           </Box>
 
           <Box minW="200px">
             <Field.Root>
-              <LabelFiltro>TIPO</LabelFiltro>
-              <NativeSelect.Root>
-                <NativeSelect.Field
-                  value={filtroTipo}
-                  onChange={handleTipoChange}
-                  {...SELECT_BASE}
-                >
-                  <option value="">Todos los tipos</option>
-                  {TIPOS_INCIDENTE.map((tipo) => (
-                    <option key={tipo.value} value={tipo.value}>
-                      {tipo.label}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
+              <LabelFiltro>Tipo</LabelFiltro>
+              <FormNativeSelect value={filtroTipo} onChange={handleTipoChange}>
+                <option value="">Todos los tipos</option>
+                {TIPOS_INCIDENTE.map((tipo) => (
+                  <option key={tipo.value} value={tipo.value}>
+                    {tipo.label}
+                  </option>
+                ))}
+              </FormNativeSelect>
             </Field.Root>
           </Box>
 
           <Box minW="250px" flex="1">
             <Field.Root>
-              <LabelFiltro>BÚSQUEDA</LabelFiltro>
-              <Input
+              <LabelFiltro>Búsqueda</LabelFiltro>
+              <FormInput
                 type="text"
                 value={busqueda}
                 onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
                 placeholder="Buscar por título o reportado por..."
-                fontSize="sm"
-                maxW="28%"
               />
             </Field.Root>
           </Box>
         </HStack>
-      </Box>
+      </Tarjeta>
 
-      {loading && <Spinner color="brand.500" />}
+      {loading && <EstadoCargando>Cargando incidentes...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {mensajeAviso && <BannerExito>{mensajeAviso}</BannerExito>}
@@ -240,40 +197,14 @@ export function IncidentesListPage() {
           />
 
           {incidentesFiltrados.length > PAGE_SIZE && (
-            <Pagination.Root
-              // Chakra espera el total de PAGINAS, no de incidentes: si se pasa
-              // la cantidad de filas sale un botón por cada incidente.
+            // `Paginacion` espera el total de PAGINAS, no de incidentes: si se
+            // pasa la cantidad de filas sale un botón por cada incidente.
+            <Paginacion
               count={Math.ceil(incidentesFiltrados.length / PAGE_SIZE)}
               pageSize={PAGE_SIZE}
               page={page}
-              onPageChange={(e) => setPage(e.page)}
-              mt="4"
-            >
-              <HStack justify="center">
-                <ButtonGroup variant="ghost" size="sm">
-                  <Pagination.Items
-                    render={(pageItem) => {
-                      const isSelected = pageItem.value === page;
-                      return (
-                        <IconButton
-                          key={pageItem.value}
-                          aria-label={`Página ${pageItem.value}`}
-                          bg={isSelected ? "brand.500" : "transparent"}
-                          color={isSelected ? "white" : "brand.500"}
-                          borderWidth={isSelected ? "0" : "1px"}
-                          borderColor="brand.500"
-                          _hover={{
-                            bg: isSelected ? "brand.500" : "brand.500/10",
-                          }}
-                        >
-                          {pageItem.value}
-                        </IconButton>
-                      );
-                    }}
-                  />
-                </ButtonGroup>
-              </HStack>
-            </Pagination.Root>
+              onPageChange={setPage}
+            />
           )}
         </>
       )}

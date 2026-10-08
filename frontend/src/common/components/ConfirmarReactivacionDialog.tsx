@@ -1,4 +1,11 @@
-import { Box, Button, Portal, Text } from "@chakra-ui/react";
+import { Box, Button, HStack } from "@chakra-ui/react";
+import { LuRefreshCw } from "react-icons/lu";
+import {
+  DialogContent,
+  DialogDescription,
+  DialogRoot,
+  DialogTitle,
+} from "../../components/ui/dialog";
 
 interface ConfirmarReactivacionDialogProps {
   isOpen: boolean;
@@ -21,61 +28,54 @@ export function ConfirmarReactivacionDialog({
 }: ConfirmarReactivacionDialogProps) {
   if (!isOpen) return null;
 
+  // Misma estructura que `ConfirmDialog`: antes era un overlay armado a mano
+  // (otro color de fondo, otro z-index, sin foco atrapado) y usaba
+  // `DialogTitle` fuera de un `DialogRoot`.
   return (
-    <Portal>
-      <Box
-        position="fixed"
-        inset={0}
-        bg="blackAlpha.600"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        zIndex={1000}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        width="400px"
+        maxWidth="400px"
+        padding="6"
+        rounded="lg"
+        bg="bg.panel"
+        boxShadow="dialog"
+        textAlign="center"
       >
-        <Box
-          bg="white"
-          p="6"
-          rounded="l2"
-          boxShadow="0 4px 15px rgba(0,0,0,0.2)"
-          width="380px"
-          textAlign="center"
-        >
-          <Box fontSize="36px" mb="2">♻️</Box>
-          <Text as="h3" fontWeight="bold" color="gray.800" mt={0}>
-            Registro dado de baja encontrado
-          </Text>
-          <Text color="gray.600" mb="5" fontSize="15px">
-            {mensaje}
-          </Text>
-          <Box display="flex" gap="10px" justifyContent="center">
-            <Button
-              onClick={onCancel}
-              height="auto"
-              minW="auto"
-              p="8px 16px"
-              rounded="md"
-              variant="outline"
-              borderColor="gray.300"
-              colorPalette="gray"
-              fontWeight="bold"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={onConfirm}
-              loading={isLoading}
-              height="auto"
-              minW="auto"
-              p="8px 16px"
-              rounded="md"
-              colorPalette="brand"
-              fontWeight="bold"
-            >
-              Sí, reactivar
-            </Button>
-          </Box>
+        <Box color="brand.fg" display="flex" justifyContent="center" mb="2" aria-hidden>
+          <LuRefreshCw size={32} />
         </Box>
-      </Box>
-    </Portal>
+        <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
+          Registro dado de baja encontrado
+        </DialogTitle>
+        <DialogDescription color="fg.muted" fontSize="sm" mb="6">
+          {mensaje}
+        </DialogDescription>
+        <HStack justify="center" gap="3">
+          <Button
+            onClick={onCancel}
+            variant="outline"
+            size="md"
+            colorPalette="neutral"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={onConfirm}
+            loading={isLoading}
+            size="md"
+            colorPalette="brand"
+          >
+            Sí, reactivar
+          </Button>
+        </HStack>
+      </DialogContent>
+    </DialogRoot>
   );
 }

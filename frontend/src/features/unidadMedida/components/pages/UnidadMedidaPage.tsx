@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
+import { Box, Button, Spinner } from "@chakra-ui/react";
 import { UnidadMedidaTable } from "../UnidadMedidaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -10,6 +10,7 @@ import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import type { UnidadMedida } from "../../types/unidadMedida";
 import {
   BannerError,
+  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
@@ -74,22 +75,22 @@ export function UnidadMedidaPage() {
 
   return (
     <Box p="5">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          {verInactivos ? "Unidades de Medida Dados de Baja" : "Gestión de Unidades de Medida"}
-        </Heading>
-        <Button
-          colorPalette="brand"
-          fontSize="md"
-          fontWeight="bold"
-          rounded="md"
-          px="5"
-          py="2.5"
-          onClick={() => navigate("/unidades-medida/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
+      <PageHeader
+        title={
+          verInactivos
+            ? "Unidades de medida dadas de baja"
+            : "Gestión de unidades de medida"
+        }
+        description="Catálogo de unidades con las que se miden los insumos."
+        actions={
+          <Button
+            colorPalette="brand"
+            onClick={() => navigate("/unidades-medida/nuevo")}
+          >
+            + Agregar
+          </Button>
+        }
+      />
 
       {/* Cartel rojo de error (cuando se intenta eliminar una unidad en uso) */}
       {errorEliminar && <BannerError>{errorEliminar}</BannerError>}
@@ -97,7 +98,6 @@ export function UnidadMedidaPage() {
       <ToggleInactivos
         checked={verInactivos}
         onChange={handleToggleInactivos}
-        children="Ver dadas de baja"
       />
 
       {loading && <Spinner color="brand.500" />}

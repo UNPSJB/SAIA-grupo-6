@@ -36,6 +36,48 @@ const config = defineConfig({
           Object.entries(brand).map(([step, value]) => [step, { value }])
         ),
       },
+
+      // Una sola familia en toda la app: Inter variable, auto-hospedada via
+      // @fontsource-variable/inter (importada en main.tsx). No depende de
+      // Google Fonts, asi que la app anda sin internet.
+      fonts: {
+        heading: {
+          value:
+            "'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif",
+        },
+        body: {
+          value:
+            "'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif",
+        },
+        mono: {
+          value: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        },
+      },
+
+      /*
+       * ESCALA TIPOGRAFICA: 5 tamanos, nada mas.
+       *
+       * Antes convivian 18 valores distintos (11px, 12px, 13px, 14px, 15px,
+       * 16px, 17px, 18px, 20px, 22px, 24px, 26px, 50px...) y nada impedia
+       * sumar otro. Estos son los unicos permitidos:
+       *
+       *   2xl  24px  titulo de pagina
+       *   lg   18px  subtitulo / titulo de seccion
+       *   md   16px  cuerpo
+       *   sm   14px  cuerpo chico, labels, datos de tabla
+       *   xs   12px  metadatos y ayudas
+       *
+       * `fontSize="13px"` es `sm`; `fontSize="22px"` es `2xl`.
+       */
+      fontSizes: {
+        xs: { value: "0.75rem" },
+        sm: { value: "0.875rem" },
+        md: { value: "1rem" },
+        lg: { value: "1.125rem" },
+        xl: { value: "1.25rem" },
+        "2xl": { value: "1.5rem" },
+      },
+
       shadows: {
         /** Superficie de tabla: `boxShadow="0 2px 6px rgba(0,0,0,0.05)"`. */
         panel: { value: "0 2px 6px rgba(0, 0, 0, 0.05)" },
@@ -45,17 +87,56 @@ const config = defineConfig({
         dialog: { value: "0 4px 15px rgba(0, 0, 0, 0.2)" },
       },
     },
+    /*
+     * Contraste de los colores de marca y de los neutros de texto.
+     *
+     * Los valores por defecto de Chakra están calibrados para texto *grande*.
+     * Medido en el navegador con el label de 14px de las tablas:
+     *
+     *   brand.500 (#468189) + blanco   4.41:1  <- falla AA (pide 4.5:1)
+     *   orange.600            + blanco  3.56:1  <- falla
+     *   fg.muted  (gray.400) s/ blanco  2.93:1  <- falla
+     *   fg.subtle (gray.300) s/ blanco  2.46:1  <- falla
+     *
+     * O sea: los botones teales, los títulos de formulario y los textos de
+     * ayuda se leían desvanecidos. Se baja un escalón el fondo de los botones
+     * sólidos y se oscurecen los grises de texto. El teal sigue siendo el
+     * mismo color, solo dos tonos más profundo: eso es lo que hace falta para
+     * que el texto de arriba se lea.
+     */
     semanticTokens: {
       colors: {
+        /* Teal: acción principal. `solid` es el fondo de los botones. */
         brand: {
-          solid: { value: "{colors.brand.500}" },
+          solid: { value: "{colors.brand.600}" },
           contrast: { value: "{colors.white}" },
-          fg: { value: "{colors.brand.500}" },
+          fg: { value: "{colors.brand.700}" },
           muted: { value: "{colors.brand.100}" },
           subtle: { value: "{colors.brand.50}" },
           emphasized: { value: "{colors.brand.700}" },
           focusRing: { value: "{colors.brand.400}" },
         },
+
+        /* Naranja = editar. El 600 no le daba contraste al blanco. */
+        orange: {
+          solid: { value: "{colors.orange.700}" },
+          contrast: { value: "{colors.white}" },
+        },
+
+        /*
+         * Escala de texto neutra. Tres niveles, todos por encima de 4.5:1
+         * sobre superficie blanca:
+         *
+         *   fg         gray.900  texto principal
+         *   fg.muted   gray.600  labels, subtítulos, texto secundario
+         *   fg.subtle  gray.500  ayudas y metadatos
+         *
+         * Antes `fg.muted` era gray.400 y `fg.subtle` gray.300: a 12-14px no
+         * llegaban a 4.5:1.
+         */
+        fg: { value: "{colors.gray.900}" },
+        "fg.muted": { value: "{colors.gray.600}" },
+        "fg.subtle": { value: "{colors.gray.500}" },
       },
     },
     /**
@@ -179,14 +260,39 @@ const config = defineConfig({
         },
       }),
     },
+
+    /*
+     * Tablas con esquinas redondeadas.
+     *
+     * `borderCollapse: collapse` es lo que las dejaba con esquinas rectas:
+     * el radio del contenedor no recorta las celdas del encabezado. Se cambia a
+     * `separate` (que sí respeta `overflow: hidden`) y se deja el espaciado en
+     * 0 para que no se abra un hueco entre celdas. El borde exterior pasa a
+     * dibujarlo la `Tarjeta` que envuelve a la tabla.
+     */
+    slotRecipes: {
+      table: {
+        slots: ["root", "row", "cell", "columnHeader", "caption", "footer"],
+        base: {
+          root: {
+            borderCollapse: "separate",
+            borderSpacing: "0",
+            borderRadius: "lg",
+            overflow: "hidden",
+          },
+        },
+      },
+    },
   },
   globalCss: {
     "html, body": {
       backgroundColor: "{colors.brand.50}",
+      color: "fg",
+      fontFamily: "body",
     },
-    /** Inputs nativos que todavía no migraron a <Input> de Chakra. */
-    "input, textarea, select": {
-      _focus: { outline: "none", boxShadow: "none" },
+    "*::selection": {
+      bg: "brand.muted",
+      color: "brand.fg",
     },
   },
 });

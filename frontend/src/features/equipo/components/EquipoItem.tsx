@@ -1,4 +1,4 @@
-import { Button, HStack, Table } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
 import type { Equipo } from "../types/equipo";
 import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
@@ -22,56 +22,25 @@ export function EquipoItem({
   return (
     <Table.Row
       borderBottomWidth="1px"
-      borderColor="gray.100"
+      borderColor="border.subtle"
       opacity={equipo.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+      <Celda p="3" color="brand.500" fontWeight="bold">
         #{equipo.id}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {equipo.nombre}
-      </Celda>
-      <Celda p="3" fontSize="md">
-        {equipo.tipo}
-      </Celda>
-      <Celda p="3" fontSize="md">
-        {equipo.ubicacion}
-      </Celda>
+      <Celda p="3">{equipo.nombre}</Celda>
+      <Celda p="3">{equipo.tipo}</Celda>
+      <Celda p="3">{equipo.ubicacion}</Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2">
           {equipo.activo && (
             <>
-              {/* "Historial" y "Calibrar" no son acciones del CRUD estándar,
-                  así que no entran en `BotonTabla`: se arman con las mismas
-                  medidas que el patrón para que la fila quede homogénea. */}
-              <Button
-                type="button"
-                colorPalette="brand"
-                variant="solid"
-                size="sm"
-                fontWeight="normal"
-                h="auto"
-                px="3"
-                py="1.5"
-                rounded="md"
-                onClick={() => onVerHistorial(equipo)}
-              >
+              <BotonTabla accion="historial" onClick={() => onVerHistorial(equipo)}>
                 Historial
-              </Button>
-              <Button
-                type="button"
-                colorPalette="gray"
-                variant="solid"
-                size="sm"
-                fontWeight="normal"
-                h="auto"
-                px="3"
-                py="1.5"
-                rounded="md"
-                onClick={() => onCalibrar(equipo)}
-              >
+              </BotonTabla>
+              <BotonTabla accion="calibrar" onClick={() => onCalibrar(equipo)}>
                 Calibrar
-              </Button>
+              </BotonTabla>
               <BotonTabla accion="editar" onClick={() => onEdit(equipo)}>
                 Modificar
               </BotonTabla>

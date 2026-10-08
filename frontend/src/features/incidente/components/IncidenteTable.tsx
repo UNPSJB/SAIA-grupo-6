@@ -26,8 +26,8 @@ export function IncidenteTable({
 }: IncidenteTableProps) {
   if (incidentes.length === 0) {
     return (
-      <Tarjeta p={8} textAlign="center">
-        <Text color="gray.500">{mensajeVacio}</Text>
+      <Tarjeta p="8" textAlign="center">
+        <Text color="fg.muted">{mensajeVacio}</Text>
       </Tarjeta>
     );
   }

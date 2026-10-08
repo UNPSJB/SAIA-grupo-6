@@ -131,12 +131,12 @@ export const Login = () => {
             p="5"
         >
             <Box
-                bg="white"
+                bg="bg.panel"
                 p="10"
-                rounded="xl"
-                boxShadow="0 4px 15px rgba(0,0,0,0.1)"
+                rounded="lg"
+                boxShadow="card"
                 w="100%"
-                maxW="450px"
+                maxW="500px"
             >
                 <Heading
                     as="h2"
@@ -157,7 +157,7 @@ export const Login = () => {
                         rounded="md"
                         textAlign="center"
                         fontWeight="bold"
-                        fontSize="14px"
+                        fontSize="sm"
                         mb="4"
                     >
                         ⚠️ {error}
@@ -225,7 +225,7 @@ export const Login = () => {
                                     checked={puedeOperar}
                                     onCheckedChange={(e) => setPuedeOperar(!!e.checked)}
                                     fontWeight="bold"
-                                    color="gray.600"
+                                    color="fg.muted"
                                     size="lg"
                                 >
                                     <Checkbox.HiddenInput />
@@ -236,7 +236,7 @@ export const Login = () => {
                                     checked={puedeAdministrar}
                                     onCheckedChange={(e) => setPuedeAdministrar(!!e.checked)}
                                     fontWeight="bold"
-                                    color="gray.600"
+                                    color="fg.muted"
                                     size="lg"
                                 >
                                     <Checkbox.HiddenInput />
@@ -277,8 +277,8 @@ export const Login = () => {
 
                         {!isLoginView && permiteSuperAdmin && (
                             <Text
-                                fontSize="12px"
-                                color="yellow.700"
+                                fontSize="xs"
+                                color="yellow.fg"
                                 textAlign="center"
                                 mt="-10px"
                                 mb="4"

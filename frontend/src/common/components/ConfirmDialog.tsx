@@ -67,41 +67,28 @@ export function ConfirmDialog({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        width="350px"
-        maxWidth="350px"
+        width="400px"
+        maxWidth="400px"
         padding="6"
-        rounded="l2"
-        bg="white"
+        rounded="lg"
+        bg="bg.panel"
+        boxShadow="dialog"
         textAlign="center"
       >
-        <DialogTitle as="h3" fontWeight="bold" color="gray.800">
+        <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
           {titulo}
         </DialogTitle>
-        <DialogDescription color="gray.600" mb="5">
+        <DialogDescription color="fg.muted" fontSize="sm" mb="6">
           {mensaje}
         </DialogDescription>
-        <HStack justify="center" gap="10px">
-          <Button
-            onClick={onCancel}
-            height="auto"
-            minW="auto"
-            padding="8px 16px"
-            variant="outline"
-            borderColor="gray.300"
-            rounded="md"
-            colorPalette="gray"
-            fontWeight="bold"
-          >
+        <HStack justify="center" gap="3">
+          <Button onClick={onCancel} variant="outline" size="md" colorPalette="neutral">
             {textoCancelar}
           </Button>
           <Button
             onClick={onConfirm}
             loading={isLoading}
-            height="auto"
-            minW="auto"
-            padding="8px 16px"
-            rounded="md"
-            fontWeight="bold"
+            size="md"
             colorPalette={confirmPalette}
           >
             {textoConfirmar}

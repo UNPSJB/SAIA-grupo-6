@@ -2,7 +2,7 @@ import { formatoFecha } from "../../../../common/utils/fechas";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box, Heading, HStack, Stack, Spinner, Text } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 
 import { usePlanCalibracionMantenimiento } from "../../hooks/usePlanCalibracionMantenimiento";
 import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibracionMantenimientoABM";
@@ -12,7 +12,13 @@ import type {
   PlanCalibracionMantenimientoFormValues,
   PlanCalibracionMantenimientoUpdate,
 } from "../../types/planCalibracionMantenimiento";
-import { BannerError, BannerExito, BotonVolver } from "../../../../components/ui/patrones";
+import {
+  BannerError,
+  BannerExito,
+  BotonVolver,
+  EstadoCargando,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function PlanCalibracionMantenimientoEditPage() {
   const navigate = useNavigate();
@@ -61,23 +67,25 @@ export function PlanCalibracionMantenimientoEditPage() {
   };
 
   return (
-    <Box p="5" maxW="700px" mx="auto">
-      <HStack justify="space-between" mb="5">
-        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
-          Editar plan de calibración/mantenimiento
-        </Heading>
-        <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
-          Volver a la lista
-        </BotonVolver>
-      </HStack>
+    <Box p="5" maxW="600px" mx="auto">
+      <PageHeader
+        title="Editar plan de calibración/mantenimiento"
+        description={
+          plan
+            ? `Plan #${plan.id} · ${
+                plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"
+              }`
+            : undefined
+        }
+        actions={
+          <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
-      {cargando && (
-        <Stack direction="row" gap="3" align="center" color="gray.600">
-          <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">Cargando datos del plan...</Text>
-        </Stack>
-      )}
+      {cargando && <EstadoCargando>Cargando datos del plan...</EstadoCargando>}
 
       {!cargando && !errorCarga && plan && (
         <>

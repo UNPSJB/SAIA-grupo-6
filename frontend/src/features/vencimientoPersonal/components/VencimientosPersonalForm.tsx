@@ -1,6 +1,12 @@
 import { useState } from "react";
-import { Box, Button, Field, Heading, HStack, Input, NativeSelect, Text } from "@chakra-ui/react";
-import { BotonTexto } from "../../../components/ui/patrones";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import {
+  BotonTexto,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+} from "../../../components/ui/patrones";
 import { useAptitudes } from "../../aptitud/hooks/useAptitudes";
 import { hoyISO } from "../../../common/utils/fechas";
 import type { VencimientosPorAptitud } from "../hooks/useVencimientosPersonal";
@@ -10,6 +16,11 @@ interface VencimientosPersonalFormProps {
   onChange: (valores: VencimientosPorAptitud) => void;
 }
 
+/**
+ * Sub-formulario embebido en el alta/edición de Personal: no es una página,
+ * así que no lleva `TarjetaFormulario`. La superficie es un bloque claro y el
+ * título es de sección (`lg`), no de página (`2xl`).
+ */
 export function VencimientosPersonalForm({ valores, onChange }: VencimientosPersonalFormProps) {
   // Se piden las aptitudes incluyendo las dadas de baja a propósito: una
   // aptitud con vencimiento cargado puede bajar de baja después, y
@@ -43,32 +54,32 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
   const puedeAgregar = Boolean(aptitudSeleccionada && fechaSeleccionada);
 
   return (
-    <Box bg="white" p="8" rounded="xl" boxShadow="card" mb="8">
-      <Heading as="h3" mt={0} fontSize="2xl" fontWeight="bold" color="brand.500" mb="2">
-        Vencimientos de Aptitud
+    <Box bg="bg.panel" rounded="lg" p="6">
+      <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="2">
+        Vencimientos de aptitud
       </Heading>
-      <Text fontSize="xs" color="gray.500" mb="5">
+      <Text fontSize="sm" color="fg.muted" mb="6">
         Opcional — cargá solo los que tengas a mano.
       </Text>
 
       {loading && (
-        <Text fontSize="sm" color="gray.500" fontStyle="italic">
+        <Text fontSize="sm" color="fg.muted" fontStyle="italic">
           Cargando aptitudes...
         </Text>
       )}
 
       {!loading && aptitudesCargadas.length > 0 && (
-        <Box mb="5">
+        <Box mb="6">
           {aptitudesCargadas.map((apt) => (
             <HStack
               key={apt.id}
               justify="space-between"
-              p="2.5 3.5"
+              p="3"
               bg="brand.50"
               rounded="lg"
               mb="2"
             >
-              <Text fontSize="sm" color="gray.800">
+              <Text fontSize="sm" color="fg">
                 <strong>{apt.nombre}</strong> — vence el {valores[apt.id]}
                 {!apt.activo && (
                   <Text as="span" color="red.600" fontSize="xs" fontWeight="bold">
@@ -92,55 +103,42 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
       {!loading && (
         aptitudesDisponibles.length > 0 ? (
           <HStack gap="4" align="flex-end" flexWrap="wrap">
-            <Field.Root>
-              <Field.Label color="gray.600">APTITUD</Field.Label>
-              <NativeSelect.Root>
-                <NativeSelect.Field
+            <Box flex="1" minW="200px">
+              <FormField label="Aptitud" mb="0">
+                <FormNativeSelect
                   value={aptitudSeleccionada}
                   onChange={(e) => setAptitudSeleccionada(e.target.value)}
-                  w="100%"
-                  minW="200px"
-                  bg="white"
-                  borderWidth="2px"
-                  borderColor="brand.300"
-                  borderRadius="lg"
                 >
-                  <option value="">Seleccionar...</option>
+                  <SelectPlaceholder value="">Seleccionar...</SelectPlaceholder>
                   {aptitudesDisponibles.map((apt) => (
                     <option key={apt.id} value={apt.id}>
                       {apt.nombre}
                     </option>
                   ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-            </Field.Root>
-            <Field.Root>
-              <Field.Label color="gray.600">FECHA DE VENCIMIENTO</Field.Label>
-              <Input
-                type="date"
-                value={fechaSeleccionada}
-                min={hoyISO()}
-                onChange={(e) => setFechaSeleccionada(e.target.value)}
-                w="100%"
-              />
-            </Field.Root>
+                </FormNativeSelect>
+              </FormField>
+            </Box>
+            <Box flex="1" minW="200px">
+              <FormField label="Fecha de vencimiento" mb="0">
+                <FormInput
+                  type="date"
+                  value={fechaSeleccionada}
+                  min={hoyISO()}
+                  onChange={(e) => setFechaSeleccionada(e.target.value)}
+                />
+              </FormField>
+            </Box>
             <Button
               type="button"
               onClick={agregarVencimiento}
               disabled={!puedeAgregar}
               colorPalette="brand"
-              variant="solid"
-              rounded="lg"
-              fontWeight="bold"
-              px="6"
-              py="3"
             >
               Agregar
             </Button>
           </HStack>
         ) : (
-          <Text fontSize="sm" color="gray.500" fontStyle="italic">
+          <Text fontSize="sm" color="fg.muted" fontStyle="italic">
             {aptitudes.length === 0
               ? "Todavía no hay aptitudes cargadas en el sistema. Creá una desde la sección Aptitudes."
               : "Ya cargaste todas las aptitudes disponibles."}

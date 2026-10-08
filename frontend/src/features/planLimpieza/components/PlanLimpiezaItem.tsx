@@ -19,13 +19,11 @@ export function PlanLimpiezaItem({
 }: PlanLimpiezaItemProps) {
   return (
     <Table.Row opacity={plan.activo ? 1 : 0.65}>
-      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+      <Celda p="3" color="brand.fg" fontWeight="bold">
         #{plan.id}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {plan.nombre}
-      </Celda>
-      <Celda p="3" fontSize="md">
+      <Celda p="3">{plan.nombre}</Celda>
+      <Celda p="3">
         {plan.tareas
           .map(
             (tarea) =>
@@ -33,9 +31,7 @@ export function PlanLimpiezaItem({
           )
           .join(", ")}
       </Celda>
-      <Celda p="3" fontSize="md">
-        {nombreEquipo}
-      </Celda>
+      <Celda p="3">{nombreEquipo}</Celda>
       <Celda p="3" center>
         <Badge
           colorPalette={plan.activo ? "green" : "gray"}
