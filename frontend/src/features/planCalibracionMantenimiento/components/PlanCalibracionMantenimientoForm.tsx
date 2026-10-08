@@ -1,30 +1,18 @@
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-  NativeSelect,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Field, Heading, Input, NativeSelect, Text } from "@chakra-ui/react";
 
 import { useEquipos } from "../../equipo/hooks/useEquipos";
+import { hoyISO } from "../../../common/utils/fechas";
 import type {
   PlanCalibracionMantenimientoFormValues,
   TipoPlanCalibracionMantenimiento,
 } from "../types/planCalibracionMantenimiento";
 import {
-  BLANCO,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_TENUE,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BannerError,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoFormProps {
   initialValues?: PlanCalibracionMantenimientoFormValues;
@@ -38,17 +26,23 @@ interface PlanCalibracionMantenimientoFormProps {
 const emptyValues: PlanCalibracionMantenimientoFormValues = {
   equipo_id: 0,
   tipo: "calibracion",
-  fecha_ultima_intervencion: new Date().toISOString().split("T")[0],
+  // `hoyISO()` y no `toISOString()`: en UTC-3 el `toISOString()` devuelve el
+  // día anterior entre las 21:00 y las 24:00.
+  fecha_ultima_intervencion: hoyISO(),
   periodicidad_dias: 30,
 };
 
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
-};
+/**
+ * `NativeSelect.Field` no consume la receta `input` del tema, así que el
+ * borde y el fondo hay que pasarlos a mano.
+ */
+const propsSelect = {
+  bg: "white",
+  borderWidth: "2px",
+  borderColor: "brand.300",
+  rounded: "lg",
+  maxW: "500px",
+} as const;
 
 export function PlanCalibracionMantenimientoForm({
   initialValues = emptyValues,
@@ -108,148 +102,88 @@ export function PlanCalibracionMantenimientoForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="card"
+      mb="8"
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
+      <Heading as="h3" mt={0} size="lg" color="brand.500" fontWeight="bold" mb="6">
         {title}
-      </Box>
+      </Heading>
 
-      {errorEquipos && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-          }}
-        >
-          {errorEquipos}
-        </Box>
-      )}
+      {errorEquipos && <BannerError>{errorEquipos}</BannerError>}
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            EQUIPO *
-          </Box>
-          <NativeSelect.Root disabled={cargandoEquipos}>
-            <NativeSelect.Field
-              value={values.equipo_id}
-              onChange={handleEquipoChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">EQUIPO *</Field.Label>
+        <NativeSelect.Root disabled={cargandoEquipos}>
+          <NativeSelect.Field
+            value={values.equipo_id}
+            onChange={handleEquipoChange}
+            {...propsSelect}
+          >
+            <option value={0} disabled>
+              {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
+            </option>
+            {equipos.map((equipo) => (
+              <option key={equipo.id} value={equipo.id}>
+                {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
               </option>
-              {equipos.map((equipo) => (
-                <option key={equipo.id} value={equipo.id}>
-                  {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-        <Text style={{ fontSize: "12px", color: TEXTO_TENUE, marginTop: "6px" }}>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+        <Text fontSize="xs" color="gray.400" mt={0}>
           Sólo se muestran equipos activos.
         </Text>
-      </Box>
+      </Field.Root>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            TIPO DE PLAN *
-          </Box>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={values.tipo}
-              onChange={handleTipoChange}
-              style={estiloSelect}
-            >
-              <option value="calibracion">Calibración</option>
-              <option value="mantenimiento">Mantenimiento</option>
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">TIPO DE PLAN *</Field.Label>
+        <NativeSelect.Root>
+          <NativeSelect.Field
+            value={values.tipo}
+            onChange={handleTipoChange}
+            {...propsSelect}
+          >
+            <option value="calibracion">Calibración</option>
+            <option value="mantenimiento">Mantenimiento</option>
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            FECHA DE LA ÚLTIMA INTERVENCIÓN *
-          </Box>
-          <Input
-            type="date"
-            value={values.fecha_ultima_intervencion}
-            onChange={handleFechaChange}
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">FECHA DE LA ÚLTIMA INTERVENCIÓN *</Field.Label>
+        <Input
+          type="date"
+          value={values.fecha_ultima_intervencion}
+          onChange={handleFechaChange}
+          maxW="500px"
+        />
+      </Field.Root>
 
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            PERIODICIDAD (DÍAS) *
-          </Box>
-          <Input
-            type="number"
-            min={1}
-            value={values.periodicidad_dias}
-            onChange={handlePeriodicidadChange}
-            placeholder="Ej: 30"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="6">
+        <Field.Label color="gray.600">PERIODICIDAD (DÍAS) *</Field.Label>
+        <Input
+          type="number"
+          min={1}
+          value={values.periodicidad_dias}
+          onChange={handlePeriodicidadChange}
+          placeholder="Ej: 30"
+          maxW="500px"
+        />
+      </Field.Root>
 
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
+      <AccionesFormulario>
+        <BotonGuardar
           loading={isLoading}
           disabled={cargandoEquipos || formularioInvalido}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
         >
           {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+        </BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

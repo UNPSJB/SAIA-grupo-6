@@ -1,17 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { Box, Heading, HStack } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
-import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO,
-  GRIS_MEDIO,
-  TEXTO_SECUNDARIO,
-} from "../../../../common/theme/tokens";
+import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
 
 export function PlanLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -30,31 +24,29 @@ export function PlanLimpiezaCreatePage() {
   };
 
   return (
-    <Box style={{ padding: "20px", maxWidth: "650px", margin: "0 auto" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">Nuevo Plan de Limpieza</Heading>
-        <Button bg={GRIS_MEDIO} color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }} _hover={{ bg: GRIS_MEDIO }} onClick={() => navigate("/planes-limpieza")}>
+    <Box p="5" maxW="650px" mx="auto">
+      <HStack justify="space-between" mb="5">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
+          Nuevo Plan de Limpieza
+        </Heading>
+        <BotonVolver onClick={() => navigate("/planes-limpieza")}>
           Volver a la lista
-        </Button>
+        </BotonVolver>
       </HStack>
 
-      {error && (
-        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
-          ⚠️ {error}
-        </Box>
-      )}
+      {error && <BannerError>{error}</BannerError>}
 
-      {exito && (
-        <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
-            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
-            <Heading as="h3" style={{ margin: 0, color: EXITO, fontSize: "24px" }}>Éxito</Heading>
-            <Text style={{ color: TEXTO_SECUNDARIO, marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>Plan de limpieza agregado correctamente.</Text>
-          </Box>
-        </Box>
-      )}
+      <DialogoExito
+        isOpen={exito}
+        mensaje="Plan de limpieza agregado correctamente."
+      />
 
-      <PlanLimpiezaForm onSubmit={handleSubmit} isLoading={loading} title="Alta de Plan de Limpieza" submitLabel="Crear plan" />
+      <PlanLimpiezaForm
+        onSubmit={handleSubmit}
+        isLoading={loading}
+        title="Alta de Plan de Limpieza"
+        submitLabel="Crear plan"
+      />
     </Box>
   );
 }

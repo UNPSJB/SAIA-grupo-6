@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, HStack, Spinner, Text } from "@chakra-ui/react";
+import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
 
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import { usePlanesCalibracionMantenimiento } from "../../hooks/usePlanesCalibracionMantenimiento";
@@ -8,7 +8,7 @@ import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibraci
 import { PlanCalibracionMantenimientoTable } from "../PlanCalibracionMantenimientoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import type { PlanCalibracionMantenimiento } from "../../types/planCalibracionMantenimiento";
-import { TEAL } from "../../../../common/theme/tokens";
+import { BannerError } from "../../../../components/ui/patrones";
 
 export function PlanCalibracionMantenimientoPage() {
   const navigate = useNavigate();
@@ -55,28 +55,26 @@ export function PlanCalibracionMantenimientoPage() {
   const error = errorPlanes || errorEquipos;
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+    <Box p="5">
+      <HStack justify="space-between" mb="5">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
           Planes de Calibración/Mantenimiento
         </Heading>
         <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
+          colorPalette="brand"
+          fontSize="md"
           fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL }}
+          rounded="md"
+          px="5"
+          py="2.5"
           onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
         >
           + Agregar
         </Button>
       </HStack>
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {error && <BannerError>{error}</BannerError>}
+      {loading && <Spinner color="brand.500" />}
       {!loading && !error && (
         <PlanCalibracionMantenimientoTable
           planes={planes}

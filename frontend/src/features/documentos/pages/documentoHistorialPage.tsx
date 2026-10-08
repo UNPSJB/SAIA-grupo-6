@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  Badge,
   Box,
   Button,
   Heading,
@@ -8,20 +9,28 @@ import {
   Table,
   Text,
 } from "@chakra-ui/react";
+import {
+  BannerError,
+  BotonTexto,
+  Celda,
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 import { useHistorialDocumento } from "../hooks/useHistorialDocumento";
 import { abrirArchivo } from "../services/documentoService";
 import type { EstadoVersion } from "../types/documento";
 import { etiquetaTipo, fechaHora } from "../utils/formato";
 
-const TEAL = "#468189";
-const th = { padding: "12px" };
+/** Píldora de estado de cada versión del documento. */
+const PALETA_ESTADO: Record<EstadoVersion, "green" | "gray"> = {
+  vigente: "green",
+  archivada: "gray",
+};
 
-const ESTILO_ESTADO: Record<
-  EstadoVersion,
-  { bg: string; color: string; label: string }
-> = {
-  vigente: { bg: "#d4edda", color: "#155724", label: "Vigente" },
-  archivada: { bg: "#e2e3e5", color: "#383d41", label: "Archivada" },
+const ETIQUETA_ESTADO: Record<EstadoVersion, string> = {
+  vigente: "Vigente",
+  archivada: "Archivada",
 };
 
 export function DocumentoHistorialPage() {
@@ -32,159 +41,94 @@ export function DocumentoHistorialPage() {
   const { historial, loading, error } = useHistorialDocumento(documentoId);
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
+    <Box p="5">
+      <HStack justify="space-between" mb="5">
         <Box>
-          <Heading as="h2" size="md" fontWeight="bold" color="black">
+          <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
             Historial{historial ? `: ${historial.nombre}` : ""}
           </Heading>
           {historial && (
-            <Text style={{ color: "#555" }}>
+            <Text color="gray.600">
               {etiquetaTipo(historial.tipo)} · Solo lectura: las versiones
               anteriores no pueden editarse ni eliminarse.
             </Text>
           )}
         </Box>
         <Button
-          bg="#6c757d"
-          color="white"
-          fontSize="16px"
+          colorPalette="gray"
+          variant="solid"
+          fontSize="md"
           fontWeight="normal"
-          height="auto"
+          h="auto"
           minW="auto"
-          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: "#6c757d" }}
+          px="4"
+          py="2"
+          rounded="md"
           onClick={() => navigate(-1)}
         >
           Volver
         </Button>
       </HStack>
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {loading && <Spinner color="brand.500" />}
+      {!loading && error && <BannerError>{error}</BannerError>}
 
       {historial && (
-        <Box bg="white" style={{ borderRadius: "8px", overflowX: "auto" }}>
-          <Table.Root
-            variant="outline"
-            style={{ width: "100%", borderCollapse: "collapse" }}
-          >
+        <Tarjeta overflowX="auto">
+          <Table.Root variant="outline" w="100%">
             <Table.Header>
-              <Table.Row
-                bg={TEAL}
-                style={{ color: "white", textAlign: "left" }}
-              >
-                <Table.ColumnHeader
-                  fontWeight="normal"
-                  fontSize="16px"
-                  style={th}
-                >
-                  Versión
-                </Table.ColumnHeader>
-                <Table.ColumnHeader
-                  fontWeight="normal"
-                  fontSize="16px"
-                  style={th}
-                >
-                  Estado
-                </Table.ColumnHeader>
-                <Table.ColumnHeader
-                  fontWeight="normal"
-                  fontSize="16px"
-                  style={th}
-                >
-                  Vigente desde
-                </Table.ColumnHeader>
-                <Table.ColumnHeader
-                  fontWeight="normal"
-                  fontSize="16px"
-                  style={th}
-                >
-                  Vigente hasta
-                </Table.ColumnHeader>
-                <Table.ColumnHeader
-                  fontWeight="normal"
-                  fontSize="16px"
-                  style={th}
-                >
-                  Subida por
-                </Table.ColumnHeader>
-                <Table.ColumnHeader
-                  fontWeight="normal"
-                  fontSize="16px"
-                  style={th}
-                >
-                  Archivo
-                </Table.ColumnHeader>
-              </Table.Row>
+              <FilaEncabezado>
+                <EncabezadoOscuro>Versión</EncabezadoOscuro>
+                <EncabezadoOscuro>Estado</EncabezadoOscuro>
+                <EncabezadoOscuro>Vigente desde</EncabezadoOscuro>
+                <EncabezadoOscuro>Vigente hasta</EncabezadoOscuro>
+                <EncabezadoOscuro>Subida por</EncabezadoOscuro>
+                <EncabezadoOscuro>Archivo</EncabezadoOscuro>
+              </FilaEncabezado>
             </Table.Header>
             <Table.Body>
-              {historial.versiones.map((v) => {
-                const est = ESTILO_ESTADO[v.estado];
-                return (
-                  <Table.Row
-                    key={v.id}
-                    style={{ borderBottom: "1px solid #eee" }}
-                  >
-                    <Table.Cell
-                      color={TEAL}
+              {historial.versiones.map((v) => (
+                <Table.Row key={v.id}>
+                  <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
+                    v{v.numero_version}
+                  </Celda>
+                  <Celda p="3">
+                    <Badge
+                      colorPalette={PALETA_ESTADO[v.estado]}
+                      rounded="full"
+                      px="2.5"
+                      py="1"
+                      fontSize="xs"
                       fontWeight="bold"
-                      fontSize="16px"
-                      style={th}
                     >
-                      v{v.numero_version}
-                    </Table.Cell>
-                    <Table.Cell style={th}>
-                      <span
-                        style={{
-                          backgroundColor: est.bg,
-                          color: est.color,
-                          padding: "4px 10px",
-                          borderRadius: "12px",
-                          fontSize: "13px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {est.label}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell fontSize="14px" style={th}>
-                      {fechaHora(v.vigente_desde)}
-                    </Table.Cell>
-                    <Table.Cell fontSize="14px" style={th}>
-                      {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
-                    </Table.Cell>
-                    <Table.Cell fontSize="14px" style={th}>
-                      {v.autor.nombre} {v.autor.apellido ?? ""}
-                    </Table.Cell>
-                    <Table.Cell fontSize="16px" style={th}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          abrirArchivo(v.archivo_url).catch(() =>
-                            alert("No se pudo abrir el documento"),
-                          )
-                        }
-                        style={{
-                          color: TEAL,
-                          fontWeight: "bold",
-                          background: "none",
-                          border: "none",
-                          padding: 0,
-                          cursor: "pointer",
-                          textDecoration: "underline",
-                          fontSize: "inherit",
-                        }}
-                      >
-                        {v.nombre_archivo}
-                      </button>
-                    </Table.Cell>
-                  </Table.Row>
-                );
-              })}
+                      {ETIQUETA_ESTADO[v.estado]}
+                    </Badge>
+                  </Celda>
+                  <Celda p="3" fontSize="sm">
+                    {fechaHora(v.vigente_desde)}
+                  </Celda>
+                  <Celda p="3" fontSize="sm">
+                    {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
+                  </Celda>
+                  <Celda p="3" fontSize="sm">
+                    {v.autor.nombre} {v.autor.apellido ?? ""}
+                  </Celda>
+                  <Celda p="3" fontSize="md">
+                    <BotonTexto
+                      onClick={() =>
+                        abrirArchivo(v.archivo_url).catch(() =>
+                          alert("No se pudo abrir el documento"),
+                        )
+                      }
+                    >
+                      {v.nombre_archivo}
+                    </BotonTexto>
+                  </Celda>
+                </Table.Row>
+              ))}
             </Table.Body>
           </Table.Root>
-        </Box>
+        </Tarjeta>
       )}
     </Box>
   );

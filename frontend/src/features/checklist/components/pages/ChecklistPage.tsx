@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
+  Button,
+  Field,
   Heading,
   HStack,
+  Image,
   Input,
+  NativeSelect,
   Spinner,
-  Text,
-  Field,
-  Button,
   Table,
+  Text,
 } from "@chakra-ui/react";
 import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
@@ -19,58 +21,16 @@ import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/servi
 import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
 import {
-  BLANCO,
-  BORDE_SUAVE,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO_ALT,
-  FONDO_CARD,
-  FONDO_TEAL,
-  GRIS_CLARO,
-  PELIGRO,
-  PELIGRO_HOVER,
-  PELIGRO_TEXTO,
-  TEAL,
-  TEAL_CLARO,
-  TEXTO_PRIMARIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TENUE,
-  estiloInputCompacto,
-} from "../../../../common/theme/tokens";
-
+  BadgeEstado,
+  BotonTexto,
+  Celda,
+  ColumnaHeader,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
 
 // Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
 // src/checklist/router.py).
 const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-
-const estiloTarjeta = {
-  backgroundColor: BLANCO,
-  borderRadius: "10px",
-  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-  overflow: "hidden" as const,
-};
-
-const estiloHeaderFila = {
-  backgroundColor: FONDO_TEAL,
-  borderBottom: `2px solid ${TEAL_CLARO}`,
-};
-
-const estiloHeaderCelda = {
-  color: TEXTO_PRIMARIO,
-  fontWeight: "bold" as const,
-  fontSize: "13px",
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.03em",
-  padding: "10px 16px",
-};
-
-const estiloCelda = {
-  color: TEXTO_PRIMARIO,
-  fontSize: "14px",
-  padding: "10px 16px",
-  borderBottom: "1px solid #eee",
-  backgroundColor: BLANCO,
-};
 
 interface GrupoPlan {
   key: string;
@@ -144,6 +104,9 @@ function FilaTarea({
   const [mostrarFoto, setMostrarFoto] = useState(false);
   const [previewEvidencia, setPreviewEvidencia] = useState<string | null>(null);
   const [errorEvidencia, setErrorEvidencia] = useState<string | null>(null);
+  const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
+
   // La evidencia vive detrás de /uploads, que exige token: no se puede poner la
   // ruta en el src del <img>, hay que bajarla con la sesión.
   //
@@ -151,8 +114,6 @@ function FilaTarea({
   // fila bajara su foto al renderizarse (30 filas = 30 descargas) aunque nadie
   // haya abierto ninguna. El hook no dispara nada cuando recibe `null`.
   const imagen = useImagenAutenticada(mostrarFoto ? tarea.evidencia_url : null);
-  const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
-  const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   const insumoActual = insumosQuimicos.find(
     (insumo) => insumo.id === Number(insumoSeleccionado)
@@ -269,42 +230,28 @@ function FilaTarea({
       <Table.Row
         key={tarea.registro_id > 0 ? `r-${tarea.registro_id}` : `p-${tarea.id}`}
       >
-        <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
+        <Celda opacity={esCerrado ? 0.7 : 1}>
           <Text fontWeight="bold">{tarea.nombre}</Text>
 
           {tarea.descripcion && (
             <Box mt="4px">
-              <button
-                type="button"
-                onClick={() => setMostrarProcedimiento((v) => !v)}
-                style={{
-                  fontSize: "11px",
-                  color: TEAL,
-                  background: "none",
-                  border: "none",
-                  textDecoration: "underline",
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
+              <BotonTexto onClick={() => setMostrarProcedimiento((v) => !v)}>
                 {mostrarProcedimiento
                   ? "Ocultar procedimiento ▲"
                   : "Ver procedimiento ▾"}
-              </button>
+              </BotonTexto>
               {mostrarProcedimiento && (
                 <Box
                   mt="6px"
-                  style={{
-                    padding: "10px 12px",
-                    backgroundColor: FONDO_CARD,
-                    border: "1px solid #d8e7e5",
-                    borderRadius: "6px",
-                    maxWidth: "550px",
-                    whiteSpace: "pre-line",
-                    fontSize: "13px",
-                    color: TEXTO_PRIMARIO,
-                  }}
+                  p="10px 12px"
+                  bg="gray.50"
+                  border="1px solid"
+                  borderColor="brand.200"
+                  rounded="md"
+                  maxW="550px"
+                  whiteSpace="pre-line"
+                  fontSize="13px"
+                  color="gray.800"
                 >
                   {tarea.descripcion}
                 </Box>
@@ -316,73 +263,78 @@ function FilaTarea({
           {!tarea.completado && !esCerrado && (
             <Box
               mt="10px"
-              style={{
-                padding: "10px",
-                backgroundColor: FONDO_CARD,
-                border: "1px solid #d8e7e5",
-                borderRadius: "6px",
-                maxWidth: "550px",
-              }}
+              p="10px"
+              bg="gray.50"
+              border="1px solid"
+              borderColor="brand.200"
+              rounded="md"
+              maxW="550px"
             >
               {/* Selector de Elemento de Limpieza */}
               <Box mb="10px">
-                <Text fontSize="12px" fontWeight="bold" color={TEXTO_SECUNDARIO} mb="4px">
+                <Text fontSize="12px" fontWeight="bold" color="gray.600" mb="4px">
                   Elemento de limpieza utilizado
                 </Text>
-                <select
-                  value={elementoSeleccionado}
-                  onChange={(e) => setElementoSeleccionado(e.target.value)}
-                  style={{
-                    width: "100%",
-                    maxWidth: "350px",
-                    padding: "7px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid #90BEBB",
-                    backgroundColor: "white",
-                    fontSize: "13px",
-                  }}
+                <NativeSelect.Root
+                  w="100%"
+                  maxW="350px"
+                  rounded="md"
                 >
-                  <option value="">Sin elemento específico</option>
-                  {elementosLimpieza.map((elem) => (
-                    <option key={elem.id} value={elem.id}>
-                      {elem.nombre}
-                    </option>
-                  ))}
-                </select>
+                  <NativeSelect.Field
+                    value={elementoSeleccionado}
+                    onChange={(e) => setElementoSeleccionado(e.target.value)}
+                    p="7px 10px"
+                    borderWidth={1}
+                    borderColor="brand.300"
+                    bg="white"
+                    fontSize="13px"
+                  >
+                    <option value="">Sin elemento específico</option>
+                    {elementosLimpieza.map((elem) => (
+                      <option key={elem.id} value={elem.id}>
+                        {elem.nombre}
+                      </option>
+                    ))}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
               </Box>
 
               {/* Selector de Insumo Químico */}
-              <Text fontSize="12px" fontWeight="bold" color={TEXTO_SECUNDARIO} mb="4px">
+              <Text fontSize="12px" fontWeight="bold" color="gray.600" mb="4px">
                 Producto químico utilizado
               </Text>
-              <select
-                value={insumoSeleccionado}
-                onChange={(e) => {
-                  setInsumoSeleccionado(e.target.value);
-                  setCantidadConsumida("");
-                  setErrorConsumo(null);
-                }}
-                style={{
-                  width: "100%",
-                  maxWidth: "350px",
-                  padding: "7px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #90BEBB",
-                  backgroundColor: "white",
-                  fontSize: "13px",
-                }}
+              <NativeSelect.Root
+                w="100%"
+                maxW="350px"
+                rounded="md"
               >
-                <option value="">Sin producto químico</option>
-                {insumosQuimicos.map((insumo) => (
-                  <option key={insumo.id} value={insumo.id}>
-                    {insumo.nombre} — {unidadMedidaLabel(insumo)}                  
-                  </option>
-                ))}
-              </select>
+                <NativeSelect.Field
+                  value={insumoSeleccionado}
+                  onChange={(e) => {
+                    setInsumoSeleccionado(e.target.value);
+                    setCantidadConsumida("");
+                    setErrorConsumo(null);
+                  }}
+                  p="7px 10px"
+                  borderWidth={1}
+                  borderColor="brand.300"
+                  bg="white"
+                  fontSize="13px"
+                >
+                  <option value="">Sin producto químico</option>
+                  {insumosQuimicos.map((insumo) => (
+                    <option key={insumo.id} value={insumo.id}>
+                      {insumo.nombre} — {unidadMedidaLabel(insumo)}
+                    </option>
+                  ))}
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
 
               {insumoSeleccionado && (
                 <Box mt="8px">
-                  <Text fontSize="12px" fontWeight="bold" color={TEXTO_SECUNDARIO} mb="4px">
+                  <Text fontSize="12px" fontWeight="bold" color="gray.600" mb="4px">
                     Cantidad aproximada consumida
                   </Text>
                   <HStack gap="8px">
@@ -396,17 +348,16 @@ function FilaTarea({
                         setErrorConsumo(null);
                       }}
                       placeholder="Ej: 2"
-                      style={{
-                        width: "130px",
-                        padding: "6px 8px",
-                        borderRadius: "6px",
-                        border: "1px solid #90BEBB",
-                        backgroundColor: "white",
-                        fontSize: "13px",
-                      }}
+                      w="130px"
+                      p="6px 8px"
+                      rounded="md"
+                      borderWidth={1}
+                      borderColor="brand.300"
+                      bg="white"
+                      fontSize="13px"
                     />
                     {insumoActual && (
-                      <Text fontSize="13px" fontWeight="bold" color={TEAL}>
+                      <Text fontSize="13px" fontWeight="bold" color="brand.500">
                         {unidadMedidaLabel(insumoActual)}
                       </Text>
                     )}
@@ -430,32 +381,28 @@ function FilaTarea({
           {/* Adjuntar evidencia */}
           {!tarea.completado && !esCerrado && (
             <Box mt="8px">
-              <input
+              <Input
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
-                style={{ display: "none" }}
+                display="none"
                 id={idInputEvidencia}
                 onChange={handleEvidenciaChange}
               />
               <HStack gap="10px">
-                <button
+                <Button
                   type="button"
+                  size="xs"
+                  bg="gray.200"
+                  border="none"
+                  rounded="4px"
                   onClick={() =>
                     document.getElementById(idInputEvidencia)?.click()
                   }
-                  style={{
-                    fontSize: "12px",
-                    padding: "4px 8px",
-                    backgroundColor: BORDE_SUAVE,
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
                 >
                   Adjuntar Evidencia
-                </button>
+                </Button>
                 {archivoEvidencia && (
-                  <Text fontSize="12px" color={TEAL} fontWeight="bold">
+                  <Text fontSize="12px" color="brand.500" fontWeight="bold">
                     {archivoEvidencia.name} (Lista para enviar)
                   </Text>
                 )}
@@ -470,16 +417,15 @@ function FilaTarea({
               {/* Vista previa de la foto elegida, con opción de quitarla */}
               {previewEvidencia && (
                 <Box mt="10px" position="relative" display="inline-block">
-                  <img
+                  <Image
                     src={previewEvidencia}
                     alt="Vista previa de la evidencia"
-                    style={{
-                      maxWidth: "160px",
-                      maxHeight: "160px",
-                      borderRadius: "8px",
-                      border: "2px solid #90BEBB",
-                      display: "block",
-                    }}
+                    maxW="160px"
+                    maxH="160px"
+                    rounded="lg"
+                    borderWidth="2px"
+                    borderColor="brand.300"
+                    display="block"
                   />
                   <Button
                     type="button"
@@ -492,12 +438,12 @@ function FilaTarea({
                     minW="22px"
                     height="22px"
                     padding="0"
-                    borderRadius="full"
-                    bg={PELIGRO}
+                    rounded="full"
+                    bg="red.600"
                     color="white"
                     fontWeight="bold"
                     lineHeight="1"
-                    _hover={{ bg: PELIGRO_HOVER }}
+                    _hover={{ bg: "red.700" }}
                   >
                     ✕
                   </Button>
@@ -505,11 +451,11 @@ function FilaTarea({
               )}
             </Box>
           )}
-        </Table.Cell>
+        </Celda>
 
-        <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
+        <Celda center>
           {isLoading ? (
-            <Spinner size="sm" color={TEAL} />
+            <Spinner size="sm" color="brand.500" />
           ) : esFuturo ? (
             <Text fontSize="13px" color="gray.400">
               —
@@ -518,7 +464,7 @@ function FilaTarea({
             <Text
               fontSize="17px"
               fontWeight="bold"
-              color={tarea.completado ? EXITO_ALT : PELIGRO_TEXTO}
+              color={tarea.completado ? "green.600" : "red.700"}
               title={
                 tarea.completado
                   ? "Completada (checklist cerrado)"
@@ -534,82 +480,52 @@ function FilaTarea({
               alignItems="center"
               gap="4px"
             >
-              <input
+              <Input
                 type="checkbox"
                 checked={tarea.completado}
                 onChange={handleCheckboxClick}
-                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                w="18px"
+                h="18px"
+                cursor="pointer"
               />
               {tarea.evidencia_url && (
-                <button
-                  type="button"
-                  onClick={() => setMostrarFoto(true)}
-                  style={{
-                    fontSize: "11px",
-                    color: TEAL,
-                    background: "none",
-                    border: "none",
-                    textDecoration: "underline",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
+                <BotonTexto onClick={() => setMostrarFoto(true)}>
                   Ver foto
-                </button>
+                </BotonTexto>
               )}
               {tarea.registro_id > 0 && (
-                <button
-                  type="button"
-                  onClick={verHistorial}
-                  style={{
-                    fontSize: "11px",
-                    color: TEXTO_TENUE,
-                    background: "none",
-                    border: "none",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
+                <BotonTexto color="gray.400" onClick={verHistorial}>
                   Historial
-                </button>
+                </BotonTexto>
               )}
             </Box>
           )}
-        </Table.Cell>
+        </Celda>
       </Table.Row>
 
       {mostrarFoto && (
         <Box
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-            padding: "20px",
-          }}
+          position="fixed"
+          inset={0}
+          bg="blackAlpha.700"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={2000}
+          p="20px"
         >
           <Box
-            style={{
-              backgroundColor: "white",
-              padding: "25px",
-              borderRadius: "12px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-              maxWidth: "90%",
-              maxHeight: "90%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "15px",
-            }}
+            bg="white"
+            p="25px"
+            rounded="xl"
+            boxShadow="0 10px 25px rgba(0,0,0,0.3)"
+            maxW="90%"
+            maxH="90%"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            gap="15px"
           >
             {imagen.loading && (
               <Text fontSize="14px" color="gray.500">
@@ -622,28 +538,22 @@ function FilaTarea({
               </Text>
             )}
             {imagen.src && (
-              <img
+              <Image
                 src={imagen.src}
                 alt="Evidencia fotográfica"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "70vh",
-                  objectFit: "contain",
-                  borderRadius: "8px",
-                }}
+                maxW="100%"
+                maxH="70vh"
+                objectFit="contain"
+                rounded="lg"
               />
             )}
             <Button
               onClick={() => setMostrarFoto(false)}
-              style={{
-                backgroundColor: TEAL,
-                color: "white",
-                padding: "8px 24px",
-                borderRadius: "6px",
-                border: "none",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
+              colorPalette="brand"
+              p="8px 24px"
+              rounded="md"
+              fontWeight="bold"
+              height="auto"
             >
               Volver
             </Button>
@@ -653,37 +563,30 @@ function FilaTarea({
 
       {historial && (
         <Box
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2100,
-            padding: "20px",
-          }}
+          position="fixed"
+          inset={0}
+          bg="blackAlpha.700"
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={2100}
+          p="20px"
         >
           <Box
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "10px",
-              maxWidth: "480px",
-              width: "100%",
-              maxHeight: "80vh",
-              overflowY: "auto",
-            }}
+            bg="white"
+            p="20px"
+            rounded="10px"
+            maxW="480px"
+            w="100%"
+            maxH="80vh"
+            overflowY="auto"
           >
             <Text fontWeight="bold" mb="12px">
               Historial de cambios — {tarea.nombre}
             </Text>
             {cargandoHistorial ? (
-              <Spinner size="sm" color={TEAL} />
+              <Spinner size="sm" color="brand.500" />
             ) : historial.length === 0 ? (
               <Text fontSize="13px" color="gray.500">
                 Sin eventos registrados todavía.
@@ -692,7 +595,9 @@ function FilaTarea({
               historial.map((ev) => (
                 <Box
                   key={ev.id}
-                  style={{ borderBottom: "1px solid #eee", padding: "8px 0" }}
+                  borderBottom="1px solid"
+                  borderColor="gray.100"
+                  p="8px 0"
                 >
                   <Text fontSize="13px">
                     {ev.completado ? "✔ Marcada" : "✕ Desmarcada"} —{" "}
@@ -703,7 +608,7 @@ function FilaTarea({
                 </Box>
               ))
             )}
-            <Button mt="12px" onClick={() => setHistorial(null)}>
+            <Button mt="12px" colorPalette="brand" onClick={() => setHistorial(null)}>
               Cerrar
             </Button>
           </Box>
@@ -760,10 +665,10 @@ export function ChecklistPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
+    <Box p="20px">
       <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
         <Box>
-          <Heading as="h2" size="md" fontWeight="bold" color="black">
+          <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
             Checklist Diario de Limpieza
           </Heading>
           <Text color="gray.600" fontSize="14px" mt="2px">
@@ -771,13 +676,15 @@ export function ChecklistPage() {
           </Text>
         </Box>
         <Button
-          bg={GRIS_CLARO}
-          color={TEXTO_PRIMARIO}
+          bg="gray.200"
+          color="gray.800"
           fontSize="14px"
           fontWeight="bold"
           height="auto"
           onClick={recargar}
-          style={{ padding: "8px 16px", borderRadius: "6px" }}
+          p="8px 16px"
+          rounded="md"
+          _hover={{ bg: "gray.300" }}
         >
           Actualizar
         </Button>
@@ -786,7 +693,7 @@ export function ChecklistPage() {
       <Box
         bg="white"
         p="20px"
-        borderRadius="10px"
+        rounded="10px"
         boxShadow="0 2px 6px rgba(0,0,0,0.05)"
         mb="25px"
       >
@@ -798,7 +705,7 @@ export function ChecklistPage() {
               fontSize="14px"
               fontWeight="bold"
               mb="6px"
-              color={TEXTO_SECUNDARIO}
+              color="gray.600"
             >
               FECHA
             </Box>
@@ -806,7 +713,12 @@ export function ChecklistPage() {
               type="date"
               value={selectedFecha}
               onChange={(e) => setSelectedFecha(e.target.value)}
-              style={estiloInputCompacto}
+              p="10px 14px"
+              rounded="lg"
+              borderWidth={2}
+              borderColor="brand.300"
+              fontSize="15px"
+              w="auto"
             />
           </Field.Root>
         </Box>
@@ -814,15 +726,14 @@ export function ChecklistPage() {
 
       {error && (
         <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "12px",
-            borderRadius: "8px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-            fontWeight: "bold",
-          }}
+          bg="red.100"
+          color="red.800"
+          p="12px"
+          rounded="lg"
+          mb="20px"
+          border="1px solid"
+          borderColor="red.200"
+          fontWeight="bold"
         >
           ⚠️ {error}
         </Box>
@@ -830,13 +741,13 @@ export function ChecklistPage() {
 
       {loading && (
         <HStack justify="center" p={10}>
-          <Spinner size="lg" color={TEAL} />
+          <Spinner size="lg" color="brand.500" />
           <Text color="gray.600">Cargando tareas...</Text>
         </HStack>
       )}
 
       {!loading && grupos.length === 0 && !error && (
-        <Box bg="white" borderRadius="8px" p={10} textAlign="center">
+        <Box bg="white" rounded="lg" p={10} textAlign="center">
           <Text fontSize="16px" color="gray.600">
             No hay tareas de limpieza programadas para la fecha seleccionada.
           </Text>
@@ -855,30 +766,24 @@ export function ChecklistPage() {
           {grupos.map((grupo) => {
             const colapsado = !gruposExpandidos.has(grupo.key);
             return (
-              <Box key={grupo.key} style={estiloTarjeta} mb="20px">
+              <Tarjeta key={grupo.key} mb="20px">
                 <Box
                   onClick={() => toggleGrupo(grupo.key)}
                   role="button"
                   aria-expanded={!colapsado}
-                  style={{
-                    backgroundColor: TEAL,
-                    padding: "12px 16px",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
+                  bg="brand.500"
+                  p="12px 16px"
+                  cursor="pointer"
+                  userSelect="none"
                 >
                   <HStack justify="space-between">
                     <HStack gap="10px">
                       <Text
                         fontSize="13px"
                         color="white"
-                        style={{
-                          transform: colapsado
-                            ? "rotate(-90deg)"
-                            : "rotate(0deg)",
-                          transition: "transform 0.15s ease",
-                          display: "inline-block",
-                        }}
+                        transform={colapsado ? "rotate(-90deg)" : "rotate(0deg)"}
+                        transition="transform 0.15s ease"
+                        display="inline-block"
                       >
                         ▾
                       </Text>
@@ -886,64 +791,30 @@ export function ChecklistPage() {
                         <Text fontSize="15px" fontWeight="bold" color="white">
                           {grupo.planNombre}
                         </Text>
-                        <Text fontSize="12px" color="#DCEEEC" mt="2px">
+                        <Text fontSize="12px" color="brand.100" mt="2px">
                           Equipo: {grupo.equipoNombre}
                         </Text>
                       </Box>
                     </HStack>
 
                     {grupo.tareas[0]?.checklist_estado === "cerrado" && (
-                      <Text
-                        fontSize="11px"
-                        fontWeight="bold"
-                        color="white"
-                        style={{
-                          backgroundColor: "rgba(0,0,0,0.25)",
-                          padding: "4px 10px",
-                          borderRadius: "999px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        🔒 Cerrado (histórico)
-                      </Text>
+                      <BadgeEstado>🔒 Cerrado (histórico)</BadgeEstado>
                     )}
 
                     {grupo.tareas[0]?.registro_id === 0 && (
-                      <Text
-                        fontSize="11px"
-                        fontWeight="bold"
-                        color="white"
-                        style={{
-                          backgroundColor: "rgba(0,0,0,0.25)",
-                          padding: "4px 10px",
-                          borderRadius: "999px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        📅 Vista previa
-                      </Text>
+                      <BadgeEstado>📅 Vista previa</BadgeEstado>
                     )}
                   </HStack>
                 </Box>
 
                 {!colapsado && (
-                  <Table.Root
-                    style={{ width: "100%", borderCollapse: "collapse" }}
-                  >
+                  <Table.Root w="100%">
                     <Table.Header>
-                      <Table.Row style={estiloHeaderFila}>
-                        <Table.ColumnHeader style={estiloHeaderCelda}>
-                          Tarea
-                        </Table.ColumnHeader>
-                        <Table.ColumnHeader
-                          style={{
-                            ...estiloHeaderCelda,
-                            textAlign: "center",
-                            width: "140px",
-                          }}
-                        >
+                      <Table.Row bg="brand.100" borderBottom="2px solid" borderColor="brand.300">
+                        <ColumnaHeader>Tarea</ColumnaHeader>
+                        <ColumnaHeader center width="140px">
                           Completada
-                        </Table.ColumnHeader>
+                        </ColumnaHeader>
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
@@ -964,7 +835,7 @@ export function ChecklistPage() {
                     </Table.Body>
                   </Table.Root>
                 )}
-              </Box>
+              </Tarjeta>
             );
           })}
         </>

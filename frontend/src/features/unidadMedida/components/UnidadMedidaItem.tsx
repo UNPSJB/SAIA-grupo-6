@@ -1,14 +1,6 @@
-import { Button, HStack, Table } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
 import type { UnidadMedida } from "../types/unidadMedida";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  EXITO,
-  EXITO_HOVER,
-  PELIGRO,
-  PELIGRO_HOVER,
-  TEAL,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface UnidadMedidaItemProps {
   unidad: UnidadMedida;
@@ -25,83 +17,40 @@ export function UnidadMedidaItem({
 }: UnidadMedidaItemProps) {
   return (
     <Table.Row
-      style={{
-        borderBottom: "1px solid #eee",
-        opacity: unidad.activo ? 1 : 0.65,
-      }}
+      borderBottomWidth="1px"
+      borderColor="gray.100"
+      opacity={unidad.activo ? 1 : 0.65}
     >
-      <Table.Cell
-        color={TEAL}
-        fontWeight="bold"
-        fontSize="16px"
-        style={{ padding: "12px" }}
-      >
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{unidad.id}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         {unidad.nombre}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         {unidad.simbolo}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
           {unidad.activo ? (
             <>
-              <Button
-                bg={ADVERTENCIA}
-                color="white"
-                fontSize="15px"
-                fontWeight="normal"
-                style={{
-                  border: "none",
-                  padding: "6px 12px",
-                  borderRadius: "4px",
-                }}
-                _hover={{ bg: ADVERTENCIA_HOVER }}
-                onClick={() => onEdit(unidad)}
-              >
+              <BotonTabla accion="editar" onClick={() => onEdit(unidad)}>
                 Modificar
-              </Button>
-
-              <Button
-                bg={PELIGRO}
-                color="white"
-                fontSize="15px"
-                fontWeight="normal"
-                style={{
-                  border: "none",
-                  padding: "6px 12px",
-                  borderRadius: "4px",
-                }}
-                _hover={{ bg: PELIGRO_HOVER }}
-                onClick={() => onDelete(unidad)}
-              >
+              </BotonTabla>
+              <BotonTabla accion="eliminar" onClick={() => onDelete(unidad)}>
                 Eliminar
-              </Button>
+              </BotonTabla>
             </>
           ) : (
-            <Button
-              bg={EXITO}
-              color="white"
-              fontSize="15px"
-              fontWeight="normal"
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "4px",
-              }}
-              _hover={{ bg: EXITO_HOVER }}
-              onClick={() => onReactivar(unidad)}
-            >
+            <BotonTabla accion="reactivar" onClick={() => onReactivar(unidad)}>
               Reactivar
-            </Button>
+            </BotonTabla>
           )}
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }

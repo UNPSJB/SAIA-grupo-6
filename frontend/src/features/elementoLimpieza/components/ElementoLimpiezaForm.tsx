@@ -1,21 +1,12 @@
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-} from "@chakra-ui/react";
+import { Box, Field, Input } from "@chakra-ui/react";
 import type { ElementoLimpiezaFormValues } from "../types/elementoLimpieza";
+import { hoyISO } from "../../../common/utils/fechas";
 import {
-  BLANCO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
-
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
 
 interface ElementoLimpiezaFormProps {
   initialValues?: ElementoLimpiezaFormValues;
@@ -28,10 +19,18 @@ interface ElementoLimpiezaFormProps {
 
 const emptyValues: ElementoLimpiezaFormValues = {
   nombre: "",
-  fecha_ultimo_recambio: new Date().toISOString().split("T")[0], // Fecha de hoy por defecto
+  // `hoyISO()` y no `toISOString()`: este convierte a UTC, así que entre las
+  // 21:00 y las 24:00 en Argentina (UTC-3) el campo abría con el día
+  // anterior. `common/utils/fechas.ts` ya lo resuelve.
+  fecha_ultimo_recambio: hoyISO(),
   frecuencia_recambio_dias: 30, // Frecuencia por defecto
 };
 
+/**
+ * El aspecto del input lo aporta la receta `input` del tema
+ * (`src/theme/index.ts`), así que acá no hay ningún objeto de estilo. El
+ * ancho (`maxW="500px"`) sí es una decisión de layout y queda como prop.
+ */
 export function ElementoLimpiezaForm({
   initialValues = emptyValues,
   onSubmit,
@@ -65,103 +64,63 @@ export function ElementoLimpiezaForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="card"
+      mb="8"
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
+      <Box
+        as="h3"
+        mt={0}
+        fontSize="2xl"
+        fontWeight="bold"
+        color="brand.500"
+        mb="6"
+      >
         {title}
       </Box>
 
       {/* 1. Nombre */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            NOMBRE *
-          </Box>
-          <Input
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Detergente Multiuso"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">NOMBRE *</Field.Label>
+        <Input
+          value={values.nombre}
+          onChange={handleNombreChange}
+          placeholder="Ej: Detergente Multiuso"
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* 2. Fecha Último Recambio */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            FECHA ÚLTIMO RECAMBIO *
-          </Box>
-          <Input
-            type="date"
-            value={values.fecha_ultimo_recambio ?? ""}
-            onChange={handleFechaChange}
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">FECHA ÚLTIMO RECAMBIO *</Field.Label>
+        <Input
+          type="date"
+          value={values.fecha_ultimo_recambio ?? ""}
+          onChange={handleFechaChange}
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* 3. Frecuencia de Recambio (Días) */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root>
-          <Box as="label" style={estiloLabel}>
-            FRECUENCIA RECAMBIO (DÍAS)
-          </Box>
-          <Input
-            type="number"
-            min={1}
-            value={values.frecuencia_recambio_dias ?? ""}
-            onChange={handleFrecuenciaChange}
-            placeholder="Ej: 30"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root mb="5">
+        <Field.Label color="gray.600">FRECUENCIA RECAMBIO (DÍAS)</Field.Label>
+        <Input
+          type="number"
+          min={1}
+          value={values.frecuencia_recambio_dias ?? ""}
+          onChange={handleFrecuenciaChange}
+          placeholder="Ej: 30"
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* Botones */}
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
-          loading={isLoading}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+      <AccionesFormulario>
+        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

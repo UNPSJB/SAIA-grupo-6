@@ -29,7 +29,9 @@ export function BotonNotificaciones() {
       
       {cantidad > 0 && (
         <Badge
-          bg="red.500"
+          colorPalette="red"
+          variant="solid"
+          bg="red.600"
           color="white"
           borderRadius="full"
           position="absolute"
@@ -39,7 +41,9 @@ export function BotonNotificaciones() {
           px="6px"
           py="1px"
           fontWeight="bold"
-          border="2px solid #468189"
+          borderWidth="2px"
+          borderStyle="solid"
+          borderColor="brand.500"
         >
           {cantidad}
         </Badge>

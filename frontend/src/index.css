@@ -1,10 +1,13 @@
-body {
-  margin: 0;
-  background-color: #F4E9CD;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #333;
-}
-
-* {
-  box-sizing: border-box;
-}
+/*
+ * Este archivo quedó vacío a propósito.
+ *
+ * Antes fijaba a mano `body { background-color: #F4E9CD; color: #333 }`, y como
+ * se importa DESPUÉS de los estilos de Chakra (ver `main.tsx`), terminaba
+ * pisando el `globalCss` del tema: el body quedaba beige mientras el `<html>`
+ * quedaba en el verde de marca, con una costura visible entre ambos.
+ *
+ * El fondo, el color de texto y la tipografía los define el tema en
+ * `src/theme/index.ts` (`globalCss`), y el reset (margin, box-sizing) lo hace
+ * el preflight de Chakra. Agregar estilos acá tiene el riesgo de volver a
+ * ganarle al sistema: usá tokens y props de Chakra.
+ */

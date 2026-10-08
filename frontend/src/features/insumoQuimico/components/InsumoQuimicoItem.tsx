@@ -1,17 +1,9 @@
-import { Button, HStack, Table } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
 import {
   TIPOS_QUIMICOS,
   type InsumoQuimico,
 } from "../types/insumoQuimico";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  EXITO,
-  EXITO_HOVER,
-  PELIGRO,
-  PELIGRO_HOVER,
-  TEAL,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface InsumoQuimicoItemProps {
   insumo: InsumoQuimico;
@@ -35,87 +27,45 @@ export function InsumoQuimicoItem({
 
   return (
     <Table.Row
-      style={{
-        borderBottom: "1px solid #eee",
-        opacity: insumo.activo ? 1 : 0.65,
-      }}
+      borderBottomWidth="1px"
+      borderColor="gray.100"
+      opacity={insumo.activo ? 1 : 0.65}
     >
-      <Table.Cell
-        color={TEAL}
-        fontWeight="bold"
-        fontSize="16px"
-        style={{ padding: "12px" }}
-      >
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{insumo.id}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         {insumo.nombre}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         {tipoLabel}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         {unidadLabel}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
           {insumo.activo ? (
             <>
-              <Button
-                bg={ADVERTENCIA}
-                color="white"
-                fontSize="15px"
-                fontWeight="normal"
-                style={{
-                  border: "none",
-                  padding: "6px 12px",
-                  borderRadius: "4px",
-                }}
-                _hover={{ bg: ADVERTENCIA_HOVER }}
-                onClick={() => onEdit(insumo)}
-              >
+              <BotonTabla accion="editar" onClick={() => onEdit(insumo)}>
                 Modificar
-              </Button>
+              </BotonTabla>
 
-              <Button
-                bg={PELIGRO}
-                color="white"
-                fontSize="15px"
-                fontWeight="normal"
-                style={{
-                  border: "none",
-                  padding: "6px 12px",
-                  borderRadius: "4px",
-                }}
-                _hover={{ bg: PELIGRO_HOVER }}
-                onClick={() => onDelete(insumo)}
-              >
+              <BotonTabla accion="eliminar" onClick={() => onDelete(insumo)}>
                 Eliminar
-              </Button>
+              </BotonTabla>
             </>
           ) : (
-            <Button
-              bg={EXITO}
-              color="white"
-              fontSize="15px"
-              fontWeight="normal"
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "4px",
-              }}
-              _hover={{ bg: EXITO_HOVER }}
-              onClick={() => onReactivar(insumo)}
-            >
+            <BotonTabla accion="reactivar" onClick={() => onReactivar(insumo)}>
               Reactivar
-            </Button>
+            </BotonTabla>
           )}
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }

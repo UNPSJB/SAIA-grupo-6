@@ -1,22 +1,26 @@
-import { Table, Button, HStack } from "@chakra-ui/react";
+import { Button, HStack, Table, Text } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../common/context/useAuth";
 import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  EXITO,
-  EXITO_HOVER,
-  PELIGRO,
-  TEAL,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface PersonalItemProps {
   persona: Persona;
   onEdit: (persona: Persona) => void;
   onDelete: (persona: Persona) => void;
   onReactivar: (persona: Persona) => void; // Recibimos el método desde la tabla
+}
+
+/** Resumen de capacidades en texto: "Operar | Administrar", "Ninguna", etc. */
+function resumenPermisos(persona: Persona) {
+  if (esSuperAdminDe(persona)) return "Super admin";
+
+  const partes: string[] = [];
+  if (persona.puede_operar) partes.push("Operar");
+  if (persona.puede_administrar) partes.push("Administrar");
+
+  return partes.length > 0 ? partes.join(" | ") : "Ninguna";
 }
 
 export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: PersonalItemProps) {
@@ -29,53 +33,62 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
   const puedeBorrar = puedeDarDeBajaA(user, persona);
 
   return (
-    <Table.Row style={{ borderBottom: "1px solid #eee", opacity: persona.activo ? 1 : 0.65 }}>
-      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+    <Table.Row borderBottomWidth="1px" borderColor="gray.100" opacity={persona.activo ? 1 : 0.65}>
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{persona.id}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {persona.nombre} {persona.apellido || ""}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {persona.dni}
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px" }}>
-        <span style={{ backgroundColor: "#f5f5f5", padding: "4px 8px", borderRadius: "4px", fontSize: "13px" }}>
-            {esSuperAdminDe(persona) && "Super admin"}
-            {!esSuperAdminDe(persona) && persona.puede_operar && "Operar"}
-            {!esSuperAdminDe(persona) && persona.puede_operar && persona.puede_administrar && " | "}
-            {!esSuperAdminDe(persona) && persona.puede_administrar && "Administrar"}
-            {!esSuperAdminDe(persona) && !persona.puede_operar && !persona.puede_administrar && "Ninguna"}
-        </span>
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <Button variant="ghost" fontSize="18px" cursor="pointer" onClick={() => navigate(`/personal/detalle/${persona.id}`)} title="Ver Detalle">
+      </Celda>
+      <Celda p="3">
+        <Text
+          as="span"
+          bg="gray.100"
+          px="2"
+          py="1"
+          rounded="sm"
+          fontSize="xs"
+        >
+          {resumenPermisos(persona)}
+        </Text>
+      </Celda>
+      <Celda p="3" center>
+        <Button
+          variant="ghost"
+          fontSize="lg"
+          onClick={() => navigate(`/personal/detalle/${persona.id}`)}
+          title="Ver Detalle"
+          aria-label={`Ver detalle de ${persona.nombre}`}
+        >
           👁️
         </Button>
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
+      </Celda>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
           {persona.activo && puedeEditar && (
-            <Button bg={ADVERTENCIA} color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: ADVERTENCIA_HOVER }} onClick={() => onEdit(persona)}>
+            <BotonTabla accion="editar" onClick={() => onEdit(persona)}>
               Modificar
-            </Button>
+            </BotonTabla>
           )}
 
           {persona.activo ? (
             puedeBorrar && (
-              <Button bg={PELIGRO} color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: PELIGRO }} onClick={() => onDelete(persona)}>
+              <BotonTabla accion="eliminar" onClick={() => onDelete(persona)}>
                 Eliminar
-              </Button>
+              </BotonTabla>
             )
           ) : (
             puedeEditar && (
-              <Button bg={EXITO} color="white" fontSize="16px" fontWeight="normal" style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }} _hover={{ bg: EXITO_HOVER }} onClick={() => onReactivar(persona)}>
+              <BotonTabla accion="reactivar" onClick={() => onReactivar(persona)}>
                 Reactivar
-              </Button>
+              </BotonTabla>
             )
           )}
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }

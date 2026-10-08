@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Button, HStack, Table, Badge, Text } from "@chakra-ui/react";
+import { Badge, Button, HStack, Table, Text } from "@chakra-ui/react";
 import {
   estadoLabel,
   tipoLabel,
@@ -7,12 +7,7 @@ import {
   formatoFecha,
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  TEAL,
-  TEAL_OSCURO,
-} from "../../../common/theme/tokens";
+import { Celda } from "../../../components/ui/patrones";
 
 interface IncidenteItemProps {
   incidente: Incidente;
@@ -21,6 +16,23 @@ interface IncidenteItemProps {
   onVer?: (incidente: Incidente) => void;
   showActions?: boolean;
 }
+
+/**
+ * Métricas del botón de acción de fila.
+ *
+ * `BotonTabla` cubre "editar"/"eliminar"/"reactivar", pero acá las dos
+ * acciones posibles son cerrar (marca) y reabrir (naranja), que no están
+ * en esa paleta. Se replican las mismas medidas para que la fila no se
+ * desalinee respecto de las tablas de las demás features.
+ */
+const BOTON_ACCION = {
+  size: "sm",
+  fontWeight: "normal",
+  h: "auto",
+  px: "3",
+  py: "1.5",
+  rounded: "md",
+} as const;
 
 export function IncidenteItem({
   incidente,
@@ -42,16 +54,15 @@ export function IncidenteItem({
 
   return (
     <Table.Row
-      style={{
-        borderBottom: "1px solid #eee",
-        opacity: cerrado ? 0.7 : 1,
-      }}
+      borderBottomWidth="1px"
+      borderColor="gray.100"
+      opacity={cerrado ? 0.7 : 1}
     >
-      <Table.Cell fontSize="14px" style={{ padding: "12px", whiteSpace: "nowrap" }}>
+      <Celda p="3" whiteSpace="nowrap">
         {formatoFecha(incidente.fecha_reporte)}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px", maxWidth: "220px" }}>
+      <Celda p="3" fontSize="md" maxW="220px">
         <Text
           lineClamp={2}
           wordBreak="break-word"
@@ -60,23 +71,25 @@ export function IncidenteItem({
         >
           {incidente.titulo}
         </Text>
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>
+      <Celda p="3" center>
         {incidente.foto_url ? (
-          <Text fontSize="18px" title="Ver detalle para ver la foto">📷</Text>
+          <Text fontSize="lg" title="Ver detalle para ver la foto" aria-hidden>
+            📷
+          </Text>
         ) : (
           <Text color="gray.400">-</Text>
         )}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="8px" py="4px">
           {tipoLabel(incidente.tipo)}
         </Badge>
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         <Badge
           colorPalette={cerrado ? "green" : "red"}
           borderRadius="md"
@@ -85,37 +98,33 @@ export function IncidenteItem({
         >
           {estadoLabel(incidente.estado)}
         </Badge>
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3" fontSize="md">
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
-      </Table.Cell>
+      </Celda>
 
       {showActions && (
-        <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-          <HStack justify="center" style={{ gap: "10px" }}>
+        <Celda p="3" center>
+          <HStack justify="center" gap="2">
             <Button
+              type="button"
               variant="ghost"
-              fontSize="18px"
-              cursor="pointer"
+              fontSize="lg"
+              aria-label="Ver detalle"
               onClick={handleVer}
               title="Ver Detalle"
             >
-              👁️
+              <Text as="span" aria-hidden>
+                👁️
+              </Text>
             </Button>
             {cerrado
               ? onReabrir && (
                   <Button
-                    bg={ADVERTENCIA}
-                    color="white"
-                    fontSize="15px"
-                    fontWeight="normal"
-                    style={{
-                      border: "none",
-                      padding: "6px 12px",
-                      borderRadius: "4px",
-                    }}
-                    _hover={{ bg: ADVERTENCIA_HOVER }}
+                    {...BOTON_ACCION}
+                    colorPalette="orange"
+                    variant="solid"
                     onClick={() => onReabrir(incidente)}
                   >
                     Reabrir
@@ -123,23 +132,16 @@ export function IncidenteItem({
                 )
               : onCerrar && (
                   <Button
-                    bg={TEAL}
-                    color="white"
-                    fontSize="15px"
-                    fontWeight="normal"
-                    style={{
-                      border: "none",
-                      padding: "6px 12px",
-                      borderRadius: "4px",
-                    }}
-                    _hover={{ bg: TEAL_OSCURO }}
+                    {...BOTON_ACCION}
+                    colorPalette="brand"
+                    variant="solid"
                     onClick={() => onCerrar(incidente)}
                   >
                     Cerrar
                   </Button>
                 )}
           </HStack>
-        </Table.Cell>
+        </Celda>
       )}
     </Table.Row>
   );

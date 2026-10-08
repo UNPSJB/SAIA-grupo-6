@@ -1,25 +1,24 @@
 import { useState } from "react";
-import { Box, Portal, Text } from "@chakra-ui/react";
+import { Box, Image, Portal, Text, type BoxProps } from "@chakra-ui/react";
 import { useImagenAutenticada } from "../../../common/hooks/useImagenAutenticada";
-import { BORDE_SUAVE, FONDO_APP, TEAL, TEAL_CLARO } from "../../../common/theme/tokens";
 
 /**
  * Marco fijo de la miniatura. Se comparte entre los tres estados (cargando,
  * error y foto) para que la columna no baile de alto mientras carga.
  */
-const MARCO = {
-  width: "72px",
-  height: "72px",
-  borderRadius: "8px",
+const MARCO: BoxProps = {
+  w: "72px",
+  h: "72px",
+  rounded: "lg",
   overflow: "hidden",
-  border: "1px solid",
-  borderColor: "#e8f0ef",
-  backgroundColor: FONDO_APP,
+  borderWidth: "1px",
+  borderColor: "gray.200",
+  bg: "gray.50",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   flexShrink: 0,
-} as const;
+};
 
 /**
  * Miniatura de la foto del incidente. Al hacer clic se abre en pantalla
@@ -38,10 +37,11 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
     return (
       <Box {...MARCO} p="8px">
         <Box
-          width="100%"
-          height="100%"
-          borderRadius="6px"
-          backgroundColor={BORDE_SUAVE}
+          w="100%"
+          h="100%"
+          rounded="sm"
+          bg="gray.200"
+          aria-hidden
         />
       </Box>
     );
@@ -61,16 +61,18 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
     <>
       <Box
         {...MARCO}
-        borderColor={TEAL_CLARO}
+        borderColor="brand.300"
         cursor="pointer"
         title="Ver foto ampliada"
         onClick={() => setAmpliada(true)}
-        _hover={{ borderColor: TEAL }}
+        _hover={{ borderColor: "brand.500" }}
       >
-        <img
+        <Image
           src={imagen.src}
           alt="Foto del incidente"
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          w="100%"
+          h="100%"
+          objectFit="contain"
         />
       </Box>
 
@@ -79,19 +81,21 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
           <Box
             position="fixed"
             inset={0}
-            bg="rgba(0,0,0,0.85)"
+            bg="blackAlpha.800"
             display="flex"
             alignItems="center"
             justifyContent="center"
             zIndex={2000}
-            padding="20px"
+            p="20px"
             cursor="zoom-out"
             onClick={() => setAmpliada(false)}
           >
-            <img
+            <Image
               src={imagen.src}
               alt="Foto ampliada del incidente"
-              style={{ maxWidth: "90%", maxHeight: "90%", borderRadius: "8px" }}
+              maxW="90%"
+              maxH="90%"
+              rounded="lg"
             />
           </Box>
         </Portal>

@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input, NativeSelect } from "@chakra-ui/react";
+import { Box, Field, Heading, Input, NativeSelect } from "@chakra-ui/react";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
 import { TIPOS_DOCUMENTO } from "../types/documento";
 import type { DocumentoFormValues, TipoDocumento } from "../types/documento";
 
@@ -14,34 +19,11 @@ interface DocumentoFormProps {
 
 const emptyValues: DocumentoFormValues = { nombre: "", tipo: "manual_bpm", archivo: null };
 
-const estiloInput = {
-  backgroundColor: "#fff",
-  padding: "12px",
-  width: "100%",
-  maxWidth: "500px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: "#333",
-};
-
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
-};
-
-const estiloLabel = {
-  display: "block",
-  fontSize: "14px",
-  fontWeight: "bold" as const,
-  marginBottom: "8px",
-  color: "#555",
-};
-
+/**
+ * El aspecto de los campos lo aporta la receta `input` del tema
+ * (`src/theme/index.ts`), así que acá no hay ningún objeto de estilo: solo
+ * queda el `maxW`, que es una decisión de layout.
+ */
 export function DocumentoForm({
   conDatosDelDocumento = true,
   onSubmit,
@@ -63,108 +45,72 @@ export function DocumentoForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{
-        backgroundColor: "#ffffff",
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="card"
+      mb="8"
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: "#468189" }}>
+      <Heading as="h3" size="lg" mt={0} color="brand.500" mb="5">
         {title}
-      </Box>
+      </Heading>
 
       {conDatosDelDocumento && (
         <>
-          <Box style={{ marginBottom: "20px" }}>
-            <Field.Root required>
-              <Box as="label" style={estiloLabel}>NOMBRE DEL DOCUMENTO *</Box>
-              <Input
-                value={values.nombre}
-                onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-                placeholder="Ej: Manual de BPM"
-                style={estiloInput}
-              />
-            </Field.Root>
-          </Box>
+          <Field.Root required mb="5">
+            <Field.Label color="gray.600">NOMBRE DEL DOCUMENTO *</Field.Label>
+            <Input
+              value={values.nombre}
+              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Ej: Manual de BPM"
+              maxW="500px"
+            />
+          </Field.Root>
 
-          <Box style={{ marginBottom: "20px" }}>
-            <Field.Root required>
-              <Box as="label" style={estiloLabel}>TIPO *</Box>
-              <NativeSelect.Root>
-                <NativeSelect.Field
-                  value={values.tipo}
-                  onChange={(e) =>
-                    setValues((prev) => ({ ...prev, tipo: e.target.value as TipoDocumento }))
-                  }
-                  style={estiloSelect}
-                >
-                  {TIPOS_DOCUMENTO.map((t) => (
-                    <option key={t.value} value={t.value} style={{ backgroundColor: "#fff", color: "#333" }}>
-                      {t.label}
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-            </Field.Root>
-          </Box>
+          <Field.Root required mb="5">
+            <Field.Label color="gray.600">TIPO *</Field.Label>
+            <NativeSelect.Root>
+              <NativeSelect.Field
+                value={values.tipo}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, tipo: e.target.value as TipoDocumento }))
+                }
+                maxW="500px"
+                bg="white"
+                borderWidth="2px"
+                borderColor="brand.300"
+                borderRadius="lg"
+              >
+                {TIPOS_DOCUMENTO.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
         </>
       )}
 
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>ARCHIVO *</Box>
-          <input
-            type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, archivo: e.target.files?.[0] ?? null }))
-            }
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="6">
+        <Field.Label color="gray.600">ARCHIVO *</Field.Label>
+        <Input
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+          onChange={(e) =>
+            setValues((prev) => ({ ...prev, archivo: e.target.files?.[0] ?? null }))
+          }
+          maxW="500px"
+        />
+      </Field.Root>
 
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
-          loading={isLoading}
-          disabled={incompleto}
-          style={{
-            backgroundColor: "#468189",
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
-        >
+      <AccionesFormulario>
+        <BotonGuardar loading={isLoading} disabled={incompleto}>
           {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: "#e0e0e0",
-              color: "#333",
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+        </BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

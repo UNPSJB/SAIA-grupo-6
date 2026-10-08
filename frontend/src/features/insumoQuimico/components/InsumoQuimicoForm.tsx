@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Box, Button, Field, HStack, Input, NativeSelect } from "@chakra-ui/react";
+import { Box, Field, Input, NativeSelect } from "@chakra-ui/react";
 import {
   TIPOS_QUIMICOS,
   type InsumoQuimicoFormValues,
@@ -8,13 +8,10 @@ import {
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import {
-  BLANCO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
 
 interface InsumoQuimicoFormProps {
   initialValues?: InsumoQuimicoFormValues;
@@ -31,14 +28,12 @@ const emptyValues: InsumoQuimicoFormValues = {
   unidad_medida_id: 0,
 };
 
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
-};
-
+/**
+ * El aspecto del input lo aporta la receta `input` del tema
+ * (`src/theme/index.ts`), así que los `<Input>` no llevan objeto de estilo.
+ * `NativeSelect.Field` NO usa esa receta, así que hay que darle a mano el
+ * borde/fondo que antes venía del `estiloSelect`.
+ */
 export function InsumoQuimicoForm({
   initialValues = emptyValues,
   onSubmit,
@@ -92,138 +87,86 @@ export function InsumoQuimicoForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="card"
+      mb="8"
     >
       <Box
         as="h3"
-        style={{
-          marginTop: 0,
-          fontSize: "22px",
-          color: TEAL,
-        }}
+        mt={0}
+        fontSize="2xl"
+        fontWeight="bold"
+        color="brand.500"
+        mb="6"
       >
         {title}
       </Box>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            NOMBRE *
-          </Box>
-          <Input
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Detergente Industrial Concentrado"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">NOMBRE *</Field.Label>
+        <Input
+          value={values.nombre}
+          onChange={handleNombreChange}
+          placeholder="Ej: Detergente Industrial Concentrado"
+          maxW="500px"
+        />
+      </Field.Root>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            TIPO DE PRODUCTO QUÍMICO *
-          </Box>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={values.tipo}
-              onChange={handleTipoChange}
-              style={estiloSelect}
-            >
-              {TIPOS_QUIMICOS.map((tipo) => (
-                <option
-                  key={tipo.value}
-                  value={tipo.value}
-                  style={{
-                    backgroundColor: BLANCO,
-                    color: TEXTO_PRIMARIO,
-                  }}
-                >
-                  {tipo.label}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </Box>
-
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            UNIDAD DE MEDIDA *
-          </Box>
-          <NativeSelect.Root disabled={cargandoUnidades}>
-            <NativeSelect.Field
-              value={values.unidad_medida_id}
-              onChange={handleUnidadChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
-              </option>
-              {unidades.map((unidad) => (
-                <option
-                  key={unidad.id}
-                  value={unidad.id}
-                  style={{
-                    backgroundColor: BLANCO,
-                    color: TEXTO_PRIMARIO,
-                  }}
-                >
-                  {unidad.nombre} ({unidad.simbolo})
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </Box>
-
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
-          loading={isLoading}
-          disabled={!values.unidad_medida_id}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">TIPO DE PRODUCTO QUÍMICO *</Field.Label>
+        <NativeSelect.Root>
+          <NativeSelect.Field
+            value={values.tipo}
+            onChange={handleTipoChange}
+            maxW="500px"
+            borderWidth="2px"
+            borderColor="brand.300"
+            borderRadius="lg"
+            bg="white"
           >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+            {TIPOS_QUIMICOS.map((tipo) => (
+              <option key={tipo.value} value={tipo.value}>
+                {tipo.label}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
+
+      <Field.Root required mb="6">
+        <Field.Label color="gray.600">UNIDAD DE MEDIDA *</Field.Label>
+        <NativeSelect.Root disabled={cargandoUnidades}>
+          <NativeSelect.Field
+            value={values.unidad_medida_id}
+            onChange={handleUnidadChange}
+            maxW="500px"
+            borderWidth="2px"
+            borderColor="brand.300"
+            borderRadius="lg"
+            bg="white"
+          >
+            <option value={0} disabled>
+              {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+            </option>
+            {unidades.map((unidad) => (
+              <option key={unidad.id} value={unidad.id}>
+                {unidad.nombre} ({unidad.simbolo})
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
+
+      <AccionesFormulario>
+        <BotonGuardar loading={isLoading} disabled={!values.unidad_medida_id}>
+          {submitLabel}
+        </BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

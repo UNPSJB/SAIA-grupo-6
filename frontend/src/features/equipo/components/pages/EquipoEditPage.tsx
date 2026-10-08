@@ -1,19 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { Box, Heading, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
 import { EquipoForm } from "../../components/EquipoForm";
+import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { useEquipo } from "../../hooks/useEquipo";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { Equipo } from "../../types/equipo";
-import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO,
-  GRIS_MEDIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TERCIARIO,
-} from "../../../../common/theme/tokens";
+import { BannerError, BotonVolver, DialogoExito } from "../../../../components/ui/patrones";
 
 export function EquipoEditPage() {
   const navigate = useNavigate();
@@ -33,6 +27,15 @@ export function EquipoEditPage() {
   } = useEquipoABM();
 
   const [exito, setExito] = useState(false);
+  // Dar de baja desde el formulario pasa por la misma confirmación que exige
+  // la tabla: antes el switch escribía `activo: false` sin preguntar nada.
+  const [bajaSolicitada, setBajaSolicitada] = useState(false);
+  const [bajaConfirmada, setBajaConfirmada] = useState(false);
+
+  const handleConfirmarBaja = () => {
+    setBajaSolicitada(false);
+    setBajaConfirmada(true);
+  };
 
   const handleSubmit = async (values: Omit<Equipo, "id">) => {
     try {
@@ -46,111 +49,64 @@ export function EquipoEditPage() {
   };
 
   return (
-    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+    <Box p="5" maxW="600px" mx="auto">
+      <HStack justify="space-between" mb="5">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
           Editar Equipo
         </Heading>
-        <Button
-          bg={GRIS_MEDIO}
-          color="white"
-          fontSize="16px"
-          fontWeight="normal"
-          height="auto"
-          minW="auto"
-          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: GRIS_MEDIO }}
-          onClick={() => navigate("/equipos")}
-        >
+        <BotonVolver onClick={() => navigate("/equipos")}>
           Volver a la lista
-        </Button>
+        </BotonVolver>
       </HStack>
 
-      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
-
       {cargando && (
-        <Text style={{ fontStyle: "italic", color: TEXTO_TERCIARIO }}>
-          Cargando datos del Equipo...
-        </Text>
+        <Stack direction="row" gap="3" align="center" color="gray.600">
+          <Spinner size="sm" color="brand.500" />
+          <Text fontStyle="italic">Cargando datos del Equipo...</Text>
+        </Stack>
       )}
+
+      {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
       {!cargando && !errorCarga && equipo && (
         <>
-          {/* Cartel rojo de error */}
-          {errorGuardado && (
-            <Box
-              style={{
-                backgroundColor: ERROR_FONDO,
-                color: ERROR_TEXTO,
-                padding: "12px",
-                borderRadius: "6px",
-                marginBottom: "20px",
-                border: "1px solid #f5c6cb",
-                fontWeight: "bold",
-              }}
-            >
-              ⚠️ {errorGuardado}
-            </Box>
-          )}
-
-          {/* Cartel verde de éxito */}
-          {exito && (
-            <Box
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: "rgba(0,0,0,0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 1000,
-              }}
-            >
-              <Box
-                style={{
-                  backgroundColor: "white",
-                  padding: "30px 50px",
-                  borderRadius: "12px",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-                  textAlign: "center",
-                }}
-              >
-                <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
-                <Heading
-                  as="h3"
-                  style={{ margin: 0, color: EXITO, fontSize: "24px" }}
-                >
-                  Éxito
-                </Heading>
-                <Text
-                  style={{
-                    color: TEXTO_SECUNDARIO,
-                    marginTop: "10px",
-                    fontSize: "16px",
-                    fontWeight: 500,
-                  }}
-                >
-                  equipo modificado correctamente.
-                </Text>
-              </Box>
-            </Box>
-          )}
+          {errorGuardado && <BannerError>{errorGuardado}</BannerError>}
 
           <EquipoForm
             key={equipo.id}
-            initialValues={{ nombre: equipo.nombre, tipo: equipo.tipo, ubicacion: equipo.ubicacion, activo: equipo.activo,}}
+            initialValues={{
+              nombre: equipo.nombre,
+              tipo: equipo.tipo,
+              ubicacion: equipo.ubicacion,
+              activo: equipo.activo,
+            }}
             onSubmit={handleSubmit}
             isLoading={guardando}
             title="Modificar Equipo"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/equipos")}
             mostrarBaja={true}
+            onSolicitarBaja={() => setBajaSolicitada(true)}
+            bajaConfirmada={bajaConfirmada}
           />
         </>
       )}
+
+      <ConfirmDialog
+        isOpen={bajaSolicitada}
+        titulo="Dar de baja el equipo"
+        mensaje={`El equipo "${equipo?.nombre}" va a desaparecer de los listados. ¿Querés continuar?`}
+        textoConfirmar="Sí, dar de baja"
+        confirmPalette="red"
+        isLoading={guardando}
+        onCancel={() => setBajaSolicitada(false)}
+        onConfirm={handleConfirmarBaja}
+      />
+
+      <DialogoExito
+        isOpen={exito}
+        mensaje="Equipo modificado correctamente."
+      />
     </Box>
   );
 }

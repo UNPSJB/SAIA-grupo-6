@@ -1,7 +1,11 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { InsumoQuimicoItem } from "./InsumoQuimicoItem";
 import type { InsumoQuimico } from "../types/insumoQuimico";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface InsumoQuimicoTableProps {
   insumos: InsumoQuimico[];
@@ -18,65 +22,23 @@ export function InsumoQuimicoTable({
 }: InsumoQuimicoTableProps) {
   if (insumos.length === 0) {
     return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+      <Tarjeta p={8} textAlign="center">
         <Text color="gray.500">No hay insumos químicos registrados.</Text>
-      </Box>
+      </Tarjeta>
     );
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root
-        variant="outline"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
+    <Tarjeta>
+      <Table.Root variant="outline" w="100%">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              ID
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Nombre
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Tipo
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Unidad Medida
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", textAlign: "center" }}
-            >
-              Acciones
-            </Table.ColumnHeader>
-          </Table.Row>
+          <FilaEncabezado>
+            <EncabezadoOscuro>ID</EncabezadoOscuro>
+            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
+            <EncabezadoOscuro>Tipo</EncabezadoOscuro>
+            <EncabezadoOscuro>Unidad Medida</EncabezadoOscuro>
+            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+          </FilaEncabezado>
         </Table.Header>
 
         <Table.Body>
@@ -91,6 +53,6 @@ export function InsumoQuimicoTable({
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

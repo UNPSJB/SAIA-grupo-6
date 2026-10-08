@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Outlet } from "react-router-dom";
-import { Box, Spinner } from "@chakra-ui/react";
+import { Box, Flex, Spinner, Heading, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -13,7 +13,6 @@ import { Login } from "./features/Login";
 
 import Navbar from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
-import { FONDO_APP } from "./common/theme/tokens";
 
 // 1. Personal
 const PersonalPage = lazy(() =>
@@ -171,9 +170,9 @@ function ConSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <Box style={{ padding: "40px", textAlign: "center" }}>
-          <Spinner size="lg" />
-        </Box>
+        <Flex p="40px" justify="center">
+          <Spinner size="lg" color="brand.500" />
+        </Flex>
       }
     >
       {children}
@@ -184,26 +183,18 @@ function ConSuspense({ children }: { children: ReactNode }) {
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        backgroundColor: FONDO_APP,
-      }}
-    >
+    <Flex h="100vh" overflow="hidden" bg="brand.50">
       <Navbar />
 
-      <div
-        style={{
-          flex: 1,
-          padding: "15px 30px",
-          overflowY: "auto",
-        }}
+      <Flex
+        flex={1}
+        p="15px 30px"
+        overflowY="auto"
+        direction="column"
       >
         <Outlet />
-      </div>
-    </div>
+      </Flex>
+    </Flex>
   );
 }
 
@@ -228,17 +219,14 @@ export const router = createBrowserRouter([
           {
             path: "/",
             element: (
-              <div
-                style={{
-                  textAlign: "center",
-                  marginTop: "50px",
-                }}
-              >
-                <h1>Panel Principal - SAIA</h1>
-                <p>
+              <Box textAlign="center" mt="50px">
+                <Heading as="h1" size="xl" mb="2">
+                  Panel Principal - SAIA
+                </Heading>
+                <Text>
                   Seleccioná una opción en el menú lateral para comenzar.
-                </p>
-              </div>
+                </Text>
+              </Box>
             ),
           },
 
@@ -639,32 +627,22 @@ export const router = createBrowserRouter([
 
 function NotFoundPage() {
   return (
-    <div
-      style={{
-        textAlign: "center",
-        marginTop: "50px",
-      }}
-    >
-      <h1>404</h1>
-      <p>La página que buscás no existe.</p>
-    </div>
+    <Box textAlign="center" mt="50px">
+      <Heading as="h1" size="xl" mb="2">404</Heading>
+      <Text>La página que buscás no existe.</Text>
+    </Box>
   );
 }
 
 function SinPermisosPage() {
   return (
-    <div
-      style={{
-        textAlign: "center",
-        marginTop: "50px",
-      }}
-    >
-      <h1>No tenés permisos</h1>
+    <Box textAlign="center" mt="50px">
+      <Heading as="h1" size="xl" mb="2">No tenés permisos</Heading>
 
-      <p>
+      <Text>
         Tu usuario no tiene el permiso necesario para ver esta sección.
         Comunicate con un administrador si necesitás acceso.
-      </p>
-    </div>
+      </Text>
+    </Box>
   );
 }

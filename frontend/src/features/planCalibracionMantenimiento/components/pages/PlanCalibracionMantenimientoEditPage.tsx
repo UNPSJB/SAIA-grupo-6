@@ -2,7 +2,7 @@ import { formatoFecha } from "../../../../common/utils/fechas";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { Box, Heading, HStack, Stack, Spinner, Text } from "@chakra-ui/react";
 
 import { usePlanCalibracionMantenimiento } from "../../hooks/usePlanCalibracionMantenimiento";
 import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibracionMantenimientoABM";
@@ -12,14 +12,7 @@ import type {
   PlanCalibracionMantenimientoFormValues,
   PlanCalibracionMantenimientoUpdate,
 } from "../../types/planCalibracionMantenimiento";
-import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO_FONDO,
-  EXITO_TEXTO_HOVER,
-  GRIS_MEDIO,
-  TEXTO_TERCIARIO,
-} from "../../../../common/theme/tokens";
+import { BannerError, BannerExito, BotonVolver } from "../../../../components/ui/patrones";
 
 export function PlanCalibracionMantenimientoEditPage() {
   const navigate = useNavigate();
@@ -68,68 +61,37 @@ export function PlanCalibracionMantenimientoEditPage() {
   };
 
   return (
-    <Box style={{ padding: "20px", maxWidth: "700px", margin: "0 auto" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+    <Box p="5" maxW="700px" mx="auto">
+      <HStack justify="space-between" mb="5">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
           Editar plan de calibración/mantenimiento
         </Heading>
-        <Button
-          bg={GRIS_MEDIO}
-          color="white"
-          fontSize="16px"
-          fontWeight="normal"
-          height="auto"
-          minW="auto"
-          style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }}
-          _hover={{ bg: GRIS_MEDIO }}
-          onClick={() => navigate("/planes-calibracion-mantenimiento")}
-        >
+        <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
           Volver a la lista
-        </Button>
+        </BotonVolver>
       </HStack>
 
-      {!cargando && errorCarga && <Text color="red.500">{errorCarga}</Text>}
+      {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
-        <Text style={{ fontStyle: "italic", color: TEXTO_TERCIARIO }}>
-          Cargando datos del plan...
-        </Text>
+        <Stack direction="row" gap="3" align="center" color="gray.600">
+          <Spinner size="sm" color="brand.500" />
+          <Text fontStyle="italic">Cargando datos del plan...</Text>
+        </Stack>
       )}
 
       {!cargando && !errorCarga && plan && (
         <>
-          {errorGuardado && (
-            <Box
-              style={{
-                backgroundColor: ERROR_FONDO,
-                color: ERROR_TEXTO,
-                padding: "12px",
-                borderRadius: "6px",
-                marginBottom: "20px",
-                border: "1px solid #f5c6cb",
-                fontWeight: "bold",
-              }}
-            >
-              {errorGuardado}
-            </Box>
-          )}
+          {errorGuardado && <BannerError>{errorGuardado}</BannerError>}
 
           {planActualizado && (
-            <Box
-              style={{
-                backgroundColor: EXITO_FONDO,
-                color: EXITO_TEXTO_HOVER,
-                padding: "16px",
-                borderRadius: "6px",
-                marginBottom: "20px",
-                border: "1px solid #c3e6cb",
-              }}
-            >
+            <BannerExito>
               <Text fontWeight="bold">Plan actualizado correctamente.</Text>
               <Text>
-                Próximo vencimiento: {formatoFecha(planActualizado.proxima_fecha_vencimiento)}.
+                Próximo vencimiento:{" "}
+                {formatoFecha(planActualizado.proxima_fecha_vencimiento)}.
               </Text>
               <Text>Días restantes: {planActualizado.dias_restantes}.</Text>
-            </Box>
+            </BannerExito>
           )}
 
           <PlanCalibracionMantenimientoForm

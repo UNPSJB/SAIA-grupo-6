@@ -1,14 +1,11 @@
-import { Box, Button, Portal, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react";
+import {
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import type { HistorialIncidenteItem } from "../types/incidente";
 import { formatoFecha } from "../types/incidente";
-import {
-  BLANCO,
-  BORDE_CONTROL,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TERCIARIO,
-} from "../../../common/theme/tokens";
 
 interface HistorialIncidenteModalProps {
   isOpen: boolean;
@@ -31,101 +28,80 @@ export function HistorialIncidenteModal({
   if (!isOpen) return null;
 
   return (
-    <Portal>
-      <Box
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
-        onClick={onClose}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="white"
+        p="6"
+        rounded="l2"
+        boxShadow="dialog"
+        width="500px"
+        maxWidth="90vw"
+        maxHeight="80vh"
+        overflowY="auto"
+        textAlign="left"
       >
-        <Box
-          style={{
-            backgroundColor: "white",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            width: "500px",
-            maxWidth: "90vw",
-            maxHeight: "80vh",
-            overflowY: "auto",
-            textAlign: "left",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Box as="h3" style={{ marginTop: 0, color: TEXTO_PRIMARIO }}>
-            Historial del incidente
-          </Box>
+        <DialogTitle as="h3" mt={0} mb="4" fontWeight="bold" color="brand.500">
+          Historial del incidente
+        </DialogTitle>
 
-          {loading && (
-            <Text color={TEXTO_TERCIARIO}>Cargando historial...</Text>
-          )}
+        {loading && <Text color="gray.600">Cargando historial...</Text>}
 
-          {!loading && historial && historial.length === 0 && (
-            <Text color={TEXTO_TERCIARIO}>
-              Este incidente todavía no tiene eventos registrados.
-            </Text>
-          )}
+        {!loading && historial && historial.length === 0 && (
+          <Text color="gray.600">
+            Este incidente todavía no tiene eventos registrados.
+          </Text>
+        )}
 
-          {!loading && historial && historial.length > 0 && (
-            <VStack align="stretch" gap="16px" mt="16px">
-              {historial.map((evento) => (
-                <Box
-                  key={evento.id}
-                  style={{
-                    borderLeft: `3px solid ${TEAL}`,
-                    paddingLeft: "12px",
-                  }}
-                >
-                  <Text fontSize="14px" fontWeight="bold" color={TEXTO_PRIMARIO}>
-                    {evento.estado_nuevo === "abierto" ? "🔓 Reapertura" : "🔒 Cierre"}
+        {!loading && historial && historial.length > 0 && (
+          <VStack align="stretch" gap="4" mt="4">
+            {historial.map((evento) => (
+              <Box
+                key={evento.id}
+                borderLeftWidth="3px"
+                borderLeftColor="brand.500"
+                pl="3"
+              >
+                <Text fontSize="sm" fontWeight="bold" color="gray.800">
+                  {evento.estado_nuevo === "abierto" ? "🔓 Reapertura" : "🔒 Cierre"}
+                </Text>
+                <Text fontSize="xs" color="gray.600">
+                  {formatoFecha(evento.fecha_evento)} — {evento.usuario_nombre ?? `Usuario #${evento.usuario_id}`}
+                </Text>
+                {evento.observacion && (
+                  <Text fontSize="xs" color="gray.600" mt="1">
+                    {evento.observacion}
                   </Text>
-                  <Text fontSize="13px" color={TEXTO_SECUNDARIO}>
-                    {formatoFecha(evento.fecha_evento)} — {evento.usuario_nombre ?? `Usuario #${evento.usuario_id}`}
-                  </Text>
-                  {evento.observacion && (
-                    <Text fontSize="13px" color={TEXTO_TERCIARIO} mt="4px">
-                      {evento.observacion}
-                    </Text>
-                  )}
-                </Box>
-              ))}
-            </VStack>
-          )}
+                )}
+              </Box>
+            ))}
+          </VStack>
+        )}
 
-          <Box
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "20px",
-            }}
+        <HStack justify="flex-end" mt="5">
+          <Button
+            type="button"
+            onClick={onClose}
+            height="auto"
+            minW="auto"
+            px="4"
+            py="2"
+            rounded="md"
+            bg="gray.200"
+            color="gray.800"
+            colorPalette="gray"
+            fontWeight="bold"
+            _hover={{ bg: "gray.300" }}
           >
-            <Button
-              onClick={onClose}
-              height="auto"
-              minW="auto"
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${BORDE_CONTROL}`,
-                backgroundColor: BLANCO,
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cerrar
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-    </Portal>
+            Cerrar
+          </Button>
+        </HStack>
+      </DialogContent>
+    </DialogRoot>
   );
 }

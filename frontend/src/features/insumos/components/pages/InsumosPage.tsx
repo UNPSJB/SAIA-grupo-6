@@ -1,25 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Heading,
-  HStack,
-  IconButton,
-  Pagination,
-  Spinner,
-  Switch,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Button, Heading, HStack, Spinner } from "@chakra-ui/react";
 import { InsumoTable } from "../InsumoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useInsumos } from "../../hooks/useInsumos";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import type { Insumo } from "../../types/insumo";
-import { PELIGRO, TEAL, TEXTO_SECUNDARIO } from "../../../../common/theme/tokens";
+import { BannerError, Paginacion, ToggleInactivos } from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -40,15 +29,18 @@ export function InsumosPage() {
   const [insumoAEliminar, setInsumoAEliminar] = useState<Insumo | null>(null);
   const [insumoAReactivar, setInsumoAReactivar] = useState<Insumo | null>(null);
 
-
   const handleToggleInactivos = (checked: boolean) => {
     setVerInactivos(checked);
     setPage(1);
   };
 
-  const handleEdit = (insumo: Insumo) => navigate(`/insumos/${insumo.id}/editar`);
-  const handleDeleteRequest = (insumo: Insumo) => setInsumoAEliminar(insumo);
-  const handleCloseDeleteDialog = () => { if (!procesando) setInsumoAEliminar(null); };
+  const handleEdit = (insumo: Insumo) =>
+    navigate(`/insumos/${insumo.id}/editar`);
+  const handleDeleteRequest = (insumo: Insumo) =>
+    setInsumoAEliminar(insumo);
+  const handleCloseDeleteDialog = () => {
+    if (!procesando) setInsumoAEliminar(null);
+  };
 
   const handleConfirmDelete = async () => {
     if (!insumoAEliminar) return;
@@ -61,8 +53,11 @@ export function InsumosPage() {
     }
   };
 
-  const handleReactivarRequest = (insumo: Insumo) => setInsumoAReactivar(insumo);
-  const handleCloseReactivarDialog = () => { if (!procesando) setInsumoAReactivar(null); };
+  const handleReactivarRequest = (insumo: Insumo) =>
+    setInsumoAReactivar(insumo);
+  const handleCloseReactivarDialog = () => {
+    if (!procesando) setInsumoAReactivar(null);
+  };
 
   const handleConfirmReactivar = async () => {
     if (!insumoAReactivar) return;
@@ -79,38 +74,34 @@ export function InsumosPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+    <Box p="5">
+      <HStack justify="space-between" mb="5">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
           {verInactivos ? "Insumos Dados de Baja" : "Gestión de Insumos"}
         </Heading>
         <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
+          colorPalette="brand"
+          fontSize="md"
           fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL }}
+          rounded="md"
+          px="5"
+          py="2.5"
           onClick={() => navigate("/insumos/nuevo")}
         >
           + Agregar
         </Button>
       </HStack>
 
-      <HStack justify="flex-end" mb="20px">
-        <Switch.Root checked={verInactivos} onCheckedChange={(e) => handleToggleInactivos(e.checked)} colorPalette="gray">
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO, fontWeight: verInactivos ? "bold" : "normal" }}>
-            Ver dados de baja
-          </Switch.Label>
-        </Switch.Root>
-      </HStack>
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      <ToggleInactivos
+        checked={verInactivos}
+        
+         onChange={handleToggleInactivos}
+         children="Ver dados de baja"
+      />
+
+      {error && <BannerError>{error}</BannerError>}
+      {loading && <Spinner color="brand.500" />}
 
       {!loading && !error && (
         <>
@@ -122,34 +113,12 @@ export function InsumosPage() {
           />
 
           {hayVariasPaginas && (
-            <Pagination.Root
+            <Paginacion
               count={totalPaginas}
               pageSize={PAGE_SIZE}
               page={page}
-              onPageChange={(e) => setPage(e.page)}
-              mt="16px"
-            >
-              <HStack justify="center">
-                <ButtonGroup variant="ghost" size="sm">
-                  <Pagination.Items
-                    render={(pageItem) => {
-                      const isSelected = pageItem.value === page;
-                      return (
-                        <IconButton
-                          aria-label={`Página ${pageItem.value}`}
-                          bg={isSelected ? TEAL : "transparent"}
-                          color={isSelected ? "white" : TEAL}
-                          border={isSelected ? "none" : `1px solid ${TEAL}`}
-                          _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}
-                        >
-                          {pageItem.value}
-                        </IconButton>
-                      );
-                    }}
-                  />
-                </ButtonGroup>
-              </HStack>
-            </Pagination.Root>
+              onPageChange={setPage}
+            />
           )}
         </>
       )}

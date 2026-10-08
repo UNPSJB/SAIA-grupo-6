@@ -1,7 +1,11 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { InsumoItem } from "./InsumoItem";
 import type { Insumo } from "../types/insumo";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface InsumoTableProps {
   insumos: Insumo[];
@@ -10,25 +14,30 @@ interface InsumoTableProps {
   onReactivar: (insumo: Insumo) => void;
 }
 
-export function InsumoTable({ insumos, onEdit, onDelete, onReactivar }: InsumoTableProps) {
+export function InsumoTable({
+  insumos,
+  onEdit,
+  onDelete,
+  onReactivar,
+}: InsumoTableProps) {
   if (insumos.length === 0) {
     return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+      <Tarjeta p={8} textAlign="center">
         <Text color="gray.500">No hay insumos para mostrar.</Text>
-      </Box>
+      </Tarjeta>
     );
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root variant="outline" style={{ width: "100%", borderCollapse: "collapse" }}>
+    <Tarjeta>
+      <Table.Root variant="outline" w="100%">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>ID</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Nombre</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Unidad Medida</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Acciones</Table.ColumnHeader>
-          </Table.Row>
+          <FilaEncabezado>
+            <EncabezadoOscuro>ID</EncabezadoOscuro>
+            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
+            <EncabezadoOscuro>Unidad Medida</EncabezadoOscuro>
+            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+          </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {insumos.map((insumo) => (
@@ -42,6 +51,6 @@ export function InsumoTable({ insumos, onEdit, onDelete, onReactivar }: InsumoTa
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

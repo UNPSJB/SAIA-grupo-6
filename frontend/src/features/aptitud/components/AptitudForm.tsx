@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { Box, Button, Field, HStack, Input, Textarea } from "@chakra-ui/react";
 import type { AptitudFormValues } from "../types/aptitud";
-import {
-  BLANCO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
 
 interface AptitudFormProps {
   initialValues?: AptitudFormValues;
@@ -20,6 +12,23 @@ interface AptitudFormProps {
 }
 
 const emptyValues: AptitudFormValues = { nombre: "", descripcion: "" };
+
+/**
+ * Estilo de input de formulario, expresado con tokens del tema.
+ * Reemplaza al objeto `estiloInput` de tokens.ts. Cuando el resto de
+ * las features migre, esto sube a una receta del tema.
+ */
+const propsFormulario = {
+  input: {
+    w: "100%",
+    maxW: "500px",
+    p: "3",
+    rounded: "lg",
+    borderWidth: "2px",
+    borderColor: "brand.300",
+    _focus: { borderColor: "brand.500" },
+  },
+} as const;
 
 export function AptitudForm({
   initialValues = emptyValues,
@@ -40,40 +49,63 @@ export function AptitudForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{ backgroundColor: BLANCO, padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="0 4px 6px rgba(0,0,0,0.05)"
+      mb="8"
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>{title}</Box>
+      <Box as="h3" mt={0} fontSize="22px" color="brand.500" fontWeight="bold" mb="5">{title}</Box>
 
-      <Box style={{ marginBottom: "20px" }}>
+      <Box mb="5">
         <Field.Root required>
-          <Box as="label" style={estiloLabel}>NOMBRE *</Box>
+          <Field.Label display="block" fontSize="14px" fontWeight="bold" mb="2" color="gray.600">NOMBRE *</Field.Label>
           <Input
             value={values.nombre}
             onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
             placeholder="Ej: Carnet de Manipulador"
-            style={estiloInput}
+            {...propsFormulario.input}
           />
         </Field.Root>
       </Box>
 
-      <Box style={{ marginBottom: "20px" }}>
+      <Box mb="5">
         <Field.Root>
-          <Box as="label" style={estiloLabel}>DESCRIPCIÓN</Box>
+          <Field.Label display="block" fontSize="14px" fontWeight="bold" mb="2" color="gray.600">DESCRIPCIÓN</Field.Label>
           <Textarea
             value={values.descripcion || ""}
             onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
             placeholder="Opcional: qué certifica esta aptitud"
-            style={{ ...estiloInput, minHeight: "80px" }}
+            minH="80px"
+            {...propsFormulario.input}
           />
         </Field.Root>
       </Box>
 
-      <HStack style={{ gap: "15px" }}>
-        <Button type="submit" loading={isLoading} style={{ backgroundColor: TEAL, color: "white", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
+      <HStack gap="15px">
+        <Button
+          type="submit"
+          loading={isLoading}
+          colorPalette="brand"
+          rounded="lg"
+          fontWeight="bold"
+          px="6"
+          py="3"
+        >
           {submitLabel}
         </Button>
         {onCancel && (
-          <Button type="button" onClick={onCancel} style={{ backgroundColor: GRIS_CLARO, color: TEXTO_PRIMARIO, padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
+          <Button
+            type="button"
+            onClick={onCancel}
+            bg="gray.200"
+            color="gray.800"
+            rounded="lg"
+            fontWeight="bold"
+            px="6"
+            py="3"
+            _hover={{ bg: "gray.300" }}
+          >
             Cancelar
           </Button>
         )}

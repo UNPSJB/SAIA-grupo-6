@@ -8,9 +8,9 @@ import {
   Heading,
   HStack,
   IconButton,
+  Input,
   Pagination,
   Spinner,
-  Text,
   Field,
   NativeSelect,
 } from "@chakra-ui/react";
@@ -22,23 +22,24 @@ import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { ESTADOS_INCIDENTE, TIPOS_INCIDENTE, estadoLabel } from "../../types/incidente";
 import type { Incidente, TipoIncidente, EstadoIncidente } from "../../types/incidente";
 import {
-  EXITO_FONDO_CLARO,
-  EXITO_TEXTO,
-  TEAL,
-  TEAL_OSCURO,
-  TEXTO_SECUNDARIO,
-  estiloInputCompacto,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  BannerExito,
+  LabelFiltro,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
-const estiloSelect = {
-  ...estiloInputCompacto,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
-};
+/**
+ * `NativeSelect.Field` no usa la receta `input`, así que el borde de los
+ * filtros hay que pasarlo a mano. El `<Input>` de búsqueda ya lo trae.
+ */
+const SELECT_BASE = {
+  bg: "white",
+  borderWidth: "2px",
+  borderColor: "brand.300",
+  borderRadius: "lg",
+  fontSize: "sm",
+} as const;
 
 export function IncidentesListPage() {
   const navigate = useNavigate();
@@ -137,20 +138,18 @@ export function IncidentesListPage() {
   }
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+    <Box p="5">
+      <HStack justify="space-between" mb="5">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
           Gestión de Incidentes
         </Heading>
         <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
+          colorPalette="brand"
+          fontSize="md"
           fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL_OSCURO }}
+          rounded="md"
+          px="5"
+          py="2.5"
           onClick={() => navigate("/incidentes/reportar")}
         >
           + Registrar Incidente
@@ -160,22 +159,20 @@ export function IncidentesListPage() {
       {/* Filtros */}
       <Box
         bg="white"
-        p="20px"
-        borderRadius="10px"
-        boxShadow="0 2px 6px rgba(0,0,0,0.05)"
-        mb="25px"
+        p="5"
+        rounded="lg"
+        boxShadow="panel"
+        mb="6"
       >
-        <HStack gap="20px" flexWrap="wrap" align="flex-end">
+        <HStack gap="5" flexWrap="wrap" align="flex-end">
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
-                ESTADO
-              </Box>
+              <LabelFiltro>ESTADO</LabelFiltro>
               <NativeSelect.Root>
                 <NativeSelect.Field
                   value={filtroEstado}
                   onChange={handleEstadoChange}
-                  style={estiloSelect}
+                  {...SELECT_BASE}
                 >
                   <option value="">Todos los estados</option>
                   {ESTADOS_INCIDENTE.map((estado) => (
@@ -191,14 +188,12 @@ export function IncidentesListPage() {
 
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
-                TIPO
-              </Box>
+              <LabelFiltro>TIPO</LabelFiltro>
               <NativeSelect.Root>
                 <NativeSelect.Field
                   value={filtroTipo}
                   onChange={handleTipoChange}
-                  style={estiloSelect}
+                  {...SELECT_BASE}
                 >
                   <option value="">Todos los tipos</option>
                   {TIPOS_INCIDENTE.map((tipo) => (
@@ -214,44 +209,24 @@ export function IncidentesListPage() {
 
           <Box minW="250px" flex="1">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
-                BÚSQUEDA
-              </Box>
-              <input
+              <LabelFiltro>BÚSQUEDA</LabelFiltro>
+              <Input
                 type="text"
                 value={busqueda}
                 onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
                 placeholder="Buscar por título o reportado por..."
-                style={{
-                  ...estiloSelect,
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  width: "28%",
-                }}
+                fontSize="sm"
+                maxW="28%"
               />
             </Field.Root>
           </Box>
         </HStack>
       </Box>
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {loading && <Spinner color="brand.500" />}
+      {!loading && error && <BannerError>{error}</BannerError>}
 
-      {mensajeAviso && (
-        <Box
-          mb="16px"
-          p="12px 16px"
-          borderRadius="8px"
-          style={{
-            backgroundColor: EXITO_FONDO_CLARO,
-            border: "1px solid #c6f6d5",
-          }}
-        >
-          <Text fontSize="14px" color={EXITO_TEXTO} fontWeight="bold">
-            {mensajeAviso}
-          </Text>
-        </Box>
-      )}
+      {mensajeAviso && <BannerExito>{mensajeAviso}</BannerExito>}
 
       {!loading && !error && (
         <>
@@ -272,7 +247,7 @@ export function IncidentesListPage() {
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={(e) => setPage(e.page)}
-              mt="16px"
+              mt="4"
             >
               <HStack justify="center">
                 <ButtonGroup variant="ghost" size="sm">
@@ -283,10 +258,13 @@ export function IncidentesListPage() {
                         <IconButton
                           key={pageItem.value}
                           aria-label={`Página ${pageItem.value}`}
-                          bg={isSelected ? TEAL : "transparent"}
-                          color={isSelected ? "white" : TEAL}
-                          border={isSelected ? "none" : `1px solid ${TEAL}`}
-                          _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}
+                          bg={isSelected ? "brand.500" : "transparent"}
+                          color={isSelected ? "white" : "brand.500"}
+                          borderWidth={isSelected ? "0" : "1px"}
+                          borderColor="brand.500"
+                          _hover={{
+                            bg: isSelected ? "brand.500" : "brand.500/10",
+                          }}
                         >
                           {pageItem.value}
                         </IconButton>

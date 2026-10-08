@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, HStack, Portal, Spinner, Table, Text } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 
 import { apiFetchImagen } from "../../../common/api/apiClient";
 import {
-  BLANCO,
-  BORDE_SUAVE,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_SECUNDARIO,
-  TEXTO_TENUE,
-} from "../../../common/theme/tokens";
+  BotonTexto,
+  Celda,
+  EncabezadoOscuro,
+  FilaEncabezado,
+} from "../../../components/ui/patrones";
+import {
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import { obtenerHistorialCalibraciones } from "../services/equipoService";
 import type { Calibracion, Equipo } from "../types/equipo";
 
@@ -51,20 +54,12 @@ function BotonVerCertificado({ ruta }: { ruta: string }) {
   }, [ruta]);
 
   return (
-    <HStack justify="center" gap="8px">
-      <Button
-        size="sm"
-        variant="plain"
-        color={TEAL}
-        fontWeight="bold"
-        textDecoration="underline"
-        disabled={cargando}
-        onClick={abrir}
-      >
+    <HStack justify="center" gap="2">
+      <BotonTexto onClick={abrir} disabled={cargando}>
         {cargando ? "Abriendo…" : "Ver archivo"}
-      </Button>
+      </BotonTexto>
       {error && (
-        <Text color={TEXTO_TENUE} fontSize="12px">
+        <Text color="gray.400" fontSize="xs">
           {error}
         </Text>
       )}
@@ -126,121 +121,92 @@ export function HistorialCalibracionesDialog({
   const error = cargando ? null : carga.error;
 
   return (
-    <Portal>
-      <Box
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="white"
+        p="6"
+        rounded="l2"
+        boxShadow="dialog"
+        width="650px"
+        maxWidth="650px"
+        maxHeight="80vh"
+        display="flex"
+        flexDirection="column"
       >
-        <Box
-          style={{
-            backgroundColor: BLANCO,
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            width: "650px",
-            maxHeight: "80vh",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Box as="h3" style={{ marginTop: 0, color: TEAL, marginBottom: "15px" }}>
-            Historial de Calibraciones: <br />
-            <strong>{equipo.nombre}</strong>
-          </Box>
+        <DialogTitle as="h3" mt={0} mb="4" fontWeight="bold" color="brand.500">
+          Historial de Calibraciones: <br />
+          <strong>{equipo.nombre}</strong>
+        </DialogTitle>
 
-          <Box style={{ overflowY: "auto", marginBottom: "20px" }}>
-            {cargando ? (
-              <HStack justify="center" p="20px">
-                <Spinner color={TEAL} />
-              </HStack>
-            ) : error ? (
-              <Text color="red.500" textAlign="center" p="20px">
-                {error}
-              </Text>
-            ) : historial.length === 0 ? (
-              <Text color={TEXTO_TENUE} textAlign="center" p="20px">
-                No hay calibraciones registradas para este equipo.
-              </Text>
-            ) : (
-              <Table.Root
-                variant="outline"
-                style={{ width: "100%", borderCollapse: "collapse" }}
-              >
-                <Table.Header>
-                  <Table.Row bg={TEAL}>
-                    <Table.ColumnHeader
-                      style={{ color: "white", padding: "10px", textAlign: "center" }}
-                    >
-                      Fecha realización
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader
-                      style={{ color: "white", padding: "10px", textAlign: "center" }}
-                    >
-                      Próx. vencimiento
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader
-                      style={{ color: "white", padding: "10px", textAlign: "center" }}
-                    >
-                      Certificado
-                    </Table.ColumnHeader>
+        <Box overflowY="auto" mb="5">
+          {cargando ? (
+            <HStack justify="center" p="5">
+              <Spinner color="brand.500" />
+            </HStack>
+          ) : error ? (
+            <Text color="red.600" textAlign="center" p="5" role="alert">
+              {error}
+            </Text>
+          ) : historial.length === 0 ? (
+            <Text color="gray.400" textAlign="center" p="5">
+              No hay calibraciones registradas para este equipo.
+            </Text>
+          ) : (
+            <Table.Root variant="outline" w="100%">
+              <Table.Header>
+                <FilaEncabezado>
+                  <EncabezadoOscuro center>Fecha realización</EncabezadoOscuro>
+                  <EncabezadoOscuro center>Próx. vencimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro center>Certificado</EncabezadoOscuro>
+                </FilaEncabezado>
+              </Table.Header>
+              <Table.Body>
+                {historial.map((calib) => (
+                  <Table.Row
+                    key={calib.id}
+                    borderBottomWidth="1px"
+                    borderColor="gray.100"
+                  >
+                    <Celda p="3" center>
+                      {calib.fecha_realizacion}
+                    </Celda>
+                    <Celda p="3" center fontWeight="bold">
+                      {calib.proximo_vencimiento}
+                    </Celda>
+                    <Celda p="3" center>
+                      <BotonVerCertificado ruta={calib.certificado_url} />
+                    </Celda>
                   </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {historial.map((calib) => (
-                    <Table.Row
-                      key={calib.id}
-                      style={{ borderBottom: `1px solid ${BORDE_SUAVE}` }}
-                    >
-                      <Table.Cell style={{ padding: "10px", textAlign: "center" }}>
-                        {calib.fecha_realizacion}
-                      </Table.Cell>
-                      <Table.Cell
-                        style={{
-                          padding: "10px",
-                          textAlign: "center",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {calib.proximo_vencimiento}
-                      </Table.Cell>
-                      <Table.Cell style={{ padding: "10px", textAlign: "center" }}>
-                        <BotonVerCertificado ruta={calib.certificado_url} />
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            )}
-          </Box>
-
-          <HStack justify="center">
-            <Button
-              onClick={onClose}
-              style={{
-                padding: "8px 24px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: GRIS_CLARO,
-                color: TEXTO_SECUNDARIO,
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cerrar
-            </Button>
-          </HStack>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          )}
         </Box>
-      </Box>
-    </Portal>
+
+        <HStack justify="center">
+          <Button
+            type="button"
+            onClick={onClose}
+            height="auto"
+            minW="auto"
+            px="6"
+            py="2"
+            rounded="md"
+            bg="gray.200"
+            color="gray.800"
+            fontWeight="bold"
+            _hover={{ bg: "gray.300" }}
+          >
+            Cerrar
+          </Button>
+        </HStack>
+      </DialogContent>
+    </DialogRoot>
   );
 }

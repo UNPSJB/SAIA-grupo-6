@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, Text, VStack, Badge, Flex } from "@chakra-ui/react";
+import { Badge, Box, Button, Flex, Heading, Text, VStack } from "@chakra-ui/react";
 import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
@@ -9,17 +9,7 @@ import { ReportarIncidenteEmptyState } from "./ReportarIncidenteEmptyState";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
 import type { IncidenteFormValues, Incidente } from "../../types/incidente";
-import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO_FONDO,
-  EXITO_TEXTO,
-  EXITO_TEXTO_HOVER,
-  FONDO_CARD,
-  TEAL,
-  TEXTO_FUERTE,
-  TEXTO_SUAVE,
-} from "../../../../common/theme/tokens";
+import { BannerError } from "../../../../components/ui/patrones";
 
 /**
  * Pills de navegación.
@@ -39,36 +29,21 @@ function TabButton({
 }) {
   return (
     <Button
+      type="button"
       onClick={onClick}
       variant={isActive ? "solid" : "outline"}
-      colorScheme={isActive ? "teal" : "gray"}
-      style={{
-        padding: "12px 28px",
-        fontWeight: 700,
-        fontSize: "15px",
-        borderRadius: "9999px",
-        minWidth: "180px",
-        height: "48px",
-        borderWidth: isActive ? 0 : "2px",
-        borderColor: isActive ? "transparent" : "#cbd5e0",
-        boxShadow: isActive
-          ? "0 4px 14px rgba(70, 129, 137, 0.4)"
-          : "0 1px 3px rgba(0,0,0,0.05)",
-        transition: "all 0.2s ease",
-        background: isActive
-          ? "linear-gradient(135deg, #468189 0%, #3d737a 100%)"
-          : "white",
-        color: isActive ? "white" : TEXTO_SUAVE,
-      }}
-      _hover={{
-        transform: "translateY(-2px)",
-        boxShadow: isActive
-          ? "0 6px 20px rgba(70, 129, 137, 0.5)"
-          : "0 4px 12px rgba(0,0,0,0.1)",
-        background: isActive
-          ? "linear-gradient(135deg, #3d737a 0%, #356368 100%)"
-          : FONDO_CARD,
-      }}
+      colorPalette={isActive ? "brand" : "gray"}
+      fontWeight="bold"
+      fontSize="sm"
+      rounded="full"
+      minW="180px"
+      h="48px"
+      borderWidth={isActive ? 0 : "2px"}
+      borderColor={isActive ? "transparent" : "gray.300"}
+      boxShadow={isActive ? "0 4px 14px var(--chakra-colors-brand-200)" : "xs"}
+      transition="all 0.2s ease"
+      color={isActive ? "white" : "gray.700"}
+      _hover={{ transform: "translateY(-2px)" }}
       _active={{ transform: "translateY(0)" }}
     >
       {label}
@@ -99,26 +74,25 @@ function IncidenteCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onVer(incidente);
       }}
-      style={{
-        width: "100%",
-        padding: "16px 20px",
-        borderRadius: "10px",
-        border: "1px solid #e8f0ef",
-        background: "white",
-        transition: "all 0.15s ease",
-        cursor: "pointer",
-      }}
+      w="100%"
+      p="4 5"
+      rounded="lg"
+      borderWidth="1px"
+      borderColor="brand.100"
+      bg="white"
+      transition="all 0.15s ease"
+      cursor="pointer"
       _hover={{
-        background: "#fafbfb",
-        borderColor: "#d8e7e5",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        bg: "gray.50",
+        borderColor: "brand.200",
+        boxShadow: "sm",
       }}
     >
-      <Flex justify="space-between" align="flex-start" style={{ gap: "16px", flexWrap: "wrap" }}>
-        <Box style={{ flex: 1, minWidth: 0 }}>
+      <Flex justify="space-between" align="flex-start" gap="4" flexWrap="wrap">
+        <Box flex="1" minW={0}>
           {/* ID + tipo + estado */}
-          <Flex align="center" gap="8px" style={{ flexWrap: "wrap", marginBottom: "8px" }}>
-            <Text fontWeight={700} fontSize="15px" color={TEXTO_FUERTE}>
+          <Flex align="center" gap="2" flexWrap="wrap" mb="2">
+            <Text fontWeight="bold" fontSize="sm" color="gray.900">
               #{incidente.id} — {incidente.titulo}
             </Text>
             <Badge
@@ -128,7 +102,7 @@ function IncidenteCard({
               px="8px"
               py="3px"
               fontSize="11px"
-              fontWeight={600}
+              fontWeight="semibold"
             >
               {tipoLabel(incidente.tipo)}
             </Badge>
@@ -139,24 +113,19 @@ function IncidenteCard({
               px="8px"
               py="3px"
               fontSize="11px"
-              fontWeight={600}
+              fontWeight="semibold"
             >
               {estadoLabel(incidente.estado)}
             </Badge>
           </Flex>
 
           {/* Descripción con "Ver más" */}
-          <Text
-            fontSize="14px"
-            color="#374151"
-            lineHeight={1.55}
-            style={{ wordBreak: "break-word" }}
-          >
+          <Text fontSize="sm" color="gray.800" lineHeight={1.55} wordBreak="break-word">
             {incidente.descripcion.length > 120
               ? `${incidente.descripcion.substring(0, 117)}...`
               : incidente.descripcion}
             {incidente.descripcion.length > 120 && (
-              <Text as="span" color={TEAL} fontWeight={600} ml="4px">
+              <Text as="span" color="brand.500" fontWeight="semibold" ml="4px">
                 Ver más
               </Text>
             )}
@@ -164,7 +133,7 @@ function IncidenteCard({
 
           {/* Si ya fue resuelto, el operador ve qué se hizo */}
           {cerrado && incidente.observacion_cierre && (
-            <Text fontSize="13px" color={EXITO_TEXTO} mt="8px" lineHeight={1.5}>
+            <Text fontSize="xs" color="green.700" mt="2" lineHeight={1.5}>
               <strong>Resolución:</strong> {incidente.observacion_cierre}
             </Text>
           )}
@@ -172,11 +141,14 @@ function IncidenteCard({
           {/* Meta: fecha + equipo */}
           <Flex
             align="center"
-            gap="16px"
-            style={{ fontSize: "12px", color: "#6b7280", flexWrap: "wrap", marginTop: "10px" }}
+            gap="4"
+            fontSize="xs"
+            color="gray.500"
+            flexWrap="wrap"
+            mt="2.5"
           >
-            <span>{formatoFecha(incidente.fecha_reporte)}</span>
-            {incidente.equipo_nombre && <span>{incidente.equipo_nombre}</span>}
+            <Text as="span">{formatoFecha(incidente.fecha_reporte)}</Text>
+            {incidente.equipo_nombre && <Text as="span">{incidente.equipo_nombre}</Text>}
           </Flex>
         </Box>
 
@@ -219,56 +191,39 @@ export function ReportarIncidentePage() {
   };
 
   return (
-    <Box style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
-      <Heading as="h2" size="lg" fontWeight="bold" color={TEXTO_FUERTE} mb="24px">
+    <Box p="6" maxW="1100px" mx="auto">
+      <Heading as="h2" size="lg" fontWeight="bold" color="gray.900" mb="6">
         Reportar Incidente
       </Heading>
 
       {exito && (
         <Box
-          style={{
-            backgroundColor: EXITO_FONDO,
-            color: EXITO_TEXTO_HOVER,
-            padding: "14px 20px",
-            borderRadius: "10px",
-            marginBottom: "24px",
-            border: "1px solid #c3e6cb",
-            fontWeight: 600,
-            boxShadow: "0 4px 12px rgba(21, 87, 36, 0.15)",
-          }}
+          role="status"
+          bg="green.100"
+          color="green.800"
+          p="3.5 5"
+          rounded="lg"
+          mb="6"
+          borderWidth="1px"
+          borderColor="green.200"
+          fontWeight="semibold"
+          boxShadow="0 4px 12px var(--chakra-colors-green-100)"
         >
-          Incidente registrado correctamente
+          ✓ Incidente registrado correctamente
         </Box>
       )}
 
-      {errorAlta && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "14px 20px",
-            borderRadius: "10px",
-            marginBottom: "24px",
-            border: "1px solid #f5c6cb",
-            fontWeight: 600,
-            boxShadow: "0 4px 12px rgba(114, 28, 36, 0.15)",
-          }}
-        >
-          {errorAlta}
-        </Box>
-      )}
+      {errorAlta && <BannerError>{errorAlta}</BannerError>}
 
       {/* Tabs estilo pills */}
-      <Box
-        mb="24px"
-        style={{
-          display: "flex",
-          gap: "12px",
-          background: FONDO_CARD,
-          padding: "6px",
-          borderRadius: "12px",
-          border: "1px solid #e8f0ef",
-        }}
+      <Flex
+        mb="6"
+        gap="3"
+        bg="gray.50"
+        p="1.5"
+        rounded="xl"
+        borderWidth="1px"
+        borderColor="brand.100"
       >
         <TabButton
           label="Mis Reportes"
@@ -280,17 +235,16 @@ export function ReportarIncidentePage() {
           isActive={activeTab === "nuevo-incidente"}
           onClick={() => setActiveTab("nuevo-incidente")}
         />
-      </Box>
+      </Flex>
 
       {activeTab === "nuevo-incidente" && (
         <Box
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "32px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
-            border: "1px solid #eef3f2",
-          }}
+          bg="white"
+          rounded="2xl"
+          p="8"
+          boxShadow="sm"
+          borderWidth="1px"
+          borderColor="brand.100"
         >
           <IncidenteForm
             onSubmit={handleSubmit}
@@ -304,24 +258,23 @@ export function ReportarIncidentePage() {
 
       {activeTab === "mis-reportes" && (
         <Box
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
-            border: "1px solid #eef3f2",
-          }}
+          bg="white"
+          rounded="2xl"
+          p="6"
+          boxShadow="sm"
+          borderWidth="1px"
+          borderColor="brand.100"
         >
           {loadingMis && (
-            <Box style={{ textAlign: "center", padding: "60px 20px" }}>
-              <Text color="gray.500" fontSize="16px">
+            <Box textAlign="center" p="15 5">
+              <Text color="gray.500" fontSize="md">
                 Cargando tus reportes...
               </Text>
             </Box>
           )}
           {errorMis && (
-            <Box style={{ textAlign: "center", padding: "60px 20px" }}>
-              <Text color="red.500" fontSize="16px">
+            <Box textAlign="center" p="15 5">
+              <Text color="red.600" fontSize="md" role="alert">
                 Error al cargar: {errorMis}
               </Text>
             </Box>
@@ -330,21 +283,21 @@ export function ReportarIncidentePage() {
             <ReportarIncidenteEmptyState />
           )}
           {!loadingMis && !errorMis && misIncidentes.length > 0 && (
-            <VStack align="stretch" gap="12px">
+            <VStack align="stretch" gap="3">
               <Box
-                style={{
-                  padding: "14px 20px",
-                  backgroundColor: FONDO_CARD,
-                  border: "1px solid #d8e7e5",
-                  borderRadius: "10px 10px 0 0",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  color: TEAL,
-                }}
+                p="3.5 5"
+                bg="gray.50"
+                borderWidth="1px"
+                borderColor="brand.200"
+                roundedTop="lg"
+                borderBottomWidth="0"
+                fontWeight="semibold"
+                fontSize="sm"
+                color="brand.500"
               >
                 Tus incidentes reportados (más recientes primero)
               </Box>
-              <VStack align="stretch" gap="8px">
+              <VStack align="stretch" gap="2">
                 {misIncidentes.map((inc) => (
                   <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
                 ))}

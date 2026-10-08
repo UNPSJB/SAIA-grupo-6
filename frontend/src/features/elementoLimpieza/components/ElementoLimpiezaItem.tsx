@@ -1,14 +1,7 @@
+import { HStack, Table } from "@chakra-ui/react";
 import { formatoFecha } from "../../../common/utils/fechas";
-import { Table, Button, HStack } from "@chakra-ui/react";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  EXITO,
-  EXITO_HOVER,
-  PELIGRO,
-  TEAL,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface ElementoLimpiezaItemProps {
   elemento: ElementoLimpieza;
@@ -24,51 +17,43 @@ export function ElementoLimpiezaItem({
   onReactivar,
 }: ElementoLimpiezaItemProps) {
   return (
-    <Table.Row style={{ borderBottom: "1px solid #eee", opacity: elemento.activo ? 1 : 0.65 }}>
-      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+    <Table.Row
+      borderBottomWidth="1px"
+      borderColor="gray.100"
+      opacity={elemento.activo ? 1 : 0.65}
+    >
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{elemento.id}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {elemento.nombre}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {elemento.fecha_ultimo_recambio
           ? formatoFecha(elemento.fecha_ultimo_recambio)
           : "-"}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {elemento.frecuencia_recambio_dias ?? "Sin definir"}
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
+      </Celda>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
           {elemento.activo && (
-            <Button
-              bg={ADVERTENCIA} color="white" fontSize="16px" fontWeight="normal"
-              style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-              _hover={{ bg: ADVERTENCIA_HOVER }} onClick={() => onEdit(elemento)}
-            >
+            <BotonTabla accion="editar" onClick={() => onEdit(elemento)}>
               Modificar
-            </Button>
+            </BotonTabla>
           )}
           {elemento.activo ? (
-            <Button
-              bg={PELIGRO} color="white" fontSize="16px" fontWeight="normal"
-              style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-              _hover={{ bg: PELIGRO }} onClick={() => onDelete(elemento)}
-            >
+            <BotonTabla accion="eliminar" onClick={() => onDelete(elemento)}>
               Eliminar
-            </Button>
+            </BotonTabla>
           ) : (
-            <Button
-              bg={EXITO} color="white" fontSize="16px" fontWeight="normal"
-              style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-              _hover={{ bg: EXITO_HOVER }} onClick={() => onReactivar(elemento)}
-            >
+            <BotonTabla accion="reactivar" onClick={() => onReactivar(elemento)}>
               Reactivar
-            </Button>
+            </BotonTabla>
           )}
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }

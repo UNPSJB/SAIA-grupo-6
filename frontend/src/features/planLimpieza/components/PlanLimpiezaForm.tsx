@@ -3,26 +3,22 @@ import {
   Box,
   Button,
   Field,
+  Heading,
   HStack,
   Input,
   NativeSelect,
+  Stack,
   Text,
+  Textarea,
 } from "@chakra-ui/react";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
 import {
-  BLANCO,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  FONDO_CARD,
-  GRIS_CLARO,
-  TEAL,
-  TEAL_CLARO,
-  TEXTO_PRIMARIO,
-  TEXTO_TENUE,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BannerError,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
 
 interface PlanLimpiezaFormProps {
   initialValues?: PlanLimpiezaInput;
@@ -40,13 +36,18 @@ const emptyValues: PlanLimpiezaInput = {
   autor_id: 0,
 };
 
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
-};
+/**
+ * `NativeSelect.Field` no consume la receta `input` del tema (solo los
+ * `<Input>`/`<Textarea>` de Chakra la toman), así que el borde y el fondo
+ * hay que pasarlos a mano.
+ */
+const propsSelect = {
+  bg: "white",
+  borderWidth: "2px",
+  borderColor: "brand.300",
+  rounded: "lg",
+  maxW: "500px",
+} as const;
 
 export function PlanLimpiezaForm({
   initialValues = emptyValues,
@@ -126,263 +127,174 @@ export function PlanLimpiezaForm({
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="card"
+      mb="8"
     >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
+      <Heading as="h3" mt={0} size="lg" color="brand.500" fontWeight="bold" mb="6">
         {title}
-      </Box>
+      </Heading>
 
-      {errorOpciones && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-          }}
-        >
-          ⚠️ {errorOpciones}
-        </Box>
-      )}
+      {errorOpciones && <BannerError>{errorOpciones}</BannerError>}
 
-      {/* Nombre */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            NOMBRE *
-          </Box>
-          <Input
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Limpieza diaria de heladeras"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">NOMBRE *</Field.Label>
+        <Input
+          value={values.nombre}
+          onChange={handleNombreChange}
+          placeholder="Ej: Limpieza diaria de heladeras"
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* Tareas, cada una con su propia frecuencia */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Box as="label" style={estiloLabel}>
-          TAREAS *
-        </Box>
-        {values.tareas.map((tarea, index) => (
-          <Box
-            key={index}
-            style={{
-              marginBottom: "14px",
-              padding: "12px",
-              backgroundColor: FONDO_CARD,
-              border: "1px solid #d8e7e5",
-              borderRadius: "8px",
-            }}
-          >
-            <HStack
-              gap="10px"
-              style={{ marginBottom: "8px" }}
-              alignItems="flex-end"
-            >
-              <Box>
-                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
-                  NOMBRE DE LA TAREA
-                </Box>
-                <Input
-                  value={tarea.nombre}
-                  onChange={(e) =>
-                    handleTareaNombreChange(index, e.target.value)
-                  }
-                  placeholder={`Ej: Limpiar bandeja ${index + 1}`}
-                  style={{ ...estiloInput, maxWidth: "320px" }}
-                />
-              </Box>
-              <Box>
-                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
-                  FRECUENCIA EN DIAS
-                </Box>
-                <Input
-                  type="number"
-                  min={1}
-                  value={tarea.frecuencia}
-                  onChange={(e) =>
-                    handleTareaFrecuenciaChange(index, Number(e.target.value))
-                  }
-                  placeholder="Frecuencia (días)"
-                  title="Frecuencia en días"
-                  style={{ ...estiloInput, maxWidth: "140px" }}
-                />
-              </Box>
-              <Button
-                type="button"
-                onClick={() => handleQuitarTarea(index)}
-                disabled={values.tareas.length === 1}
-                style={{
-                  backgroundColor: GRIS_CLARO,
-                  color: TEXTO_PRIMARIO,
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor:
-                    values.tareas.length === 1 ? "not-allowed" : "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                ✕
-              </Button>
-            </HStack>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">TAREAS *</Field.Label>
+        <Stack gap="3.5">
+          {values.tareas.map((tarea, index) => (
             <Box
-              as="label"
-              style={{ ...estiloLabel, fontSize: "12px", marginBottom: "4px" }}
+              key={index}
+              p="3"
+              bg="gray.50"
+              borderWidth="1px"
+              borderColor="brand.100"
+              rounded="lg"
             >
-              PROCEDIMIENTO (opcional)
+              <HStack gap="2.5" align="end" mb="2" flexWrap="wrap">
+                <Field.Root>
+                  <Field.Label color="gray.600" fontSize="xs">
+                    NOMBRE DE LA TAREA
+                  </Field.Label>
+                  <Input
+                    value={tarea.nombre}
+                    onChange={(e) =>
+                      handleTareaNombreChange(index, e.target.value)
+                    }
+                    placeholder={`Ej: Limpiar bandeja ${index + 1}`}
+                    maxW="320px"
+                  />
+                </Field.Root>
+                <Field.Root>
+                  <Field.Label color="gray.600" fontSize="xs">
+                    FRECUENCIA EN DIAS
+                  </Field.Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={tarea.frecuencia}
+                    onChange={(e) =>
+                      handleTareaFrecuenciaChange(index, Number(e.target.value))
+                    }
+                    placeholder="Frecuencia (días)"
+                    title="Frecuencia en días"
+                    maxW="140px"
+                  />
+                </Field.Root>
+                <BotonCancelar
+                  aria-label={`Quitar tarea ${index + 1}`}
+                  fontWeight="bold"
+                  px="3.5"
+                  py="2.5"
+                  onClick={() => handleQuitarTarea(index)}
+                  disabled={values.tareas.length === 1}
+                >
+                  ✕
+                </BotonCancelar>
+              </HStack>
+              <Field.Root>
+                <Field.Label color="gray.600" fontSize="xs" mb="1">
+                  PROCEDIMIENTO (opcional)
+                </Field.Label>
+                <Textarea
+                  value={tarea.descripcion ?? ""}
+                  onChange={(e) =>
+                    handleTareaDescripcionChange(index, e.target.value)
+                  }
+                  placeholder={
+                    "Ej:\n1. Desconectar la energía eléctrica.\n2. Retirar residuos..."
+                  }
+                  rows={4}
+                  resize="vertical"
+                  maxW="500px"
+                />
+              </Field.Root>
             </Box>
-            <textarea
-              value={tarea.descripcion ?? ""}
-              onChange={(e) =>
-                handleTareaDescripcionChange(index, e.target.value)
-              }
-              placeholder={
-                "Ej:\n1. Desconectar la energía eléctrica.\n2. Retirar residuos..."
-              }
-              rows={4}
-              style={{
-                ...estiloInput,
-                maxWidth: "500px",
-                resize: "vertical",
-                fontFamily: "inherit",
-              }}
-            />
-          </Box>
-        ))}
+          ))}
+        </Stack>
         <Button
           type="button"
+          variant="outline"
+          colorPalette="brand"
+          rounded="lg"
+          fontWeight="bold"
+          px="4"
+          py="2"
+          mt="3"
           onClick={handleAgregarTarea}
-          style={{
-            backgroundColor: TEAL_CLARO,
-            color: BLANCO,
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
         >
           + Agregar tarea
         </Button>
-      </Box>
+      </Field.Root>
 
-      <HStack gap="20px" mb="20px" flexWrap="wrap" alignItems="flex-start">
-        {/* Equipo */}
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            EQUIPO *
-          </Box>
-          <NativeSelect.Root disabled={cargandoOpciones}>
-            <NativeSelect.Field
-              value={values.equipo_id}
-              onChange={handleEquipoChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">EQUIPO *</Field.Label>
+        <NativeSelect.Root disabled={cargandoOpciones}>
+          <NativeSelect.Field
+            value={values.equipo_id}
+            onChange={handleEquipoChange}
+            {...propsSelect}
+          >
+            <option value={0} disabled>
+              {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+            </option>
+            {equipos.map((equipo) => (
+              <option key={equipo.id} value={equipo.id}>
+                {equipo.nombre}
               </option>
-              {equipos.map((equipo) => (
-                <option
-                  key={equipo.id}
-                  value={equipo.id}
-                  style={{ backgroundColor: BLANCO, color: TEXTO_PRIMARIO }}
-                >
-                  {equipo.nombre}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </HStack>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
 
-      {/* Autor */}
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            AUTOR *
-          </Box>
-          <NativeSelect.Root disabled={cargandoOpciones}>
-            <NativeSelect.Field
-              value={values.autor_id}
-              onChange={handleAutorChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoOpciones
-                  ? "Cargando..."
-                  : "Seleccioná quién crea el plan"}
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">AUTOR *</Field.Label>
+        <NativeSelect.Root disabled={cargandoOpciones}>
+          <NativeSelect.Field
+            value={values.autor_id}
+            onChange={handleAutorChange}
+            {...propsSelect}
+          >
+            <option value={0} disabled>
+              {cargandoOpciones
+                ? "Cargando..."
+                : "Seleccioná quién crea el plan"}
+            </option>
+            {personal.map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.nombre} {persona.apellido || ""}
               </option>
-              {personal.map((persona) => (
-                <option
-                  key={persona.id}
-                  value={persona.id}
-                  style={{ backgroundColor: BLANCO, color: TEXTO_PRIMARIO }}
-                >
-                  {persona.nombre} {persona.apellido || ""}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-        <Text style={{ fontSize: "12px", color: TEXTO_TENUE, marginTop: "6px" }}>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+        <Text fontSize="xs" color="gray.400" mt={0}>
           Se guarda de forma explícita porque el sistema todavía no tiene sesión
           de usuario.
         </Text>
-      </Box>
+      </Field.Root>
 
-      {/* Botones */}
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
+      <AccionesFormulario>
+        <BotonGuardar
           loading={isLoading}
           disabled={!values.equipo_id || !values.autor_id || hayTareaInvalida}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
         >
           {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+        </BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

@@ -6,13 +6,6 @@ import { AptitudForm } from "../AptitudForm";
 import { useAptitudABM } from "../../hooks/useAptitudABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import type { Aptitud } from "../../types/aptitud";
-import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO,
-  GRIS_MEDIO,
-  TEXTO_SECUNDARIO,
-} from "../../../../common/theme/tokens";
 
 export function AptitudCreatePage() {
   const navigate = useNavigate();
@@ -48,26 +41,26 @@ export function AptitudCreatePage() {
   };
 
   return (
-    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+    <Box p="5" maxW="600px" margin="0 auto">
       <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">Nueva aptitud</Heading>
-        <Button bg={GRIS_MEDIO} color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" style={{ border: "none", padding: "8px 16px", borderRadius: "6px" }} _hover={{ bg: GRIS_MEDIO }} onClick={() => navigate("/aptitudes")}>
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">Nueva aptitud</Heading>
+        <Button type="button" bg="gray.500" color="white" fontSize="16px" fontWeight="normal" height="auto" minW="auto" border="none" p="8px 16px" rounded="md" _hover={{ bg: "gray.600" }} onClick={() => navigate("/aptitudes")}>
           Volver a la lista
         </Button>
       </HStack>
 
       {error && !conflicto && (
-        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+        <Box bg="red.100" color="red.800" p="12px" rounded="md" mb="20px" border="1px solid" borderColor="red.200" fontWeight="bold">
           ⚠️ {error}
         </Box>
       )}
 
       {exito && (
-        <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <Box style={{ backgroundColor: "white", padding: "30px 50px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", textAlign: "center" }}>
-            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
-            <Heading as="h3" style={{ margin: 0, color: EXITO, fontSize: "24px" }}>Éxito</Heading>
-            <Text style={{ color: TEXTO_SECUNDARIO, marginTop: "10px", fontSize: "16px", fontWeight: 500 }}>Aptitud agregada correctamente.</Text>
+        <Box position="fixed" top={0} left={0} right={0} bottom={0} bg="blackAlpha.500" display="flex" alignItems="center" justifyContent="center" zIndex={1000}>
+          <Box bg="white" p="30px 50px" rounded="xl" boxShadow="0 10px 25px rgba(0,0,0,0.2)" textAlign="center">
+            <Box fontSize="50px" mb="10px">✅</Box>
+            <Heading as="h3" m={0} color="green.500" fontSize="24px">Éxito</Heading>
+            <Text color="gray.600" mt="10px" fontSize="16px" fontWeight={500}>Aptitud agregada correctamente.</Text>
           </Box>
         </Box>
       )}

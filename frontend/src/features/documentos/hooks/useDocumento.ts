@@ -8,19 +8,30 @@ export function useDocumento(id: number) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Guarda de desmontaje: si el componente se baja mientras la petición
+    // sigue en vuelo, el `setDocumento` de después landingía en un
+    // componente inexistente. Antes saltaba el warning de React y, en
+    // React 19, además puede pisar el estado si el id cambió rápido.
+    let cancelado = false;
+
     const cargar = async () => {
       try {
         setLoading(true);
         setError(null);
-        setDocumento(await obtenerDocumento(id));
+        const resultado = await obtenerDocumento(id);
+        if (!cancelado) setDocumento(resultado);
       } catch (err) {
-        setError("No se pudo cargar el documento");
-        console.error(err);
+        if (!cancelado) setError("No se pudo cargar el documento");
+        if (!cancelado) console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelado) setLoading(false);
       }
     };
     cargar();
+
+    return () => {
+      cancelado = true;
+    };
   }, [id]);
 
   return { documento, loading, error };

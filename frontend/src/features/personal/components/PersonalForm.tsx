@@ -1,18 +1,12 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input, Text } from "@chakra-ui/react";
-import type { PersonaInput } from "../types/personal";
+import { Box, Checkbox, Field, HStack, Heading, Input, Text } from "@chakra-ui/react";
 import {
-  BLANCO,
-  BORDE_CONTROL,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  FONDO_NEUTRO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloInputAncho,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BannerError,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
+import type { PersonaInput } from "../types/personal";
 
 // Alias local por compatibilidad con la firma del form; la forma real la
 // define PersonaInput en types/personal.ts (los flags de capacidad son
@@ -48,7 +42,15 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       e.preventDefault();
       if (!values.nombre.trim()) return;
 
-      if (!values.puede_operar && !values.puede_administrar && !values.es_super_admin) {
+      // La validación de capacidades solo aplica si la sección se muestra: quien
+      // no puede editar capacidades no tiene los checkboxes a la vista, así que
+      // exigirle una capacidad lo dejaba sin poder guardar sin saber por qué.
+      if (
+          puedeEditarCapacidades &&
+          !values.puede_operar &&
+          !values.puede_administrar &&
+          !values.es_super_admin
+      ) {
           setErrorCapacidades("Debés seleccionar al menos una capacidad (Operar o Administrar).");
           return;
       }
@@ -91,63 +93,93 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} style={{ backgroundColor: BLANCO, padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}>
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL, marginBottom: "20px" }}>{title}</Box>
+    <Box as="form" onSubmit={handleSubmit} bg="white" p="8" rounded="xl" boxShadow="card" mb="8">
+      <Heading as="h3" mt={0} fontSize="2xl" fontWeight="bold" color="brand.500" mb="6">
+        {title}
+      </Heading>
 
-      <HStack gap="20px" mb="20px">
+      <HStack gap="5" mb="5" align="start">
         <Field.Root required>
-          <Box as="label" style={estiloLabel}>NOMBRE *</Box>
-          <Input value={values.nombre} onChange={(e) => setValues({ ...values, nombre: e.target.value })} style={estiloInputAncho} />
+          <Field.Label color="gray.600">NOMBRE *</Field.Label>
+          <Input value={values.nombre} onChange={(e) => setValues({ ...values, nombre: e.target.value })} w="100%" />
         </Field.Root>
         <Field.Root>
-          <Box as="label" style={estiloLabel}>APELLIDO</Box>
-          <Input value={values.apellido || ""} onChange={(e) => setValues({ ...values, apellido: e.target.value })} style={estiloInputAncho} />
+          <Field.Label color="gray.600">APELLIDO</Field.Label>
+          <Input value={values.apellido || ""} onChange={(e) => setValues({ ...values, apellido: e.target.value })} w="100%" />
         </Field.Root>
       </HStack>
 
-      <HStack gap="20px" mb="20px">
+      <HStack gap="5" mb="5" align="start">
         <Field.Root required>
-          <Box as="label" style={estiloLabel}>DNI (7 u 8 dígitos)*</Box>
-          <Input value={values.dni} maxLength={8} onChange={(e) => setValues({ ...values, dni: e.target.value })} style={estiloInputAncho} />
+          <Field.Label color="gray.600">DNI (7 u 8 dígitos)*</Field.Label>
+          <Input value={values.dni} maxLength={8} onChange={(e) => setValues({ ...values, dni: e.target.value })} w="100%" />
         </Field.Root>
         <Field.Root required>
-          <Box as="label" style={estiloLabel}>EMAIL *</Box>
-          <Input type="email" value={values.email} onChange={(e) => setValues({ ...values, email: e.target.value })} style={estiloInputAncho} />
+          <Field.Label color="gray.600">EMAIL *</Field.Label>
+          <Input type="email" value={values.email} onChange={(e) => setValues({ ...values, email: e.target.value })} w="100%" />
         </Field.Root>
       </HStack>
 
-      <Box mb="20px">
+      <Box mb="5">
         <Field.Root>
-          <Box as="label" style={estiloLabel}>TELÉFONO</Box>
-          <Input value={values.telefono || ""} onChange={(e) => setValues({ ...values, telefono: e.target.value })} style={estiloInputAncho} />
+          <Field.Label color="gray.600">TELÉFONO</Field.Label>
+          <Input value={values.telefono || ""} onChange={(e) => setValues({ ...values, telefono: e.target.value })} w="100%" />
         </Field.Root>
       </Box>
       
-      {errorCapacidades && (
-      <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
-        ⚠️ {errorCapacidades}
-      </Box>
-      )}
+      {errorCapacidades && <BannerError>{errorCapacidades}</BannerError>}
 
       {/* Capacidades y rol: solo visibles para quien puede modificarlos */}
       {puedeEditarCapacidades && (
         <>
-          <HStack gap="25px" mb="25px">
-            <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-              <input type="checkbox" checked={values.puede_operar} onChange={(e) => setValues({ ...values, puede_operar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Operar
-            </label>
-            <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-              <input type="checkbox" checked={values.puede_administrar} onChange={(e) => setValues({ ...values, puede_administrar: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Administrar
-            </label>
+          <HStack gap="6" mb="6">
+            <Checkbox.Root
+              checked={Boolean(values.puede_operar)}
+              onCheckedChange={(e) => setValues({ ...values, puede_operar: !!e.checked })}
+              size="lg"
+              fontWeight="bold"
+              color="gray.600"
+            >
+              <Checkbox.HiddenInput />
+              <Checkbox.Control />
+              <Checkbox.Label>Operar</Checkbox.Label>
+            </Checkbox.Root>
+            <Checkbox.Root
+              checked={Boolean(values.puede_administrar)}
+              onCheckedChange={(e) => setValues({ ...values, puede_administrar: !!e.checked })}
+              size="lg"
+              fontWeight="bold"
+              color="gray.600"
+            >
+              <Checkbox.HiddenInput />
+              <Checkbox.Control />
+              <Checkbox.Label>Administrar</Checkbox.Label>
+            </Checkbox.Root>
           </HStack>
 
           {/* El super admin es el nivel más alto: solo otro super admin lo asigna */}
           {puedeAsignarSuperAdmin && (
-            <Box mb="25px" p="15px" style={{ backgroundColor: "#fff8e1", border: "1px dashed #e0c36a", borderRadius: "8px" }}>
-              <label style={{ fontSize: "16px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: "bold" }}>
-                <input type="checkbox" checked={Boolean(values.es_super_admin)} onChange={(e) => setValues({ ...values, es_super_admin: e.target.checked })} style={{ width: "18px", height: "18px" }} /> Super administrador
-              </label>
-              <Text fontSize="13px" color="gray.600" fontStyle="italic" style={{ marginTop: "6px" }}>
+            <Box
+              mb="6"
+              p="3.5"
+              bg="yellow.50"
+              borderWidth="1px"
+              borderStyle="dashed"
+              borderColor="yellow.400"
+              rounded="lg"
+            >
+              <Checkbox.Root
+                checked={Boolean(values.es_super_admin)}
+                onCheckedChange={(e) => setValues({ ...values, es_super_admin: !!e.checked })}
+                size="lg"
+                fontWeight="bold"
+                color="yellow.700"
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control />
+                <Checkbox.Label>Super administrador</Checkbox.Label>
+              </Checkbox.Root>
+              <Text fontSize="xs" color="gray.600" fontStyle="italic" mt="1.5">
                 Un super administrador puede editar a cualquier persona del sistema y
                 asignar ese mismo rol.
               </Text>
@@ -158,49 +190,61 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
 
       {/* En el alta la contraseña es obligatoria */}
       {requierePassword && (
-        <Box mb="25px" p="15px" style={{ backgroundColor: FONDO_NEUTRO, border: `1px dashed ${BORDE_CONTROL}`, borderRadius: "8px" }}>
-          <Box as="label" style={{...estiloLabel, color: TEAL}}>CONTRASEÑA *</Box>
-          <Input
-            type="password"
-            placeholder="Contraseña de acceso al sistema"
-            value={nuevaPassword}
-            onChange={(e) => setNuevaPassword(e.target.value)}
-            style={{...estiloInputAncho, marginBottom: "5px"}}
-          />
-          <Text fontSize="13px" color="gray.500" fontStyle="italic">Mínimo 4 caracteres. Se guarda encriptada.</Text>
-          {errorPassword && (
-            <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "10px", borderRadius: "6px", marginTop: "10px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
-              ⚠️ {errorPassword}
-            </Box>
-          )}
+        <Box
+          mb="6"
+          p="3.5"
+          bg="gray.50"
+          borderWidth="1px"
+          borderStyle="dashed"
+          borderColor="gray.300"
+          rounded="lg"
+        >
+          <Field.Root>
+            <Field.Label color="brand.500">CONTRASEÑA *</Field.Label>
+            <Input
+              type="password"
+              placeholder="Contraseña de acceso al sistema"
+              value={nuevaPassword}
+              onChange={(e) => setNuevaPassword(e.target.value)}
+              w="100%"
+              mb="1.25"
+            />
+          </Field.Root>
+          <Text fontSize="xs" color="gray.500" fontStyle="italic">Mínimo 4 caracteres. Se guarda encriptada.</Text>
+          {errorPassword && <BannerError mb="0">{errorPassword}</BannerError>}
         </Box>
       )}
 
       {/* SECCIÓN ESPECIAL: Solo visible si estás editando tu propio perfil */}
       {esMiPerfil && (
-        <Box mb="25px" p="15px" style={{ backgroundColor: FONDO_NEUTRO, border: `1px dashed ${BORDE_CONTROL}`, borderRadius: "8px" }}>
-          <Box as="label" style={{...estiloLabel, color: TEAL}}>CAMBIAR MI CONTRASEÑA</Box>
-          <Input 
-            type="password"
-            placeholder="Escribí una nueva si querés cambiarla..." 
-            value={nuevaPassword} 
-            onChange={(e) => setNuevaPassword(e.target.value)} 
-            style={{...estiloInputAncho, marginBottom: "5px"}} 
-          />
-          <Text fontSize="13px" color="gray.500" fontStyle="italic">Dejá este campo vacío para mantener tu contraseña actual.</Text>
+        <Box
+          mb="6"
+          p="3.5"
+          bg="gray.50"
+          borderWidth="1px"
+          borderStyle="dashed"
+          borderColor="gray.300"
+          rounded="lg"
+        >
+          <Field.Root>
+            <Field.Label color="brand.500">CAMBIAR MI CONTRASEÑA</Field.Label>
+            <Input
+              type="password"
+              placeholder="Escribí una nueva si querés cambiarla..."
+              value={nuevaPassword}
+              onChange={(e) => setNuevaPassword(e.target.value)}
+              w="100%"
+              mb="1.25"
+            />
+          </Field.Root>
+          <Text fontSize="xs" color="gray.500" fontStyle="italic">Dejá este campo vacío para mantener tu contraseña actual.</Text>
         </Box>
       )}
 
-      <HStack style={{ gap: "15px" }}>
-        <Button type="submit" loading={isLoading} style={{ backgroundColor: TEAL, color: "white", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold" }}>
-          {submitLabel}
-        </Button>
-        {onCancel && (
-          <Button type="button" onClick={onCancel} style={{ backgroundColor: GRIS_CLARO, color: TEXTO_PRIMARIO, padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: "bold" }}>
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+      <AccionesFormulario>
+        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

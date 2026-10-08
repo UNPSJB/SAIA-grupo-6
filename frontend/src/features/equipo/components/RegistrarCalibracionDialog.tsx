@@ -1,21 +1,13 @@
 import { useRef, useState } from "react";
-import { Box, Button, Field, HStack, Input, Portal, Text } from "@chakra-ui/react";
+import { Button, Field, HStack, Input, Text } from "@chakra-ui/react";
 
 import {
-  BLANCO,
-  BORDE_CONTROL,
-  ERROR_BORDE,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  FONDO_NEUTRO,
-  GRIS_CLARO,
-  TEAL,
-  TEAL_CLARO,
-  TEXTO_PRIMARIO,
-  TEXTO_TENUE,
-  estiloInputAncho,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import { BannerError } from "../../../components/ui/patrones";
+import { DialogForm } from "../../../common/components/DialogForm";
 import type { Equipo } from "../types/equipo";
 
 const FORMATOS_ACEPTADOS = ".pdf,image/*";
@@ -24,6 +16,8 @@ interface RegistrarCalibracionDialogProps {
   isOpen: boolean;
   equipo: Equipo | null;
   isLoading?: boolean;
+  /** Error de la mutación, para poder reintentar sin perder los datos. */
+  error?: string | null;
   onClose: () => void;
   onConfirm: (fecha: string, archivo: File) => void;
 }
@@ -32,6 +26,7 @@ export function RegistrarCalibracionDialog({
   isOpen,
   equipo,
   isLoading,
+  error,
   onClose,
   onConfirm,
 }: RegistrarCalibracionDialogProps) {
@@ -77,12 +72,12 @@ export function RegistrarCalibracionDialog({
       return;
     }
 
+    // El diálogo sigue abierto mientras la petición corre y lo cierra la
+    // página cuando termina bien. Los campos NO se sueltan acá: si el POST
+    // falla, el operador necesita ver la fecha y el archivo que ya eligió
+    // para poder reintentar sin repetirlos. El reset ocurre en
+    // `handleCerrar`, que es la otra vía por la que se vacía el formulario.
     onConfirm(fecha, archivo);
-    // El diálogo sigue abierto mientras la petición corre (lo cierra la
-    // página cuando termina bien), así que acá solo se sueltan los campos.
-    setFecha("");
-    setArchivo(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleCerrar = () => {
@@ -96,60 +91,43 @@ export function RegistrarCalibracionDialog({
   if (!isOpen || !equipo) return null;
 
   return (
-    <Portal>
-      <Box
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="white"
+        p="6"
+        rounded="l2"
+        boxShadow="dialog"
+        width="400px"
+        maxWidth="400px"
       >
-        {/* `form` puro y no `Box as="form"`: Chakra no le pasa `noValidate`. */}
-        <form
-          noValidate
-          onSubmit={handleSubmit}
-          style={{
-            backgroundColor: BLANCO,
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            width: "400px",
-          }}
-        >
-          <Box as="h3" style={{ marginTop: 0, color: TEAL, marginBottom: "15px" }}>
+        <DialogForm onSubmit={handleSubmit}>
+          <DialogTitle
+            as="h3"
+            mt={0}
+            mb="4"
+            fontWeight="bold"
+            color="brand.500"
+          >
             Registrar calibración: <br />
             <strong>{equipo.nombre}</strong>
-          </Box>
+          </DialogTitle>
+
+          {error && <BannerError mb="4">{error}</BannerError>}
 
           {errorValidacion && (
-            <Box
-              style={{
-                backgroundColor: ERROR_FONDO,
-                color: ERROR_TEXTO,
-                padding: "10px",
-                borderRadius: "6px",
-                marginBottom: "15px",
-                border: `1px solid ${ERROR_BORDE}`,
-                fontSize: "14px",
-                fontWeight: "bold",
-              }}
-            >
-              ⚠️ {errorValidacion}
-            </Box>
+            <BannerError mb="4">{errorValidacion}</BannerError>
           )}
 
-          <Field.Root style={{ marginBottom: "15px" }}>
-            <label style={estiloLabel}>FECHA DE REALIZACIÓN *</label>
+          <Field.Root mb="4">
+            <Field.Label color="gray.600">FECHA DE REALIZACIÓN *</Field.Label>
             <Input
               type="date"
-              style={estiloInputAncho}
               min={minDate}
               max={maxDate}
               value={fecha}
@@ -157,16 +135,18 @@ export function RegistrarCalibracionDialog({
             />
           </Field.Root>
 
-          <Field.Root style={{ marginBottom: "25px" }}>
-            <label style={estiloLabel}>
+          <Field.Root mb="6">
+            <Field.Label color="gray.600">
               CERTIFICADO ADJUNTO (PDF / Imagen) *
-            </label>
+            </Field.Label>
 
-            <input
+            {/* El input real queda oculto: lo dispara el botón de abajo, que
+                es el que el usuario ve y con el que navega por teclado. */}
+            <Input
               type="file"
               accept={FORMATOS_ACEPTADOS}
               ref={fileInputRef}
-              style={{ display: "none" }}
+              display="none"
               onChange={(e) => {
                 const elegido = e.target.files?.[0];
                 setArchivo(elegido ?? null);
@@ -174,33 +154,33 @@ export function RegistrarCalibracionDialog({
             />
 
             <HStack
-              style={{
-                width: "100%",
-                padding: "8px",
-                borderRadius: "8px",
-                border: `2px dashed ${TEAL_CLARO}`,
-                backgroundColor: FONDO_NEUTRO,
-                alignItems: "center",
-              }}
+              w="100%"
+              p="2"
+              rounded="lg"
+              borderWidth="2px"
+              borderStyle="dashed"
+              borderColor="brand.300"
+              bg="gray.50"
+              alignItems="center"
             >
               <Button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                style={{
-                  backgroundColor: GRIS_CLARO,
-                  color: TEXTO_PRIMARIO,
-                  border: `1px solid ${BORDE_CONTROL}`,
-                  padding: "6px 12px",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                }}
+                variant="outline"
+                colorPalette="gray"
+                size="sm"
+                h="auto"
+                minW="auto"
+                px="3"
+                py="1.5"
+                rounded="md"
+                fontWeight="bold"
               >
                 Seleccionar Archivo
               </Button>
               <Text
-                fontSize="14px"
-                color={archivo ? TEXTO_PRIMARIO : TEXTO_TENUE}
+                fontSize="sm"
+                color={archivo ? "gray.800" : "gray.400"}
                 overflow="hidden"
                 textOverflow="ellipsis"
                 whiteSpace="nowrap"
@@ -211,40 +191,39 @@ export function RegistrarCalibracionDialog({
             </HStack>
           </Field.Root>
 
-          <HStack justify="center" gap="10px">
+          <HStack justify="center" gap="3">
             <Button
               type="button"
               onClick={handleCerrar}
               disabled={isLoading}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${BORDE_CONTROL}`,
-                backgroundColor: BLANCO,
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
+              variant="outline"
+              colorPalette="gray"
+              h="auto"
+              minW="auto"
+              px="4"
+              py="2"
+              rounded="md"
+              fontWeight="bold"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               loading={isLoading}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: TEAL,
-                color: "white",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
+              colorPalette="brand"
+              variant="solid"
+              h="auto"
+              minW="auto"
+              px="4"
+              py="2"
+              rounded="md"
+              fontWeight="bold"
             >
               Subir y Guardar
             </Button>
           </HStack>
-        </form>
-      </Box>
-    </Portal>
+        </DialogForm>
+      </DialogContent>
+    </DialogRoot>
   );
 }

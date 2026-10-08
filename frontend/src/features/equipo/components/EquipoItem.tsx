@@ -1,16 +1,6 @@
-import { Table, Button, HStack } from "@chakra-ui/react";
+import { Button, HStack, Table } from "@chakra-ui/react";
 import type { Equipo } from "../types/equipo";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  EXITO,
-  EXITO_HOVER,
-  GRIS_MEDIO,
-  PELIGRO,
-  TEAL,
-  TEAL_OSCURO,
-  TEXTO_TENUE,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface EquipoItemProps {
   equipo: Equipo;
@@ -21,67 +11,83 @@ interface EquipoItemProps {
   onVerHistorial: (equipo: Equipo) => void;
 }
 
-export function EquipoItem({ equipo, onEdit, onDelete, onReactivar, onCalibrar, onVerHistorial }: EquipoItemProps) {
+export function EquipoItem({
+  equipo,
+  onEdit,
+  onDelete,
+  onReactivar,
+  onCalibrar,
+  onVerHistorial,
+}: EquipoItemProps) {
   return (
-    <Table.Row style={{ borderBottom: "1px solid #eee", opacity: equipo.activo ? 1 : 0.65 }}>
-      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+    <Table.Row
+      borderBottomWidth="1px"
+      borderColor="gray.100"
+      opacity={equipo.activo ? 1 : 0.65}
+    >
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{equipo.id}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {equipo.nombre}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {equipo.tipo}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {equipo.ubicacion}
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
+      </Celda>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
           {equipo.activo && (
             <>
+              {/* "Historial" y "Calibrar" no son acciones del CRUD estándar,
+                  así que no entran en `BotonTabla`: se arman con las mismas
+                  medidas que el patrón para que la fila quede homogénea. */}
               <Button
-                bg={TEAL} color="white" fontSize="15px" fontWeight="normal"
-                style={{ border: "none", padding: "6px 10px", borderRadius: "4px" }}
-                _hover={{ bg: TEAL_OSCURO }} onClick={() => onVerHistorial(equipo)}
+                type="button"
+                colorPalette="brand"
+                variant="solid"
+                size="sm"
+                fontWeight="normal"
+                h="auto"
+                px="3"
+                py="1.5"
+                rounded="md"
+                onClick={() => onVerHistorial(equipo)}
               >
                 Historial
               </Button>
               <Button
-                bg={GRIS_MEDIO} color="white" fontSize="15px" fontWeight="normal"
-                style={{ border: "none", padding: "6px 10px", borderRadius: "4px" }}
-                _hover={{ bg: TEXTO_TENUE }} onClick={() => onCalibrar(equipo)}
+                type="button"
+                colorPalette="gray"
+                variant="solid"
+                size="sm"
+                fontWeight="normal"
+                h="auto"
+                px="3"
+                py="1.5"
+                rounded="md"
+                onClick={() => onCalibrar(equipo)}
               >
                 Calibrar
               </Button>
-              <Button
-                bg={ADVERTENCIA} color="white" fontSize="16px" fontWeight="normal"
-                style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-                _hover={{ bg: ADVERTENCIA_HOVER }} onClick={() => onEdit(equipo)}
-              >
+              <BotonTabla accion="editar" onClick={() => onEdit(equipo)}>
                 Modificar
-              </Button>
+              </BotonTabla>
             </>
           )}
           {equipo.activo ? (
-            <Button
-              bg={PELIGRO} color="white" fontSize="16px" fontWeight="normal"
-              style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-              _hover={{ bg: PELIGRO }} onClick={() => onDelete(equipo)}
-            >
+            <BotonTabla accion="eliminar" onClick={() => onDelete(equipo)}>
               Eliminar
-            </Button>
+            </BotonTabla>
           ) : (
-            <Button
-              bg={EXITO} color="white" fontSize="16px" fontWeight="normal"
-              style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-              _hover={{ bg: EXITO_HOVER }} onClick={() => onReactivar(equipo)}
-            >
+            <BotonTabla accion="reactivar" onClick={() => onReactivar(equipo)}>
               Reactivar
-            </Button>
+            </BotonTabla>
           )}
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }

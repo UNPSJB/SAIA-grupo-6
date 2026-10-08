@@ -90,7 +90,11 @@ def listar_incidentes(
         .order_by(models.Incidente.fecha_reporte.desc())
     )
     if estado:
-        consulta = consulta.where(models.Incidente.estado == estado.value)
+        # El router ya convierte el query param con el enum de FastAPI, así que
+        # acá llega como `EstadoIncidente`. Se acepta también un `str` suelta
+        # para no romper callers que la pasen así.
+        valor = estado.value if isinstance(estado, EstadoIncidente) else str(estado)
+        consulta = consulta.where(models.Incidente.estado == valor)
     if tipo:
         consulta = consulta.where(models.Incidente.tipo == tipo)
     if equipo_id:

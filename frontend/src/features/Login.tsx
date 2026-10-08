@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { login, register, getBootstrapStatus } from '../common/api/authService';
 import { useAuth } from '../common/context/useAuth';
-import { BLANCO, TEXTO_PRIMARIO } from "../common/theme/tokens";
+import { DialogForm } from '../common/components/DialogForm';
+import { Box, Button, Checkbox, Flex, Heading, Input, Text, Link } from '@chakra-ui/react';
 
 export const Login = () => {
     const navigate = useNavigate();
     const { user, loginUser } = useAuth();
-    
+
     const [isLoginView, setIsLoginView] = useState(true);
     const [error, setError] = useState('');
 
@@ -74,11 +75,11 @@ export const Login = () => {
                 navigate('/');
             } else {
                 await register({
-                    nombre, 
-                    apellido, 
-                    dni, 
-                    email, 
-                    telefono, 
+                    nombre,
+                    apellido,
+                    dni,
+                    email,
+                    telefono,
                     password,
                     puede_operar: puedeOperar || esSuperAdmin,
                     puede_administrar: puedeAdministrar || esSuperAdmin,
@@ -116,117 +117,208 @@ export const Login = () => {
             } else if (typeof responseError.message === 'string') {
                 mensajeError = responseError.message;
             }
-            
+
             setError(mensajeError);
         }
     };
 
-    const estiloInput = {
-        backgroundColor: BLANCO,
-        padding: "12px",
-        width: "100%",
-        borderRadius: "8px",
-        border: "2px solid #90BEBB",
-        fontSize: "16px",
-        outline: "none",
-        color: TEXTO_PRIMARIO,
-        marginBottom: "15px"
-    };
-
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#468189', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: '20px' }}>
-            <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', width: '100%', maxWidth: '450px' }}>
-                <h2 style={{ textAlign: 'center', color: '#468189', marginTop: 0, marginBottom: '25px', fontSize: '24px' }}>
+        <Flex
+            minH="100vh"
+            bg="brand.500"
+            align="center"
+            justify="center"
+            p="5"
+        >
+            <Box
+                bg="white"
+                p="10"
+                rounded="xl"
+                boxShadow="0 4px 15px rgba(0,0,0,0.1)"
+                w="100%"
+                maxW="450px"
+            >
+                <Heading
+                    as="h2"
+                    size="xl"
+                    color="brand.500"
+                    textAlign="center"
+                    mt={0}
+                    mb="6"
+                >
                     {isLoginView ? 'Iniciar Sesión en SAIA' : 'Registrar Nuevo Usuario'}
-                </h2>
-                
+                </Heading>
+
                 {error && (
-                    <p style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+                    <Box
+                        bg="red.100"
+                        color="red.800"
+                        p="3"
+                        rounded="md"
+                        textAlign="center"
+                        fontWeight="bold"
+                        fontSize="14px"
+                        mb="4"
+                    >
                         ⚠️ {error}
-                    </p>
+                    </Box>
                 )}
 
                 {/* Ya no usamos "required", nuestras alertas de JavaScript hacen el trabajo duro */}
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }} noValidate>
-                    {!isLoginView && (
-                        <>
-                            <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-                                <input type="text" placeholder="Nombre *" value={nombre} onChange={e => setNombre(e.target.value)} style={{...estiloInput, marginBottom: 0}} />
-                                <input type="text" placeholder="Apellido" value={apellido} onChange={e => setApellido(e.target.value)} style={{...estiloInput, marginBottom: 0}} />
-                            </div>
-                            <input type="email" placeholder="Correo Electrónico *" value={email} onChange={e => setEmail(e.target.value)} style={estiloInput} />
-                            <input type="text" placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} style={estiloInput} />
-                        </>
-                    )}
-                    
-                    <input type="text" placeholder="DNI *" value={dni} onChange={e => setDni(e.target.value)} style={estiloInput} />
-                    <input type="password" placeholder="Contraseña *" value={password} onChange={e => setPassword(e.target.value)} style={estiloInput} />
+                <DialogForm onSubmit={handleSubmit}>
+                    <Box display="flex" flexDirection="column">
+                        {!isLoginView && (
+                            <>
+                                <Flex gap="4" mb="4">
+                                    <Input
+                                        type="text"
+                                        placeholder="Nombre *"
+                                        value={nombre}
+                                        onChange={e => setNombre(e.target.value)}
+                                        mb={0}
+                                    />
+                                    <Input
+                                        type="text"
+                                        placeholder="Apellido"
+                                        value={apellido}
+                                        onChange={e => setApellido(e.target.value)}
+                                        mb={0}
+                                    />
+                                </Flex>
+                                <Input
+                                    type="email"
+                                    placeholder="Correo Electrónico *"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                />
+                                <Input
+                                    type="tel"
+                                    placeholder="Teléfono"
+                                    value={telefono}
+                                    onChange={e => setTelefono(e.target.value)}
+                                />
+                            </>
+                        )}
 
-                    {!isLoginView && (
-                        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ cursor: 'pointer', color: '#555', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input type="checkbox" checked={puedeOperar} onChange={e => setPuedeOperar(e.target.checked)} style={{ width: '18px', height: '18px' }} />
-                                Operar
-                            </label>
-                            <label style={{ cursor: 'pointer', color: '#555', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input type="checkbox" checked={puedeAdministrar} onChange={e => setPuedeAdministrar(e.target.checked)} style={{ width: '18px', height: '18px' }} />
-                                Administrar
-                            </label>
+                        <Input
+                            type="text"
+                            placeholder="DNI *"
+                            value={dni}
+                            onChange={e => setDni(e.target.value)}
+                            inputMode="numeric"
+                        />
+                        <Input
+                            type="password"
+                            placeholder="Contraseña *"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                        />
 
-                            {/* Solo mientras el sistema no tenga ningún administrador:
-                                es el arranque de una base nueva. */}
-                            {permiteSuperAdmin && (
-                                <label
-                                    style={{
-                                        cursor: 'pointer', color: '#8a6d1a', fontWeight: 'bold',
-                                        display: 'flex', alignItems: 'center', gap: '8px',
-                                        padding: '4px 10px', borderRadius: '6px',
-                                        backgroundColor: '#fff8e1', border: '1px dashed #e0c36a'
-                                    }}
-                                    title="Porque el sistema todavía no tiene administradores"
+                        {!isLoginView && (
+                            <Flex
+                                gap="5"
+                                mb="5"
+                                justify="center"
+                                wrap="wrap"
+                            >
+                                <Checkbox.Root
+                                    checked={puedeOperar}
+                                    onCheckedChange={(e) => setPuedeOperar(!!e.checked)}
+                                    fontWeight="bold"
+                                    color="gray.600"
+                                    size="lg"
                                 >
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox.HiddenInput />
+                                    <Checkbox.Control />
+                                    <Checkbox.Label>Operar</Checkbox.Label>
+                                </Checkbox.Root>
+                                <Checkbox.Root
+                                    checked={puedeAdministrar}
+                                    onCheckedChange={(e) => setPuedeAdministrar(!!e.checked)}
+                                    fontWeight="bold"
+                                    color="gray.600"
+                                    size="lg"
+                                >
+                                    <Checkbox.HiddenInput />
+                                    <Checkbox.Control />
+                                    <Checkbox.Label>Administrar</Checkbox.Label>
+                                </Checkbox.Root>
+
+                                {/* Solo mientras el sistema no tenga ningún administrador:
+                                    es el arranque de una base nueva. */}
+                                {permiteSuperAdmin && (
+                                    <Checkbox.Root
                                         checked={esSuperAdmin}
-                                        onChange={e => {
-                                            setEsSuperAdmin(e.target.checked);
+                                        onCheckedChange={(e) => {
+                                            setEsSuperAdmin(!!e.checked);
                                             // Un super admin administra todo: activamos también las capacidades.
-                                            if (e.target.checked) {
+                                            if (e.checked) {
                                                 setPuedeOperar(true);
                                                 setPuedeAdministrar(true);
                                             }
                                         }}
-                                        style={{ width: '18px', height: '18px' }}
-                                    />
-                                    Super administrador
-                                </label>
-                            )}
-                        </div>
-                    )}
+                                        title="Porque el sistema todavía no tiene administradores"
+                                        fontWeight="bold"
+                                        color="yellow.700"
+                                        size="lg"
+                                        p="1 2"
+                                        rounded="md"
+                                        border="1px dashed"
+                                        borderColor="yellow.400"
+                                        bg="yellow.50"
+                                    >
+                                        <Checkbox.HiddenInput />
+                                        <Checkbox.Control />
+                                        <Checkbox.Label>Super administrador</Checkbox.Label>
+                                    </Checkbox.Root>
+                                )}
+                            </Flex>
+                        )}
 
-                    {!isLoginView && permiteSuperAdmin && (
-                        <p style={{ fontSize: '12px', color: '#8a6d1a', textAlign: 'center', marginTop: '-10px', marginBottom: '15px' }}>
-                            El sistema todavía no tiene administradores: el primer usuario puede ser
-                            super administrador. Cuando exista uno, el registro público ya no podrá
-                            asignar ese rol.
-                        </p>
-                    )}
+                        {!isLoginView && permiteSuperAdmin && (
+                            <Text
+                                fontSize="12px"
+                                color="yellow.700"
+                                textAlign="center"
+                                mt="-10px"
+                                mb="4"
+                            >
+                                El sistema todavía no tiene administradores: el primer usuario puede ser
+                                super administrador. Cuando exista uno, el registro público ya no podrá
+                                asignar ese rol.
+                            </Text>
+                        )}
 
-                    <button type="submit" style={{ padding: '12px', backgroundColor: '#468189', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}>
-                        {isLoginView ? 'Ingresar' : 'Crear Usuario'}
-                    </button>
-                </form>
+                        <Button
+                            type="submit"
+                            colorPalette="brand"
+                            rounded="lg"
+                            fontWeight="bold"
+                            mt="3"
+                            w="100%"
+                            p="3"
+                        >
+                            {isLoginView ? 'Ingresar' : 'Crear Usuario'}
+                        </Button>
+                    </Box>
+                </DialogForm>
 
-                <p 
-                    style={{ marginTop: '20px', textAlign: 'center', cursor: 'pointer', color: '#468189', fontWeight: 'bold' }} 
-                    onClick={() => {
-                        setIsLoginView(!isLoginView);
-                        setError('');
-                    }}
-                >
-                    {isLoginView ? '¿No tenés usuario? Registrate acá' : 'Volver a Iniciar Sesión'}
-                </p>
-            </div>
-        </div>
+                <Box mt="5" textAlign="center">
+                    <Link
+                        href="#"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setIsLoginView(!isLoginView);
+                            setError('');
+                        }}
+                        color="brand.500"
+                        fontWeight="bold"
+                        cursor="pointer"
+                    >
+                        {isLoginView ? '¿No tenés usuario? Registrate acá' : 'Volver a Iniciar Sesión'}
+                    </Link>
+                </Box>
+            </Box>
+        </Flex>
     );
 };

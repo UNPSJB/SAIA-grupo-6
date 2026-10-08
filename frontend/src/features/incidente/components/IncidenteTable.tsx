@@ -1,7 +1,11 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { IncidenteItem } from "./IncidenteItem";
 import type { Incidente } from "../types/incidente";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface IncidenteTableProps {
   incidentes: Incidente[];
@@ -22,85 +26,27 @@ export function IncidenteTable({
 }: IncidenteTableProps) {
   if (incidentes.length === 0) {
     return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+      <Tarjeta p={8} textAlign="center">
         <Text color="gray.500">{mensajeVacio}</Text>
-      </Box>
+      </Tarjeta>
     );
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root
-        variant="outline"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
+    <Tarjeta>
+      <Table.Root variant="outline" w="100%">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Fecha
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "220px" }}
-            >
-              Título
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "90px" }}
-            >
+          <FilaEncabezado>
+            <EncabezadoOscuro>Fecha</EncabezadoOscuro>
+            <EncabezadoOscuro width="220px">Título</EncabezadoOscuro>
+            <EncabezadoOscuro center width="90px">
               Foto
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Tipo
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "130px" }}
-            >
-              Estado
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Reportado por
-            </Table.ColumnHeader>
-
-            {showActions && (
-              <Table.ColumnHeader
-                color="white"
-                fontWeight="normal"
-                fontSize="16px"
-                style={{ padding: "12px", textAlign: "center" }}
-              >
-                Acciones
-              </Table.ColumnHeader>
-            )}
-          </Table.Row>
+            </EncabezadoOscuro>
+            <EncabezadoOscuro>Tipo</EncabezadoOscuro>
+            <EncabezadoOscuro width="130px">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro>Reportado por</EncabezadoOscuro>
+            {showActions && <EncabezadoOscuro center>Acciones</EncabezadoOscuro>}
+          </FilaEncabezado>
         </Table.Header>
 
         <Table.Body>
@@ -116,6 +62,6 @@ export function IncidenteTable({
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

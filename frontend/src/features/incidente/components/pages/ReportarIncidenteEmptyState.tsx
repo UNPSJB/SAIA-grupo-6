@@ -1,33 +1,31 @@
 import { Box, Text } from "@chakra-ui/react";
-import { TEXTO_PRIMARIO, TEXTO_TERCIARIO } from "../../../../common/theme/tokens";
 
 export function ReportarIncidenteEmptyState() {
   return (
     <Box
-      style={{
-        textAlign: "center",
-        padding: "60px 20px",
-        backgroundColor: "#fafafa",
-        border: "2px dashed #d8e7e5",
-        borderRadius: "12px",
-        marginTop: "20px",
-      }}
+      textAlign="center"
+      p="15"
+      mt="5"
+      bg="gray.50"
+      borderWidth="2px"
+      borderStyle="dashed"
+      borderColor="brand.200"
+      rounded="xl"
     >
-      <Box style={{ fontSize: "64px", marginBottom: "16px" }}>
+      <Text fontSize="5xl" mb="4" aria-hidden>
         📋
-      </Box>
-      <Text fontSize="20px" fontWeight="bold" color={TEXTO_PRIMARIO} mb="8px">
+      </Text>
+      <Text fontSize="xl" fontWeight="bold" color="gray.800" mb="2">
         Aún no has reportado incidentes
       </Text>
-      <Text fontSize="15px" color={TEXTO_TERCIARIO} maxW="400px" mx="auto" lineHeight="1.6">
+      <Text fontSize="sm" color="gray.600" maxW="400px" mx="auto" lineHeight="1.6">
         Cuando reportes tu primer incidente, aparecerá aquí con su estado,
         fecha y tipo. Podrás ver el detalle haciendo clic en "Ver".
       </Text>
-      <Box style={{ marginTop: "20px", fontSize: "13px", color: "#999" }}>
-        💡 Usa la pestaña {" "}
-        <Text fontWeight="bold">"Nuevo Incidente"</Text>
-        {" "} para crear uno.
-      </Box>
+      <Text mt="5" fontSize="xs" color="gray.500">
+        💡 Usa la pestaña <Text as="span" fontWeight="bold">"Nuevo Incidente"</Text>{" "}
+        para crear uno.
+      </Text>
     </Box>
   );
 }

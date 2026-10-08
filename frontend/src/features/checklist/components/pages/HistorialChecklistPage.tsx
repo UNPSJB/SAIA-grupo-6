@@ -1,60 +1,25 @@
 import { Fragment, useMemo, useState } from "react";
 import {
   Box,
+  Button,
   Heading,
   HStack,
   Input,
+  NativeSelect,
   Spinner,
   Text,
   Field,
-  Button,
   Table,
 } from "@chakra-ui/react";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import {
-  BLANCO,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO_ALT,
-  FONDO_TEAL,
-  GRIS_CLARO,
-  PELIGRO_TEXTO,
-  TEAL,
-  TEAL_CLARO,
-  TEXTO_PRIMARIO,
-  TEXTO_SECUNDARIO,
-  estiloInputCompacto,
-} from "../../../../common/theme/tokens";
-
-const estiloTarjeta = {
-  backgroundColor: BLANCO,
-  borderRadius: "10px",
-  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-  overflow: "hidden" as const,
-};
-
-const estiloHeaderFila = {
-  backgroundColor: FONDO_TEAL,
-  borderBottom: `2px solid ${TEAL_CLARO}`,
-};
-
-const estiloHeaderCelda = {
-  color: TEXTO_PRIMARIO,
-  fontWeight: "bold" as const,
-  fontSize: "13px",
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.03em",
-  padding: "10px 16px",
-};
-
-const estiloCelda = {
-  color: TEXTO_PRIMARIO,
-  fontSize: "14px",
-  padding: "10px 16px",
-  borderBottom: "1px solid #eee",
-  backgroundColor: BLANCO,
-};
+  BotonTexto,
+  Celda,
+  ColumnaHeader,
+  LabelFiltro,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
 
 function fechaLocalISO(fecha: Date): string {
   const year = fecha.getFullYear();
@@ -63,10 +28,11 @@ function fechaLocalISO(fecha: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
 function colorPorcentaje(pct: number): string {
-  if (pct >= 80) return EXITO_ALT;
-  if (pct >= 50) return "#e8a13d";
-  return PELIGRO_TEXTO;
+  if (pct >= 80) return "green.600";
+  if (pct >= 50) return "orange.400";
+  return "red.700";
 }
 
 export function HistorialChecklistPage() {
@@ -109,11 +75,18 @@ export function HistorialChecklistPage() {
 
   const checklists = useMemo(() => historial?.checklists ?? [], [historial]);
 
+  /** Botón de "Ver/ocultar N incumplidas" dentro de la celda. */
+  const botonIncumplidas = (checklistId: number, cantidad: number) => (
+    <BotonTexto onClick={() => toggleExpandido(checklistId)}>
+      {expandidos.has(checklistId) ? "Ocultar" : `Ver ${cantidad}`}
+    </BotonTexto>
+  );
+
   return (
-    <Box style={{ padding: "20px" }}>
+    <Box p="20px">
       <HStack justify="space-between" mb="20px" flexWrap="wrap" gap="15px">
         <Box>
-          <Heading as="h2" size="md" fontWeight="bold" color="black">
+          <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
             Historial de Checklists
           </Heading>
           <Text color="gray.600" fontSize="14px" mt="2px">
@@ -121,85 +94,91 @@ export function HistorialChecklistPage() {
           </Text>
         </Box>
         <Button
-          bg={GRIS_CLARO}
-          color={TEXTO_PRIMARIO}
+          bg="gray.200"
+          color="gray.800"
           fontSize="14px"
           fontWeight="bold"
           height="auto"
+          p="8px 16px"
+          rounded="md"
           onClick={recargar}
-          style={{ padding: "8px 16px", borderRadius: "6px" }}
+          _hover={{ bg: "gray.300" }}
         >
           Actualizar
         </Button>
       </HStack>
 
-      <Box
-        bg="white"
-        p="20px"
-        borderRadius="10px"
-        boxShadow="0 2px 6px rgba(0,0,0,0.05)"
-        mb="25px"
-      >
+      <Tarjeta p="20px" mb="25px">
         <HStack gap="20px" flexWrap="wrap" align="flex-end">
           <Box minW="180px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
-                DESDE
-              </Box>
+              <LabelFiltro>DESDE</LabelFiltro>
               <Input
                 type="date"
                 value={fechaDesde}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                style={estiloInputCompacto}
+                p="10px 14px"
+                rounded="lg"
+                borderWidth={2}
+                borderColor="brand.300"
+                fontSize="15px"
+                w="auto"
               />
             </Field.Root>
           </Box>
           <Box minW="180px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
-                HASTA
-              </Box>
+              <LabelFiltro>HASTA</LabelFiltro>
               <Input
                 type="date"
                 value={fechaHasta}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                style={estiloInputCompacto}
+                p="10px 14px"
+                rounded="lg"
+                borderWidth={2}
+                borderColor="brand.300"
+                fontSize="15px"
+                w="auto"
               />
             </Field.Root>
           </Box>
           <Box minW="200px">
             <Field.Root>
-              <Box as="label" display="block" fontSize="14px" fontWeight="bold" mb="6px" color={TEXTO_SECUNDARIO}>
-                EQUIPO
-              </Box>
-              <select
-                value={equipoSeleccionado}
-                onChange={(e) => setEquipoSeleccionado(e.target.value)}
-                style={{ ...estiloInputCompacto, width: "100%" }}
-              >
-                <option value="">Todos los equipos</option>
-                {equipos.map((equipo) => (
-                  <option key={equipo.id} value={equipo.id}>
-                    {equipo.nombre}
-                  </option>
-                ))}
-              </select>
+              <LabelFiltro>EQUIPO</LabelFiltro>
+              <NativeSelect.Root w="100%" rounded="lg">
+                <NativeSelect.Field
+                  value={equipoSeleccionado}
+                  onChange={(e) => setEquipoSeleccionado(e.target.value)}
+                  p="10px 14px"
+                  borderWidth={2}
+                  borderColor="brand.300"
+                  fontSize="15px"
+                  bg="white"
+                >
+                  <option value="">Todos los equipos</option>
+                  {equipos.map((equipo) => (
+                    <option key={equipo.id} value={equipo.id}>
+                      {equipo.nombre}
+                    </option>
+                  ))}
+                </NativeSelect.Field>
+                <NativeSelect.Indicator />
+              </NativeSelect.Root>
             </Field.Root>
           </Box>
         </HStack>
-      </Box>
+      </Tarjeta>
 
       {error && (
         <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "12px",
-            borderRadius: "8px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-            fontWeight: "bold",
-          }}
+          bg="red.100"
+          color="red.800"
+          p="12px"
+          rounded="lg"
+          mb="20px"
+          border="1px solid"
+          borderColor="red.200"
+          fontWeight="bold"
         >
           ⚠️ {error}
         </Box>
@@ -207,13 +186,13 @@ export function HistorialChecklistPage() {
 
       {loading && (
         <HStack justify="center" p={10}>
-          <Spinner size="lg" color={TEAL} />
+          <Spinner size="lg" color="brand.500" />
           <Text color="gray.600">Cargando historial...</Text>
         </HStack>
       )}
 
       {!loading && historial && checklists.length === 0 && !error && (
-        <Box bg="white" borderRadius="8px" p={10} textAlign="center">
+        <Box bg="white" rounded="lg" p={10} textAlign="center">
           <Text fontSize="16px" color="gray.600">
             No hay checklists registrados en el rango seleccionado.
           </Text>
@@ -225,74 +204,68 @@ export function HistorialChecklistPage() {
           <HStack justify="space-between" mb="16px">
             <Text fontSize="14px" color="gray.600">
               Cumplimiento general del período:{" "}
-              <strong style={{ color: colorPorcentaje(historial.porcentaje_cumplimiento_general) }}>
+              <Text
+                as="span"
+                fontWeight="bold"
+                color={colorPorcentaje(historial.porcentaje_cumplimiento_general)}
+              >
                 {historial.porcentaje_cumplimiento_general.toFixed(0)}%
-              </strong>
+              </Text>
             </Text>
           </HStack>
 
-          <Box style={estiloTarjeta}>
-            <Table.Root style={{ width: "100%", borderCollapse: "collapse" }}>
+          <Tarjeta>
+            <Table.Root w="100%">
               <Table.Header>
-                <Table.Row style={estiloHeaderFila}>
-                  <Table.ColumnHeader style={estiloHeaderCelda}>Fecha</Table.ColumnHeader>
-                  <Table.ColumnHeader style={estiloHeaderCelda}>Equipo</Table.ColumnHeader>
-                  <Table.ColumnHeader style={estiloHeaderCelda}>Estado</Table.ColumnHeader>
-                  <Table.ColumnHeader style={{ ...estiloHeaderCelda, textAlign: "center" }}>
-                    Cumplimiento
-                  </Table.ColumnHeader>
-                  <Table.ColumnHeader style={{ ...estiloHeaderCelda, textAlign: "center", width: "160px" }}>
+                <Table.Row>
+                  <ColumnaHeader>Fecha</ColumnaHeader>
+                  <ColumnaHeader>Equipo</ColumnaHeader>
+                  <ColumnaHeader>Estado</ColumnaHeader>
+                  <ColumnaHeader center>Cumplimiento</ColumnaHeader>
+                  <ColumnaHeader center width="160px">
                     Incumplidas
-                  </Table.ColumnHeader>
+                  </ColumnaHeader>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
                 {checklists.map((cl) => (
                   <Fragment key={cl.checklist_id}>
                     <Table.Row>
-                      <Table.Cell style={estiloCelda}>{cl.fecha}</Table.Cell>
-                      <Table.Cell style={estiloCelda}>{cl.equipo_nombre}</Table.Cell>
-                      <Table.Cell style={estiloCelda}>{cl.estado}</Table.Cell>
-                      <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
+                      <Celda>{cl.fecha}</Celda>
+                      <Celda>{cl.equipo_nombre}</Celda>
+                      <Celda>{cl.estado}</Celda>
+                      <Celda center>
                         <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
                           {cl.porcentaje_cumplimiento.toFixed(0)}%
                         </Text>
                         <Text fontSize="12px" color="gray.500">
                           {cl.tareas_completadas}/{cl.total_tareas}
                         </Text>
-                      </Table.Cell>
-                      <Table.Cell style={{ ...estiloCelda, textAlign: "center" }}>
+                      </Celda>
+                      <Celda center>
                         {cl.tareas_incumplidas.length === 0 ? (
                           <Text fontSize="13px" color="gray.400">—</Text>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpandido(cl.checklist_id)}
-                            style={{
-                              fontSize: "12px",
-                              color: TEAL,
-                              background: "none",
-                              border: "none",
-                              textDecoration: "underline",
-                              fontWeight: "bold",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {expandidos.has(cl.checklist_id)
-                              ? "Ocultar"
-                              : `Ver ${cl.tareas_incumplidas.length}`}
-                          </button>
+                          botonIncumplidas(cl.checklist_id, cl.tareas_incumplidas.length)
                         )}
-                      </Table.Cell>
+                      </Celda>
                     </Table.Row>
                     {expandidos.has(cl.checklist_id) && (
                       <Table.Row>
-                        <Table.Cell colSpan={5} style={{ ...estiloCelda, backgroundColor: "#faf5f5" }}>
-                          <Text fontSize="13px" fontWeight="bold" color={ERROR_TEXTO} mb="6px">
+                        <Table.Cell
+                          colSpan={5}
+                          color="gray.800"
+                          fontSize="14px"
+                          p="10px 16px"
+                          borderBottom="1px solid"
+                          borderColor="gray.100"
+                          bg="red.50"
+                        >
+                          <Text fontSize="13px" fontWeight="bold" color="red.800" mb="6px">
                             Tareas incumplidas:
                           </Text>
                           {cl.tareas_incumplidas.map((t, i) => (
-                            <Text key={t.tarea_id ?? i} fontSize="13px" color={TEXTO_SECUNDARIO}>
+                            <Text key={t.tarea_id ?? i} fontSize="13px" color="gray.600">
                               • {t.nombre}
                             </Text>
                           ))}
@@ -303,7 +276,7 @@ export function HistorialChecklistPage() {
                 ))}
               </Table.Body>
             </Table.Root>
-          </Box>
+          </Tarjeta>
         </>
       )}
     </Box>

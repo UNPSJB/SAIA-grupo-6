@@ -1,22 +1,11 @@
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-  Switch,
-} from "@chakra-ui/react";
+import { Box, Field, Input, Switch } from "@chakra-ui/react";
 import type { Equipo } from "../types/equipo";
 import {
-  BLANCO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_SECUNDARIO,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+} from "../../../components/ui/patrones";
 
 type EquipoFormValues = Omit<Equipo, "id">;
 
@@ -28,6 +17,10 @@ interface EquipoFormProps {
   title?: string;
   onCancel?: () => void;
   mostrarBaja?: boolean;
+  /** La baja requiere confirmación: la pide la página, no el formulario. */
+  onSolicitarBaja?: () => void;
+  /** El usuario confirmó la baja y el formulario puede aplicarla. */
+  bajaConfirmada?: boolean;
 }
 
 const emptyValues: EquipoFormValues = {
@@ -37,6 +30,11 @@ const emptyValues: EquipoFormValues = {
   activo: true,
 };
 
+/**
+ * El aspecto del input lo aporta la receta `input` del tema
+ * (`src/theme/index.ts`), así que acá no hay ningún objeto de estilo. El
+ * ancho (`maxW="500px"`) sí es una decisión de layout y queda como prop.
+ */
 export function EquipoForm({
   initialValues = emptyValues,
   onSubmit,
@@ -45,6 +43,8 @@ export function EquipoForm({
   title = "Alta de Equipo",
   onCancel,
   mostrarBaja = false,
+  onSolicitarBaja,
+  bajaConfirmada = false,
 }: EquipoFormProps) {
   const [values, setValues] = useState<EquipoFormValues>(initialValues);
 
@@ -67,111 +67,90 @@ export function EquipoForm({
     }));
 
   const handleBajaChange = (checked: boolean) => {
-    setValues((prev) => ({
-      ...prev,
-      activo: !checked,
-    }));
+    // Dar de baja es una baja lógica con efectos (el equipo desaparece de los
+    // listados), así que no se aplica en silencio: la página pide confirmación
+    // con su `ConfirmDialog` y recién entonces confirma este flag. Antes el
+    // switch escribía `activo: false` directo y salteaba la confirmación que
+    // sí exige la tabla.
+    if (onSolicitarBaja) {
+      onSolicitarBaja();
+      return;
+    }
+    setValues((prev) => ({ ...prev, activo: !checked }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(values);
+    // Se aplica la baja acá y no en un efecto: si la página ya la confirmó,
+    // el `activo: false` viaja en este submit sin un render de más.
+    onSubmit(bajaConfirmada ? { ...values, activo: false } : values);
   };
 
   return (
     <Box
       as="form"
       onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
+      bg="white"
+      p="8"
+      rounded="xl"
+      boxShadow="card"
+      mb="8"
     >
       <Box
         as="h3"
-        style={{
-          marginTop: 0,
-          fontSize: "22px",
-          color: TEAL,
-        }}
+        mt={0}
+        fontSize="2xl"
+        fontWeight="bold"
+        color="brand.500"
+        mb="6"
       >
         {title}
       </Box>
 
       {/* Nombre */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            NOMBRE *
-          </Box>
-
-          <Input
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Heladera industrial"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">NOMBRE *</Field.Label>
+        <Input
+          value={values.nombre}
+          onChange={handleNombreChange}
+          placeholder="Ej: Heladera industrial"
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* Tipo */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Field.Label style={estiloLabel}>
-            TIPO *
-          </Field.Label>
-
-          <Input
-            value={values.tipo}
-            onChange={handleTipoChange}
-            placeholder="Ej: Heladera, horno, freidora..."
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb="5">
+        <Field.Label color="gray.600">TIPO *</Field.Label>
+        <Input
+          value={values.tipo}
+          onChange={handleTipoChange}
+          placeholder="Ej: Heladera, horno, freidora..."
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* Ubicación */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            UBICACIÓN *
-          </Box>
-
-          <Input
-            value={values.ubicacion}
-            onChange={handleUbicacionChange}
-            placeholder="Ej: Sector A - Laboratorio"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <Field.Root required mb={mostrarBaja ? "6" : "5"}>
+        <Field.Label color="gray.600">UBICACIÓN *</Field.Label>
+        <Input
+          value={values.ubicacion}
+          onChange={handleUbicacionChange}
+          placeholder="Ej: Sector A - Laboratorio"
+          maxW="500px"
+        />
+      </Field.Root>
 
       {/* Dar de baja - solo aparece al modificar */}
       {mostrarBaja && (
-        <Box style={{ marginBottom: "25px" }}>
+        <Box mb="6">
           <Switch.Root
-            checked={!values.activo}
-            onCheckedChange={(details) =>
-              handleBajaChange(details.checked)
-            }
+            checked={!values.activo || bajaConfirmada}
+            onCheckedChange={(details) => handleBajaChange(details.checked)}
+            colorPalette={values.activo && !bajaConfirmada ? "green" : "red"}
           >
             <Switch.HiddenInput />
-            <Switch.Control 
-              bg={values.activo ? "green.500" : "red.500"}
-              _checked={{
-                bg: "red.500",
-              }}
-            />
-            <Switch.Label
-              style={{
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: TEXTO_SECUNDARIO,
-              }}
-            >
+            <Switch.Control />
+            <Switch.Label fontSize="sm" fontWeight="bold" color="gray.600">
               Dar de baja
             </Switch.Label>
           </Switch.Root>
@@ -179,43 +158,10 @@ export function EquipoForm({
       )}
 
       {/* Botones */}
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
-          loading={isLoading}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+      <AccionesFormulario>
+        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
     </Box>
   );
 }

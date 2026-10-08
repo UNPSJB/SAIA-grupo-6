@@ -1,26 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, Spinner, Text } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Heading,
+  HStack,
+  Input,
+  NativeSelect,
+  SimpleGrid,
+  Spinner,
+  Text,
+} from "@chakra-ui/react";
 import { useAuth } from "../../../common/context/useAuth";
+import {
+  BannerError,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 import { useDocumentosVigentes } from "../hooks/useDocumentosVigentes";
 import { TIPOS_DOCUMENTO } from "../types/documento";
 import type { TipoDocumento } from "../types/documento";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
 import { abrirArchivo } from "../services/documentoService";
-
-const TEAL = "#468189";
-
-const estiloCampo = {
-  backgroundColor: "#fff",
-  padding: "12px",
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: "#333",
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-};
 
 export function ConsultaDocumentosPage() {
   const navigate = useNavigate();
@@ -31,154 +31,122 @@ export function ConsultaDocumentosPage() {
   const { documentos, loading, error } = useDocumentosVigentes(buscar, tipo);
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <Heading as="h2" size="md" fontWeight="bold" color="black" mb="6px">
+    <Box p="5">
+      <Heading as="h2" size="md" fontWeight="bold" color="gray.900" mb="1">
         Consultar documentos
       </Heading>
-      <Text style={{ color: "#555", marginBottom: "20px" }}>
+      <Text color="gray.600" mb="5">
         Documentos vigentes
       </Text>
 
       {/* Buscador y filtro: se apilan en pantallas chicas */}
-      <Box
-        style={{
-          display: "flex",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "24px",
-        }}
-      >
-        <input
-          type="search"
-          value={buscar}
-          onChange={(e) => setBuscar(e.target.value)}
-          placeholder="Buscar por nombre…"
-          style={{ ...estiloCampo, flex: "1 1 220px", minWidth: 0 }}
-        />
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value as TipoDocumento | "")}
-          style={{ ...estiloCampo, flex: "0 1 220px" }}
-        >
-          <option value="">Todos los tipos</option>
-          {TIPOS_DOCUMENTO.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </Box>
+      <HStack gap="3" flexWrap="wrap" mb="6" align="flex-end">
+        <Box flex="1 1 220px" minW={0}>
+          <Input
+            type="search"
+            value={buscar}
+            onChange={(e) => setBuscar(e.target.value)}
+            placeholder="Buscar por nombre…"
+            aria-label="Buscar documentos por nombre"
+          />
+        </Box>
+        <Box flex="0 1 220px">
+          <NativeSelect.Root w="100%">
+            <NativeSelect.Field
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as TipoDocumento | "")}
+              aria-label="Filtrar documentos por tipo"
+              bg="white"
+              borderWidth="2px"
+              borderColor="brand.300"
+              borderRadius="lg"
+            >
+              <option value="">Todos los tipos</option>
+              {TIPOS_DOCUMENTO.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Box>
+      </HStack>
 
-      {loading && documentos.length === 0 && <Spinner />}
-      {error && <Text color="red.500">{error}</Text>}
+      {loading && documentos.length === 0 && <Spinner color="brand.500" />}
+      {error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && documentos.length === 0 && (
-        <Box
-          bg="white"
-          style={{ borderRadius: "8px" }}
-          p={8}
-          textAlign="center"
-        >
+        <Tarjeta p={8} textAlign="center">
           <Text color="gray.500">No se encontraron documentos.</Text>
-        </Box>
+        </Tarjeta>
       )}
 
       {documentos.length > 0 && (
-        <Box
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "16px",
-          }}
-        >
+        <SimpleGrid minChildWidth="260px" gap="4">
           {documentos.map((doc) => {
             const v = doc.version_vigente;
             return (
-              <Box
+              <Tarjeta
                 key={doc.id}
-                bg="white"
-                style={{
-                  borderRadius: "10px",
-                  padding: "18px",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
-                  borderTop: `5px solid ${TEAL}`,
-                }}
+                p="4.5"
+                borderTopWidth="5px"
+                borderTopColor="brand.500"
               >
-                <Text
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                    color: "#777",
-                  }}
-                >
+                <Text fontSize="xs" fontWeight="bold" color="gray.500">
                   {etiquetaTipo(doc.tipo).toUpperCase()}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                    color: "#222",
-                    margin: "4px 0 10px",
-                  }}
-                >
+                <Heading as="h3" size="lg" color="gray.900" mt="1" mb="2.5">
                   {doc.nombre}
-                </Text>
-                <Text style={{ color: "#555", marginBottom: "14px" }}>
+                </Heading>
+                <Text color="gray.600" mb="1.5">
                   Versión vigente:{" "}
-                  <b style={{ color: TEAL }}>v{v.numero_version}</b>
-                  <br />
+                  <Text as="span" color="brand.500" fontWeight="bold">
+                    v{v.numero_version}
+                  </Text>
+                </Text>
+                <Text color="gray.600" mb="3.5">
                   Vigente desde {fechaCorta(v.vigente_desde)}
                 </Text>
 
-                <Box style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
+                <HStack gap="2.5" flexWrap="wrap">
+                  <Button
+                    colorPalette="brand"
+                    variant="solid"
+                    rounded="lg"
+                    fontWeight="bold"
+                    px="4"
+                    py="2.5"
                     onClick={() =>
                       abrirArchivo(v.archivo_url).catch(() =>
                         alert("No se pudo abrir el documento"),
                       )
                     }
-                    style={{
-                      display: "inline-block",
-                      backgroundColor: TEAL,
-                      color: "white",
-                      padding: "10px 16px",
-                      borderRadius: "6px",
-                      fontWeight: "bold",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "16px",
-                    }}
                   >
                     Abrir documento
-                  </button>
+                  </Button>
 
                   {/* Acción explícita: solo para quien puede administrar (historia 4) */}
                   {user?.puede_administrar && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(`/documentos/${doc.id}/historial`)
-                      }
-                      style={{
-                        backgroundColor: "#e0e0e0",
-                        color: "#333",
-                        padding: "10px 16px",
-                        borderRadius: "6px",
-                        border: "none",
-                        fontWeight: "bold",
-                        cursor: "pointer",
-                        fontSize: "16px",
-                      }}
+                    <Button
+                      variant="plain"
+                      bg="gray.200"
+                      color="gray.800"
+                      rounded="lg"
+                      fontWeight="bold"
+                      px="4"
+                      py="2.5"
+                      _hover={{ bg: "gray.300" }}
+                      onClick={() => navigate(`/documentos/${doc.id}/historial`)}
                     >
                       Ver historial
-                    </button>
+                    </Button>
                   )}
-                </Box>
-              </Box>
+                </HStack>
+              </Tarjeta>
             );
           })}
-        </Box>
+        </SimpleGrid>
       )}
     </Box>
   );

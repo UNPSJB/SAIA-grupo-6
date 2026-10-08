@@ -6,14 +6,6 @@ import {
   DialogRoot,
   DialogTitle,
 } from "../../components/ui/dialog";
-import {
-  BLANCO,
-  BORDE_CONTROL,
-  PELIGRO,
-  TEXTO_PRIMARIO,
-  TEXTO_TERCIARIO,
-} from "../theme/tokens";
-
 export interface ConfirmDialogProps {
   /** Abre el diálogo. Cuando es `false` no se renderiza nada. */
   isOpen: boolean;
@@ -27,6 +19,12 @@ export interface ConfirmDialogProps {
   textoCancelar?: string;
   /** Muestra el spinner en el botón de confirmación. */
   isLoading?: boolean;
+  /**
+   * Paleta del botón de confirmación. Por defecto `red` porque casi todos los
+   * usos son eliminados; se sobreescribe para confirmaciones que no son
+   * destructivas (por ejemplo, activar algo).
+   */
+  confirmPalette?: string;
   /** Acción de confirmación. */
   onConfirm: () => void;
   /** Acción de cancelación. */
@@ -54,6 +52,7 @@ export function ConfirmDialog({
   textoConfirmar = "Sí, eliminar",
   textoCancelar = "Cancelar",
   isLoading,
+  confirmPalette = "red",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -70,22 +69,15 @@ export function ConfirmDialog({
       <DialogContent
         width="350px"
         maxWidth="350px"
-        padding="25px"
-        borderRadius="12px"
-        boxShadow="0 4px 15px rgba(0,0,0,0.2)"
-        bg={BLANCO}
+        padding="6"
+        rounded="l2"
+        bg="white"
         textAlign="center"
       >
-        <DialogTitle
-          as="h3"
-          fontWeight="bold"
-          style={{ marginTop: 0, color: TEXTO_PRIMARIO }}
-        >
+        <DialogTitle as="h3" fontWeight="bold" color="gray.800">
           {titulo}
         </DialogTitle>
-        <DialogDescription
-          style={{ color: TEXTO_TERCIARIO, marginBottom: "20px" }}
-        >
+        <DialogDescription color="gray.600" mb="5">
           {mensaje}
         </DialogDescription>
         <HStack justify="center" gap="10px">
@@ -94,9 +86,10 @@ export function ConfirmDialog({
             height="auto"
             minW="auto"
             padding="8px 16px"
-            borderRadius="6px"
-            border={`1px solid ${BORDE_CONTROL}`}
-            backgroundColor={BLANCO}
+            variant="outline"
+            borderColor="gray.300"
+            rounded="md"
+            colorPalette="gray"
             fontWeight="bold"
           >
             {textoCancelar}
@@ -107,11 +100,9 @@ export function ConfirmDialog({
             height="auto"
             minW="auto"
             padding="8px 16px"
-            borderRadius="6px"
-            border="none"
-            backgroundColor={PELIGRO}
-            color={BLANCO}
+            rounded="md"
             fontWeight="bold"
+            colorPalette={confirmPalette}
           >
             {textoConfirmar}
           </Button>

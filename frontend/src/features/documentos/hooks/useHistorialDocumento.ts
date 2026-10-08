@@ -14,19 +14,30 @@ export function useHistorialDocumento(documentoId: number) {
   useEffect(() => {
     if (usuarioId === undefined) return;
 
+    // Guarda de desmontaje, igual que en `useDocumento`: la navegación
+    // rápida entre documentos dejaba el `setHistorial` volando.
+    let cancelado = false;
+
     const cargar = async () => {
       try {
         setLoading(true);
         setError(null);
-        setHistorial(await obtenerHistorial(documentoId, usuarioId));
+        const resultado = await obtenerHistorial(documentoId, usuarioId);
+        if (!cancelado) setHistorial(resultado);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo cargar el historial");
-        console.error(err);
+        if (!cancelado) {
+          setError(err instanceof Error ? err.message : "No se pudo cargar el historial");
+        }
+        if (!cancelado) console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelado) setLoading(false);
       }
     };
     cargar();
+
+    return () => {
+      cancelado = true;
+    };
   }, [documentoId, usuarioId]);
 
   return { historial, loading, error };

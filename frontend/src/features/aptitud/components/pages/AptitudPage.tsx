@@ -7,14 +7,7 @@ import { ConfirmarReactivacionDialog } from "../../../../common/components/Confi
 import { useAptitudes } from "../../hooks/useAptitudes";
 import { useAptitudABM } from "../../hooks/useAptitudABM";
 import type { Aptitud } from "../../types/aptitud";
-import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  PELIGRO,
-  TEAL,
-  TEAL_OSCURO,
-  TEXTO_SECUNDARIO,
-} from "../../../../common/theme/tokens";
+
 
 
 export function AptitudPage() {
@@ -61,18 +54,18 @@ export function AptitudPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
+    <Box p="5">
       <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
+        <Heading as="h2" size="md" fontWeight="bold" color="gray.900">
           {verInactivos ? "Aptitudes Dadas de Baja" : "Gestión de Aptitudes"}
         </Heading>
-        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: TEAL_OSCURO }} onClick={() => navigate("/aptitudes/nuevo")}>
+        <Button bg="brand.500" color="white" fontSize="16px" fontWeight="bold" rounded="md" px="20px" py="10px" _hover={{ bg: "brand.700" }} onClick={() => navigate("/aptitudes/nuevo")}>
           + Agregar
         </Button>
       </HStack>
 
       {errorEliminar && (
-        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
+        <Box bg="red.100" color="red.800" p="12px" rounded="md" mb="20px" border="1px solid" borderColor="red.200" fontWeight="bold">
           ⚠️ {errorEliminar}
         </Box>
       )}
@@ -81,7 +74,7 @@ export function AptitudPage() {
         <Switch.Root checked={verInactivos} onCheckedChange={(e) => setVerInactivos(e.checked)} colorPalette="gray">
           <Switch.HiddenInput />
           <Switch.Control />
-          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO, fontWeight: verInactivos ? "bold" : "normal" }}>
+          <Switch.Label fontSize="14px" color={verInactivos ? "red.600" : "gray.600"} fontWeight={verInactivos ? "bold" : "normal"}>
             Ver dadas de baja
           </Switch.Label>
         </Switch.Root>

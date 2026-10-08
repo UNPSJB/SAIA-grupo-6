@@ -1,36 +1,40 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { PersonalItem } from "./PersonalItem";
 import type { Persona } from "../types/personal";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface PersonalTableProps {
   personales: Persona[];
   onEdit: (persona: Persona) => void;
   onDelete: (persona: Persona) => void;
-  onReactivar: (persona: Persona) => void; // <- NUEVO
+  onReactivar: (persona: Persona) => void;
 }
 
 export function PersonalTable({ personales, onEdit, onDelete, onReactivar }: PersonalTableProps) {
   if (personales.length === 0) {
     return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
+      <Tarjeta p={8} textAlign="center">
         <Text color="gray.500">No hay personal para mostrar.</Text>
-      </Box>
+      </Tarjeta>
     );
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root variant="outline" style={{ width: "100%", borderCollapse: "collapse" }}>
+    <Tarjeta>
+      <Table.Root variant="outline" w="100%">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>ID</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Nombre</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>DNI</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Permisos</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Detalle</Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Acciones</Table.ColumnHeader>
-          </Table.Row>
+          <FilaEncabezado>
+            <EncabezadoOscuro>ID</EncabezadoOscuro>
+            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
+            <EncabezadoOscuro>DNI</EncabezadoOscuro>
+            <EncabezadoOscuro>Permisos</EncabezadoOscuro>
+            <EncabezadoOscuro center>Detalle</EncabezadoOscuro>
+            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+          </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {personales.map((persona) => (
@@ -38,6 +42,6 @@ export function PersonalTable({ personales, onEdit, onDelete, onReactivar }: Per
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

@@ -1,13 +1,6 @@
-import { Table, Button, HStack, Badge } from "@chakra-ui/react";
+import { Badge, HStack, Table } from "@chakra-ui/react";
 import type { PlanLimpieza } from "../types/planLimpieza";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  EXITO,
-  EXITO_HOVER,
-  PELIGRO,
-  TEAL,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
@@ -25,99 +18,52 @@ export function PlanLimpiezaItem({
   onReactivar,
 }: PlanLimpiezaItemProps) {
   return (
-    <Table.Row
-      style={{
-        borderBottom: "1px solid #eee",
-        opacity: plan.activo ? 1 : 0.65,
-      }}
-    >
-      <Table.Cell
-        color={TEAL}
-        fontWeight="bold"
-        fontSize="16px"
-        style={{ padding: "12px" }}
-      >
+    <Table.Row opacity={plan.activo ? 1 : 0.65}>
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{plan.id}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {plan.nombre}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {plan.tareas
           .map(
             (tarea) =>
               `${tarea.nombre} (cada ${tarea.frecuencia} ${tarea.frecuencia === 1 ? "día" : "días"})`,
           )
           .join(", ")}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {nombreEquipo}
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
+      </Celda>
+      <Celda p="3" center>
         <Badge
           colorPalette={plan.activo ? "green" : "gray"}
-          borderRadius="6px"
-          px="8px"
-          py="4px"
+          rounded="md"
+          px="2"
+          py="1"
         >
           {plan.activo ? "Activo" : "Inactivo"}
         </Badge>
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center" style={{ gap: "10px" }}>
-          {plan.activo && (
-            <Button
-              bg={ADVERTENCIA}
-              color="white"
-              fontSize="16px"
-              fontWeight="normal"
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "4px",
-              }}
-              _hover={{ bg: ADVERTENCIA_HOVER }}
-              onClick={() => onEdit(plan)}
-            >
-              Modificar
-            </Button>
-          )}
-
+      </Celda>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
           {plan.activo ? (
-            <Button
-              bg={PELIGRO}
-              color="white"
-              fontSize="16px"
-              fontWeight="normal"
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "4px",
-              }}
-              _hover={{ bg: PELIGRO }}
-              onClick={() => onDelete(plan)}
-            >
-              Eliminar
-            </Button>
+            <>
+              <BotonTabla accion="editar" onClick={() => onEdit(plan)}>
+                Modificar
+              </BotonTabla>
+              <BotonTabla accion="eliminar" onClick={() => onDelete(plan)}>
+                Eliminar
+              </BotonTabla>
+            </>
           ) : (
-            <Button
-              bg={EXITO}
-              color="white"
-              fontSize="16px"
-              fontWeight="normal"
-              style={{
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: "4px",
-              }}
-              _hover={{ bg: EXITO_HOVER }}
-              onClick={() => onReactivar(plan)}
-            >
+            <BotonTabla accion="reactivar" onClick={() => onReactivar(plan)}>
               Reactivar
-            </Button>
+            </BotonTabla>
           )}
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }

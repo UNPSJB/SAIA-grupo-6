@@ -1,14 +1,7 @@
 import { formatoFecha } from "../../../common/utils/fechas";
-import { Badge, Button, HStack, Table } from "@chakra-ui/react";
-
+import { Badge, HStack, Table } from "@chakra-ui/react";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  PELIGRO,
-  PELIGRO_HOVER,
-  TEAL,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoItemProps {
   plan: PlanCalibracionMantenimiento;
@@ -36,59 +29,44 @@ export function PlanCalibracionMantenimientoItem({
   const estado = obtenerEstado(plan.dias_restantes);
 
   return (
-    <Table.Row style={{ borderBottom: "1px solid #eee" }}>
-      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+    <Table.Row>
+      <Celda p="3" color="brand.500" fontWeight="bold" fontSize="md">
         #{plan.id}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {nombreEquipo}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
         {formatoFecha(plan.fecha_ultima_intervencion)}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        Cada {plan.periodicidad_dias} {plan.periodicidad_dias === 1 ? "día" : "días"}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" fontSize="md">
+        Cada {plan.periodicidad_dias}{" "}
+        {plan.periodicidad_dias === 1 ? "día" : "días"}
+      </Celda>
+      <Celda p="3" fontSize="md">
         {formatoFecha(plan.proxima_fecha_vencimiento)}
-      </Table.Cell>
-      <Table.Cell fontSize="16px" textAlign="center" style={{ padding: "12px" }}>
+      </Celda>
+      <Celda p="3" center fontSize="md">
         {plan.dias_restantes}
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <Badge colorPalette={estado.color} borderRadius="6px" px="8px" py="4px">
+      </Celda>
+      <Celda p="3" center>
+        <Badge colorPalette={estado.color} rounded="md" px="2" py="1">
           {estado.etiqueta}
         </Badge>
-      </Table.Cell>
-      <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-        <HStack justify="center">
-          <Button
-            bg={ADVERTENCIA}
-            color="white"
-            fontSize="16px"
-            fontWeight="normal"
-            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-            _hover={{ bg: ADVERTENCIA_HOVER }}
-            onClick={() => onEdit(plan)}
-          >
+      </Celda>
+      <Celda p="3" center>
+        <HStack justify="center" gap="2">
+          <BotonTabla accion="editar" onClick={() => onEdit(plan)}>
             Modificar
-          </Button>
-          <Button
-            bg={PELIGRO}
-            color="white"
-            fontSize="16px"
-            fontWeight="normal"
-            style={{ border: "none", padding: "6px 12px", borderRadius: "4px" }}
-            _hover={{ bg: PELIGRO_HOVER }}
-            onClick={() => onDelete(plan)}
-          >
+          </BotonTabla>
+          <BotonTabla accion="eliminar" onClick={() => onDelete(plan)}>
             Eliminar
-          </Button>
+          </BotonTabla>
         </HStack>
-      </Table.Cell>
+      </Celda>
     </Table.Row>
   );
 }
