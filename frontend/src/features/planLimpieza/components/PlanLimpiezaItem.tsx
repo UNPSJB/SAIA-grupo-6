@@ -19,9 +19,6 @@ export function PlanLimpiezaItem({
 }: PlanLimpiezaItemProps) {
   return (
     <Table.Row opacity={plan.activo ? 1 : 0.65}>
-      <Celda p="3" color="brand.fg" fontWeight="bold">
-        #{plan.id}
-      </Celda>
       <Celda p="3">{plan.nombre}</Celda>
       <Celda p="3">
         {plan.tareas
@@ -38,12 +35,15 @@ export function PlanLimpiezaItem({
           rounded="md"
           px="2"
           py="1"
+          maxW="100%"
+          overflow="hidden"
+          textOverflow="ellipsis"
         >
           {plan.activo ? "Activo" : "Inactivo"}
         </Badge>
       </Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {plan.activo ? (
             <>
               <BotonTabla accion="editar" onClick={() => onEdit(plan)}>

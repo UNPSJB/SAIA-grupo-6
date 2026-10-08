@@ -32,7 +32,7 @@ export function ConsumoInsumosPage() {
   }, []);
 
   return (
-    <Box p="5" maxW="1000px" mx="auto">
+    <Box p="5">
       <PageHeader
         title="Consumo de productos de limpieza"
         description="Totales consumidos en el período seleccionado, por producto y por día."
@@ -103,8 +103,8 @@ export function ConsumoInsumosPage() {
                 <Table.Header>
                   <FilaEncabezado>
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                    <EncabezadoOscuro>Cantidad acumulada</EncabezadoOscuro>
-                    <EncabezadoOscuro>Registros</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="amplia">Cantidad acumulada</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="media">Registros</EncabezadoOscuro>
                   </FilaEncabezado>
                 </Table.Header>
                 <Table.Body>

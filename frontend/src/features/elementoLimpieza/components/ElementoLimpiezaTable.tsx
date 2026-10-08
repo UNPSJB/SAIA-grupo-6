@@ -26,15 +26,14 @@ export function ElementoLimpiezaTable({
   }
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Último Recambio</EncabezadoOscuro>
-            <EncabezadoOscuro>Frecuencia (Días)</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Último Recambio</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Frecuencia (Días)</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

@@ -24,14 +24,13 @@ export function AptitudTable({ aptitudes, onEdit, onDelete, onReactivar }: Aptit
   }
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
             <EncabezadoOscuro>Descripción</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

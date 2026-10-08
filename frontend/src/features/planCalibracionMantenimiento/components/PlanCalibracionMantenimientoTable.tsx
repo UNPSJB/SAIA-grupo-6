@@ -30,15 +30,14 @@ export function PlanCalibracionMantenimientoTable({
       <Table.Root variant="outline" minW="1200px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Equipo</EncabezadoOscuro>
-            <EncabezadoOscuro>Tipo</EncabezadoOscuro>
-            <EncabezadoOscuro>Última intervención</EncabezadoOscuro>
-            <EncabezadoOscuro>Periodicidad</EncabezadoOscuro>
-            <EncabezadoOscuro>Próximo vencimiento</EncabezadoOscuro>
-            <EncabezadoOscuro center>Días restantes</EncabezadoOscuro>
-            <EncabezadoOscuro center>Estado</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Última intervención</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Periodicidad</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Próximo vencimiento</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="media">Días restantes</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

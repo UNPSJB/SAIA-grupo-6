@@ -185,11 +185,11 @@ export function HistorialChecklistPage() {
             <Table.Root variant="outline" w="100%">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro>Fecha</EncabezadoOscuro>
-                  <EncabezadoOscuro>Equipo</EncabezadoOscuro>
-                  <EncabezadoOscuro>Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro center>Cumplimiento</EncabezadoOscuro>
-                  <EncabezadoOscuro center width="160px">
+                  <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="media">Equipo</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="media">Cumplimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="media">
                     Incumplidas
                   </EncabezadoOscuro>
                 </FilaEncabezado>
@@ -207,6 +207,9 @@ export function HistorialChecklistPage() {
                           px="2"
                           py="1"
                           textTransform="capitalize"
+                          maxW="100%"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
                         >
                           {cl.estado}
                         </Badge>

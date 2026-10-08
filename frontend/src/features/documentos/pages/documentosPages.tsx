@@ -40,15 +40,15 @@ export function DocumentosPage() {
       )}
 
       {!loading && !error && documentos.length > 0 && (
-        <Tarjeta>
-          <Table.Root variant="outline" w="100%">
+        <Tarjeta overflowX="auto">
+          <Table.Root variant="outline" w="100%" minW="1080px">
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Documento</EncabezadoOscuro>
-                <EncabezadoOscuro>Tipo</EncabezadoOscuro>
-                <EncabezadoOscuro>Versión vigente</EncabezadoOscuro>
-                <EncabezadoOscuro>Archivadas</EncabezadoOscuro>
-                <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Versión vigente</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Archivadas</EncabezadoOscuro>
+                <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
@@ -82,7 +82,7 @@ export function DocumentosPage() {
                     </Celda>
                     <Celda p="3">{doc.cantidad_archivadas}</Celda>
                     <Celda p="3" center>
-                      <HStack justify="center" gap="2">
+                      <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
                         <BotonTabla
                           accion="editar"
                           onClick={() => navigate(`/documentos/${doc.id}/nueva-version`)}

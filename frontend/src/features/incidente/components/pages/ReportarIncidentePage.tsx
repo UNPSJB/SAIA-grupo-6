@@ -193,7 +193,7 @@ export function ReportarIncidentePage() {
   };
 
   return (
-    <Box p="5" maxW="1100px" mx="auto">
+    <Box p="5">
       <PageHeader
         title="Reportar incidente"
         description="Registrá un incidente nuevo o seguí el estado de los que ya reportaste."
@@ -231,7 +231,6 @@ export function ReportarIncidentePage() {
           isLoading={loadingAlta}
           title="Registrar nuevo incidente"
           submitLabel="Reportar incidente"
-          fullWidth
         />
       )}
 

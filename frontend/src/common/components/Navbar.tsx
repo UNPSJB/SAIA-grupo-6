@@ -145,7 +145,22 @@ function NavItem({ entrada, activa, anidado }: NavItemProps) {
       asChild
       aria-current={activa ? "page" : undefined}
       display="block"
-      px={anidado ? "4" : "3"}
+      /*
+       * Sangría de las opciones dentro de un grupo.
+       *
+       * Se corre la fila entera, no solo el texto: `mx="2"` corre también la
+       * píldora blanca del ítem activo, así deja de arrancar en el mismo x que
+       * la fila del desplegable y las dos se distinguen por la forma y no solo
+       * por el texto.
+       *
+       * El ancho del sidebar acompaña porque hace falta: "Calibración/
+       * Mantenimiento" mide 186px de texto, y a 260px de sidebar con esta
+       * sangría el nombre se recortaba con puntos suspensivos. A 280px quedan
+       * 204px útiles.
+       */
+      mx={anidado ? "2" : undefined}
+      pl={anidado ? "6" : "3"}
+      pr="3"
       py="3"
       rounded="md"
       fontSize="sm"
@@ -355,7 +370,7 @@ export default function Navbar() {
       // Sobre brand.700 da 6.4:1.
       bg="brand.700"
       color="white"
-      w="260px"
+      w="280px"
       h="100vh"
       position="sticky"
       top={0}
@@ -424,14 +439,31 @@ export default function Navbar() {
         <Text fontSize="xs" color="whiteAlpha.800" px="2" mb="1">
           {user.nombre} {user.apellido}
         </Text>
+        {/*
+          Sin `colorPalette`: la variante `outline` de Chakra usa
+          `colorPalette.fg` para el texto, y en modo claro eso es rojo
+          oscuro (`red.700`). Sobre el teal del sidebar daba 1.31:1, o sea
+          un botón que no se leía. Acá los colores van explícitos porque el
+          sidebar es una superficie oscura y no responde a los tokens de
+          superficie clara.
+        */}
         <Button
           size="sm"
           h="auto"
           py="3"
           w="100%"
-          colorPalette="red"
           variant="outline"
+          bg="transparent"
+          color="white"
+          borderColor="whiteAlpha.500"
+          rounded="md"
           fontWeight="bold"
+          _hover={{ bg: "whiteAlpha.200", color: "white" }}
+          _focusVisible={{
+            outline: "2px solid",
+            outlineColor: "white",
+            outlineOffset: "2px",
+          }}
           onClick={logout}
         >
           Cerrar sesión

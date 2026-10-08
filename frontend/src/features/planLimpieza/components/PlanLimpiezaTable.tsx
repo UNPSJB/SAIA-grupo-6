@@ -31,16 +31,15 @@ export function PlanLimpiezaTable({
     equipos.find((e) => e.id === id)?.nombre || `#${id}`;
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Tareas (frecuencia)</EncabezadoOscuro>
-            <EncabezadoOscuro>Equipo</EncabezadoOscuro>
-            <EncabezadoOscuro center>Estado</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="amplia">Tareas (frecuencia)</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Equipo</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

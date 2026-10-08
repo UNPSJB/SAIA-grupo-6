@@ -33,19 +33,19 @@ export function IncidenteTable({
   }
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="800px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Fecha</EncabezadoOscuro>
-            <EncabezadoOscuro width="220px">Título</EncabezadoOscuro>
-            <EncabezadoOscuro center width="90px">
+            <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Título</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="media">
               Foto
             </EncabezadoOscuro>
-            <EncabezadoOscuro>Tipo</EncabezadoOscuro>
-            <EncabezadoOscuro width="130px">Estado</EncabezadoOscuro>
-            <EncabezadoOscuro>Reportado por</EncabezadoOscuro>
-            {showActions && <EncabezadoOscuro center>Acciones</EncabezadoOscuro>}
+            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Reportado por</EncabezadoOscuro>
+            {showActions && <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>}
           </FilaEncabezado>
         </Table.Header>
 

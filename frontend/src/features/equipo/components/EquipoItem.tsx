@@ -25,14 +25,11 @@ export function EquipoItem({
       borderColor="border.subtle"
       opacity={equipo.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="brand.500" fontWeight="bold">
-        #{equipo.id}
-      </Celda>
       <Celda p="3">{equipo.nombre}</Celda>
       <Celda p="3">{equipo.tipo}</Celda>
       <Celda p="3">{equipo.ubicacion}</Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {equipo.activo && (
             <>
               <BotonTabla accion="historial" onClick={() => onVerHistorial(equipo)}>

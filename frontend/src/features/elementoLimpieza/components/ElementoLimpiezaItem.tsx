@@ -22,9 +22,6 @@ export function ElementoLimpiezaItem({
       borderColor="border.subtle"
       opacity={elemento.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="brand.fg" fontWeight="bold">
-        #{elemento.id}
-      </Celda>
       <Celda p="3">{elemento.nombre}</Celda>
       <Celda p="3">
         {elemento.fecha_ultimo_recambio
@@ -33,7 +30,7 @@ export function ElementoLimpiezaItem({
       </Celda>
       <Celda p="3">{elemento.frecuencia_recambio_dias ?? "Sin definir"}</Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {elemento.activo && (
             <BotonTabla accion="editar" onClick={() => onEdit(elemento)}>
               Modificar

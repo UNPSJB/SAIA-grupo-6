@@ -34,7 +34,6 @@ interface IncidenteFormProps {
   isLoading?: boolean;
   submitLabel?: string;
   title?: string;
-  fullWidth?: boolean;
 }
 
 const emptyValues: IncidenteFormValues = {
@@ -55,7 +54,7 @@ export function IncidenteForm({
   isLoading = false,
   submitLabel = "Guardar",
   title = "Registrar incidente",
-  fullWidth = false,
+
 }: IncidenteFormProps) {
   const [values, setValues] = useState<IncidenteFormValues>(emptyValues);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -65,8 +64,14 @@ export function IncidenteForm({
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
 
-  // Ancho del campo: es layout, no estilo, así que queda como prop.
-  const anchoCampo = fullWidth ? undefined : "500px";
+  /*
+   * Ancho del campo. Es layout, no estilo, así que queda como prop.
+   *
+   * La tarjeta sí ocupa toda la página, pero los campos no: un input de 1300px
+   * de largo es discomfortable de recorrer con la vista. Este es el mismo tope
+   * que usan los formularios de alta del resto de las features.
+   */
+  const anchoCampo = "500px";
 
   useEffect(() => {
     const cargarEquipos = async () => {

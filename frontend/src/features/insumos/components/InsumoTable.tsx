@@ -29,14 +29,13 @@ export function InsumoTable({
   }
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Unidad Medida</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Unidad Medida</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

@@ -33,15 +33,14 @@ export function EquipoTable({
   }
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Tipo</EncabezadoOscuro>
-            <EncabezadoOscuro>Ubicación</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="amplia">Ubicación</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

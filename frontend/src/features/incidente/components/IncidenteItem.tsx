@@ -74,7 +74,21 @@ export function IncidenteItem({
       </Celda>
 
       <Celda p="3">
-        <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="2" py="1">
+        {/*
+          `maxW` + ellipsis en los badges: con `table-layout: fixed` la columna
+          ya no crece para acomodar la etiqueta, y "Falla / Rotura de Equipo"
+          se salía de la celda. Con puntos suspensivos el texto largo se
+          recorta dentro de la píldora en vez de pisar la columna de al lado.
+        */}
+        <Badge
+          colorPalette={tipoColor(incidente.tipo)}
+          borderRadius="md"
+          px="2"
+          py="1"
+          maxW="100%"
+          overflow="hidden"
+          textOverflow="ellipsis"
+        >
           {tipoLabel(incidente.tipo)}
         </Badge>
       </Celda>
@@ -85,6 +99,9 @@ export function IncidenteItem({
           borderRadius="md"
           px="3"
           py="1"
+          maxW="100%"
+          overflow="hidden"
+          textOverflow="ellipsis"
         >
           {estadoLabel(incidente.estado)}
         </Badge>
@@ -96,7 +113,7 @@ export function IncidenteItem({
 
       {showActions && (
         <Celda p="3" center>
-          <HStack justify="center" gap="2">
+          <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
             <IconButton
               type="button"
               variant="ghost"

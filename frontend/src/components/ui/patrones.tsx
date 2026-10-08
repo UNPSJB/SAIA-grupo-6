@@ -195,6 +195,58 @@ export function Celda({
   );
 }
 
+/* ───────────────────────── Anchos de columna ──────────────────────────── */
+
+/**
+ * Anchos por tipo de columna, en **porcentaje del ancho de la tabla**.
+ *
+ * Con `table-layout: fixed` (definido en el `slotRecipe` de `table`) el ancho
+ * de una columna sale del `width` de su encabezado y no del contenido. Así los
+ * nombres de las columnas caen siempre en el mismo lugar, en vez de moverse
+ * según el dato de cada fila. Las columnas sin `width` se reparten en partes
+ * iguales lo que sobra.
+ *
+ * Porcentaje y no píxeles, a propósito: con píxeles fijos, los 260px de la
+ * columna de acciones se comían el 62% de una tabla de 3 columnas en una
+ * ventana angosta y dejaban 79px para el nombre. En porcentaje la proporción
+ * se mantiene desde 400px hasta 1600px de tabla.
+ *
+ * Los valores están calibrados para que **la suma de una tabla nunca llegue
+ * al 100%**: si se pasa, la columna sin ancho (la principal) colapsa a cero.
+ * Con `table-layout: fixed`, lo que sobra se reparte proporcionalmente entre
+ * todas, así que quedarse corto es seguro y pasarse no.
+ *
+ *   angosta          14%  símbolo, estado, foto, cantidad: una palabra corta
+ *   media            12%  fechas, DNI, periodicidad, "días restantes"
+ *   amplia           16%  tipo, ubicación
+ *   acciones         20%  un botón, o dos chicos ("Cerrar", "Reabrir")
+ *   accionesAnchas   28%  dos botones ("Modificar" + "Eliminar" miden 177px)
+ *                     o cuatro, que pasan a dos filas
+ *
+ * `angosta` es 14% y no menos porque la columna "Estado" y la "Origen" llevan
+ * un `Badge`: "Pendiente" y "Elemento de limpieza" miden unos 90px, y con 9%
+ * el texto se salía de la celda. La suma más cargada (incidentes, 7 columnas)
+ * queda en 96%, y el plan de calibración (8 columnas) en 94%.
+ *
+ * `acciones` al 20% alcanza solo cuando hay un botón. Los catálogos con
+ * "Modificar" y "Eliminar" necesitan `accionesAnchas`: con 20% en una tabla de
+ * 660px la celda quedaba en 132px, los dos botones sumaban 177px y el
+ * `overflow: hidden` de la tabla (el que hace las esquinas redondeadas)
+ * recortaba "Eliminar".
+ *
+ * La columna principal (nombre, título, producto) NO lleva ancho a propósito:
+ * se queda con lo que sobra y por eso siempre es la más ancha de la tabla.
+ */
+const ANCHO_COLUMNA = {
+  angosta: "14%",
+  media: "12%",
+  amplia: "16%",
+  acciones: "20%",
+  accionesAnchas: "28%",
+} as const;
+
+export type AnchoColumna = keyof typeof ANCHO_COLUMNA;
+
 /**
  * Columna de encabezado para tablas de detalle (fondo claro).
  * El texto va en caja normal: los nombres largos en mayúsculas se leen peor
@@ -203,9 +255,15 @@ export function Celda({
 export function ColumnaHeader({
   children,
   center = false,
+  ancho,
   width,
   ...rest
-}: { children: ReactNode; center?: boolean; width?: string } & BoxProps) {
+}: {
+  children: ReactNode;
+  center?: boolean;
+  /** Mismo criterio que `EncabezadoOscuro`: ver `ANCHO_COLUMNA`. */
+  ancho?: AnchoColumna;
+} & BoxProps) {
   return (
     <Table.ColumnHeader
       px="4"
@@ -214,7 +272,7 @@ export function ColumnaHeader({
       fontWeight="bold"
       fontSize="sm"
       textAlign={center ? "center" : undefined}
-      width={width}
+      width={width ?? (ancho ? ANCHO_COLUMNA[ancho] : undefined)}
       borderBottomWidth="2px"
       borderColor="border"
       bg="bg.muted"
@@ -235,9 +293,15 @@ export function FilaEncabezado({ children }: { children: ReactNode }) {
 export function EncabezadoOscuro({
   children,
   center = false,
+  ancho,
   width,
   ...rest
-}: { children: ReactNode; center?: boolean; width?: string } & BoxProps) {
+}: {
+  children: ReactNode;
+  center?: boolean;
+  /** Ancho por tipo de columna. Si se pasa `width`, gana sobre `ancho`. */
+  ancho?: AnchoColumna;
+} & BoxProps) {
   return (
     <Table.ColumnHeader
       px="4"
@@ -248,7 +312,7 @@ export function EncabezadoOscuro({
       borderBottomWidth="none"
       borderColor="transparent"
       textAlign={center ? "center" : undefined}
-      width={width}
+      width={width ?? (ancho ? ANCHO_COLUMNA[ancho] : undefined)}
       {...rest}
     >
       {children}
@@ -664,12 +728,12 @@ export function Paginacion({
               return (
                 <IconButton
                   aria-label={`Página ${pageItem.value}`}
-                  bg={isSelected ? "brand.500" : "transparent"}
+                  bg={isSelected ? "brand.600" : "transparent"}
                   color={isSelected ? "white" : "brand.fg"}
                   borderWidth={isSelected ? "0" : "1px"}
                   borderColor="border"
                   rounded="md"
-                  _hover={{ bg: isSelected ? "brand.500" : "brand.subtle" }}
+                  _hover={{ bg: isSelected ? "brand.700" : "brand.subtle" }}
                 >
                   {pageItem.value}
                 </IconButton>

@@ -12,9 +12,6 @@ interface AptitudItemProps {
 export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudItemProps) {
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={aptitud.activo ? 1 : 0.65}>
-      <Celda p="3" color="brand.fg" fontWeight="bold">
-        #{aptitud.id}
-      </Celda>
       <Celda p="3">{aptitud.nombre}</Celda>
       <Celda p="3">
         {aptitud.descripcion || (
@@ -24,7 +21,7 @@ export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudI
         )}
       </Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {aptitud.activo ? (
             <>
               <BotonTabla accion="editar" onClick={() => onEdit(aptitud)}>

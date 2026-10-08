@@ -30,9 +30,6 @@ export function PlanCalibracionMantenimientoItem({
 
   return (
     <Table.Row>
-      <Celda p="3" color="brand.fg" fontWeight="bold">
-        #{plan.id}
-      </Celda>
       <Celda p="3">{nombreEquipo}</Celda>
       <Celda p="3">
         {plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
@@ -52,7 +49,7 @@ export function PlanCalibracionMantenimientoItem({
         </Badge>
       </Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           <BotonTabla accion="editar" onClick={() => onEdit(plan)}>
             Modificar
           </BotonTabla>

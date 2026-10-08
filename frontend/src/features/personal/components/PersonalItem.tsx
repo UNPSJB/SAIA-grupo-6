@@ -34,9 +34,6 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
 
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={persona.activo ? 1 : 0.65}>
-      <Celda p="3" color="brand.fg" fontWeight="bold">
-        #{persona.id}
-      </Celda>
       <Celda p="3">
         {persona.nombre} {persona.apellido || ""}
       </Celda>
@@ -58,7 +55,7 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
         </Button>
       </Celda>
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {persona.activo && puedeEditar && (
             <BotonTabla accion="editar" onClick={() => onEdit(persona)}>
               Modificar

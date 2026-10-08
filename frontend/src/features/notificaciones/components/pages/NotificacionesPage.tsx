@@ -101,10 +101,10 @@ export function NotificacionesPage() {
   });
 
   return (
-    <Box p="5" maxW="1000px" mx="auto">
+    <Box p="5">
       <PageHeader
         title={
-          <HStack gap="2">
+          <HStack gap="2" flexWrap="wrap" rowGap="2">
             <span aria-hidden>🔔</span>
             Centro de notificaciones
           </HStack>
@@ -132,15 +132,15 @@ export function NotificacionesPage() {
           </Text>
         </Tarjeta>
       ) : (
-        <Tarjeta>
-          <Table.Root variant="outline" size="md">
+        <Tarjeta overflowX="auto">
+          <Table.Root variant="outline" size="md" w="100%" minW="940px">
             <Table.Header>
               <FilaEncabezado>
-                <EncabezadoOscuro>Origen</EncabezadoOscuro>
-                <EncabezadoOscuro>Estado</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Origen</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
                 <EncabezadoOscuro>Detalle / Mensaje</EncabezadoOscuro>
-                <EncabezadoOscuro>Vencimiento</EncabezadoOscuro>
-                <EncabezadoOscuro center>Acción</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
+                <EncabezadoOscuro center ancho="acciones">Acción</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
@@ -151,6 +151,9 @@ export function NotificacionesPage() {
                     transition="background 0.2s"
                   >
                     <Celda>
+                      {/* Mismo motivo que en `IncidenteItem`: con la tabla de
+                          ancho fijo la etiqueta ya no hace crecer la columna,
+                          y "Plan Calibración/Mantenimiento" mide 204px. */}
                       <Badge
                         colorPalette={paletaOrigen(n.tipo)}
                         variant="subtle"
@@ -158,6 +161,9 @@ export function NotificacionesPage() {
                         py="1"
                         borderRadius="md"
                         fontWeight="bold"
+                        maxW="100%"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
                       >
                         {n.tipo === "ELEMENTO_LIMPIEZA"
                           ? "Elemento Limpieza"
@@ -172,6 +178,9 @@ export function NotificacionesPage() {
                         py="1"
                         borderRadius="md"
                         fontWeight="bold"
+                        maxW="100%"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
                       >
                         {n.nivel === "VENCIDO" ? "VENCIDO" : "PRÓXIMO A VENCER"}
                       </Badge>

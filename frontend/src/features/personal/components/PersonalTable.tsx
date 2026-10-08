@@ -24,16 +24,15 @@ export function PersonalTable({ personales, onEdit, onDelete, onReactivar }: Per
   }
 
   return (
-    <Tarjeta>
-      <Table.Root variant="outline" w="100%">
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>ID</EncabezadoOscuro>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>DNI</EncabezadoOscuro>
-            <EncabezadoOscuro>Permisos</EncabezadoOscuro>
-            <EncabezadoOscuro center>Detalle</EncabezadoOscuro>
-            <EncabezadoOscuro center>Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">DNI</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Permisos</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Detalle</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

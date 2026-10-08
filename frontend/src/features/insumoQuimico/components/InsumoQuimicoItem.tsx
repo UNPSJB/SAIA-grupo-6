@@ -31,9 +31,6 @@ export function InsumoQuimicoItem({
       borderColor="border.subtle"
       opacity={insumo.activo ? 1 : 0.65}
     >
-      <Celda p="3" color="fg" fontWeight="bold">
-        #{insumo.id}
-      </Celda>
 
       <Celda p="3">{insumo.nombre}</Celda>
 
@@ -42,7 +39,7 @@ export function InsumoQuimicoItem({
       <Celda p="3">{unidadLabel}</Celda>
 
       <Celda p="3" center>
-        <HStack justify="center" gap="2">
+        <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo ? (
             <>
               <BotonTabla accion="editar" onClick={() => onEdit(insumo)}>

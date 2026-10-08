@@ -279,6 +279,20 @@ const config = defineConfig({
             borderSpacing: "0",
             borderRadius: "lg",
             overflow: "hidden",
+            /*
+             * `fixed` y no el `auto` del navegador.
+             *
+             * Con `auto` el reparto de anchos lo decide el contenido: una fila
+             * con un nombre más largo ensancha su columna y desplaza los
+             * encabezados de todas las demás. Medido, la columna "Acciones"
+             * iba de 137px (incidentes) a 377px (equipos) en la misma app.
+             *
+             * Con `fixed`, el ancho sale del `width` de la celda del
+             * encabezado, y las columnas sin `width` se reparten lo que sobra.
+             * Los anchos por tipo de columna viven en `patrones.tsx`
+             * (`ANCHO_COLUMNA`).
+             */
+            tableLayout: "fixed",
           },
         },
       },
