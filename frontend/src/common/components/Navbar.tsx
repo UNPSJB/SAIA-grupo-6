@@ -14,11 +14,32 @@ import {
   Text,
 } from "@chakra-ui/react";
 import {
+  LuBadgeCheck,
+  LuBrush,
+  LuChartPie,
   LuChevronDown,
   LuClipboardCheck,
+  LuClipboardList,
   LuDatabase,
+  LuFileText,
+  LuFlaskConical,
+  LuFolderSearch,
+  LuHistory,
+  LuHouse,
+  LuListChecks,
+  LuLogOut,
+  LuMicroscope,
+  LuPanelLeftClose,
+  LuPanelLeftOpen,
+  LuPackage,
+  LuRuler,
   LuShieldCheck,
+  LuSparkles,
+  LuTriangleAlert,
+  LuUsers,
+  LuWrench,
 } from "react-icons/lu";
+import type { IconType } from "react-icons/lib";
 
 /**
  * Cada entrada del menú. La visibilidad por rol se declara acá, en el
@@ -33,6 +54,15 @@ interface EntradaMenu {
   to: string;
   label: string;
   rol: RolMenu;
+  /**
+   * Ícono de la entrada.
+   *
+   * Antes el `NavItem` solo pintaba el texto, así que con el sidebar colapsado
+   * a una barra de íconos las opciones quedaban sin nada que mostrar. Va en el
+   * dato y no hardcodeado en el render para que agregar una sección sea
+   * siempre una línea.
+   */
+  icon: IconType;
 }
 
 interface GrupoMenu {
@@ -40,6 +70,8 @@ interface GrupoMenu {
   label: string;
   /** Descripción corta que se lee bajo el título del grupo. */
   ayuda: string;
+  /** Ícono del grupo: con el sidebar colapsado es el separador de sección. */
+  icon: IconType;
   entradas: EntradaMenu[];
 }
 
@@ -63,40 +95,136 @@ const GRUPOS: GrupoMenu[] = [
     id: "maestros",
     label: "Datos maestros",
     ayuda: "Catálogos y configuración",
+    icon: LuDatabase,
     entradas: [
-      { to: "/equipos", label: "Equipos", rol: "administrar" },
-      { to: "/personal", label: "Personal", rol: "administrar" },
-      { to: "/unidades-medida", label: "Unidades de Medida", rol: "administrar" },
-      { to: "/insumos", label: "Insumos", rol: "administrar" },
-      { to: "/insumos-quimicos", label: "Insumos Químicos", rol: "administrar" },
-      { to: "/aptitudes", label: "Aptitudes", rol: "administrar" },
-      { to: "/documentos", label: "Documentos", rol: "administrar" },
+      { to: "/equipos", label: "Equipos", rol: "administrar", icon: LuMicroscope },
+      { to: "/personal", label: "Personal", rol: "administrar", icon: LuUsers },
+      {
+        to: "/unidades-medida",
+        label: "Unidades de Medida",
+        rol: "administrar",
+        icon: LuRuler,
+      },
+      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
+      {
+        to: "/insumos-quimicos",
+        label: "Insumos Químicos",
+        rol: "administrar",
+        icon: LuFlaskConical,
+      },
+      { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
+      { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
     ],
   },
   {
     id: "operaciones",
     label: "Operaciones",
     ayuda: "Trabajo diario",
+    icon: LuClipboardCheck,
     entradas: [
-      { to: "/checklist", label: "Checklist Diario", rol: "operar" },
-      { to: "/incidentes/reportar", label: "Reportar Incidente", rol: "operar" },
-      { to: "/incidentes", label: "Gestión de Incidentes", rol: "administrar" },
-      { to: "/planes-limpieza", label: "Planes de Limpieza", rol: "administrar" },
+      { to: "/checklist", label: "Checklist Diario", rol: "operar", icon: LuListChecks },
+      {
+        to: "/incidentes/reportar",
+        label: "Reportar Incidente",
+        rol: "operar",
+        icon: LuTriangleAlert,
+      },
+      {
+        to: "/incidentes",
+        label: "Gestión de Incidentes",
+        rol: "administrar",
+        icon: LuClipboardList,
+      },
+      {
+        to: "/planes-limpieza",
+        label: "Planes de Limpieza",
+        rol: "administrar",
+        icon: LuSparkles,
+      },
       {
         to: "/planes-calibracion-mantenimiento",
         label: "Calibración/Mantenimiento",
         rol: "administrar",
+        icon: LuWrench,
       },
-      { to: "/elementos-limpieza", label: "Elementos de Limpieza", rol: "administrar" },
-      { to: "/checklist/historial", label: "Historial de Checklists", rol: "administrar" },
-      { to: "/consumo-productos", label: "Consumo de Productos", rol: "administrar" },
-      { to: "/consulta-documentos", label: "Consultar Documentos", rol: "operar" },
+      {
+        to: "/elementos-limpieza",
+        label: "Elementos de Limpieza",
+        rol: "administrar",
+        icon: LuBrush,
+      },
+      {
+        to: "/checklist/historial",
+        label: "Historial de Checklists",
+        rol: "administrar",
+        icon: LuHistory,
+      },
+      {
+        to: "/consumo-productos",
+        label: "Consumo de Productos",
+        rol: "administrar",
+        icon: LuChartPie,
+      },
+      {
+        to: "/consulta-documentos",
+        label: "Consultar Documentos",
+        rol: "operar",
+        icon: LuFolderSearch,
+      },
     ],
   },
 ];
 
 /** Enlaces sueltos, fuera de cualquier grupo. */
-const MENU: EntradaMenu[] = [{ to: "/", label: "Inicio", rol: "todos" }];
+const MENU: EntradaMenu[] = [
+  { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
+];
+
+/** Ancho del sidebar según el estado. */
+const ANCHO_EXPANDIDO_PX = 280;
+const ANCHO_COLAPSADO_PX = 64;
+const ANCHO_EXPANDIDO = `${ANCHO_EXPANDIDO_PX}px`;
+const ANCHO_COLAPSADO = `${ANCHO_COLAPSADO_PX}px`;
+
+/*
+ * Columna de íconos.
+ *
+ * Para que al plegar los logos no se muevan, el contenido es el mismo en los
+ * dos modos y TODOS los íconos tienen que caer, ya desplegado, donde quedan
+ * centrados en la barra plegada: a `ANCHO_COLAPSADO_PX / 2` = 32px del borde
+ * izquierdo. Cada padding sale de ahí:
+ *
+ *   - Ítems:    (40px de fila útil [64 - 2×12 de la lista] - 18px de ícono) / 2
+ *   - Grupos:   (40px - 16px de ícono) / 2
+ *   - Escudo:   (64px - 28px de ícono) / 2
+ *   - Plegar:   (64px - 34px de botón [18px de ícono + 2×8px de padding]) / 2
+ *   - Logout:   (40px - 2px de borde - 18px de ícono) / 2
+ *
+ * Si se cambia el ancho plegado o el tamaño de algún ícono, hay que
+ * recalcular el valor correspondiente.
+ */
+const PAD_ICONO_ITEM = "11px";
+const PAD_ICONO_GRUPO = "12px";
+const PAD_ESCUDO = "18px";
+const PAD_BOTON_PLEGAR = "15px";
+const PAD_ICONO_LOGOUT = "10px";
+
+/**
+ * Textos alineados en una sola columna: 12 (lista) + 11 (padding del ícono)
+ * + 18 (ícono) + 12 (gap) = 53px. El nombre usa el mismo valor menos los 12px
+ * del contenedor, y queda fuera de la vista con la barra plegada.
+ */
+const PAD_NOMBRE = "41px";
+
+/**
+ * Posición fija de la flecha del grupo, medida desde el borde izquierdo del
+ * trigger con la barra desplegada: ancho - 24 (padding de la lista)
+ * - 12 (padding derecho del trigger) - 14 (tamaño de la flecha).
+ */
+const LEFT_FLECHA = `${ANCHO_EXPANDIDO_PX - 24 - 12 - 14}px`;
+
+/** Clave de `localStorage` para recordar el estado entre recargas. */
+const CLAVE_COLAPSADO = "saia_nav_colapsado";
 
 function esVisibleEntrada(
   entrada: EntradaMenu,
@@ -133,42 +261,55 @@ function entradaActiva(pathname: string, entradas: EntradaMenu[]): string | null
 interface NavItemProps {
   entrada: EntradaMenu;
   activa: boolean;
-  /** Los ítems de un grupo van sangrados bajo el título. */
-  anidado?: boolean;
+  /**
+   * Barra reducida. Solo agrega el tooltip nativo: el layout del ítem es el
+   * mismo plegado y desplegado, así que ni el ícono ni el texto cambian al
+   * animar.
+   */
+  colapsado?: boolean;
 }
 
-function NavItem({ entrada, activa, anidado }: NavItemProps) {
+function NavItem({ entrada, activa, colapsado = false }: NavItemProps) {
+  const Icono = entrada.icon;
   return (
     // `Link asChild` en vez de `Box as={NavLink}`: el tipado polimórfico de Box
     // no conoce las props del NavLink de react-router y el `to` no compila.
     <Link
       asChild
       aria-current={activa ? "page" : undefined}
-      display="block"
       /*
-       * Sangría de las opciones dentro de un grupo.
-       *
-       * Se corre la fila entera, no solo el texto: `mx="2"` corre también la
-       * píldora blanca del ítem activo, así deja de arrancar en el mismo x que
-       * la fila del desplegable y las dos se distinguen por la forma y no solo
-       * por el texto.
-       *
-       * El ancho del sidebar acompaña porque hace falta: "Calibración/
-       * Mantenimiento" mide 186px de texto, y a 260px de sidebar con esta
-       * sangría el nombre se recortaba con puntos suspensivos. A 280px quedan
-       * 204px útiles.
+       * El texto ya no se desmonta al plegar, así que el nombre accesible sale
+       * del propio contenido y no hace falta `aria-label`. El `title` queda
+       * para el tooltip cuando solo se ve el ícono.
        */
-      mx={anidado ? "2" : undefined}
-      pl={anidado ? "6" : "3"}
+      title={colapsado ? entrada.label : undefined}
+      display="flex"
+      alignItems="center"
+      gap="3"
+      /*
+       * Mismo padding en los dos modos. `PAD_ICONO_ITEM` deja el ícono
+       * centrado en la barra plegada (40px de fila útiles, ícono de 18px), y
+       * como no cambia al plegar, el ícono no se mueve ni un píxel: solo el
+       * borde derecho del sidebar lo va destapando o cubriendo.
+       */
+      pl={PAD_ICONO_ITEM}
       pr="3"
+      /*
+       * Alto fijo para que la fila mida lo mismo con o sin texto visible.
+       */
+      h="11"
       py="3"
       rounded="md"
       fontSize="sm"
       fontWeight={activa ? "bold" : "medium"}
       textDecoration="none"
       whiteSpace="nowrap"
+      /*
+       * `overflow: hidden` + `nowrap`: mientras el sidebar se angosta la fila
+       * se achica con él y el texto simplemente queda recortado, sin
+       * reacomodarse ni saltar a otra línea.
+       */
       overflow="hidden"
-      textOverflow="ellipsis"
       // El activo invierte los colores en vez de usar un tinte: blanco sobre
       // brand.700 da 6.4:1, y es la única señal que sobrevive con brillo alto
       // y a simple vistazo.
@@ -182,10 +323,22 @@ function NavItem({ entrada, activa, anidado }: NavItemProps) {
       _focusVisible={{
         outline: "2px solid",
         outlineColor: "white",
-        outlineOffset: "2px",
+        outlineOffset: "-2px",
       }}
     >
-      <NavLink to={entrada.to}>{entrada.label}</NavLink>
+      {/*
+        Ícono y texto van DENTRO del `NavLink`, y el `NavLink` es el único
+        hijo del `Link asChild`: `Slot` exige exactamente un hijo y, con dos,
+        deja de componer y no renderiza ningún `<a>` (los enlaces desaparecían
+        de la barra).
+
+        `flexShrink: 0` en el ícono: un SVG dentro de un flex con
+        `overflow: hidden` puede encogerse al achicarse la fila.
+      */}
+      <NavLink to={entrada.to}>
+        <Icono size={18} aria-hidden style={{ flexShrink: 0 }} />
+        {entrada.label}
+      </NavLink>
     </Link>
   );
 }
@@ -195,15 +348,47 @@ interface NavGroupProps {
   rutaActiva: string | null;
   abierto: boolean;
   onToggle: () => void;
+  /** Barra reducida: solo cambia el tooltip, el layout es el mismo. */
+  colapsado?: boolean;
 }
 
-function NavGroup({ grupo, rutaActiva, abierto, onToggle }: NavGroupProps) {
+function NavGroup({
+  grupo,
+  rutaActiva,
+  abierto,
+  onToggle,
+  colapsado = false,
+}: NavGroupProps) {
   // Punto activo para marcar el grupo con el puntito. Que abra solo lo decide
   // el padre: si contiene la ruta activa siempre está abierto.
   const contieneActiva = grupo.entradas.some((e) => e.to === rutaActiva);
+  const IconoGrupo = grupo.icon;
+
+  const lista = (
+    <Stack as="ul" gap="1" listStyleType="none" p={0} m={0}>
+      {grupo.entradas.map((entrada) => (
+        <Box as="li" key={entrada.to}>
+          <NavItem
+            entrada={entrada}
+            activa={entrada.to === rutaActiva}
+            colapsado={colapsado}
+          />
+        </Box>
+      ))}
+    </Stack>
+  );
 
   return (
     <Collapsible.Root open={abierto} onOpenChange={onToggle}>
+      {/*
+        Separador de sección, y NO un borde del botón (con borde el trigger se
+        veía como un botón con marco frente al resto de la barra, que es lisa).
+
+        Sin márgenes laterales: ocupa el mismo ancho que las filas, así queda
+        simétrico tanto en la barra desplegada como en la plegada.
+      */}
+      <Box borderTopWidth="1px" borderColor="whiteAlpha.200" mt="2" aria-hidden />
+
       {/*
         `Collapsible.Trigger` ya renderiza un <button>, así que lleva los
         props de layout directamente. Envolverlo en un `Flex as="button"` con
@@ -217,14 +402,34 @@ function NavGroup({ grupo, rutaActiva, abierto, onToggle }: NavGroupProps) {
          * cerrada. Como el estado lo tenemos arriba, se lo pasamos nosotros.
          */
         aria-expanded={abierto}
+        title={
+          colapsado
+            ? `${grupo.label} (${abierto ? "ocultar" : "mostrar"})`
+            : undefined
+        }
         width="100%"
         display="flex"
         alignItems="center"
-        gap="2"
-        px="3"
-        pt="4"
-        pb="2"
+        /*
+         * `gap` y `pl` calculados para que el ícono del grupo caiga en la
+         * misma columna que los de las opciones (centro a 32px) y el título
+         * arranque en la misma x que sus textos.
+         */
+        gap="13px"
+        h="11"
+        py="2"
+        pl={PAD_ICONO_GRUPO}
+        pr="3"
+        /*
+         * `relative` + `overflow hidden`: la flecha va en posición absoluta
+         * (ver abajo) y el trigger se achica junto con la barra recortando
+         * lo que queda fuera.
+         */
+        position="relative"
+        overflow="hidden"
+        whiteSpace="nowrap"
         rounded="md"
+        border="none"
         _hover={{ bg: "whiteAlpha.100" }}
         _focusVisible={{
           outline: "2px solid",
@@ -232,24 +437,31 @@ function NavGroup({ grupo, rutaActiva, abierto, onToggle }: NavGroupProps) {
           outlineOffset: "-2px",
         }}
       >
-        {grupo.id === "maestros" ? (
-          <LuDatabase size={15} aria-hidden />
-        ) : (
-          <LuClipboardCheck size={15} aria-hidden />
-        )}
+        <IconoGrupo size={16} aria-hidden style={{ flexShrink: 0 }} />
         {/*
           Sin `uppercase`: los títulos de la app van en caja normal (el resto
-          de la barra y todos los encabezados). Mayúsculas y `letterSpacing`
-          solo iban acá y rompían la lectura en horizontal.
+          de la barra y todos los encabezados).
         */}
-        <Text as="span" fontSize="sm" fontWeight="bold" color="whiteAlpha.900">
-          {grupo.label}
-        </Text>
-        {contieneActiva ? (
-          <Box w="6px" h="6px" rounded="full" bg="white" aria-hidden />
-        ) : null}
+        <Flex align="center" gap="2" flexShrink={0}>
+          <Text as="span" fontSize="sm" fontWeight="bold" color="whiteAlpha.900">
+            {grupo.label}
+          </Text>
+          {contieneActiva ? (
+            <Box w="6px" h="6px" rounded="full" bg="white" aria-hidden />
+          ) : null}
+        </Flex>
+        {/*
+          La flecha NO va con `ml="auto"`: pegada al borde derecho de la fila,
+          se correría hacia la izquierda mientras la barra se angosta. Con
+          `left` fijo (medido desde el ancho desplegado) se queda quieta y el
+          borde del trigger la recorta. Gira con `transform`, así que la
+          transición la hace el navegador sin JS.
+        */}
         <Box
-          ml="auto"
+          position="absolute"
+          top="calc(50% - 7px)"
+          left={LEFT_FLECHA}
+          display="flex"
           transitionProperty="transform"
           transitionDuration="fast"
           transform={abierto ? "rotate(0deg)" : "rotate(-90deg)"}
@@ -259,27 +471,124 @@ function NavGroup({ grupo, rutaActiva, abierto, onToggle }: NavGroupProps) {
       </Collapsible.Trigger>
 
       {/*
-        `inert` mientras está colapsado: Ark colapsa con `height: 0` pero deja
-        los links en el DOM sin `hidden`, así que quedaban enfocables con el
-        teclado siendo invisibles — el foco se iba a una sección que no se
-        veía. `inert` los saca del tab order y del árbol de accesibilidad.
+        Despliegue animado con `grid-template-rows: 0fr → 1fr`.
+
+        Es la forma de animar una altura que no se conoce de antemano sin
+        medirla en JavaScript.
+
+        Dos cosas que hubo que descartar antes, y por qué:
+
+        - `Collapsible.Content`: mide el contenido y lo deja en la variable CSS
+          `--height`, aplicando `height: var(--height)`. Esa medición da 0 en
+          esta barra, así que el grupo abría (`aria-expanded="true"`) y abajo
+          no se veía nada.
+        - Animar `max-height` con el alto medido desde un `ResizeObserver`: la
+          medida nunca llegaba al estado y el `max-height` se quedaba en 0.
+
+        El hijo lleva `overflow: hidden` y **nada de `min-height: 0`**: con
+        `min-height: 0` el `1fr` se resuelve contra cero y el grupo queda
+        en 0px, que es el mismo síntoma.
+
+        `inert` sigue haciendo falta: con la animación la lista sigue en el DOM
+        con altura 0, y sin `inert` sus links serían enfocables sin verse y el
+        foco se iría a una sección escondida.
       */}
-      <Collapsible.Content inert={!abierto}>
-        <Stack as="ul" gap="1" listStyleType="none" p={0} m={0}>
-          {grupo.entradas.map((entrada) => (
-            <Box as="li" key={entrada.to}>
-              <NavItem entrada={entrada} activa={entrada.to === rutaActiva} anidado />
-            </Box>
-          ))}
-        </Stack>
-      </Collapsible.Content>
+      <Box
+        display="grid"
+        gridTemplateRows={abierto ? "1fr" : "0fr"}
+        transitionProperty="grid-template-rows"
+        transitionDuration="moderate"
+        transitionTimingFunction="ease-in-out"
+        inert={!abierto}
+      >
+        <Box overflow="hidden">{lista}</Box>
+      </Box>
     </Collapsible.Root>
+  );
+}
+
+/**
+ * Botón que pliega y despliega el sidebar.
+ *
+ * El ícono describe la acción, no el estado: con la barra plegada se muestra
+ * "desplegar", no "plegado". Es la convención de los paneles laterales y evita
+ * tener que leer el label para saber qué pasa al tocarlo.
+ */
+function BotonPlegar({
+  colapsado,
+  onClick,
+}: {
+  colapsado: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      onClick={onClick}
+      variant="ghost"
+      size="sm"
+      aria-expanded={!colapsado}
+      aria-label={colapsado ? "Desplegar el menú" : "Plegar el menú"}
+      title={colapsado ? "Desplegar el menú" : "Plegar el menú"}
+      minW="auto"
+      w="auto"
+      h="auto"
+      px="2"
+      py="2"
+      /*
+       * `bg="transparent"` explícito: la variante `ghost` de Chakra no queda
+       * transparente en reposo — medido, el botón salía con fondo
+       * `rgb(244,244,245)` y texto blanco, o sea blanco sobre blanco. El
+       * sidebar es `brand.700`, así que el fondo va explícito igual que el
+       * color.
+       */
+      bg="transparent"
+      color="white"
+      _hover={{ bg: "whiteAlpha.200" }}
+      _focusVisible={{
+        outline: "2px solid",
+        outlineColor: "white",
+        outlineOffset: "-2px",
+      }}
+    >
+      {colapsado ? (
+        <LuPanelLeftOpen size={18} aria-hidden />
+      ) : (
+        <LuPanelLeftClose size={18} aria-hidden />
+      )}
+    </Button>
   );
 }
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
+
+  /*
+   * Sidebar reducido a barra de íconos.
+   *
+   * Se persiste en `localStorage` porque es una preferencia de la persona, no
+   * del estado de la app: recargar y que vuelva al ancho completo es molesto.
+   * Se lee de forma tolerante: si el valor no es "1" se toma expandido, así un
+   * dato corrupto no deja la barra en 64px sin forma de recuperarla desde la
+   * UI.
+   *
+   * Este estado solo cambia el ANCHO de la barra (y tooltips). No hay un
+   * segundo layout "plegado": el contenido es el mismo siempre y el borde
+   * derecho lo recorta. Antes había un layout aparte (texto desmontado,
+   * íconos centrados) que se aplicaba de golpe al hacer clic, y por eso se
+   * veía el texto desaparecer y los logos saltar al medio antes de que la
+   * barra empezara a achicarse.
+   */
+  const [colapsado, setColapsado] = useState(
+    () => localStorage.getItem(CLAVE_COLAPSADO) === "1"
+  );
+  const alternarColapso = () =>
+    setColapsado((prev) => {
+      const siguiente = !prev;
+      localStorage.setItem(CLAVE_COLAPSADO, siguiente ? "1" : "0");
+      return siguiente;
+    });
 
   /*
    * Grupos que el usuario cerró a mano.
@@ -370,31 +679,69 @@ export default function Navbar() {
       // Sobre brand.700 da 6.4:1.
       bg="brand.700"
       color="white"
-      w="280px"
+      w={colapsado ? ANCHO_COLAPSADO : ANCHO_EXPANDIDO}
       h="100vh"
       position="sticky"
       top={0}
       flexShrink={0}
       flexDirection="column"
+      // `overflow: hidden` es lo que hace la animación: el borde derecho de
+      // la barra recorre el contenido, que no se mueve.
+      overflow="hidden"
+      transitionProperty="width"
+      transitionDuration="moderate"
+      transitionTimingFunction="ease-in-out"
       boxShadow="2px 0 5px rgba(0, 0, 0, 0.1)"
     >
-      {/* LOGO, TÍTULO Y BOTÓN DE NOTIFICACIONES */}
+      {/*
+        ESCUDO, TÍTULO Y NOTIFICACIONES.
+
+        Ancho fijo (el desplegado): si la cabecera se achicara con la barra,
+        `space-between` arrastraría la campana hacia la izquierda y "SAIA"
+        se reacomodaría. Así quedan quietos y el borde los recorta.
+      */}
       <Flex
         align="center"
         justify="space-between"
         gap="2"
-        px="5"
-        pt="5"
-        pb="3"
+        w={ANCHO_EXPANDIDO}
+        pl={PAD_ESCUDO}
+        pr="5"
+        h="16"
         flexShrink={0}
       >
         <Flex align="center" gap="3">
-          <LuShieldCheck size={28} color="brand.100" aria-hidden />
-          <Heading as="h2" size="lg" letterSpacing="wider">
+          <LuShieldCheck
+            size={28}
+            color="brand.100"
+            aria-hidden
+            style={{ flexShrink: 0 }}
+          />
+          <Heading as="h2" size="lg" letterSpacing="wider" whiteSpace="nowrap">
             SAIA
           </Heading>
         </Flex>
-        {puedeAdministrar(user) && <BotonNotificaciones />}
+        {/*
+          Plegada, la campana queda fuera de la vista pero sigue en el DOM:
+          `inert` evita que el teclado enfoque un botón que no se ve.
+        */}
+        <Box inert={colapsado}>
+          {puedeAdministrar(user) && <BotonNotificaciones />}
+        </Box>
+      </Flex>
+
+      {/*
+        El botón de plegar va en el mismo lugar en los dos modos: `pl` lo deja
+        con el ícono centrado en la barra plegada y no se mueve al plegar.
+      */}
+      <Flex
+        align="center"
+        w={ANCHO_EXPANDIDO}
+        h="10"
+        pl={PAD_BOTON_PLEGAR}
+        flexShrink={0}
+      >
+        <BotonPlegar colapsado={colapsado} onClick={alternarColapso} />
       </Flex>
 
       {/*
@@ -402,6 +749,11 @@ export default function Navbar() {
         entradas, pero el scroll queda como red de seguridad: con muchos
         permisos o con el panel chico nunca debería quedar un enlace
         inalcanzable.
+
+        Esta lista sí se achica con la barra (como hijo de una columna flex
+        se estira al ancho actual de la `nav`, cuadro a cuadro): las filas
+        mantienen sus esquinas redondeadas y su margen de 12px contra el borde
+        mientras este se desplaza.
       */}
       <Box
         as="ul"
@@ -410,6 +762,7 @@ export default function Navbar() {
         m={0}
         flex="1"
         overflowY="auto"
+        overflowX="hidden"
         scrollbarWidth="thin"
         scrollbarColor="whiteAlpha.400 transparent"
       >
@@ -418,6 +771,7 @@ export default function Navbar() {
             <NavItem
               entrada={entrada}
               activa={entrada.to === rutaActiva}
+              colapsado={colapsado}
             />
           </Box>
         ))}
@@ -429,16 +783,30 @@ export default function Navbar() {
               rutaActiva={rutaActiva}
               abierto={!cerrados.has(grupo.id)}
               onToggle={() => alternarGrupo(grupo.id)}
+              colapsado={colapsado}
             />
           </Box>
         ))}
       </Box>
 
       {/* --- BOTÓN DE CERRAR SESIÓN --- */}
-      <Box px="3" pb="4" pt="2" flexShrink={0}>
-        <Text fontSize="xs" color="whiteAlpha.800" px="2" mb="1">
-          {user.nombre} {user.apellido}
-        </Text>
+      <Box px="3" pb="4" pt="2" flexShrink={0} overflow="hidden">
+        {/*
+         * Nombre de la persona. Arranca en la misma x que los textos del menú
+         * (`PAD_NOMBRE`), o sea más allá del borde de la barra plegada: queda
+         * recortado del todo sin tener que desmontarlo ni ocultarlo, y la
+         * altura de la sección es la misma en los dos modos.
+         */}
+        <Box h="5" mb="1" overflow="hidden">
+          <Text
+            fontSize="xs"
+            color="whiteAlpha.800"
+            pl={PAD_NOMBRE}
+            whiteSpace="nowrap"
+          >
+            {user.nombre} {user.apellido}
+          </Text>
+        </Box>
         {/*
           Sin `colorPalette`: la variante `outline` de Chakra usa
           `colorPalette.fg` para el texto, y en modo claro eso es rojo
@@ -446,6 +814,9 @@ export default function Navbar() {
           un botón que no se leía. Acá los colores van explícitos porque el
           sidebar es una superficie oscura y no responde a los tokens de
           superficie clara.
+
+          Ícono + texto siempre montados y alineados a la izquierda: el botón
+          se achica con la barra y el texto queda recortado.
         */}
         <Button
           size="sm"
@@ -458,6 +829,12 @@ export default function Navbar() {
           borderColor="whiteAlpha.500"
           rounded="md"
           fontWeight="bold"
+          justifyContent="flex-start"
+          gap="3"
+          pl={PAD_ICONO_LOGOUT}
+          pr="3"
+          overflow="hidden"
+          whiteSpace="nowrap"
           _hover={{ bg: "whiteAlpha.200", color: "white" }}
           _focusVisible={{
             outline: "2px solid",
@@ -465,7 +842,9 @@ export default function Navbar() {
             outlineOffset: "2px",
           }}
           onClick={logout}
+          title={colapsado ? "Cerrar sesión" : undefined}
         >
+          <LuLogOut size={18} aria-hidden style={{ flexShrink: 0 }} />
           Cerrar sesión
         </Button>
       </Box>
