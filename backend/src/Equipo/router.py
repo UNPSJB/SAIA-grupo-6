@@ -1,185 +1,142 @@
-from datetime import date, timedelta
 import os
+import shutil
 import uuid
-
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from datetime import date, timedelta
+from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from werkzeug.utils import secure_filename
+from pydantic import BaseModel, ConfigDict
 
-from src.auth.dependencies import require_admin, require_operador
-from src.config import CARPETA_UPLOADS
 from src.database import get_db
-from . import schemas, services
-from .models import Calibracion, Equipo
+from src.Equipo.models import Equipo, Calibracion
+from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
+from src.auth.dependencies import require_admin
 
-# Sin dependencia global: cada endpoint declara lo que necesita.
-# Leer la lista de equipos es parte de lo operativo (por ejemplo, para
-# reportar un incidente), pero modificar el maestro es solo del administrador.
-router = APIRouter(
-    prefix="/equipos",
-    tags=["Equipos"],
-)
+router = APIRouter(prefix="/equipos", tags=["equipos"], dependencies=[Depends(require_admin)])
 
-@router.post(
-    "",
-    response_model=schemas.EquipoResponse,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)]
-)
-def crear_equipo(
-    datos: schemas.EquipoCreate,
-    db: Session = Depends(get_db)
-):
-    return services.crear_equipo(db, datos)
+class EquipoResponse(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    ubicacion: str
+    activo: bool
 
-@router.get(
-    "",
-    response_model=list[schemas.EquipoResponse],
-    dependencies=[Depends(require_operador)]
-)
-def listar_equipos(
-    incluir_inactivos: bool = False,
-    db:Session = Depends(get_db)
-):
-    return services.listar_equipos(db, incluir_inactivos)
+    model_config = ConfigDict(from_attributes=True)
 
-@router.get(
-    "/{equipo_id}",
-    response_model=schemas.EquipoResponse,
-    dependencies=[Depends(require_operador)]
-)
-def obtener_equipo(
+class EquipoCreate(BaseModel):
+    nombre: str
+    tipo: str
+    ubicacion: str
+
+class EquipoUpdate(BaseModel):
+    nombre: str | None = None
+    tipo: str | None = None
+    ubicacion: str | None = None
+    activo: bool | None = None
+
+class CalibracionResponse(BaseModel):
+    id: int
+    fecha_realizacion: date
+    proximo_vencimiento: date | None = None
+    certificado_url: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+@router.get("", response_model=list[EquipoResponse])
+def listar_equipos(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
+    consulta = select(Equipo).order_by(Equipo.id)
+    if not incluir_inactivos:
+        consulta = consulta.where(Equipo.activo == True)
+    return list(db.scalars(consulta).all())
+
+@router.post("", response_model=EquipoResponse)
+def crear_equipo(datos: EquipoCreate, db: Session = Depends(get_db)):
+    nuevo = Equipo(**datos.model_dump())
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return nuevo
+
+@router.put("/{equipo_id}", response_model=EquipoResponse)
+def modificar_equipo(equipo_id: int, datos: EquipoUpdate, db: Session = Depends(get_db)):
+    equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    
+    cambios = datos.model_dump(exclude_unset=True)
+    for clave, valor in cambios.items():
+        setattr(equipo, clave, valor)
+        
+    db.commit()
+    db.refresh(equipo)
+    return equipo
+
+@router.delete("/{equipo_id}")
+def eliminar_equipo(equipo_id: int, db: Session = Depends(get_db)):
+    equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    
+    equipo.activo = False
+    db.commit()
+    return {"mensaje": "Equipo dado de baja lógicamente"}
+
+@router.post("/{equipo_id}/calibraciones")
+def registrar_calibracion(
     equipo_id: int,
+    fecha: date = Form(...),
+    archivo: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    return services.obtener_equipo(db, equipo_id)
-
-@router.patch(
-    "/{equipo_id}",
-    response_model=schemas.EquipoResponse,
-    dependencies=[Depends(require_admin)]
-)
-def actualizar_equipo(
-    equipo_id: int,
-    datos: schemas.EquipoUpdate,
-    db: Session = Depends(get_db)
-):
-    return services.actualizar_equipo(
-        db,
-        equipo_id,
-        datos
-    )
-
-@router.delete(
-    "/{equipo_id}",
-    response_model=schemas.EquipoResponse,
-    dependencies=[Depends(require_admin)]
-)
-def dar_de_baja_equipo(
-    equipo_id: int,
-    db: Session = Depends(get_db)
-):
-    return services.dar_de_baja_equipo(
-        db,
-        equipo_id
-    )
-
-# Extensiones y tamaño del certificado. Mismo criterio que las fotos de
-# incidentes: el MIME que manda el navegador no alcanza, se valida acá.
-EXTENSIONES_CERTIFICADO = {".pdf", ".jpg", ".jpeg", ".png"}
-TAMANO_MAX_CERTIFICADO = 10 * 1024 * 1024  # 10 MB
-
-
-@router.post(
-    "/{equipo_id}/calibraciones",
-    status_code=status.HTTP_201_CREATED,
-    response_model=schemas.CalibracionResponse,
-    dependencies=[Depends(require_operador)]
-)
-def registrar_calibracion_con_certificado(
-    equipo_id: int,
-    fecha_realizacion: date = Form(...),
-    certificado: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-    # 1. Buscar que el equipo exista
     equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    # 2. Validar que sea PDF o Imagen (Criterio de Aceptación)
-    #
-    #    `secure_filename` recorta la ruta que venga en el nombre del archivo
-    #    para que no se pueda escribir fuera de la carpeta de certificados.
-    extension = os.path.splitext(secure_filename(certificado.filename or ""))[1].lower()
-    if extension not in EXTENSIONES_CERTIFICADO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El certificado debe ser PDF o imagen. "
-                f"Formatos válidos: {', '.join(sorted(EXTENSIONES_CERTIFICADO))}."
-            ),
+    # 1. Buscamos el plan activo de calibración para este equipo
+    plan = db.scalar(
+        select(PlanCalibracionMantenimiento).where(
+            PlanCalibracionMantenimiento.equipo_id == equipo_id,
+            PlanCalibracionMantenimiento.tipo == "calibracion",
+            PlanCalibracionMantenimiento.activo == True
         )
+    )
 
-    # 3. Tope de tamaño antes de escribir nada en disco.
-    contenido = certificado.file.read()
-    if len(contenido) > TAMANO_MAX_CERTIFICADO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El certificado supera el máximo de "
-                f"{TAMANO_MAX_CERTIFICADO // (1024 * 1024)} MB."
-            ),
-        )
+    # 2. Guardamos el archivo físicamente
+    extension = archivo.filename.split('.')[-1]
+    nombre_archivo = f"eq{equipo_id}_{uuid.uuid4().hex[:8]}.{extension}"
+    os.makedirs("uploads/certificados", exist_ok=True)
+    ruta_guardado = f"uploads/certificados/{nombre_archivo}"
 
-    # 4. Guardar el archivo con un nombre único para que dos certificados del
-    #    mismo equipo no se pisen. Va anclado a CARPETA_UPLOADS y no al CWD del
-    #    proceso: arrancar el server desde otra carpeta guardaba (y dejaba de
-    #    servir) los archivos en otro lado.
-    nombre_archivo = f"eq{equipo_id}_{uuid.uuid4().hex[:8]}{extension}"
-    carpeta = CARPETA_UPLOADS / "certificados"
-    os.makedirs(carpeta, exist_ok=True)
-    (carpeta / nombre_archivo).write_bytes(contenido)
+    with open(ruta_guardado, "wb") as buffer:
+        shutil.copyfileobj(archivo.file, buffer)
 
-    # La ruta se guarda CON el prefijo "uploads/" y sin "/" inicial, que es lo
-    # que espera el endpoint /uploads para resolverla dentro de CARPETA_UPLOADS.
-    ruta_relativa = f"uploads/certificados/{nombre_archivo}"
+    # 3. Calculamos el próximo vencimiento para el historial
+    proximo_venc = None
+    if plan:
+        proximo_venc = fecha + timedelta(days=plan.periodicidad_dias)
 
-    # 5. Calcular próximo vencimiento (Criterio de Aceptación)
-    # Si el equipo no tiene frecuencia definida, le ponemos 365 días por defecto
-    dias_frecuencia = equipo.frecuencia_calibracion_dias or 365
-    fecha_vencimiento = fecha_realizacion + timedelta(days=dias_frecuencia)
-
-    # 6. Guardar el registro en la base de datos
+    # 4. Registramos tu historial de auditoría
     nueva_calibracion = Calibracion(
         equipo_id=equipo_id,
-        fecha_realizacion=fecha_realizacion,
-        proximo_vencimiento=fecha_vencimiento,
-        certificado_url=ruta_relativa
+        fecha_realizacion=fecha,
+        proximo_vencimiento=proximo_venc,
+        certificado_url=f"/uploads/certificados/{nombre_archivo}"
     )
-    
     db.add(nueva_calibracion)
+
+    # 5. INTEGRACIÓN: Actualizamos el plan para que recalcule las alertas
+    if plan and fecha >= plan.fecha_ultima_intervencion:
+        plan.fecha_ultima_intervencion = fecha
+
     db.commit()
-    db.refresh(nueva_calibracion)
+    return {"mensaje": "Calibración registrada con éxito"}
 
-    return nueva_calibracion
-
-
-@router.get(
-    "/{equipo_id}/calibraciones",
-    response_model=list[schemas.CalibracionResponse],
-    dependencies=[Depends(require_operador)]
-)
-def ver_historial_calibraciones(
-    equipo_id: int,
-    db: Session = Depends(get_db)
-):
+@router.get("/{equipo_id}/calibraciones", response_model=list[CalibracionResponse])
+def ver_historial_calibraciones(equipo_id: int, db: Session = Depends(get_db)):
     equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    # Buscamos las calibraciones ordenadas por fecha descendente
     calibraciones = db.scalars(
         select(Calibracion)
         .where(Calibracion.equipo_id == equipo_id)
