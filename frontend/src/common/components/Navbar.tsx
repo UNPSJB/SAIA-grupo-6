@@ -217,6 +217,17 @@ const PAD_ICONO_LOGOUT = "10px";
 const PAD_NOMBRE = "41px";
 
 /**
+ * Separación escudo → título.
+ *
+ * Con el gap de 12px que traía antes, la "S" de "SAIA" asomaba con la barra
+ * plegada: el escudo arranca en `PAD_ESCUDO` (18px) y mide 28px, así que el
+ * texto entraba en 18 + 28 + 12 = 58px, seis antes del corte de la barra de
+ * 64px. Con 20px el título arranca en 66px — dos píxeles más allá del borde —
+ * y queda entero fuera de la vista plegada.
+ */
+const GAP_ESCUDO_TITULO = "20px";
+
+/**
  * Posición fija de la flecha del grupo, medida desde el borde izquierdo del
  * trigger con la barra desplegada: ancho - 24 (padding de la lista)
  * - 12 (padding derecho del trigger) - 14 (tamaño de la flecha).
@@ -710,7 +721,7 @@ export default function Navbar() {
         h="16"
         flexShrink={0}
       >
-        <Flex align="center" gap="3">
+        <Flex align="center" gap={GAP_ESCUDO_TITULO}>
           <LuShieldCheck
             size={28}
             color="brand.100"
@@ -763,8 +774,9 @@ export default function Navbar() {
         flex="1"
         overflowY="auto"
         overflowX="hidden"
-        scrollbarWidth="thin"
-        scrollbarColor="whiteAlpha.400 transparent"
+        // Sin `scrollbarWidth`/`scrollbarColor`: la barra de este `ul` (y de
+        // toda la app) está oculta por la regla global de `index.css`, así que
+        // esas props ya no pintaban nada.
       >
         {entradas.map((entrada) => (
           <Box as="li" key={entrada.to} mb="1">

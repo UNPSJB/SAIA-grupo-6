@@ -68,6 +68,13 @@ const config = defineConfig({
        *   xs   12px  metadatos y ayudas
        *
        * `fontSize="13px"` es `sm`; `fontSize="22px"` es `2xl`.
+       *
+       * EXCEPCION: `5xl` (48px), el token que ya trae Chakra, se usa solo en
+       * el indicador de cumplimiento del panel de inicio (`TarjetaCumplimiento`).
+       * Es el unico numero de la app que necesita leerse a distancia. Se usa
+       * el token y no un valor crudo para no abrir la puerta a un sexto
+       * tamanho arbitrario: si manana hace falta otro, se declara aca con su
+       * unico uso.
        */
       fontSizes: {
         xs: { value: "0.75rem" },

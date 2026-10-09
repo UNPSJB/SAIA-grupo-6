@@ -65,6 +65,7 @@ src/
 │   └── hooks/        # Hooks compartidos
 ├── components/ui/    # Componentes base de Chakra UI
 ├── features/         # Un módulo por historia de usuario
+│   ├── dashboard/    # Panel principal: cumplimiento de POES, incidentes y alertas
 │   ├── checklist/    # Checklist del día, historial y consumo
 │   ├── personal/     # Usuarios y capacidades
 │   ├── planLimpieza/ # Planes y tareas

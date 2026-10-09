@@ -11,3 +11,38 @@
  * el preflight de Chakra. Agregar estilos acá tiene el riesgo de volver a
  * ganarle al sistema: usá tokens y props de Chakra.
  */
+
+/*
+ * SCROLLBARS INVISIBLES
+ *
+ * Oculta la barra en TODOS los contenedores scrolleables de la app (la columna
+ * de contenido, la lista del menú lateral, los diálogos y las tablas), sin
+ * quitar el scroll: rueda, trackpad, teclado (Page Up/Down, espacio, flechas)
+ * y la rueda del mouse siguen moviendo el contenido.
+ *
+ * Tres declaraciones por motor:
+ *
+ *   scrollbar-width: none        Firefox y Chrome 121+
+ *   -ms-overflow-style: none     Edge antiguo / Internet Explorer
+ *   ::-webkit-scrollbar          Chrome, Edge y Safari (display: none es lo
+ *                               único que realmente los saca de pantalla)
+ *
+ * Un beneficio colateral: al no ocupar espacio, el ancho del contenido no
+ * cambia según si la página scrollea o no, así que nada "salta" de Columna al
+ * empezar a deslizar.
+ *
+ * El precio es que se pierde la pista visual de que hay más contenido. Para
+ * las tablas con `overflowX="auto"` eso importa: si alguna vez conviene
+ * recordarlo, alcanza con sacar esta regla y aplicar `scrollbarWidth="thin"`
+ * (prop de Chakra) solo en esos `Tarjeta overflowX="auto"`.
+ */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}

@@ -1,8 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Outlet } from "react-router-dom";
-import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
-import { PageHeader } from "./components/ui/patrones";
+import { Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -14,6 +13,11 @@ import { Login } from "./features/Login";
 
 import Navbar from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
+
+// 0. Panel principal
+const InicioPage = lazy(() =>
+  import("./features/dashboard/components/pages/InicioPage").then((mod) => ({ default: mod.InicioPage })),
+);
 
 // 1. Personal
 const PersonalPage = lazy(() =>
@@ -219,15 +223,12 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "/",
+            // El panel es la única página con datos: la carga y los cálculos
+            // viven en `InicioPage`, y acá solo se la registra como ruta.
             element: (
-              // `PageHeader` para que el título de Inicio tenga el mismo
-              // tamaño que el de cualquier otra pantalla.
-              <Box>
-                <PageHeader
-                  title="Panel principal"
-                  description="Seleccioná una opción del menú lateral para comenzar."
-                />
-              </Box>
+              <ConSuspense>
+                <InicioPage />
+              </ConSuspense>
             ),
           },
 
