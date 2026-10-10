@@ -1,4 +1,4 @@
-import type { Incidente, IncidenteFormValues, EstadoIncidente, HistorialIncidenteResponse } from "../types/incidente";
+import type { Incidente, IncidenteFormValues, EstadoIncidente, HistorialIncidenteResponse, IncidenteResumen } from "../types/incidente";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 
@@ -92,4 +92,24 @@ export async function obtenerHistorialIncidente(
   const response = await apiFetch(`${API_URL}/incidentes/${id}/historial`);
 
   return pedir<HistorialIncidenteResponse>(response, "Error al obtener el historial del incidente");
+}
+
+/**
+ * Indicador "incidentes por tipo" (E7).
+ *
+ * Por defecto cuenta solo los incidentes abiertos (sin acción correctiva
+ * registrada). Con `incluirCerrados` cuenta el histórico completo.
+ */
+export async function obtenerResumenIncidentesPorTipo(
+  incluirCerrados = false
+): Promise<IncidenteResumen> {
+  const query = incluirCerrados ? "?incluir_cerrados=true" : "";
+  const response = await apiFetch(
+    `${API_URL}/incidentes/resumen-por-tipo${query}`
+  );
+
+  return pedir<IncidenteResumen>(
+    response,
+    "Error al obtener los incidentes por tipo"
+  );
 }

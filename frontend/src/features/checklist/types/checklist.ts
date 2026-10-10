@@ -14,6 +14,8 @@ export interface ChecklistTareaItem {
   usuario_id?: number | null;
   evidencia_url?: string | null;
   descripcion?: string | null;
+  tipo?: string | null;
+  observaciones?: string | null;
   insumo_quimico_id?: number | null;
   cantidad_consumida?: number | null;
   elemento_limpieza_id?: number | null;
@@ -68,6 +70,8 @@ export interface TareaDelDia {
   elemento_limpieza_id?: number | null;
   checklist_estado?: EstadoChecklist | null;
   descripcion?: string | null;
+  tipo?: string | null;
+  observaciones?: string | null;
 }
 
 export interface ConsumoInsumoItem {
