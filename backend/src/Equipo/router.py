@@ -10,6 +10,9 @@ from werkzeug.utils import secure_filename
 from src.auth.dependencies import require_admin, require_operador
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
+from src.PlanCalibracionMantenimiento.services import (
+    asentar_ultima_intervencion_por_calibracion,
+)
 from . import schemas, services
 from .models import Calibracion, Equipo
 
@@ -160,6 +163,13 @@ def registrar_calibracion_con_certificado(
     )
     
     db.add(nueva_calibracion)
+
+    # 7. Asentar la calibración sobre el plan de calibración activo del equipo.
+    #    Avanza la última intervención (solo planes de calibración, nunca de
+    #    mantenimiento) usando la fecha de realización; las fechas viejas no
+    #    atrasan el plan.
+    asentar_ultima_intervencion_por_calibracion(db, equipo_id, fecha_realizacion)
+
     db.commit()
     db.refresh(nueva_calibracion)
 

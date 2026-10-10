@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -125,3 +126,34 @@ def modificar_plan_calibracion_mantenimiento(
         _verificar_plan_activo_duplicado(db, equipo_id, tipo, plan.id)
 
     return aplicar_cambios(db, plan, cambios, _MAPEA_CONFLICTO)
+
+
+def asentar_ultima_intervencion_por_calibracion(
+    db: Session, equipo_id: int, fecha_realizacion: date
+) -> None:
+    """Asienta una calibración registrada sobre los planes de calibración.
+
+    Reglas de negocio:
+    - Solo toca planes `tipo == "calibracion"` y `activo`; los planes de
+      mantenimiento del equipo quedan intactos.
+    - Avanza `fecha_ultima_intervencion` con `fecha_realizacion` (la fecha en
+      que se hizo la calibración), no con la fecha de hoy.
+    - Nunca atrasa la fecha: si la calibración registrada es más vieja que la
+      última intervención ya asentada, se ignora.
+
+    Por la validación de planes activos duplicados hay, como máximo, un plan
+    de calibración activo por equipo; el bucle es defensivo. No hace commit:
+    comparte la transacción con el alta de la calibración.
+    """
+    planes = db.scalars(
+        select(models.PlanCalibracionMantenimiento).where(
+            models.PlanCalibracionMantenimiento.equipo_id == equipo_id,
+            models.PlanCalibracionMantenimiento.tipo == "calibracion",
+            models.PlanCalibracionMantenimiento.activo.is_(True),
+        )
+    ).all()
+
+    for plan in planes:
+        if fecha_realizacion > plan.fecha_ultima_intervencion:
+            plan.fecha_ultima_intervencion = fecha_realizacion
+            db.add(plan)
