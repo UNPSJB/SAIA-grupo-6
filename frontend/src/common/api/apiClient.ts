@@ -1,3 +1,5 @@
+import { CLAVE_USUARIO } from "../context/auth-context";
+
 // URL base de la API. Se puede overridear con VITE_API_URL para poder
 // levantar la app desde un celular/tablet (donde "localhost" es el propio
 // dispositivo y no la PC del servidor).
@@ -22,6 +24,24 @@ export function setTokens(accessToken: string, refreshToken: string) {
 export function clearTokens() {
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
+}
+
+// Evita que varias requests 401 en paralelo disparen el redirect varias veces.
+let expulsandoAlLogin = false;
+
+/**
+ * Sesión irrecuperable: el access token dio 401 y el refresh tampoco pudo
+ * renovarla. Se limpian los tokens (y la sesión guardada) y se manda al login,
+ * en lugar de dejar que cada pantalla muestre su propio error.
+ */
+function expulsarPorSesionVencida() {
+  clearTokens();
+  localStorage.removeItem(CLAVE_USUARIO);
+  if (expulsandoAlLogin) return;
+  expulsandoAlLogin = true;
+  if (!window.location.pathname.startsWith("/login")) {
+    window.location.assign("/login");
+  }
 }
 
 async function tryRefresh(): Promise<boolean> {
@@ -76,6 +96,13 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       response = await fetch(input, retryInit);
     }
   }
+
+  // Si después de intentar renovar sigue siendo 401, la sesión quedó vacía o el
+  // refresh también venció: no hay nada que reintentar, se cierra sesión.
+  if (response.status === 401) {
+    expulsarPorSesionVencida();
+  }
+
   return response;
 }
 

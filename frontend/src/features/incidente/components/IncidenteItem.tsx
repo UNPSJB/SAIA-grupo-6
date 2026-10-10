@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button, HStack, Table, Badge, Text } from "@chakra-ui/react";
+import { CeldaFoto } from "./MiniaturaFoto";
 import {
   estadoLabel,
   tipoLabel,
@@ -22,6 +23,15 @@ interface IncidenteItemProps {
   showActions?: boolean;
 }
 
+// HU #55: Calcular si pasaron más de 7 días desde el reporte
+function llevaMuchoTiempoAbierto(fechaReporte: string): boolean {
+  const reporte = new Date(fechaReporte);
+  const hoy = new Date();
+  const diffTime = hoy.getTime() - reporte.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 7;
+}
+
 export function IncidenteItem({
   incidente,
   onCerrar,
@@ -40,34 +50,57 @@ export function IncidenteItem({
     }
   };
 
+  // Resaltado visual si está abierto y es viejo
+  const esViejo = !cerrado && llevaMuchoTiempoAbierto(incidente.fecha_reporte);
+
   return (
     <Table.Row
       style={{
         borderBottom: "1px solid #eee",
         opacity: cerrado ? 0.7 : 1,
+        backgroundColor: esViejo ? "#fff5f5" : "inherit",
+        borderLeft: esViejo ? "4px solid #e53e3e" : "none",
       }}
     >
-      <Table.Cell fontSize="14px" style={{ padding: "12px", whiteSpace: "nowrap" }}>
-        {formatoFecha(incidente.fecha_reporte)}
+      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
+        #{incidente.id}
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px", maxWidth: "220px" }}>
         <Text
-          lineClamp={2}
-          wordBreak="break-word"
-          whiteSpace="pre-line"
+          fontWeight="bold"
+          fontSize="15px"
+          lineClamp={1}
+          color="black"
           title={incidente.titulo}
         >
           {incidente.titulo}
         </Text>
+        <Text
+          fontSize="14px"
+          color="gray.600"
+          lineClamp={2}
+          wordBreak="break-word"
+          whiteSpace="pre-line"
+          mt="2px"
+          title={incidente.descripcion}
+        >
+          {incidente.descripcion}
+        </Text>
+        {cerrado && incidente.observacion_cierre && (
+          <Text fontSize="12px" color="gray.500" mt="4px" lineClamp={2}>
+            <strong>Resolución:</strong> {incidente.observacion_cierre}
+          </Text>
+        )}
+        {esViejo && (
+          <Text fontSize="12px" color="red.600" mt="4px" fontWeight="bold">
+            ⚠️ Lleva más de 7 días sin resolver
+          </Text>
+        )}
       </Table.Cell>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>
-        {incidente.foto_url ? (
-          <Text fontSize="18px" title="Ver detalle para ver la foto">📷</Text>
-        ) : (
-          <Text color="gray.400">-</Text>
-        )}
+      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+        <CeldaFoto rutaFoto={incidente.foto_url} />
       </Table.Cell>
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
@@ -89,6 +122,10 @@ export function IncidenteItem({
 
       <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
+      </Table.Cell>
+
+      <Table.Cell fontSize="14px" style={{ padding: "12px" }}>
+        {formatoFecha(incidente.fecha_reporte)}
       </Table.Cell>
 
       {showActions && (

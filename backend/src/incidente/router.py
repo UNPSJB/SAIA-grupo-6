@@ -126,6 +126,24 @@ def listar_mis_incidentes(
     return services.listar_mis_incidentes(db, current_user.id)
 
 
+@router.get("/resumen-por-tipo", response_model=schemas.IncidenteResumenResponse)
+def resumen_incidentes_por_tipo(
+    incluir_cerrados: bool = False,
+    current_user: Personal = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Indicador "incidentes por tipo" del tablero (E7).
+
+    Por defecto cuenta solo los incidentes sin acción correctiva registrada
+    (abiertos). Con `incluir_cerrados=true` cuenta el histórico completo.
+
+    Se declara ANTES de `/{incidente_id}`: si no, FastAPI intentaría parsear
+    "resumen-por-tipo" como id numérico y devolvería 422.
+    """
+    estado = None if incluir_cerrados else EstadoIncidente.ABIERTO
+    return services.resumen_por_tipo(db, estado)
+
+
 @router.get("/{incidente_id}", response_model=schemas.IncidenteResponse)
 def obtener_incidente(
     incidente_id: int,
