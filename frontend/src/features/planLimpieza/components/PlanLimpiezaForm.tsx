@@ -9,6 +9,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
+import { TIPOS_TAREA, type TipoTarea } from "../types/planLimpieza";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
 import {
   BLANCO,
@@ -35,7 +36,15 @@ interface PlanLimpiezaFormProps {
 
 const emptyValues: PlanLimpiezaInput = {
   nombre: "",
-  tareas: [{ nombre: "", frecuencia: 1, descripcion: "" }],
+  tareas: [
+    {
+      nombre: "",
+      frecuencia: 1,
+      tipo: "operacional",
+      descripcion: "",
+      observaciones: "",
+    },
+  ],
   equipo_id: 0,
   autor_id: 0,
 };
@@ -98,10 +107,33 @@ export function PlanLimpiezaForm({
       ),
     }));
 
+  const handleTareaTipoChange = (index: number, tipo: TipoTarea) =>
+    setValues((prev) => ({
+      ...prev,
+      tareas: prev.tareas.map((t, i) => (i === index ? { ...t, tipo } : t)),
+    }));
+
+  const handleTareaObservacionesChange = (index: number, observaciones: string) =>
+    setValues((prev) => ({
+      ...prev,
+      tareas: prev.tareas.map((t, i) =>
+        i === index ? { ...t, observaciones } : t,
+      ),
+    }));
+
   const handleAgregarTarea = () =>
     setValues((prev) => ({
       ...prev,
-      tareas: [...prev.tareas, { nombre: "", frecuencia: 1, descripcion: "" }],
+      tareas: [
+        ...prev.tareas,
+        {
+          nombre: "",
+          frecuencia: 1,
+          tipo: "operacional",
+          descripcion: "",
+          observaciones: "",
+        },
+      ],
     }));
 
   const handleQuitarTarea = (index: number) =>
@@ -218,6 +250,37 @@ export function PlanLimpiezaForm({
                   style={{ ...estiloInput, maxWidth: "140px" }}
                 />
               </Box>
+              <Box>
+                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
+                  TIPO DE TAREA
+                </Box>
+                <NativeSelect.Root>
+                  <NativeSelect.Field
+                    value={tarea.tipo}
+                    onChange={(e) =>
+                      handleTareaTipoChange(
+                        index,
+                        e.target.value as TipoTarea,
+                      )
+                    }
+                    style={{ ...estiloSelect, maxWidth: "180px" }}
+                  >
+                    {TIPOS_TAREA.map((opcion) => (
+                      <option
+                        key={opcion.value}
+                        value={opcion.value}
+                        style={{
+                          backgroundColor: BLANCO,
+                          color: TEXTO_PRIMARIO,
+                        }}
+                      >
+                        {opcion.label}
+                      </option>
+                    ))}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+              </Box>
               <Button
                 type="button"
                 onClick={() => handleQuitarTarea(index)}
@@ -251,6 +314,31 @@ export function PlanLimpiezaForm({
                 "Ej:\n1. Desconectar la energía eléctrica.\n2. Retirar residuos..."
               }
               rows={4}
+              style={{
+                ...estiloInput,
+                maxWidth: "500px",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+            <Box
+              as="label"
+              style={{
+                ...estiloLabel,
+                fontSize: "12px",
+                marginBottom: "4px",
+                marginTop: "8px",
+              }}
+            >
+              OBSERVACIONES (opcional)
+            </Box>
+            <textarea
+              value={tarea.observaciones ?? ""}
+              onChange={(e) =>
+                handleTareaObservacionesChange(index, e.target.value)
+              }
+              placeholder="Ej: Usar guantes y verificar la temperatura antes de empezar."
+              rows={2}
               style={{
                 ...estiloInput,
                 maxWidth: "500px",

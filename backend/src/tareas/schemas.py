@@ -7,12 +7,15 @@ from src.common.validators import (
     texto_opcional,
 )
 from src.tareas import exceptions
+from src.tareas.constants import TipoTarea
 
 
 class TareaBase(BaseModel):
     nombre: str
     frecuencia: int
+    tipo: str
     descripcion: Optional[str] = None
+    observaciones: Optional[str] = None
 
     @field_validator("nombre")
     @classmethod
@@ -26,12 +29,29 @@ class TareaBase(BaseModel):
     def validar_frecuencia(cls, v: Optional[int]) -> Optional[int]:
         return id_positivo(v, invalido=exceptions.FrecuenciaInvalida)
 
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: Optional[str]) -> Optional[str]:
+        # En el update el campo es opcional: si no viene, no se valida.
+        if v is None:
+            return v
+        if v not in {t.value for t in TipoTarea}:
+            raise exceptions.TipoInvalido()
+        return v
+
     @field_validator("descripcion")
     @classmethod
     def limpiar_descripcion(cls, v: Optional[str]) -> Optional[str]:
         # Texto libre (el procedimiento paso a paso): sin restricción de
         # caracteres, solo recortamos espacios y lo dejamos en None si
         # queda vacío.
+        return texto_opcional(v)
+
+    @field_validator("observaciones")
+    @classmethod
+    def limpiar_observaciones(cls, v: Optional[str]) -> Optional[str]:
+        # Texto libre definido por el administrador; mismo criterio que
+        # `descripcion`.
         return texto_opcional(v)
 
 
@@ -54,6 +74,7 @@ class TareaCreate(TareaBase):
 class TareaUpdate(TareaBase):
     nombre: Optional[str] = None
     frecuencia: Optional[int] = None
+    tipo: Optional[str] = None
     activo: Optional[bool] = None
 
 

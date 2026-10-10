@@ -1,8 +1,21 @@
+export type TipoTarea =
+  | "preoperacional"
+  | "operacional"
+  | "postoperacional";
+
+export const TIPOS_TAREA: { value: TipoTarea; label: string }[] = [
+  { value: "preoperacional", label: "Preoperacional" },
+  { value: "operacional", label: "Operacional" },
+  { value: "postoperacional", label: "Postoperacional" },
+];
+
 export interface Tarea {
   id: number;
   nombre: string;
   frecuencia: number;
   descripcion?: string | null;
+  tipo: TipoTarea;
+  observaciones?: string | null;
   activo: boolean;
   plan_limpieza_id: number;
 }
@@ -13,7 +26,9 @@ export interface TareaInput {
   id?: number;
   nombre: string;
   frecuencia: number;
+  tipo: TipoTarea;
   descripcion?: string;
+  observaciones?: string;
 }
 
 export interface PlanLimpieza {

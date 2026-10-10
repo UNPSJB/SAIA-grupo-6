@@ -9,10 +9,12 @@ import {
   Field,
   Button,
   Table,
+  Badge,
 } from "@chakra-ui/react";
 import { useChecklist } from "../../hooks/useChecklist";
 import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
 import { obtenerHistorialRegistro } from "../../services/checklistService";
+import { TIPOS_TAREA } from "../../../planLimpieza/types/planLimpieza";
 import { listarOpcionesInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQuimico";
 import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
@@ -71,6 +73,18 @@ const estiloCelda = {
   borderBottom: "1px solid #eee",
   backgroundColor: BLANCO,
 };
+
+// Etiqueta y color del badge del tipo de tarea. El label sale de la misma
+// lista que usa el formulario del plan (TIPOS_TAREA) para no duplicar textos.
+const COLOR_TIPO_TAREA: Record<string, string> = {
+  preoperacional: "blue",
+  operacional: "green",
+  postoperacional: "orange",
+};
+
+function etiquetaTipoTarea(tipo: string): string {
+  return TIPOS_TAREA.find((opcion) => opcion.value === tipo)?.label ?? tipo;
+}
 
 interface GrupoPlan {
   key: string;
@@ -270,7 +284,34 @@ function FilaTarea({
         key={tarea.registro_id > 0 ? `r-${tarea.registro_id}` : `p-${tarea.id}`}
       >
         <Table.Cell style={{ ...estiloCelda, opacity: esCerrado ? 0.7 : 1 }}>
-          <Text fontWeight="bold">{tarea.nombre}</Text>
+          <HStack gap="8px" align="center" flexWrap="wrap">
+            <Text fontWeight="bold">{tarea.nombre}</Text>
+            {tarea.tipo && (
+              <Badge
+                colorPalette={COLOR_TIPO_TAREA[tarea.tipo] ?? "gray"}
+                borderRadius="6px"
+                px="8px"
+                py="2px"
+                fontSize="11px"
+              >
+                {etiquetaTipoTarea(tarea.tipo)}
+              </Badge>
+            )}
+          </HStack>
+
+          {tarea.observaciones && (
+            <Box
+              mt="6px"
+              fontSize="13px"
+              color={TEXTO_SECUNDARIO}
+              whiteSpace="pre-line"
+            >
+              <Text as="span" fontWeight="bold">
+                Observaciones:{" "}
+              </Text>
+              {tarea.observaciones}
+            </Box>
+          )}
 
           {tarea.descripcion && (
             <Box mt="4px">
