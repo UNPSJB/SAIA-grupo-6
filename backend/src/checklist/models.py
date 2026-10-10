@@ -103,6 +103,14 @@ class RegistroTarea(ModeloBase):
 
     nombre_tarea_historico: Mapped[str] = mapped_column(String(100), nullable=False)
     descripcion_tarea_historico: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # El tipo (preoperacional/operacional/postoperacional) y las observaciones
+    # también son una foto de la tarea al momento de generarse el checklist.
+    # Son opcionales porque las filas viejas (previas a esta historia) no tienen
+    # el dato: solo se completan cuando la tarea los define y se congela.
+    tipo_tarea_historico: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    observaciones_tarea_historico: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     completado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     fecha_completado: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 

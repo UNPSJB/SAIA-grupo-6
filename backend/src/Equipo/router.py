@@ -10,6 +10,10 @@ from werkzeug.utils import secure_filename
 from src.auth.dependencies import require_admin, require_operador
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
+from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
+from src.PlanCalibracionMantenimiento.services import (
+    asentar_ultima_intervencion_por_calibracion,
+)
 from . import schemas, services
 from .models import Calibracion, Equipo
 
@@ -147,8 +151,20 @@ def registrar_calibracion_con_certificado(
     ruta_relativa = f"uploads/certificados/{nombre_archivo}"
 
     # 5. Calcular próximo vencimiento (Criterio de Aceptación)
-    # Si el equipo no tiene frecuencia definida, le ponemos 365 días por defecto
-    dias_frecuencia = equipo.frecuencia_calibracion_dias or 365
+    # Si hay un plan de calibración activo manda su periodicidad (la misma que
+    # usa el sistema de alertas para el vencimiento del plan). Sin plan, se
+    # vuelve a la frecuencia del equipo y, si tampoco la tiene, 365 días.
+    plan_activo = db.scalar(
+        select(PlanCalibracionMantenimiento).where(
+            PlanCalibracionMantenimiento.equipo_id == equipo_id,
+            PlanCalibracionMantenimiento.tipo == "calibracion",
+            PlanCalibracionMantenimiento.activo.is_(True),
+        )
+    )
+    if plan_activo is not None:
+        dias_frecuencia = plan_activo.periodicidad_dias
+    else:
+        dias_frecuencia = equipo.frecuencia_calibracion_dias or 365
     fecha_vencimiento = fecha_realizacion + timedelta(days=dias_frecuencia)
 
     # 6. Guardar el registro en la base de datos
@@ -160,6 +176,13 @@ def registrar_calibracion_con_certificado(
     )
     
     db.add(nueva_calibracion)
+
+    # 7. Asentar la calibración sobre el plan de calibración activo del equipo.
+    #    Avanza la última intervención (solo planes de calibración, nunca de
+    #    mantenimiento) usando la fecha de realización; las fechas viejas no
+    #    atrasan el plan.
+    asentar_ultima_intervencion_por_calibracion(db, equipo_id, fecha_realizacion)
+
     db.commit()
     db.refresh(nueva_calibracion)
 

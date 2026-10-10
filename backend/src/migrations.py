@@ -202,7 +202,65 @@ def run_migrations() -> None:
                 text("ALTER TABLE calibraciones DROP COLUMN activo")
             )
 
-    # 6) Bootstrap del primer super admin.
+    # 6) Tareas: tipo (preoperacional/operacional/postoperacional) y
+    #    observaciones del administrador.
+    #
+    #    `tipo` es NOT NULL con default: las tareas que ya existían quedan como
+    #    operacionales (el default histórico). `observaciones` es texto libre.
+    if "tareas" in tablas:
+        columnas = _columnas_de(inspector, "tareas")
+
+        if "tipo" not in columnas:
+            logger.info("Migración: agregando columna tareas.tipo")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE tareas "
+                        "ADD COLUMN tipo VARCHAR(30) NOT NULL DEFAULT 'operacional'"
+                    )
+                )
+
+        if "observaciones" not in columnas:
+            logger.info("Migración: agregando columna tareas.observaciones")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text("ALTER TABLE tareas ADD COLUMN observaciones TEXT")
+                )
+
+    # 7) Registro de tareas: congelado del tipo y las observaciones.
+    #
+    #    El checklist es una foto de la tarea al generarse; las filas viejas
+    #    no tienen el dato, por eso las columnas quedan en NULL (a diferencia
+    #    de `tareas.tipo`, acá no se puede inventar un valor del pasado).
+    if "registro_tareas" in tablas:
+        columnas = _columnas_de(inspector, "registro_tareas")
+
+        if "tipo_tarea_historico" not in columnas:
+            logger.info(
+                "Migración: agregando columna registro_tareas.tipo_tarea_historico"
+            )
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE registro_tareas "
+                        "ADD COLUMN tipo_tarea_historico VARCHAR(30)"
+                    )
+                )
+
+        if "observaciones_tarea_historico" not in columnas:
+            logger.info(
+                "Migración: agregando columna "
+                "registro_tareas.observaciones_tarea_historico"
+            )
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE registro_tareas "
+                        "ADD COLUMN observaciones_tarea_historico TEXT"
+                    )
+                )
+
+    # 8) Bootstrap del primer super admin.
     #
     #    Antes corría en cada arranque: un super admin que se degradaba a
     #    propósito (para pasar el control) volvía a ser promovido en el

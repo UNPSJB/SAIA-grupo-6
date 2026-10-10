@@ -45,9 +45,16 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
 
 def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
     """Instancia las tareas nuevas y propias del plan (composición, no M2M).
-    Cada tarea trae su propia frecuencia y su procedimiento."""
+    Cada tarea trae su propia frecuencia, su procedimiento, su tipo
+    (preoperacional/operacional/postoperacional) y sus observaciones."""
     return [
-        Tarea(nombre=t.nombre, frecuencia=t.frecuencia, descripcion=t.descripcion)
+        Tarea(
+            nombre=t.nombre,
+            frecuencia=t.frecuencia,
+            tipo=t.tipo,
+            descripcion=t.descripcion,
+            observaciones=t.observaciones,
+        )
         for t in tareas
     ]
 
@@ -131,14 +138,18 @@ def modificar_plan_limpieza(
                 tarea = tareas_actuales_por_id[tarea_id]
                 tarea.nombre = t["nombre"]
                 tarea.frecuencia = t["frecuencia"]
+                tarea.tipo = t["tipo"]
                 tarea.descripcion = t.get("descripcion")
+                tarea.observaciones = t.get("observaciones")
                 tarea.activo = True
             else:
                 db_plan.tareas.append(
                     Tarea(
                         nombre=t["nombre"],
                         frecuencia=t["frecuencia"],
+                        tipo=t["tipo"],
                         descripcion=t.get("descripcion"),
+                        observaciones=t.get("observaciones"),
                     )
                 )
 

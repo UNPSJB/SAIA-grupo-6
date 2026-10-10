@@ -1,11 +1,11 @@
 import logging
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 from src.common.persistence import guardar
 from src.incidente import models, schemas, exceptions
-from src.incidente.constants import EstadoIncidente
+from src.incidente.constants import EstadoIncidente, TipoIncidente
 from src.Equipo.models import Equipo
 from src.personal.models import Personal
 
@@ -126,6 +126,36 @@ def listar_mis_incidentes(db: Session, usuario_id: int) -> List[models.Incidente
         .order_by(models.Incidente.fecha_reporte.desc())
     )
     return _completar_nombres(list(db.scalars(consulta).all()))
+
+
+def resumen_por_tipo(
+    db: Session, estado: Optional[EstadoIncidente] = None
+) -> schemas.IncidenteResumenResponse:
+    """Cuenta incidentes por tipo para el indicador del tablero (E7).
+
+    Devuelve los cinco tipos siempre, con 0 si no hay registros. Por
+    defecto es el universo de los abiertos (la historia de "incidentes abiertos":
+    que ninguno quede reportado y olvidado).
+    """
+    consulta = select(
+        models.Incidente.tipo, func.count(models.Incidente.id)
+    ).group_by(models.Incidente.tipo)
+    if estado:
+        consulta = consulta.where(models.Incidente.estado == estado.value)
+
+    conteos = {tipo.value: 0 for tipo in TipoIncidente}
+    for tipo, cantidad in db.execute(consulta).all():
+        if tipo in conteos:
+            conteos[tipo] = cantidad
+
+    return schemas.IncidenteResumenResponse(
+        estado=estado.value if estado else "todos",
+        total=sum(conteos.values()),
+        por_tipo=[
+            schemas.IncidenteResumenTipo(tipo=t, cantidad=conteos[t])
+            for t in (tipo.value for tipo in TipoIncidente)
+        ],
+    )
 
 
 def cambiar_estado_incidente(

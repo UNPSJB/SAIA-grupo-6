@@ -16,6 +16,8 @@ class ChecklistTareaItem(BaseModel):
     usuario_id: Optional[int] = None
     evidencia_url: Optional[str] = None
     descripcion: Optional[str] = None  # procedimiento vigente de la tarea
+    tipo: Optional[str] = None  # tipo vigente de la tarea (preoperacional/...)
+    observaciones: Optional[str] = None  # observaciones vigentes de la tarea
     # Consumo aproximado del producto químico
     insumo_quimico_id: Optional[int] = None
     cantidad_consumida: Optional[float] = None
@@ -94,6 +96,8 @@ class TareaDelDiaItem(BaseModel):
 
     checklist_estado: Optional[EstadoChecklist] = None
     descripcion: Optional[str] = None  # procedimiento vigente de la tarea
+    tipo: Optional[str] = None  # tipo vigente (preoperacional/operacional/...)
+    observaciones: Optional[str] = None  # observaciones vigentes de la tarea
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -69,6 +69,26 @@ class IncidenteResponse(IncidenteBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class IncidenteResumenTipo(BaseModel):
+    """Cantidad de incidentes de un tipo (para el tablero E7)."""
+
+    tipo: TipoIncidente
+    cantidad: int
+
+
+class IncidenteResumenResponse(BaseModel):
+    """Resumen de incidentes por tipo.
+
+    Los cinco tipos aparecen siempre, con cantidad 0 si no hay registros:
+    así el indicador del tablero puede graficar tipos vacíos. `estado`
+    indica sobre qué universo se contó ("abierto" por defecto).
+    """
+
+    estado: str
+    total: int
+    por_tipo: List[IncidenteResumenTipo]
+
+
 class HistorialIncidenteItem(BaseModel):
     """Un evento del historial de un incidente."""
 

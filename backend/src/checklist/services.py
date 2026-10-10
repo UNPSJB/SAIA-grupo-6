@@ -151,6 +151,8 @@ def _obtener_o_crear_checklist_de_plan(
                 tarea_id=tarea.id,
                 nombre_tarea_historico=tarea.nombre,
                 descripcion_tarea_historico=tarea.descripcion,
+                tipo_tarea_historico=tarea.tipo,
+                observaciones_tarea_historico=tarea.observaciones,
                 completado=False,
             ))
         db.flush()
@@ -214,6 +216,8 @@ def obtener_o_crear_checklists_del_dia(
                         usuario_id=None,
                         evidencia_url=None,
                         descripcion=t.descripcion,
+                        tipo=t.tipo,
+                        observaciones=t.observaciones,
                         elemento_limpieza_id=None,
                     )
                     for t in tareas_del_dia
@@ -243,6 +247,8 @@ def obtener_o_crear_checklists_del_dia(
                     cantidad_consumida=reg.cantidad_consumida,
                     elemento_limpieza_id=reg.elemento_limpieza_id,
                     descripcion=reg.descripcion_tarea_historico,
+                    tipo=reg.tipo_tarea_historico,
+                    observaciones=reg.observaciones_tarea_historico,
                 )
                 for reg in checklist.registros
             ],
@@ -322,6 +328,8 @@ def listar_tareas_del_dia(
                         fecha_completado=None,
                         usuario_id=None,
                         descripcion=tarea.descripcion,
+                        tipo=tarea.tipo,
+                        observaciones=tarea.observaciones,
                         elemento_limpieza_id=None,
                     ))
                 continue
@@ -357,6 +365,8 @@ def listar_tareas_del_dia(
                     elemento_limpieza_id=reg.elemento_limpieza_id,
                     checklist_estado=checklist.estado,
                     descripcion=reg.descripcion_tarea_historico,
+                    tipo=reg.tipo_tarea_historico,
+                    observaciones=reg.observaciones_tarea_historico,
                 ))
     if hay_cambios:
         db.commit()
@@ -432,6 +442,8 @@ def marcar_tarea(
             tarea_id=tarea.id,
             nombre_tarea_historico=tarea.nombre,
             descripcion_tarea_historico=tarea.descripcion,
+            tipo_tarea_historico=tarea.tipo,
+            observaciones_tarea_historico=tarea.observaciones,
         )
 
         db.add(registro)

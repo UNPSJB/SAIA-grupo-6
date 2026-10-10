@@ -122,3 +122,23 @@ export interface HistorialIncidenteResponse {
   incidente_id: number;
   eventos: HistorialIncidenteItem[];
 }
+
+// --- Resumen por tipo (indicador E7) ---
+
+/** Cantidad de incidentes de un tipo, tal como la devuelve el backend. */
+export interface IncidenteResumenTipo {
+  tipo: TipoIncidente;
+  cantidad: number;
+}
+
+/**
+ * Resumen de incidentes por tipo que alimenta el indicador del tablero (E7).
+ *
+ * `estado` indica el universo contado ("abierto" o "todos") y `total` es la
+ * suma de todas las cantidades.
+ */
+export interface IncidenteResumen {
+  estado: string;
+  total: number;
+  por_tipo: IncidenteResumenTipo[];
+}
