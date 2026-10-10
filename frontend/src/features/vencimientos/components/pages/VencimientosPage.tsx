@@ -10,6 +10,7 @@ import type {
 } from "../../types/vencimiento";
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import {
+  ERROR_BORDE,
   ERROR_FONDO,
   ERROR_TEXTO,
   EXITO,
@@ -74,6 +75,8 @@ export function VencimientosPage() {
   const navigate = useNavigate();
   const [vencimientos, setVencimientos] = useState<VencimientoConsolidado[]>([]);
   const [tipo, setTipo] = useState<TipoVencimiento | "">("");
+  const [persona, setPersona] = useState(""); // id de la persona, o "" = todas
+  const [aptitud, setAptitud] = useState(""); // nombre de la aptitud, o "" = todas
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState<Orden>("URGENCIA");
   const [loading, setLoading] = useState(true);
@@ -101,24 +104,49 @@ export function VencimientosPage() {
     };
   }, [tipo]);
 
-  // Buscar + ordenar. Se recalcula solo cuando cambia la lista, la búsqueda o el orden.
+  // Opciones de los selectores: las personas y aptitudes que realmente tienen vencimientos.
+  const personas = useMemo(() => {
+    const porId = new Map<number, string>();
+    vencimientos.forEach((v) => porId.set(v.sujeto_id, v.sujeto));
+    return [...porId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [vencimientos]);
+
+  const aptitudes = useMemo(
+    () => [...new Set(vencimientos.map((v) => v.detalle))].sort((a, b) => a.localeCompare(b)),
+    [vencimientos]
+  );
+
+  // Filtrar + buscar + ordenar, todo en el navegador sobre la lista ya cargada.
   const visibles = useMemo(() => {
-    // Cada palabra escrita tiene que aparecer en algún campo: "carnet juan" busca las dos.
     const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean);
-
-    const filtrados =
-      terminos.length === 0
-        ? vencimientos
-        : vencimientos.filter((v) => {
-            const texto = textoBuscable(v);
-            return terminos.every((t) => texto.includes(t));
-          });
-
     const rango = RANGO_ESTADO[orden];
-    return [...filtrados].sort(
-      (a, b) => rango[a.estado] - rango[b.estado] || a.dias_restantes - b.dias_restantes
-    );
-  }, [vencimientos, busqueda, orden]);
+
+    return vencimientos
+      .filter((v) => !persona || String(v.sujeto_id) === persona)
+      .filter((v) => !aptitud || v.detalle === aptitud)
+      .filter((v) => {
+        if (terminos.length === 0) return true;
+        const texto = textoBuscable(v);
+        return terminos.every((t) => texto.includes(t));
+      })
+      .sort((a, b) => rango[a.estado] - rango[b.estado] || a.dias_restantes - b.dias_restantes);
+  }, [vencimientos, persona, aptitud, busqueda, orden]);
+
+  const hayFiltros = persona !== "" || aptitud !== "" || busqueda !== "";
+
+  const limpiarFiltros = () => {
+    setPersona("");
+    setAptitud("");
+    setBusqueda("");
+  };
+
+  // Al cambiar el tipo se reinician los filtros de persona y aptitud, porque
+  // los ids de personas y de equipos podrían coincidir.
+  const cambiarTipo = (nuevo: TipoVencimiento | "") => {
+    setTipo(nuevo);
+    setPersona("");
+    setAptitud("");
+  };
 
   return (
     <Box style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
@@ -126,7 +154,7 @@ export function VencimientosPage() {
         📅 Vencimientos
       </Heading>
 
-      {/* BUSCADOR, FILTRO POR TIPO Y ORDEN */}
+      {/* BUSCADOR, FILTROS Y ORDEN */}
       <Box
         style={{
           display: "flex",
@@ -136,44 +164,21 @@ export function VencimientosPage() {
           marginBottom: "16px",
         }}
       >
-        <Box style={{ flex: 1, minWidth: "240px" }}>
-          <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>
-            Buscar
-          </Text>
-          <Box style={{ display: "flex", gap: "8px" }}>
-            <Input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder=""
-              bg="white"
-            />
-            {busqueda && (
-              <Button
-                onClick={() => setBusqueda("")}
-                height="auto"
-                minW="auto"
-                style={{
-                  padding: "0 14px",
-                  borderRadius: "6px",
-                  border: "1px solid #cbd5e0",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Limpiar
-              </Button>
-            )}
-          </Box>
+        <Box style={{ flex: 1, minWidth: "220px" }}>
+          <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>Buscar</Text>
+          <Input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Persona, equipo, detalle, fecha, estado..."
+            bg="white"
+          />
         </Box>
 
         <Box>
-          <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>
-            Tipo
-          </Text>
+          <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>Tipo</Text>
           <select
             value={tipo}
-            onChange={(e) => setTipo(e.target.value as TipoVencimiento | "")}
+            onChange={(e) => cambiarTipo(e.target.value as TipoVencimiento | "")}
             style={estiloSelect}
           >
             <option value="">Todos</option>
@@ -185,10 +190,49 @@ export function VencimientosPage() {
           </select>
         </Box>
 
+        {/* Estos dos filtros solo tienen sentido para vencimientos de personal. */}
+        {tipo === "PERSONAL" && (
+          <>
+            <Box>
+              <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>
+                Persona
+              </Text>
+              <select
+                value={persona}
+                onChange={(e) => setPersona(e.target.value)}
+                style={estiloSelect}
+              >
+                <option value="">Todas</option>
+                {personas.map(([id, nombre]) => (
+                  <option key={id} value={id}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </Box>
+
+            <Box>
+              <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>
+                Seleccioná aptitud
+              </Text>
+              <select
+                value={aptitud}
+                onChange={(e) => setAptitud(e.target.value)}
+                style={estiloSelect}
+              >
+                <option value="">Todos</option>
+                {aptitudes.map((nombre) => (
+                  <option key={nombre} value={nombre}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </Box>
+          </>
+        )}
+
         <Box>
-          <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>
-            Ordenar
-          </Text>
+          <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>Ordenar</Text>
           <select
             value={orden}
             onChange={(e) => setOrden(e.target.value as Orden)}
@@ -198,6 +242,24 @@ export function VencimientosPage() {
             <option value="VIGENTES_PRIMERO">Vigentes → Próximos → Vencidos</option>
           </select>
         </Box>
+
+        {hayFiltros && (
+          <Button
+            onClick={limpiarFiltros}
+            height="auto"
+            minW="auto"
+            style={{
+              padding: "9px 14px",
+              borderRadius: "6px",
+              border: "1px solid #cbd5e0",
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        )}
       </Box>
 
       {error && (
@@ -208,7 +270,7 @@ export function VencimientosPage() {
             padding: "12px",
             borderRadius: "6px",
             marginBottom: "20px",
-            border: "1px solid #f5c6cb",
+            border: `1px solid ${ERROR_BORDE}`,
             fontWeight: "bold",
           }}
         >
@@ -230,9 +292,9 @@ export function VencimientosPage() {
       ) : visibles.length === 0 && !error ? (
         <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
           <Text fontSize="18px" color={TEXTO_SUAVE} fontWeight="bold">
-            No hay resultados para «{busqueda}»
+            No hay resultados con esos filtros
           </Text>
-          <Text color={GRIS_MEDIO}>Probá con otra palabra o limpiá la búsqueda.</Text>
+          <Text color={GRIS_MEDIO}>Probá con otra búsqueda o limpiá los filtros.</Text>
         </Box>
       ) : (
         <>

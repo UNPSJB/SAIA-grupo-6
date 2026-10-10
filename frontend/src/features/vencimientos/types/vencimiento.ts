@@ -12,6 +12,7 @@ export interface VencimientoConsolidado {
   id_vencimiento: string;
   tipo: TipoVencimiento;
   entidad_id: number;
+  sujeto_id: number;
   detalle: string;
   sujeto: string;
   fecha_vencimiento: string;
