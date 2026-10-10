@@ -162,6 +162,12 @@ const ReportarIncidentePage = lazy(() =>
   import("./features/incidente/components/pages/ReportarIncidentePage").then((mod) => ({ default: mod.ReportarIncidentePage })),
 );
 
+const VencimientosPage = lazy(() =>
+  import("./features/vencimientos/components/pages/VencimientosPage").then((mod) => ({
+    default: mod.VencimientosPage,
+  })),
+);
+
 /**
  * Cada ruta se baja en su propio chunk (ver los `lazy()` de arriba). El primer
  * render de una página llega con el chunk todavía en vuelo, así que hace falta
@@ -562,6 +568,16 @@ export const router = createBrowserRouter([
                 </ConSuspense>
               ),
               },
+               // ---------------- Vencimientos ----------------
+               {
+                path: "/vencimientos",
+                element: (
+                <ConSuspense>
+                  <VencimientosPage />
+                </ConSuspense>
+              ),
+              },
+
             ],
           },
 

@@ -140,6 +140,10 @@ export default function Navbar() {
             Gestión de Incidentes
           </Link>
 
+          <Link to="/vencimientos" style={estiloLink}>
+            Vencimientos
+          </Link>
+
           <Link to="/documentos" style={estiloLink}>
             Documentos
           </Link>
