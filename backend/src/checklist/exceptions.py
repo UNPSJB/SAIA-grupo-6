@@ -43,3 +43,7 @@ class ElementoLimpiezaNoEncontrado(NotFound):
 
 class RegistroTareaNoEncontrado(NotFound):
     DETAIL = ErrorCode.REGISTRO_TAREA_NO_ENCONTRADO
+
+
+class ChecklistNoEncontrado(NotFound):
+    DETAIL = ErrorCode.CHECKLIST_NO_ENCONTRADO

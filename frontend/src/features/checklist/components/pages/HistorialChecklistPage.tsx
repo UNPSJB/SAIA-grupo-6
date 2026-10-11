@@ -2,6 +2,8 @@ import { Fragment, useMemo, useState } from "react";
 import { Badge, Box, Field, HStack, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
+import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
+import type { HistorialChecklistItem } from "../../types/checklist";
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha } from "../../../../common/utils/fechas";
@@ -54,6 +56,8 @@ export function HistorialChecklistPage() {
   const [fechaHasta, setFechaHasta] = useState(hoyISO);
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("");
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
+  const [checklistSeleccionado, setChecklistSeleccionado] =
+    useState<HistorialChecklistItem | null>(null);
 
   const equipoIdFiltro =
     equipoSeleccionado !== "" ? Number(equipoSeleccionado) : undefined;
@@ -192,6 +196,9 @@ export function HistorialChecklistPage() {
                   <EncabezadoOscuro center ancho="media">
                     Incumplidas
                   </EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="media">
+                    Acciones
+                  </EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
@@ -231,11 +238,16 @@ export function HistorialChecklistPage() {
                           botonIncumplidas(cl.checklist_id, cl.tareas_incumplidas.length)
                         )}
                       </Celda>
+                      <Celda center>
+                        <BotonTexto onClick={() => setChecklistSeleccionado(cl)}>
+                          Ver detalle
+                        </BotonTexto>
+                      </Celda>
                     </Table.Row>
                     {expandidos.has(cl.checklist_id) && (
                       <Table.Row>
                         <Table.Cell
-                          colSpan={5}
+                          colSpan={6}
                           color="fg"
                           fontSize="sm"
                           px="4"
@@ -267,6 +279,14 @@ export function HistorialChecklistPage() {
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}
+            />
+          )}
+
+          {checklistSeleccionado && (
+            <DetalleChecklistDialog
+              isOpen
+              checklist={checklistSeleccionado}
+              onClose={() => setChecklistSeleccionado(null)}
             />
           )}
         </>
