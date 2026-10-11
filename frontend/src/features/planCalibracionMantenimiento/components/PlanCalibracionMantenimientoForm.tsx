@@ -1,30 +1,23 @@
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-  NativeSelect,
-  Text,
-} from "@chakra-ui/react";
 
 import { useEquipos } from "../../equipo/hooks/useEquipos";
+import { hoyISO } from "../../../common/utils/fechas";
 import type {
   PlanCalibracionMantenimientoFormValues,
   TipoPlanCalibracionMantenimiento,
 } from "../types/planCalibracionMantenimiento";
 import {
-  BLANCO,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_TENUE,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BannerError,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+  TarjetaFormulario,
+  TituloFormulario,
+} from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoFormProps {
   initialValues?: PlanCalibracionMantenimientoFormValues;
@@ -38,16 +31,10 @@ interface PlanCalibracionMantenimientoFormProps {
 const emptyValues: PlanCalibracionMantenimientoFormValues = {
   equipo_id: 0,
   tipo: "calibracion",
-  fecha_ultima_intervencion: new Date().toISOString().split("T")[0],
+  // `hoyISO()` y no `toISOString()`: en UTC-3 el `toISOString()` devuelve el
+  // día anterior entre las 21:00 y las 24:00.
+  fecha_ultima_intervencion: hoyISO(),
   periodicidad_dias: 30,
-};
-
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
 };
 
 export function PlanCalibracionMantenimientoForm({
@@ -105,151 +92,69 @@ export function PlanCalibracionMantenimientoForm({
     values.periodicidad_dias <= 0;
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
-    >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
+      <TituloFormulario>{title}</TituloFormulario>
 
-      {errorEquipos && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-          }}
+      {errorEquipos && <BannerError>{errorEquipos}</BannerError>}
+
+      <FormField label="Equipo" required helper="Sólo se muestran equipos activos.">
+        <FormNativeSelect
+          value={values.equipo_id}
+          onChange={handleEquipoChange}
+          disabled={cargandoEquipos}
+          maxW="500px"
         >
-          {errorEquipos}
-        </Box>
-      )}
+          <SelectPlaceholder>
+            {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
+          </SelectPlaceholder>
+          {equipos.map((equipo) => (
+            <option key={equipo.id} value={equipo.id}>
+              {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            EQUIPO *
-          </Box>
-          <NativeSelect.Root disabled={cargandoEquipos}>
-            <NativeSelect.Field
-              value={values.equipo_id}
-              onChange={handleEquipoChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
-              </option>
-              {equipos.map((equipo) => (
-                <option key={equipo.id} value={equipo.id}>
-                  {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-        <Text style={{ fontSize: "12px", color: TEXTO_TENUE, marginTop: "6px" }}>
-          Sólo se muestran equipos activos.
-        </Text>
-      </Box>
+      <FormField label="Tipo de plan" required>
+        <FormNativeSelect
+          value={values.tipo}
+          onChange={handleTipoChange}
+          maxW="500px"
+        >
+          <option value="calibracion">Calibración</option>
+          <option value="mantenimiento">Mantenimiento</option>
+        </FormNativeSelect>
+      </FormField>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            TIPO DE PLAN *
-          </Box>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={values.tipo}
-              onChange={handleTipoChange}
-              style={estiloSelect}
-            >
-              <option value="calibracion">Calibración</option>
-              <option value="mantenimiento">Mantenimiento</option>
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </Box>
+      <FormField label="Fecha de la última intervención" required>
+        <FormInput
+          type="date"
+          value={values.fecha_ultima_intervencion}
+          onChange={handleFechaChange}
+          maxW="500px"
+        />
+      </FormField>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            FECHA DE LA ÚLTIMA INTERVENCIÓN *
-          </Box>
-          <Input
-            type="date"
-            value={values.fecha_ultima_intervencion}
-            onChange={handleFechaChange}
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <FormField label="Periodicidad (días)" required mb="0">
+        <FormInput
+          type="number"
+          min={1}
+          value={values.periodicidad_dias}
+          onChange={handlePeriodicidadChange}
+          placeholder="Ej: 30"
+          maxW="500px"
+        />
+      </FormField>
 
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            PERIODICIDAD (DÍAS) *
-          </Box>
-          <Input
-            type="number"
-            min={1}
-            value={values.periodicidad_dias}
-            onChange={handlePeriodicidadChange}
-            placeholder="Ej: 30"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
-
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
+      <AccionesFormulario>
+        <BotonGuardar
           loading={isLoading}
           disabled={cargandoEquipos || formularioInvalido}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
         >
           {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
-    </Box>
+        </BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
+    </TarjetaFormulario>
   );
 }

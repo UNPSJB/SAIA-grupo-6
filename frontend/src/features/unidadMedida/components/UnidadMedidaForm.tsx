@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input } from "@chakra-ui/react";
-import type { UnidadMedidaFormValues } from "../types/unidadMedida";
+import { Box } from "@chakra-ui/react";
 import {
-  BLANCO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+  FormInput,
+  TarjetaFormulario,
+  TituloFormulario,
+} from "../../../components/ui/patrones";
+import type { UnidadMedidaFormValues } from "../types/unidadMedida";
 
 interface UnidadMedidaFormProps {
   initialValues?: UnidadMedidaFormValues;
@@ -29,7 +30,7 @@ export function UnidadMedidaForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Unidad de Medida",
+  title = "Alta de unidad de medida",
   onCancel,
 }: UnidadMedidaFormProps) {
   const [values, setValues] = useState<UnidadMedidaFormValues>(initialValues);
@@ -52,93 +53,33 @@ export function UnidadMedidaForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
-    >
-      <Box
-        as="h3"
-        style={{
-          marginTop: 0,
-          fontSize: "22px",
-          color: TEAL,
-        }}
-      >
-        {title}
-      </Box>
+    <Box as="form" onSubmit={handleSubmit}>
+      <TarjetaFormulario>
+        <TituloFormulario>{title}</TituloFormulario>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            NOMBRE *
-          </Box>
-          <Input
+        <FormField label="Nombre" required>
+          <FormInput
             value={values.nombre}
             onChange={handleNombreChange}
             placeholder="Ej: Litros, Kilogramos, Gramos"
-            style={estiloInput}
+            maxW="500px"
           />
-        </Field.Root>
-      </Box>
+        </FormField>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            SÍMBOLO *
-          </Box>
-          <Input
+        <FormField label="Símbolo" required mb="0">
+          <FormInput
             value={values.simbolo}
             onChange={handleSimboloChange}
             placeholder="Ej: L, KG, G"
-            style={estiloInput}
+            maxW="500px"
           />
-        </Field.Root>
-      </Box>
+        </FormField>
 
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
-          loading={isLoading}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+        <AccionesFormulario>
+          <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+        </AccionesFormulario>
+      </TarjetaFormulario>
     </Box>
   );
 }

@@ -155,6 +155,19 @@ def listar_historial_checklists(
     return services.listar_historial_checklists(db, fecha_desde, fecha_hasta, equipo_id)
 
 
+@router.get(
+    "/historial/{checklist_id}",
+    response_model=schemas.DetalleChecklistResponse,
+    dependencies=_DEP_ADMIN,
+)
+def obtener_detalle_checklist(
+    checklist_id: int,
+    db: Session = Depends(get_db),
+):
+    """Detalle de solo lectura de un checklist incluido en el historial."""
+    return services.obtener_detalle_checklist(db, checklist_id)
+
+
 @router.get("/consumo", response_model=schemas.ConsumoInsumosResponse, dependencies=_DEP_ADMIN)
 def listar_consumo(
     fecha_desde: date = Query(...),

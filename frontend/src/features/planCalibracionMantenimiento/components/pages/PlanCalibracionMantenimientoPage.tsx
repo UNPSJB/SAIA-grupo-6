@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, HStack, Spinner, Text } from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
 
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import { usePlanesCalibracionMantenimiento } from "../../hooks/usePlanesCalibracionMantenimiento";
@@ -8,7 +9,15 @@ import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibraci
 import { PlanCalibracionMantenimientoTable } from "../PlanCalibracionMantenimientoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import type { PlanCalibracionMantenimiento } from "../../types/planCalibracionMantenimiento";
-import { TEAL } from "../../../../common/theme/tokens";
+import {
+  BannerError,
+  BotonAgregar,
+  EstadoCargando,
+  PageHeader,
+  Paginacion,
+} from "../../../../components/ui/patrones";
+
+const PAGE_SIZE = 10;
 
 export function PlanCalibracionMantenimientoPage() {
   const navigate = useNavigate();
@@ -24,6 +33,15 @@ export function PlanCalibracionMantenimientoPage() {
     error: errorEquipos,
   } = useEquipos(true);
   const { borrar, loading: procesando } = usePlanCalibracionMantenimientoABM();
+  // Sin paginar, la tabla crecía hacia abajo con cada plan nuevo; el resto de
+  // los listados de Operaciones ya paginan de a 10.
+  const {
+    paginados: planesPaginados,
+    page,
+    setPage,
+    totalPaginas,
+    hayVariasPaginas,
+  } = usePaginas(planes, PAGE_SIZE);
 
   const [planAEliminar, setPlanAEliminar] =
     useState<PlanCalibracionMantenimiento | null>(null);
@@ -55,35 +73,39 @@ export function PlanCalibracionMantenimientoPage() {
   const error = errorPlanes || errorEquipos;
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
-          Planes de Calibración/Mantenimiento
-        </Heading>
-        <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
-          fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL }}
-          onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
+    <Box p="5">
+      <PageHeader
+        title="Planes de calibración y mantenimiento"
+        description="Periodicidad de calibración y de mantenimiento por equipo, con su próximo vencimiento."
+        actions={
+          <BotonAgregar
+            onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
+          >
+            Agregar
+          </BotonAgregar>
+        }
+      />
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {error && <BannerError>{error}</BannerError>}
+      {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}
       {!loading && !error && (
-        <PlanCalibracionMantenimientoTable
-          planes={planes}
-          nombresEquipos={nombresEquipos}
-          onEdit={handleEdit}
-          onDelete={setPlanAEliminar}
-        />
+        <>
+          <PlanCalibracionMantenimientoTable
+            planes={planesPaginados}
+            nombresEquipos={nombresEquipos}
+            onEdit={handleEdit}
+            onDelete={setPlanAEliminar}
+          />
+
+          {hayVariasPaginas && (
+            <Paginacion
+              count={totalPaginas}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
 
       <ConfirmDialog

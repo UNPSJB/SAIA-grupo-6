@@ -1,15 +1,40 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Heading, HStack, Table, Text } from "@chakra-ui/react";
+import {
+  Badge,
+  Box,
+  Heading,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Table,
+  Text,
+} from "@chakra-ui/react";
 import { usePersonal } from "../../hooks/usePersonal";
 import { useVencimientosPersonal } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { useAptitudes } from "../../../aptitud/hooks/useAptitudes";
+import { hoyISO } from "../../../../common/utils/fechas";
 import {
-  EXITO_ALT,
-  GRIS_MEDIO,
-  PELIGRO_TEXTO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TENUE,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  BotonVolver,
+  Celda,
+  ColumnaHeader,
+  PageHeader,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
+
+/** Par etiqueta/valor de la ficha. */
+function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <Box>
+      <Text fontSize="sm" fontWeight="medium" color="fg.muted">
+        {etiqueta}
+      </Text>
+      <Text fontSize="md" color="fg">
+        {valor}
+      </Text>
+    </Box>
+  );
+}
 
 export function PersonalDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,52 +50,91 @@ export function PersonalDetailPage() {
 
   const nombrePorAptitud = new Map(aptitudes.map((a) => [a.id, a.nombre]));
 
-  if (loading) return <Box p="20px">Cargando información...</Box>;
-  if (error || !persona) return <Box p="20px" color="red.500">{error || "No se encontró el empleado"}</Box>;
+  if (loading) {
+    return (
+      <Box p="5">
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
+          <Spinner size="sm" color="brand.500" />
+          <Text fontStyle="italic">Cargando información...</Text>
+        </Stack>
+      </Box>
+    );
+  }
 
-  const hoy = new Date().toISOString().split("T")[0];
+  if (error || !persona) {
+    return (
+      <Box p="5">
+        <BannerError mb="0">{error || "No se encontró el empleado"}</BannerError>
+      </Box>
+    );
+  }
+
+  // `hoyISO()` y no `toISOString()`: en UTC-3, entre las 21:00 y las 24:00
+  // el `toISOString()` devuelve el día siguiente.
+  const hoy = hoyISO();
 
   return (
-    <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">Ficha de Personal #{persona.id}</Heading>
-        <Button bg={GRIS_MEDIO} color="white" height="auto" onClick={() => navigate("/personal")} style={{ padding: "8px 16px", borderRadius: "6px" }}>Volver a la lista</Button>
-      </HStack>
+    <Box p="5" maxW="600px" mx="auto">
+      <PageHeader
+        title={`Ficha de personal #${persona.id}`}
+        actions={
+          <BotonVolver onClick={() => navigate("/personal")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
-      <Box style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-        <Text mb="2"><strong>Nombre completo:</strong> {persona.nombre} {persona.apellido}</Text>
-        <Text mb="2"><strong>DNI:</strong> {persona.dni}</Text>
-        <Text mb="2"><strong>Email:</strong> {persona.email}</Text>
-        <Text mb="2"><strong>Teléfono:</strong> {persona.telefono || "No registrado"}</Text>
+      <Tarjeta p="5">
+        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
+          <Campo
+            etiqueta="Nombre completo"
+            valor={`${persona.nombre} ${persona.apellido || ""}`}
+          />
+          <Campo etiqueta="DNI" valor={persona.dni} />
+          <Campo etiqueta="Email" valor={persona.email} />
+          <Campo etiqueta="Teléfono" valor={persona.telefono || "No registrado"} />
+        </SimpleGrid>
 
-        <Box style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
-          <Heading as="h4" size="sm" mb="3">Permisos en el sistema:</Heading>
-          <ul style={{ listStyleType: "none", padding: 0 }}>
-            <li style={{ marginBottom: "10px" }}>{persona.puede_operar ? "✅" : "❌"} Puede Operar</li>
-            <li>{persona.puede_administrar ? "✅" : "❌"} Puede Administrar</li>
-          </ul>
+        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
+          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
+            Permisos en el sistema
+          </Heading>
+          <SimpleGrid columns={{ base: 1, sm: 2 }} gap="2">
+            <Text fontSize="sm" color="fg">
+              {persona.puede_operar ? "✅" : "❌"} Puede Operar
+            </Text>
+            <Text fontSize="sm" color="fg">
+              {persona.puede_administrar ? "✅" : "❌"} Puede Administrar
+            </Text>
+          </SimpleGrid>
         </Box>
 
-        <Box style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
-          <Heading as="h4" size="sm" mb="3">Vencimientos de aptitud:</Heading>
+        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
+          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
+            Vencimientos de aptitud
+          </Heading>
 
           {cargandoVencimientos && (
-            <Text style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>Cargando...</Text>
+            <Text fontSize="sm" color="fg.muted" fontStyle="italic">
+              Cargando...
+            </Text>
           )}
 
           {!cargandoVencimientos && vencimientos.length === 0 && (
-            <Text style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>
+            <Text fontSize="sm" color="fg.muted" fontStyle="italic">
               No tiene vencimientos cargados.
             </Text>
           )}
 
           {!cargandoVencimientos && vencimientos.length > 0 && (
-            <Table.Root style={{ width: "100%" }}>
+            <Table.Root variant="outline" w="100%">
               <Table.Header>
+                {/* Es una tabla de detalle embebida en la ficha, no un
+                    listado: va con el encabezado claro. */}
                 <Table.Row>
-                  <Table.ColumnHeader style={{ fontSize: "13px", color: TEXTO_SECUNDARIO }}>Aptitud</Table.ColumnHeader>
-                  <Table.ColumnHeader style={{ fontSize: "13px", color: TEXTO_SECUNDARIO }}>Vence</Table.ColumnHeader>
-                  <Table.ColumnHeader style={{ fontSize: "13px", color: TEXTO_SECUNDARIO }}>Estado</Table.ColumnHeader>
+                  <ColumnaHeader>Aptitud</ColumnaHeader>
+                  <ColumnaHeader>Vence</ColumnaHeader>
+                  <ColumnaHeader center>Estado</ColumnaHeader>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
@@ -78,22 +142,15 @@ export function PersonalDetailPage() {
                   const vencido = v.fecha_vencimiento < hoy;
                   return (
                     <Table.Row key={v.id}>
-                      <Table.Cell style={{ fontSize: "14px" }}>
+                      <Celda p="3">
                         {nombrePorAptitud.get(v.aptitud_id) || "Aptitud eliminada"}
-                      </Table.Cell>
-                      <Table.Cell style={{ fontSize: "14px" }}>{v.fecha_vencimiento}</Table.Cell>
-                      <Table.Cell>
-                        <Text
-                          as="span"
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: "bold",
-                            color: vencido ? PELIGRO_TEXTO : EXITO_ALT,
-                          }}
-                        >
+                      </Celda>
+                      <Celda p="3">{v.fecha_vencimiento}</Celda>
+                      <Celda p="3" center>
+                        <Badge colorPalette={vencido ? "red" : "green"}>
                           {vencido ? "Vencido" : "Vigente"}
-                        </Text>
-                      </Table.Cell>
+                        </Badge>
+                      </Celda>
                     </Table.Row>
                   );
                 })}
@@ -101,7 +158,7 @@ export function PersonalDetailPage() {
             </Table.Root>
           )}
         </Box>
-      </Box>
+      </Tarjeta>
     </Box>
   );
 }

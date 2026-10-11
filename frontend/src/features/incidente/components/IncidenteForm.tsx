@@ -2,60 +2,46 @@ import { useState, useEffect } from "react";
 import {
   Box,
   Button,
-  Field,
   HStack,
-  NativeSelect,
+  IconButton,
+  Image,
+  Input,
   Text,
+  Textarea,
 } from "@chakra-ui/react";
+import { LuPaperclip, LuX } from "react-icons/lu";
 import type { IncidenteFormValues, TipoIncidente } from "../types/incidente";
-import { TIPOS_INCIDENTE, admiteEquipo, requiereEquipoObligatorio } from "../types/incidente";
+import {
+  TIPOS_INCIDENTE,
+  admiteEquipo,
+  requiereEquipoObligatorio,
+} from "../types/incidente";
 import { listarEquipos } from "../../equipo/services/equipoService";
 import type { Equipo } from "../../equipo/types/equipo";
 import {
-  BLANCO,
-  BORDE_SUAVE,
-  PELIGRO,
-  PELIGRO_HOVER,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  MensajeError,
+  TarjetaFormulario,
+  TituloFormulario,
+} from "../../../components/ui/patrones";
 
 interface IncidenteFormProps {
   onSubmit: (values: IncidenteFormValues, foto?: File) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
   title?: string;
-  fullWidth?: boolean;
 }
 
-  const emptyValues: IncidenteFormValues = {
-    titulo: "",
-    descripcion: "",
-    tipo: "otro",
-    equipo_id: null,
-  };
-
-const getEstiloInput = (maxWidth: string) => ({
-  backgroundColor: BLANCO,
-  padding: "12px",
-  width: "100%",
-  maxWidth,
-  borderRadius: "8px",
-  border: "2px solid #90BEBB",
-  fontSize: "16px",
-  outline: "none",
-  color: TEXTO_PRIMARIO,
-});
-
-const estiloSelectBase = {
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
+const emptyValues: IncidenteFormValues = {
+  titulo: "",
+  descripcion: "",
+  tipo: "otro",
+  equipo_id: null,
 };
-
-
 
 const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
@@ -67,8 +53,8 @@ export function IncidenteForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Registrar Incidente",
-  fullWidth = false,
+  title = "Registrar incidente",
+
 }: IncidenteFormProps) {
   const [values, setValues] = useState<IncidenteFormValues>(emptyValues);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -78,7 +64,14 @@ export function IncidenteForm({
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
 
-  const maxInputWidth = fullWidth ? "720px" : "500px";
+  /*
+   * Ancho del campo. Es layout, no estilo, así que queda como prop.
+   *
+   * La tarjeta sí ocupa toda la página, pero los campos no: un input de 1300px
+   * de largo es discomfortable de recorrer con la vista. Este es el mismo tope
+   * que usan los formularios de alta del resto de las features.
+   */
+  const anchoCampo = "500px";
 
   useEffect(() => {
     const cargarEquipos = async () => {
@@ -132,7 +125,9 @@ export function IncidenteForm({
 
     if (file) {
       if (!FORMATOS_PERMITIDOS.includes(file.type)) {
-        setErrorFoto("Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP).");
+        setErrorFoto(
+          "Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP)."
+        );
         setFoto(null);
         setFotoPreview(null);
         return;
@@ -165,7 +160,10 @@ export function IncidenteForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (equipoObligatorio && (values.equipo_id === null || values.equipo_id === undefined)) {
+    if (
+      equipoObligatorio &&
+      (values.equipo_id === null || values.equipo_id === undefined)
+    ) {
       return;
     }
     if (!values.titulo.trim() || !values.descripcion.trim()) {
@@ -175,229 +173,136 @@ export function IncidenteForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
-    >
-      <Box
-        as="h3"
-        style={{
-          marginTop: 0,
-          fontSize: "22px",
-          color: TEAL,
-        }}
-      >
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
-      {/* Título */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            TÍTULO *
-          </Box>
-          <input
-            type="text"
-            value={values.titulo}
-            onChange={handleTituloChange}
-            placeholder="Ej: Termostato de heladera roto"
-            maxLength={60}
-            style={getEstiloInput(maxInputWidth)}
-          />
-        </Field.Root>
-      </Box>
+      <FormField label="Título" required>
+        <FormInput
+          type="text"
+          value={values.titulo}
+          onChange={handleTituloChange}
+          placeholder="Ej: Termostato de heladera roto"
+          maxLength={60}
+          maxW={anchoCampo}
+        />
+      </FormField>
 
-      {/* Tipo de Incidente */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            TIPO DE INCIDENTE *
-          </Box>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={values.tipo}
-              onChange={handleTipoChange}
-              style={{ ...getEstiloInput(maxInputWidth), ...estiloSelectBase }}
-            >
-              {TIPOS_INCIDENTE.map((tipo) => (
-                <option
-                  key={tipo.value}
-                  value={tipo.value}
-                  style={{
-                    backgroundColor: BLANCO,
-                    color: TEXTO_PRIMARIO,
-                  }}
-                >
-                  {tipo.label}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </Box>
+      <FormField label="Tipo de incidente" required>
+        <FormNativeSelect
+          value={values.tipo}
+          onChange={handleTipoChange}
+          maxW={anchoCampo}
+        >
+          {TIPOS_INCIDENTE.map((tipo) => (
+            <option key={tipo.value} value={tipo.value}>
+              {tipo.label}
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
       {admiteEquipo(values.tipo) && (
-        <Box style={{ marginBottom: "20px" }}>
-          <Field.Root required={equipoObligatorio}>
-            <Box as="label" style={estiloLabel}>
-              {equipoObligatorio ? "EQUIPO *" : "EQUIPO (OPCIONAL)"}
-            </Box>
-            <NativeSelect.Root disabled={cargandoEquipos}>
-              <NativeSelect.Field
-                value={values.equipo_id ?? ""}
-                onChange={handleEquipoChange}
-                style={{ ...getEstiloInput(maxInputWidth), ...estiloSelectBase }}
-              >
-                <option value="">
-                  {cargandoEquipos
-                    ? "Cargando..."
-                    : equipoObligatorio
-                      ? "Seleccionar equipo"
-                      : "Seleccionar equipo (opcional)"}
-                </option>
-                {equipos.map((equipo) => (
-                  <option
-                    key={equipo.id}
-                    value={equipo.id}
-                    style={{
-                      backgroundColor: BLANCO,
-                      color: TEXTO_PRIMARIO,
-                    }}
-                  >
-                    {equipo.nombre}
-                  </option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </Field.Root>
-
-          {errorEquipos && (
-            <Text fontSize="13px" color="red.500" mt="6px" fontWeight="bold">
-              ⚠️ {errorEquipos}
-            </Text>
-          )}
-        </Box>
+        <FormField
+          label={equipoObligatorio ? "Equipo" : "Equipo (opcional)"}
+          required={equipoObligatorio}
+          helper={errorEquipos ?? undefined}
+          invalid={Boolean(errorEquipos)}
+        >
+          <FormNativeSelect
+            value={values.equipo_id ?? ""}
+            onChange={handleEquipoChange}
+            disabled={cargandoEquipos}
+            invalid={Boolean(errorEquipos)}
+            maxW={anchoCampo}
+          >
+            <option value="">
+              {cargandoEquipos
+                ? "Cargando..."
+                : equipoObligatorio
+                  ? "Seleccionar equipo"
+                  : "Seleccionar equipo (opcional)"}
+            </option>
+            {equipos.map((equipo) => (
+              <option key={equipo.id} value={equipo.id}>
+                {equipo.nombre}
+              </option>
+            ))}
+          </FormNativeSelect>
+        </FormField>
       )}
 
-      {/* Descripción */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            DESCRIPCIÓN *
-          </Box>
-          <textarea
-            value={values.descripcion}
-            onChange={handleDescripcionChange}
-            placeholder="Ej: Describa lo ocurrido"
-            rows={4}
-            style={{
-              ...getEstiloInput(maxInputWidth),
-              resize: "vertical",
-              fontFamily: "inherit",
-            }}
-          />
-        </Field.Root>
-      </Box>
-      <Box style={{ marginBottom: "25px" }}>
-        <Box as="label" style={estiloLabel}>
-          FOTO (OPCIONAL)
-        </Box>
-        <input
+      <FormField label="Descripción" required>
+        <Textarea
+          value={values.descripcion}
+          onChange={handleDescripcionChange}
+          placeholder="Ej: Describa lo ocurrido"
+          rows={4}
+          maxW={anchoCampo}
+          resize="vertical"
+        />
+      </FormField>
+
+      <FormField label="Foto (opcional)" invalid={Boolean(errorFoto)} mb="6">
+        <Input
           type="file"
           accept="image/jpeg,image/png,image/gif,image/webp"
-          style={{ display: "none" }}
+          display="none"
           id="foto-incidente"
           onChange={handleFotoChange}
         />
-        <HStack gap="10px">
+        <HStack gap="3">
           <Button
             type="button"
             onClick={() => document.getElementById("foto-incidente")?.click()}
-            style={{
-              backgroundColor: BORDE_SUAVE,
-              color: TEXTO_PRIMARIO,
-              padding: "8px 16px",
-              borderRadius: "6px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "bold",
-            }}
+            variant="outline"
+            colorPalette="neutral"
+            size="sm"
           >
-            Adjuntar Foto
+            <LuPaperclip aria-hidden />
+            Adjuntar foto
           </Button>
           {foto && (
-            <Text fontSize="14px" color={TEAL} fontWeight="bold">
+            <Text fontSize="sm" color="brand.fg" fontWeight="medium">
               {foto.name}
             </Text>
           )}
         </HStack>
 
-        {errorFoto && (
-          <Text fontSize="13px" color="red.500" mt="6px" fontWeight="bold">
-            ⚠️ {errorFoto}
-          </Text>
-        )}
+        {errorFoto && <MensajeError>{errorFoto}</MensajeError>}
 
         {/* Preview de la foto */}
         {fotoPreview && (
-          <Box mt="12px" position="relative" display="inline-block">
-            <img
+          <Box mt="4" position="relative" display="inline-block">
+            <Image
               src={fotoPreview}
-              alt="Preview"
-              style={{
-                maxWidth: "200px",
-                maxHeight: "200px",
-                borderRadius: "8px",
-                border: "2px solid #90BEBB",
-              }}
+              alt="Vista previa de la foto adjunta"
+              maxW="200px"
+              maxH="200px"
+              rounded="lg"
+              borderWidth="2px"
+              borderColor="brand.300"
+              display="block"
             />
-            <Button
+            <IconButton
               type="button"
               onClick={handleRemoverFoto}
+              aria-label="Quitar foto adjunta"
               position="absolute"
-              top="-8px"
-              right="-8px"
-              size="sm"
-              borderRadius="full"
-              bg={PELIGRO}
-              color="white"
-              _hover={{ bg: PELIGRO_HOVER }}
+              top="-2"
+              right="-2"
+              size="xs"
+              rounded="full"
+              colorPalette="red"
             >
-              ✕
-            </Button>
+              <LuX />
+            </IconButton>
           </Box>
         )}
-      </Box>
+      </FormField>
 
-      {/* Botones */}
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
-          loading={isLoading}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {submitLabel}
-        </Button>
-      </HStack>
-    </Box>
+      <AccionesFormulario>
+        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+      </AccionesFormulario>
+    </TarjetaFormulario>
   );
 }

@@ -1,7 +1,11 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { IncidenteItem } from "./IncidenteItem";
 import type { Incidente } from "../types/incidente";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface IncidenteTableProps {
   incidentes: Incidente[];
@@ -22,94 +26,33 @@ export function IncidenteTable({
 }: IncidenteTableProps) {
   if (incidentes.length === 0) {
     return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
-        <Text color="gray.500">{mensajeVacio}</Text>
-      </Box>
+      <Tarjeta p="8" textAlign="center">
+        <Text color="fg.muted">{mensajeVacio}</Text>
+      </Tarjeta>
     );
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root
-        variant="outline"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="800px">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "70px" }}
-            >
-              N°
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "220px" }}
-            >
-              Título
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "90px" }}
-            >
+{/*
+            "Título" y "Reportado por" no llevan ancho a propósito: son las
+            columnas que se reparten lo que sobra. El título quedó sin ancho
+            porque ahora muestra también la descripción y la resolución del
+            incidente, no solo el nombre.
+          */}
+          <FilaEncabezado>
+            <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+            <EncabezadoOscuro>Título</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">
               Foto
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Tipo
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", width: "130px" }}
-            >
-              Estado
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Reportado por
-            </Table.ColumnHeader>
-
-            <Table.ColumnHeader
-              color="white"
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Fecha
-            </Table.ColumnHeader>
-
-            {showActions && (
-              <Table.ColumnHeader
-                color="white"
-                fontWeight="normal"
-                fontSize="16px"
-                style={{ padding: "12px", textAlign: "center" }}
-              >
-                Acciones
-              </Table.ColumnHeader>
-            )}
-          </Table.Row>
+            </EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro>Reportado por</EncabezadoOscuro>
+            {showActions && <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>}
+          </FilaEncabezado>
         </Table.Header>
 
         <Table.Body>
@@ -125,6 +68,6 @@ export function IncidenteTable({
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Box, Button, Badge, Heading, Text, HStack, VStack } from "@chakra-ui/react";
+import { Badge, Box, Image, Portal, Text, VStack } from "@chakra-ui/react";
+import { LuCircleCheck, LuHistory } from "react-icons/lu";
 import { useIncidente } from "../../hooks/useIncidente";
 import { useHistorialIncidente } from "../../hooks/useHistorialIncidente";
 import { HistorialIncidenteModal } from "../HistorialIncidenteModal";
@@ -9,17 +10,16 @@ import {
   estadoLabel,
   tipoLabel,
   tipoColor,
+  formatoFecha,
   formatoFechaCierre,
 } from "../../types/incidente";
 import {
-  EXITO_FONDO_CLARO,
-  EXITO_TEXTO,
-  FONDO_CARD,
-  FONDO_NEUTRO,
-  GRIS_MEDIO,
-  TEAL,
-  TEAL_OSCURO,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  BotonCancelar,
+  BotonVolver,
+  EstadoCargando,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,23 +40,20 @@ export function IncidenteDetailPage() {
   const imagen = useImagenAutenticada(incidente?.foto_url);
 
   if (loading) {
-    return <Box p="20px">Cargando incidente...</Box>;
+    return (
+      <Box p="5">
+        <EstadoCargando>Cargando incidente...</EstadoCargando>
+      </Box>
+    );
   }
 
   if (error || !incidente) {
     return (
-      <Box p="20px" style={{ maxWidth: "600px", margin: "0 auto" }}>
-        <Text color="red.500">{error || "No se encontró el incidente"}</Text>
-        <Button
-          mt="16px"
-          bg={GRIS_MEDIO}
-          color="white"
-          height="auto"
-          onClick={() => navigate(backUrl)}
-          style={{ padding: "8px 16px", borderRadius: "6px" }}
-        >
+      <Box p="5" maxW="600px" mx="auto">
+        <BannerError>{error || "No se encontró el incidente"}</BannerError>
+        <BotonVolver mt="4" onClick={() => navigate(backUrl)}>
           Volver a la lista
-        </Button>
+        </BotonVolver>
       </Box>
     );
   }
@@ -75,90 +72,82 @@ export function IncidenteDetailPage() {
 
   return (
     <>
-      <Box style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-        {/* Encabezado */}
-        <HStack justify="space-between" mb="16px">
-          <Heading as="h2" size="lg" fontWeight="bold" color="black">
-            {incidente.titulo} #{incidente.id}
-          </Heading>
-          <Button
-            bg={GRIS_MEDIO}
-            color="white"
-            height="auto"
-            onClick={() => navigate(backUrl)}
-            style={{ padding: "8px 16px", borderRadius: "6px" }}
-          >
-            Volver a la lista
-          </Button>
-        </HStack>
+      <Box p="5" maxW="600px" mx="auto">
+        <PageHeader
+          title={`${incidente.titulo} #${incidente.id}`}
+          description={`Reportado el ${formatoFecha(incidente.fecha_reporte)}`}
+          actions={
+            <BotonVolver onClick={() => navigate(backUrl)}>
+              Volver a la lista
+            </BotonVolver>
+          }
+        />
 
         {/* Estado */}
-        <Box mb="20px">
-          <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="6px" textTransform="uppercase">
+        <Box mb="4">
+          <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="1">
             Estado
           </Text>
           <Badge
             colorPalette={cerrado ? "green" : "red"}
+            variant="subtle"
             borderRadius="md"
-            px="16px"
-            py="6px"
-            fontSize="16px"
+            px="2"
+            py="1"
             fontWeight="bold"
           >
-            {estadoLabel(incidente.estado).toUpperCase()}
+            {estadoLabel(incidente.estado)}
           </Badge>
         </Box>
 
         {/* Tipo */}
-        <Box mb="20px">
-          <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="6px" textTransform="uppercase">
-            Tipo de Incidente
+        <Box mb="4">
+          <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="1">
+            Tipo de incidente
           </Text>
-          <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="12px" py="6px" fontSize="16px">
+          <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="2" py="1">
             {tipoLabel(incidente.tipo)}
           </Badge>
         </Box>
 
         {/* Descripción */}
-        <Box mb="24px">
-          <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="10px" textTransform="uppercase">
+        <Box mb="6">
+          <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="2">
             Descripción
           </Text>
           <Box
-            p="20px"
-            style={{
-              backgroundColor: FONDO_CARD,
-              border: "1px solid #d8e7e5",
-              borderRadius: "10px",
-              whiteSpace: "pre-line",
-              lineHeight: 1.7,
-            }}
+            p="4"
+            bg="bg.subtle"
+            borderWidth="1px"
+            borderColor="border"
+            rounded="lg"
+            whiteSpace="pre-line"
+            lineHeight={1.7}
           >
-            <Text fontSize="16px">{incidente.descripcion}</Text>
+            <Text fontSize="md">{incidente.descripcion}</Text>
           </Box>
         </Box>
 
         {/* Metadatos */}
         <Box
-          mb="24px"
-          p="20px"
-          style={{
-            backgroundColor: FONDO_CARD,
-            border: "1px solid #d8e7e5",
-            borderRadius: "10px",
-          }}
+          mb="6"
+          p="4"
+          bg="bg.subtle"
+          borderWidth="1px"
+          borderColor="border"
+          rounded="lg"
         >
-          <VStack align="start" gap="12px">
-            <Text fontSize="16px">
+          <VStack align="start" gap="3">
+            <Text fontSize="md">
               <strong>Reportado por:</strong>{" "}
               {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
             </Text>
-            <Text fontSize="16px">
+            <Text fontSize="md">
               <strong>Fecha y hora:</strong>{" "}
               {new Date(incidente.fecha_reporte).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour12: false })}
             </Text>
             {incidente.equipo_nombre && (
-              <Text fontSize="16px">
+              <Text fontSize="md">
                 <strong>Equipo:</strong> {incidente.equipo_nombre}
               </Text>
             )}
@@ -167,38 +156,35 @@ export function IncidenteDetailPage() {
 
         {/* Evidencia fotográfica */}
         {incidente.foto_url && (
-          <Box mb="24px">
-            <Text fontSize="14px" color="gray.500" fontWeight="bold" mb="6px" textTransform="uppercase">
-              Evidencia Fotográfica
+          <Box mb="6">
+            <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="1">
+              Evidencia fotográfica
             </Text>
             <Box
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: "16px",
-                backgroundColor: FONDO_NEUTRO,
-                borderRadius: "10px",
-                border: "1px solid #eee",
-              }}
+              display="flex"
+              justifyContent="center"
+              p="4"
+              bg="bg.subtle"
+              rounded="lg"
+              borderWidth="1px"
+              borderColor="border"
             >
               {imagen.loading && (
-                <Text fontSize="14px" color="gray.500">Cargando imagen...</Text>
+                <Text fontSize="sm" color="fg.muted">Cargando imagen...</Text>
               )}
               {!imagen.loading && imagen.error && (
-                <Text fontSize="14px" color="red.500">{imagen.error}</Text>
+                <Text fontSize="sm" color="red.fg">{imagen.error}</Text>
               )}
               {imagen.src && (
-                <img
+                <Image
                   src={imagen.src}
                   alt="Evidencia del incidente"
+                  w="100%"
+                  maxH="400px"
+                  objectFit="contain"
+                  rounded="lg"
+                  cursor="pointer"
                   onClick={() => setImagenAmpliada(true)}
-                  style={{
-                    width: "100%",
-                    maxHeight: "400px",
-                    objectFit: "contain",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                  }}
                 />
               )}
             </Box>
@@ -208,28 +194,35 @@ export function IncidenteDetailPage() {
         {/* Resolución: qué se hizo, cuándo y quién lo resolvió */}
         {cerrado && (
           <Box
-            mb="24px"
-            p="20px"
-            style={{
-              backgroundColor: EXITO_FONDO_CLARO,
-              border: "1px solid #c6f6d5",
-              borderRadius: "10px",
-            }}
+            mb="6"
+            p="4"
+            bg="green.50"
+            borderWidth="1px"
+            borderColor="green.200"
+            rounded="lg"
           >
-            <Text fontSize="16px" color={EXITO_TEXTO} fontWeight="bold">
-              ✅ Incidente cerrado
+            <Text
+              fontSize="md"
+              color="green.fg"
+              fontWeight="bold"
+              display="flex"
+              alignItems="center"
+              gap="2"
+            >
+              <LuCircleCheck size={20} aria-hidden />
+              Incidente cerrado
             </Text>
 
-            <VStack align="start" gap="8px" mt="12px">
-              <Text fontSize="15px" color={EXITO_TEXTO}>
+            <VStack align="start" gap="2" mt="3">
+              <Text fontSize="sm" color="green.fg">
                 <strong>Acción correctiva:</strong>{" "}
                 {incidente.observacion_cierre ?? "Sin detalle registrado."}
               </Text>
-              <Text fontSize="15px" color={EXITO_TEXTO}>
+              <Text fontSize="sm" color="green.fg">
                 <strong>Fecha de cierre:</strong>{" "}
                 {formatoFechaCierre(incidente.fecha_cierre)}
               </Text>
-              <Text fontSize="15px" color={EXITO_TEXTO}>
+              <Text fontSize="sm" color="green.fg">
                 <strong>Responsable de la resolución:</strong>{" "}
                 {incidente.responsable_cierre_nombre ??
                   (incidente.responsable_cierre_id
@@ -241,51 +234,36 @@ export function IncidenteDetailPage() {
         )}
 
         {/* Botón de historial */}
-        <HStack gap="10px" mt="20px">
-          <Button
-            bg={TEAL}
-            color="white"
-            height="auto"
-            loading={loadingHistorial}
-            onClick={handleVerHistorial}
-            style={{
-              padding: "10px 20px",
-              borderRadius: "6px",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
-            _hover={{ bg: TEAL_OSCURO }}
-          >
-            Ver historial
-          </Button>
-        </HStack>
+        <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
+          <LuHistory aria-hidden />
+          Ver historial
+        </BotonCancelar>
       </Box>
 
       {/* Imagen ampliada */}
       {imagenAmpliada && imagen.src && (
-        <Box
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-            padding: "20px",
-          }}
-          onClick={() => setImagenAmpliada(false)}
-        >
-          <img
-            src={imagen.src}
-            alt="Evidencia ampliada"
-            style={{ maxWidth: "90%", maxHeight: "90%", borderRadius: "8px" }}
-          />
-        </Box>
+        <Portal>
+          <Box
+            position="fixed"
+            inset={0}
+            bg="blackAlpha.800"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            zIndex={2000}
+            p="5"
+            cursor="zoom-out"
+            onClick={() => setImagenAmpliada(false)}
+          >
+            <Image
+              src={imagen.src}
+              alt="Evidencia ampliada"
+              maxW="90%"
+              maxH="90%"
+              rounded="lg"
+            />
+          </Box>
+        </Portal>
       )}
 
       {/* Modal de historial */}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, HStack, Spinner, Switch, Text } from "@chakra-ui/react";
+import { Box, Button, Spinner } from "@chakra-ui/react";
 import { AptitudTable } from "../AptitudTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -8,14 +8,10 @@ import { useAptitudes } from "../../hooks/useAptitudes";
 import { useAptitudABM } from "../../hooks/useAptitudABM";
 import type { Aptitud } from "../../types/aptitud";
 import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  PELIGRO,
-  TEAL,
-  TEAL_OSCURO,
-  TEXTO_SECUNDARIO,
-} from "../../../../common/theme/tokens";
-
+  BannerError,
+  PageHeader,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 export function AptitudPage() {
   const navigate = useNavigate();
@@ -61,34 +57,27 @@ export function AptitudPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
-          {verInactivos ? "Aptitudes Dadas de Baja" : "Gestión de Aptitudes"}
-        </Heading>
-        <Button bg={TEAL} color="white" fontSize="16px" fontWeight="bold" borderRadius="6px" px="20px" py="10px" _hover={{ bg: TEAL_OSCURO }} onClick={() => navigate("/aptitudes/nuevo")}>
-          + Agregar
-        </Button>
-      </HStack>
+    <Box p="5">
+      <PageHeader
+        title={verInactivos ? "Aptitudes dadas de baja" : "Gestión de aptitudes"}
+        description="Alta, modificación y baja de las aptitudes del laboratorio."
+        actions={
+          <Button colorPalette="brand" onClick={() => navigate("/aptitudes/nuevo")}>
+            + Agregar
+          </Button>
+        }
+      />
 
-      {errorEliminar && (
-        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px", borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb", fontWeight: "bold" }}>
-          ⚠️ {errorEliminar}
-        </Box>
-      )}
+      {errorEliminar && <BannerError>{errorEliminar}</BannerError>}
+      {error && <BannerError>{error}</BannerError>}
 
-      <HStack justify="flex-end" mb="20px">
-        <Switch.Root checked={verInactivos} onCheckedChange={(e) => setVerInactivos(e.checked)} colorPalette="gray">
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO, fontWeight: verInactivos ? "bold" : "normal" }}>
-            Ver dadas de baja
-          </Switch.Label>
-        </Switch.Root>
-      </HStack>
+      <ToggleInactivos
+        checked={verInactivos}
+        onChange={setVerInactivos}
+        children="Ver dadas de baja"
+      />
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {loading && <Spinner color="brand.500" />}
 
       {!loading && !error && (
         <AptitudTable

@@ -2,12 +2,12 @@ import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Box,
-  Heading,
-  Table,
   Badge,
+  Box,
   Button,
+  HStack,
   Spinner,
+  Table,
   Text,
 } from "@chakra-ui/react";
 import { obtenerNotificaciones } from "../../services/notificacionService";
@@ -17,13 +17,25 @@ import type { Notificacion } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
 import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO,
-  GRIS_MEDIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_SUAVE,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  Celda,
+  DialogoExito,
+  EncabezadoOscuro,
+  FilaEncabezado,
+  PageHeader,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
+
+/**
+ * Paleta del badge de "Origen", para que el color signifique lo mismo en
+ * todas las vistas: el morado es limpieza y el gris, calibración/mantenimiento.
+ */
+const PALETA_ORIGEN: Record<string, string> = {
+  ELEMENTO_LIMPIEZA: "purple",
+  VENCIMIENTO_PERSONAL: "blue",
+};
+
+const paletaOrigen = (tipo: string) => PALETA_ORIGEN[tipo] ?? "gray";
 
 function etiquetaOrigen(tipo: string) {
   switch (tipo) {
@@ -94,6 +106,14 @@ export function NotificacionesPage() {
         await registrarRecambioElemento(notif.entidad_id);
         mostrarExito("Recambio registrado correctamente.");
       } catch (error) {
+        // Antes solo iba a la consola: si el recambio fallaba, la campana
+        // quedaba con el mismo número y el usuario no se enteraba de nada,
+        // porque la UI no cambiaba. Ahora se lo decimos.
+        setError(
+          error instanceof Error
+            ? error.message
+            : "No se pudo registrar el recambio",
+        );
         console.error("Error al registrar recambio:", error);
       }
     } else if (notif.tipo === "VENCIMIENTO_PERSONAL") {
@@ -116,60 +136,23 @@ export function NotificacionesPage() {
   });
 
   return (
-    <Box style={{ padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
-      <Heading as="h2" size="md" mb="20px">
-        🔔 Centro de Notificaciones del Sistema
-      </Heading>
+    <Box p="5">
+      <PageHeader
+        title={
+          <HStack gap="2" flexWrap="wrap" rowGap="2">
+            <span aria-hidden>🔔</span>
+            Centro de notificaciones
+          </HStack>
+        }
+        description="Vencimientos pendientes del sistema."
+      />
 
-      <ConfiguracionAlertasPanel
+<ConfiguracionAlertasPanel
         onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
 
-      {/* CARTEL VERDE DE ÉXITO ESTILO SAIA */}
-      {mensajeExito && (
-        <Box
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <Box
-            style={{
-              backgroundColor: "white",
-              padding: "30px 50px",
-              borderRadius: "12px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-              textAlign: "center",
-            }}
-          >
-            <Box style={{ fontSize: "50px", marginBottom: "10px" }}>✅</Box>
-            <Heading
-              as="h3"
-              style={{ margin: 0, color: EXITO, fontSize: "24px" }}
-            >
-              Éxito
-            </Heading>
-            <Text
-              style={{
-                color: TEXTO_SECUNDARIO,
-                marginTop: "10px",
-                fontSize: "16px",
-                fontWeight: 500,
-              }}
-            >
-              {mensajeExito}
-            </Text>
-          </Box>
-        </Box>
-      )}
+      {/* Aviso de éxito: sale antes de recargar la tabla. */}
+      <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
 
       {/* DIÁLOGO PARA CAMBIAR LA FECHA DE UN VENCIMIENTO DE PERSONAL */}
       {notifEditando && (
@@ -181,87 +164,95 @@ export function NotificacionesPage() {
         />
       )}
 
-      {error && (
-        <Box style={{ backgroundColor: ERROR_FONDO, color: ERROR_TEXTO, padding: "12px",
-          borderRadius: "6px", marginBottom: "20px", border: "1px solid #f5c6cb",
-          fontWeight: "bold" }}>
-          ⚠️ {error}
-        </Box>
-      )}
+      {error && <BannerError>{error}</BannerError>}
 
       {loading ? (
-        <Spinner />
+        <Spinner color="brand.500" />
       ) : notificacionesOrdenadas.length === 0 ? (
-        <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
-          <Text fontSize="18px" color={EXITO} fontWeight="bold">
+        <Tarjeta p="8" textAlign="center">
+          <Text fontSize="lg" color="green.fg" fontWeight="bold">
             ✅ No hay notificaciones pendientes
           </Text>
-          <Text color={GRIS_MEDIO}>
+          <Text color="fg.muted" fontSize="sm">
             Todos los vencimientos están al día.
           </Text>
-        </Box>
+        </Tarjeta>
       ) : (
-        <Box bg="white" borderRadius="10px" boxShadow="0 4px 15px rgba(0,0,0,0.05)" overflow="hidden" border="1px solid #e2e8f0">
-          <Table.Root variant="outline" size="md">
-            <Table.Header bg="#f8fafc">
-                <Table.Row>
-                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Origen</Table.ColumnHeader>
-                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Estado</Table.ColumnHeader>
-                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Detalle / Mensaje</Table.ColumnHeader>
-                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px">Vencimiento</Table.ColumnHeader>
-                  <Table.ColumnHeader color={TEXTO_SUAVE} fontWeight="bold" textTransform="uppercase" fontSize="12px" textAlign="center">Acción</Table.ColumnHeader>
-                </Table.Row>
+        <Tarjeta overflowX="auto">
+          <Table.Root variant="outline" size="md" w="100%" minW="940px">
+            <Table.Header>
+              <FilaEncabezado>
+                <EncabezadoOscuro ancho="media">Origen</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
+                <EncabezadoOscuro>Detalle / Mensaje</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
+                <EncabezadoOscuro center ancho="acciones">Acción</EncabezadoOscuro>
+              </FilaEncabezado>
             </Table.Header>
             <Table.Body>
-                {notificacionesOrdenadas.map((n) => (
-                  <Table.Row key={n.id_notificacion} _hover={{ bg: "#f7fafc" }} transition="background 0.2s">
-                    <Table.Cell>
-                      <Badge bg="#e9d8fd" color="#553c9a" px="2" py="1" borderRadius="md" fontWeight="bold">
+              {notificacionesOrdenadas.map((n) => (
+                <Table.Row
+                  key={n.id_notificacion}
+                  _hover={{ bg: "brand.50" }}
+                  transition="background 0.2s"
+                >
+                    <Celda>
+                      {/* Mismo motivo que en `IncidenteItem`: con la tabla de
+                          ancho fijo la etiqueta ya no hace crecer la columna,
+                          y "Plan Calibración/Mantenimiento" mide 204px. */}
+                      <Badge
+                        colorPalette={paletaOrigen(n.tipo)}
+                        variant="subtle"
+                        px="2"
+                        py="1"
+                        borderRadius="md"
+                        fontWeight="bold"
+                        maxW="100%"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                      >
                         {etiquetaOrigen(n.tipo)}
                       </Badge>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Badge 
-                      bg={n.nivel === "VENCIDO" ? "#fed7d7" : "#feebc8"} 
-                      color={n.nivel === "VENCIDO" ? "#c53030" : "#c05621"}
-                      px="2" py="1" borderRadius="md" fontWeight="bold"
-                    >
-                      {n.nivel === "VENCIDO" ? "VENCIDO" : "PRÓXIMO A VENCER"}
-                    </Badge>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontWeight="bold" color="#2d3748" mb="1">{n.titulo}</Text>
-                    <Text fontSize="14px" color="#718096">
+                    </Celda>
+                    <Celda>
+                      <Badge
+                        colorPalette={n.nivel === "VENCIDO" ? "red" : "orange"}
+                        variant="subtle"
+                        px="2"
+                        py="1"
+                        borderRadius="md"
+                        fontWeight="bold"
+                        maxW="100%"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                      >
+                        {n.nivel === "VENCIDO" ? "VENCIDO" : "PRÓXIMO A VENCER"}
+                      </Badge>
+                    </Celda>
+                    <Celda>
+                      <Text fontWeight="bold" color="fg" mb="1">{n.titulo}</Text>
+                      <Text fontSize="sm" color="fg.muted">
                         {n.mensaje}
                       </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text
-                        fontSize="14px"
-                        color={n.nivel === "VENCIDO" ? ERROR_TEXTO : TEXTO_SUAVE}
-                        fontWeight={n.nivel === "VENCIDO" ? "bold" : "normal"}
+                    </Celda>
+                    <Celda fontSize="sm">
+                      {formatoFechaOCorta(n.fecha_referencia)}
+                    </Celda>
+                    <Celda center>
+                      <Button
+                        size="sm"
+                        colorPalette="brand"
+                        fontWeight="bold"
+                        onClick={() => handleResolver(n)}
                       >
-                        {formatoFechaOCorta(n.fecha_referencia)}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell textAlign="center">
-                    <Button
-                      size="sm"
-                      bg="#3182ce"
-                      color="white"
-                      _hover={{ bg: "#2b6cb0" }}
-                      fontWeight="bold"
-                      borderRadius="6px"
-                      onClick={() => handleResolver(n)}
-                    >
-                      {etiquetaAccion(n.tipo)}
-                    </Button>
-                  </Table.Cell>
-                </Table.Row>
+                        {etiquetaAccion(n.tipo)}
+                      </Button>
+                    </Celda>
+                  </Table.Row>
               ))}
             </Table.Body>
           </Table.Root>
-        </Box>
+        </Tarjeta>
       )}
     </Box>
   );

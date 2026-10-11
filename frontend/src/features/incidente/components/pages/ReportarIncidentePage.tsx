@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Heading, Text, VStack, Badge, Flex } from "@chakra-ui/react";
+import { Badge, Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
 import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
@@ -10,16 +10,12 @@ import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
 import type { IncidenteFormValues, Incidente } from "../../types/incidente";
 import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO_FONDO,
-  EXITO_TEXTO,
-  EXITO_TEXTO_HOVER,
-  FONDO_CARD,
-  TEAL,
-  TEXTO_FUERTE,
-  TEXTO_SUAVE,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  BannerExito,
+  EstadoCargando,
+  PageHeader,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
 
 /**
  * Pills de navegación.
@@ -39,37 +35,18 @@ function TabButton({
 }) {
   return (
     <Button
+      type="button"
       onClick={onClick}
       variant={isActive ? "solid" : "outline"}
-      colorScheme={isActive ? "teal" : "gray"}
-      style={{
-        padding: "12px 28px",
-        fontWeight: 700,
-        fontSize: "15px",
-        borderRadius: "9999px",
-        minWidth: "180px",
-        height: "48px",
-        borderWidth: isActive ? 0 : "2px",
-        borderColor: isActive ? "transparent" : "#cbd5e0",
-        boxShadow: isActive
-          ? "0 4px 14px rgba(70, 129, 137, 0.4)"
-          : "0 1px 3px rgba(0,0,0,0.05)",
-        transition: "all 0.2s ease",
-        background: isActive
-          ? "linear-gradient(135deg, #468189 0%, #3d737a 100%)"
-          : "white",
-        color: isActive ? "white" : TEXTO_SUAVE,
-      }}
-      _hover={{
-        transform: "translateY(-2px)",
-        boxShadow: isActive
-          ? "0 6px 20px rgba(70, 129, 137, 0.5)"
-          : "0 4px 12px rgba(0,0,0,0.1)",
-        background: isActive
-          ? "linear-gradient(135deg, #3d737a 0%, #356368 100%)"
-          : FONDO_CARD,
-      }}
-      _active={{ transform: "translateY(0)" }}
+      colorPalette={isActive ? "brand" : "neutral"}
+      fontWeight="bold"
+      fontSize="sm"
+      rounded="full"
+      minW="180px"
+      h="12"
+      borderWidth="1px"
+      borderColor={isActive ? "transparent" : "border.muted"}
+      color={isActive ? "white" : "fg.muted"}
     >
       {label}
     </Button>
@@ -99,36 +76,35 @@ function IncidenteCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onVer(incidente);
       }}
-      style={{
-        width: "100%",
-        padding: "16px 20px",
-        borderRadius: "10px",
-        border: "1px solid #e8f0ef",
-        background: "white",
-        transition: "all 0.15s ease",
-        cursor: "pointer",
-      }}
+      w="100%"
+      p="4"
+      rounded="lg"
+      borderWidth="1px"
+      borderColor="border"
+      bg="bg.panel"
+      transition="all 0.15s ease"
+      cursor="pointer"
       _hover={{
-        background: "#fafbfb",
-        borderColor: "#d8e7e5",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        bg: "bg.subtle",
+        borderColor: "border.muted",
+        boxShadow: "sm",
       }}
     >
-      <Flex justify="space-between" align="flex-start" style={{ gap: "16px", flexWrap: "wrap" }}>
-        <Box style={{ flex: 1, minWidth: 0 }}>
+      <Flex justify="space-between" align="flex-start" gap="4" flexWrap="wrap">
+        <Box flex="1" minW={0}>
           {/* ID + tipo + estado */}
-          <Flex align="center" gap="8px" style={{ flexWrap: "wrap", marginBottom: "8px" }}>
-            <Text fontWeight={700} fontSize="15px" color={TEXTO_FUERTE}>
+          <Flex align="center" gap="2" flexWrap="wrap" mb="2">
+            <Text fontWeight="bold" fontSize="sm" color="fg">
               #{incidente.id} — {incidente.titulo}
             </Text>
             <Badge
               colorPalette={tipoColor(incidente.tipo)}
               variant="solid"
               borderRadius="md"
-              px="8px"
-              py="3px"
-              fontSize="11px"
-              fontWeight={600}
+              px="2"
+              py="1"
+              fontSize="xs"
+              fontWeight="medium"
             >
               {tipoLabel(incidente.tipo)}
             </Badge>
@@ -136,27 +112,22 @@ function IncidenteCard({
               colorPalette={cerrado ? "green" : "red"}
               variant="subtle"
               borderRadius="md"
-              px="8px"
-              py="3px"
-              fontSize="11px"
-              fontWeight={600}
+              px="2"
+              py="1"
+              fontSize="xs"
+              fontWeight="medium"
             >
               {estadoLabel(incidente.estado)}
             </Badge>
           </Flex>
 
           {/* Descripción con "Ver más" */}
-          <Text
-            fontSize="14px"
-            color="#374151"
-            lineHeight={1.55}
-            style={{ wordBreak: "break-word" }}
-          >
+          <Text fontSize="sm" color="fg" lineHeight={1.55} wordBreak="break-word">
             {incidente.descripcion.length > 120
               ? `${incidente.descripcion.substring(0, 117)}...`
               : incidente.descripcion}
             {incidente.descripcion.length > 120 && (
-              <Text as="span" color={TEAL} fontWeight={600} ml="4px">
+              <Text as="span" color="brand.fg" fontWeight="bold" ml="1">
                 Ver más
               </Text>
             )}
@@ -164,7 +135,7 @@ function IncidenteCard({
 
           {/* Si ya fue resuelto, el operador ve qué se hizo */}
           {cerrado && incidente.observacion_cierre && (
-            <Text fontSize="13px" color={EXITO_TEXTO} mt="8px" lineHeight={1.5}>
+            <Text fontSize="xs" color="green.fg" mt="2" lineHeight={1.5}>
               <strong>Resolución:</strong> {incidente.observacion_cierre}
             </Text>
           )}
@@ -172,11 +143,14 @@ function IncidenteCard({
           {/* Meta: fecha + equipo */}
           <Flex
             align="center"
-            gap="16px"
-            style={{ fontSize: "12px", color: "#6b7280", flexWrap: "wrap", marginTop: "10px" }}
+            gap="4"
+            fontSize="xs"
+            color="fg.muted"
+            flexWrap="wrap"
+            mt="2"
           >
-            <span>{formatoFecha(incidente.fecha_reporte)}</span>
-            {incidente.equipo_nombre && <span>{incidente.equipo_nombre}</span>}
+            <Text as="span">{formatoFecha(incidente.fecha_reporte)}</Text>
+            {incidente.equipo_nombre && <Text as="span">{incidente.equipo_nombre}</Text>}
           </Flex>
         </Box>
 
@@ -219,139 +193,69 @@ export function ReportarIncidentePage() {
   };
 
   return (
-    <Box style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
-      <Heading as="h2" size="lg" fontWeight="bold" color={TEXTO_FUERTE} mb="24px">
-        Reportar Incidente
-      </Heading>
+    <Box p="5">
+      <PageHeader
+        title="Reportar incidente"
+        description="Registrá un incidente nuevo o seguí el estado de los que ya reportaste."
+      />
 
-      {exito && (
-        <Box
-          style={{
-            backgroundColor: EXITO_FONDO,
-            color: EXITO_TEXTO_HOVER,
-            padding: "14px 20px",
-            borderRadius: "10px",
-            marginBottom: "24px",
-            border: "1px solid #c3e6cb",
-            fontWeight: 600,
-            boxShadow: "0 4px 12px rgba(21, 87, 36, 0.15)",
-          }}
-        >
-          Incidente registrado correctamente
-        </Box>
-      )}
+      {exito && <BannerExito>Incidente registrado correctamente</BannerExito>}
 
-      {errorAlta && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "14px 20px",
-            borderRadius: "10px",
-            marginBottom: "24px",
-            border: "1px solid #f5c6cb",
-            fontWeight: 600,
-            boxShadow: "0 4px 12px rgba(114, 28, 36, 0.15)",
-          }}
-        >
-          {errorAlta}
-        </Box>
-      )}
+      {errorAlta && <BannerError>{errorAlta}</BannerError>}
 
       {/* Tabs estilo pills */}
-      <Box
-        mb="24px"
-        style={{
-          display: "flex",
-          gap: "12px",
-          background: FONDO_CARD,
-          padding: "6px",
-          borderRadius: "12px",
-          border: "1px solid #e8f0ef",
-        }}
+      <Flex
+        mb="6"
+        gap="3"
+        bg="bg.subtle"
+        p="1"
+        rounded="full"
+        borderWidth="1px"
+        borderColor="border.subtle"
       >
         <TabButton
-          label="Mis Reportes"
+          label="Mis reportes"
           isActive={activeTab === "mis-reportes"}
           onClick={() => setActiveTab("mis-reportes")}
         />
         <TabButton
-          label="Nuevo Incidente"
+          label="Nuevo incidente"
           isActive={activeTab === "nuevo-incidente"}
           onClick={() => setActiveTab("nuevo-incidente")}
         />
-      </Box>
+      </Flex>
 
       {activeTab === "nuevo-incidente" && (
-        <Box
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "32px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
-            border: "1px solid #eef3f2",
-          }}
-        >
-          <IncidenteForm
-            onSubmit={handleSubmit}
-            isLoading={loadingAlta}
-            title="Registrar Nuevo Incidente"
-            submitLabel="Reportar Incidente"
-            fullWidth
-          />
-        </Box>
+        <IncidenteForm
+          onSubmit={handleSubmit}
+          isLoading={loadingAlta}
+          title="Registrar nuevo incidente"
+          submitLabel="Reportar incidente"
+        />
       )}
 
       {activeTab === "mis-reportes" && (
-        <Box
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
-            border: "1px solid #eef3f2",
-          }}
-        >
-          {loadingMis && (
-            <Box style={{ textAlign: "center", padding: "60px 20px" }}>
-              <Text color="gray.500" fontSize="16px">
-                Cargando tus reportes...
-              </Text>
-            </Box>
-          )}
+        <Tarjeta p="6">
+          {loadingMis && <EstadoCargando>Cargando tus reportes...</EstadoCargando>}
           {errorMis && (
-            <Box style={{ textAlign: "center", padding: "60px 20px" }}>
-              <Text color="red.500" fontSize="16px">
-                Error al cargar: {errorMis}
-              </Text>
-            </Box>
+            <BannerError mb="0">Error al cargar: {errorMis}</BannerError>
           )}
           {!loadingMis && !errorMis && misIncidentes.length === 0 && (
             <ReportarIncidenteEmptyState />
           )}
           {!loadingMis && !errorMis && misIncidentes.length > 0 && (
-            <VStack align="stretch" gap="12px">
-              <Box
-                style={{
-                  padding: "14px 20px",
-                  backgroundColor: FONDO_CARD,
-                  border: "1px solid #d8e7e5",
-                  borderRadius: "10px 10px 0 0",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  color: TEAL,
-                }}
-              >
+            <VStack align="stretch" gap="3">
+              <Text fontWeight="bold" fontSize="sm" color="fg.muted">
                 Tus incidentes reportados (más recientes primero)
-              </Box>
-              <VStack align="stretch" gap="8px">
+              </Text>
+              <VStack align="stretch" gap="2">
                 {misIncidentes.map((inc) => (
                   <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
                 ))}
               </VStack>
             </VStack>
           )}
-        </Box>
+        </Tarjeta>
       )}
     </Box>
   );

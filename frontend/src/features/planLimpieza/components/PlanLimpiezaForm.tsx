@@ -1,29 +1,21 @@
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-  NativeSelect,
-  Text,
-} from "@chakra-ui/react";
+import { Button, HStack, Stack, Textarea } from "@chakra-ui/react";
+import { LuPlus, LuTrash2 } from "react-icons/lu";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
 import { TIPOS_TAREA, type TipoTarea } from "../types/planLimpieza";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
 import {
-  BLANCO,
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  FONDO_CARD,
-  GRIS_CLARO,
-  TEAL,
-  TEAL_CLARO,
-  TEXTO_PRIMARIO,
-  TEXTO_TENUE,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BannerError,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+  TarjetaFormulario,
+  TituloFormulario,
+} from "../../../components/ui/patrones";
 
 interface PlanLimpiezaFormProps {
   initialValues?: PlanLimpiezaInput;
@@ -49,14 +41,11 @@ const emptyValues: PlanLimpiezaInput = {
   autor_id: 0,
 };
 
-const estiloSelect = {
-  ...estiloInput,
-  boxSizing: "border-box" as const,
-  colorScheme: "light" as const,
-  height: "auto" as const,
-  lineHeight: "normal" as const,
-};
-
+/**
+ * El aspecto de los controles lo dan `FormInput` y `FormNativeSelect`: este
+ * último arma el `NativeSelect.Root`/`Indicator` para que el desplegable
+ * tenga el mismo lenguaje visual que los inputs.
+ */
 export function PlanLimpiezaForm({
   initialValues = emptyValues,
   onSubmit,
@@ -155,90 +144,63 @@ export function PlanLimpiezaForm({
   );
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
-    >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>
-        {title}
-      </Box>
+    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+      <TituloFormulario>{title}</TituloFormulario>
 
-      {errorOpciones && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-          }}
-        >
-          ⚠️ {errorOpciones}
-        </Box>
-      )}
+      {errorOpciones && <BannerError>{errorOpciones}</BannerError>}
 
-      {/* Nombre */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            NOMBRE *
-          </Box>
-          <Input
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Limpieza diaria de heladeras"
-            style={estiloInput}
-          />
-        </Field.Root>
-      </Box>
+      <FormField label="Nombre" required mb="4">
+        <FormInput
+          value={values.nombre}
+          onChange={handleNombreChange}
+          placeholder="Ej: Limpieza diaria de heladeras"
+          maxW="500px"
+        />
+      </FormField>
 
-      {/* Tareas, cada una con su propia frecuencia */}
-      <Box style={{ marginBottom: "20px" }}>
-        <Box as="label" style={estiloLabel}>
-          TAREAS *
-        </Box>
-        {values.tareas.map((tarea, index) => (
-          <Box
-            key={index}
-            style={{
-              marginBottom: "14px",
-              padding: "12px",
-              backgroundColor: FONDO_CARD,
-              border: "1px solid #d8e7e5",
-              borderRadius: "8px",
-            }}
-          >
-            <HStack
-              gap="10px"
-              style={{ marginBottom: "8px" }}
-              alignItems="flex-end"
+      {/*
+        Tareas, cada una con su propia frecuencia.
+
+        Los controles de cada tarea ocupan todo el ancho del recuadro. Antes
+        venían con `maxW="500px"`, que es el ancho pensado para un campo de
+        formulario suelto: como acá cada tarea ya es un recuadro anidado,
+        quedaban pegados al borde izquierdo con medio recuadro de aire a la
+        derecha.
+      */}
+      <FormField label="Tareas" required mb="4">
+        {/*
+          `w="100%"` explícito: `Field.Root` usa `align-items: flex-start`, así
+          que un `Stack` sin ancho se ajusta al contenido y las tareas quedan
+          angostas contra el borde izquierdo.
+        */}
+        <Stack gap="4" w="100%">
+          {values.tareas.map((tarea, index) => (
+            <Stack
+              key={index}
+              gap="4"
+              p="4"
+              w="100%"
+              bg="bg.subtle"
+              borderWidth="1px"
+              borderColor="border.subtle"
+              rounded="lg"
             >
-              <Box>
-                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
-                  NOMBRE DE LA TAREA
-                </Box>
-                <Input
+              <FormField label="Nombre de la tarea" mb="0">
+                <FormInput
                   value={tarea.nombre}
                   onChange={(e) =>
                     handleTareaNombreChange(index, e.target.value)
                   }
                   placeholder={`Ej: Limpiar bandeja ${index + 1}`}
-                  style={{ ...estiloInput, maxWidth: "320px" }}
                 />
-              </Box>
-              <Box>
-                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
-                  FRECUENCIA EN DIAS
-                </Box>
-                <Input
+              </FormField>
+
+              <FormField
+                label="Frecuencia en días"
+                helper="Cada cuántos días se repite."
+                mb="0"
+              >
+                <FormInput
                   type="number"
                   min={1}
                   value={tarea.frecuencia}
@@ -247,230 +209,140 @@ export function PlanLimpiezaForm({
                   }
                   placeholder="Frecuencia (días)"
                   title="Frecuencia en días"
-                  style={{ ...estiloInput, maxWidth: "140px" }}
                 />
-              </Box>
-              <Box>
-                <Box as="label" style={{ ...estiloLabel, fontSize: "12px" }}>
-                  TIPO DE TAREA
-                </Box>
-                <NativeSelect.Root>
-                  <NativeSelect.Field
-                    value={tarea.tipo}
-                    onChange={(e) =>
-                      handleTareaTipoChange(
-                        index,
-                        e.target.value as TipoTarea,
-                      )
-                    }
-                    style={{ ...estiloSelect, maxWidth: "180px" }}
-                  >
-                    {TIPOS_TAREA.map((opcion) => (
-                      <option
-                        key={opcion.value}
-                        value={opcion.value}
-                        style={{
-                          backgroundColor: BLANCO,
-                          color: TEXTO_PRIMARIO,
-                        }}
-                      >
-                        {opcion.label}
-                      </option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </Box>
-              <Button
-                type="button"
-                onClick={() => handleQuitarTarea(index)}
-                disabled={values.tareas.length === 1}
-                style={{
-                  backgroundColor: GRIS_CLARO,
-                  color: TEXTO_PRIMARIO,
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor:
-                    values.tareas.length === 1 ? "not-allowed" : "pointer",
-                  fontWeight: "bold",
-                }}
+              </FormField>
+
+              {/*
+                El tipo y las observaciones se editan junto al resto de la
+                tarea: son parte de la definición, no un dato derivado.
+              */}
+              <FormField
+                label="Tipo de tarea"
+                helper="Define en qué momento del proceso se ejecuta."
+                mb="0"
               >
-                ✕
-              </Button>
-            </HStack>
-            <Box
-              as="label"
-              style={{ ...estiloLabel, fontSize: "12px", marginBottom: "4px" }}
-            >
-              PROCEDIMIENTO (opcional)
-            </Box>
-            <textarea
-              value={tarea.descripcion ?? ""}
-              onChange={(e) =>
-                handleTareaDescripcionChange(index, e.target.value)
-              }
-              placeholder={
-                "Ej:\n1. Desconectar la energía eléctrica.\n2. Retirar residuos..."
-              }
-              rows={4}
-              style={{
-                ...estiloInput,
-                maxWidth: "500px",
-                resize: "vertical",
-                fontFamily: "inherit",
-              }}
-            />
-            <Box
-              as="label"
-              style={{
-                ...estiloLabel,
-                fontSize: "12px",
-                marginBottom: "4px",
-                marginTop: "8px",
-              }}
-            >
-              OBSERVACIONES (opcional)
-            </Box>
-            <textarea
-              value={tarea.observaciones ?? ""}
-              onChange={(e) =>
-                handleTareaObservacionesChange(index, e.target.value)
-              }
-              placeholder="Ej: Usar guantes y verificar la temperatura antes de empezar."
-              rows={2}
-              style={{
-                ...estiloInput,
-                maxWidth: "500px",
-                resize: "vertical",
-                fontFamily: "inherit",
-              }}
-            />
-          </Box>
-        ))}
-        <Button
-          type="button"
-          onClick={handleAgregarTarea}
-          style={{
-            backgroundColor: TEAL_CLARO,
-            color: BLANCO,
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
+                <FormNativeSelect
+                  value={tarea.tipo}
+                  onChange={(e) =>
+                    handleTareaTipoChange(index, e.target.value as TipoTarea)
+                  }
+                  maxW="300px"
+                >
+                  {TIPOS_TAREA.map((opcion) => (
+                    <option key={opcion.value} value={opcion.value}>
+                      {opcion.label}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+
+              <FormField label="Procedimiento (opcional)" mb="0">
+                <Textarea
+                  value={tarea.descripcion ?? ""}
+                  onChange={(e) =>
+                    handleTareaDescripcionChange(index, e.target.value)
+                  }
+                  placeholder={
+                    "Ej:\n1. Desconectar la energía eléctrica.\n2. Retirar residuos..."
+                  }
+                  rows={4}
+                  resize="vertical"
+                />
+              </FormField>
+
+              <FormField
+                label="Observaciones (opcional)"
+                helper="Se muestran al lado de la tarea en el checklist del día."
+                mb="0"
+              >
+                <Textarea
+                  value={tarea.observaciones ?? ""}
+                  onChange={(e) =>
+                    handleTareaObservacionesChange(index, e.target.value)
+                  }
+                  placeholder="Ej: Usar guantes y verificar la temperatura antes de empezar."
+                  rows={2}
+                  resize="vertical"
+                />
+              </FormField>
+
+              <HStack justify="flex-end">
+                <BotonCancelar
+                  aria-label={`Quitar tarea ${index + 1}`}
+                  onClick={() => handleQuitarTarea(index)}
+                  disabled={values.tareas.length === 1}
+                >
+                  <LuTrash2 aria-hidden />
+                  Quitar tarea
+                </BotonCancelar>
+              </HStack>
+            </Stack>
+          ))}
+        </Stack>
+      </FormField>
+
+      <Button
+        type="button"
+        variant="outline"
+        colorPalette="brand"
+        size="sm"
+        mb="6"
+        onClick={handleAgregarTarea}
+      >
+        <LuPlus aria-hidden />
+        Agregar tarea
+      </Button>
+
+      <FormField label="Equipo" required mb="4">
+        <FormNativeSelect
+          value={values.equipo_id}
+          onChange={handleEquipoChange}
+          disabled={cargandoOpciones}
+          maxW="500px"
         >
-          + Agregar tarea
-        </Button>
-      </Box>
+          <SelectPlaceholder value={0}>
+            {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+          </SelectPlaceholder>
+          {equipos.map((equipo) => (
+            <option key={equipo.id} value={equipo.id}>
+              {equipo.nombre}
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
-      <HStack gap="20px" mb="20px" flexWrap="wrap" alignItems="flex-start">
-        {/* Equipo */}
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            EQUIPO *
-          </Box>
-          <NativeSelect.Root disabled={cargandoOpciones}>
-            <NativeSelect.Field
-              value={values.equipo_id}
-              onChange={handleEquipoChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
-              </option>
-              {equipos.map((equipo) => (
-                <option
-                  key={equipo.id}
-                  value={equipo.id}
-                  style={{ backgroundColor: BLANCO, color: TEXTO_PRIMARIO }}
-                >
-                  {equipo.nombre}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-      </HStack>
+      <FormField
+        label="Autor"
+        required
+        helper="Se guarda de forma explícita porque el sistema todavía no tiene sesión de usuario."
+        mb="0"
+      >
+        <FormNativeSelect
+          value={values.autor_id}
+          onChange={handleAutorChange}
+          disabled={cargandoOpciones}
+          maxW="500px"
+        >
+          <SelectPlaceholder value={0}>
+            {cargandoOpciones ? "Cargando..." : "Seleccioná quién crea el plan"}
+          </SelectPlaceholder>
+          {personal.map((persona) => (
+            <option key={persona.id} value={persona.id}>
+              {persona.nombre} {persona.apellido || ""}
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
 
-      {/* Autor */}
-      <Box style={{ marginBottom: "25px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>
-            AUTOR *
-          </Box>
-          <NativeSelect.Root disabled={cargandoOpciones}>
-            <NativeSelect.Field
-              value={values.autor_id}
-              onChange={handleAutorChange}
-              style={estiloSelect}
-            >
-              <option value={0} disabled>
-                {cargandoOpciones
-                  ? "Cargando..."
-                  : "Seleccioná quién crea el plan"}
-              </option>
-              {personal.map((persona) => (
-                <option
-                  key={persona.id}
-                  value={persona.id}
-                  style={{ backgroundColor: BLANCO, color: TEXTO_PRIMARIO }}
-                >
-                  {persona.nombre} {persona.apellido || ""}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-        <Text style={{ fontSize: "12px", color: TEXTO_TENUE, marginTop: "6px" }}>
-          Se guarda de forma explícita porque el sistema todavía no tiene sesión
-          de usuario.
-        </Text>
-      </Box>
-
-      {/* Botones */}
-      <HStack style={{ gap: "15px" }}>
-        <Button
-          type="submit"
+      <AccionesFormulario>
+        <BotonGuardar
           loading={isLoading}
           disabled={!values.equipo_id || !values.autor_id || hayTareaInvalida}
-          style={{
-            backgroundColor: TEAL,
-            color: "white",
-            padding: "12px 24px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "bold",
-          }}
         >
           {submitLabel}
-        </Button>
-
-        {onCancel && (
-          <Button
-            type="button"
-            onClick={onCancel}
-            style={{
-              backgroundColor: GRIS_CLARO,
-              color: TEXTO_PRIMARIO,
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "bold",
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </HStack>
-    </Box>
+        </BotonGuardar>
+        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
+      </AccionesFormulario>
+    </TarjetaFormulario>
   );
 }

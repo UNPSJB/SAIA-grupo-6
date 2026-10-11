@@ -1,7 +1,12 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table } from "@chakra-ui/react";
 import { PlanLimpiezaItem } from "./PlanLimpiezaItem";
 import type { EquipoOption, PlanLimpieza } from "../types/planLimpieza";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  EstadoVacio,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface PlanLimpiezaTableProps {
   planes: PlanLimpieza[];
@@ -19,67 +24,23 @@ export function PlanLimpiezaTable({
   onReactivar,
 }: PlanLimpiezaTableProps) {
   if (planes.length === 0) {
-    return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
-        <Text color="gray.500">No hay planes de limpieza cargados.</Text>
-      </Box>
-    );
+    return <EstadoVacio>No hay planes de limpieza cargados.</EstadoVacio>;
   }
 
   const nombreEquipo = (id: number) =>
     equipos.find((e) => e.id === id)?.nombre || `#${id}`;
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root
-        variant="outline"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              ID
-            </Table.ColumnHeader>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Nombre
-            </Table.ColumnHeader>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Tareas (frecuencia)
-            </Table.ColumnHeader>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px" }}
-            >
-              Equipo
-            </Table.ColumnHeader>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", textAlign: "center" }}
-            >
-              Estado
-            </Table.ColumnHeader>
-            <Table.ColumnHeader
-              fontWeight="normal"
-              fontSize="16px"
-              style={{ padding: "12px", textAlign: "center" }}
-            >
-              Acciones
-            </Table.ColumnHeader>
-          </Table.Row>
+          <FilaEncabezado>
+            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="amplia">Tareas (frecuencia)</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Equipo</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+          </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {planes.map((plan) => (
@@ -94,6 +55,6 @@ export function PlanLimpiezaTable({
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

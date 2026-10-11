@@ -17,3 +17,4 @@ class ErrorCode:
         "El elemento de limpieza seleccionado no existe o fue dado de baja."
     )
     REGISTRO_TAREA_NO_ENCONTRADO = "El registro de la tarea no existe."
+    CHECKLIST_NO_ENCONTRADO = "El checklist no existe."

@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input, Textarea } from "@chakra-ui/react";
+import { Box, Textarea } from "@chakra-ui/react";
 import type { AptitudFormValues } from "../types/aptitud";
 import {
-  BLANCO,
-  GRIS_CLARO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  estiloInput,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+  FormInput,
+  TarjetaFormulario,
+  TituloFormulario,
+} from "../../../components/ui/patrones";
 
 interface AptitudFormProps {
   initialValues?: AptitudFormValues;
@@ -21,6 +22,10 @@ interface AptitudFormProps {
 
 const emptyValues: AptitudFormValues = { nombre: "", descripcion: "" };
 
+/**
+ * El aspecto de los controles lo dan `FormInput` y la receta del tema; acá no
+ * hay objetos de estilo. El ancho (`maxW="500px"`) es una decisión de layout.
+ */
 export function AptitudForm({
   initialValues = emptyValues,
   onSubmit,
@@ -37,47 +42,42 @@ export function AptitudForm({
   };
 
   return (
-    <Box
-      as="form"
-      onSubmit={handleSubmit}
-      style={{ backgroundColor: BLANCO, padding: "30px", borderRadius: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", marginBottom: "30px" }}
-    >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL }}>{title}</Box>
+    <Box as="form" onSubmit={handleSubmit}>
+      <TarjetaFormulario>
+        <TituloFormulario>{title}</TituloFormulario>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root required>
-          <Box as="label" style={estiloLabel}>NOMBRE *</Box>
-          <Input
+        <FormField label="Nombre" required mb="4">
+          <FormInput
             value={values.nombre}
             onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
             placeholder="Ej: Carnet de Manipulador"
-            style={estiloInput}
+            maxW="500px"
           />
-        </Field.Root>
-      </Box>
+        </FormField>
 
-      <Box style={{ marginBottom: "20px" }}>
-        <Field.Root>
-          <Box as="label" style={estiloLabel}>DESCRIPCIÓN</Box>
+        <FormField
+          label="Descripción"
+          helper="Opcional: qué certifica esta aptitud."
+          mb="0"
+        >
           <Textarea
             value={values.descripcion || ""}
             onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
             placeholder="Opcional: qué certifica esta aptitud"
-            style={{ ...estiloInput, minHeight: "80px" }}
+            minH="80px"
+            maxW="500px"
           />
-        </Field.Root>
-      </Box>
+        </FormField>
 
-      <HStack style={{ gap: "15px" }}>
-        <Button type="submit" loading={isLoading} style={{ backgroundColor: TEAL, color: "white", padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
-          {submitLabel}
-        </Button>
-        {onCancel && (
-          <Button type="button" onClick={onCancel} style={{ backgroundColor: GRIS_CLARO, color: TEXTO_PRIMARIO, padding: "12px 24px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "15px", fontWeight: "bold" }}>
-            Cancelar
-          </Button>
-        )}
-      </HStack>
+        <AccionesFormulario>
+          <BotonGuardar loading={isLoading} disabled={!values.nombre.trim()}>
+            {submitLabel}
+          </BotonGuardar>
+          {onCancel && (
+            <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>
+          )}
+        </AccionesFormulario>
+      </TarjetaFormulario>
     </Box>
   );
 }

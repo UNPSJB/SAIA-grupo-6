@@ -627,6 +627,85 @@ def listar_historial_checklists(
     )
 
 
+def obtener_detalle_checklist(
+    db: Session, checklist_id: int
+) -> schemas.DetalleChecklistResponse:
+    """Devuelve la fotografía registrada de todas las tareas de un checklist.
+
+    El nombre y la descripción pertenecen al snapshot de RegistroTarea. En
+    cambio, insumo, unidad y elemento se resuelven desde los catálogos vigentes,
+    porque esos nombres no se guardan como snapshots históricos.
+    """
+    checklist = db.scalar(
+        select(models.Checklist)
+        .where(models.Checklist.id == checklist_id)
+        .options(
+            selectinload(models.Checklist.equipo),
+            selectinload(models.Checklist.registros).selectinload(
+                models.RegistroTarea.usuario
+            ),
+            selectinload(models.Checklist.registros)
+            .selectinload(models.RegistroTarea.insumo_quimico)
+            .selectinload(InsumoQuimico.unidad_medida),
+            selectinload(models.Checklist.registros).selectinload(
+                models.RegistroTarea.elemento_limpieza
+            ),
+        )
+    )
+    if checklist is None:
+        raise exceptions.ChecklistNoEncontrado()
+
+    registros = sorted(checklist.registros, key=lambda registro: registro.id)
+    tareas_completadas = sum(1 for registro in registros if registro.completado)
+
+    tareas = []
+    for registro in registros:
+        usuario_nombre = None
+        if registro.usuario is not None:
+            usuario_nombre = (
+                f"{registro.usuario.nombre} {registro.usuario.apellido or ''}".strip()
+            )
+
+        insumo = registro.insumo_quimico
+        unidad_medida_simbolo = None
+        if insumo is not None and insumo.unidad_medida is not None:
+            unidad_medida_simbolo = insumo.unidad_medida.simbolo
+
+        tareas.append(
+            schemas.DetalleChecklistTareaItem(
+                registro_id=registro.id,
+                nombre=registro.nombre_tarea_historico,
+                descripcion=registro.descripcion_tarea_historico,
+                completado=registro.completado,
+                fecha_completado=registro.fecha_completado,
+                usuario_nombre=usuario_nombre,
+                evidencia_url=registro.evidencia_url,
+                insumo_quimico_nombre=insumo.nombre if insumo is not None else None,
+                cantidad_consumida=registro.cantidad_consumida,
+                unidad_medida_simbolo=unidad_medida_simbolo,
+                elemento_limpieza_nombre=(
+                    registro.elemento_limpieza.nombre
+                    if registro.elemento_limpieza is not None
+                    else None
+                ),
+            )
+        )
+
+    return schemas.DetalleChecklistResponse(
+        checklist_id=checklist.id,
+        fecha=checklist.fecha,
+        equipo_id=checklist.equipo_id,
+        equipo_nombre=checklist.equipo.nombre,
+        estado=checklist.estado,
+        total_tareas=len(registros),
+        tareas_completadas=tareas_completadas,
+        porcentaje_cumplimiento=(
+            tareas_completadas / len(registros) * 100 if registros else 0.0
+        ),
+        tareas=tareas,
+    )
+
+
 # ---------------------------------------------------------
 # CONSUMO ACUMULADO DE PRODUCTOS DE LIMPIEZA
 # ---------------------------------------------------------

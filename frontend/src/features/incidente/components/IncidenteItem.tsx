@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Button, HStack, Table, Badge, Text } from "@chakra-ui/react";
-import { CeldaFoto } from "./MiniaturaFoto";
+import { Badge, Box, HStack, IconButton, Table, Text } from "@chakra-ui/react";
+import { LuCamera, LuTriangleAlert, LuEye } from "react-icons/lu";
 import {
   estadoLabel,
   tipoLabel,
@@ -8,12 +8,7 @@ import {
   formatoFecha,
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
-import {
-  ADVERTENCIA,
-  ADVERTENCIA_HOVER,
-  TEAL,
-  TEAL_OSCURO,
-} from "../../../common/theme/tokens";
+import { BotonTabla, Celda } from "../../../components/ui/patrones";
 
 interface IncidenteItemProps {
   incidente: Incidente;
@@ -55,128 +50,139 @@ export function IncidenteItem({
 
   return (
     <Table.Row
-      style={{
-        borderBottom: "1px solid #eee",
-        opacity: cerrado ? 0.7 : 1,
-        backgroundColor: esViejo ? "#fff5f5" : "inherit",
-        borderLeft: esViejo ? "4px solid #e53e3e" : "none",
-      }}
+      borderBottomWidth="1px"
+      borderColor="border.subtle"
+      opacity={cerrado ? 0.7 : 1}
+      // Un incidente abierto que lleva más de una semana sin resolverse se
+      // marca en la fila: es el dato que el listado tiene que comunicar de un
+      // vistazo, sin abrir el detalle.
+      bg={esViejo ? "red.subtle" : undefined}
+      borderLeftWidth={esViejo ? "4px" : undefined}
+      borderLeftColor={esViejo ? "red.solid" : undefined}
     >
-      <Table.Cell color={TEAL} fontWeight="bold" fontSize="16px" style={{ padding: "12px" }}>
-        #{incidente.id}
-      </Table.Cell>
+      <Celda p="3" whiteSpace="nowrap">
+        {formatoFecha(incidente.fecha_reporte)}
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px", maxWidth: "220px" }}>
+      <Celda p="3" maxW="220px">
         <Text
           fontWeight="bold"
           fontSize="15px"
           lineClamp={1}
-          color="black"
+          color="fg"
           title={incidente.titulo}
         >
           {incidente.titulo}
         </Text>
-        <Text
-          fontSize="14px"
-          color="gray.600"
-          lineClamp={2}
-          wordBreak="break-word"
-          whiteSpace="pre-line"
-          mt="2px"
-          title={incidente.descripcion}
-        >
-          {incidente.descripcion}
-        </Text>
+        {incidente.descripcion && (
+          <Text
+            fontSize="sm"
+            color="fg.muted"
+            lineClamp={2}
+            wordBreak="break-word"
+            whiteSpace="pre-line"
+            mt="2px"
+            title={incidente.descripcion}
+          >
+            {incidente.descripcion}
+          </Text>
+        )}
         {cerrado && incidente.observacion_cierre && (
-          <Text fontSize="12px" color="gray.500" mt="4px" lineClamp={2}>
+          <Text fontSize="xs" color="fg.subtle" mt="4px" lineClamp={2}>
             <strong>Resolución:</strong> {incidente.observacion_cierre}
           </Text>
         )}
         {esViejo && (
-          <Text fontSize="12px" color="red.600" mt="4px" fontWeight="bold">
-            ⚠️ Lleva más de 7 días sin resolver
-          </Text>
+          <HStack gap="1" color="red.fg" fontSize="xs" fontWeight="bold" mt="4px">
+            <Box as="span" display="inline-flex" flexShrink={0} aria-hidden>
+              <LuTriangleAlert size={12} />
+            </Box>
+            <Text as="span">Lleva más de 7 días sin resolver</Text>
+          </HStack>
         )}
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        <CeldaFoto rutaFoto={incidente.foto_url} />
-      </Table.Cell>
+      <Celda p="3" center>
+        {incidente.foto_url ? (
+          <Box
+            display="inline-flex"
+            color="brand.fg"
+            title="Ver detalle para ver la foto"
+            role="img"
+            aria-label="Tiene foto adjunta"
+          >
+            <LuCamera size={20} />
+          </Box>
+        ) : (
+          <Text color="fg.subtle">-</Text>
+        )}
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
-        <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="8px" py="4px">
+      <Celda p="3">
+        {/*
+          `maxW` + ellipsis en los badges: con `table-layout: fixed` la columna
+          ya no crece para acomodar la etiqueta, y "Falla / Rotura de Equipo"
+          se salía de la celda. Con puntos suspensivos el texto largo se
+          recorta dentro de la píldora en vez de pisar la columna de al lado.
+        */}
+        <Badge
+          colorPalette={tipoColor(incidente.tipo)}
+          borderRadius="md"
+          px="2"
+          py="1"
+          maxW="100%"
+          overflow="hidden"
+          textOverflow="ellipsis"
+        >
           {tipoLabel(incidente.tipo)}
         </Badge>
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3">
         <Badge
           colorPalette={cerrado ? "green" : "red"}
           borderRadius="md"
-          px="10px"
-          py="4px"
+          px="3"
+          py="1"
+          maxW="100%"
+          overflow="hidden"
+          textOverflow="ellipsis"
         >
           {estadoLabel(incidente.estado)}
         </Badge>
-      </Table.Cell>
+      </Celda>
 
-      <Table.Cell fontSize="16px" style={{ padding: "12px" }}>
+      <Celda p="3">
         {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
-      </Table.Cell>
-
-      <Table.Cell fontSize="14px" style={{ padding: "12px" }}>
-        {formatoFecha(incidente.fecha_reporte)}
-      </Table.Cell>
+      </Celda>
 
       {showActions && (
-        <Table.Cell style={{ padding: "12px", textAlign: "center" }}>
-          <HStack justify="center" style={{ gap: "10px" }}>
-            <Button
+        <Celda p="3" center>
+          <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
+            <IconButton
+              type="button"
               variant="ghost"
-              fontSize="18px"
-              cursor="pointer"
+              size="sm"
+              colorPalette="neutral"
+              aria-label="Ver detalle"
               onClick={handleVer}
-              title="Ver Detalle"
+              title="Ver detalle"
             >
-              👁️
-            </Button>
+              <LuEye />
+            </IconButton>
             {cerrado
               ? onReabrir && (
-                  <Button
-                    bg={ADVERTENCIA}
-                    color="white"
-                    fontSize="15px"
-                    fontWeight="normal"
-                    style={{
-                      border: "none",
-                      padding: "6px 12px",
-                      borderRadius: "4px",
-                    }}
-                    _hover={{ bg: ADVERTENCIA_HOVER }}
-                    onClick={() => onReabrir(incidente)}
-                  >
+                  <BotonTabla accion="reabrir" onClick={() => onReabrir(incidente)}>
                     Reabrir
-                  </Button>
+                  </BotonTabla>
                 )
               : onCerrar && (
-                  <Button
-                    bg={TEAL}
-                    color="white"
-                    fontSize="15px"
-                    fontWeight="normal"
-                    style={{
-                      border: "none",
-                      padding: "6px 12px",
-                      borderRadius: "4px",
-                    }}
-                    _hover={{ bg: TEAL_OSCURO }}
-                    onClick={() => onCerrar(incidente)}
-                  >
+                  <BotonTabla accion="cerrar" onClick={() => onCerrar(incidente)}>
                     Cerrar
-                  </Button>
+                  </BotonTabla>
                 )}
           </HStack>
-        </Table.Cell>
+        </Celda>
       )}
     </Table.Row>
   );

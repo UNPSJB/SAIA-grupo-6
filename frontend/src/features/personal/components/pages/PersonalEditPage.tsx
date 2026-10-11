@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
 
 import { PersonalForm } from "../PersonalForm";
 import { usePersonal } from "../../hooks/usePersonal";
@@ -21,13 +21,11 @@ import {
 } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  EXITO,
-  GRIS_MEDIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TERCIARIO,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  BotonVolver,
+  DialogoExito,
+  PageHeader,
+} from "../../../../components/ui/patrones";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
@@ -124,146 +122,34 @@ export function PersonalEditPage() {
   };
 
   return (
-    <Box
-      style={{
-        padding: "20px",
-        maxWidth: "600px",
-        margin: "0 auto",
-      }}
-    >
-      <HStack justify="space-between" mb="20px">
-        <Heading
-          as="h2"
-          size="md"
-          fontWeight="bold"
-          color="black"
-        >
-          Editar Personal
-        </Heading>
-
-        <Button
-          bg={GRIS_MEDIO}
-          color="white"
-          fontSize="16px"
-          fontWeight="normal"
-          height="auto"
-          minW="auto"
-          style={{
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "6px",
-          }}
-          _hover={{ bg: GRIS_MEDIO }}
-          onClick={() => navigate("/personal")}
-        >
-          Volver a la lista
-        </Button>
-      </HStack>
-
-      {!cargando && errorCarga && (
-        <Text color="red.500">{errorCarga}</Text>
-      )}
+    <Box p="5" maxW="600px" mx="auto">
+      <PageHeader
+        title="Editar personal"
+        actions={
+          <BotonVolver onClick={() => navigate("/personal")}>
+            Volver a la lista
+          </BotonVolver>
+        }
+      />
 
       {cargando && (
-        <Text
-          style={{
-            fontStyle: "italic",
-            color: TEXTO_TERCIARIO,
-          }}
-        >
-          Cargando datos del personal...
-        </Text>
+        <Stack direction="row" gap="3" align="center" color="fg.muted">
+          <Spinner size="sm" color="brand.500" />
+          <Text fontStyle="italic">Cargando datos del personal...</Text>
+        </Stack>
+      )}
+
+      {!cargando && errorCarga && (
+        <BannerError>{errorCarga}</BannerError>
       )}
 
       {!cargando && !errorCarga && persona && (
         <>
           {errorGuardado && (
-            <Box
-              style={{
-                backgroundColor: ERROR_FONDO,
-                color: ERROR_TEXTO,
-                padding: "12px",
-                borderRadius: "6px",
-                marginBottom: "20px",
-                border: "1px solid #f5c6cb",
-                fontWeight: "bold",
-              }}
-            >
-              ⚠️ {errorGuardado}
-            </Box>
+            <BannerError>{errorGuardado}</BannerError>
           )}
           {errorVencimientos && (
-            <Box
-              style={{
-                backgroundColor: ERROR_FONDO,
-                color: ERROR_TEXTO,
-                padding: "12px",
-                borderRadius: "6px",
-                marginBottom: "20px",
-                border: "1px solid #f5c6cb",
-                fontWeight: "bold",
-              }}
-            >
-              {errorVencimientos}
-            </Box>
-          )}
-
-          {exito && (
-            <Box
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: "rgba(0,0,0,0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 1000,
-              }}
-            >
-              <Box
-                style={{
-                  backgroundColor: "white",
-                  padding: "30px 50px",
-                  borderRadius: "12px",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-                  textAlign: "center",
-                }}
-              >
-                <Box
-                  style={{
-                    fontSize: "50px",
-                    marginBottom: "10px",
-                  }}
-                >
-                  ✅
-                </Box>
-
-                <Heading
-                  as="h3"
-                  style={{
-                    margin: 0,
-                    color: EXITO,
-                    fontSize: "24px",
-                  }}
-                >
-                  Éxito
-                </Heading>
-
-                <Text
-                  style={{
-                    color: TEXTO_SECUNDARIO,
-                    marginTop: "10px",
-                    fontSize: "16px",
-                    fontWeight: 500,
-                  }}
-                >
-                  Personal modificado correctamente.
-                </Text>
-              </Box>
-            </Box>
+            <BannerError>{errorVencimientos}</BannerError>
           )}
 
           <PersonalForm
@@ -294,6 +180,11 @@ export function PersonalEditPage() {
           />
         </>
       )}
+
+      <DialogoExito
+        isOpen={exito}
+        mensaje="Personal modificado correctamente."
+      />
     </Box>
   );
 }

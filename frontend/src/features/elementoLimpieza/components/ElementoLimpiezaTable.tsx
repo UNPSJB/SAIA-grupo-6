@@ -1,7 +1,12 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Table } from "@chakra-ui/react";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
 import { ElementoLimpiezaItem } from "./ElementoLimpiezaItem";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  EstadoVacio,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface ElementoLimpiezaTableProps {
   elementos: ElementoLimpieza[];
@@ -17,34 +22,19 @@ export function ElementoLimpiezaTable({
   onReactivar,
 }: ElementoLimpiezaTableProps) {
   if (elementos.length === 0) {
-    return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
-        <Text color="gray.500">No hay elementos de limpieza para mostrar.</Text>
-      </Box>
-    );
+    return <EstadoVacio>No hay elementos de limpieza para mostrar.</EstadoVacio>;
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root variant="outline" style={{ width: "100%", borderCollapse: "collapse" }}>
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>
-              ID
-            </Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>
-              Nombre
-            </Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>
-              Último Recambio
-            </Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>
-              Frecuencia (Días)
-            </Table.ColumnHeader>
-            <Table.ColumnHeader fontWeight="normal" fontSize="16px" textAlign="center" style={{ padding: "12px" }}>
-              Acciones
-            </Table.ColumnHeader>
-          </Table.Row>
+          <FilaEncabezado>
+            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Último Recambio</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Frecuencia (Días)</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+          </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {elementos.map((elemento) => (
@@ -58,6 +48,6 @@ export function ElementoLimpiezaTable({
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }

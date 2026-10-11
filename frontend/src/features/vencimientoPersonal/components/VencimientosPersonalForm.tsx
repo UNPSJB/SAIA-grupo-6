@@ -1,27 +1,38 @@
 import { useState } from "react";
-import { Box, Button, Field, HStack, Input } from "@chakra-ui/react";
-import { useAptitudes } from "../../aptitud/hooks/useAptitudes";
-import type { VencimientosPorAptitud } from "../hooks/useVencimientosPersonal";
+import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
 import {
-  BLANCO,
-  PELIGRO_TEXTO,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_TENUE,
-  estiloInputAncho,
-  estiloLabel,
-} from "../../../common/theme/tokens";
+  BotonTexto,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
+} from "../../../components/ui/patrones";
+import { useAptitudes } from "../../aptitud/hooks/useAptitudes";
+import { hoyISO } from "../../../common/utils/fechas";
+import type { VencimientosPorAptitud } from "../hooks/useVencimientosPersonal";
 
 interface VencimientosPersonalFormProps {
   valores: VencimientosPorAptitud;
   onChange: (valores: VencimientosPorAptitud) => void;
 }
 
+/**
+ * Sub-formulario embebido en el alta/edición de Personal: no es una página,
+ * así que no lleva `TarjetaFormulario`. La superficie es un bloque claro y el
+ * título es de sección (`lg`), no de página (`2xl`).
+ */
 export function VencimientosPersonalForm({ valores, onChange }: VencimientosPersonalFormProps) {
-  const { aptitudes, loading } = useAptitudes(); // por defecto, solo las activas
+  // Se piden las aptitudes incluyendo las dadas de baja a propósito: una
+  // aptitud con vencimiento cargado puede bajar de baja después, y
+  // antes se pedía solo la lista de activas, así que su vencimiento
+  // desaparecía de la tabla sin poder quitarlo — pero `guardarVencimientos`
+  // seguía mandándolo al backend.
+  const { aptitudes, loading } = useAptitudes(true);
 
   const idsCargados = Object.keys(valores).map(Number);
-  const aptitudesDisponibles = aptitudes.filter((a) => !idsCargados.includes(a.id));
+  const aptitudesDisponibles = aptitudes.filter(
+    (a) => a.activo && !idsCargados.includes(a.id)
+  );
   const aptitudesCargadas = aptitudes.filter((a) => idsCargados.includes(a.id));
 
   const [aptitudSeleccionada, setAptitudSeleccionada] = useState<string>("");
@@ -40,47 +51,50 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
     onChange(nuevo);
   };
 
+  const puedeAgregar = Boolean(aptitudSeleccionada && fechaSeleccionada);
+
   return (
-    <Box
-      style={{
-        backgroundColor: BLANCO,
-        padding: "30px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        marginBottom: "30px",
-      }}
-    >
-      <Box as="h3" style={{ marginTop: 0, fontSize: "22px", color: TEAL, marginBottom: "8px" }}>
-        Vencimientos de Aptitud
-      </Box>
-      <Box style={{ fontSize: "13px", color: TEXTO_TENUE, marginBottom: "20px" }}>
+    <Box bg="bg.panel" rounded="lg" p="6">
+      <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="2">
+        Vencimientos de aptitud
+      </Heading>
+      <Text fontSize="sm" color="fg.muted" mb="6">
         Opcional — cargá solo los que tengas a mano.
-      </Box>
+      </Text>
 
       {loading && (
-        <Box style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>
+        <Text fontSize="sm" color="fg.muted" fontStyle="italic">
           Cargando aptitudes...
-        </Box>
+        </Text>
       )}
 
       {!loading && aptitudesCargadas.length > 0 && (
-        <Box mb="20px">
+        <Box mb="6">
           {aptitudesCargadas.map((apt) => (
             <HStack
               key={apt.id}
               justify="space-between"
-              style={{ padding: "10px 14px", backgroundColor: "#f4f9f8", borderRadius: "8px", marginBottom: "8px" }}
+              p="3"
+              bg="brand.50"
+              rounded="lg"
+              mb="2"
             >
-              <Box style={{ fontSize: "15px", color: TEXTO_PRIMARIO }}>
+              <Text fontSize="sm" color="fg">
                 <strong>{apt.nombre}</strong> — vence el {valores[apt.id]}
-              </Box>
-              <Button
-                type="button"
+                {!apt.activo && (
+                  <Text as="span" color="red.600" fontSize="xs" fontWeight="bold">
+                    {" "}
+                    (aptitud dada de baja)
+                  </Text>
+                )}
+              </Text>
+              <BotonTexto
+                color="red.700"
                 onClick={() => quitarVencimiento(apt.id)}
-                style={{ background: "none", border: "none", color: PELIGRO_TEXTO, fontWeight: "bold", cursor: "pointer", padding: 0 }}
+                title={`Quitar el vencimiento de ${apt.nombre}`}
               >
                 Quitar
-              </Button>
+              </BotonTexto>
             </HStack>
           ))}
         </Box>
@@ -88,56 +102,47 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
 
       {!loading && (
         aptitudesDisponibles.length > 0 ? (
-          <HStack gap="15px" align="flex-end" flexWrap="wrap">
-            <Field.Root>
-              <Box as="label" style={estiloLabel}>APTITUD</Box>
-              <select
-                value={aptitudSeleccionada}
-                onChange={(e) => setAptitudSeleccionada(e.target.value)}
-                style={{ ...estiloInputAncho, minWidth: "200px" }}
-              >
-                <option value="">Seleccionar...</option>
-                {aptitudesDisponibles.map((apt) => (
-                  <option key={apt.id} value={apt.id}>
-                    {apt.nombre}
-                  </option>
-                ))}
-              </select>
-            </Field.Root>
-            <Field.Root>
-              <Box as="label" style={estiloLabel}>FECHA DE VENCIMIENTO</Box>
-              <Input
-                type="date"
-                value={fechaSeleccionada}
-                min={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setFechaSeleccionada(e.target.value)}
-                style={estiloInputAncho}
-              />
-            </Field.Root>
+          <HStack gap="4" align="flex-end" flexWrap="wrap">
+            <Box flex="1" minW="200px">
+              <FormField label="Aptitud" mb="0">
+                <FormNativeSelect
+                  value={aptitudSeleccionada}
+                  onChange={(e) => setAptitudSeleccionada(e.target.value)}
+                >
+                  <SelectPlaceholder value="">Seleccionar...</SelectPlaceholder>
+                  {aptitudesDisponibles.map((apt) => (
+                    <option key={apt.id} value={apt.id}>
+                      {apt.nombre}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+            </Box>
+            <Box flex="1" minW="200px">
+              <FormField label="Fecha de vencimiento" mb="0">
+                <FormInput
+                  type="date"
+                  value={fechaSeleccionada}
+                  min={hoyISO()}
+                  onChange={(e) => setFechaSeleccionada(e.target.value)}
+                />
+              </FormField>
+            </Box>
             <Button
               type="button"
               onClick={agregarVencimiento}
-              disabled={!aptitudSeleccionada || !fechaSeleccionada}
-              style={{
-                backgroundColor: TEAL,
-                color: "white",
-                padding: "12px 20px",
-                borderRadius: "8px",
-                border: "none",
-                cursor: "pointer",
-                fontWeight: "bold",
-                opacity: !aptitudSeleccionada || !fechaSeleccionada ? 0.5 : 1,
-              }}
+              disabled={!puedeAgregar}
+              colorPalette="brand"
             >
               Agregar
             </Button>
           </HStack>
         ) : (
-          <Box style={{ fontSize: "14px", color: TEXTO_TENUE, fontStyle: "italic" }}>
+          <Text fontSize="sm" color="fg.muted" fontStyle="italic">
             {aptitudes.length === 0
               ? "Todavía no hay aptitudes cargadas en el sistema. Creá una desde la sección Aptitudes."
               : "Ya cargaste todas las aptitudes disponibles."}
-          </Box>
+          </Text>
         )
       )}
     </Box>

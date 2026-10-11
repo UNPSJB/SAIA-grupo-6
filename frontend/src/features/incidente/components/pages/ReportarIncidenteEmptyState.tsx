@@ -1,33 +1,42 @@
 import { Box, Text } from "@chakra-ui/react";
-import { TEXTO_PRIMARIO, TEXTO_TERCIARIO } from "../../../../common/theme/tokens";
+import { LuClipboardList, LuLightbulb } from "react-icons/lu";
 
 export function ReportarIncidenteEmptyState() {
   return (
     <Box
-      style={{
-        textAlign: "center",
-        padding: "60px 20px",
-        backgroundColor: "#fafafa",
-        border: "2px dashed #d8e7e5",
-        borderRadius: "12px",
-        marginTop: "20px",
-      }}
+      textAlign="center"
+      p="8"
+      mt="4"
+      bg="bg.subtle"
+      borderWidth="1px"
+      borderStyle="dashed"
+      borderColor="border"
+      rounded="lg"
     >
-      <Box style={{ fontSize: "64px", marginBottom: "16px" }}>
-        📋
+      <Box color="brand.fg" display="flex" justifyContent="center" mb="4" aria-hidden>
+        <LuClipboardList size={40} />
       </Box>
-      <Text fontSize="20px" fontWeight="bold" color={TEXTO_PRIMARIO} mb="8px">
+      <Text fontSize="lg" fontWeight="bold" color="fg" mb="2">
         Aún no has reportado incidentes
       </Text>
-      <Text fontSize="15px" color={TEXTO_TERCIARIO} maxW="400px" mx="auto" lineHeight="1.6">
+      <Text fontSize="sm" color="fg.muted" maxW="400px" mx="auto" lineHeight={1.6}>
         Cuando reportes tu primer incidente, aparecerá aquí con su estado,
-        fecha y tipo. Podrás ver el detalle haciendo clic en "Ver".
+        fecha y tipo. Podrás ver el detalle haciendo clic sobre el reporte.
       </Text>
-      <Box style={{ marginTop: "20px", fontSize: "13px", color: "#999" }}>
-        💡 Usa la pestaña {" "}
-        <Text fontWeight="bold">"Nuevo Incidente"</Text>
-        {" "} para crear uno.
-      </Box>
+      <Text
+        mt="4"
+        fontSize="xs"
+        color="fg.muted"
+        display="inline-flex"
+        alignItems="center"
+        gap="2"
+      >
+        <LuLightbulb size={14} aria-hidden />
+        <span>
+          Usa la pestaña <Text as="span" fontWeight="bold">"Nuevo incidente"</Text>{" "}
+          para crear uno.
+        </span>
+      </Text>
     </Box>
   );
 }

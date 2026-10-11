@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { Box, Button, Portal, Text } from "@chakra-ui/react";
-import type { Incidente } from "../types/incidente";
+import { Textarea } from "@chakra-ui/react";
 import {
-  BLANCO,
-  BORDE_CONTROL,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TERCIARIO,
-} from "../../../common/theme/tokens";
+  DialogContent,
+  DialogDescription,
+  DialogRoot,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  BotonGuardar,
+  FormField,
+} from "../../../components/ui/patrones";
+import type { Incidente } from "../types/incidente";
 
 interface CerrarIncidenteDialogProps {
   isOpen: boolean;
@@ -44,119 +48,55 @@ export function CerrarIncidenteDialog({
 
   if (!isOpen || !incidente) return null;
 
-  const estiloInput = {
-    width: "100%",
-    boxSizing: "border-box" as const,
-    backgroundColor: BLANCO,
-    padding: "10px 12px",
-    borderRadius: "8px",
-    border: "2px solid #90BEBB",
-    fontSize: "14px",
-    fontFamily: "inherit",
-    color: TEXTO_PRIMARIO,
-    resize: "vertical" as const,
-  };
-
   return (
-    <Portal>
-      <Box
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="bg.panel"
+        p="6"
+        rounded="lg"
+        boxShadow="dialog"
+        width="400px"
+        maxWidth="90vw"
+        textAlign="left"
       >
-        <Box
-          style={{
-            backgroundColor: "white",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            width: "450px",
-            maxWidth: "90vw",
-            textAlign: "left",
-          }}
-        >
-          <Box as="h3" style={{ marginTop: 0, color: TEXTO_PRIMARIO }}>
-            Cerrar incidente <strong>#{incidente.id}</strong>
-          </Box>
+        <DialogTitle as="h3" mt={0} mb="4" fontSize="lg" fontWeight="bold" color="fg">
+          Cerrar incidente <strong>#{incidente.id}</strong>
+        </DialogTitle>
 
-          <Text style={{ color: TEXTO_TERCIARIO, marginBottom: "15px" }}>
-            Se deja asentada la acción correctiva, la fecha de cierre y vos
-            como responsable de la resolución.
-          </Text>
+        <DialogDescription color="fg.muted" mb="4">
+          Se deja asentada la acción correctiva, la fecha de cierre y vos
+          como responsable de la resolución.
+        </DialogDescription>
 
-          <Box
-            as="label"
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: "bold",
-              marginBottom: "6px",
-              color: TEXTO_SECUNDARIO,
-            }}
-          >
-            Acción correctiva (opcional)
-          </Box>
-          <textarea
+        <FormField label="Acción correctiva (opcional)" mb="6">
+          <Textarea
             value={observacion}
             onChange={(e) => setObservacion(e.target.value)}
             rows={4}
             placeholder="Ej: Se lavó y desinfectó el equipo y se cambió el termostato."
-            style={estiloInput}
+            resize="vertical"
           />
+        </FormField>
 
-          <Box
-            style={{
-              display: "flex",
-              gap: "10px",
-              justifyContent: "flex-end",
-              marginTop: "20px",
-            }}
+        <AccionesFormulario>
+          <BotonGuardar
+            type="button"
+            onClick={() => onConfirm(observacion)}
+            loading={isLoading}
           >
-            <Button
-              onClick={onClose}
-              height="auto"
-              minW="auto"
-              disabled={isLoading}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${BORDE_CONTROL}`,
-                backgroundColor: BLANCO,
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => onConfirm(observacion)}
-              loading={isLoading}
-              height="auto"
-              minW="auto"
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: TEAL,
-                color: "white",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cerrar incidente
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-    </Portal>
+            Cerrar incidente
+          </BotonGuardar>
+          <BotonCancelar onClick={onClose} disabled={isLoading}>
+            Cancelar
+          </BotonCancelar>
+        </AccionesFormulario>
+      </DialogContent>
+    </DialogRoot>
   );
 }

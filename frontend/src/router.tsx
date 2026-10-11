@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Outlet } from "react-router-dom";
-import { Box, Spinner } from "@chakra-ui/react";
+import { Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -13,7 +13,11 @@ import { Login } from "./features/Login";
 
 import Navbar from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
-import { FONDO_APP } from "./common/theme/tokens";
+
+// 0. Panel principal
+const InicioPage = lazy(() =>
+  import("./features/dashboard/components/pages/InicioPage").then((mod) => ({ default: mod.InicioPage })),
+);
 
 // 1. Personal
 const PersonalPage = lazy(() =>
@@ -177,9 +181,9 @@ function ConSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <Box style={{ padding: "40px", textAlign: "center" }}>
-          <Spinner size="lg" />
-        </Box>
+        <Flex p="40px" justify="center">
+          <Spinner size="lg" color="brand.500" />
+        </Flex>
       }
     >
       {children}
@@ -190,26 +194,18 @@ function ConSuspense({ children }: { children: ReactNode }) {
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        backgroundColor: FONDO_APP,
-      }}
-    >
+    <Flex h="100vh" overflow="hidden" bg="brand.50">
       <Navbar />
 
-      <div
-        style={{
-          flex: 1,
-          padding: "15px 30px",
-          overflowY: "auto",
-        }}
+      <Flex
+        flex={1}
+        p="15px 30px"
+        overflowY="auto"
+        direction="column"
       >
         <Outlet />
-      </div>
-    </div>
+      </Flex>
+    </Flex>
   );
 }
 
@@ -233,18 +229,12 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "/",
+            // El panel es la única página con datos: la carga y los cálculos
+            // viven en `InicioPage`, y acá solo se la registra como ruta.
             element: (
-              <div
-                style={{
-                  textAlign: "center",
-                  marginTop: "50px",
-                }}
-              >
-                <h1>Panel Principal - SAIA</h1>
-                <p>
-                  Seleccioná una opción en el menú lateral para comenzar.
-                </p>
-              </div>
+              <ConSuspense>
+                <InicioPage />
+              </ConSuspense>
             ),
           },
 
@@ -655,32 +645,25 @@ export const router = createBrowserRouter([
 
 function NotFoundPage() {
   return (
-    <div
-      style={{
-        textAlign: "center",
-        marginTop: "50px",
-      }}
-    >
-      <h1>404</h1>
-      <p>La página que buscás no existe.</p>
-    </div>
+    <Stack gap="2" mt="8" maxW="600px">
+      <Heading as="h1" size="2xl" color="fg">
+        404
+      </Heading>
+      <Text color="fg.muted">La página que buscás no existe.</Text>
+    </Stack>
   );
 }
 
 function SinPermisosPage() {
   return (
-    <div
-      style={{
-        textAlign: "center",
-        marginTop: "50px",
-      }}
-    >
-      <h1>No tenés permisos</h1>
-
-      <p>
+    <Stack gap="2" mt="8" maxW="600px">
+      <Heading as="h1" size="2xl" color="fg">
+        No tenés permisos
+      </Heading>
+      <Text color="fg.muted">
         Tu usuario no tiene el permiso necesario para ver esta sección.
         Comunicate con un administrador si necesitás acceso.
-      </p>
-    </div>
+      </Text>
+    </Stack>
   );
 }

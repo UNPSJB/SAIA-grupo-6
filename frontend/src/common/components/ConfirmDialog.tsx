@@ -6,14 +6,6 @@ import {
   DialogRoot,
   DialogTitle,
 } from "../../components/ui/dialog";
-import {
-  BLANCO,
-  BORDE_CONTROL,
-  PELIGRO,
-  TEXTO_PRIMARIO,
-  TEXTO_TERCIARIO,
-} from "../theme/tokens";
-
 export interface ConfirmDialogProps {
   /** Abre el diálogo. Cuando es `false` no se renderiza nada. */
   isOpen: boolean;
@@ -27,6 +19,12 @@ export interface ConfirmDialogProps {
   textoCancelar?: string;
   /** Muestra el spinner en el botón de confirmación. */
   isLoading?: boolean;
+  /**
+   * Paleta del botón de confirmación. Por defecto `red` porque casi todos los
+   * usos son eliminados; se sobreescribe para confirmaciones que no son
+   * destructivas (por ejemplo, activar algo).
+   */
+  confirmPalette?: string;
   /** Acción de confirmación. */
   onConfirm: () => void;
   /** Acción de cancelación. */
@@ -54,6 +52,7 @@ export function ConfirmDialog({
   textoConfirmar = "Sí, eliminar",
   textoCancelar = "Cancelar",
   isLoading,
+  confirmPalette = "red",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -68,50 +67,29 @@ export function ConfirmDialog({
       closeOnInteractOutside={false}
     >
       <DialogContent
-        width="350px"
-        maxWidth="350px"
-        padding="25px"
-        borderRadius="12px"
-        boxShadow="0 4px 15px rgba(0,0,0,0.2)"
-        bg={BLANCO}
+        width="400px"
+        maxWidth="400px"
+        padding="6"
+        rounded="lg"
+        bg="bg.panel"
+        boxShadow="dialog"
         textAlign="center"
       >
-        <DialogTitle
-          as="h3"
-          fontWeight="bold"
-          style={{ marginTop: 0, color: TEXTO_PRIMARIO }}
-        >
+        <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
           {titulo}
         </DialogTitle>
-        <DialogDescription
-          style={{ color: TEXTO_TERCIARIO, marginBottom: "20px" }}
-        >
+        <DialogDescription color="fg.muted" fontSize="sm" mb="6">
           {mensaje}
         </DialogDescription>
-        <HStack justify="center" gap="10px">
-          <Button
-            onClick={onCancel}
-            height="auto"
-            minW="auto"
-            padding="8px 16px"
-            borderRadius="6px"
-            border={`1px solid ${BORDE_CONTROL}`}
-            backgroundColor={BLANCO}
-            fontWeight="bold"
-          >
+        <HStack justify="center" gap="3">
+          <Button onClick={onCancel} variant="outline" size="md" colorPalette="neutral">
             {textoCancelar}
           </Button>
           <Button
             onClick={onConfirm}
             loading={isLoading}
-            height="auto"
-            minW="auto"
-            padding="8px 16px"
-            borderRadius="6px"
-            border="none"
-            backgroundColor={PELIGRO}
-            color={BLANCO}
-            fontWeight="bold"
+            size="md"
+            colorPalette={confirmPalette}
           >
             {textoConfirmar}
           </Button>

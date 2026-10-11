@@ -1,4 +1,5 @@
 import type {
+  DetalleChecklistResponse,
   RegistroTareaResponse,
   TareasDelDiaResponse,
   HistorialRegistroTareaResponse,
@@ -139,6 +140,20 @@ export async function obtenerHistorialChecklists(
   return pedir<HistorialChecklistResponse>(
     response,
     "Error al obtener el historial de checklists"
+  );
+}
+
+
+export async function obtenerDetalleChecklist(
+  checklistId: number
+): Promise<DetalleChecklistResponse> {
+  const response = await apiFetch(
+    `${API_URL}/checklist/historial/${checklistId}`
+  );
+
+  return pedir<DetalleChecklistResponse>(
+    response,
+    "Error al obtener el detalle del checklist"
   );
 }
 

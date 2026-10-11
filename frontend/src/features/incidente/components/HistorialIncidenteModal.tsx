@@ -1,14 +1,17 @@
-import { Box, Button, Portal, Text, VStack } from "@chakra-ui/react";
+import { Box, HStack, Text, VStack } from "@chakra-ui/react";
+import { LuLock, LuLockOpen } from "react-icons/lu";
+import {
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import {
+  AccionesFormulario,
+  BotonCancelar,
+  EstadoCargando,
+} from "../../../components/ui/patrones";
 import type { HistorialIncidenteItem } from "../types/incidente";
 import { formatoFecha } from "../types/incidente";
-import {
-  BLANCO,
-  BORDE_CONTROL,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_SECUNDARIO,
-  TEXTO_TERCIARIO,
-} from "../../../common/theme/tokens";
 
 interface HistorialIncidenteModalProps {
   isOpen: boolean;
@@ -31,101 +34,74 @@ export function HistorialIncidenteModal({
   if (!isOpen) return null;
 
   return (
-    <Portal>
-      <Box
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
-        onClick={onClose}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="bg.panel"
+        p="6"
+        rounded="lg"
+        boxShadow="dialog"
+        width="400px"
+        maxWidth="90vw"
+        maxHeight="80vh"
+        overflowY="auto"
+        textAlign="left"
       >
-        <Box
-          style={{
-            backgroundColor: "white",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            width: "500px",
-            maxWidth: "90vw",
-            maxHeight: "80vh",
-            overflowY: "auto",
-            textAlign: "left",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Box as="h3" style={{ marginTop: 0, color: TEXTO_PRIMARIO }}>
-            Historial del incidente
-          </Box>
+        <DialogTitle as="h3" mt={0} mb="4" fontSize="lg" fontWeight="bold" color="brand.fg">
+          Historial del incidente
+        </DialogTitle>
 
-          {loading && (
-            <Text color={TEXTO_TERCIARIO}>Cargando historial...</Text>
-          )}
+        {loading && <EstadoCargando>Cargando historial...</EstadoCargando>}
 
-          {!loading && historial && historial.length === 0 && (
-            <Text color={TEXTO_TERCIARIO}>
-              Este incidente todavía no tiene eventos registrados.
-            </Text>
-          )}
+        {!loading && historial && historial.length === 0 && (
+          <Text color="fg.muted">
+            Este incidente todavía no tiene eventos registrados.
+          </Text>
+        )}
 
-          {!loading && historial && historial.length > 0 && (
-            <VStack align="stretch" gap="16px" mt="16px">
-              {historial.map((evento) => (
-                <Box
-                  key={evento.id}
-                  style={{
-                    borderLeft: `3px solid ${TEAL}`,
-                    paddingLeft: "12px",
-                  }}
-                >
-                  <Text fontSize="14px" fontWeight="bold" color={TEXTO_PRIMARIO}>
-                    {evento.estado_nuevo === "abierto" ? "🔓 Reapertura" : "🔒 Cierre"}
+        {!loading && historial && historial.length > 0 && (
+          <VStack align="stretch" gap="4" mt="4">
+            {historial.map((evento) => (
+              <Box
+                key={evento.id}
+                borderLeftWidth="3px"
+                borderLeftColor="brand.500"
+                pl="3"
+              >
+                <HStack gap="2" fontSize="sm" fontWeight="bold" color="fg">
+                  <Box as="span" display="inline-flex" aria-hidden>
+                    {evento.estado_nuevo === "abierto" ? (
+                      <LuLockOpen size={16} />
+                    ) : (
+                      <LuLock size={16} />
+                    )}
+                  </Box>
+                  <Text as="span">
+                    {evento.estado_nuevo === "abierto" ? "Reapertura" : "Cierre"}
                   </Text>
-                  <Text fontSize="13px" color={TEXTO_SECUNDARIO}>
-                    {formatoFecha(evento.fecha_evento)} — {evento.usuario_nombre ?? `Usuario #${evento.usuario_id}`}
+                </HStack>
+                <Text fontSize="xs" color="fg.muted">
+                  {formatoFecha(evento.fecha_evento)} — {evento.usuario_nombre ?? `Usuario #${evento.usuario_id}`}
+                </Text>
+                {evento.observacion && (
+                  <Text fontSize="xs" color="fg.muted" mt="1">
+                    {evento.observacion}
                   </Text>
-                  {evento.observacion && (
-                    <Text fontSize="13px" color={TEXTO_TERCIARIO} mt="4px">
-                      {evento.observacion}
-                    </Text>
-                  )}
-                </Box>
-              ))}
-            </VStack>
-          )}
+                )}
+              </Box>
+            ))}
+          </VStack>
+        )}
 
-          <Box
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "20px",
-            }}
-          >
-            <Button
-              onClick={onClose}
-              height="auto"
-              minW="auto"
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${BORDE_CONTROL}`,
-                backgroundColor: BLANCO,
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cerrar
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-    </Portal>
+        <AccionesFormulario>
+          <BotonCancelar onClick={onClose}>Cerrar</BotonCancelar>
+        </AccionesFormulario>
+      </DialogContent>
+    </DialogRoot>
   );
 }

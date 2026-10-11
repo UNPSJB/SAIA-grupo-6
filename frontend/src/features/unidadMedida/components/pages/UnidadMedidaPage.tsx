@@ -1,18 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Heading,
-  HStack,
-  IconButton,
-  Pagination,
-  Spinner,
-  Switch,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Button, Spinner } from "@chakra-ui/react";
 import { UnidadMedidaTable } from "../UnidadMedidaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -20,13 +9,11 @@ import { useUnidadesMedida } from "../../hooks/useUnidadesMedida";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import type { UnidadMedida } from "../../types/unidadMedida";
 import {
-  ERROR_FONDO,
-  ERROR_TEXTO,
-  PELIGRO,
-  TEAL,
-  TEAL_OSCURO,
-  TEXTO_SECUNDARIO,
-} from "../../../../common/theme/tokens";
+  BannerError,
+  PageHeader,
+  Paginacion,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -87,55 +74,34 @@ export function UnidadMedidaPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
-          {verInactivos ? "Unidades de Medida Dados de Baja" : "Gestión de Unidades de Medida"}
-        </Heading>
-        <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
-          fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL_OSCURO }}
-          onClick={() => navigate("/unidades-medida/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
+    <Box p="5">
+      <PageHeader
+        title={
+          verInactivos
+            ? "Unidades de medida dadas de baja"
+            : "Gestión de unidades de medida"
+        }
+        description="Catálogo de unidades con las que se miden los insumos."
+        actions={
+          <Button
+            colorPalette="brand"
+            onClick={() => navigate("/unidades-medida/nuevo")}
+          >
+            + Agregar
+          </Button>
+        }
+      />
 
       {/* Cartel rojo de error (cuando se intenta eliminar una unidad en uso) */}
-      {errorEliminar && (
-        <Box
-          style={{
-            backgroundColor: ERROR_FONDO,
-            color: ERROR_TEXTO,
-            padding: "12px",
-            borderRadius: "6px",
-            marginBottom: "20px",
-            border: "1px solid #f5c6cb",
-            fontWeight: "bold",
-          }}
-        >
-          ⚠️ {errorEliminar}
-        </Box>
-      )}
+      {errorEliminar && <BannerError>{errorEliminar}</BannerError>}
 
-      <HStack justify="flex-end" mb="20px">
-        <Switch.Root checked={verInactivos} onCheckedChange={(e) => handleToggleInactivos(e.checked)} colorPalette="gray">
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label style={{ fontSize: "14px", color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO, fontWeight: verInactivos ? "bold" : "normal" }}>
-            Ver dados de baja
-          </Switch.Label>
-        </Switch.Root>
-      </HStack>
+      <ToggleInactivos
+        checked={verInactivos}
+        onChange={handleToggleInactivos}
+      />
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {loading && <Spinner color="brand.500" />}
+      {!loading && error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && (
         <>
@@ -147,34 +113,12 @@ export function UnidadMedidaPage() {
           />
 
           {hayVariasPaginas && (
-            <Pagination.Root
+            <Paginacion
               count={totalPaginas}
               pageSize={PAGE_SIZE}
               page={page}
-              onPageChange={(e) => setPage(e.page)}
-              mt="16px"
-            >
-              <HStack justify="center">
-                <ButtonGroup variant="ghost" size="sm">
-                  <Pagination.Items
-                    render={(pageItem) => {
-                      const isSelected = pageItem.value === page;
-                      return (
-                        <IconButton
-                          aria-label={`Página ${pageItem.value}`}
-                          bg={isSelected ? TEAL : "transparent"}
-                          color={isSelected ? "white" : TEAL}
-                          border={isSelected ? "none" : `1px solid ${TEAL}`}
-                          _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}
-                        >
-                          {pageItem.value}
-                        </IconButton>
-                      );
-                    }}
-                  />
-                </ButtonGroup>
-              </HStack>
-            </Pagination.Root>
+              onPageChange={setPage}
+            />
           )}
         </>
       )}

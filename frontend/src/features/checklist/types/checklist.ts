@@ -139,3 +139,29 @@ export interface HistorialChecklistResponse {
   porcentaje_cumplimiento_general: number;
   checklists: HistorialChecklistItem[];
 }
+
+export interface DetalleChecklistTareaItem {
+  registro_id: number;
+  nombre: string;
+  descripcion?: string | null;
+  completado: boolean;
+  fecha_completado?: string | null;
+  usuario_nombre?: string | null;
+  evidencia_url?: string | null;
+  insumo_quimico_nombre?: string | null;
+  cantidad_consumida?: number | null;
+  unidad_medida_simbolo?: string | null;
+  elemento_limpieza_nombre?: string | null;
+}
+
+export interface DetalleChecklistResponse {
+  checklist_id: number;
+  fecha: string;
+  equipo_id: number;
+  equipo_nombre: string;
+  estado: EstadoChecklist;
+  total_tareas: number;
+  tareas_completadas: number;
+  porcentaje_cumplimiento: number;
+  tareas: DetalleChecklistTareaItem[];
+}

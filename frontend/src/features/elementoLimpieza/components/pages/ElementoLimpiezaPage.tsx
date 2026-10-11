@@ -1,25 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Heading,
-  HStack,
-  IconButton,
-  Pagination,
-  Spinner,
-  Text,
-  Switch,
-} from "@chakra-ui/react";
+import { Box } from "@chakra-ui/react";
 import { ElementoLimpiezaTable } from "../ElementoLimpiezaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useElementosLimpieza } from "../../hooks/useElementosLimpieza";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
 import type { ElementoLimpieza } from "../../types/elementoLimpieza";
-import { PELIGRO, TEAL, TEXTO_SECUNDARIO } from "../../../../common/theme/tokens";
+import {
+  BannerError,
+  BotonAgregar,
+  EstadoCargando,
+  PageHeader,
+  Paginacion,
+  ToggleInactivos,
+} from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
@@ -43,21 +39,26 @@ export function ElementosLimpiezaPage() {
 
   const { borrar, reactivar, loading: procesando } = useElementoLimpiezaABM();
 
-  const [elementoAEliminar, setElementoAEliminar] = useState<ElementoLimpieza | null>(null);
-  const [elementoAReactivar, setElementoAReactivar] = useState<ElementoLimpieza | null>(null);
+  const [elementoAEliminar, setElementoAEliminar] =
+    useState<ElementoLimpieza | null>(null);
+  const [elementoAReactivar, setElementoAReactivar] =
+    useState<ElementoLimpieza | null>(null);
 
+  const handleToggleInactivos = (checked: boolean) => {
+    setVerInactivos(checked);
+    setPage(1);
+  };
 
- const handleConfirmReactivar = async () => { 
-  if (!elementoAReactivar) return; 
-  try { 
-    await reactivar(elementoAReactivar.id); 
-    setElementoAReactivar(null); 
-    await cargarElementosLimpieza(); 
-  } catch {
-    // The mutation hook exposes the failure state to this page.
-  }
-
-};
+  const handleConfirmReactivar = async () => {
+    if (!elementoAReactivar) return;
+    try {
+      await reactivar(elementoAReactivar.id);
+      setElementoAReactivar(null);
+      await cargarElementosLimpieza();
+    } catch {
+      // The mutation hook exposes the failure state to this page.
+    }
+  };
 
   const handleEdit = (elemento: ElementoLimpieza) => {
     navigate(`/elementos-limpieza/${elemento.id}/editar`);
@@ -84,53 +85,29 @@ export function ElementosLimpiezaPage() {
   };
 
   return (
-    <Box style={{ padding: "20px" }}>
-      <HStack justify="space-between" mb="20px">
-        <Heading as="h2" size="md" fontWeight="bold" color="black">
-          {verInactivos
-            ? "Elementos de Limpieza Dados de Baja"
-            : "Gestión de Elementos de Limpieza"}
-        </Heading>
-        <Button
-          bg={TEAL}
-          color="white"
-          fontSize="16px"
-          fontWeight="bold"
-          borderRadius="6px"
-          px="20px"
-          py="10px"
-          _hover={{ bg: TEAL }}
-          onClick={() => navigate("/elementos-limpieza/nuevo")}
-        >
-          + Agregar
-        </Button>
-      </HStack>
+    <Box p="5">
+      <PageHeader
+        title={
+          verInactivos
+            ? "Elementos de limpieza dados de baja"
+            : "Gestión de elementos de limpieza"
+        }
+        description="Productos de limpieza con su frecuencia de recambio."
+        actions={
+          <BotonAgregar onClick={() => navigate("/elementos-limpieza/nuevo")}>
+            Agregar
+          </BotonAgregar>
+        }
+      />
 
-      <HStack justify="flex-end" mb="20px">
-        <Switch.Root
-          checked={verInactivos}
-          onCheckedChange={(e) => {
-            setVerInactivos(e.checked);
-            setPage(1);
-          }}
-          colorPalette="gray"
-        >
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label
-            style={{
-              fontSize: "14px",
-              color: verInactivos ? PELIGRO : TEXTO_SECUNDARIO,
-              fontWeight: verInactivos ? "bold" : "normal",
-            }}
-          >
-            Ver dados de baja
-          </Switch.Label>
-        </Switch.Root>
-      </HStack>
+      <ToggleInactivos
+        checked={verInactivos}
+        onChange={handleToggleInactivos}
+        children="Ver dados de baja"
+      />
 
-      {loading && <Spinner />}
-      {!loading && error && <Text color="red.500">{error}</Text>}
+      {error && <BannerError>{error}</BannerError>}
+      {loading && <EstadoCargando>Cargando elementos...</EstadoCargando>}
 
       {!loading && !error && (
         <>
@@ -142,34 +119,12 @@ export function ElementosLimpiezaPage() {
           />
 
           {hayVariasPaginas && (
-            <Pagination.Root
+            <Paginacion
               count={totalPaginas}
               pageSize={PAGE_SIZE}
               page={page}
-              onPageChange={(e) => setPage(e.page)}
-              mt="16px"
-            >
-              <HStack justify="center">
-                <ButtonGroup variant="ghost" size="sm">
-                  <Pagination.Items
-                    render={(pageItem) => {
-                      const isSelected = pageItem.value === page;
-                      return (
-                        <IconButton
-                          aria-label={`Página ${pageItem.value}`}
-                          bg={isSelected ? TEAL : "transparent"}
-                          color={isSelected ? "white" : TEAL}
-                          border={isSelected ? "none" : `1px solid ${TEAL}`}
-                          _hover={{ bg: isSelected ? TEAL : `${TEAL}1A` }}
-                        >
-                          {pageItem.value}
-                        </IconButton>
-                      );
-                    }}
-                  />
-                </ButtonGroup>
-              </HStack>
-            </Pagination.Root>
+              onPageChange={setPage}
+            />
           )}
         </>
       )}

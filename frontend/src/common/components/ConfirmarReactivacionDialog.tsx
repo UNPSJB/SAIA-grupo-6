@@ -1,11 +1,11 @@
-import { Box, Button, Portal } from "@chakra-ui/react";
+import { Box, Button, HStack } from "@chakra-ui/react";
+import { LuRefreshCw } from "react-icons/lu";
 import {
-  BLANCO,
-  BORDE_CONTROL,
-  TEAL,
-  TEXTO_PRIMARIO,
-  TEXTO_TERCIARIO,
-} from "../theme/tokens";
+  DialogContent,
+  DialogDescription,
+  DialogRoot,
+  DialogTitle,
+} from "../../components/ui/dialog";
 
 interface ConfirmarReactivacionDialogProps {
   isOpen: boolean;
@@ -28,77 +28,54 @@ export function ConfirmarReactivacionDialog({
 }: ConfirmarReactivacionDialogProps) {
   if (!isOpen) return null;
 
+  // Misma estructura que `ConfirmDialog`: antes era un overlay armado a mano
+  // (otro color de fondo, otro z-index, sin foco atrapado) y usaba
+  // `DialogTitle` fuera de un `DialogRoot`.
   return (
-    <Portal>
-      <Box
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        width="400px"
+        maxWidth="400px"
+        padding="6"
+        rounded="lg"
+        bg="bg.panel"
+        boxShadow="dialog"
+        textAlign="center"
       >
-        <Box
-          style={{
-            backgroundColor: "white",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            width: "380px",
-            textAlign: "center",
-          }}
-        >
-          <Box style={{ fontSize: "36px", marginBottom: "8px" }}>♻️</Box>
-          <Box as="h3" style={{ marginTop: 0, color: TEXTO_PRIMARIO }}>
-            Registro dado de baja encontrado
-          </Box>
-          <Box style={{ color: TEXTO_TERCIARIO, marginBottom: "20px", fontSize: "15px" }}>
-            {mensaje}
-          </Box>
-          <Box
-            style={{ display: "flex", gap: "10px", justifyContent: "center" }}
-          >
-            <Button
-              onClick={onCancel}
-              height="auto"
-              minW="auto"
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${BORDE_CONTROL}`,
-                backgroundColor: BLANCO,
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={onConfirm}
-              loading={isLoading}
-              height="auto"
-              minW="auto"
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: TEAL,
-                color: "white",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Sí, reactivar
-            </Button>
-          </Box>
+        <Box color="brand.fg" display="flex" justifyContent="center" mb="2" aria-hidden>
+          <LuRefreshCw size={32} />
         </Box>
-      </Box>
-    </Portal>
+        <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
+          Registro dado de baja encontrado
+        </DialogTitle>
+        <DialogDescription color="fg.muted" fontSize="sm" mb="6">
+          {mensaje}
+        </DialogDescription>
+        <HStack justify="center" gap="3">
+          <Button
+            onClick={onCancel}
+            variant="outline"
+            size="md"
+            colorPalette="neutral"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={onConfirm}
+            loading={isLoading}
+            size="md"
+            colorPalette="brand"
+          >
+            Sí, reactivar
+          </Button>
+        </HStack>
+      </DialogContent>
+    </DialogRoot>
   );
 }

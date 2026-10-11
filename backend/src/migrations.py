@@ -144,7 +144,37 @@ def run_migrations() -> None:
             with engine.begin() as conexion:
                 conexion.execute(text("ALTER TABLE incidentes DROP COLUMN activo"))
 
-    # 3) Registro de tareas: elemento de limpieza utilizado.
+    # 3) Incidentes: columna `titulo`.
+    #
+    #    `Incidente.titulo` se agregó al modelo pero la migración nunca lo
+    #    contempló. `create_all()` no agrega columnas a tablas que ya existen,
+    #    así que toda base creada antes del cambio quedaba sin la columna y
+    #    los listados morían con "no such column: incidentes.titulo" (500).
+    #    El navegador lo reportaba como error de CORS porque una respuesta
+    #    500 nunca llega con los headers de Access-Control-Allow-Origin.
+    #
+    #    Es NOT NULL, así que primero se agrega nullable, se rellena lo
+    #    existente y recién después se exige NOT NULL.
+    if "incidentes" in tablas and "titulo" not in _columnas_de(inspector, "incidentes"):
+        logger.info("Migración: agregando columna incidentes.titulo")
+        with engine.begin() as conexion:
+            conexion.execute(
+                text("ALTER TABLE incidentes ADD COLUMN titulo VARCHAR(60)")
+            )
+            # Los incidentes previos no tenían título: se deriva de las
+            # primeras palabras de la descripción para no inventar un
+            # placeholder que el usuario después tendría que corregir a mano.
+            conexion.execute(
+                text(
+                    "UPDATE incidentes SET titulo = "
+                    "CASE WHEN descripcion IS NULL OR TRIM(descripcion) = '' "
+                    "THEN 'Incidente sin título' "
+                    "ELSE SUBSTR(TRIM(descripcion), 1, 60) END "
+                    "WHERE titulo IS NULL"
+                )
+            )
+
+    # 4) Registro de tareas: elemento de limpieza utilizado.
     if (
         "registro_tareas" in tablas
         and "elemento_limpieza_id" not in _columnas_de(inspector, "registro_tareas")

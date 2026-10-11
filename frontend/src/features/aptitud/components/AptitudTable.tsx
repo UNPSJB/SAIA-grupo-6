@@ -1,7 +1,11 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Text, Table } from "@chakra-ui/react";
 import { AptitudItem } from "./AptitudItem";
 import type { Aptitud } from "../types/aptitud";
-import { TEAL } from "../../../common/theme/tokens";
+import {
+  EncabezadoOscuro,
+  FilaEncabezado,
+  Tarjeta,
+} from "../../../components/ui/patrones";
 
 interface AptitudTableProps {
   aptitudes: Aptitud[];
@@ -13,22 +17,21 @@ interface AptitudTableProps {
 export function AptitudTable({ aptitudes, onEdit, onDelete, onReactivar }: AptitudTableProps) {
   if (aptitudes.length === 0) {
     return (
-      <Box bg="white" style={{ borderRadius: "8px" }} p={8} textAlign="center">
-        <Text color="gray.500">No hay aptitudes registradas.</Text>
-      </Box>
+      <Tarjeta p="8" textAlign="center">
+        <Text color="fg.muted">No hay aptitudes registradas.</Text>
+      </Tarjeta>
     );
   }
 
   return (
-    <Box bg="white" style={{ borderRadius: "8px", overflow: "hidden" }}>
-      <Table.Root variant="outline" style={{ width: "100%", borderCollapse: "collapse" }}>
+    <Tarjeta overflowX="auto">
+      <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
-          <Table.Row bg={TEAL} style={{ color: "white", textAlign: "left" }}>
-            <Table.ColumnHeader color="white" fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>ID</Table.ColumnHeader>
-            <Table.ColumnHeader color="white" fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Nombre</Table.ColumnHeader>
-            <Table.ColumnHeader color="white" fontWeight="normal" fontSize="16px" style={{ padding: "12px" }}>Descripción</Table.ColumnHeader>
-            <Table.ColumnHeader color="white" fontWeight="normal" fontSize="16px" style={{ padding: "12px", textAlign: "center" }}>Acciones</Table.ColumnHeader>
-          </Table.Row>
+          <FilaEncabezado>
+            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
+            <EncabezadoOscuro>Descripción</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+          </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {aptitudes.map((aptitud) => (
@@ -36,6 +39,6 @@ export function AptitudTable({ aptitudes, onEdit, onDelete, onReactivar }: Aptit
           ))}
         </Table.Body>
       </Table.Root>
-    </Box>
+    </Tarjeta>
   );
 }
