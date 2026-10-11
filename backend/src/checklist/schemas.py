@@ -149,6 +149,38 @@ class HistorialChecklistResponse(BaseModel):
     checklists: List[HistorialChecklistItem]
 
 
+class DetalleChecklistTareaItem(BaseModel):
+    """Estado registrado de una tarea dentro de un checklist histórico.
+
+    Los nombres de insumo, unidad y elemento se obtienen de los catálogos
+    vigentes: RegistroTarea conserva sus IDs, no una copia de esos nombres.
+    """
+
+    registro_id: int
+    nombre: str
+    descripcion: Optional[str] = None
+    completado: bool
+    fecha_completado: Optional[datetime] = None
+    usuario_nombre: Optional[str] = None
+    evidencia_url: Optional[str] = None
+    insumo_quimico_nombre: Optional[str] = None
+    cantidad_consumida: Optional[float] = None
+    unidad_medida_simbolo: Optional[str] = None
+    elemento_limpieza_nombre: Optional[str] = None
+
+
+class DetalleChecklistResponse(BaseModel):
+    checklist_id: int
+    fecha: date
+    equipo_id: int
+    equipo_nombre: str
+    estado: EstadoChecklist
+    total_tareas: int
+    tareas_completadas: int
+    porcentaje_cumplimiento: float
+    tareas: List[DetalleChecklistTareaItem]
+
+
 class ConsumoInsumoItem(BaseModel):
     """Consumo acumulado de un producto químico en un rango de fechas."""
 
