@@ -11,7 +11,7 @@ export const TIPOS_DOCUMENTO: { value: TipoDocumento; label: string }[] = [
   { value: "receta", label: "Receta" },
 ];
 
-export type EstadoVersion = "vigente" | "archivada";
+export type EstadoVersion = "vigente" | "vencido" | "archivado";
 
 export interface AutorVersion {
   id: number;
@@ -27,6 +27,7 @@ export interface VersionDocumento {
   estado: EstadoVersion;
   vigente_desde: string;
   vigente_hasta: string | null;
+  fecha_vencimiento: string | null;
   fecha_subida: string;
   autor: AutorVersion;
 }
@@ -63,4 +64,5 @@ export interface DocumentoFormValues {
   nombre: string;
   tipo: TipoDocumento;
   archivo: File | null;
+  fecha_vencimiento: string;
 }

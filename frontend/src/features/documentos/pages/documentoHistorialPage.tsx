@@ -13,17 +13,21 @@ import {
 import { useHistorialDocumento } from "../hooks/useHistorialDocumento";
 import { abrirArchivo } from "../services/documentoService";
 import type { EstadoVersion } from "../types/documento";
-import { etiquetaTipo, fechaHora } from "../utils/formato";
+import { etiquetaTipo, fechaHora, fechaCorta } from "../utils/formato";
 
-/** Píldora de estado de cada versión del documento. */
-const PALETA_ESTADO: Record<EstadoVersion, "green" | "gray"> = {
+const PALETA_ESTADO: Record<
+  EstadoVersion,
+  "green" | "red" | "gray"
+> = {
   vigente: "green",
-  archivada: "gray",
+  vencido: "red",
+  archivado: "gray",
 };
 
 const ETIQUETA_ESTADO: Record<EstadoVersion, string> = {
   vigente: "Vigente",
-  archivada: "Archivada",
+  vencido: "Vencido",
+  archivado: "Archivado",
 };
 
 export function DocumentoHistorialPage() {
@@ -61,6 +65,7 @@ export function DocumentoHistorialPage() {
                 <EncabezadoOscuro>Estado</EncabezadoOscuro>
                 <EncabezadoOscuro>Vigente desde</EncabezadoOscuro>
                 <EncabezadoOscuro>Vigente hasta</EncabezadoOscuro>
+                <EncabezadoOscuro>Fecha de vencimiento</EncabezadoOscuro>
                 <EncabezadoOscuro>Subida por</EncabezadoOscuro>
                 <EncabezadoOscuro>Archivo</EncabezadoOscuro>
               </FilaEncabezado>
@@ -90,6 +95,10 @@ export function DocumentoHistorialPage() {
                   <Celda p="3">
                     {v.autor.nombre} {v.autor.apellido ?? ""}
                   </Celda>
+                  <Celda p="3">
+                      {v.fecha_vencimiento ? fechaCorta(v.fecha_vencimiento)
+                        : "Sin vencimiento"}
+                    </Celda>
                   <Celda p="3">
                     <BotonTexto
                       onClick={() =>

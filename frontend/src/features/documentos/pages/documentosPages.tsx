@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 import {
   BannerError,
   BotonTabla,
@@ -47,6 +47,7 @@ export function DocumentosPage() {
                 <EncabezadoOscuro>Documento</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Versión vigente</EncabezadoOscuro>
+                <EncabezadoOscuro>Estado</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Archivadas</EncabezadoOscuro>
                 <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
@@ -77,6 +78,41 @@ export function DocumentosPage() {
                       ) : (
                         <Text as="span" color="fg.subtle">
                           Sin vigente
+                        </Text>
+                      )}
+                    </Celda>
+                    <Celda p="3">
+                      {vigente ? (
+                        <Badge
+                          colorPalette={
+                            vigente.estado === "vencido"
+                              ? "red"
+                              : "green"
+                          }
+                          rounded="full"
+                          px="2"
+                          py="1"
+                          fontSize="xs"
+                          fontWeight="bold"
+                        >
+                          {vigente.estado === "vencido" ? "Vencido" : "Vigente"}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          colorPalette="gray"
+                          rounded="full"
+                          px="2"
+                          py="1"
+                          fontSize="xs"
+                          fontWeight="bold"
+                        >
+                          Archivado
+                        </Badge>
+                      )}
+
+                      {vigente?.fecha_vencimiento && (
+                        <Text color="fg.muted" fontSize="xs" mt="1">
+                          Vence: {fechaCorta(vigente.fecha_vencimiento)}
                         </Text>
                       )}
                     </Celda>

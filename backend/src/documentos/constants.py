@@ -29,7 +29,8 @@ class TipoDocumento(StrEnum):
 
 class EstadoVersion(StrEnum):
     VIGENTE = "vigente"
-    ARCHIVADA = "archivada"
+    VENCIDO = "vencido"
+    ARCHIVADA = "archivado"
 
 
 EXTENSIONES_PERMITIDAS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}

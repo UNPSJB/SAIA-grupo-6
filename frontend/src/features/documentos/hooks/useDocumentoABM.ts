@@ -28,23 +28,31 @@ export function useDocumentoABM() {
   };
 
   const alta = (values: DocumentoFormValues) =>
-    ejecutar(
-      (autorId) =>
-        crearDocumento({
-          nombre: values.nombre,
-          tipo: values.tipo,
-          autor_id: autorId,
-          archivo: values.archivo as File,
-        }),
-      "No se pudo subir el documento"
-    );
+  ejecutar(
+    (autorId) =>
+      crearDocumento({
+        nombre: values.nombre,
+        tipo: values.tipo,
+        autor_id: autorId,
+        archivo: values.archivo as File,
+        fecha_vencimiento: values.fecha_vencimiento || null,
+      }),
+    "No se pudo subir el documento"
+  );
 
-  const subirVersion = (documentoId: number, values: DocumentoFormValues) =>
-    ejecutar(
-      (autorId) =>
-        subirNuevaVersion(documentoId, { autor_id: autorId, archivo: values.archivo as File }),
-      "No se pudo subir la nueva versión"
-    );
+   const subirVersion = (
+    documentoId: number,
+    values: DocumentoFormValues
+    ) =>
+      ejecutar(
+        (autorId) =>
+          subirNuevaVersion(documentoId, {
+            autor_id: autorId,
+            archivo: values.archivo as File,
+            fecha_vencimiento: values.fecha_vencimiento || null,
+          }),
+        "No se pudo subir la nueva versión"
+      );
 
   return { alta, subirVersion, loading, error };
 }

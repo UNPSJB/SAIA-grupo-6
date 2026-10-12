@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Field, HStack, SimpleGrid, Text } from "@chakra-ui/react";
+import { Badge, Box, Button, Field, HStack, SimpleGrid, Text } from "@chakra-ui/react";
 import { LuExternalLink, LuHistory } from "react-icons/lu";
 import { useAuth } from "../../../common/context/useAuth";
 import { usePaginas } from "../../../common/hooks/usePaginas";
@@ -132,10 +132,27 @@ export function ConsultaDocumentosPage() {
                       v{v.numero_version}
                     </Text>
                   </Text>
+
                   <Text color="fg.muted" fontSize="sm" mb="4">
                     Vigente desde {fechaCorta(v.vigente_desde)}
                   </Text>
 
+                  <HStack gap="2" flexWrap="wrap" mt="2">
+                    <Badge
+                      colorPalette={v.estado === "vencido" ? "red" : "green"}
+                      rounded="full"
+                      px="2"
+                      py="1"
+                    >
+                      {v.estado === "vencido" ? "Vencido" : "Vigente"}
+                    </Badge>
+
+                    {v.fecha_vencimiento && (
+                      <Text color="fg.muted" fontSize="xs">
+                        Vencimiento: {fechaCorta(v.fecha_vencimiento)}
+                      </Text>
+                    )}
+                  </HStack>
                   <HStack gap="2" flexWrap="wrap">
                     <Button
                       colorPalette="brand"
