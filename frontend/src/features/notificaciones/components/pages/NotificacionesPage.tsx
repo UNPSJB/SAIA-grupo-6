@@ -43,8 +43,10 @@ function etiquetaOrigen(tipo: string) {
       return "Elemento Limpieza";
     case "VENCIMIENTO_PERSONAL":
       return "Vencimiento Personal";
-    default:
-      return "Plan Calibración/Mantenimiento";
+    case "PLAN_CALIBRACION":
+      return "Calibración";
+    case "PLAN_MANTENIMIENTO":
+      return "Mantenimiento";
   }
 }
 
@@ -54,8 +56,10 @@ function etiquetaAccion(tipo: string) {
       return "Registrar Recambio";
     case "VENCIMIENTO_PERSONAL":
       return "Cambiar fecha";
-    default:
-      return "Ver plan";
+    case "PLAN_CALIBRACION":
+      return "Registrar calibración";
+    case "PLAN_MANTENIMIENTO":
+      return "Registrar mantenimiento";
   }
 }
 

@@ -13,14 +13,15 @@ class VencimientoPersonalBase(BaseModel):
     aptitud_id: int
     fecha_vencimiento: date
 
+
+class VencimientoPersonalCreate(VencimientoPersonalBase):
+    persona_id: int
+
     @field_validator("fecha_vencimiento")
     @classmethod
     def validar_fecha(cls, v: date) -> date:
         return _validar_no_vencida(v)
-
-
-class VencimientoPersonalCreate(VencimientoPersonalBase):
-    persona_id: int
+    
 
 
 class VencimientoPersonalUpdate(BaseModel):
