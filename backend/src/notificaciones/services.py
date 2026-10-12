@@ -104,13 +104,13 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
         notificaciones.append(
             NotificacionResponse(
                 id_notificacion=f"plan-calibracion-mantenimiento-{plan.id}",
-                tipo="PLAN_CALIBRACION_MANTENIMIENTO",
+                tipo="PLAN_CALIBRACION" if es_calibracion else "PLAN_MANTENIMIENTO",
                 entidad_id=plan.id,
                 titulo=f"{tipo_intervencion} {sufijo}",
                 mensaje=mensaje,
                 nivel=nivel,
                 link_destino=(
-                    f"/planes-calibracion-mantenimiento/{plan.id}/editar"
+                    f"/equipos/{plan.equipo.id}/intervencion"
                 ),
                 fecha_referencia=fecha_vencimiento,
             )

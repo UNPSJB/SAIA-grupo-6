@@ -5,14 +5,13 @@ import { Box, Button, Spinner } from "@chakra-ui/react";
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
-import { RegistrarCalibracionDialog } from "../RegistrarCalibracionDialog";
+import { IntervencionEquipo } from "../IntervencionEquipo";
 import { HistorialCalibracionesDialog } from "../HistorialCalibracionesDialog";
 import { useEquipos } from "../../hooks/useEquipos";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
-import type { Equipo, TipoIntervencion } from "../../types/equipo";
+import type { Equipo } from "../../types/equipo";
 import {
   BannerError,
-  DialogoExito,
   PageHeader,
   Paginacion,
   ToggleInactivos,
@@ -25,20 +24,12 @@ export function EquiposPage() {
   const [verInactivos, setVerInactivos] = useState(false);
 
   const { equipos, loading, error, cargarEquipos } = useEquipos(verInactivos);
-  const {
-    borrar,
-    reactivar,
-    registrarIntervencion,
-    registrandoIntervencion,
-    loading: procesando,
-    errorIntervencion,
-  } = useEquipoABM();
+  const { borrar, reactivar, loading: procesando } = useEquipoABM();
 
   const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
   const [equipoAReactivar, setEquipoAReactivar] = useState<Equipo | null>(null);
   const [equipoAIntervenir, setEquipoAIntervenir] = useState<Equipo | null>(null);
   const [equipoVerHistorial, setEquipoVerHistorial] = useState<Equipo | null>(null);
-  const [exitoIntervencion, setExitoIntervencion] = useState(false);
 
   const {
     paginados: equiposPaginados,
@@ -79,27 +70,6 @@ export function EquiposPage() {
       await cargarEquipos();
     } catch {
       // The mutation hook exposes the failure state to this page.
-    }
-  };
-
-  const handleConfirmIntervencion = async (
-    fecha: string,
-    archivo: File,
-    tipo: TipoIntervencion,
-  ) => {
-    if (!equipoAIntervenir) return;
-    try {
-      await registrarIntervencion(equipoAIntervenir.id, fecha, archivo, tipo);
-      setEquipoAIntervenir(null);
-      setExitoIntervencion(true);
-
-      setTimeout(() => {
-        setExitoIntervencion(false);
-      }, 2500);
-    } catch {
-      // El hook expone el error en `errorIntervencion`, que se muestra abajo.
-      // El diálogo queda abierto y con los datos cargados para que el
-      // operador pueda reintentar sin volver a elegir el archivo.
     }
   };
 
@@ -175,26 +145,18 @@ export function EquiposPage() {
         onConfirm={handleConfirmReactivar}
       />
 
-      <RegistrarCalibracionDialog
-        isOpen={equipoAIntervenir !== null}
-        equipo={equipoAIntervenir}
-        isLoading={registrandoIntervencion}
-        error={errorIntervencion}
-        onClose={() => {
-          if (!registrandoIntervencion) setEquipoAIntervenir(null);
-        }}
-        onConfirm={handleConfirmIntervencion}
-      />
+      {/* Registro de intervención: toda la lógica vive en IntervencionEquipo. */}
+      {equipoAIntervenir && (
+        <IntervencionEquipo
+          equipo={equipoAIntervenir}
+          onCerrar={() => setEquipoAIntervenir(null)}
+        />
+      )}
 
       <HistorialCalibracionesDialog
         isOpen={equipoVerHistorial !== null}
         equipo={equipoVerHistorial}
         onClose={() => setEquipoVerHistorial(null)}
-      />
-
-      <DialogoExito
-        isOpen={exitoIntervencion}
-        mensaje="Intervención registrada y calculada correctamente."
       />
     </Box>
   );

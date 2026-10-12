@@ -155,7 +155,7 @@ export function EquipoDetailPage() {
                   <ColumnaHeader>Periodicidad</ColumnaHeader>
                   <ColumnaHeader>Próximo vencimiento</ColumnaHeader>
                   <ColumnaHeader center>Estado</ColumnaHeader>
-                  <ColumnaHeader center>Acción</ColumnaHeader>
+                  {/*<ColumnaHeader center>Acción</ColumnaHeader>*/}
                 </Table.Row>
               </Table.Header>
               <Table.Body>
@@ -187,7 +187,7 @@ export function EquipoDetailPage() {
                       <Celda p="3" center>
                         <Badge colorPalette={estado.paleta}>{estado.etiqueta}</Badge>
                       </Celda>
-                      <Celda p="3" center>
+                      {/*<Celda p="3" center>
                         <BotonTabla
                           accion="editar"
                           onClick={() =>
@@ -196,7 +196,7 @@ export function EquipoDetailPage() {
                         >
                           Modificar
                         </BotonTabla>
-                      </Celda>
+                      </Celda>*/}
                     </Table.Row>
                   );
                 })}
