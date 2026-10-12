@@ -8,7 +8,9 @@ export interface Equipo {
   frecuencia_calibracion_dias?: number | null;
 }
 
-/** Una calibración registrada, tal como la devuelve el historial. */
+export type TipoIntervencion = "calibracion" | "mantenimiento";
+
+/** Una intervención registrada, tal como la devuelve el historial. */
 export interface Calibracion {
   id: number;
   fecha_realizacion: string;
@@ -19,4 +21,5 @@ export interface Calibracion {
    * `apiFetchImagen` y no ponerla directo en un href.
    */
   certificado_url: string;
+  tipo: TipoIntervencion;
 }

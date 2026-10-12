@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, HStack, Spinner, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 
 import { apiFetchImagen } from "../../../common/api/apiClient";
 import {
@@ -48,7 +48,7 @@ function BotonVerCertificado({ ruta }: { ruta: string }) {
       objectUrl.current = url;
       window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      setError("No se pudo abrir el certificado.");
+      setError("No se pudo abrir el archivo.");
     } finally {
       setCargando(false);
     }
@@ -105,7 +105,7 @@ export function HistorialCalibracionesDialog({
           error:
             err instanceof Error
               ? err.message
-              : "No se pudo cargar el historial de calibraciones.",
+              : "No se pudo cargar el historial de intervenciones.",
         });
       });
 
@@ -134,7 +134,7 @@ export function HistorialCalibracionesDialog({
         p="6"
         rounded="lg"
         boxShadow="dialog"
-        width="400px"
+        width="680px"
         maxWidth="90vw"
         maxHeight="80vh"
         display="flex"
@@ -148,11 +148,11 @@ export function HistorialCalibracionesDialog({
           fontWeight="bold"
           color="fg"
         >
-          Historial de calibraciones: <br />
+          Historial de intervenciones: <br />
           <strong>{equipo.nombre}</strong>
         </DialogTitle>
 
-        <Box overflowY="auto" mb="5">
+        <Box overflow="auto" mb="5">
           {cargando ? (
             <HStack justify="center" p="5">
               <Spinner color="brand.500" />
@@ -163,15 +163,16 @@ export function HistorialCalibracionesDialog({
             </Text>
           ) : historial.length === 0 ? (
             <Text color="fg.subtle" textAlign="center" p="5">
-              No hay calibraciones registradas para este equipo.
+              No hay intervenciones registradas para este equipo.
             </Text>
           ) : (
-            <Table.Root variant="outline" w="100%">
+            <Table.Root variant="outline" w="100%" minW="600px">
               <Table.Header>
                 <FilaEncabezado>
                   <EncabezadoOscuro center>Fecha realización</EncabezadoOscuro>
+                  <EncabezadoOscuro center>Tipo</EncabezadoOscuro>
                   <EncabezadoOscuro center>Próx. vencimiento</EncabezadoOscuro>
-                  <EncabezadoOscuro center>Certificado</EncabezadoOscuro>
+                  <EncabezadoOscuro center>Archivo</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
@@ -183,6 +184,20 @@ export function HistorialCalibracionesDialog({
                   >
                     <Celda p="3" center>
                       {calib.fecha_realizacion}
+                    </Celda>
+                    <Celda p="3" center>
+                      <Badge
+                        colorPalette={
+                          calib.tipo === "mantenimiento" ? "neutral" : "brand"
+                        }
+                        rounded="md"
+                        px="2"
+                        py="1"
+                      >
+                        {calib.tipo === "mantenimiento"
+                          ? "Mantenimiento"
+                          : "Calibración"}
+                      </Badge>
                     </Celda>
                     <Celda p="3" center fontWeight="bold">
                       {calib.proximo_vencimiento}

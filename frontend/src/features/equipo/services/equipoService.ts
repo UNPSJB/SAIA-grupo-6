@@ -1,4 +1,4 @@
-import type { Calibracion, Equipo } from "../types/equipo";
+import type { Calibracion, Equipo, TipoIntervencion } from "../types/equipo";
 
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
@@ -64,14 +64,16 @@ export async function reactivarEquipo(id: number, equipo: Omit<Equipo, "id">): P
   return pedir<Equipo>(response, "Error al reactivar el equipo");
 }
 
-export async function registrarCalibracion(
+export async function registrarIntervencion(
   equipoId: number,
   fechaRealizacion: string,
-  certificado: File
+  certificado: File,
+  tipo: TipoIntervencion,
 ): Promise<Calibracion> {
   const formData = new FormData();
   formData.append("fecha_realizacion", fechaRealizacion);
   formData.append("certificado", certificado);
+  formData.append("tipo", tipo);
 
   // Sin `Content-Type`: el browser tiene que poner el boundary del multipart.
   const response = await apiFetch(`${API_URL}/equipos/${equipoId}/calibraciones`, {
@@ -79,7 +81,7 @@ export async function registrarCalibracion(
     body: formData,
   });
 
-  return pedir<Calibracion>(response, "Error al registrar la calibración");
+  return pedir<Calibracion>(response, "Error al registrar la intervención");
 }
 
 export async function obtenerHistorialCalibraciones(
@@ -89,6 +91,6 @@ export async function obtenerHistorialCalibraciones(
 
   return pedir<Calibracion[]>(
     response,
-    "Error al obtener el historial de calibraciones"
+    "Error al obtener el historial de intervenciones"
   );
 }

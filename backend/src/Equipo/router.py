@@ -11,9 +11,7 @@ from src.auth.dependencies import require_admin, require_operador
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
-from src.PlanCalibracionMantenimiento.services import (
-    asentar_ultima_intervencion_por_calibracion,
-)
+from src.PlanCalibracionMantenimiento.services import asentar_ultima_intervencion
 from . import schemas, services
 from .models import Calibracion, Equipo
 
@@ -89,10 +87,10 @@ def dar_de_baja_equipo(
         equipo_id
     )
 
-# Extensiones y tamaño del certificado. Mismo criterio que las fotos de
+# Extensiones y tamaño del archivo adjunto. Mismo criterio que las fotos de
 # incidentes: el MIME que manda el navegador no alcanza, se valida acá.
-EXTENSIONES_CERTIFICADO = {".pdf", ".jpg", ".jpeg", ".png"}
-TAMANO_MAX_CERTIFICADO = 10 * 1024 * 1024  # 10 MB
+EXTENSIONES_ARCHIVO_ADJUNTO = {".pdf", ".jpg", ".jpeg", ".png"}
+TAMANO_MAX_ARCHIVO_ADJUNTO = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post(
@@ -101,10 +99,11 @@ TAMANO_MAX_CERTIFICADO = 10 * 1024 * 1024  # 10 MB
     response_model=schemas.CalibracionResponse,
     dependencies=[Depends(require_operador)]
 )
-def registrar_calibracion_con_certificado(
+def registrar_intervencion_con_archivo(
     equipo_id: int,
     fecha_realizacion: date = Form(...),
     certificado: UploadFile = File(...),
+    tipo: schemas.TipoIntervencion = Form("calibracion"),
     db: Session = Depends(get_db)
 ):
     # 1. Buscar que el equipo exista
@@ -117,27 +116,27 @@ def registrar_calibracion_con_certificado(
     #    `secure_filename` recorta la ruta que venga en el nombre del archivo
     #    para que no se pueda escribir fuera de la carpeta de certificados.
     extension = os.path.splitext(secure_filename(certificado.filename or ""))[1].lower()
-    if extension not in EXTENSIONES_CERTIFICADO:
+    if extension not in EXTENSIONES_ARCHIVO_ADJUNTO:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "El certificado debe ser PDF o imagen. "
-                f"Formatos válidos: {', '.join(sorted(EXTENSIONES_CERTIFICADO))}."
+                "El archivo adjunto debe ser PDF o imagen. "
+                f"Formatos válidos: {', '.join(sorted(EXTENSIONES_ARCHIVO_ADJUNTO))}."
             ),
         )
 
     # 3. Tope de tamaño antes de escribir nada en disco.
     contenido = certificado.file.read()
-    if len(contenido) > TAMANO_MAX_CERTIFICADO:
+    if len(contenido) > TAMANO_MAX_ARCHIVO_ADJUNTO:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "El certificado supera el máximo de "
-                f"{TAMANO_MAX_CERTIFICADO // (1024 * 1024)} MB."
+                "El archivo adjunto supera el máximo de "
+                f"{TAMANO_MAX_ARCHIVO_ADJUNTO // (1024 * 1024)} MB."
             ),
         )
 
-    # 4. Guardar el archivo con un nombre único para que dos certificados del
+    # 4. Guardar el archivo con un nombre único para que dos intervenciones del
     #    mismo equipo no se pisen. Va anclado a CARPETA_UPLOADS y no al CWD del
     #    proceso: arrancar el server desde otra carpeta guardaba (y dejaba de
     #    servir) los archivos en otro lado.
@@ -150,40 +149,46 @@ def registrar_calibracion_con_certificado(
     # que espera el endpoint /uploads para resolverla dentro de CARPETA_UPLOADS.
     ruta_relativa = f"uploads/certificados/{nombre_archivo}"
 
-    # 5. Calcular próximo vencimiento (Criterio de Aceptación)
-    # Si hay un plan de calibración activo manda su periodicidad (la misma que
-    # usa el sistema de alertas para el vencimiento del plan). Sin plan, se
-    # vuelve a la frecuencia del equipo y, si tampoco la tiene, 365 días.
+    # 5. Calcular próximo vencimiento. Si hay un plan activo del mismo tipo,
+    #    manda su periodicidad (la misma que usa el sistema de alertas). Para
+    #    calibración se conserva la frecuencia propia del equipo como fallback;
+    #    la regla histórica de 365 días cubre ambos tipos cuando no hay plan.
     plan_activo = db.scalar(
         select(PlanCalibracionMantenimiento).where(
             PlanCalibracionMantenimiento.equipo_id == equipo_id,
-            PlanCalibracionMantenimiento.tipo == "calibracion",
+            PlanCalibracionMantenimiento.tipo == tipo,
             PlanCalibracionMantenimiento.activo.is_(True),
         )
     )
     if plan_activo is not None:
         dias_frecuencia = plan_activo.periodicidad_dias
-    else:
+    elif tipo == "calibracion":
         dias_frecuencia = equipo.frecuencia_calibracion_dias or 365
+    else:
+        dias_frecuencia = 365
     fecha_vencimiento = fecha_realizacion + timedelta(days=dias_frecuencia)
 
-    # 6. Guardar el registro en la base de datos
+    # 6. Guardar el registro y asentar el plan correspondiente en la misma
+    #    transacción: o se confirman ambos cambios, o no se confirma ninguno.
     nueva_calibracion = Calibracion(
         equipo_id=equipo_id,
         fecha_realizacion=fecha_realizacion,
         proximo_vencimiento=fecha_vencimiento,
-        certificado_url=ruta_relativa
+        certificado_url=ruta_relativa,
+        tipo=tipo,
     )
-    
     db.add(nueva_calibracion)
 
-    # 7. Asentar la calibración sobre el plan de calibración activo del equipo.
-    #    Avanza la última intervención (solo planes de calibración, nunca de
-    #    mantenimiento) usando la fecha de realización; las fechas viejas no
-    #    atrasan el plan.
-    asentar_ultima_intervencion_por_calibracion(db, equipo_id, fecha_realizacion)
+    asentar_ultima_intervencion(db, equipo_id, tipo, fecha_realizacion)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        # Evita adjuntos huérfanos cuando la intervención y su plan no pueden
+        # confirmarse de forma atómica en la base.
+        (carpeta / nombre_archivo).unlink(missing_ok=True)
+        raise
     db.refresh(nueva_calibracion)
 
     return nueva_calibracion
@@ -194,7 +199,7 @@ def registrar_calibracion_con_certificado(
     response_model=list[schemas.CalibracionResponse],
     dependencies=[Depends(require_operador)]
 )
-def ver_historial_calibraciones(
+def ver_historial_intervenciones(
     equipo_id: int,
     db: Session = Depends(get_db)
 ):
@@ -202,7 +207,7 @@ def ver_historial_calibraciones(
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    # Buscamos las calibraciones ordenadas por fecha descendente
+    # Buscamos las intervenciones ordenadas por fecha descendente.
     calibraciones = db.scalars(
         select(Calibracion)
         .where(Calibracion.equipo_id == equipo_id)

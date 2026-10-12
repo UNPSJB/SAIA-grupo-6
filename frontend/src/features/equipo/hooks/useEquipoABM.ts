@@ -5,9 +5,9 @@ import {
   modificarEquipo,
   eliminarEquipo,
   reactivarEquipo,
-  registrarCalibracion,
+  registrarIntervencion,
 } from "../services/equipoService";
-import type { Calibracion, Equipo } from "../types/equipo";
+import type { Calibracion, Equipo, TipoIntervencion } from "../types/equipo";
 
 type EquipoInput = Omit<Equipo, "id">;
 
@@ -20,31 +20,40 @@ export function useEquipoABM() {
     etiqueta: "el equipo",
   });
 
-  const [registrandoCalibracion, setRegistrandoCalibracion] = useState(false);
+  const [registrandoIntervencion, setRegistrandoIntervencion] = useState(false);
+  const [errorIntervencion, setErrorIntervencion] = useState<string | null>(null);
 
   /**
-   * Registra una calibración con su certificado.
+   * Registra una intervención con su archivo adjunto.
    *
    * Va aparte del `useABM` porque no es un alta/baja de equipos: no usa el
    * `loading` global (que bloquea la tabla entera) sino el suyo, para que el
    * resto de la página siga funcionando mientras se sube el archivo.
    */
-  const calibrar = async (
+  const registrarIntervencionEquipo = async (
     equipoId: number,
     fecha: string,
-    archivo: File
+    archivo: File,
+    tipo: TipoIntervencion,
   ): Promise<Calibracion> => {
-    setRegistrandoCalibracion(true);
+    setRegistrandoIntervencion(true);
+    setErrorIntervencion(null);
     try {
-      return await registrarCalibracion(equipoId, fecha, archivo);
+      return await registrarIntervencion(equipoId, fecha, archivo, tipo);
+    } catch (error) {
+      setErrorIntervencion(
+        error instanceof Error ? error.message : "No se pudo registrar la intervención.",
+      );
+      throw error;
     } finally {
-      setRegistrandoCalibracion(false);
+      setRegistrandoIntervencion(false);
     }
   };
 
   return {
     ...abm,
-    calibrar,
-    registrandoCalibracion,
+    registrarIntervencion: registrarIntervencionEquipo,
+    registrandoIntervencion,
+    errorIntervencion,
   };
 }

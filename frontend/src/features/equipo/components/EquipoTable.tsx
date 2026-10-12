@@ -12,7 +12,7 @@ interface EquipoTableProps {
   onEdit: (equipo: Equipo) => void;
   onDelete: (equipo: Equipo) => void;
   onReactivar: (equipo: Equipo) => void;
-  onCalibrar: (equipo: Equipo) => void;
+  onIntervenir: (equipo: Equipo) => void;
   onVerHistorial: (equipo: Equipo) => void;
 }
 
@@ -21,7 +21,7 @@ export function EquipoTable({
   onEdit,
   onDelete,
   onReactivar,
-  onCalibrar,
+  onIntervenir,
   onVerHistorial,
 }: EquipoTableProps) {
   if (equipos.length === 0) {
@@ -51,7 +51,7 @@ export function EquipoTable({
               onEdit={onEdit}
               onDelete={onDelete}
               onReactivar={onReactivar}
-              onCalibrar={onCalibrar}
+              onIntervenir={onIntervenir}
               onVerHistorial={onVerHistorial}
             />
           ))}

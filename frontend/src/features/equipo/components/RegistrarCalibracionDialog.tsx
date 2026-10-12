@@ -15,7 +15,7 @@ import {
   FormInput,
 } from "../../../components/ui/patrones";
 import { DialogForm } from "../../../common/components/DialogForm";
-import type { Equipo } from "../types/equipo";
+import type { Equipo, TipoIntervencion } from "../types/equipo";
 
 const FORMATOS_ACEPTADOS = ".pdf,image/*";
 
@@ -26,7 +26,7 @@ interface RegistrarCalibracionDialogProps {
   /** Error de la mutación, para poder reintentar sin perder los datos. */
   error?: string | null;
   onClose: () => void;
-  onConfirm: (fecha: string, archivo: File) => void;
+  onConfirm: (fecha: string, archivo: File, tipo: TipoIntervencion) => void;
 }
 
 export function RegistrarCalibracionDialog({
@@ -39,6 +39,7 @@ export function RegistrarCalibracionDialog({
 }: RegistrarCalibracionDialogProps) {
   const [fecha, setFecha] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
+  const [tipo, setTipo] = useState<TipoIntervencion>("calibracion");
   const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,7 +64,7 @@ export function RegistrarCalibracionDialog({
       return;
     }
     if (fecha > maxDate) {
-      setErrorValidacion("La fecha de calibración no puede ser una fecha en el futuro.");
+      setErrorValidacion("La fecha de realización no puede ser una fecha en el futuro.");
       return;
     }
     if (fecha < minDate) {
@@ -74,7 +75,7 @@ export function RegistrarCalibracionDialog({
     }
     if (!archivo) {
       setErrorValidacion(
-        "Tenés que adjuntar el documento (PDF o imagen) de la calibración."
+        "Tenés que adjuntar el documento (PDF o imagen) de la intervención."
       );
       return;
     }
@@ -84,12 +85,13 @@ export function RegistrarCalibracionDialog({
     // falla, el operador necesita ver la fecha y el archivo que ya eligió
     // para poder reintentar sin repetirlos. El reset ocurre en
     // `handleCerrar`, que es la otra vía por la que se vacía el formulario.
-    onConfirm(fecha, archivo);
+    onConfirm(fecha, archivo, tipo);
   };
 
   const handleCerrar = () => {
     setFecha("");
     setArchivo(null);
+    setTipo("calibracion");
     setErrorValidacion(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     onClose();
@@ -122,7 +124,7 @@ export function RegistrarCalibracionDialog({
             fontWeight="bold"
             color="fg"
           >
-            Registrar calibración: <br />
+            Registrar intervención: <br />
             <strong>{equipo.nombre}</strong>
           </DialogTitle>
 
@@ -131,6 +133,33 @@ export function RegistrarCalibracionDialog({
           {errorValidacion && (
             <BannerError mb="4">{errorValidacion}</BannerError>
           )}
+
+          <FormField label="Tipo de intervención" required mb="4">
+            <HStack gap="0" w="100%" rounded="lg" overflow="hidden" borderWidth="1px" borderColor="border.subtle">
+              <Button
+                type="button"
+                flex="1"
+                rounded="0"
+                colorPalette="brand"
+                variant={tipo === "calibracion" ? "solid" : "ghost"}
+                aria-pressed={tipo === "calibracion"}
+                onClick={() => setTipo("calibracion")}
+              >
+                Calibración
+              </Button>
+              <Button
+                type="button"
+                flex="1"
+                rounded="0"
+                colorPalette="brand"
+                variant={tipo === "mantenimiento" ? "solid" : "ghost"}
+                aria-pressed={tipo === "mantenimiento"}
+                onClick={() => setTipo("mantenimiento")}
+              >
+                Mantenimiento
+              </Button>
+            </HStack>
+          </FormField>
 
           <FormField label="Fecha de realización" required mb="4">
             <FormInput
@@ -143,7 +172,11 @@ export function RegistrarCalibracionDialog({
           </FormField>
 
           <FormField
-            label="Certificado adjunto (PDF / imagen)"
+            label={
+              tipo === "calibracion"
+                ? "Certificado adjunto (PDF / imagen)"
+                : "Comprobante de mantenimiento (PDF / imagen)"
+            }
             required
             mb="6"
           >
