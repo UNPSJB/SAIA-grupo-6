@@ -102,7 +102,7 @@ def _vencimientos_equipos(
                 fecha_vencimiento=plan.proxima_fecha_vencimiento,
                 dias_restantes=dias,
                 estado=_estado(dias, MARGEN_DIAS_ALERTA),
-                link_destino=f"/planes-calibracion-mantenimiento/{plan.id}/editar",
+                link_destino=f"/equipos/detalle/{plan.equipo.id}",
             )
         )
     return resultado

@@ -54,6 +54,9 @@ const EquipoCreatePage = lazy(() =>
 const EquipoEditPage = lazy(() =>
   import("./features/equipo/components/pages/EquipoEditPage").then((mod) => ({ default: mod.EquipoEditPage })),
 );
+const EquipoDetailPage = lazy(() =>
+  import("./features/equipo/components/pages/EquipoDetailPage").then((mod) => ({ default: mod.EquipoDetailPage })),
+);
 
 // Elementos de Limpieza
 const ElementosLimpiezaPage = lazy(() =>
@@ -361,6 +364,14 @@ export const router = createBrowserRouter([
                 element: (
                 <ConSuspense>
                   <EquipoEditPage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/equipos/detalle/:id",
+                element: (
+                <ConSuspense>
+                  <EquipoDetailPage />
                 </ConSuspense>
               ),
               },

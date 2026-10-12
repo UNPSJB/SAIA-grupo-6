@@ -56,12 +56,24 @@ export function useVencimientosPersonal(personaId: number | null) {
       // Las que están presentes (con fecha) -> se crean o actualizan
       const operaciones = Object.entries(valores)
         .filter(([, fecha]) => fecha)
-        .map(([aptitudIdStr, fecha]) => {
+        .flatMap(([aptitudIdStr, fecha]) => {
           const aptitudId = Number(aptitudIdStr);
           const existente = vencimientos.find((v) => v.aptitud_id === aptitudId);
-          return existente
-            ? actualizarVencimiento(existente.id, { fecha_vencimiento: fecha })
-            : crearVencimiento({ persona_id: idPersona, aptitud_id: aptitudId, fecha_vencimiento: fecha });
+
+          if (!existente) {
+            return [
+              crearVencimiento({
+                persona_id: idPersona,
+                aptitud_id: aptitudId,
+                fecha_vencimiento: fecha,
+              }),
+            ];
+          }
+
+          // Si la fecha no cambió no se manda nada (el backend rechaza fechas pasadas).
+          if (existente.fecha_vencimiento === fecha) return [];
+
+          return [actualizarVencimiento(existente.id, { fecha_vencimiento: fecha })];
         });
 
       await Promise.all([
@@ -71,6 +83,7 @@ export function useVencimientosPersonal(personaId: number | null) {
 
       await cargar();
     } catch (err) {
+      await cargar(); // OPCIONAL: vuelve a leer lo que realmente quedó guardado
       setError(err instanceof Error ? err.message : "Error al guardar los vencimientos");
       throw err;
     } finally {

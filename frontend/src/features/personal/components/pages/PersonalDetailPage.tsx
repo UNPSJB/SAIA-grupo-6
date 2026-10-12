@@ -40,6 +40,7 @@ export function PersonalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const personaId = Number(id);
+   const volver = () => (window.history.length > 1 ? navigate(-1) : navigate("/personal"));
 
   const { persona, loading, error } = usePersonal(personaId);
   const { vencimientos, loading: cargandoVencimientos } = useVencimientosPersonal(
@@ -78,9 +79,7 @@ export function PersonalDetailPage() {
       <PageHeader
         title={`Ficha de personal #${persona.id}`}
         actions={
-          <BotonVolver onClick={() => navigate("/personal")}>
-            Volver a la lista
-          </BotonVolver>
+          <BotonVolver onClick={volver}>Volver</BotonVolver>
         }
       />
 
