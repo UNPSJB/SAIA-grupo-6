@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
@@ -37,6 +37,12 @@ class Equipo(ModeloBase):
 
 class Calibracion(ModeloBase):
     __tablename__ = "calibraciones"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo IN ('calibracion', 'mantenimiento')",
+            name="ck_calibraciones_tipo",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
@@ -49,5 +55,11 @@ class Calibracion(ModeloBase):
 
     # Relativa a la carpeta de uploads, que se sirve por /uploads exigiendo sesión.
     certificado_url: Mapped[str] = mapped_column(String(255))
+
+    # El historial unificado conserva la tabla de calibraciones y distingue la
+    # intervención registrada sin duplicar la estructura ni sus relaciones.
+    tipo: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="calibracion"
+    )
 
     equipo: Mapped["Equipo"] = relationship(back_populates="calibraciones")

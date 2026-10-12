@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.common.validators import texto_no_vacio
@@ -49,8 +50,11 @@ class EquipoResponse(EquipoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+TipoIntervencion = Literal["calibracion", "mantenimiento"]
+
+
 class CalibracionResponse(BaseModel):
-    """Una calibración registrada, para el historial del equipo."""
+    """Una intervención registrada, para el historial del equipo."""
 
     id: int
     fecha_realizacion: date
@@ -58,5 +62,6 @@ class CalibracionResponse(BaseModel):
     # Relativa a la carpeta de uploads: el frontend la pide por /uploads, que
     # exige sesión.
     certificado_url: str
+    tipo: TipoIntervencion
 
     model_config = ConfigDict(from_attributes=True)

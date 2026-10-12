@@ -232,7 +232,37 @@ def run_migrations() -> None:
                 text("ALTER TABLE calibraciones DROP COLUMN activo")
             )
 
-    # 6) Tareas: tipo (preoperacional/operacional/postoperacional) y
+    # 6) Calibraciones: tipo de intervención.
+    #
+    #    La tabla se conserva para no perder el historial existente: al agregar
+    #    la columna con este default, cada registro previo queda identificado
+    #    como una calibración. La restricción coincide con el modelo y evita
+    #    nuevos valores ajenos a los dos tipos de intervención admitidos.
+    if "calibraciones" in tablas:
+        columnas = _columnas_de(inspector, "calibraciones")
+        if "tipo" not in columnas:
+            logger.info("Migración: agregando columna calibraciones.tipo")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE calibraciones "
+                        "ADD COLUMN tipo VARCHAR(20) NOT NULL "
+                        "DEFAULT 'calibracion' "
+                        "CHECK (tipo IN ('calibracion', 'mantenimiento'))"
+                    )
+                )
+        else:
+            # Protege instalaciones que hubieran agregado la columna antes de
+            # esta migración sin valor para filas históricas.
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "UPDATE calibraciones SET tipo = 'calibracion' "
+                        "WHERE tipo IS NULL OR TRIM(tipo) = ''"
+                    )
+                )
+
+    # 7) Tareas: tipo (preoperacional/operacional/postoperacional) y
     #    observaciones del administrador.
     #
     #    `tipo` es NOT NULL con default: las tareas que ya existían quedan como
@@ -257,7 +287,7 @@ def run_migrations() -> None:
                     text("ALTER TABLE tareas ADD COLUMN observaciones TEXT")
                 )
 
-    # 7) Registro de tareas: congelado del tipo y las observaciones.
+    # 8) Registro de tareas: congelado del tipo y las observaciones.
     #
     #    El checklist es una foto de la tarea al generarse; las filas viejas
     #    no tienen el dato, por eso las columnas quedan en NULL (a diferencia
@@ -290,7 +320,7 @@ def run_migrations() -> None:
                     )
                 )
 
-    # 8) Bootstrap del primer super admin.
+    # 9) Bootstrap del primer super admin.
     #
     #    Antes corría en cada arranque: un super admin que se degradaba a
     #    propósito (para pasar el control) volvía a ser promovido en el

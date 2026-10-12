@@ -9,7 +9,7 @@ import { RegistrarCalibracionDialog } from "../RegistrarCalibracionDialog";
 import { HistorialCalibracionesDialog } from "../HistorialCalibracionesDialog";
 import { useEquipos } from "../../hooks/useEquipos";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
-import type { Equipo } from "../../types/equipo";
+import type { Equipo, TipoIntervencion } from "../../types/equipo";
 import {
   BannerError,
   DialogoExito,
@@ -28,16 +28,17 @@ export function EquiposPage() {
   const {
     borrar,
     reactivar,
-    calibrar,
+    registrarIntervencion,
+    registrandoIntervencion,
     loading: procesando,
-    error: errorCalibracion,
+    errorIntervencion,
   } = useEquipoABM();
 
   const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
   const [equipoAReactivar, setEquipoAReactivar] = useState<Equipo | null>(null);
-  const [equipoACalibrar, setEquipoACalibrar] = useState<Equipo | null>(null);
+  const [equipoAIntervenir, setEquipoAIntervenir] = useState<Equipo | null>(null);
   const [equipoVerHistorial, setEquipoVerHistorial] = useState<Equipo | null>(null);
-  const [exitoCalibracion, setExitoCalibracion] = useState(false);
+  const [exitoIntervencion, setExitoIntervencion] = useState(false);
 
   const {
     paginados: equiposPaginados,
@@ -81,18 +82,22 @@ export function EquiposPage() {
     }
   };
 
-  const handleConfirmCalibrar = async (fecha: string, archivo: File) => {
-    if (!equipoACalibrar) return;
+  const handleConfirmIntervencion = async (
+    fecha: string,
+    archivo: File,
+    tipo: TipoIntervencion,
+  ) => {
+    if (!equipoAIntervenir) return;
     try {
-      await calibrar(equipoACalibrar.id, fecha, archivo);
-      setEquipoACalibrar(null);
-      setExitoCalibracion(true);
+      await registrarIntervencion(equipoAIntervenir.id, fecha, archivo, tipo);
+      setEquipoAIntervenir(null);
+      setExitoIntervencion(true);
 
       setTimeout(() => {
-        setExitoCalibracion(false);
+        setExitoIntervencion(false);
       }, 2500);
     } catch {
-      // El hook expone el error en `errorCalibracion`, que se muestra abajo.
+      // El hook expone el error en `errorIntervencion`, que se muestra abajo.
       // El diálogo queda abierto y con los datos cargados para que el
       // operador pueda reintentar sin volver a elegir el archivo.
     }
@@ -104,7 +109,7 @@ export function EquiposPage() {
         title={
           verInactivos ? "Equipos dados de baja" : "Gestión de equipos"
         }
-        description="Alta, modificación y baja de los equipos del laboratorio, con su historial de calibraciones."
+        description="Alta, modificación y baja de los equipos del laboratorio, con su historial de intervenciones."
         actions={
           <Button colorPalette="brand" onClick={() => navigate("/equipos/nuevo")}>
             + Agregar
@@ -131,7 +136,7 @@ export function EquiposPage() {
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onReactivar={(equipo) => setEquipoAReactivar(equipo)}
-            onCalibrar={(equipo) => setEquipoACalibrar(equipo)}
+            onIntervenir={(equipo) => setEquipoAIntervenir(equipo)}
             onVerHistorial={(equipo) => setEquipoVerHistorial(equipo)}
           />
 
@@ -171,14 +176,14 @@ export function EquiposPage() {
       />
 
       <RegistrarCalibracionDialog
-        isOpen={equipoACalibrar !== null}
-        equipo={equipoACalibrar}
-        isLoading={procesando}
-        error={errorCalibracion}
+        isOpen={equipoAIntervenir !== null}
+        equipo={equipoAIntervenir}
+        isLoading={registrandoIntervencion}
+        error={errorIntervencion}
         onClose={() => {
-          if (!procesando) setEquipoACalibrar(null);
+          if (!registrandoIntervencion) setEquipoAIntervenir(null);
         }}
-        onConfirm={handleConfirmCalibrar}
+        onConfirm={handleConfirmIntervencion}
       />
 
       <HistorialCalibracionesDialog
@@ -188,8 +193,8 @@ export function EquiposPage() {
       />
 
       <DialogoExito
-        isOpen={exitoCalibracion}
-        mensaje="Calibración registrada y calculada correctamente."
+        isOpen={exitoIntervencion}
+        mensaje="Intervención registrada y calculada correctamente."
       />
     </Box>
   );
