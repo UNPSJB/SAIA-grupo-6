@@ -1,4 +1,5 @@
-export type TipoVencimiento = "PERSONAL" | "CALIBRACION" | "MANTENIMIENTO";
+export type TipoVencimiento = "PERSONAL" | "CALIBRACION" | "MANTENIMIENTO" | "DOCUMENTO";
+
 
 export type EstadoVencimiento = "VENCIDO" | "PROXIMO" | "VIGENTE";
 
@@ -6,7 +7,9 @@ export const TIPOS_VENCIMIENTO: { value: TipoVencimiento; label: string }[] = [
   { value: "PERSONAL", label: "Personal" },
   { value: "CALIBRACION", label: "Calibración" },
   { value: "MANTENIMIENTO", label: "Mantenimiento" },
+  { value: "DOCUMENTO", label: "Documento" },
 ];
+
 
 export interface VencimientoConsolidado {
   id_vencimiento: string;

@@ -17,7 +17,7 @@ router = APIRouter(
 
 @router.get("", response_model=List[schemas.VencimientoConsolidadoResponse])
 def listar_vencimientos(
-    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO"]] = Query(None),
+    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO", "DOCUMENTO"]] = Query(None),
     db: Session = Depends(get_db),
 ):
     return services.listar_vencimientos(db, tipo)

@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+from datetime import date, datetime
 
 from src.aptitud.models import Aptitud
 from src.Equipo.models import Equipo
@@ -14,6 +15,7 @@ from src.personal.models import Personal
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 from src.vencimientos.schemas import VencimientoConsolidadoResponse
 from src.vencimientoPersonal.models import VencimientoPersonal
+from src.documentos.models import VersionDocumento
 
 # Orden de urgencia: primero los vencidos, después los próximos, al final los vigentes.
 _ORDEN_ESTADO = {"VENCIDO": 0, "PROXIMO": 1, "VIGENTE": 2}
@@ -107,6 +109,53 @@ def _vencimientos_equipos(
         )
     return resultado
 
+# Los tipos se guardan como clave ("manual_bpm"); en pantalla va el nombre legible.
+_ETIQUETA_TIPO_DOCUMENTO = {
+    "manual_bpm": "Manual de BPM",
+    "ficha_tecnica": "Ficha técnica",
+    "procedimiento": "Procedimiento",
+    "receta": "Receta",
+}
+
+
+def _vencimientos_documentos(db: Session) -> List[VencimientoConsolidadoResponse]:
+    hoy = date.today()
+    # Los documentos usan el mismo margen configurable que el personal (15 días por defecto).
+    margen = obtener_dias_alerta_vencimiento_personal(db)
+
+    # Solo cuenta la versión vigente: una versión archivada ya no rige.
+    versiones = db.scalars(
+        select(VersionDocumento)
+        .options(selectinload(VersionDocumento.documento))
+        .where(
+            VersionDocumento.vigente.is_(True),
+            VersionDocumento.fecha_vencimiento.is_not(None),  # <- AJUSTAR
+        )
+    ).all()
+
+    resultado = []
+    for version in versiones:
+        fecha = version.fecha_vencimiento  # <- AJUSTAR
+        if isinstance(fecha, datetime):  # por si la columna guarda fecha y hora
+            fecha = fecha.date()
+
+        documento = version.documento
+        dias = (fecha - hoy).days
+        resultado.append(
+            VencimientoConsolidadoResponse(
+                id_vencimiento=f"documento-{version.id}",
+                tipo="DOCUMENTO",
+                entidad_id=documento.id,
+                sujeto_id=documento.id,
+                detalle=_ETIQUETA_TIPO_DOCUMENTO.get(documento.tipo, documento.tipo),
+                sujeto=documento.nombre,
+                fecha_vencimiento=fecha,
+                dias_restantes=dias,
+                estado=_estado(dias, margen),
+                link_destino=f"/documentos/{documento.id}/historial",
+            )
+        )
+    return resultado
 
 def listar_vencimientos(
     db: Session, tipo: Optional[str] = None
@@ -122,6 +171,8 @@ def listar_vencimientos(
         items.extend(_vencimientos_personal(db))
     if tipo in (None, "CALIBRACION", "MANTENIMIENTO"):
         items.extend(_vencimientos_equipos(db, tipo))
+    if tipo in (None, "DOCUMENTO"):
+        items.extend(_vencimientos_documentos(db))
 
     # Primero por estado y, dentro de cada estado, el más urgente (menos días) arriba.
     items.sort(key=lambda v: (_ORDEN_ESTADO[v.estado], v.dias_restantes))
