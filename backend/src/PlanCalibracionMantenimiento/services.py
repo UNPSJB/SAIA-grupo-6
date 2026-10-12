@@ -128,27 +128,27 @@ def modificar_plan_calibracion_mantenimiento(
     return aplicar_cambios(db, plan, cambios, _MAPEA_CONFLICTO)
 
 
-def asentar_ultima_intervencion_por_calibracion(
-    db: Session, equipo_id: int, fecha_realizacion: date
+def asentar_ultima_intervencion(
+    db: Session, equipo_id: int, tipo: str, fecha_realizacion: date
 ) -> None:
-    """Asienta una calibración registrada sobre los planes de calibración.
+    """Asienta una intervención registrada sobre su plan activo del mismo tipo.
 
     Reglas de negocio:
-    - Solo toca planes `tipo == "calibracion"` y `activo`; los planes de
-      mantenimiento del equipo quedan intactos.
-    - Avanza `fecha_ultima_intervencion` con `fecha_realizacion` (la fecha en
-      que se hizo la calibración), no con la fecha de hoy.
-    - Nunca atrasa la fecha: si la calibración registrada es más vieja que la
-      última intervención ya asentada, se ignora.
+    - Solo toca planes `activo` cuyo `tipo` coincide con la intervención; el
+      otro tipo de plan del equipo queda intacto.
+    - Avanza `fecha_ultima_intervencion` con la fecha en que se realizó la
+      intervención, no con la fecha de hoy.
+    - Nunca atrasa la fecha: si el registro es más viejo que la última
+      intervención ya asentada, se ignora.
 
     Por la validación de planes activos duplicados hay, como máximo, un plan
-    de calibración activo por equipo; el bucle es defensivo. No hace commit:
-    comparte la transacción con el alta de la calibración.
+    activo por tipo y equipo; el bucle es defensivo. No hace commit: comparte
+    la transacción con el alta de la intervención.
     """
     planes = db.scalars(
         select(models.PlanCalibracionMantenimiento).where(
             models.PlanCalibracionMantenimiento.equipo_id == equipo_id,
-            models.PlanCalibracionMantenimiento.tipo == "calibracion",
+            models.PlanCalibracionMantenimiento.tipo == tipo,
             models.PlanCalibracionMantenimiento.activo.is_(True),
         )
     ).all()

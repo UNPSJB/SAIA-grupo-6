@@ -7,7 +7,7 @@ interface EquipoItemProps {
   onEdit: (equipo: Equipo) => void;
   onDelete: (equipo: Equipo) => void;
   onReactivar: (equipo: Equipo) => void;
-  onCalibrar: (equipo: Equipo) => void;
+  onIntervenir: (equipo: Equipo) => void;
   onVerHistorial: (equipo: Equipo) => void;
 }
 
@@ -16,7 +16,7 @@ export function EquipoItem({
   onEdit,
   onDelete,
   onReactivar,
-  onCalibrar,
+  onIntervenir,
   onVerHistorial,
 }: EquipoItemProps) {
   return (
@@ -35,8 +35,8 @@ export function EquipoItem({
               <BotonTabla accion="historial" onClick={() => onVerHistorial(equipo)}>
                 Historial
               </BotonTabla>
-              <BotonTabla accion="calibrar" onClick={() => onCalibrar(equipo)}>
-                Calibrar
+              <BotonTabla accion="calibrar" onClick={() => onIntervenir(equipo)}>
+                Intervención
               </BotonTabla>
               <BotonTabla accion="editar" onClick={() => onEdit(equipo)}>
                 Modificar
