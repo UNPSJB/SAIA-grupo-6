@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -80,10 +80,6 @@ def _borrar_archivo(ruta: str) -> None:
         logger.warning("No se pudo borrar el archivo huérfano %s", ruta)
 
 
-# ==========================================
-# Historias 1 y 2 · Subir documento versionado / versión vigente
-# ==========================================
-
 
 def crear_documento(
     db: Session,
@@ -91,6 +87,7 @@ def crear_documento(
     tipo: TipoDocumento,
     autor_id: int,
     archivo: UploadFile,
+    fecha_vencimiento: Optional[date] = None,
 ) -> Documento:
     """Crea el documento con su versión 1, que queda vigente."""
     autor = _verificar_administrador(db, autor_id)
@@ -116,6 +113,7 @@ def crear_documento(
                 vigente_desde=ahora,
                 fecha_subida=ahora,
                 autor_id=autor.id,
+                fecha_vencimiento=fecha_vencimiento,
             )
         )
         db.add(documento)
@@ -138,6 +136,7 @@ def subir_nueva_version(
     documento_id: int,
     autor_id: int,
     archivo: UploadFile,
+    fecha_vencimiento: Optional[date] = None
 ) -> Documento:
     """Agrega la versión N+1 como VIGENTE y archiva la anterior (sin sobrescribir nada)."""
     autor = _verificar_administrador(db, autor_id)
@@ -167,6 +166,7 @@ def subir_nueva_version(
                 vigente_desde=ahora,
                 fecha_subida=ahora,
                 autor_id=autor.id,
+                fecha_vencimiento=fecha_vencimiento,
             )
         )
         db.commit()
@@ -182,10 +182,6 @@ def subir_nueva_version(
     db.refresh(documento)
     return documento
 
-
-# ==========================================
-# Lecturas
-# ==========================================
 
 
 def leer_documento(db: Session, documento_id: int) -> Documento:

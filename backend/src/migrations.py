@@ -1,10 +1,3 @@
-"""Migraciones ligeras para bases que ya existen.
-
-`create_all()` crea las tablas faltantes pero NO agrega columnas a las que ya
-existen. Sin esto, agregar un campo a un modelo (por ejemplo `es_super_admin`)
-no se aplicaría sobre una base ya creada y la aplicación fallaría al consultar.
-"""
-
 import logging
 
 from sqlalchemy import inspect, text
@@ -59,7 +52,6 @@ def run_migrations() -> None:
                 )
             )
 
-    # 1) Rol de super admin
     if "personal" in tablas and "es_super_admin" not in _columnas_de(inspector, "personal"):
         logger.info("Migración: agregando columna personal.es_super_admin")
         with engine.begin() as conexion:
@@ -70,15 +62,23 @@ def run_migrations() -> None:
                 )
             )
 
-    # 2) Incidentes: el estado abierto/cerrado reemplaza la baja lógica.
-    #
-    # Antes `activo` mezclaba dos cosas: "dado de baja" y "resuelto". Ahora hay
-    # un `estado` explícito más la acción correctiva, la fecha de cierre y el
-    # responsable de la resolución.
-    #
-    # El orden importa: primero se agrega `estado` y se rellena usando `activo`,
-    # recién ahí se borra `activo`. Si se invirtiera, los incidentes que ya
-    # estaban dados de baja quedarían marcados como abiertos.
+    if "versiones_documento" in tablas:
+        columnas = _columnas_de(inspect(engine), "versiones_documento")
+
+        if "fecha_vencimiento" not in columnas:
+            logger.info(
+                "Migración: agregando columna "
+                "versiones_documento.fecha_vencimiento"
+            )
+
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE versiones_documento "
+                        "ADD COLUMN fecha_vencimiento DATE"
+                    )
+                )
+
     if "incidentes" in tablas:
         columnas = _columnas_de(inspector, "incidentes")
 
@@ -137,33 +137,19 @@ def run_migrations() -> None:
                     )
                 )
 
-        # `activo` es NOT NULL y sin default: si quedara en la tabla, los
-        # INSERT futuros fallarían al no mandarlo. Por eso se elimina de verdad.
+
         if "activo" in _columnas_de(inspector, "incidentes"):
             logger.info("Migración: eliminando columna incidentes.activo")
             with engine.begin() as conexion:
                 conexion.execute(text("ALTER TABLE incidentes DROP COLUMN activo"))
 
-    # 3) Incidentes: columna `titulo`.
-    #
-    #    `Incidente.titulo` se agregó al modelo pero la migración nunca lo
-    #    contempló. `create_all()` no agrega columnas a tablas que ya existen,
-    #    así que toda base creada antes del cambio quedaba sin la columna y
-    #    los listados morían con "no such column: incidentes.titulo" (500).
-    #    El navegador lo reportaba como error de CORS porque una respuesta
-    #    500 nunca llega con los headers de Access-Control-Allow-Origin.
-    #
-    #    Es NOT NULL, así que primero se agrega nullable, se rellena lo
-    #    existente y recién después se exige NOT NULL.
     if "incidentes" in tablas and "titulo" not in _columnas_de(inspector, "incidentes"):
         logger.info("Migración: agregando columna incidentes.titulo")
         with engine.begin() as conexion:
             conexion.execute(
                 text("ALTER TABLE incidentes ADD COLUMN titulo VARCHAR(60)")
             )
-            # Los incidentes previos no tenían título: se deriva de las
-            # primeras palabras de la descripción para no inventar un
-            # placeholder que el usuario después tendría que corregir a mano.
+
             conexion.execute(
                 text(
                     "UPDATE incidentes SET titulo = "
@@ -174,7 +160,7 @@ def run_migrations() -> None:
                 )
             )
 
-    # 4) Registro de tareas: elemento de limpieza utilizado.
+
     if (
         "registro_tareas" in tablas
         and "elemento_limpieza_id" not in _columnas_de(inspector, "registro_tareas")
@@ -191,15 +177,7 @@ def run_migrations() -> None:
                 )
             )
 
-    # 4) Frecuencia de calibración del equipo.
-    #
-    #    `create_all()` crea tablas faltantes pero NO agrega columnas a las que ya
-    #    existen, así que sin esto toda base creada antes del registro de
-    #    calibraciones fallaba con "no such column: equipos.frecuencia_calibracion_dias"
-    #    al listado de equipos, que selecciona el modelo completo.
-    #
-    #    Va antes del bootstrap porque ese bloque corta con `return` cuando ya
-    #    corrió: lo que se agregue después jamás se aplicaría a bases existentes.
+
     if "equipos" in tablas and "frecuencia_calibracion_dias" not in _columnas_de(
         inspector, "equipos"
     ):
@@ -214,14 +192,6 @@ def run_migrations() -> None:
                 )
             )
 
-    # 5) Calibraciones: sacar la columna `activo` espuria.
-    #
-    #    La primera versión del merge declaraba un `activo` NOT NULL en
-    #    Calibracion que ningún endpoint ni vista usa (quedó colado al
-    #    resolver el conflicto a mano). La tabla se creó con ese esquema, así
-    #    que los INSERT del modelo definitivo —que no conoce la columna—
-    #    fallaban con "NOT NULL constraint failed: calibraciones.activo".
-    #    Mismo precedente que `incidentes.activo`: se borra de verdad.
     if (
         "calibraciones" in tablas
         and "activo" in _columnas_de(inspector, "calibraciones")
@@ -367,8 +337,6 @@ def run_migrations() -> None:
                 )
                 promovido = candidato
 
-    # Fuera del `with`: abrir una transaccion anidada sobre la misma conexion
-    # puede dejarla esperando el lock en SQLite.
     if promovido is not None:
         _marcar_migracion("bootstrap_super_admin")
         logger.warning(

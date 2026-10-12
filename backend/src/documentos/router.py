@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-
+from datetime import date
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documentos", tags=["documentos"])
 
-# Los endpoints de documentos siguen el estándar del resto del proyecto:
-# - Lectura (GET) -> require_operador (operadores y admins consultan)
-# - Escritura (POST) -> require_admin (solo admins gestionan documentos)
 _DEP_OPERADOR = [Depends(require_operador)]
 _DEP_ADMIN = [Depends(require_admin)]
 
@@ -40,11 +37,18 @@ def create_documento(
     tipo: TipoDocumento = Form(...),
     autor_id: int = Form(...),
     archivo: UploadFile = File(...),
+    fecha_vencimiento: Optional[date] = Form(None),
     db: Session = Depends(get_db),
 ):
     logger.info("Alta de documento '%s'", nombre)
-    return services.crear_documento(db, nombre, tipo, autor_id, archivo)
-
+    return services.crear_documento(
+        db,
+        nombre,
+        tipo,
+        autor_id,
+        archivo,
+        fecha_vencimiento,
+    )
 
 @router.post(
     "/{documento_id}/versiones",
@@ -55,11 +59,17 @@ def create_version(
     documento_id: int,
     autor_id: int = Form(...),
     archivo: UploadFile = File(...),
+    fecha_vencimiento: Optional[date] = Form(None),
     db: Session = Depends(get_db),
 ):
     logger.info("Nueva versión para el documento %s", documento_id)
-    return services.subir_nueva_version(db, documento_id, autor_id, archivo)
-
+    return services.subir_nueva_version(
+        db,
+        documento_id,
+        autor_id,
+        archivo,
+        fecha_vencimiento,
+    )
 
 # No existen PUT/PATCH/DELETE sobre versiones: las versiones anteriores son inmutables.
 @router.get(

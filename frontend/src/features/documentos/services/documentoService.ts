@@ -53,33 +53,49 @@ export async function obtenerHistorial(
   );
 }
 
-// Historias 1 y 2
+
 export async function crearDocumento(datos: {
   nombre: string;
   tipo: TipoDocumento;
   autor_id: number;
   archivo: File;
+  fecha_vencimiento: string | null;
 }): Promise<Documento> {
   const formData = new FormData();
+
   formData.append("nombre", datos.nombre);
   formData.append("tipo", datos.tipo);
   formData.append("autor_id", String(datos.autor_id));
   formData.append("archivo", datos.archivo);
 
+  if (datos.fecha_vencimiento) {
+    formData.append("fecha_vencimiento", datos.fecha_vencimiento);
+  }
+
   const response = await apiFetch(`${API_URL}/documentos`, {
     method: "POST",
     body: formData,
   });
+
   return pedir<Documento>(response, "Error al subir el documento");
 }
 
 export async function subirNuevaVersion(
   documentoId: number,
-  datos: { autor_id: number; archivo: File }
+  datos: {
+    autor_id: number;
+    archivo: File;
+    fecha_vencimiento: string | null;
+  }
 ): Promise<Documento> {
   const formData = new FormData();
+
   formData.append("autor_id", String(datos.autor_id));
   formData.append("archivo", datos.archivo);
+
+  if (datos.fecha_vencimiento) {
+    formData.append("fecha_vencimiento", datos.fecha_vencimiento);
+  }
 
   const response = await apiFetch(
     `${API_URL}/documentos/${documentoId}/versiones`,
@@ -88,19 +104,14 @@ export async function subirNuevaVersion(
       body: formData,
     }
   );
-  return pedir<Documento>(response, "Error al subir la nueva versión");
+
+  return pedir<Documento>(
+    response,
+    "Error al subir la nueva versión"
+  );
 }
 
-/**
- * Abre un documento protegido en una pestaña nueva.
- *
- * El endpoint /uploads exige el JWT, y un <a href> no puede mandarlo, así que
- * se baja el archivo con apiFetch (que adjunta el token y renueva la sesión)
- * y se abre como blob.
- */
 export async function abrirArchivo(archivoUrl: string): Promise<void> {
-  // Se abre la pestaña ANTES del fetch, dentro del click del usuario; si no,
-  // el navegador la bloquea como popup porque ya pasó el gesto del usuario.
   const ventana = window.open("", "_blank");
 
   try {
@@ -116,7 +127,6 @@ export async function abrirArchivo(archivoUrl: string): Promise<void> {
       window.location.href = objectUrl; // popup bloqueado: fallback
     }
 
-    // Se libera después de un rato, para que la pestaña alcance a cargarlo.
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   } catch (e) {
     ventana?.close();

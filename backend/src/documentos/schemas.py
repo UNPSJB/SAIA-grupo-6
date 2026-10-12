@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -22,6 +22,7 @@ class VersionDocumento(BaseModel):
     estado: EstadoVersion
     vigente_desde: datetime
     vigente_hasta: Optional[datetime] = None
+    fecha_vencimiento: Optional[date] = None
     fecha_subida: datetime
     autor: AutorResponse
 

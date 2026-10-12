@@ -21,13 +21,14 @@ interface DocumentoFormProps {
   onCancel?: () => void;
 }
 
-const emptyValues: DocumentoFormValues = { nombre: "", tipo: "manual_bpm", archivo: null };
+const emptyValues: DocumentoFormValues = {
+  nombre: "",
+  tipo: "manual_bpm",
+  archivo: null,
+  fecha_vencimiento: "",
+};
 
-/**
- * El aspecto de los campos lo aporta la receta `input` del tema
- * (`src/theme/index.ts`), así que acá no hay ningún objeto de estilo: solo
- * queda el `maxW`, que es una decisión de layout.
- */
+
 export function DocumentoForm({
   conDatosDelDocumento = true,
   onSubmit,
@@ -77,7 +78,23 @@ export function DocumentoForm({
           </FormField>
         </>
       )}
-
+      <FormField
+        label="Fecha de vencimiento"
+        helper="Opcional. El documento se marcará como vencido después de esta fecha."
+      >
+        <FormInput
+          type="date"
+          value={values.fecha_vencimiento}
+          onChange={(e) =>
+            setValues((prev) => ({
+              ...prev,
+              fecha_vencimiento: e.target.value,
+            }))
+          }
+          maxW="500px"
+        />
+      </FormField>
+      
       <FormField
         label="Archivo"
         required
