@@ -1,9 +1,10 @@
 import { Button, HStack, Table, Text } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
+import { LuEye } from "react-icons/lu";
 import { useAuth } from "../../../common/context/useAuth";
 import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -35,7 +36,7 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={persona.activo ? 1 : 0.65}>
       <Celda p="3">
-        {persona.nombre} {persona.apellido || ""}
+        <TextoTruncado texto={`${persona.nombre} ${persona.apellido || ""}`.trim()} />
       </Celda>
       <Celda p="3">{persona.dni}</Celda>
       <Celda p="3">
@@ -47,11 +48,20 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
         <Button
           variant="ghost"
           fontSize="lg"
+          /*
+           * Alto ajustado al contenido: el alto por defecto del botón (~40px)
+           * hacía que las filas de esta tabla midieran más que las del resto
+           * (los BotonTabla de las acciones miden ~28px). Con `h="auto"` y el
+           * padding mínimo, la fila queda a la par de Equipos, Insumos, etc.
+           */
+          h="auto"
+          px="2"
+          py="1"
           onClick={() => navigate(`/personal/detalle/${persona.id}`)}
           title="Ver Detalle"
           aria-label={`Ver detalle de ${persona.nombre}`}
         >
-          👁️
+          <LuEye aria-hidden />
         </Button>
       </Celda>
       <Celda p="3" center>

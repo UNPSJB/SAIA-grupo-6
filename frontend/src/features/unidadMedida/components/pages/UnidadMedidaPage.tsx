@@ -25,7 +25,7 @@ export function UnidadMedidaPage() {
   const { borrar, reactivar, loading: procesando, error: errorEliminar } = useUnidadMedidaABM();
   const {
     paginados: unidadesPaginadas,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -114,7 +114,7 @@ export function UnidadMedidaPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

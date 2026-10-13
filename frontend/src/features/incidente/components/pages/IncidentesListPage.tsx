@@ -219,13 +219,13 @@ export function IncidentesListPage() {
             mensajeVacio={mensajeVacio}
           />
 
-{/*
-            `Paginacion` espera el total de PAGINAS, no de incidentes: si se
-            pasa la cantidad de filas sale un botón por cada incidente.
+          {/*
+            `Paginacion` espera el total de FILAS como `count`: Chakra calcula
+            las páginas con `ceil(count / pageSize)`.
           */}
           {totalPaginas > 1 && (
             <Paginacion
-              count={totalPaginas}
+              count={incidentesProcesados.length}
               pageSize={PAGE_SIZE}
               page={paginaActual}
               onPageChange={setPage}

@@ -17,6 +17,16 @@ export async function obtenerPersona(id: number): Promise<Persona> {
     return pedir<Persona>(response, "Error al obtener la persona");
 }
 
+// Datos de la persona logueada, para la página "Mi perfil".
+//
+// No usa `GET /personal/{id}`: ese endpoint exige permiso de administrador
+// y un operador no podría ver su propia ficha. `/auth/me` devuelve la misma
+// `Persona` con solo tener la sesión abierta.
+export async function obtenerMiPerfil(): Promise<Persona> {
+    const response = await apiFetch(`${API_URL}/auth/me`);
+    return pedir<Persona>(response, "Error al obtener tu perfil");
+}
+
 export async function crearPersona(persona: PersonaInput): Promise<Persona> {
     const response = await apiFetch(`${API_URL}/personal`, {
         method: "POST",

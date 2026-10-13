@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -89,10 +89,16 @@ export function PersonalCreatePage() {
         isLoading={loading}
         title="Alta de Personal"
         submitLabel="Crear personal"
-        requierePassword
         puedeEditarCapacidades
         puedeAsignarSuperAdmin={esSuperAdmin(user)}
       />
+      {/*
+        Sin campo de contraseña a propósito: la cuenta arranca con el DNI
+        de la persona y cada quien la cambia desde "Mi perfil".
+      */}
+      <Text fontSize="xs" color="fg.subtle" fontStyle="italic" mt="-4" mb="4">
+        La contraseña inicial de la persona es su DNI. Puede cambiarla desde "Mi perfil".
+      </Text>
       <VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />
       <ConfirmarReactivacionDialog
         isOpen={conflicto !== null}

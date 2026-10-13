@@ -38,7 +38,6 @@ export function PlanLimpiezaTable({
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
             <EncabezadoOscuro ancho="amplia">Tareas (frecuencia)</EncabezadoOscuro>
             <EncabezadoOscuro ancho="media">Equipo</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

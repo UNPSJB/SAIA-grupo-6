@@ -15,7 +15,6 @@ import { usePlanesCalibracionMantenimiento } from "../../../planCalibracionMante
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
   BannerError,
-  BotonTabla,
   BotonVolver,
   Celda,
   ColumnaHeader,

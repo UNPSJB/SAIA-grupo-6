@@ -1,7 +1,7 @@
 import { HStack, Table } from "@chakra-ui/react";
 import { formatoFecha } from "../../../common/utils/fechas";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface ElementoLimpiezaItemProps {
   elemento: ElementoLimpieza;
@@ -22,7 +22,9 @@ export function ElementoLimpiezaItem({
       borderColor="border.subtle"
       opacity={elemento.activo ? 1 : 0.65}
     >
-      <Celda p="3">{elemento.nombre}</Celda>
+      <Celda p="3">
+        <TextoTruncado texto={elemento.nombre} />
+      </Celda>
       <Celda p="3">
         {elemento.fecha_ultimo_recambio
           ? formatoFecha(elemento.fecha_ultimo_recambio)

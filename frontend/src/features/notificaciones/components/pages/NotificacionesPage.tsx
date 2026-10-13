@@ -10,9 +10,11 @@ import {
   Table,
   Text,
 } from "@chakra-ui/react";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { obtenerNotificaciones } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
+import { LuBell, LuCircleCheck } from "react-icons/lu";
 import type { Notificacion } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
@@ -23,8 +25,13 @@ import {
   EncabezadoOscuro,
   FilaEncabezado,
   PageHeader,
+  Paginacion,
   Tarjeta,
+  TextoTruncado,
 } from "../../../../components/ui/patrones";
+
+/** Tamaño de página de todos los listados de la app. */
+const PAGE_SIZE = 10;
 
 /**
  * Paleta del badge de "Origen", para que el color signifique lo mismo en
@@ -139,12 +146,22 @@ export function NotificacionesPage() {
     return 0;
   });
 
+  // Paginación en memoria, como el resto de los listados: sin ella, la tabla
+  // crecía sin tope con cada vencimiento vigente.
+  const {
+    paginados: notificacionesPaginadas,
+    page,
+    setPage,
+    total,
+    hayVariasPaginas,
+  } = usePaginas(notificacionesOrdenadas, PAGE_SIZE);
+
   return (
     <Box p="5">
       <PageHeader
         title={
           <HStack gap="2" flexWrap="wrap" rowGap="2">
-            <span aria-hidden>🔔</span>
+            <LuBell aria-hidden />
             Centro de notificaciones
           </HStack>
         }
@@ -174,14 +191,18 @@ export function NotificacionesPage() {
         <Spinner color="brand.500" />
       ) : notificacionesOrdenadas.length === 0 ? (
         <Tarjeta p="8" textAlign="center">
-          <Text fontSize="lg" color="green.fg" fontWeight="bold">
-            ✅ No hay notificaciones pendientes
-          </Text>
+          <HStack justify="center" gap="2" color="green.fg">
+            <LuCircleCheck aria-hidden />
+            <Text fontSize="lg" fontWeight="bold">
+              No hay notificaciones pendientes
+            </Text>
+          </HStack>
           <Text color="fg.muted" fontSize="sm">
             Todos los vencimientos están al día.
           </Text>
         </Tarjeta>
       ) : (
+        <>
         <Tarjeta overflowX="auto">
           <Table.Root variant="outline" size="md" w="100%" minW="940px">
             <Table.Header>
@@ -194,7 +215,7 @@ export function NotificacionesPage() {
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
-              {notificacionesOrdenadas.map((n) => (
+              {notificacionesPaginadas.map((n) => (
                 <Table.Row
                   key={n.id_notificacion}
                   _hover={{ bg: "brand.50" }}
@@ -234,10 +255,8 @@ export function NotificacionesPage() {
                       </Badge>
                     </Celda>
                     <Celda>
-                      <Text fontWeight="bold" color="fg" mb="1">{n.titulo}</Text>
-                      <Text fontSize="sm" color="fg.muted">
-                        {n.mensaje}
-                      </Text>
+                      <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={n.titulo} />
+                      <TextoTruncado fontSize="sm" color="fg.muted" max={80} texto={n.mensaje} />
                     </Celda>
                     <Celda fontSize="sm">
                       {formatoFechaOCorta(n.fecha_referencia)}
@@ -257,6 +276,16 @@ export function NotificacionesPage() {
             </Table.Body>
           </Table.Root>
         </Tarjeta>
+
+        {hayVariasPaginas && (
+          <Paginacion
+            count={total}
+            pageSize={PAGE_SIZE}
+            page={page}
+            onPageChange={setPage}
+          />
+        )}
+        </>
       )}
     </Box>
   );

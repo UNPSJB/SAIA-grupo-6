@@ -4,6 +4,7 @@ import { LuPlus, LuTrash2 } from "react-icons/lu";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
 import { TIPOS_TAREA, type TipoTarea } from "../types/planLimpieza";
 import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
+import { useAuth } from "../../../common/context/useAuth";
 import {
   AccionesFormulario,
   BannerError,
@@ -12,6 +13,7 @@ import {
   FormField,
   FormInput,
   FormNativeSelect,
+  MensajeError,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
@@ -54,7 +56,17 @@ export function PlanLimpiezaForm({
   title = "Alta de Plan de Limpieza",
   onCancel,
 }: PlanLimpiezaFormProps) {
-  const [values, setValues] = useState<PlanLimpiezaInput>(initialValues);
+  const { user } = useAuth();
+  const [values, setValues] = useState<PlanLimpiezaInput>({
+    ...initialValues,
+    /*
+     * El autor arranca en quien tiene la sesión abierta. Antes se pedía a
+     * mano (el helper decía "el sistema todavía no tiene sesión", que ya no
+     * es cierto): quedaba un select en "Seleccioná quién crea el plan" que
+     * nadie notaba, y el botón de guardar deshabilitado sin explicación.
+     */
+    autor_id: initialValues.autor_id || user?.id || 0,
+  });
   const {
     equipos,
     personal,
@@ -139,9 +151,21 @@ export function PlanLimpiezaForm({
     onSubmit(values);
   };
 
-  const hayTareaInvalida = values.tareas.some(
-    (t) => !t.nombre.trim() || !t.frecuencia || t.frecuencia <= 0,
-  );
+  /*
+   * Lo que falta para poder guardar, en una sola fuente de verdad: el botón
+   * se deshabilita con esta lista y el mensaje de abajo la muestra. Antes
+   * el botón quedaba grisado sin decir por qué, y no se entendía qué
+   * faltaba completar.
+   */
+  const faltantes: string[] = [];
+  if (!values.nombre.trim()) faltantes.push("el nombre del plan");
+  values.tareas.forEach((tarea, indice) => {
+    if (!tarea.nombre.trim()) faltantes.push(`el nombre de la tarea ${indice + 1}`);
+    if (!tarea.frecuencia || tarea.frecuencia <= 0)
+      faltantes.push(`la frecuencia de la tarea ${indice + 1}`);
+  });
+  if (!values.equipo_id) faltantes.push("el equipo");
+  if (!values.autor_id) faltantes.push("el autor");
 
   return (
     <TarjetaFormulario as="form" onSubmit={handleSubmit}>
@@ -314,7 +338,7 @@ export function PlanLimpiezaForm({
       <FormField
         label="Autor"
         required
-        helper="Se guarda de forma explícita porque el sistema todavía no tiene sesión de usuario."
+        helper="Arranca en quien tiene la sesión abierta; podés cambiarlo si el plan lo firma otra persona."
         mb="0"
       >
         <FormNativeSelect
@@ -326,18 +350,39 @@ export function PlanLimpiezaForm({
           <SelectPlaceholder value={0}>
             {cargandoOpciones ? "Cargando..." : "Seleccioná quién crea el plan"}
           </SelectPlaceholder>
-          {personal.map((persona) => (
-            <option key={persona.id} value={persona.id}>
-              {persona.nombre} {persona.apellido || ""}
-            </option>
-          ))}
+          {/*
+            Solo se ofrecen quienes pueden administrar: el backend rechaza
+            a cualquier otro como autor (`AUTOR_SIN_PERMISO_DE_ADMINISTRAR`,
+            "Se requiere permiso de administrar..."). Antes la lista traía a
+            todo el personal, se podía elegir a un operador, y el rechazo
+            aparecía recién al guardar.
+          */}
+          {personal
+            .filter(
+              (persona) => persona.puede_administrar || persona.es_super_admin,
+            )
+            .map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.nombre} {persona.apellido || ""}
+              </option>
+            ))}
         </FormNativeSelect>
       </FormField>
+
+      {/*
+       * El aviso de qué falta va pegado a los botones: es lo que explica
+       * un "Guardar" deshabilitado, que por sí solo no dice nada.
+       */}
+      {faltantes.length > 0 && (
+        <MensajeError mb="4">
+          Para guardar falta completar: {faltantes.join(", ")}.
+        </MensajeError>
+      )}
 
       <AccionesFormulario>
         <BotonGuardar
           loading={isLoading}
-          disabled={!values.equipo_id || !values.autor_id || hayTareaInvalida}
+          disabled={faltantes.length > 0}
         >
           {submitLabel}
         </BotonGuardar>

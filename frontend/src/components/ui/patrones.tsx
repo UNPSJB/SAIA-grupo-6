@@ -17,6 +17,7 @@ import {
   type BoxProps,
   type ButtonProps,
   type InputProps,
+  type TextProps,
 } from "@chakra-ui/react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
@@ -192,6 +193,45 @@ export function Celda({
     >
       {children}
     </Table.Cell>
+  );
+}
+
+/**
+ * Texto de celda con tope de caracteres.
+ *
+ * Las tablas de la app usan `table-layout: fixed`: el ancho de cada columna
+ * lo fija su encabezado y el contenido no lo estira, pero un texto largo se
+ * acomodaba en varios renglones y la fila crecía en altura. Con el tope se
+ * corta con elipsis, y el texto completo queda en el `title` para leerlo
+ * pasando el mouse.
+ *
+ * Además del recorte por caracteres va el `ellipsis` de CSS: si el máximo
+ * configurado todavía no entra en el ancho real de la columna, el navegador
+ * termina de recortar sin agrandar nada.
+ */
+export function TextoTruncado({
+  texto,
+  max = 40,
+  ...rest
+}: {
+  /** Texto a mostrar (se tolera `undefined`/`null`). */
+  texto?: string | null;
+  /** Máximo de caracteres visibles, elipsis incluida. */
+  max?: number;
+} & Omit<TextProps, "children">) {
+  const valor = texto ?? "";
+  const excede = valor.length > max;
+  return (
+    <Text
+      title={excede ? valor : undefined}
+      whiteSpace="nowrap"
+      overflowX="hidden"
+      textOverflow="ellipsis"
+      maxW="100%"
+      {...rest}
+    >
+      {excede ? `${valor.slice(0, max - 1).trimEnd()}…` : valor}
+    </Text>
   );
 }
 
@@ -707,6 +747,12 @@ export function Paginacion({
   pageSize,
   onPageChange,
 }: {
+  /**
+   * Total de FILAS, no de páginas: es el `count` de Chakra, que calcula las
+   * páginas como `ceil(count / pageSize)`. Pasarle el número de páginas
+   * (2 páginas con pageSize 10) daba `ceil(2/10) = 1` y la segunda página
+   * quedaba inalcanzable aunque la tabla tuviera filas para ella.
+   */
   count: number;
   page: number;
   pageSize: number;

@@ -25,7 +25,7 @@ export function InsumosPage() {
   const { borrar, reactivar, loading: procesando } = useInsumoABM();
   const {
     paginados: insumosPaginados,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -112,7 +112,7 @@ export function InsumosPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

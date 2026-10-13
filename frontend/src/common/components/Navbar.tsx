@@ -37,6 +37,7 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuTriangleAlert,
+  LuUserRound,
   LuUsers,
   LuWrench,
 } from "react-icons/lu";
@@ -113,6 +114,12 @@ const GRUPOS: GrupoMenu[] = [
         rol: "administrar",
         icon: LuFlaskConical,
       },
+      {
+        to: "/elementos-limpieza",
+        label: "Elementos de Limpieza",
+        rol: "administrar",
+        icon: LuBrush,
+      },
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
       { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
     ],
@@ -149,12 +156,6 @@ const GRUPOS: GrupoMenu[] = [
         icon: LuWrench,
       },
       {
-        to: "/elementos-limpieza",
-        label: "Elementos de Limpieza",
-        rol: "administrar",
-        icon: LuBrush,
-      },
-      {
         to: "/checklist/historial",
         label: "Historial de Checklists",
         rol: "administrar",
@@ -184,6 +185,12 @@ const GRUPOS: GrupoMenu[] = [
 
 /** Enlaces sueltos, fuera de cualquier grupo. */
 const MENU: EntradaMenu[] = [
+  /*
+   * Va primero en la lista —entre el botón de plegar y "Inicio"— para que
+   * quede fijo arriba del todo: es la entrada más personal de la barra y no
+   * debería scrollearse nunca.
+   */
+  { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
 ];
 

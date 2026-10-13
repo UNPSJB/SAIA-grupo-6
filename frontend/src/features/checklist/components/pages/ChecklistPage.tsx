@@ -819,34 +819,51 @@ export function ChecklistPage() {
                   </HStack>
                 </Button>
 
-                {!colapsado && (
-                  <Table.Root w="100%">
-                    <Table.Header>
-                      <Table.Row bg="brand.100" borderBottomWidth="2px" borderColor="brand.300">
-                        <ColumnaHeader>Tarea</ColumnaHeader>
-                        <ColumnaHeader center width="140px">
-                          Completada
-                        </ColumnaHeader>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {grupo.tareas.map((t) => (
-                        <FilaTarea
-                          key={
-                            t.registro_id > 0
-                              ? `r-${t.registro_id}`
-                              : `p-${t.id}`
-                          }
-                          tarea={t}
-                          isLoading={actualizandoId === t.id}
-                          insumosQuimicos={insumosQuimicos}
-                          elementosLimpieza={elementosLimpieza}
-                          onToggle={toggleTarea}
-                        />
-                      ))}
-                    </Table.Body>
-                  </Table.Root>
-                )}
+                {/*
+                  Despliegue animado con `grid-template-rows: 0fr → 1fr`, el
+                  mismo recurso que los grupos del sidebar: la altura se
+                  anima sin medirla en JavaScript. El hijo lleva
+                  `overflow: hidden` (y nada de `min-height: 0`, que
+                  colapsaría el `1fr` a cero), y `inert` evita que el teclado
+                  enfocle los controles de una sección plegada.
+                */}
+                <Box
+                  display="grid"
+                  gridTemplateRows={colapsado ? "0fr" : "1fr"}
+                  transitionProperty="grid-template-rows"
+                  transitionDuration="moderate"
+                  transitionTimingFunction="ease-in-out"
+                  inert={colapsado}
+                >
+                  <Box overflow="hidden">
+                    <Table.Root w="100%">
+                      <Table.Header>
+                        <Table.Row bg="brand.100" borderBottomWidth="2px" borderColor="brand.300">
+                          <ColumnaHeader>Tarea</ColumnaHeader>
+                          <ColumnaHeader center width="140px">
+                            Completada
+                          </ColumnaHeader>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {grupo.tareas.map((t) => (
+                          <FilaTarea
+                            key={
+                              t.registro_id > 0
+                                ? `r-${t.registro_id}`
+                                : `p-${t.id}`
+                            }
+                            tarea={t}
+                            isLoading={actualizandoId === t.id}
+                            insumosQuimicos={insumosQuimicos}
+                            elementosLimpieza={elementosLimpieza}
+                            onToggle={toggleTarea}
+                          />
+                        ))}
+                      </Table.Body>
+                    </Table.Root>
+                  </Box>
+                </Box>
               </Tarjeta>
             );
           })}

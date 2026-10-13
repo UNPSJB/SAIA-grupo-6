@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Spinner } from "@chakra-ui/react";
+import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { AptitudTable } from "../AptitudTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -10,16 +11,27 @@ import type { Aptitud } from "../../types/aptitud";
 import {
   BannerError,
   PageHeader,
+  Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+
+const PAGE_SIZE = 10;
 
 export function AptitudPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
   const { aptitudes, loading, error, cargarAptitudes } = useAptitudes(verInactivos);
   const { borrar, reactivar, loading: procesando, error: errorEliminar } = useAptitudABM();
-  const aptitudesFiltradas = useMemo(
-  () => aptitudes.filter((a) => (verInactivos ? !a.activo : a.activo)),[aptitudes, verInactivos] );
+  // Filtro de baja lógica + paginación en memoria, igual que el resto de los
+  // catálogos (equipos, personal, insumos, ...): la tabla recibía la lista
+  // entera y crecía sin límite hacia abajo.
+  const {
+    paginados: aptitudesPaginadas,
+    totalFiltrados,
+    page,
+    setPage,
+    hayVariasPaginas,
+  } = usePaginacion(aptitudes, verInactivos, PAGE_SIZE);
 
   const [aptitudAEliminar, setAptitudAEliminar] = useState<Aptitud | null>(null);
   const [aptitudAReactivar, setAptitudAReactivar] = useState<Aptitud | null>(null);
@@ -73,19 +85,35 @@ export function AptitudPage() {
 
       <ToggleInactivos
         checked={verInactivos}
-        onChange={setVerInactivos}
+        onChange={(checked: boolean) => {
+          setVerInactivos(checked);
+          // Al cambiar el filtro la página 1 siempre es válida: evita quedar
+          // parado en una página que ya no existe.
+          setPage(1);
+        }}
         children="Ver dadas de baja"
       />
 
       {loading && <Spinner color="brand.500" />}
 
       {!loading && !error && (
-        <AptitudTable
-          aptitudes={aptitudesFiltradas}
-          onEdit={handleEdit}
-          onDelete={handleDeleteRequest}
-          onReactivar={handleReactivarRequest}
-        />
+        <>
+          <AptitudTable
+            aptitudes={aptitudesPaginadas}
+            onEdit={handleEdit}
+            onDelete={handleDeleteRequest}
+            onReactivar={handleReactivarRequest}
+          />
+
+          {hayVariasPaginas && (
+            <Paginacion
+              count={totalFiltrados}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
 
       <ConfirmDialog

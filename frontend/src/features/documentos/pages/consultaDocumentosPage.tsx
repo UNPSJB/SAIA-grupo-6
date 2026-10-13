@@ -15,6 +15,7 @@ import {
   Paginacion,
   SelectPlaceholder,
   Tarjeta,
+  TextoTruncado,
 } from "../../../components/ui/patrones";
 import { useDocumentosVigentes } from "../hooks/useDocumentosVigentes";
 import { TIPOS_DOCUMENTO } from "../types/documento";
@@ -39,7 +40,7 @@ export function ConsultaDocumentosPage() {
     paginados: documentosPaginados,
     page,
     setPage,
-    totalPaginas,
+    total,
     hayVariasPaginas,
   } = usePaginas(documentos, PAGE_SIZE, `${buscar}|${tipo}`);
 
@@ -117,15 +118,20 @@ export function ConsultaDocumentosPage() {
                   <Text fontSize="xs" fontWeight="bold" color="fg.muted">
                     {etiquetaTipo(doc.tipo)}
                   </Text>
-                  <Text
+                  {/*
+                   * Con el tope el título ocupa un solo renglón: sin él, un
+                   * nombre largo expandía su tarjeta y las de la grilla
+                   * quedaban de alturas distintas.
+                   */}
+                  <TextoTruncado
                     fontSize="lg"
                     fontWeight="bold"
                     color="fg"
                     mt="1"
                     mb="2"
-                  >
-                    {doc.nombre}
-                  </Text>
+                    texto={doc.nombre}
+                    max={50}
+                  />
                   <Text color="fg.muted" fontSize="sm" mb="1">
                     Versión vigente:{" "}
                     <Text as="span" color="brand.fg" fontWeight="bold">
@@ -137,7 +143,7 @@ export function ConsultaDocumentosPage() {
                     Vigente desde {fechaCorta(v.vigente_desde)}
                   </Text>
 
-                  <HStack gap="2" flexWrap="wrap" mt="2">
+                  <Box mt="2">
                     <Badge
                       colorPalette={v.estado === "vencido" ? "red" : "green"}
                       rounded="full"
@@ -147,12 +153,23 @@ export function ConsultaDocumentosPage() {
                       {v.estado === "vencido" ? "Vencido" : "Vigente"}
                     </Badge>
 
-                    {v.fecha_vencimiento && (
-                      <Text color="fg.muted" fontSize="xs">
-                        Vencimiento: {fechaCorta(v.fecha_vencimiento)}
-                      </Text>
-                    )}
-                  </HStack>
+                    {/*
+                     * La fecha va SIEMPRE en su propio renglón, montada con
+                     * `visibility: hidden` cuando no hay: al lado del badge,
+                     * una fecha larga hacía wrap en tarjetas angostas y las
+                     * dejaba más altas que las demás. En renglón propio el
+                     * espacio que ocupa es el mismo haya fecha o no.
+                     */}
+                    <Text
+                      display="block"
+                      mt="1"
+                      color="fg.muted"
+                      fontSize="xs"
+                      visibility={v.fecha_vencimiento ? "visible" : "hidden"}
+                    >
+                      Vencimiento: {v.fecha_vencimiento ? fechaCorta(v.fecha_vencimiento) : "-"}
+                    </Text>
+                  </Box>
                   <HStack gap="2" flexWrap="wrap">
                     <Button
                       colorPalette="brand"
@@ -183,7 +200,7 @@ export function ConsultaDocumentosPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

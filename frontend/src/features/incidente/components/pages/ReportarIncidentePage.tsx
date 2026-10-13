@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
@@ -14,8 +15,13 @@ import {
   BannerExito,
   EstadoCargando,
   PageHeader,
+  Paginacion,
   Tarjeta,
+  TextoTruncado,
 } from "../../../../components/ui/patrones";
+
+/** Tamaño de página de todos los listados de la app. */
+const PAGE_SIZE = 10;
 
 /**
  * Pills de navegación.
@@ -94,7 +100,11 @@ function IncidenteCard({
         <Box flex="1" minW={0}>
           {/* ID + tipo + estado */}
           <Flex align="center" gap="2" flexWrap="wrap" mb="2">
-            <Text fontWeight="bold" fontSize="sm" color="fg">
+            {/*
+             * `wordBreak`: un título con una sola palabra larguísima no tenía
+             * dónde cortar y estiraba la tarjeta más allá de su ancho.
+             */}
+            <Text fontWeight="bold" fontSize="sm" color="fg" wordBreak="break-word">
               #{incidente.id} — {incidente.titulo}
             </Text>
             <Badge
@@ -150,7 +160,20 @@ function IncidenteCard({
             mt="2"
           >
             <Text as="span">{formatoFecha(incidente.fecha_reporte)}</Text>
-            {incidente.equipo_nombre && <Text as="span">{incidente.equipo_nombre}</Text>}
+            {incidente.equipo_nombre && (
+              /*
+               * Un nombre de equipo largo se salía de la tarjeta: el tope
+               * lo recorta y `minW="0"` deja que el CSS lo termine de
+               * ajustar al ancho que quede al lado de la fecha.
+               */
+              <TextoTruncado
+                as="span"
+                fontSize="xs"
+                color="fg.muted"
+                texto={incidente.equipo_nombre}
+                minW="0"
+              />
+            )}
           </Flex>
         </Box>
 
@@ -176,11 +199,25 @@ export function ReportarIncidentePage() {
   const programarAviso = useSafeTimeout();
   const [activeTab, setActiveTab] = useState<"mis-reportes" | "nuevo-incidente">("mis-reportes");
 
+  // Paginación de "Mis reportes": con el tiempo la lista crece sin límite y
+  // el operador tenía que scrollear todos sus incidentes para ver los nuevos.
+  const {
+    paginados: misIncidentesPaginados,
+    page,
+    setPage,
+    primeraPagina,
+    total,
+    hayVariasPaginas,
+  } = usePaginas(misIncidentes, PAGE_SIZE);
+
   const handleSubmit = async (values: IncidenteFormValues, foto?: File) => {
     try {
       await alta(values, foto);
       setExito(true);
       setActiveTab("mis-reportes");
+      // El reporte nuevo es el más reciente: en la primera página se ve
+      // apenas termina el submit, sin importar en qué página se estaba.
+      primeraPagina();
       await cargarMisIncidentes();
       programarAviso(() => setExito(false), 3000);
     } catch {
@@ -249,10 +286,19 @@ export function ReportarIncidentePage() {
                 Tus incidentes reportados (más recientes primero)
               </Text>
               <VStack align="stretch" gap="2">
-                {misIncidentes.map((inc) => (
+                {misIncidentesPaginados.map((inc) => (
                   <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
                 ))}
               </VStack>
+
+              {hayVariasPaginas && (
+                <Paginacion
+                  count={total}
+                  pageSize={PAGE_SIZE}
+                  page={page}
+                  onPageChange={setPage}
+                />
+              )}
             </VStack>
           )}
         </Tarjeta>

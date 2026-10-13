@@ -1,6 +1,6 @@
-import { Badge, HStack, Table } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
 import type { PlanLimpieza } from "../types/planLimpieza";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
@@ -19,28 +19,26 @@ export function PlanLimpiezaItem({
 }: PlanLimpiezaItemProps) {
   return (
     <Table.Row opacity={plan.activo ? 1 : 0.65}>
-      <Celda p="3">{plan.nombre}</Celda>
       <Celda p="3">
-        {plan.tareas
-          .map(
-            (tarea) =>
-              `${tarea.nombre} (cada ${tarea.frecuencia} ${tarea.frecuencia === 1 ? "día" : "días"})`,
-          )
-          .join(", ")}
+        <TextoTruncado texto={plan.nombre} />
       </Celda>
-      <Celda p="3">{nombreEquipo}</Celda>
-      <Celda p="3" center>
-        <Badge
-          colorPalette={plan.activo ? "green" : "gray"}
-          rounded="md"
-          px="2"
-          py="1"
-          maxW="100%"
-          overflow="hidden"
-          textOverflow="ellipsis"
-        >
-          {plan.activo ? "Activo" : "Inactivo"}
-        </Badge>
+      <Celda p="3">
+        {/*
+         * La lista de tareas concatenadas puede pasar los 200 caracteres: sin
+         * tope, esta celda era la que más engordaba la fila.
+         */}
+        <TextoTruncado
+          max={60}
+          texto={plan.tareas
+            .map(
+              (tarea) =>
+                `${tarea.nombre} (cada ${tarea.frecuencia} ${tarea.frecuencia === 1 ? "día" : "días"})`,
+            )
+            .join(", ")}
+        />
+      </Celda>
+      <Celda p="3">
+        <TextoTruncado texto={nombreEquipo} />
       </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">

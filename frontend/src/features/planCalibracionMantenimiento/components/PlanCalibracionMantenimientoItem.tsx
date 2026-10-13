@@ -1,7 +1,7 @@
 import { formatoFecha } from "../../../common/utils/fechas";
 import { Badge, HStack, Table } from "@chakra-ui/react";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoItemProps {
   plan: PlanCalibracionMantenimiento;
@@ -30,7 +30,9 @@ export function PlanCalibracionMantenimientoItem({
 
   return (
     <Table.Row>
-      <Celda p="3">{nombreEquipo}</Celda>
+      <Celda p="3">
+        <TextoTruncado texto={nombreEquipo} />
+      </Celda>
       <Celda p="3">
         {plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
       </Celda>

@@ -5,10 +5,10 @@ import {
   estadoLabel,
   tipoLabel,
   tipoColor,
-  formatoFecha,
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { formatoFecha as formatoFechaDia } from "../../../common/utils/fechas";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface IncidenteItemProps {
   incidente: Incidente;
@@ -53,15 +53,27 @@ export function IncidenteItem({
       borderBottomWidth="1px"
       borderColor="border.subtle"
       opacity={cerrado ? 0.7 : 1}
-      // Un incidente abierto que lleva más de una semana sin resolverse se
-      // marca en la fila: es el dato que el listado tiene que comunicar de un
-      // vistazo, sin abrir el detalle.
-      bg={esViejo ? "red.subtle" : undefined}
-      borderLeftWidth={esViejo ? "4px" : undefined}
-      borderLeftColor={esViejo ? "red.solid" : undefined}
+      /*
+       * Un incidente abierto que lleva más de una semana sin resolverse se
+       * marca sin pintar la fila entera: el título pasa a rojo y debajo
+       * aparece el texto "Lleva más de 7 días sin resolver". El fondo rojo
+       * completo tapaba la jerarquía visual del listado (parecía un error
+       * de render antes que un estado).
+       */
     >
-      <Celda p="3" whiteSpace="nowrap">
-        {formatoFecha(incidente.fecha_reporte)}
+      {/*
+        Solo el día en la tabla: la hora completa queda en el `title`,
+        para no perderla del todo. El detalle la muestra completa.
+      */}
+      <Celda
+        p="3"
+        whiteSpace="nowrap"
+        title={new Date(incidente.fecha_reporte).toLocaleString("es-AR", {
+          timeZone: "America/Argentina/Buenos_Aires",
+          hour12: false,
+        })}
+      >
+        {formatoFechaDia(incidente.fecha_reporte)}
       </Celda>
 
       <Celda p="3" maxW="220px">
@@ -69,24 +81,15 @@ export function IncidenteItem({
           fontWeight="bold"
           fontSize="15px"
           lineClamp={1}
-          color="fg"
+          color={esViejo ? "red.fg" : "fg"}
           title={incidente.titulo}
         >
           {incidente.titulo}
         </Text>
-        {incidente.descripcion && (
-          <Text
-            fontSize="sm"
-            color="fg.muted"
-            lineClamp={2}
-            wordBreak="break-word"
-            whiteSpace="pre-line"
-            mt="2px"
-            title={incidente.descripcion}
-          >
-            {incidente.descripcion}
-          </Text>
-        )}
+        {/*
+          La descripción no se muestra acá: se lee en el detalle. En la
+          lista solo el título, y para los cerrados, la acción correctiva.
+        */}
         {cerrado && incidente.observacion_cierre && (
           <Text fontSize="xs" color="fg.subtle" mt="4px" lineClamp={2}>
             <strong>Resolución:</strong> {incidente.observacion_cierre}
@@ -153,7 +156,9 @@ export function IncidenteItem({
       </Celda>
 
       <Celda p="3">
-        {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
+        <TextoTruncado
+          texto={incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
+        />
       </Celda>
 
       {showActions && (

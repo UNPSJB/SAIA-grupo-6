@@ -25,7 +25,6 @@ interface PersonalFormProps {
   title?: string;
   onCancel?: () => void;
   esMiPerfil?: boolean; // Muestra la sección de cambiar la contraseña propia
-  requierePassword?: boolean; // Alta de persona: la contraseña es obligatoria
   // Jerarquía de roles: solo quien puede tocar capacidades las ve, y el flag
   // de super admin únicamente lo muestra un super admin.
   puedeEditarCapacidades?: boolean;
@@ -34,10 +33,9 @@ interface PersonalFormProps {
 
 const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false };
 
-export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false, requierePassword = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
   const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
-  const [errorPassword, setErrorPassword] = useState<string | null>(null);
   
   // Guardamos la nueva contraseña aparte para no pisar accidentalmente la actual
   const [nuevaPassword, setNuevaPassword] = useState("");
@@ -60,13 +58,6 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       }
       setErrorCapacidades(null);
 
-      // En el alta la contraseña es obligatoria: el backend la exige.
-      if (requierePassword && nuevaPassword.trim().length < 4) {
-          setErrorPassword("La contraseña es obligatoria y debe tener al menos 4 caracteres.");
-          return;
-      }
-      setErrorPassword(null);
-
       // El tipo ya modela `password` y `activo` (PersonaInput), asi que ya no
       // hace falta castear: antes el `as` escondido que el form realmente
       // mandaba `password`/`activo`, algo que la firma no permitia expresar.
@@ -86,10 +77,8 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
           delete datosEnviar.es_super_admin;
       }
 
-      // En el alta mandamos la contraseña; al editar tu perfil, solo si la cambiaste.
-      if (requierePassword) {
-          datosEnviar.password = nuevaPassword;
-      } else if (esMiPerfil && nuevaPassword.trim() !== "") {
+      // Al editar tu perfil, la contraseña solo se manda si la cambiaste.
+      if (esMiPerfil && nuevaPassword.trim() !== "") {
           datosEnviar.password = nuevaPassword;
       }
 
@@ -201,37 +190,6 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
               </Box>
             )}
           </>
-        )}
-
-        {/* En el alta la contraseña es obligatoria */}
-        {requierePassword && (
-          <Box
-            mb="6"
-            p="4"
-            bg="bg.subtle"
-            borderWidth="1px"
-            borderStyle="dashed"
-            borderColor="border"
-            rounded="lg"
-          >
-            <FormField label="Contraseña" required mb="2">
-              <FormInput
-                type="password"
-                placeholder="Contraseña de acceso al sistema"
-                value={nuevaPassword}
-                onChange={(e) => setNuevaPassword(e.target.value)}
-                w="100%"
-              />
-            </FormField>
-            <Text fontSize="xs" color="fg.subtle" fontStyle="italic">
-              Mínimo 4 caracteres. Se guarda encriptada.
-            </Text>
-            {errorPassword && (
-              <Box mt="2">
-                <BannerError mb="0">{errorPassword}</BannerError>
-              </Box>
-            )}
-          </Box>
         )}
 
         {/* SECCIÓN ESPECIAL: Solo visible si estás editando tu propio perfil */}

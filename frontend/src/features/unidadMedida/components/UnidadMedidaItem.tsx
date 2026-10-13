@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { UnidadMedida } from "../types/unidadMedida";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface UnidadMedidaItemProps {
   unidad: UnidadMedida;
@@ -22,7 +22,9 @@ export function UnidadMedidaItem({
       opacity={unidad.activo ? 1 : 0.65}
     >
 
-      <Celda p="3">{unidad.nombre}</Celda>
+      <Celda p="3">
+        <TextoTruncado texto={unidad.nombre} />
+      </Celda>
 
       <Celda p="3">{unidad.simbolo}</Celda>
 

@@ -33,7 +33,7 @@ export function EquiposPage() {
 
   const {
     paginados: equiposPaginados,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -112,7 +112,7 @@ export function EquiposPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

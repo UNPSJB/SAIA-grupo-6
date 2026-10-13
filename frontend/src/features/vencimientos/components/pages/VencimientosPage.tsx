@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, Button, Heading, Input, Spinner, Table, Text } from "@chakra-ui/react";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { obtenerVencimientos } from "../../services/vencimientoService";
 import { TIPOS_VENCIMIENTO } from "../../types/vencimiento";
 import type {
@@ -9,6 +10,8 @@ import type {
   VencimientoConsolidado,
 } from "../../types/vencimiento";
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
+import { Paginacion, TextoTruncado } from "../../../../components/ui/patrones";
+import { LuCalendarClock, LuCircleCheck, LuTriangleAlert } from "react-icons/lu";
 import {
   ERROR_BORDE,
   ERROR_FONDO,
@@ -17,6 +20,9 @@ import {
   GRIS_MEDIO,
   TEXTO_SUAVE,
 } from "../../../../common/theme/tokens";
+
+/** Tamaño de página de todos los listados de la app. */
+const PAGE_SIZE = 10;
 
 type Orden = "URGENCIA" | "VIGENTES_PRIMERO";
 
@@ -134,6 +140,21 @@ export function VencimientosPage() {
 
   const hayFiltros = persona !== "" || aptitud !== "" || busqueda !== "";
 
+  // Paginación sobre la lista ya filtrada y ordenada. El `resetKey` vuelve a
+  // la página 1 cuando cambia cualquier filtro, la búsqueda o el orden:
+  // sin él, acotar los resultados dejaba la tabla en una página vacía.
+  const {
+    paginados: visiblesPaginados,
+    page,
+    setPage,
+    total,
+    hayVariasPaginas,
+  } = usePaginas(
+    visibles,
+    PAGE_SIZE,
+    `${tipo}|${persona}|${aptitud}|${busqueda}|${orden}`,
+  );
+
   const limpiarFiltros = () => {
     setPersona("");
     setAptitud("");
@@ -150,8 +171,9 @@ export function VencimientosPage() {
 
   return (
     <Box style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
-      <Heading as="h2" size="md" mb="20px">
-        📅 Vencimientos
+      <Heading as="h2" size="md" mb="20px" display="flex" alignItems="center" gap="2">
+        <LuCalendarClock aria-hidden />
+        Vencimientos
       </Heading>
 
       {/* BUSCADOR, FILTROS Y ORDEN */}
@@ -272,9 +294,13 @@ export function VencimientosPage() {
             marginBottom: "20px",
             border: `1px solid ${ERROR_BORDE}`,
             fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          ⚠️ {error}
+          <LuTriangleAlert size={16} aria-hidden style={{ flexShrink: 0 }} />
+          {error}
         </Box>
       )}
 
@@ -282,8 +308,17 @@ export function VencimientosPage() {
         <Spinner />
       ) : vencimientos.length === 0 && !error ? (
         <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
-          <Text fontSize="18px" color={EXITO} fontWeight="bold">
-            ✅ No hay vencimientos cargados
+          <Text
+            fontSize="18px"
+            color={EXITO}
+            fontWeight="bold"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            gap="2"
+          >
+            <LuCircleCheck aria-hidden />
+            No hay vencimientos cargados
           </Text>
           <Text color={GRIS_MEDIO}>
             Cuando cargues vencimientos de personal o planes de calibración/mantenimiento, van a aparecer acá.
@@ -334,7 +369,7 @@ export function VencimientosPage() {
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {visibles.map((v) => {
+                {visiblesPaginados.map((v) => {
                   const estilo = ESTILO_ESTADO[v.estado];
                   return (
                     <Table.Row key={v.id_vencimiento} _hover={{ bg: "#f7fafc" }}>
@@ -344,10 +379,14 @@ export function VencimientosPage() {
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        <Text fontWeight="bold" color="#2d3748">{v.detalle}</Text>
+                        <TextoTruncado
+                          fontWeight="bold"
+                          color="#2d3748"
+                          texto={v.detalle}
+                        />
                       </Table.Cell>
                       <Table.Cell>
-                        <Text fontSize="14px" color="#4a5568">{v.sujeto}</Text>
+                        <TextoTruncado fontSize="14px" color="#4a5568" texto={v.sujeto} />
                       </Table.Cell>
                       <Table.Cell>
                         <Text
@@ -383,6 +422,15 @@ export function VencimientosPage() {
               </Table.Body>
             </Table.Root>
           </Box>
+
+          {hayVariasPaginas && (
+            <Paginacion
+              count={total}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
         </>
       )}
     </Box>

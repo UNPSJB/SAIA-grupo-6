@@ -69,7 +69,13 @@ class PersonaBase(PersonaCamposValidos):
         return self
 
 class PersonaCreate(PersonaBase):
-    password: str
+    """
+    Contraseña inicial: opcional a propósito. Si no se manda, la persona
+    arranca con su DNI como contraseña — así ni el registro público ni el
+    alta de personal manejan la credencial de otra persona. Cada quien
+    cambia la suya desde "Mi perfil".
+    """
+    password: Optional[str] = None
 
 class PersonaUpdate(PersonaCamposValidos):
     """Edición parcial. Comparte los validadores de campo con `PersonaBase`

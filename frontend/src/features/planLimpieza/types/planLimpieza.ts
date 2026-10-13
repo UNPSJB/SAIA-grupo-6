@@ -55,4 +55,11 @@ export interface PersonalOption {
   id: number;
   nombre: string;
   apellido?: string | null;
+  /*
+   * Llegan en la respuesta de GET /personal y definen quién puede ser
+   * autor de un plan: el backend lo exige en
+   * `_verificar_autor_administrador`.
+   */
+  puede_administrar?: boolean;
+  es_super_admin?: boolean;
 }

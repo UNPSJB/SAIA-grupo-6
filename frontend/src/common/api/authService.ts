@@ -23,14 +23,15 @@ export const login = async (dni: string, password: string) => {
     return data;
 };
 
-// Registro: crea el usuario; después conviene llamar a login para obtener tokens
+// Registro: crea el usuario; después conviene llamar a login para obtener tokens.
+// Sin contraseña: la cuenta arranca con el DNI (lo resuelve el backend).
 export const register = async (userData: {
     nombre: string;
     apellido: string | null;
     dni: string;
     email: string;
     telefono: string | null;
-    password: string;
+    password?: string;
     puede_operar: boolean;
     puede_administrar: boolean;
     es_super_admin?: boolean;

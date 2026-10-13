@@ -4,6 +4,7 @@ import { login, register, getBootstrapStatus } from '../common/api/authService';
 import { useAuth } from '../common/context/useAuth';
 import { DialogForm } from '../common/components/DialogForm';
 import { Box, Button, Checkbox, Flex, Heading, Input, Text, Link } from '@chakra-ui/react';
+import { LuTriangleAlert } from 'react-icons/lu';
 
 export const Login = () => {
     const navigate = useNavigate();
@@ -54,9 +55,6 @@ export const Login = () => {
             if (!regexEmail.test(email)) {
                 return setError('Ingresá un correo electrónico válido (ej: usuario@correo.com).');
             }
-            if (!password.trim()) {
-                return setError('La contraseña es obligatoria.');
-            }
             if (!puedeOperar && !puedeAdministrar && !esSuperAdmin) {
                 return setError('Debe elegir al menos un permiso (Operar o Administrar).');
             }
@@ -80,13 +78,14 @@ export const Login = () => {
                     dni,
                     email,
                     telefono,
-                    password,
                     puede_operar: puedeOperar || esSuperAdmin,
                     puede_administrar: puedeAdministrar || esSuperAdmin,
                     es_super_admin: permiteSuperAdmin && esSuperAdmin
                 });
-                // Registramos y logueamos de una para arrancar con tokens vigentes
-                const loggedUser = await login(dni, password);
+                // Registramos y logueamos de una para arrancar con tokens vigentes.
+                // La contraseña inicial es el DNI: el backend la asigna al crear
+                // la cuenta cuando no llega una explícita.
+                const loggedUser = await login(dni, dni);
                 loginUser(loggedUser.user);
                 navigate('/');
             }
@@ -160,7 +159,10 @@ export const Login = () => {
                         fontSize="sm"
                         mb="4"
                     >
-                        ⚠️ {error}
+                        <Flex align="center" justify="center" gap="2">
+                            <LuTriangleAlert size={16} aria-hidden />
+                            {error}
+                        </Flex>
                     </Box>
                 )}
 
@@ -190,12 +192,14 @@ export const Login = () => {
                                     placeholder="Correo Electrónico *"
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
+                                    mb="4"
                                 />
                                 <Input
                                     type="tel"
                                     placeholder="Teléfono"
                                     value={telefono}
                                     onChange={e => setTelefono(e.target.value)}
+                                    mb="4"
                                 />
                             </>
                         )}
@@ -206,13 +210,38 @@ export const Login = () => {
                             value={dni}
                             onChange={e => setDni(e.target.value)}
                             inputMode="numeric"
+                            mb="4"
                         />
-                        <Input
-                            type="password"
-                            placeholder="Contraseña *"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                        />
+
+                        {/*
+                          Contraseña: solo para iniciar sesión. Al registrarse
+                          ya no se elige: la cuenta arranca con el DNI como
+                          contraseña y cada quien la cambia desde "Mi perfil".
+                        */}
+                        {isLoginView && (
+                            <Input
+                                type="password"
+                                placeholder="Contraseña *"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                mb="4"
+                            />
+                        )}
+
+                        {!isLoginView && (
+                            <Text
+                                fontSize="xs"
+                                color="fg.muted"
+                                textAlign="center"
+                                mb="4"
+                                p="2"
+                                bg="brand.50"
+                                rounded="md"
+                            >
+                                La contraseña inicial de tu cuenta es tu DNI. Después podés
+                                cambiarla desde "Mi perfil".
+                            </Text>
+                        )}
 
                         {!isLoginView && (
                             <Flex

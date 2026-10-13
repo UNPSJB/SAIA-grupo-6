@@ -39,7 +39,7 @@ export function PlanCalibracionMantenimientoPage() {
     paginados: planesPaginados,
     page,
     setPage,
-    totalPaginas,
+    total,
     hayVariasPaginas,
   } = usePaginas(planes, PAGE_SIZE);
 
@@ -99,7 +99,7 @@ export function PlanCalibracionMantenimientoPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

@@ -9,6 +9,7 @@ import {
   FilaEncabezado,
   PageHeader,
   Tarjeta,
+  TextoTruncado,
 } from "../../../components/ui/patrones";
 import { useHistorialDocumento } from "../hooks/useHistorialDocumento";
 import { abrirArchivo } from "../services/documentoService";
@@ -40,7 +41,28 @@ export function DocumentoHistorialPage() {
   return (
     <Box p="5">
       <PageHeader
-        title={`Historial${historial ? `: ${historial.nombre}` : ""}`}
+        title={
+          historial ? (
+            <>
+              {/*
+               * El nombre completo va en el `title` del truncado (tooltip):
+               * sin tope, un nombre largo empujaba el título fuera de la
+               * pantalla. `inline-block` es lo que deja aplicar elipsis a
+               * un span dentro del encabezado.
+               */}
+              Historial:{" "}
+              <TextoTruncado
+                as="span"
+                display="inline-block"
+                verticalAlign="bottom"
+                texto={historial.nombre}
+                max={40}
+              />
+            </>
+          ) : (
+            "Historial"
+          )
+        }
         description={
           historial
             ? `${etiquetaTipo(historial.tipo)} · Solo lectura: las versiones anteriores no pueden editarse ni eliminarse.`

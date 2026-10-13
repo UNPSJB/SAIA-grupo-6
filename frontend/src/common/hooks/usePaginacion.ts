@@ -4,17 +4,10 @@ import { usePaginas } from "./usePaginas";
 /**
  * Filtra por `activo` y pagina en memoria.
  *
- * Antes cada página de listado repetía este cálculo entero, y solo una lo
- * hacía bien: el resto pasaba a `<Pagination.Root count={...}>` la cantidad de
- * FILAS en vez de la de PÁGINAS. Con 12 equipos salían 12 botones de página y
- * 11 tablas vacías.
- *
- * `totalPaginas` es lo que espera el `count` de Chakra, y sale correcto por
- * construcción. Además el filtro se calcula una sola vez: antes algunas
- * páginas lo recomputaban dos veces más solo para obtener el total.
- *
  * La paginación en sí vive en `usePaginas`; acá solo se agrega el filtro de
- * baja lógica y se le pasan los datos ya filtrados.
+ * baja lógica y se le pasan los datos ya filtrados. `totalFiltrados` es lo
+ * que hay que pasarle como `count` al componente `Paginacion` (que espera
+ * el total de filas, no de páginas).
  */
 export function usePaginacion<T extends { activo: boolean }>(
   items: T[],

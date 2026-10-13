@@ -23,6 +23,7 @@ import {
   Paginacion,
   SelectPlaceholder,
   Tarjeta,
+  TextoTruncado,
 } from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
@@ -89,7 +90,7 @@ export function HistorialChecklistPage() {
     paginados: checklistsPaginados,
     page,
     setPage,
-    totalPaginas,
+    total,
     hayVariasPaginas,
   } = usePaginas(
     checklists,
@@ -206,7 +207,9 @@ export function HistorialChecklistPage() {
                   <Fragment key={cl.checklist_id}>
                     <Table.Row>
                       <Celda>{formatoFecha(cl.fecha)}</Celda>
-                      <Celda>{cl.equipo_nombre}</Celda>
+                      <Celda>
+                        <TextoTruncado texto={cl.equipo_nombre} />
+                      </Celda>
                       <Celda>
                         <Badge
                           colorPalette={cl.estado === "cerrado" ? "green" : "orange"}
@@ -275,7 +278,7 @@ export function HistorialChecklistPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

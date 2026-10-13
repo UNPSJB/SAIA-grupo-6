@@ -30,7 +30,7 @@ export function PersonalPage() {
 } = usePersonalABM();
   const {
     paginados: personalPaginado,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -113,7 +113,7 @@ export function PersonalPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

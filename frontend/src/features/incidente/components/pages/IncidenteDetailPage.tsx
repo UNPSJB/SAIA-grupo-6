@@ -124,7 +124,9 @@ export function IncidenteDetailPage() {
             whiteSpace="pre-line"
             lineHeight={1.7}
           >
-            <Text fontSize="md">{incidente.descripcion}</Text>
+            <Text fontSize="md" wordBreak="break-word">
+              {incidente.descripcion}
+            </Text>
           </Box>
         </Box>
 
@@ -138,16 +140,22 @@ export function IncidenteDetailPage() {
           rounded="lg"
         >
           <VStack align="start" gap="3">
-            <Text fontSize="md">
+            <Text fontSize="md" wordBreak="break-word">
               <strong>Reportado por:</strong>{" "}
               {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
             </Text>
-            <Text fontSize="md">
+            <Text fontSize="md" wordBreak="break-word">
               <strong>Fecha y hora:</strong>{" "}
               {new Date(incidente.fecha_reporte).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour12: false })}
             </Text>
             {incidente.equipo_nombre && (
-              <Text fontSize="md">
+              /*
+               * Sin `wordBreak`, un nombre de equipo sin espacios (una sola
+               * "palabra" larga) no tenía dónde cortar y se salía del
+               * recuadro. Con `break-word` el texto sigue en el renglón de
+               * abajo y el recuadro crece: el nombre completo se lee.
+               */
+              <Text fontSize="md" wordBreak="break-word">
                 <strong>Equipo:</strong> {incidente.equipo_nombre}
               </Text>
             )}

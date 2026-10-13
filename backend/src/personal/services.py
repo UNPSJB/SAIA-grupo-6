@@ -58,7 +58,9 @@ def crear_persona(
     _verificar_disponibilidad(db, "email", persona.email)
 
     datos_persona = persona.model_dump()
-    datos_persona["password"] = hashear_password(datos_persona["password"])
+    # Contraseña inicial: la que vino explícita o, por defecto, el DNI.
+    # Nadie elige la contraseña de otra persona: se cambia desde "Mi perfil".
+    datos_persona["password"] = hashear_password(datos_persona["password"] or persona.dni)
     _persona = Personal(**datos_persona)
     db.add(_persona)
 

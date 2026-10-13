@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { Equipo } from "../types/equipo";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface EquipoItemProps {
   equipo: Equipo;
@@ -25,9 +25,15 @@ export function EquipoItem({
       borderColor="border.subtle"
       opacity={equipo.activo ? 1 : 0.65}
     >
-      <Celda p="3">{equipo.nombre}</Celda>
-      <Celda p="3">{equipo.tipo}</Celda>
-      <Celda p="3">{equipo.ubicacion}</Celda>
+      <Celda p="3">
+        <TextoTruncado texto={equipo.nombre} />
+      </Celda>
+      <Celda p="3">
+        <TextoTruncado texto={equipo.tipo} />
+      </Celda>
+      <Celda p="3">
+        <TextoTruncado texto={equipo.ubicacion} />
+      </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {equipo.activo && (

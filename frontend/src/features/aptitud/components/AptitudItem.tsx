@@ -1,6 +1,6 @@
 import { HStack, Table, Text } from "@chakra-ui/react";
 import type { Aptitud } from "../types/aptitud";
-import { BotonTabla, Celda } from "../../../components/ui/patrones";
+import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface AptitudItemProps {
   aptitud: Aptitud;
@@ -12,9 +12,13 @@ interface AptitudItemProps {
 export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudItemProps) {
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={aptitud.activo ? 1 : 0.65}>
-      <Celda p="3">{aptitud.nombre}</Celda>
       <Celda p="3">
-        {aptitud.descripcion || (
+        <TextoTruncado texto={aptitud.nombre} />
+      </Celda>
+      <Celda p="3">
+        {aptitud.descripcion ? (
+          <TextoTruncado texto={aptitud.descripcion} max={60} />
+        ) : (
           <Text as="span" color="fg.subtle" fontStyle="italic">
             Sin descripción
           </Text>

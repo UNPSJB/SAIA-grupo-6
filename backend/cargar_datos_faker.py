@@ -25,8 +25,10 @@ import random
 import re
 import sys
 import unicodedata
+import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from faker import Faker
 from sqlalchemy import delete, select
@@ -71,6 +73,9 @@ from src.checklist.models import (  # noqa: E402
 from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
     PlanCalibracionMantenimiento,
 )
+from src.documentos.models import Documento, VersionDocumento  # noqa: E402
+from src.documentos.constants import TipoDocumento  # noqa: E402
+from src.config import CARPETA_UPLOADS  # noqa: E402
 
 # Asegura que las tablas existan antes de insertar (idempotente).
 ModeloBase.metadata.create_all(bind=engine)
@@ -78,6 +83,10 @@ ModeloBase.metadata.create_all(bind=engine)
 CONTRASENA_POR_DEFECTO = "12345678"
 DOMINIO_EMAIL = "alimentosdelsur.com.ar"
 HOY = date.today()
+
+# Incidentes que se le asignan al superadmin como reportante: la vista
+# "Mis reportes" pagina de a 10, así que con 12 ya hay segunda página.
+CANTIDAD_INCIDENTES_SUPERADMIN = 12
 
 
 # ============================================================
@@ -264,12 +273,22 @@ VOCAB_ELEMENTOS = [
     ("Bolsa de residuos", None),
 ]
 
+# Catálogo fijo, no escala con `--cantidad`. Son doce (y no las cinco
+# históricas) para que el listado de unidades de medida supere las 10 filas
+# de una página y se pueda probar su paginación también.
 UNIDADES = [
     ("kilogramo", "kg"),
     ("litro", "L"),
     ("unidad", "u"),
     ("gramo", "g"),
     ("mililitro", "mL"),
+    ("tonelada", "t"),
+    ("miligramo", "mg"),
+    ("centímetro cúbico", "cm³"),
+    ("metro", "m"),
+    ("centímetro", "cm"),
+    ("hora", "h"),
+    ("docena", "doc"),
 ]
 
 # (nombre, clave de unidad, cantidad de tareas que suele tener)
@@ -385,6 +404,25 @@ VOCAB_INCIDENTES = [
     ),
 ]
 
+# (base del nombre, tipo de documento)
+VOCAB_DOCUMENTOS = [
+    ("Manual de Buenas Prácticas de Manufactura", TipoDocumento.MANUAL_BPM),
+    ("Manual de Higiene y Seguridad", TipoDocumento.MANUAL_BPM),
+    ("Plan de Capacitación Anual", TipoDocumento.MANUAL_BPM),
+    ("Procedimiento de Limpieza y Desinfección", TipoDocumento.PROCEDIMIENTO),
+    ("Procedimiento de Manipulación de Alimentos", TipoDocumento.PROCEDIMIENTO),
+    ("Procedimiento de Control de Plagas", TipoDocumento.PROCEDIMIENTO),
+    ("Procedimiento de Trazabilidad de Lotes", TipoDocumento.PROCEDIMIENTO),
+    ("Protocolo de Acción ante Incidentes", TipoDocumento.PROCEDIMIENTO),
+    ("Ficha técnica de Heladera", TipoDocumento.FICHA_TECNICA),
+    ("Ficha técnica de Cámara de frío", TipoDocumento.FICHA_TECNICA),
+    ("Ficha técnica de Horno combinado", TipoDocumento.FICHA_TECNICA),
+    ("Ficha técnica de Balanza de precisión", TipoDocumento.FICHA_TECNICA),
+    ("Receta de Flan casero", TipoDocumento.RECETA),
+    ("Receta de Pan de mesa", TipoDocumento.RECETA),
+    ("Receta de Mousse de chocolate", TipoDocumento.RECETA),
+]
+
 
 # ============================================================
 # GENERADORES
@@ -398,6 +436,8 @@ def borrar_todo(db) -> None:
         Checklist,
         HistorialIncidente,
         Incidente,
+        VersionDocumento,
+        Documento,
         VencimientoPersonal,
         PlanCalibracionMantenimiento,
         Tarea,
@@ -423,8 +463,9 @@ def valores_existentes(db, columna) -> set:
 def crear_unidades(db, vistos: dict) -> dict:
     """Unidades de medida: catálogo fijo, no escala con `--cantidad`.
 
-    Siempre se crean las cinco: el resto del seed elige al azar entre
-    kilogramo/litro/unidad/gramo/mililitro para las unidades de los insumos.
+    Se crean las doce de `UNIDADES` (menos las que ya existan en modo
+    `--agregar`): el resto del seed elige al azar entre ellas para las
+    unidades de los insumos.
     """
     print("⏳ Cargando unidades de medida...")
     for nombre, simbolo in UNIDADES:
@@ -830,10 +871,21 @@ def crear_checklists(
 
 
 def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, vistos: dict) -> int:
+    """Incidentes variados, con la mitad cerrados y con bitácora de cierre.
+
+    Los primeros `CANTIDAD_INCIDENTES_SUPERADMIN` los reporta el superadmin
+    (la primera persona creada): la vista "Mis reportes" pagina de a 10 y
+    así, al loguearse con él para probar, hay segunda página. Antes el
+    reportante salía solo de los operadores y el superadmin quedaba con la
+    pestaña vacía.
+    """
     print(f"⏳ Cargando {cantidad} incidentes...")
     total = 0
 
-    for _ in range(cantidad):
+    superadmin = personal[0] if personal else None
+    propios = min(CANTIDAD_INCIDENTES_SUPERADMIN, cantidad) if superadmin else 0
+
+    for indice in range(cantidad):
         tipo, titulo_base, descripcion_base = random.choice(VOCAB_INCIDENTES)
         titulo = unico(
             lambda: recortar(solo_letras(f"{titulo_base} {random.randint(1, 99)}"), 60),
@@ -841,7 +893,10 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
             largo=60,
         )
         equipo = random.choice(equipos) if bernoulli(0.8) else None
-        reportante = random.choice(operadores or personal)
+        if indice < propios:
+            reportante = superadmin
+        else:
+            reportante = random.choice(operadores or personal)
 
         fecha_reporte = datetime.combine(
             HOY - timedelta(days=random.randint(0, 60)),
@@ -900,13 +955,187 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
     return total
 
 
+def _pdf_de_prueba(texto: str) -> bytes:
+    """Arma un PDF de una página con `texto`, a mano y sin dependencias.
+
+    El seed de documentos escribe filas que apuntan a un archivo real: con
+    solo la fila, "Abrir documento" terminaría en un 404. No hay ninguna
+    librería de PDF en requirements, así que el archivo se construye byte a
+    byte, con su tabla xref correcta para que cualquier visor lo abra.
+    """
+    # Los paréntesis y la barra se escapan dentro de la cadena de texto del PDF.
+    seguro = texto.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+    contenido = (
+        "BT /F1 16 Tf 60 760 Td (SAIA - documento de prueba) Tj "
+        f"0 -24 Td /F1 12 Tf ({seguro}) Tj ET"
+    ).encode("latin-1", errors="replace")
+
+    objetos = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length " + str(len(contenido)).encode() + b" >>\nstream\n"
+        + contenido + b"\nendstream",
+    ]
+
+    salida = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for numero, objeto in enumerate(objetos, start=1):
+        offsets.append(len(salida))
+        salida += f"{numero} 0 obj\n".encode() + objeto + b"\nendobj\n"
+
+    inicio_xref = len(salida)
+    salida += f"xref\n0 {len(objetos) + 1}\n".encode()
+    salida += b"0000000000 65535 f \n"
+    for offset in offsets:
+        salida += f"{offset:010d} 00000 n \n".encode()
+    salida += (
+        f"trailer\n<< /Size {len(objetos) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{inicio_xref}\n%%EOF"
+    ).encode()
+    return bytes(salida)
+
+
+def crear_documentos(db, cantidad: int, admins, vistos: dict) -> int:
+    """Documentos con su versión vigente (y alguna archivada).
+
+    Sin esto, las vistas "Documentos" y "Consultar documentos" quedaban
+    vacías al sembrar con Faker. Además:
+
+      * a la mitad se le pone fecha de vencimiento, que alimenta la vista
+        "Vencimientos" (tipo DOCUMENTO) y la columna "Vence" del listado;
+      * a un tercio se le agrega una versión archivada, para que la columna
+        "Archivadas" no salga siempre en cero.
+
+    Los archivos se escriben de verdad en `uploads/documentos/` con el mismo
+    criterio de nombres que usa el backend al subir por la API (uuid), así
+    que "Abrir documento" funciona en la demo.
+    """
+    print(f"⏳ Cargando {cantidad} documentos con su versión vigente...")
+    carpeta = CARPETA_UPLOADS / "documentos"
+    carpeta.mkdir(parents=True, exist_ok=True)
+    total = 0
+
+    for i in range(cantidad):
+        base, tipo = random.choice(VOCAB_DOCUMENTOS)
+        nombre = unico(
+            lambda: recortar(f"{base} {random.randint(1, 99)}", 100),
+            vistos["documento"],
+            largo=100,
+        )
+        documento = Documento(
+            nombre=nombre,
+            tipo=tipo.value,
+            fecha_creacion=hora_aleatoria(hora_max=18),
+        )
+        db.add(documento)
+        db.flush()
+
+        # Momento de subida de la versión vigente; la archivada (si la hay)
+        # es anterior.
+        subida = hora_aleatoria(hora_max=18)
+        con_archivada = bernoulli(0.33)
+
+        if con_archivada:
+            subida_archivada = subida - timedelta(days=random.randint(30, 200))
+            _guardar_version(
+                db,
+                carpeta,
+                documento,
+                numero_version=1,
+                nombre_documento=nombre,
+                autor=random.choice(admins),
+                vigente=False,
+                subida=subida_archivada,
+                vencimiento=None,
+                # La archivada dejó de regir cuando se subió la vigente.
+                vigente_hasta=subida,
+            )
+
+        # La mitad vence en plazos variados (algunos ya vencidos, para que
+        # el listado muestre el badge rojo y "Vencimientos" tenga variedad).
+        vencimiento = (
+            HOY + timedelta(days=random.choice([15, 30, 90, 180, 365, -20]))
+            if bernoulli(0.5)
+            else None
+        )
+        _guardar_version(
+            db,
+            carpeta,
+            documento,
+            numero_version=2 if con_archivada else 1,
+            nombre_documento=nombre,
+            autor=random.choice(admins),
+            vigente=True,
+            subida=subida,
+            vencimiento=vencimiento,
+            vigente_hasta=None,
+        )
+        total += 1
+
+    db.flush()
+    return total
+
+
+def _guardar_version(
+    db,
+    carpeta: Path,
+    documento: Documento,
+    numero_version: int,
+    nombre_documento: str,
+    autor,
+    vigente: bool,
+    subida: datetime,
+    vencimiento: Optional[date],
+    vigente_hasta: Optional[datetime],
+) -> None:
+    """Escribe el archivo físico y la fila de `VersionDocumento`."""
+    nombre_archivo = f"{uuid.uuid4().hex}.pdf"
+    (carpeta / nombre_archivo).write_bytes(_pdf_de_prueba(nombre_documento))
+
+    db.add(
+        VersionDocumento(
+            documento_id=documento.id,
+            numero_version=numero_version,
+            nombre_archivo=f"{nombre_documento}.pdf",
+            archivo_url=f"uploads/documentos/{nombre_archivo}",
+            vigente=vigente,
+            vigente_desde=subida,
+            vigente_hasta=vigente_hasta,
+            # Solo la versión vigente puede estar vencida: una archivada ya
+            # no rige, su fecha límite no dice nada.
+            fecha_vencimiento=vencimiento if vigente else None,
+            autor_id=autor.id,
+            fecha_subida=subida,
+        )
+    )
+
+
 def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> int:
+    """Planes de calibración/mantenimiento: a lo sumo UNO por equipo y tipo.
+
+    El backend lo exige al crear por la API (`_verificar_plan_activo_duplicado`):
+    un equipo no puede tener dos planes activos del mismo tipo. La versión
+    anterior elegía el equipo al azar en cada iteración y sembraba pares
+    repetidos, es decir, datos que la aplicación no habría dejado crear.
+
+    Se arman todos los pares (equipo, tipo) posibles y se toman `cantidad`
+    sin repetir ninguno. Como los equipos también son `--cantidad`, siempre
+    hay pares de sobra (2 × cantidad).
+    """
     print(f"⏳ Cargando {cantidad} planes de calibración/mantenimiento...")
     total = 0
 
-    for _ in range(cantidad):
-        equipo = random.choice(equipos)
-        tipo = "calibracion" if equipo.tipo == "Medición" or bernoulli(0.35) else "mantenimiento"
+    pares = [
+        (equipo, tipo)
+        for equipo in equipos
+        for tipo in ("calibracion", "mantenimiento")
+    ]
+    random.shuffle(pares)
+
+    for equipo, tipo in pares[:cantidad]:
         db.add(
             PlanCalibracionMantenimiento(
                 equipo_id=equipo.id,
@@ -991,6 +1220,7 @@ def main() -> int:
             "elemento": set(db.scalars(select(ElementoLimpieza.nombre)).all()),
             "insumo": set(db.scalars(select(Insumo.nombre)).all()),
             "unidad": set(db.scalars(select(UnidadMedida.nombre)).all()),
+            "documento": set(db.scalars(select(Documento.nombre)).all()),
         }
 
         # Un solo hash para todo el personal: bcrypt es lento (~0,3 s por
@@ -1018,6 +1248,7 @@ def main() -> int:
         planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos)
         registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
         incidentes = crear_incidentes(db, args.cantidad, equipos, personal, admins, operadores, vistos)
+        documentos = crear_documentos(db, args.cantidad, admins, vistos)
         cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
 
         db.commit()
@@ -1032,6 +1263,7 @@ def main() -> int:
         print(f"   Vencimientos: {vencimientos} · Planes de limpieza: {len(planes)}")
         print(f"   Registros de tarea: {registros} · Incidentes: {incidentes}")
         print(f"   Planes calibración/mantenimiento: {cal_mantenimiento}")
+        print(f"   Documentos (con su versión vigente): {documentos}")
         print()
         print(f"🔑 Contraseña de todo el personal: {args.password}")
         print("👤 Usuarios administradores (el login es con DNI):")

@@ -9,6 +9,8 @@ import {
   Table,
   Text,
 } from "@chakra-ui/react";
+import type { ReactNode } from "react";
+import { LuCircleCheck, LuCircleX } from "react-icons/lu";
 import { usePersonal } from "../../hooks/usePersonal";
 import { useVencimientosPersonal } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { useAptitudes } from "../../../aptitud/hooks/useAptitudes";
@@ -33,6 +35,25 @@ function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
         {valor}
       </Text>
     </Box>
+  );
+}
+
+/**
+ * Ítem del listado de permisos: ícono de estado + nombre.
+ *
+ * Antes iba un emoji (✅/❌): en un sistema sin esa fuente se veían
+ * cuadritos. El ícono va envuelto en un `Box` con `color` de Chakra para
+ * que resuelva el token semántico (`green.fg`); pasándolo directo al ícono
+ * terminaría como color inválido en el CSS.
+ */
+function Permiso({ concedido, children }: { concedido: boolean; children: ReactNode }) {
+  return (
+    <Text fontSize="sm" color="fg" display="flex" alignItems="center" gap="2">
+      <Box as="span" display="inline-flex" color={concedido ? "green.fg" : "red.fg"} aria-hidden>
+        {concedido ? <LuCircleCheck size={16} /> : <LuCircleX size={16} />}
+      </Box>
+      {children}
+    </Text>
   );
 }
 
@@ -99,12 +120,8 @@ export function PersonalDetailPage() {
             Permisos en el sistema
           </Heading>
           <SimpleGrid columns={{ base: 1, sm: 2 }} gap="2">
-            <Text fontSize="sm" color="fg">
-              {persona.puede_operar ? "✅" : "❌"} Puede Operar
-            </Text>
-            <Text fontSize="sm" color="fg">
-              {persona.puede_administrar ? "✅" : "❌"} Puede Administrar
-            </Text>
+            <Permiso concedido={persona.puede_operar}>Puede Operar</Permiso>
+            <Permiso concedido={persona.puede_administrar}>Puede Administrar</Permiso>
           </SimpleGrid>
         </Box>
 

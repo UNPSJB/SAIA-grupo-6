@@ -31,7 +31,7 @@ export function ElementosLimpiezaPage() {
   } = useElementosLimpieza(verInactivos);
   const {
     paginados: elementosPaginados,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -120,7 +120,7 @@ export function ElementosLimpiezaPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

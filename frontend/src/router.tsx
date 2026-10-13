@@ -19,6 +19,11 @@ const InicioPage = lazy(() =>
   import("./features/dashboard/components/pages/InicioPage").then((mod) => ({ default: mod.InicioPage })),
 );
 
+// 0.bis. Mi perfil: la ficha propia (datos de /auth/me), sin permisos extra
+const MiPerfilPage = lazy(() =>
+  import("./features/personal/components/pages/MiPerfilPage").then((mod) => ({ default: mod.MiPerfilPage })),
+);
+
 // 1. Personal
 const PersonalPage = lazy(() =>
   import("./features/personal/components/pages/PersonalPage").then((mod) => ({ default: mod.PersonalPage })),
@@ -240,6 +245,18 @@ export const router = createBrowserRouter([
             element: (
               <ConSuspense>
                 <InicioPage />
+              </ConSuspense>
+            ),
+          },
+
+          // Mi perfil: la ficha de la persona logueada. No va bajo
+          // `RequireRole`: los datos salen de /auth/me y le sirven a todos
+          // los roles, operadores incluidos.
+          {
+            path: "/mi-perfil",
+            element: (
+              <ConSuspense>
+                <MiPerfilPage />
               </ConSuspense>
             ),
           },

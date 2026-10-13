@@ -26,7 +26,7 @@ export function InsumosQuimicosPage() {
   const { borrar, reactivar, loading: procesando } = useInsumoQuimicoABM();
   const {
     paginados: insumosPaginados,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -121,7 +121,7 @@ export function InsumosQuimicosPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

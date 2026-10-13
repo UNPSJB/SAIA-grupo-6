@@ -29,7 +29,7 @@ export function PlanLimpiezaPage() {
   const { equipos } = useOpcionesPlanLimpieza();
   const {
     paginados: planesPaginados,
-    totalPaginas,
+    totalFiltrados,
     page,
     setPage,
     hayVariasPaginas,
@@ -125,7 +125,7 @@ export function PlanLimpiezaPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalPaginas}
+              count={totalFiltrados}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}
