@@ -1,10 +1,12 @@
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Badge,
   Box,
   Button,
+  Field,
+  Flex,
   HStack,
   Spinner,
   Table,
@@ -14,7 +16,7 @@ import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { obtenerNotificaciones } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import { LuBell, LuCircleCheck } from "react-icons/lu";
+import { LuBell, LuCircleCheck, LuArrowUpDown, LuArrowUp, LuArrowDown } from "react-icons/lu";
 import type { Notificacion } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
@@ -24,6 +26,9 @@ import {
   DialogoExito,
   EncabezadoOscuro,
   FilaEncabezado,
+  FormInput,
+  FormNativeSelect,
+  LabelFiltro,
   PageHeader,
   Paginacion,
   Tarjeta,
@@ -70,14 +75,36 @@ function etiquetaAccion(tipo: string) {
   }
 }
 
+type FiltroUrgencia = "todas" | "vencidas" | "proximas";
+type FiltroOrigen = "todas" | "ELEMENTO_LIMPIEZA" | "VENCIMIENTO_PERSONAL" | "PLAN_CALIBRACION" | "PLAN_MANTENIMIENTO";
+type SortColumn = "estado" | "vencimiento" | "origen" | null;
+type SortDirection = "asc" | "desc";
+
+/** Icono de ordenamiento en header de tabla. */
+function SortIcon({ column, sortColumn, sortDirection }: {
+  column: SortColumn & string;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+}) {
+  if (sortColumn !== column) return <LuArrowUpDown size={14} opacity={0.4} />;
+  return sortDirection === "asc" ? <LuArrowUp size={14} /> : <LuArrowDown size={14} />;
+}
+
 export function NotificacionesPage() {
   const navigate = useNavigate();
   const delayed = useSafeTimeout();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mensajeExito, setMensajeExito] = useState<string | null>(null); // <-- Cartel verde
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [notifEditando, setNotifEditando] = useState<Notificacion | null>(null);
+
+  // Filtros
+  const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrgencia>("todas");
+  const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
+  const [busqueda, setBusqueda] = useState("");
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const cargar = async () => {
     try {
@@ -86,8 +113,6 @@ export function NotificacionesPage() {
       const data = await obtenerNotificaciones();
       setNotificaciones(data);
     } catch (e) {
-      // Antes el catch era vacío: un 500 mostraba "No hay notificaciones
-      // pendientes", que es exactamente lo contrario de lo que pasó.
       setError(e instanceof Error ? e.message : "No se pudieron cargar las notificaciones");
     } finally {
       setLoading(false);
@@ -100,14 +125,11 @@ export function NotificacionesPage() {
   }, []);
 
   const mostrarExito = (mensaje: string) => {
-    // Avisamos a la campana
     window.dispatchEvent(new Event("actualizar_notificaciones"));
-
-    // Mostramos el cartel de éxito
     setMensajeExito(mensaje);
     delayed(() => {
       setMensajeExito(null);
-      cargar(); // Recién cuando se va el cartel recargamos la tabla
+      cargar();
     }, 1500);
   };
 
@@ -117,9 +139,6 @@ export function NotificacionesPage() {
         await registrarRecambioElemento(notif.entidad_id);
         mostrarExito("Recambio registrado correctamente.");
       } catch (error) {
-        // Antes solo iba a la consola: si el recambio fallaba, la campana
-        // quedaba con el mismo número y el usuario no se enteraba de nada,
-        // porque la UI no cambiaba. Ahora se lo decimos.
         setError(
           error instanceof Error
             ? error.message
@@ -128,7 +147,7 @@ export function NotificacionesPage() {
         console.error("Error al registrar recambio:", error);
       }
     } else if (notif.tipo === "VENCIMIENTO_PERSONAL") {
-      setNotifEditando(notif); // abre el diálogo
+      setNotifEditando(notif);
     } else {
       navigate(notif.link_destino);
     }
@@ -139,22 +158,134 @@ export function NotificacionesPage() {
     mostrarExito("Fecha de vencimiento actualizada correctamente.");
   };
 
-  // Ordenamos para que los VENCIDOS (rojos) queden siempre primeros en la lista
-  const notificacionesOrdenadas = [...notificaciones].sort((a, b) => {
-    if (a.nivel === "VENCIDO" && b.nivel !== "VENCIDO") return -1;
-    if (a.nivel !== "VENCIDO" && b.nivel === "VENCIDO") return 1;
-    return 0;
-  });
+  // Contadores dinámicos: cada grupo ignora su propio filtro pero respeta los demás
+  const contadores = useMemo(() => {
+    // Base con búsqueda aplicada (siempre)
+    let base = notificaciones;
+    if (busqueda.trim()) {
+      const normalizar = (s: string) =>
+        s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const termino = normalizar(busqueda.trim());
+      base = base.filter(
+        (n) =>
+          normalizar(n.titulo).includes(termino) ||
+          normalizar(n.mensaje).includes(termino),
+      );
+    }
 
-  // Paginación en memoria, como el resto de los listados: sin ella, la tabla
-  // crecía sin tope con cada vencimiento vigente.
+    // Para contadores de URGENCIA: ignora filtroUrgencia, respeta filtroOrigen
+    let baseUrgencia = base;
+    if (filtroOrigen !== "todas") {
+      baseUrgencia = baseUrgencia.filter((n) => n.tipo === filtroOrigen);
+    }
+
+    // Para contadores de ORIGEN: ignora filtroOrigen, respeta filtroUrgencia
+    let baseOrigen = base;
+    if (filtroUrgencia === "vencidas") {
+      baseOrigen = baseOrigen.filter((n) => n.nivel === "VENCIDO");
+    } else if (filtroUrgencia === "proximas") {
+      baseOrigen = baseOrigen.filter((n) => n.nivel === "PROXIMO_A_VENCER");
+    }
+
+    return {
+      // Urgencia: cuenta sobre baseUrgencia (sin filtro de urgencia, con filtro de origen)
+      todas: baseUrgencia.length,
+      vencidas: baseUrgencia.filter((n) => n.nivel === "VENCIDO").length,
+      proximas: baseUrgencia.filter((n) => n.nivel === "PROXIMO_A_VENCER").length,
+      // Origen: cuenta sobre baseOrigen (sin filtro de origen, con filtro de urgencia)
+      todasOrigen: baseOrigen.length,
+      ELEMENTO_LIMPIEZA: baseOrigen.filter((n) => n.tipo === "ELEMENTO_LIMPIEZA").length,
+      VENCIMIENTO_PERSONAL: baseOrigen.filter((n) => n.tipo === "VENCIMIENTO_PERSONAL").length,
+      PLAN_CALIBRACION: baseOrigen.filter((n) => n.tipo === "PLAN_CALIBRACION").length,
+      PLAN_MANTENIMIENTO: baseOrigen.filter((n) => n.tipo === "PLAN_MANTENIMIENTO").length,
+    };
+  }, [notificaciones, busqueda, filtroOrigen, filtroUrgencia]);
+
+  // Filtrado
+  const notificacionesFiltradas = useMemo(() => {
+    let resultado = [...notificaciones];
+
+    // Filtro por búsqueda
+    if (busqueda.trim()) {
+      const normalizar = (s: string) =>
+        s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const termino = normalizar(busqueda.trim());
+      resultado = resultado.filter(
+        (n) =>
+          normalizar(n.titulo).includes(termino) ||
+          normalizar(n.mensaje).includes(termino),
+      );
+    }
+
+    // Filtro por urgencia
+    if (filtroUrgencia === "vencidas") {
+      resultado = resultado.filter((n) => n.nivel === "VENCIDO");
+    } else if (filtroUrgencia === "proximas") {
+      resultado = resultado.filter((n) => n.nivel === "PROXIMO_A_VENCER");
+    }
+
+    // Filtro por origen
+    if (filtroOrigen !== "todas") {
+      resultado = resultado.filter((n) => n.tipo === filtroOrigen);
+    }
+
+    // Ordenamiento
+    if (sortColumn === "estado") {
+      resultado.sort((a, b) => {
+        const aVal = a.nivel === "VENCIDO" ? 0 : 1;
+        const bVal = b.nivel === "VENCIDO" ? 0 : 1;
+        return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      });
+    } else if (sortColumn === "vencimiento") {
+      resultado.sort((a, b) => {
+        const aVal = a.fecha_referencia ? new Date(a.fecha_referencia).getTime() : 0;
+        const bVal = b.fecha_referencia ? new Date(b.fecha_referencia).getTime() : 0;
+        return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      });
+    } else if (sortColumn === "origen") {
+      resultado.sort((a, b) => {
+        const cmp = a.tipo.localeCompare(b.tipo);
+        return sortDirection === "asc" ? cmp : -cmp;
+      });
+    } else {
+      // Default: VENCIDOS primero
+      resultado.sort((a, b) => {
+        if (a.nivel === "VENCIDO" && b.nivel !== "VENCIDO") return -1;
+        if (a.nivel !== "VENCIDO" && b.nivel === "VENCIDO") return 1;
+        return 0;
+      });
+    }
+
+    return resultado;
+  }, [notificaciones, filtroUrgencia, filtroOrigen, busqueda, sortColumn, sortDirection]);
+
   const {
     paginados: notificacionesPaginadas,
     page,
     setPage,
     total,
     hayVariasPaginas,
-  } = usePaginas(notificacionesOrdenadas, PAGE_SIZE);
+  } = usePaginas(notificacionesFiltradas, PAGE_SIZE);
+
+  const handleSort = (column: SortColumn & string) => {
+    if (sortColumn === column) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+    setPage(1);
+  };
+
+  const handleUrgenciaChange = (val: FiltroUrgencia) => {
+    setFiltroUrgencia(val);
+    setPage(1);
+  };
+
+  const handleOrigenChange = (val: FiltroOrigen) => {
+    setFiltroOrigen(val);
+    setPage(1);
+  };
 
   return (
     <Box p="5">
@@ -168,14 +299,12 @@ export function NotificacionesPage() {
         description="Vencimientos pendientes del sistema."
       />
 
-<ConfiguracionAlertasPanel
+      <ConfiguracionAlertasPanel
         onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
 
-      {/* Aviso de éxito: sale antes de recargar la tabla. */}
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
 
-      {/* DIÁLOGO PARA CAMBIAR LA FECHA DE UN VENCIMIENTO DE PERSONAL */}
       {notifEditando && (
         <CambiarFechaVencimientoDialog
           key={notifEditando.id_notificacion}
@@ -187,9 +316,68 @@ export function NotificacionesPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
+      {/* FILTROS */}
+      <Tarjeta p="4" mb="6">
+        <HStack gap="4" flexWrap="wrap" align="flex-end">
+          <Box minW="200px">
+            <Field.Root>
+              <LabelFiltro>Urgencia</LabelFiltro>
+              <FormNativeSelect
+                value={filtroUrgencia}
+                onChange={(e) => handleUrgenciaChange(e.target.value as FiltroUrgencia)}
+              >
+                <option value="todas">Todas ({contadores.todas})</option>
+                <option value="vencidas" color={contadores.vencidas === 0 ? "gray.400" : undefined}>
+                  Vencidas ({contadores.vencidas})
+                </option>
+                <option value="proximas" color={contadores.proximas === 0 ? "gray.400" : undefined}>
+                  Próximas a vencer ({contadores.proximas})
+                </option>
+              </FormNativeSelect>
+            </Field.Root>
+          </Box>
+
+          <Box minW="200px">
+            <Field.Root>
+              <LabelFiltro>Origen</LabelFiltro>
+              <FormNativeSelect
+                value={filtroOrigen}
+                onChange={(e) => handleOrigenChange(e.target.value as FiltroOrigen)}
+              >
+                <option value="todas">Todos ({contadores.todasOrigen})</option>
+                <option value="ELEMENTO_LIMPIEZA" color={contadores.ELEMENTO_LIMPIEZA === 0 ? "gray.400" : undefined}>
+                  Elemento Limpieza ({contadores.ELEMENTO_LIMPIEZA})
+                </option>
+                <option value="VENCIMIENTO_PERSONAL" color={contadores.VENCIMIENTO_PERSONAL === 0 ? "gray.400" : undefined}>
+                  Venc. Personal ({contadores.VENCIMIENTO_PERSONAL})
+                </option>
+                <option value="PLAN_CALIBRACION" color={contadores.PLAN_CALIBRACION === 0 ? "gray.400" : undefined}>
+                  Calibración ({contadores.PLAN_CALIBRACION})
+                </option>
+                <option value="PLAN_MANTENIMIENTO" color={contadores.PLAN_MANTENIMIENTO === 0 ? "gray.400" : undefined}>
+                  Mantenimiento ({contadores.PLAN_MANTENIMIENTO})
+                </option>
+              </FormNativeSelect>
+            </Field.Root>
+          </Box>
+
+          <Box minW="250px" flex="1">
+            <Field.Root>
+              <LabelFiltro>Búsqueda</LabelFiltro>
+              <FormInput
+                type="text"
+                value={busqueda}
+                onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
+                placeholder="Buscar en título o mensaje..."
+              />
+            </Field.Root>
+          </Box>
+        </HStack>
+      </Tarjeta>
+
       {loading ? (
         <Spinner color="brand.500" />
-      ) : notificacionesOrdenadas.length === 0 ? (
+      ) : notificacionesFiltradas.length === 0 ? (
         <Tarjeta p="8" textAlign="center">
           <HStack justify="center" gap="2" color="green.fg">
             <LuCircleCheck aria-hidden />
@@ -203,28 +391,51 @@ export function NotificacionesPage() {
         </Tarjeta>
       ) : (
         <>
-        <Tarjeta overflowX="auto">
-          <Table.Root variant="outline" size="md" w="100%" minW="940px">
-            <Table.Header>
-              <FilaEncabezado>
-                <EncabezadoOscuro ancho="media">Origen</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                <EncabezadoOscuro>Detalle / Mensaje</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
-                <EncabezadoOscuro center ancho="acciones">Acción</EncabezadoOscuro>
-              </FilaEncabezado>
-            </Table.Header>
-            <Table.Body>
-              {notificacionesPaginadas.map((n) => (
-                <Table.Row
-                  key={n.id_notificacion}
-                  _hover={{ bg: "brand.50" }}
-                  transition="background 0.2s"
-                >
+          <Tarjeta overflowX="auto">
+            <Table.Root variant="outline" size="md" w="100%" minW="940px">
+              <Table.Header>
+                <FilaEncabezado>
+                  <EncabezadoOscuro
+                    ancho="media"
+                    onClick={() => handleSort("origen")}
+                  >
+                    <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
+                      Origen
+                      <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
+                    </Box>
+                  </EncabezadoOscuro>
+                  <EncabezadoOscuro
+                    ancho="angosta"
+                    onClick={() => handleSort("estado")}
+                  >
+                    <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
+                      Estado
+                      <SortIcon column="estado" sortColumn={sortColumn} sortDirection={sortDirection} />
+                    </Box>
+                  </EncabezadoOscuro>
+                  <EncabezadoOscuro>Detalle / Mensaje</EncabezadoOscuro>
+                  <EncabezadoOscuro
+                    ancho="media"
+                    onClick={() => handleSort("vencimiento")}
+                  >
+                    <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
+                      Vencimiento
+                      <SortIcon column="vencimiento" sortColumn={sortColumn} sortDirection={sortDirection} />
+                    </Box>
+                  </EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="acciones">
+                    Acción
+                  </EncabezadoOscuro>
+                </FilaEncabezado>
+              </Table.Header>
+              <Table.Body>
+                {notificacionesPaginadas.map((n) => (
+                  <Table.Row
+                    key={n.id_notificacion}
+                    _hover={{ bg: "brand.50" }}
+                    transition="background 0.2s"
+                  >
                     <Celda>
-                      {/* Mismo motivo que en `IncidenteItem`: con la tabla de
-                          ancho fijo la etiqueta ya no hace crecer la columna,
-                          y "Plan Calibración/Mantenimiento" mide 204px. */}
                       <Badge
                         colorPalette={paletaOrigen(n.tipo)}
                         variant="subtle"
@@ -272,19 +483,19 @@ export function NotificacionesPage() {
                       </Button>
                     </Celda>
                   </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
-        </Tarjeta>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Tarjeta>
 
-        {hayVariasPaginas && (
-          <Paginacion
-            count={total}
-            pageSize={PAGE_SIZE}
-            page={page}
-            onPageChange={setPage}
-          />
-        )}
+          {hayVariasPaginas && (
+            <Paginacion
+              count={total}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
         </>
       )}
     </Box>
