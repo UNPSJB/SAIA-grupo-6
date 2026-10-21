@@ -8,6 +8,7 @@ import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { useMisIncidentes } from "../../hooks/useMisIncidentes";
 import { ReportarIncidenteEmptyState } from "./ReportarIncidenteEmptyState";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
+import { notificarCambioIncidentes } from "../../eventoIncidentes";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
 import type { IncidenteFormValues, Incidente } from "../../types/incidente";
 import {
@@ -219,6 +220,9 @@ export function ReportarIncidentePage() {
       // apenas termina el submit, sin importar en qué página se estaba.
       primeraPagina();
       await cargarMisIncidentes();
+      // Avisa al resto de las vistas (por ejemplo /incidentes) que hay un
+      // incidente nuevo, para que su estadística se actualice sola.
+      notificarCambioIncidentes();
       programarAviso(() => setExito(false), 3000);
     } catch {
       // El mensaje de error ya quedó en errorAlta.

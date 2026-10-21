@@ -31,3 +31,4 @@ class ErrorCode:
     ESTADO_INVALIDO = "El estado del incidente no es válido."
     EQUIPO_INACTIVO = "El equipo seleccionado está dado de baja."
     PERMISO_DENEGADO = "No tenés permiso para ver este incidente."
+    FECHA_RANGO_INVALIDO = "La fecha 'desde' no puede ser posterior a la fecha 'hasta'."

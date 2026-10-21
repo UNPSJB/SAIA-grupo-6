@@ -38,3 +38,7 @@ class UsuarioInactivo(BadRequest):
 
 class EstadoInvalido(BadRequest):
     DETAIL = ErrorCode.ESTADO_INVALIDO
+
+
+class FechaInvalida(BadRequest):
+    DETAIL = ErrorCode.FECHA_RANGO_INVALIDO

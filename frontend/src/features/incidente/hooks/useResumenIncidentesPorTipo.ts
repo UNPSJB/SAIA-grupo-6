@@ -12,16 +12,22 @@ const RESUMEN_VACIO: IncidenteResumen = {
 /**
  * Carga el resumen de incidentes por tipo (indicador E7).
  * @param incluirCerrados Si es `true`, cuenta también los cerrados.
+ * @param fechaDesde / fechaHasta Acotan por fecha de reporte (inclusive);
+ *        se omiten cuando el período es "todo".
  */
-export function useResumenIncidentesPorTipo(incluirCerrados = false) {
+export function useResumenIncidentesPorTipo(
+  incluirCerrados = false,
+  fechaDesde?: string,
+  fechaHasta?: string
+) {
   const cargar = useCallback(
-    () => obtenerResumenIncidentesPorTipo(incluirCerrados),
-    [incluirCerrados]
+    () => obtenerResumenIncidentesPorTipo(incluirCerrados, fechaDesde, fechaHasta),
+    [incluirCerrados, fechaDesde, fechaHasta]
   );
 
   const { items, loading, error } = useLista<IncidenteResumen>({
     cargar,
-    dependencias: [incluirCerrados],
+    dependencias: [incluirCerrados, fechaDesde, fechaHasta],
     valorInicial: RESUMEN_VACIO,
     mensajeError: "No se pudieron cargar los incidentes por tipo",
     preferirMensajeDelBackend: true,
