@@ -31,7 +31,7 @@ export function IncidentesListPage() {
   // HU "Ver incidentes abiertos": por defecto se listan solo los que todavía
   // no tienen una acción correctiva registrada (estado abierto).
   const [filtroEstado, setFiltroEstado] = useState<EstadoIncidente | "">("abierto");
-  const [filtroTipo, setFiltroTipo] = useState<string>("");
+  const [filtroTipo, setFiltroTipo] = useState<TipoIncidente | "">("");
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [incluirCerrados, setIncluirCerrados] = useState(false);
