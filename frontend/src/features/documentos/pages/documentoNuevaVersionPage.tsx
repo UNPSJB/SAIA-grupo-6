@@ -9,7 +9,6 @@ import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
   BannerExito,
-  BotonVolver,
   PageHeader,
 } from "../../../components/ui/patrones";
 
@@ -40,11 +39,6 @@ export function DocumentoNuevaVersionPage() {
       <PageHeader
         title={`Nueva versión${documento ? `: ${documento.nombre}` : ""}`}
         description="La versión anterior queda archivada: no se borra ni se sobrescribe."
-        actions={
-          <BotonVolver onClick={() => navigate("/documentos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {cargando && <Spinner color="brand.500" />}

@@ -8,7 +8,6 @@ import { PlanCalibracionMantenimientoForm } from "../PlanCalibracionMantenimient
 import type { PlanCalibracionMantenimientoFormValues } from "../../types/planCalibracionMantenimiento";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -34,11 +33,6 @@ export function PlanCalibracionMantenimientoCreatePage() {
       <PageHeader
         title="Nuevo plan de calibración/mantenimiento"
         description="Asociá un plan de calibración o de mantenimiento a un equipo."
-        actions={
-          <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && <BannerError>{error}</BannerError>}

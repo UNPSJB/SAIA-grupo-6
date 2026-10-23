@@ -22,7 +22,6 @@ import {
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -125,11 +124,6 @@ export function PersonalEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar personal"
-        actions={
-          <BotonVolver onClick={() => navigate("/personal")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {cargando && (
@@ -172,11 +166,12 @@ export function PersonalEditPage() {
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/personal")}
             esMiPerfil={esMiPerfil}
-          />
-
-          <VencimientosPersonalForm
-            valores={valoresVencimientos}
-            onChange={setValoresVencimientos}
+            extra={
+              <VencimientosPersonalForm
+                valores={valoresVencimientos}
+                onChange={setValoresVencimientos}
+              />
+            }
           />
         </>
       )}
