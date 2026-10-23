@@ -301,6 +301,41 @@ const config = defineConfig({
              */
             tableLayout: "fixed",
           },
+          /*
+           * Hover de fila uniforme: lo hereda TODA tabla de la app sin que
+           * cada componente tenga que pasar `_hover`. Se usa `bg.subtle` (un
+           * gris muy claro) para no competir con el color de las acciones ni
+           * con el teal del encabezado.
+           */
+          row: {
+            _hover: { bg: "bg.subtle" },
+          },
+        },
+      },
+      /*
+       * Tooltips oscuros.
+       *
+       * Fondo casi negro (`gray.900`) con texto blanco: el contraste fuerte
+       * despega el tooltip del fondo claro de la app y se lee de inmediato.
+       *
+       * La flecha no tiene color propio: toma el de `--tooltip-bg`, así que
+       * hay que pisar esa variable además del fondo del contenido.
+       */
+      tooltip: {
+        slots: ["trigger", "arrow", "arrowTip", "positioner", "content"],
+        base: {
+          content: {
+            "--tooltip-bg": "colors.gray.900",
+            color: "white",
+            borderWidth: "0",
+            boxShadow: "md",
+            fontWeight: "medium",
+            px: "3",
+            py: "1.5",
+          },
+          arrowTip: {
+            borderColor: "gray.900",
+          },
         },
       },
     },

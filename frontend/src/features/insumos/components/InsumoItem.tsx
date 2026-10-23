@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { Insumo } from "../types/insumo";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface InsumoItemProps {
   insumo: Insumo;
@@ -30,18 +30,12 @@ export function InsumoItem({
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo && (
-            <BotonTabla accion="editar" onClick={() => onEdit(insumo)}>
-              Modificar
-            </BotonTabla>
+            <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(insumo)} />
           )}
           {insumo.activo ? (
-            <BotonTabla accion="eliminar" onClick={() => onDelete(insumo)}>
-              Eliminar
-            </BotonTabla>
+            <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(insumo)} />
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(insumo)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(insumo)} />
           )}
         </HStack>
       </Celda>

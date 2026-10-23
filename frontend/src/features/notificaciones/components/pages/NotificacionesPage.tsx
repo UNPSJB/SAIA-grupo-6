@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Badge,
   Box,
-  Button,
   Field,
-  Flex,
   HStack,
   Spinner,
   Table,
@@ -22,6 +20,7 @@ import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog"
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
 import {
   BannerError,
+  BotonAccion,
   Celda,
   DialogoExito,
   EncabezadoOscuro,
@@ -473,14 +472,17 @@ export function NotificacionesPage() {
                       {formatoFechaOCorta(n.fecha_referencia)}
                     </Celda>
                     <Celda center>
-                      <Button
-                        size="sm"
-                        colorPalette="brand"
-                        fontWeight="bold"
+                      <BotonAccion
+                        /*
+                         * "Registrar recambio" se resuelve acá mismo (llama a la
+                         * API y refresca la tabla), así que usa su propio ícono.
+                         * El resto navega a otra pantalla o abre un diálogo:
+                         * mismo ícono de "ir", solo que en un tono más suave.
+                         */
+                        accion={n.tipo === "ELEMENTO_LIMPIEZA" ? "recambio" : "resolver"}
+                        label={etiquetaAccion(n.tipo) ?? "Resolver"}
                         onClick={() => handleResolver(n)}
-                      >
-                        {etiquetaAccion(n.tipo)}
-                      </Button>
+                      />
                     </Celda>
                   </Table.Row>
                 ))}

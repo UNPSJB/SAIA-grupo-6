@@ -1,6 +1,6 @@
 import { HStack, Table, Text } from "@chakra-ui/react";
 import type { Aptitud } from "../types/aptitud";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface AptitudItemProps {
   aptitud: Aptitud;
@@ -28,17 +28,11 @@ export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudI
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {aptitud.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(aptitud)}>
-                Modificar
-              </BotonTabla>
-              <BotonTabla accion="eliminar" onClick={() => onDelete(aptitud)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(aptitud)} />
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(aptitud)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(aptitud)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(aptitud)} />
           )}
         </HStack>
       </Celda>

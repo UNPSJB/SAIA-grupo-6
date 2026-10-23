@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { Equipo } from "../types/equipo";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface EquipoItemProps {
   equipo: Equipo;
@@ -38,25 +38,23 @@ export function EquipoItem({
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {equipo.activo && (
             <>
-              <BotonTabla accion="historial" onClick={() => onVerHistorial(equipo)}>
-                Historial
-              </BotonTabla>
-              <BotonTabla accion="calibrar" onClick={() => onIntervenir(equipo)}>
-                Intervención
-              </BotonTabla>
-              <BotonTabla accion="editar" onClick={() => onEdit(equipo)}>
-                Modificar
-              </BotonTabla>
+              <BotonAccion
+                accion="historial"
+                label="Ver historial de calibraciones"
+                onClick={() => onVerHistorial(equipo)}
+              />
+              <BotonAccion
+                accion="intervenir"
+                label="Registrar intervención"
+                onClick={() => onIntervenir(equipo)}
+              />
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(equipo)} />
             </>
           )}
           {equipo.activo ? (
-            <BotonTabla accion="eliminar" onClick={() => onDelete(equipo)}>
-              Eliminar
-            </BotonTabla>
+            <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(equipo)} />
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(equipo)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(equipo)} />
           )}
         </HStack>
       </Celda>

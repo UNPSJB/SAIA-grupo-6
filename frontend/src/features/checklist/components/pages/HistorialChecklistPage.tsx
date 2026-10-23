@@ -9,6 +9,7 @@ import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
   BannerError,
+  BotonAccion,
   BotonCancelar,
   BotonTexto,
   Celda,
@@ -242,9 +243,11 @@ export function HistorialChecklistPage() {
                         )}
                       </Celda>
                       <Celda center>
-                        <BotonTexto onClick={() => setChecklistSeleccionado(cl)}>
-                          Ver detalle
-                        </BotonTexto>
+                        <BotonAccion
+                          accion="ver"
+                          label="Ver detalle del checklist"
+                          onClick={() => setChecklistSeleccionado(cl)}
+                        />
                       </Celda>
                     </Table.Row>
                     {expandidos.has(cl.checklist_id) && (
