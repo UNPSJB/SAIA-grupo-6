@@ -2,13 +2,14 @@ from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
-from src.common.validators import texto_no_vacio
+from src.common.validators import texto_no_vacio, id_positivo
 from src.Equipo import exceptions
+from src.sector.schemas import SectorResumen
 
 
 class EquipoBase(BaseModel):
     nombre: str
-    ubicacion: str
+    sector_id: int
     tipo: str
 
     @field_validator("nombre")
@@ -21,15 +22,16 @@ class EquipoBase(BaseModel):
             raise exceptions.NombreVacio()
         return v.strip()
 
-    @field_validator("ubicacion")
-    @classmethod
-    def validar_ubicacion_no_vacia(cls, v: str | None) -> str | None:
-        return texto_no_vacio(v, vacio=exceptions.UbicacionVacia)
-
+ 
     @field_validator("tipo")
     @classmethod
     def validar_tipo_no_vacia(cls, v: str | None) -> str | None:
         return texto_no_vacio(v, vacio=exceptions.TipoVacio)
+
+    @field_validator("sector_id")
+    @classmethod
+    def validar_sector_id(cls, v: int | None) -> int | None:
+        return id_positivo(v, invalido=exceptions.SectorInvalido)
 
 
 class EquipoCreate(EquipoBase):
@@ -38,7 +40,7 @@ class EquipoCreate(EquipoBase):
 
 class EquipoUpdate(EquipoBase):
     nombre: str | None = None
-    ubicacion: str | None = None
+    sector_id: int | None = None
     tipo: str | None = None
     activo: bool | None = None    
 
@@ -46,6 +48,7 @@ class EquipoUpdate(EquipoBase):
 class EquipoResponse(EquipoBase):
     id: int
     activo: bool
+    sector: SectorResumen
 
     model_config = ConfigDict(from_attributes=True)
 

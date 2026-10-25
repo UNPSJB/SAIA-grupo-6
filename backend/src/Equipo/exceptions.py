@@ -25,3 +25,6 @@ class TipoVacio(BadRequest):
 
 class NombreDuplicado(BadRequest):
     DETAIL = ErrorCode.NOMBRE_DUPLICADO
+
+class SectorInvalido(BadRequest):
+    DETAIL = ErrorCode.SECTOR_INVALIDO

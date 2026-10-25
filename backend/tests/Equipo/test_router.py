@@ -37,3 +37,8 @@ def test_dar_de_baja_equipo(client, unico_equipo):
     response = client.delete(f"/equipos/{unico_equipo.id}")
     assert response.status_code == 200
     assert response.json()["activo"] is False
+
+def test_actualizar_equipo(client, unico_equipo):
+    response = client.patch(f"/equipos/{unico_equipo.id}", json={"ubicacion": "Depósito"})
+    assert response.status_code == 200
+    assert response.json()["ubicacion"] == "Depósito"

@@ -8,6 +8,7 @@ from src.common.persistence import (
     mapa_por_campo,
     obtener,
 )
+from src.sector.models import Sector
 from . import exceptions
 from .exceptions import EquipoNoEncontrado
 from .models import Equipo
@@ -18,6 +19,12 @@ _MAPEA_CONFLICTO = mapa_por_campo(
     ("equipos.nombre", exceptions.NombreDuplicado),
     por_defecto=exceptions.NombreDuplicado,
 )
+
+def _verificar_sector(db: Session, sector_id: int) -> None:
+    """El sector debe existir y estar activo (400 si no)."""
+    sector = db.get(Sector, sector_id)
+    if sector is None or not sector.activo:
+        raise exceptions.SectorInvalido()
 
 def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
     nuevo_equipo = Equipo(**datos.model_dump())

@@ -46,6 +46,8 @@ from src.documentos import models as documentos_models
 from src.documentos.router import router as documentos_router
 from src.vencimientos.router import router as vencimientos_router
 
+from src.sector.router import router as sector_router
+
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
 # inexistente y devolvía "" en silencio, sin avisar.
@@ -117,6 +119,8 @@ app.include_router(personal_router)
 app.include_router(insumos_router)
 app.include_router(equipo_router)
 app.include_router(elementosLimpieza_router)
+
+app.include_router(sector_router)
 
 
 app.include_router(plan_limpieza_router)
