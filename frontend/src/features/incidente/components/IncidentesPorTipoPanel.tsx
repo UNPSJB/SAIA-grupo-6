@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Badge, Box, Flex, HStack, Heading, Spinner, Switch, Text } from "@chakra-ui/react";
+import { Tooltip } from "../../../components/ui/tooltip";
 import { useResumenIncidentesPorTipo } from "../hooks/useResumenIncidentesPorTipo";
 import { TIPOS_INCIDENTE, tipoColor } from "../types/incidente";
 import type { TipoIncidente } from "../types/incidente";
-import { FONDO_CARD, FONDO_TEAL, TEAL, TEXTO_SUAVE } from "../../../common/theme/tokens";
+import { Tarjeta } from "../../../components/ui/patrones";
 
 /** Colores de las barras, en el mismo tono que el badge de cada tipo. */
 const COLOR_TIPO: Record<TipoIncidente, string> = {
@@ -14,12 +15,19 @@ const COLOR_TIPO: Record<TipoIncidente, string> = {
   otro: "#a0aec0",
 };
 
+interface IncidentesPorTipoPanelProps {
+  filtroTipo: TipoIncidente | "";
+  onFiltroTipoChange: (tipo: TipoIncidente | "") => void;
+  incluirCerrados: boolean;
+  onIncluirCerradosChange: (checked: boolean) => void;
+}
+
 /**
  * Indicador E7: cantidad de incidentes por tipo con barras proporcionales.
  * Por defecto cuenta solo abiertos; el switch agrega los cerrados.
+ * Las barras son clickeables y filtran la tabla de incidentes.
  */
-export function IncidentesPorTipoPanel() {
-  const [incluirCerrados, setIncluirCerrados] = useState(false);
+export function IncidentesPorTipoPanel({ filtroTipo, onFiltroTipoChange, incluirCerrados, onIncluirCerradosChange }: IncidentesPorTipoPanelProps) {
   const { resumen, loading, error } = useResumenIncidentesPorTipo(incluirCerrados);
 
   const maxCantidad = useMemo(
@@ -27,20 +35,22 @@ export function IncidentesPorTipoPanel() {
     [resumen.por_tipo]
   );
 
+  const handleBarraClick = (tipo: TipoIncidente) => {
+    if (cantidadTipo(tipo) === 0) return;
+    onFiltroTipoChange(filtroTipo === tipo ? "" : tipo);
+  };
+
+  const cantidadTipo = (tipo: TipoIncidente) =>
+    resumen.por_tipo.find((r) => r.tipo === tipo)?.cantidad ?? 0;
+
   return (
-    <Box
-      bg="white"
-      p="20px"
-      borderRadius="10px"
-      boxShadow="0 2px 6px rgba(0,0,0,0.05)"
-      mb="25px"
-    >
-      <HStack justify="space-between" mb="16px" flexWrap="wrap" gap="12px">
+    <Tarjeta p="5" mb="6">
+      <HStack justify="space-between" mb="4" flexWrap="wrap" gap="3">
         <Box>
-          <Heading as="h3" size="sm" fontWeight="bold" color={TEAL}>
+          <Heading as="h3" size="sm" fontWeight="bold" color="brand.fg">
             Incidentes por tipo
           </Heading>
-          <Text fontSize="13px" color={TEXTO_SUAVE} mt="2px">
+          <Text fontSize="sm" color="fg.muted" mt="1">
             {incluirCerrados
               ? "Total de incidentes (abiertos y cerrados)"
               : "Solo incidentes sin acción correctiva registrada (abiertos)"}
@@ -48,12 +58,12 @@ export function IncidentesPorTipoPanel() {
         </Box>
         <Switch.Root
           checked={incluirCerrados}
-          onCheckedChange={(e) => setIncluirCerrados(e.checked)}
+          onCheckedChange={(e) => onIncluirCerradosChange(e.checked)}
           colorPalette="teal"
         >
           <Switch.HiddenInput />
           <Switch.Control />
-          <Switch.Label fontSize="14px">Incluir cerrados</Switch.Label>
+          <Switch.Label fontSize="sm">Incluir cerrados</Switch.Label>
         </Switch.Root>
       </HStack>
 
@@ -62,51 +72,116 @@ export function IncidentesPorTipoPanel() {
 
       {!loading && !error && (
         <>
-          <Flex align="center" gap="8px">
+          <Flex align="center" gap="3" mb="4">
             <Box
-              bg={FONDO_TEAL}
-              borderRadius="8px"
-              px="14px"
-              py="8px"
-              minW="70px"
+              bg="brand.50"
+              borderRadius="md"
+              px="4"
+              py="2"
+              minW="60px"
               textAlign="center"
             >
-              <Text fontSize="24px" fontWeight="bold" color={TEAL} lineHeight="1.1">
+              <Text fontSize="xl" fontWeight="bold" color="brand.fg" lineHeight="1.2">
                 {resumen.total}
               </Text>
             </Box>
-            <Text fontSize="13px" color={TEXTO_SUAVE}>
+            <Text fontSize="sm" color="fg.muted">
               incidentes {incluirCerrados ? "registrados" : "abiertos"} en total
             </Text>
           </Flex>
 
-          <Box mt="16px">
+          <Box>
             {TIPOS_INCIDENTE.map(({ value, label }) => {
-              const item = resumen.por_tipo.find((r) => r.tipo === value);
-              const cantidad = item?.cantidad ?? 0;
+              const cantidad = cantidadTipo(value);
               const ancho = cantidad === 0 ? 0 : Math.max(6, (cantidad / maxCantidad) * 100);
-              return (
-                <Flex align="center" gap="12px" key={value} mb="10px">
-                  <Box width="190px" flexShrink={0}>
-                    <Badge colorPalette={tipoColor(value)} borderRadius="md" px="8px" py="2px">
-                      {label}
-                    </Badge>
-                  </Box>
+              const estaSeleccionado = filtroTipo === value;
+              const tieneIncidentes = cantidad > 0;
+              const estaAtenuado = filtroTipo !== "" && !estaSeleccionado;
+
+              const badgeContent = (
+                <Badge
+                  colorPalette={tipoColor(value)}
+                  borderRadius="md"
+                  px="3"
+                  py="1"
+                  fontWeight={estaSeleccionado ? "bold" : "normal"}
+                  outline={estaSeleccionado ? "2px solid" : "none"}
+                  outlineColor={COLOR_TIPO[value]}
+                  opacity={cantidad === 0 ? 0.5 : estaAtenuado ? 0.4 : 1}
+                >
+                  {label}
+                </Badge>
+              );
+
+              const barra = (
+                <Box
+                  flex="1"
+                  height="6"
+                  bg="bg.subtle"
+                  borderRadius="full"
+                  overflow="hidden"
+                  cursor={tieneIncidentes ? "pointer" : "default"}
+                  onClick={() => handleBarraClick(value)}
+                  opacity={estaSeleccionado ? 1 : cantidad === 0 ? 0.4 : estaAtenuado ? 0.3 : 0.85}
+                  _hover={tieneIncidentes && !estaSeleccionado ? { opacity: 1 } : {}}
+                >
                   <Box
-                    flex="1"
-                    height="18px"
-                    bg={FONDO_CARD}
-                    borderRadius="6px"
-                    overflow="hidden"
-                  >
-                    <Box
-                      height="18px"
-                      bg={COLOR_TIPO[value]}
-                      width={`${ancho}%`}
-                      borderRadius="6px"
-                    />
+                    height="6"
+                    bg={COLOR_TIPO[value]}
+                    width={`${ancho}%`}
+                    borderRadius="full"
+                  />
+                </Box>
+              );
+
+              return (
+                <Flex align="center" gap="3" key={value} mb="3">
+                  <Box width="180px" flexShrink="0">
+                    <Tooltip
+                      content={`Filtrar por ${label}`}
+                      disabled={!tieneIncidentes}
+                      contentProps={{
+                        bg: "gray.800",
+                        color: "white",
+                        px: "3",
+                        py: "2",
+                        borderRadius: "md",
+                        fontSize: "sm",
+                        fontWeight: "medium",
+                      }}
+                    >
+                      {badgeContent}
+                    </Tooltip>
                   </Box>
-                  <Text width="36px" textAlign="right" fontWeight="bold" fontSize="15px">
+
+                  <Tooltip
+                    content={
+                      cantidad === 0
+                        ? `${label}: sin incidentes`
+                        : `${label}: ${cantidad} incidente${cantidad !== 1 ? "s" : ""} (${incluirCerrados ? "abiertos + cerrados" : "abiertos"})`
+                    }
+                    disabled={!tieneIncidentes}
+                    contentProps={{
+                      bg: "gray.800",
+                      color: "white",
+                      px: "3",
+                      py: "2",
+                      borderRadius: "md",
+                      fontSize: "sm",
+                      fontWeight: "medium",
+                    }}
+                  >
+                    {barra}
+                  </Tooltip>
+
+                  <Text
+                    width="8"
+                    textAlign="right"
+                    fontWeight={estaSeleccionado ? "bold" : "normal"}
+                    fontSize="sm"
+                    color={estaSeleccionado ? COLOR_TIPO[value] : undefined}
+                    opacity={cantidad === 0 ? 0.5 : estaAtenuado ? 0.4 : 1}
+                  >
                     {cantidad}
                   </Text>
                 </Flex>
@@ -115,6 +190,6 @@ export function IncidentesPorTipoPanel() {
           </Box>
         </>
       )}
-    </Box>
+    </Tarjeta>
   );
 }

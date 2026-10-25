@@ -49,7 +49,7 @@ export function IncidenteDetailPage() {
 
   if (error || !incidente) {
     return (
-      <Box p="5" maxW="600px" mx="auto">
+      <Box p="5" maxW="720px" mx="auto">
         <BannerError>{error || "No se encontró el incidente"}</BannerError>
         <BotonVolver mt="4" onClick={() => navigate(backUrl)}>
           Volver a la lista
@@ -72,7 +72,7 @@ export function IncidenteDetailPage() {
 
   return (
     <>
-      <Box p="5" maxW="600px" mx="auto">
+      <Box p="5" maxW={incidente.foto_url ? "720px" : "600px"} mx="auto">
         <PageHeader
           title={`${incidente.titulo} #${incidente.id}`}
           description={`Reportado el ${formatoFecha(incidente.fecha_reporte)}`}

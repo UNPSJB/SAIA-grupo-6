@@ -34,6 +34,7 @@ export function IncidentesListPage() {
   const [filtroTipo, setFiltroTipo] = useState<string>("");
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
+  const [incluirCerrados, setIncluirCerrados] = useState(false);
 
   // El estado se filtra en el backend: "abierto" trae solo los pendientes;
   // "" (todos los estados) trae abiertos y cerrados.
@@ -84,7 +85,10 @@ export function IncidentesListPage() {
   };
 
   const handleEstadoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFiltroEstado(e.target.value as EstadoIncidente | "");
+    const nuevoEstado = e.target.value as EstadoIncidente | "";
+    setFiltroEstado(nuevoEstado);
+    // Sincroniza el switch del gráfico con el dropdown
+    setIncluirCerrados(nuevoEstado === "");
     setPage(1);
   };
 
@@ -152,8 +156,17 @@ export function IncidentesListPage() {
         }
       />
 
-      {/* Indicador E7: incidentes por tipo */}
-      <IncidentesPorTipoPanel />
+      {/* Indicador E7: incidentes por tipo — conectado al filtro de la tabla */}
+      <IncidentesPorTipoPanel
+        filtroTipo={filtroTipo}
+        onFiltroTipoChange={(tipo) => { setFiltroTipo(tipo); setPage(1); }}
+        incluirCerrados={incluirCerrados}
+        onIncluirCerradosChange={(checked) => {
+          setIncluirCerrados(checked);
+          setFiltroEstado(checked ? "" : "abierto");
+          setPage(1);
+        }}
+      />
 
       {/* Filtros */}
       <Tarjeta p="4" mb="6">

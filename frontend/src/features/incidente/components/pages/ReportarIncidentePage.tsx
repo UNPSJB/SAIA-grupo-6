@@ -263,45 +263,49 @@ export function ReportarIncidentePage() {
       </Flex>
 
       {activeTab === "nuevo-incidente" && (
-        <IncidenteForm
-          onSubmit={handleSubmit}
-          isLoading={loadingAlta}
-          title="Registrar nuevo incidente"
-          submitLabel="Reportar incidente"
-        />
+        <Box maxW="600px" mx="auto">
+          <IncidenteForm
+            onSubmit={handleSubmit}
+            isLoading={loadingAlta}
+            title="Registrar nuevo incidente"
+            submitLabel="Reportar incidente"
+          />
+        </Box>
       )}
 
       {activeTab === "mis-reportes" && (
-        <Tarjeta p="6">
-          {loadingMis && <EstadoCargando>Cargando tus reportes...</EstadoCargando>}
-          {errorMis && (
-            <BannerError mb="0">Error al cargar: {errorMis}</BannerError>
-          )}
-          {!loadingMis && !errorMis && misIncidentes.length === 0 && (
-            <ReportarIncidenteEmptyState />
-          )}
-          {!loadingMis && !errorMis && misIncidentes.length > 0 && (
-            <VStack align="stretch" gap="3">
-              <Text fontWeight="bold" fontSize="sm" color="fg.muted">
-                Tus incidentes reportados (más recientes primero)
-              </Text>
-              <VStack align="stretch" gap="2">
-                {misIncidentesPaginados.map((inc) => (
-                  <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
-                ))}
-              </VStack>
+        <Box maxW="960px" mx="auto">
+          <Tarjeta p="6">
+            {loadingMis && <EstadoCargando>Cargando tus reportes...</EstadoCargando>}
+            {errorMis && (
+              <BannerError mb="0">Error al cargar: {errorMis}</BannerError>
+            )}
+            {!loadingMis && !errorMis && misIncidentes.length === 0 && (
+              <ReportarIncidenteEmptyState />
+            )}
+            {!loadingMis && !errorMis && misIncidentes.length > 0 && (
+              <VStack align="stretch" gap="3">
+                <Text fontWeight="bold" fontSize="sm" color="fg.muted">
+                  Tus incidentes reportados (más recientes primero)
+                </Text>
+                <VStack align="stretch" gap="2">
+                  {misIncidentesPaginados.map((inc) => (
+                    <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
+                  ))}
+                </VStack>
 
-              {hayVariasPaginas && (
-                <Paginacion
-                  count={total}
-                  pageSize={PAGE_SIZE}
-                  page={page}
-                  onPageChange={setPage}
-                />
-              )}
-            </VStack>
-          )}
-        </Tarjeta>
+                {hayVariasPaginas && (
+                  <Paginacion
+                    count={total}
+                    pageSize={PAGE_SIZE}
+                    page={page}
+                    onPageChange={setPage}
+                  />
+                )}
+              </VStack>
+            )}
+          </Tarjeta>
+        </Box>
       )}
     </Box>
   );
