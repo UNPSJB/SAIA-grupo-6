@@ -3,8 +3,8 @@ import { Badge, Box, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 
 import { apiFetchImagen } from "../../../common/api/apiClient";
 import {
+  BotonAccion,
   BotonCancelar,
-  BotonTexto,
   Celda,
   EncabezadoOscuro,
   FilaEncabezado,
@@ -56,9 +56,12 @@ function BotonVerCertificado({ ruta }: { ruta: string }) {
 
   return (
     <HStack justify="center" gap="2">
-      <BotonTexto onClick={abrir} disabled={cargando}>
-        {cargando ? "Abriendo…" : "Ver archivo"}
-      </BotonTexto>
+      <BotonAccion
+        accion="ver"
+        label="Ver archivo"
+        loading={cargando}
+        onClick={abrir}
+      />
       {error && (
         <Text color="red.fg" fontSize="xs">
           {error}

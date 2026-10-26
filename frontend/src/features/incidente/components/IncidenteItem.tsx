@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, HStack, IconButton, Table, Text } from "@chakra-ui/react";
-import { LuCamera, LuTriangleAlert, LuEye } from "react-icons/lu";
+import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
+import { LuCamera, LuTriangleAlert } from "react-icons/lu";
 import {
   estadoLabel,
   tipoLabel,
@@ -8,7 +8,8 @@ import {
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
 import { formatoFecha as formatoFechaDia } from "../../../common/utils/fechas";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { Tooltip } from "../../../components/ui/tooltip";
 
 interface IncidenteItemProps {
   incidente: Incidente;
@@ -107,15 +108,16 @@ export function IncidenteItem({
 
       <Celda p="3" center>
         {incidente.foto_url ? (
-          <Box
-            display="inline-flex"
-            color="brand.fg"
-            title="Ver detalle para ver la foto"
-            role="img"
-            aria-label="Tiene foto adjunta"
-          >
-            <LuCamera size={20} />
-          </Box>
+          <Tooltip content="Ver detalle para ver la foto" showArrow openDelay={300} closeDelay={0}>
+            <Box
+              display="inline-flex"
+              color="brand.fg"
+              role="img"
+              aria-label="Tiene foto adjunta"
+            >
+              <LuCamera size={20} />
+            </Box>
+          </Tooltip>
         ) : (
           <Text color="fg.subtle">-</Text>
         )}
@@ -164,27 +166,21 @@ export function IncidenteItem({
       {showActions && (
         <Celda p="3" center>
           <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
-            <IconButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              colorPalette="neutral"
-              aria-label="Ver detalle"
-              onClick={handleVer}
-              title="Ver detalle"
-            >
-              <LuEye />
-            </IconButton>
+            <BotonAccion accion="ver" label="Ver detalle" onClick={handleVer} />
             {cerrado
               ? onReabrir && (
-                  <BotonTabla accion="reabrir" onClick={() => onReabrir(incidente)}>
-                    Reabrir
-                  </BotonTabla>
+                  <BotonAccion
+                    accion="reabrir"
+                    label="Reabrir incidente"
+                    onClick={() => onReabrir(incidente)}
+                  />
                 )
               : onCerrar && (
-                  <BotonTabla accion="cerrar" onClick={() => onCerrar(incidente)}>
-                    Cerrar
-                  </BotonTabla>
+                  <BotonAccion
+                    accion="cerrar"
+                    label="Cerrar incidente"
+                    onClick={() => onCerrar(incidente)}
+                  />
                 )}
           </HStack>
         </Celda>

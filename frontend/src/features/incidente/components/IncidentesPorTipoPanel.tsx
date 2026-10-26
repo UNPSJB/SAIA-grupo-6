@@ -268,15 +268,6 @@ export function IncidentesPorTipoPanel({
                     <Tooltip
                       content={`Filtrar por ${label}`}
                       disabled={!tieneIncidentes}
-                      contentProps={{
-                        bg: "gray.800",
-                        color: "white",
-                        px: "3",
-                        py: "2",
-                        borderRadius: "md",
-                        fontSize: "sm",
-                        fontWeight: "medium",
-                      }}
                     >
                       {badgeContent}
                     </Tooltip>
@@ -289,15 +280,6 @@ export function IncidentesPorTipoPanel({
                         : `${label}: ${cantidad} incidente${cantidad !== 1 ? "s" : ""} (${incluirCerrados ? "abiertos + cerrados" : "abiertos"})`
                     }
                     disabled={!tieneIncidentes}
-                    contentProps={{
-                      bg: "gray.800",
-                      color: "white",
-                      px: "3",
-                      py: "2",
-                      borderRadius: "md",
-                      fontSize: "sm",
-                      fontWeight: "medium",
-                    }}
                   >
                     {barra}
                   </Tooltip>

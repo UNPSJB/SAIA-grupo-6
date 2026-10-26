@@ -3,7 +3,7 @@ import {
   TIPOS_QUIMICOS,
   type InsumoQuimico,
 } from "../types/insumoQuimico";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface InsumoQuimicoItemProps {
   insumo: InsumoQuimico;
@@ -46,18 +46,12 @@ export function InsumoQuimicoItem({
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(insumo)}>
-                Modificar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(insumo)} />
 
-              <BotonTabla accion="eliminar" onClick={() => onDelete(insumo)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(insumo)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(insumo)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(insumo)} />
           )}
         </HStack>
       </Celda>

@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { InsumoFormValues } from "../../types/insumo";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -59,11 +58,6 @@ export function InsumoCreatePage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Nuevo insumo"
-        actions={
-          <BotonVolver onClick={() => navigate("/insumos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
@@ -73,6 +67,7 @@ export function InsumoCreatePage() {
         isLoading={loading}
         title="Alta de insumo"
         submitLabel="Crear insumo"
+        onCancel={() => navigate("/insumos")}
       />
 
       <DialogoExito

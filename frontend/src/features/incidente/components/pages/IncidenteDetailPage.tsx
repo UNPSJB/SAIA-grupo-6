@@ -14,6 +14,7 @@ import {
   formatoFechaCierre,
 } from "../../types/incidente";
 import {
+  AccionesDetalle,
   BannerError,
   BotonCancelar,
   BotonVolver,
@@ -76,11 +77,6 @@ export function IncidenteDetailPage() {
         <PageHeader
           title={`${incidente.titulo} #${incidente.id}`}
           description={`Reportado el ${formatoFecha(incidente.fecha_reporte)}`}
-          actions={
-            <BotonVolver onClick={() => navigate(backUrl)}>
-              Volver a la lista
-            </BotonVolver>
-          }
         />
 
         {/* Estado */}
@@ -241,11 +237,16 @@ export function IncidenteDetailPage() {
           </Box>
         )}
 
-        {/* Botón de historial */}
-        <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
-          <LuHistory aria-hidden />
-          Ver historial
-        </BotonCancelar>
+        {/* Acciones al pie de la ficha */}
+        <AccionesDetalle>
+          <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
+            <LuHistory aria-hidden />
+            Ver historial
+          </BotonCancelar>
+          <BotonVolver onClick={() => navigate(backUrl)}>
+            Volver a la lista
+          </BotonVolver>
+        </AccionesDetalle>
       </Box>
 
       {/* Imagen ampliada */}

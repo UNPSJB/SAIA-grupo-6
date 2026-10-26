@@ -7,7 +7,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { Equipo } from "../../types/equipo";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -34,11 +33,6 @@ export function EquipoCreatePage() {
       <PageHeader
         title="Nuevo equipo"
         description="Cargá el equipo con su tipo y ubicación para poder Planes de Limpieza y calibraciones."
-        actions={
-          <BotonVolver onClick={() => navigate("/equipos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && <BannerError>{error}</BannerError>}
@@ -48,6 +42,7 @@ export function EquipoCreatePage() {
         isLoading={loading}
         title="Alta de Equipo"
         submitLabel="Crear Equipo"
+        onCancel={() => navigate("/equipos")}
       />
 
       <DialogoExito isOpen={exito} mensaje="Equipo agregado correctamente." />
