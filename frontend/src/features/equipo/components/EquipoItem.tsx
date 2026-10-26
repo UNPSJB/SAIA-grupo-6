@@ -32,7 +32,7 @@ export function EquipoItem({
         <TextoTruncado texto={equipo.tipo} />
       </Celda>
       <Celda p="3">
-        <TextoTruncado texto={equipo.ubicacion} />
+        <TextoTruncado texto={equipo.sector.nombre} />
       </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">

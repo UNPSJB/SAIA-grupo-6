@@ -45,7 +45,7 @@ export function EquiposPage() {
       await reactivar(equipoAReactivar.id, {
         nombre: equipoAReactivar.nombre,
         tipo: equipoAReactivar.tipo,
-        ubicacion: equipoAReactivar.ubicacion,
+        sector_id: equipoAReactivar.sector_id,
         activo: true,
       });
       setEquipoAReactivar(null);

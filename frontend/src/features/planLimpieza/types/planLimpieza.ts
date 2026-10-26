@@ -63,3 +63,10 @@ export interface PersonalOption {
   puede_administrar?: boolean;
   es_super_admin?: boolean;
 }
+import type { SectorResumen } from "../../sector/types/sector";
+export interface EquipoOption {
+  id: number;
+  nombre: string;
+  sector_id: number;
+  sector: SectorResumen;
+}

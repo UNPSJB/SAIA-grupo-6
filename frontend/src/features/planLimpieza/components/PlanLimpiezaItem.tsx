@@ -5,6 +5,7 @@ import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrone
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
   nombreEquipo: string;
+  nombreSector: string;
   onEdit: (plan: PlanLimpieza) => void;
   onDelete: (plan: PlanLimpieza) => void;
   onReactivar: (plan: PlanLimpieza) => void;
@@ -36,6 +37,9 @@ export function PlanLimpiezaItem({
             )
             .join(", ")}
         />
+      </Celda>
+      <Celda p="3">
+        <TextoTruncado texto={nombreEquipo} />
       </Celda>
       <Celda p="3">
         <TextoTruncado texto={nombreEquipo} />

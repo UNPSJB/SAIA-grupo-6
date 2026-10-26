@@ -166,6 +166,17 @@ const AptitudEditPage = lazy(() =>
   import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
 );
 
+//  Sector
+const SectorPage = lazy(() =>
+  import("./features/sector/components/pages/SectorPage").then((mod) => ({ default: mod.SectorPage })),
+);
+const SectorCreatePage = lazy(() =>
+  import("./features/sector/components/pages/SectorCreatePage").then((mod) => ({ default: mod.SectorCreatePage })),
+);
+const SectorEditPage = lazy(() =>
+  import("./features/sector/components/pages/SectorEditPage").then((mod) => ({ default: mod.SectorEditPage })),
+);
+
 // 9. Incidentes
 const IncidentesListPage = lazy(() =>
   import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
@@ -504,6 +515,32 @@ export const router = createBrowserRouter([
                 element: (
                 <ConSuspense>
                   <AptitudEditPage />
+                </ConSuspense>
+              ),
+              },
+
+              // ---------------- SECTORES ----------------
+              {
+                path: "/sectores",
+                element: (
+                <ConSuspense>
+                  <SectorPage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/sectores/nuevo",
+                element: (
+                <ConSuspense>
+                  <SectorCreatePage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/sectores/:id/editar",
+                element: (
+                <ConSuspense>
+                  <SectorEditPage />
                 </ConSuspense>
               ),
               },
