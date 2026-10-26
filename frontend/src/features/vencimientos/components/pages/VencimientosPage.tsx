@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, Button, Heading, Input, Spinner, Table, Text } from "@chakra-ui/react";
-import { usePaginas } from "../../../../common/hooks/usePaginas";
-import { obtenerVencimientos } from "../../services/vencimientoService";
+import {
+  obtenerOpcionesVencimientos,
+  obtenerVencimientosPaginados,
+  type VencimientosOpciones,
+} from "../../services/vencimientoService";
 import { TIPOS_VENCIMIENTO } from "../../types/vencimiento";
 import type {
   EstadoVencimiento,
@@ -10,6 +13,7 @@ import type {
   VencimientoConsolidado,
 } from "../../types/vencimiento";
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
+import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
 import { Paginacion, BotonAccion, TextoTruncado } from "../../../../components/ui/patrones";
 import { LuCalendarClock, LuCircleCheck, LuTriangleAlert } from "react-icons/lu";
 import {
@@ -25,12 +29,6 @@ import {
 const PAGE_SIZE = 10;
 
 type Orden = "URGENCIA" | "VIGENTES_PRIMERO";
-
-// Qué estado va primero según el orden elegido.
-const RANGO_ESTADO: Record<Orden, Record<EstadoVencimiento, number>> = {
-  URGENCIA: { VENCIDO: 0, PROXIMO: 1, VIGENTE: 2 },
-  VIGENTES_PRIMERO: { VIGENTE: 0, PROXIMO: 1, VENCIDO: 2 },
-};
 
 const ESTILO_ESTADO: Record<
   EstadoVencimiento,
@@ -54,39 +52,43 @@ function textoDias(v: VencimientoConsolidado) {
   return `Vence en ${v.dias_restantes} día(s)`;
 }
 
-// Minúsculas y sin tildes, para que "calibracion" encuentre "Calibración".
-function normalizar(texto: string) {
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-// Todo lo que se ve en una fila, junto, para buscar en cualquier campo.
-function textoBuscable(v: VencimientoConsolidado) {
-  return normalizar(
-    [
-      TIPOS_VENCIMIENTO.find((t) => t.value === v.tipo)?.label ?? v.tipo,
-      v.detalle,
-      v.sujeto,
-      formatoFechaOCorta(v.fecha_vencimiento),
-      v.fecha_vencimiento,
-      ESTILO_ESTADO[v.estado].etiqueta,
-      textoDias(v),
-    ].join(" ")
-  );
-}
-
 export function VencimientosPage() {
   const navigate = useNavigate();
-  const [vencimientos, setVencimientos] = useState<VencimientoConsolidado[]>([]);
+  const [items, setItems] = useState<VencimientoConsolidado[]>([]);
+  const [total, setTotal] = useState(0);
   const [tipo, setTipo] = useState<TipoVencimiento | "">("");
   const [persona, setPersona] = useState(""); // id de la persona, o "" = todas
   const [aptitud, setAptitud] = useState(""); // nombre de la aptitud, o "" = todas
   const [busqueda, setBusqueda] = useState("");
+  // El fetch usa la búsqueda con debounce: sin esto, cada tecla pedía una
+  // página al servidor. El input (y "Limpiar filtros") actualizan
+  // `busqueda`; el efecto de carga depende de `busquedaAplicada`.
+  const busquedaAplicada = useValorDebounced(busqueda);
   const [orden, setOrden] = useState<Orden>("URGENCIA");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Opciones de los selectores de persona y aptitud: ahora vienen de un
+  // endpoint liviano en vez de derivarse de la tabla completa.
+  const [opciones, setOpciones] = useState<VencimientosOpciones>({
+    personas: [],
+    aptitudes: [],
+  });
+  useEffect(() => {
+    if (tipo !== "PERSONAL") return;
+    let cancelado = false;
+    obtenerOpcionesVencimientos()
+      .then((data) => {
+        if (!cancelado) setOpciones(data);
+      })
+      .catch(() => {
+        // Sin opciones el dropdown queda vacío; no rompe la tabla.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [tipo]);
 
   useEffect(() => {
     let cancelado = false;
@@ -94,8 +96,17 @@ export function VencimientosPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await obtenerVencimientos(tipo || undefined);
-        if (!cancelado) setVencimientos(data);
+        const data = await obtenerVencimientosPaginados(page, PAGE_SIZE, {
+          tipo: tipo || undefined,
+          personaId: persona !== "" ? Number(persona) : undefined,
+          aptitud: aptitud || undefined,
+          buscar: busquedaAplicada,
+          orden,
+        });
+        if (!cancelado) {
+          setItems(data.items);
+          setTotal(data.total);
+        }
       } catch (e) {
         if (!cancelado) {
           setError(e instanceof Error ? e.message : "No se pudieron cargar los vencimientos");
@@ -108,65 +119,43 @@ export function VencimientosPage() {
       cancelado = true;
       window.clearTimeout(timeoutId);
     };
-  }, [tipo]);
+  }, [tipo, persona, aptitud, busquedaAplicada, orden, page]);
 
-  // Opciones de los selectores: las personas y aptitudes que realmente tienen vencimientos.
-  const personas = useMemo(() => {
-    const porId = new Map<number, string>();
-    vencimientos.forEach((v) => porId.set(v.sujeto_id, v.sujeto));
-    return [...porId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [vencimientos]);
+  // Página fuera de rango: `items` vacío con `total > 0` significa que la
+  // página pedida ya no existe (el filtro acortó la lista). El ajuste va
+  // DURANTE el render — el mismo "recortar, no corregir con un efecto" de
+  // `useListaPaginada` — porque un `useEffect` con `setPage` dispara la
+  // regla `set-state-in-effect`. Con `page` en las dependencias del efecto
+  // de arriba, la corrección dispara el re-fetch de la última página válida.
+  const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (total > 0 && items.length === 0 && page > totalPaginas) {
+    setPage(totalPaginas);
+  }
 
-  const aptitudes = useMemo(
-    () => [...new Set(vencimientos.map((v) => v.detalle))].sort((a, b) => a.localeCompare(b)),
-    [vencimientos]
-  );
-
-  // Filtrar + buscar + ordenar, todo en el navegador sobre la lista ya cargada.
-  const visibles = useMemo(() => {
-    const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean);
-    const rango = RANGO_ESTADO[orden];
-
-    return vencimientos
-      .filter((v) => !persona || String(v.sujeto_id) === persona)
-      .filter((v) => !aptitud || v.detalle === aptitud)
-      .filter((v) => {
-        if (terminos.length === 0) return true;
-        const texto = textoBuscable(v);
-        return terminos.every((t) => texto.includes(t));
-      })
-      .sort((a, b) => rango[a.estado] - rango[b.estado] || a.dias_restantes - b.dias_restantes);
-  }, [vencimientos, persona, aptitud, busqueda, orden]);
+  /** Un filtro nuevo siempre arranca desde la primera página. */
+  const cambiarFiltro = (aplicar: () => void) => {
+    aplicar();
+    setPage(1);
+  };
 
   const hayFiltros = persona !== "" || aptitud !== "" || busqueda !== "";
 
-  // Paginación sobre la lista ya filtrada y ordenada. El `resetKey` vuelve a
-  // la página 1 cuando cambia cualquier filtro, la búsqueda o el orden:
-  // sin él, acotar los resultados dejaba la tabla en una página vacía.
-  const {
-    paginados: visiblesPaginados,
-    page,
-    setPage,
-    total,
-    hayVariasPaginas,
-  } = usePaginas(
-    visibles,
-    PAGE_SIZE,
-    `${tipo}|${persona}|${aptitud}|${busqueda}|${orden}`,
-  );
-
   const limpiarFiltros = () => {
-    setPersona("");
-    setAptitud("");
-    setBusqueda("");
+    cambiarFiltro(() => {
+      setPersona("");
+      setAptitud("");
+      setBusqueda("");
+    });
   };
 
   // Al cambiar el tipo se reinician los filtros de persona y aptitud, porque
   // los ids de personas y de equipos podrían coincidir.
   const cambiarTipo = (nuevo: TipoVencimiento | "") => {
-    setTipo(nuevo);
-    setPersona("");
-    setAptitud("");
+    cambiarFiltro(() => {
+      setTipo(nuevo);
+      setPersona("");
+      setAptitud("");
+    });
   };
 
   return (
@@ -190,7 +179,7 @@ export function VencimientosPage() {
           <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>Buscar</Text>
           <Input
             value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
+            onChange={(e) => cambiarFiltro(() => setBusqueda(e.target.value))}
             placeholder="Persona, equipo, detalle, fecha, estado..."
             bg="white"
           />
@@ -221,13 +210,13 @@ export function VencimientosPage() {
               </Text>
               <select
                 value={persona}
-                onChange={(e) => setPersona(e.target.value)}
+                onChange={(e) => cambiarFiltro(() => setPersona(e.target.value))}
                 style={estiloSelect}
               >
                 <option value="">Todas</option>
-                {personas.map(([id, nombre]) => (
-                  <option key={id} value={id}>
-                    {nombre}
+                {opciones.personas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
                   </option>
                 ))}
               </select>
@@ -239,11 +228,11 @@ export function VencimientosPage() {
               </Text>
               <select
                 value={aptitud}
-                onChange={(e) => setAptitud(e.target.value)}
+                onChange={(e) => cambiarFiltro(() => setAptitud(e.target.value))}
                 style={estiloSelect}
               >
                 <option value="">Todos</option>
-                {aptitudes.map((nombre) => (
+                {opciones.aptitudes.map((nombre) => (
                   <option key={nombre} value={nombre}>
                     {nombre}
                   </option>
@@ -257,7 +246,7 @@ export function VencimientosPage() {
           <Text style={{ fontWeight: "bold", color: TEXTO_SUAVE, marginBottom: "4px" }}>Ordenar</Text>
           <select
             value={orden}
-            onChange={(e) => setOrden(e.target.value as Orden)}
+            onChange={(e) => cambiarFiltro(() => setOrden(e.target.value as Orden))}
             style={estiloSelect}
           >
             <option value="URGENCIA">Vencidos → Próximos → Vigentes</option>
@@ -306,35 +295,37 @@ export function VencimientosPage() {
 
       {loading ? (
         <Spinner />
-      ) : vencimientos.length === 0 && !error ? (
-        <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
-          <Text
-            fontSize="18px"
-            color={EXITO}
-            fontWeight="bold"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            gap="2"
-          >
-            <LuCircleCheck aria-hidden />
-            No hay vencimientos cargados
-          </Text>
-          <Text color={GRIS_MEDIO}>
-            Cuando cargues vencimientos de personal o planes de calibración/mantenimiento, van a aparecer acá.
-          </Text>
-        </Box>
-      ) : visibles.length === 0 && !error ? (
-        <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
-          <Text fontSize="18px" color={TEXTO_SUAVE} fontWeight="bold">
-            No hay resultados con esos filtros
-          </Text>
-          <Text color={GRIS_MEDIO}>Probá con otra búsqueda o limpiá los filtros.</Text>
-        </Box>
+      ) : items.length === 0 && !error ? (
+        hayFiltros ? (
+          <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
+            <Text fontSize="18px" color={TEXTO_SUAVE} fontWeight="bold">
+              No hay resultados con esos filtros
+            </Text>
+            <Text color={GRIS_MEDIO}>Probá con otra búsqueda o limpiá los filtros.</Text>
+          </Box>
+        ) : (
+          <Box p="30px" textAlign="center" bg="#f8f9fa" borderRadius="8px">
+            <Text
+              fontSize="18px"
+              color={EXITO}
+              fontWeight="bold"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              gap="2"
+            >
+              <LuCircleCheck aria-hidden />
+              No hay vencimientos cargados
+            </Text>
+            <Text color={GRIS_MEDIO}>
+              Cuando cargues vencimientos de personal o planes de calibración/mantenimiento, van a aparecer acá.
+            </Text>
+          </Box>
+        )
       ) : (
         <>
           <Text style={{ color: GRIS_MEDIO, fontSize: "14px", marginBottom: "8px" }}>
-            Mostrando {visibles.length} de {vencimientos.length}
+            Mostrando {items.length} de {total}
           </Text>
           <Box
             bg="white"
@@ -369,7 +360,7 @@ export function VencimientosPage() {
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {visiblesPaginados.map((v) => {
+                {items.map((v) => {
                   const estilo = ESTILO_ESTADO[v.estado];
                   return (
                     <Table.Row key={v.id_vencimiento} _hover={{ bg: "#f7fafc" }}>
@@ -417,7 +408,7 @@ export function VencimientosPage() {
             </Table.Root>
           </Box>
 
-          {hayVariasPaginas && (
+          {totalPaginas > 1 && (
             <Paginacion
               count={total}
               pageSize={PAGE_SIZE}

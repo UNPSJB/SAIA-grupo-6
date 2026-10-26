@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, HStack, Field } from "@chakra-ui/react";
 import { IncidenteTable } from "../IncidenteTable";
@@ -48,7 +48,6 @@ export function IncidentesListPage() {
   const [filtroEstado, setFiltroEstado] = useState<EstadoIncidente | "">("abierto");
   const [filtroTipo, setFiltroTipo] = useState<TipoIncidente | "">("");
   const [busqueda, setBusqueda] = useState("");
-  const [page, setPage] = useState(1);
   const [incluirCerrados, setIncluirCerrados] = useState(false);
 
   // Período de la estadística: por defecto "todo", que es el comportamiento
@@ -57,13 +56,26 @@ export function IncidentesListPage() {
   const [fechaDesde, setFechaDesde] = useState(haceDiasISO(30));
   const [fechaHasta, setFechaHasta] = useState(hoyISO());
 
-  // El estado se filtra en el backend: "abierto" trae solo los pendientes;
-  // "" (todos los estados) trae abiertos y cerrados. Con período "todo" no se
-  // mandan fechas: se cuenta el histórico completo.
-  const { incidentes, loading, error, cargarIncidentes } = useIncidentes(
+  // Todos los filtros viajan al backend, que devuelve una página de filas.
+  // `orden="antiguos"` mantiene el criterio de antes: el incidente más viejo
+  // arriba, para resolver primero lo que más espera.
+  const {
+    incidentes,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarIncidentes,
+  } = useIncidentes(
     filtroEstado,
+    filtroTipo,
+    busqueda,
     periodo === "todo" ? undefined : fechaDesde,
-    periodo === "todo" ? undefined : fechaHasta
+    periodo === "todo" ? undefined : fechaHasta,
+    PAGE_SIZE,
+    "antiguos"
   );
 
   // Refresco automático: el alta, el cierre o la reapertura de un incidente
@@ -81,42 +93,8 @@ export function IncidentesListPage() {
   const [incidenteAReabrir, setIncidenteAReabrir] = useState<Incidente | null>(null);
   const { valor: mensajeAviso, avisar } = useAvisoTemporal<string>(3500);
 
-  // Filtros de tipo/búsqueda y orden por antigüedad: el más viejo primero,
-  // para que los que llevan más tiempo sin resolverse queden arriba.
-  const incidentesProcesados = useMemo(() => {
-    let resultado = incidentes;
-    if (filtroTipo) {
-      resultado = resultado.filter((i) => i.tipo === filtroTipo);
-    }
-    if (busqueda.trim()) {
-      // Normaliza acentos: "López" y "lopez" son lo mismo para la búsqueda.
-      const normalizar = (s: string) =>
-        s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const termino = normalizar(busqueda.trim());
-      resultado = resultado.filter(
-        (i) =>
-          normalizar(i.titulo).includes(termino) ||
-          normalizar(i.descripcion).includes(termino) ||
-          normalizar(i.usuario_nombre ?? "").includes(termino),
-      );
-    }
-    return [...resultado].sort(
-      (a, b) =>
-        new Date(a.fecha_reporte).getTime() - new Date(b.fecha_reporte).getTime(),
-    );
-  }, [incidentes, filtroTipo, busqueda]);
-
-  const totalPaginas = Math.max(1, Math.ceil(incidentesProcesados.length / PAGE_SIZE));
-  const paginaActual = Math.min(page, totalPaginas);
-
-  const incidentesPaginados = useMemo(() => {
-    const inicio = (paginaActual - 1) * PAGE_SIZE;
-    return incidentesProcesados.slice(inicio, inicio + PAGE_SIZE);
-  }, [incidentesProcesados, paginaActual]);
-
   const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFiltroTipo(e.target.value as TipoIncidente | "");
-    setPage(1);
   };
 
   const handleEstadoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -124,7 +102,6 @@ export function IncidentesListPage() {
     setFiltroEstado(nuevoEstado);
     // Sincroniza el switch del gráfico con el dropdown
     setIncluirCerrados(nuevoEstado === "");
-    setPage(1);
   };
 
   // Al elegir un chip se recalculan las fechas; "personalizado" arranca con
@@ -222,12 +199,11 @@ export function IncidentesListPage() {
       {/* Indicador E7: incidentes por tipo — conectado al filtro de la tabla */}
       <IncidentesPorTipoPanel
         filtroTipo={filtroTipo}
-        onFiltroTipoChange={(tipo) => { setFiltroTipo(tipo); setPage(1); }}
+        onFiltroTipoChange={(tipo) => setFiltroTipo(tipo)}
         incluirCerrados={incluirCerrados}
         onIncluirCerradosChange={(checked) => {
           setIncluirCerrados(checked);
           setFiltroEstado(checked ? "" : "abierto");
-          setPage(1);
         }}
         periodo={periodo}
         onPeriodoChange={handlePeriodoChange}
@@ -277,7 +253,7 @@ export function IncidentesListPage() {
               <FormInput
                 type="text"
                 value={busqueda}
-                onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
+                onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar por título, descripción o reportado por..."
               />
             </Field.Root>
@@ -293,7 +269,7 @@ export function IncidentesListPage() {
       {!loading && !error && (
         <>
           <IncidenteTable
-            incidentes={incidentesPaginados}
+            incidentes={incidentes}
             onCerrar={setIncidenteACerrar}
             onReabrir={setIncidenteAReabrir}
             onVer={(incidente) => navigate(`/incidentes/${incidente.id}`)}
@@ -305,11 +281,11 @@ export function IncidentesListPage() {
             `Paginacion` espera el total de FILAS como `count`: Chakra calcula
             las páginas con `ceil(count / pageSize)`.
           */}
-          {totalPaginas > 1 && (
+          {hayVariasPaginas && (
             <Paginacion
-              count={incidentesProcesados.length}
+              count={total}
               pageSize={PAGE_SIZE}
-              page={paginaActual}
+              page={page}
               onPageChange={setPage}
             />
           )}

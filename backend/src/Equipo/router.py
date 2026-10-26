@@ -1,13 +1,15 @@
 from datetime import date, timedelta
 import os
 import uuid
+from typing import Optional, Union
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
 from src.auth.dependencies import require_admin, require_operador
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
@@ -37,14 +39,23 @@ def crear_equipo(
 
 @router.get(
     "",
-    response_model=list[schemas.EquipoResponse],
+    response_model=Union[list[schemas.EquipoResponse], schemas.EquipoPagina],
     dependencies=[Depends(require_operador)]
 )
 def listar_equipos(
     incluir_inactivos: bool = False,
-    db:Session = Depends(get_db)
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa (la usan los dropdowns y el tablero).",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
+    db: Session = Depends(get_db),
 ):
-    return services.listar_equipos(db, incluir_inactivos)
+    if page is None:
+        return services.listar_equipos(db, incluir_inactivos)
+    items, total = services.listar_equipos_paginado(db, incluir_inactivos, page, page_size)
+    return schemas.EquipoPagina(items=items, total=total, page=page, page_size=page_size)
 
 @router.get(
     "/{equipo_id}",

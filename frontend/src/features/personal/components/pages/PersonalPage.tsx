@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { PersonalTable } from "../PersonalTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -21,28 +20,30 @@ export function PersonalPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { personales, loading, error, cargarPersonales } = usePersonales(verInactivos);
+  const {
+    personales,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarPersonales,
+  } = usePersonales(verInactivos, PAGE_SIZE);
   const {
     borrar,
     reactivar,
     loading: procesando,
     error: errorReactivar,
 } = usePersonalABM();
-  const {
-    paginados: personalPaginado,
-    totalFiltrados,
-    page,
-    setPage,
-    hayVariasPaginas,
-  } = usePaginacion(personales, verInactivos, PAGE_SIZE);
 
   const [personaAEliminar, setPersonaAEliminar] = useState<Persona | null>(null);
   const [personaAReactivar, setPersonaAReactivar] = useState<Persona | null>(null);
 
 
   const handleToggleInactivos = (checked: boolean) => {
+    // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
     setVerInactivos(checked);
-    setPage(1); 
   };
 
   const handleEdit = (persona: Persona) => navigate(`/personal/${persona.id}/editar`);
@@ -109,11 +110,11 @@ export function PersonalPage() {
 
       {!loading && !error && (
         <>
-          <PersonalTable personales={personalPaginado} onEdit={handleEdit} onDelete={handleDeleteRequest} onReactivar={handleReactivarRequest} />
+          <PersonalTable personales={personales} onEdit={handleEdit} onDelete={handleDeleteRequest} onReactivar={handleReactivarRequest} />
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

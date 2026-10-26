@@ -2,13 +2,20 @@ import type { Insumo, InsumoFormValues } from "../types/insumo";
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
-export async function listarInsumos(incluirInactivos = false): Promise<Insumo[]> {
-    const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+export async function listarInsumos(
+    page: number,
+    pageSize: number,
+    incluirInactivos = false
+): Promise<Pagina<Insumo>> {
+    const query = queryPagina(page, pageSize, {
+        incluir_inactivos: incluirInactivos || undefined,
+    });
     const response = await apiFetch(`${API_URL}/insumos${query}`);
 
-    return pedir<Insumo[]>(response, "Error al obtener los insumos");
+    return pedir<Pagina<Insumo>>(response, "Error al obtener los insumos");
 }
 
 export async function obtenerInsumo(id: number): Promise<Insumo> {

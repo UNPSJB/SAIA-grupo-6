@@ -41,11 +41,13 @@ from src.tareas.models import Tarea  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
+from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 
 __all__ = [
     "Aptitud",
     "Calibracion",
     "Checklist",
+    "Documento",
     "ElementoLimpieza",
     "Equipo",
     "HistorialRegistroTarea",
@@ -60,4 +62,5 @@ __all__ = [
     "TokenRevocado",
     "UnidadMedida",
     "VencimientoPersonal",
+    "VersionDocumento",
 ]

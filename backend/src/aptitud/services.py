@@ -6,6 +6,7 @@ from src.common.persistence import (
     baja_logica,
     guardar,
     listar,
+    listar_paginado,
     mapa_por_campo,
     obtener,
     verificar_disponibilidad,
@@ -39,6 +40,15 @@ def crear_aptitud(db: Session, datos: schemas.AptitudCreate) -> Aptitud:
 
 def listar_aptitudes(db: Session, incluir_inactivos: bool = False) -> List[Aptitud]:
     return listar(db, Aptitud, incluir_inactivos=incluir_inactivos)
+
+
+def listar_aptitudes_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[List[Aptitud], int]:
+    """Mismo filtro que `listar_aptitudes`, recortado en la base: página + total."""
+    return listar_paginado(
+        db, Aptitud, incluir_inactivos=incluir_inactivos, page=page, page_size=page_size
+    )
 
 
 def obtener_aptitud(db: Session, aptitud_id: int) -> Aptitud:

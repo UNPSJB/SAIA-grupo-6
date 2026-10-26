@@ -1,6 +1,9 @@
-from typing import List
-from fastapi import APIRouter, Depends, status
+from typing import List, Optional, Union
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
+
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin, require_operador
 from src.insumoQuimico import schemas, services
@@ -29,9 +32,25 @@ def listar_opciones_insumos(db: Session = Depends(get_db)):
 def crear_insumo_quimico(datos: schemas.InsumoQuimicoCreate, db: Session = Depends(get_db)):
     return services.crear_insumo_quimico(db, datos)
 
-@router.get("", response_model=List[schemas.InsumoQuimicoResponse], dependencies=_DEP_ADMIN)
-def listar_insumos_quimicos(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
-    return services.listar_insumos_quimicos(db, incluir_inactivos)
+@router.get("", response_model=Union[List[schemas.InsumoQuimicoResponse], schemas.InsumoQuimicoPagina], dependencies=_DEP_ADMIN)
+def listar_insumos_quimicos(
+    incluir_inactivos: bool = False,
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
+    db: Session = Depends(get_db),
+):
+    if page is None:
+        return services.listar_insumos_quimicos(db, incluir_inactivos)
+    items, total = services.listar_insumos_quimicos_paginado(
+        db, incluir_inactivos, page, page_size
+    )
+    return schemas.InsumoQuimicoPagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 @router.get("/{insumo_id}", response_model=schemas.InsumoQuimicoResponse, dependencies=_DEP_ADMIN)
 def obtener_insumo_quimico(insumo_id: int, db: Session = Depends(get_db)):

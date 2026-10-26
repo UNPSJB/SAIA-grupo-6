@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import Optional, Union
 from sqlalchemy.orm import Session
 
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.PlanCalibracionMantenimiento import schemas, services
 from src.auth.dependencies import require_admin
@@ -30,14 +32,30 @@ def create_plan_calibracion_mantenimiento(
 
 @router.get(
     "",
-    response_model=list[schemas.PlanCalibracionMantenimiento],
+    response_model=Union[
+        list[schemas.PlanCalibracionMantenimiento],
+        schemas.PlanCalibracionMantenimientoPagina,
+    ],
     dependencies=_DEP_ADMIN,
 )
 def read_planes_calibracion_mantenimiento(
     incluir_inactivos: bool = False,
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa (la usa el tablero).",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     db: Session = Depends(get_db),
 ):
-    return services.listar_planes_calibracion_mantenimiento(db, incluir_inactivos)
+    if page is None:
+        return services.listar_planes_calibracion_mantenimiento(db, incluir_inactivos)
+    items, total = services.listar_planes_calibracion_mantenimiento_paginado(
+        db, incluir_inactivos, page, page_size
+    )
+    return schemas.PlanCalibracionMantenimientoPagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 
 @router.get(

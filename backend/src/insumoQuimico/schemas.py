@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from src.common.paginacion import Pagina
 from src.insumoQuimico.models import TipoQuimico
 from src.insumoQuimico import exceptions
 
@@ -95,3 +96,9 @@ class UnidadMedidaResponse(BaseModel):
     simbolo: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InsumoQuimicoPagina(Pagina["InsumoQuimicoResponse"]):
+    """Página de insumos químicos: la respuesta del listado paginado."""
+
+    pass

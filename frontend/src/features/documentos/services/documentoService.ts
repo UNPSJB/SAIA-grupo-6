@@ -1,5 +1,6 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 import type {
   Documento,
   DocumentoVigente,
@@ -11,10 +12,14 @@ export function urlArchivo(archivoUrl: string): string {
   return `${API_URL}/${archivoUrl.replace(/\\/g, "/")}`;
 }
 
-// Gestión (administrador)
-export async function listarDocumentos(): Promise<Documento[]> {
-  const response = await apiFetch(`${API_URL}/documentos`);
-  return pedir<Documento[]>(response, "Error al obtener los documentos");
+// Gestión (administrador): la tabla pide de a una página.
+export async function listarDocumentos(
+  page: number,
+  pageSize: number
+): Promise<Pagina<Documento>> {
+  const query = queryPagina(page, pageSize);
+  const response = await apiFetch(`${API_URL}/documentos${query}`);
+  return pedir<Pagina<Documento>>(response, "Error al obtener los documentos");
 }
 
 export async function obtenerDocumento(id: number): Promise<Documento> {
@@ -22,30 +27,34 @@ export async function obtenerDocumento(id: number): Promise<Documento> {
   return pedir<Documento>(response, "Error al obtener el documento");
 }
 
-// Historia 3: solo versiones vigentes, con búsqueda y filtro por tipo.
+// Historia 3: solo versiones vigentes, con búsqueda y filtro por tipo,
+// aplicados en el servidor junto con la paginación.
 export async function listarDocumentosVigentes(
+  page: number,
+  pageSize: number,
   buscar = "",
   tipo: TipoDocumento | "" = ""
-): Promise<DocumentoVigente[]> {
-  const params = new URLSearchParams();
-  if (buscar.trim()) params.set("buscar", buscar.trim());
-  if (tipo) params.set("tipo", tipo);
-  const query = params.toString() ? `?${params.toString()}` : "";
+): Promise<Pagina<DocumentoVigente>> {
+  const query = queryPagina(page, pageSize, {
+    buscar: buscar.trim() || undefined,
+    tipo: tipo || undefined,
+  });
 
   const response = await apiFetch(`${API_URL}/documentos/vigentes${query}`);
-  return pedir<DocumentoVigente[]>(
+  return pedir<Pagina<DocumentoVigente>>(
     response,
     "Error al obtener los documentos vigentes"
   );
 }
 
-// Historia 4: historial completo (el backend valida que el usuario sea administrador).
+// Historia 4: historial completo. La ruta es admin-only y el backend verifica
+// el permiso contra el usuario del TOKEN: el cliente ya no envía usuario_id
+// (antes era un query param controlado por el cliente).
 export async function obtenerHistorial(
-  documentoId: number,
-  usuarioId: number
+  documentoId: number
 ): Promise<HistorialDocumento> {
   const response = await apiFetch(
-    `${API_URL}/documentos/${documentoId}/historial?usuario_id=${usuarioId}`
+    `${API_URL}/documentos/${documentoId}/historial`
   );
   return pedir<HistorialDocumento>(
     response,

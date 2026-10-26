@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Optional, Union
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin, require_operador
 from . import schemas, services
@@ -46,14 +47,27 @@ def crear_elemento_limpieza(
 
 @router.get(
     "",
-    response_model=list[schemas.ElementoLimpiezaResponse],
+    response_model=Union[List[schemas.ElementoLimpiezaResponse], schemas.ElementoLimpiezaPagina],
     dependencies=_DEP_ADMIN,
 )
 def listar_elementos_limpieza(
     incluir_inactivos: bool = False,
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     db: Session = Depends(get_db),
 ):
-  return services.listar_elementos_limpieza(db, incluir_inactivos)
+    if page is None:
+        return services.listar_elementos_limpieza(db, incluir_inactivos)
+    items, total = services.listar_elementos_limpieza_paginado(
+        db, incluir_inactivos, page, page_size
+    )
+    return schemas.ElementoLimpiezaPagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 
 @router.get(

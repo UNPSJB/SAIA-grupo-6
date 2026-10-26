@@ -3,6 +3,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.common.paginacion import Pagina
 from src.PlanCalibracionMantenimiento import exceptions
 
 
@@ -58,3 +59,9 @@ class PlanCalibracionMantenimiento(BaseModel):
     dias_restantes: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PlanCalibracionMantenimientoPagina(Pagina["PlanCalibracionMantenimiento"]):
+    """Página de planes: la respuesta del listado paginado en el servidor."""
+
+    pass

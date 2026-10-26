@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.common.validators import texto_obligatorio
 from src.aptitud import exceptions
 
@@ -32,3 +33,9 @@ class AptitudResponse(AptitudBase):
     activo: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AptitudPagina(Pagina[AptitudResponse]):
+    """Página de aptitudes: la respuesta del listado paginado en el servidor."""
+
+    pass

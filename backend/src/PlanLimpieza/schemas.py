@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import List, Optional
 from datetime import datetime
+from src.common.paginacion import Pagina
 from src.common.validators import (
     RE_NOMBRE_SOLO_LETRAS,
     id_positivo,
@@ -67,3 +68,9 @@ class PlanLimpieza(BaseModel):
     fecha_actualizacion: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PlanLimpiezaPagina(Pagina[PlanLimpieza]):
+    """Página de planes de limpieza: la respuesta del listado paginado."""
+
+    pass

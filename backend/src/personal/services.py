@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from src.common.paginacion import paginar
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
 from src.common.persistence import es_violacion_nulo, es_violacion_unica
@@ -111,6 +112,32 @@ def listar_personas(
         query = query.where(Personal.activo.is_(True))
 
     return db.scalars(query).all()
+
+
+def listar_personas_paginado(
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+) -> tuple[List[Personal], int]:
+    """Mismo filtro que `listar_personas`, recortado en la base: página + total.
+
+    El `ORDER BY id` es obligatorio acá: sin un orden determinista,
+    OFFSET/LIMIT puede repetir u omitir filas entre páginas (SQLite no
+    garantiza el orden de una consulta sin ORDER BY).
+    """
+    logger.info(
+        "Listando personal paginado desde services (incluir_inactivos=%s, page=%s)",
+        incluir_inactivos,
+        page,
+    )
+
+    query = select(Personal).order_by(Personal.id)
+
+    if not incluir_inactivos:
+        query = query.where(Personal.activo.is_(True))
+
+    return paginar(db, query, page, page_size)
 
 
 def leer_persona(
