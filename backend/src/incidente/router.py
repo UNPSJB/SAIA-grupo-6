@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -110,11 +110,18 @@ def listar_incidentes(
     estado: Optional[EstadoIncidente] = None,
     tipo: Optional[str] = None,
     equipo_id: Optional[int] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
     current_user: Personal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Listado de incidentes. Sin `estado` devuelve abiertos y cerrados."""
-    return services.listar_incidentes(db, estado, tipo, equipo_id)
+    """Listado de incidentes. Sin `estado` devuelve abiertos y cerrados.
+
+    `fecha_desde`/`fecha_hasta` acotan por fecha de reporte (inclusive).
+    """
+    return services.listar_incidentes(
+        db, estado, tipo, equipo_id, fecha_desde, fecha_hasta
+    )
 
 
 @router.get("/mios", response_model=List[schemas.IncidenteResponse])
@@ -129,6 +136,8 @@ def listar_mis_incidentes(
 @router.get("/resumen-por-tipo", response_model=schemas.IncidenteResumenResponse)
 def resumen_incidentes_por_tipo(
     incluir_cerrados: bool = False,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
     current_user: Personal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -136,12 +145,13 @@ def resumen_incidentes_por_tipo(
 
     Por defecto cuenta solo los incidentes sin acción correctiva registrada
     (abiertos). Con `incluir_cerrados=true` cuenta el histórico completo.
+    `fecha_desde`/`fecha_hasta` acotan por fecha de reporte (inclusive).
 
     Se declara ANTES de `/{incidente_id}`: si no, FastAPI intentaría parsear
     "resumen-por-tipo" como id numérico y devolvería 422.
     """
     estado = None if incluir_cerrados else EstadoIncidente.ABIERTO
-    return services.resumen_por_tipo(db, estado)
+    return services.resumen_por_tipo(db, estado, fecha_desde, fecha_hasta)
 
 
 @router.get("/{incidente_id}", response_model=schemas.IncidenteResponse)

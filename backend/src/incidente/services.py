@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -74,21 +74,56 @@ def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int
     return guardar(db, incidente)
 
 
+def _validar_rango_fechas(
+    fecha_desde: Optional[date], fecha_hasta: Optional[date]
+) -> None:
+    """Rechaza un rango cuya fecha inicial es posterior a la final."""
+    if fecha_desde is not None and fecha_hasta is not None and fecha_desde > fecha_hasta:
+        raise exceptions.FechaInvalida()
+
+
+def _aplicar_rango_fechas(
+    consulta,
+    fecha_desde: Optional[date],
+    fecha_hasta: Optional[date],
+):
+    """Acota la consulta a un rango de fechas de reporte, inclusive.
+
+    Se compara por `func.date(...)`: `fecha_reporte` es un `DateTime` y sin el
+    corte por día un `hasta` a las 00:00 se comería el día completo.
+    """
+    if fecha_desde is not None:
+        consulta = consulta.where(
+            func.date(models.Incidente.fecha_reporte) >= fecha_desde
+        )
+    if fecha_hasta is not None:
+        consulta = consulta.where(
+            func.date(models.Incidente.fecha_reporte) <= fecha_hasta
+        )
+    return consulta
+
+
 def listar_incidentes(
     db: Session,
     estado: Optional[EstadoIncidente] = None,
     tipo: Optional[str] = None,
     equipo_id: Optional[int] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
 ) -> List[models.Incidente]:
     """Lista los incidentes del más reciente al más viejo.
 
     Sin `estado` devuelve todos (abiertos y cerrados); con `estado` filtra.
+    `fecha_desde`/`fecha_hasta` acotan por fecha de reporte (inclusive).
     """
+    _validar_rango_fechas(fecha_desde, fecha_hasta)
+
     consulta = (
         select(models.Incidente)
         .options(*_RELACIONES)
         .order_by(models.Incidente.fecha_reporte.desc())
     )
+    consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
     if estado:
         # El router ya convierte el query param con el enum de FastAPI, así que
         # acá llega como `EstadoIncidente`. Se acepta también un `str` suelta
@@ -133,17 +168,24 @@ def listar_mis_incidentes(db: Session, usuario_id: int) -> List[models.Incidente
 
 
 def resumen_por_tipo(
-    db: Session, estado: Optional[EstadoIncidente] = None
+    db: Session,
+    estado: Optional[EstadoIncidente] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
 ) -> schemas.IncidenteResumenResponse:
     """Cuenta incidentes por tipo para el indicador del tablero (E7).
 
     Devuelve los cinco tipos siempre, con 0 si no hay registros. Por
     defecto es el universo de los abiertos (la historia de "incidentes abiertos":
-    que ninguno quede reportado y olvidado).
+    que ninguno quede reportado y olvidado). `fecha_desde`/`fecha_hasta`
+    acotan por fecha de reporte (inclusive).
     """
+    _validar_rango_fechas(fecha_desde, fecha_hasta)
+
     consulta = select(
         models.Incidente.tipo, func.count(models.Incidente.id)
     ).group_by(models.Incidente.tipo)
+    consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
     if estado:
         consulta = consulta.where(models.Incidente.estado == estado.value)
 

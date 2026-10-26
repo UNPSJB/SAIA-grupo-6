@@ -142,3 +142,35 @@ export interface IncidenteResumen {
   total: number;
   por_tipo: IncidenteResumenTipo[];
 }
+
+// --- Período seleccionable de la estadística de incidentes por tipo ---
+
+/**
+ * Período con el que se acota la estadística y el listado.
+ *
+ * `7d` y `30d` son los últimos 7/30 días **inclusive** (de hoy menos N días
+ * hasta hoy); `mes` va del primer día del mes en curso a hoy; `todo` no
+ * filtra; `personalizado` usa las fechas que elige el usuario.
+ */
+export type PeriodoRapido = "7d" | "30d" | "mes" | "todo" | "personalizado";
+
+/**
+ * Nombre del período para los mensajes de la interfaz.
+ *
+ * `personalizado` no menciona las fechas acá: el panel ya muestra el rango
+ * exacto y el listado no tiene dónde repetirlo.
+ */
+export function periodoLabel(periodo: PeriodoRapido): string {
+  switch (periodo) {
+    case "7d":
+      return "los últimos 7 días";
+    case "30d":
+      return "los últimos 30 días";
+    case "mes":
+      return "este mes";
+    case "todo":
+      return "todos los períodos";
+    case "personalizado":
+      return "el período seleccionado";
+  }
+}

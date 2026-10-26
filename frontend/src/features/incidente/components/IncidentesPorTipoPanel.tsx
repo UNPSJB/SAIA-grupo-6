@@ -1,10 +1,26 @@
 import { useMemo } from "react";
-import { Badge, Box, Flex, HStack, Heading, Spinner, Switch, Text } from "@chakra-ui/react";
+import {
+  Badge,
+  Box,
+  Button,
+  Field,
+  Flex,
+  HStack,
+  Heading,
+  Spinner,
+  Switch,
+  Text,
+} from "@chakra-ui/react";
 import { Tooltip } from "../../../components/ui/tooltip";
 import { useResumenIncidentesPorTipo } from "../hooks/useResumenIncidentesPorTipo";
-import { TIPOS_INCIDENTE, tipoColor } from "../types/incidente";
-import type { TipoIncidente } from "../types/incidente";
-import { Tarjeta } from "../../../components/ui/patrones";
+import { TIPOS_INCIDENTE, tipoColor, periodoLabel } from "../types/incidente";
+import type { PeriodoRapido, TipoIncidente } from "../types/incidente";
+import {
+  FormInput,
+  LabelFiltro,
+  Tarjeta,
+} from "../../../components/ui/patrones";
+import { formatoFecha } from "../../../common/utils/fechas";
 
 /** Colores de las barras, en el mismo tono que el badge de cada tipo. */
 const COLOR_TIPO: Record<TipoIncidente, string> = {
@@ -15,11 +31,55 @@ const COLOR_TIPO: Record<TipoIncidente, string> = {
   otro: "#a0aec0",
 };
 
+/** Períodos rápidos, en el orden en que se muestran los chips. */
+const PERIODOS_RAPIDOS: { value: PeriodoRapido; label: string }[] = [
+  { value: "7d", label: "Últimos 7 días" },
+  { value: "30d", label: "Últimos 30 días" },
+  { value: "mes", label: "Este mes" },
+  { value: "todo", label: "Todo" },
+];
+
 interface IncidentesPorTipoPanelProps {
   filtroTipo: TipoIncidente | "";
   onFiltroTipoChange: (tipo: TipoIncidente | "") => void;
   incluirCerrados: boolean;
   onIncluirCerradosChange: (checked: boolean) => void;
+  periodo: PeriodoRapido;
+  onPeriodoChange: (periodo: PeriodoRapido) => void;
+  fechaDesde: string;
+  fechaHasta: string;
+  onFechaDesdeChange: (valor: string) => void;
+  onFechaHastaChange: (valor: string) => void;
+}
+
+/**
+ * Chip de período. Está FUERA del componente que lo usa a propósito: si se
+ * definiera adentro, React vería un tipo de componente nuevo en cada render
+ * y remontaría los controles mientras se escribe.
+ */
+function ChipPeriodo({
+  label,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      onClick={onClick}
+      variant={isActive ? "solid" : "outline"}
+      colorPalette={isActive ? "brand" : "neutral"}
+      fontWeight="bold"
+      fontSize="sm"
+      rounded="full"
+      size="sm"
+    >
+      {label}
+    </Button>
+  );
 }
 
 /**
@@ -27,8 +87,25 @@ interface IncidentesPorTipoPanelProps {
  * Por defecto cuenta solo abiertos; el switch agrega los cerrados.
  * Las barras son clickeables y filtran la tabla de incidentes.
  */
-export function IncidentesPorTipoPanel({ filtroTipo, onFiltroTipoChange, incluirCerrados, onIncluirCerradosChange }: IncidentesPorTipoPanelProps) {
-  const { resumen, loading, error } = useResumenIncidentesPorTipo(incluirCerrados);
+export function IncidentesPorTipoPanel({
+  filtroTipo,
+  onFiltroTipoChange,
+  incluirCerrados,
+  onIncluirCerradosChange,
+  periodo,
+  onPeriodoChange,
+  fechaDesde,
+  fechaHasta,
+  onFechaDesdeChange,
+  onFechaHastaChange,
+}: IncidentesPorTipoPanelProps) {
+  // Con período "todo" no se mandan fechas: el backend cuenta el histórico
+  // completo y se mantiene el comportamiento original.
+  const { resumen, loading, error } = useResumenIncidentesPorTipo(
+    incluirCerrados,
+    periodo === "todo" ? undefined : fechaDesde,
+    periodo === "todo" ? undefined : fechaHasta
+  );
 
   const maxCantidad = useMemo(
     () => Math.max(1, ...resumen.por_tipo.map((t) => t.cantidad)),
@@ -43,6 +120,10 @@ export function IncidentesPorTipoPanel({ filtroTipo, onFiltroTipoChange, incluir
   const cantidadTipo = (tipo: TipoIncidente) =>
     resumen.por_tipo.find((r) => r.tipo === tipo)?.cantidad ?? 0;
 
+  const universo = incluirCerrados
+    ? "Total de incidentes (abiertos y cerrados)"
+    : "Solo incidentes sin acción correctiva registrada (abiertos)";
+
   return (
     <Tarjeta p="5" mb="6">
       <HStack justify="space-between" mb="4" flexWrap="wrap" gap="3">
@@ -51,9 +132,10 @@ export function IncidentesPorTipoPanel({ filtroTipo, onFiltroTipoChange, incluir
             Incidentes por tipo
           </Heading>
           <Text fontSize="sm" color="fg.muted" mt="1">
-            {incluirCerrados
-              ? "Total de incidentes (abiertos y cerrados)"
-              : "Solo incidentes sin acción correctiva registrada (abiertos)"}
+            {universo} ·{" "}
+            {periodo === "personalizado"
+              ? `${formatoFecha(fechaDesde)} – ${formatoFecha(fechaHasta)}`
+              : periodoLabel(periodo)}
           </Text>
         </Box>
         <Switch.Root
@@ -66,6 +148,52 @@ export function IncidentesPorTipoPanel({ filtroTipo, onFiltroTipoChange, incluir
           <Switch.Label fontSize="sm">Incluir cerrados</Switch.Label>
         </Switch.Root>
       </HStack>
+
+      {/* Selector de período: chips rápidos + rango personalizado */}
+      <Flex align="center" gap="2" flexWrap="wrap" mb="4">
+        {PERIODOS_RAPIDOS.map(({ value, label }) => (
+          <ChipPeriodo
+            key={value}
+            label={label}
+            isActive={periodo === value}
+            onClick={() => onPeriodoChange(value)}
+          />
+        ))}
+        <ChipPeriodo
+          label="Personalizado"
+          isActive={periodo === "personalizado"}
+          onClick={() => onPeriodoChange("personalizado")}
+        />
+
+        {periodo === "personalizado" && (
+          <HStack gap="3" flexWrap="wrap" align="flex-end">
+            <Box>
+              <Field.Root>
+                <LabelFiltro>Desde</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaDesde}
+                  max={fechaHasta}
+                  onChange={(e) => onFechaDesdeChange(e.target.value)}
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <Box>
+              <Field.Root>
+                <LabelFiltro>Hasta</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaHasta}
+                  min={fechaDesde}
+                  onChange={(e) => onFechaHastaChange(e.target.value)}
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+          </HStack>
+        )}
+      </Flex>
 
       {loading && <Spinner />}
       {!loading && error && <Text color="red.500">{error}</Text>}
