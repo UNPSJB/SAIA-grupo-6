@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box } from "@chakra-ui/react";
-import { usePaginas } from "../../../../common/hooks/usePaginas";
 
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
-import { usePlanesCalibracionMantenimiento } from "../../hooks/usePlanesCalibracionMantenimiento";
+import { usePlanesCalibracionMantenimientoPaginados } from "../../hooks/usePlanesCalibracionMantenimientoPaginados";
 import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibracionMantenimientoABM";
 import { PlanCalibracionMantenimientoTable } from "../PlanCalibracionMantenimientoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -23,25 +22,22 @@ export function PlanCalibracionMantenimientoPage() {
   const navigate = useNavigate();
   const {
     planes,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
     loading: cargandoPlanes,
     error: errorPlanes,
     cargarPlanes,
-  } = usePlanesCalibracionMantenimiento();
+  } = usePlanesCalibracionMantenimientoPaginados(false, PAGE_SIZE);
+  // Solo para resolver el nombre de equipo de cada fila: la lista completa de
+  // equipos es chiquita y el backend no la incluye en cada plan.
   const {
     equipos,
     loading: cargandoEquipos,
     error: errorEquipos,
   } = useEquipos(true);
   const { borrar, loading: procesando } = usePlanCalibracionMantenimientoABM();
-  // Sin paginar, la tabla crecía hacia abajo con cada plan nuevo; el resto de
-  // los listados de Operaciones ya paginan de a 10.
-  const {
-    paginados: planesPaginados,
-    page,
-    setPage,
-    total,
-    hayVariasPaginas,
-  } = usePaginas(planes, PAGE_SIZE);
 
   const [planAEliminar, setPlanAEliminar] =
     useState<PlanCalibracionMantenimiento | null>(null);
@@ -91,7 +87,7 @@ export function PlanCalibracionMantenimientoPage() {
       {!loading && !error && (
         <>
           <PlanCalibracionMantenimientoTable
-            planes={planesPaginados}
+            planes={planes}
             nombresEquipos={nombresEquipos}
             onEdit={handleEdit}
             onDelete={setPlanAEliminar}

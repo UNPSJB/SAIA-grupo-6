@@ -3,6 +3,7 @@ import type { Calibracion, Equipo, TipoIntervencion, EquipoInput } from "../type
 
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
 
@@ -11,6 +12,24 @@ export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]>
   const response = await apiFetch(`${API_URL}/equipos${query}`);
 
   return pedir<Equipo[]>(response, "Error al obtener los equipos");
+}
+
+/**
+ * Página de equipos para la tabla (paginación server-side). La lista completa
+ * de arriba sigue existiendo para los dropdowns (reportar incidente, planes)
+ * y el tablero, que necesitan todos los equipos de una vez.
+ */
+export async function listarEquiposPaginados(
+  page: number,
+  pageSize: number,
+  incluirInactivos = false
+): Promise<Pagina<Equipo>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: incluirInactivos || undefined,
+  });
+  const response = await apiFetch(`${API_URL}/equipos${query}`);
+
+  return pedir<Pagina<Equipo>>(response, "Error al obtener los equipos");
 }
 
 export async function obtenerEquipo(id: number): Promise<Equipo> {

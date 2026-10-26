@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { EquipoInput } from "../../types/equipo";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -47,12 +46,7 @@ export function EquipoEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar Equipo"
-        description="Modificá los datos del equipo."
-        actions={
-          <BotonVolver onClick={() => navigate("/equipos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
+        description="Modificá los datos del equipo. La baja lo saca de los listados y por eso pide confirmación."
       />
 
       {cargando && (

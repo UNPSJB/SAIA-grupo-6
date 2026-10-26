@@ -16,16 +16,35 @@ import {
   Text,
   type BoxProps,
   type ButtonProps,
+  type HeadingProps,
+  type IconButtonProps,
   type InputProps,
   type TextProps,
 } from "@chakra-ui/react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
+  LuChevronLeft,
+  LuChevronRight,
+  LuChevronsLeft,
+  LuChevronsRight,
   LuCircleCheck,
+  LuExternalLink,
+  LuEye,
+  LuHistory,
+  LuImage,
+  LuPencil,
   LuPlus,
+  LuRefreshCw,
+  LuRepeat,
+  LuRotateCcw,
+  LuTrash2,
   LuTriangleAlert,
+  LuUpload,
+  LuWrench,
 } from "react-icons/lu";
+import type { IconType } from "react-icons/lib";
 import { DialogContent, DialogRoot, DialogTitle } from "./dialog";
+import { Tooltip } from "./tooltip";
 
 /**
  * Patrones compartidos: la fuente de verdad del formato de toda la app.
@@ -360,51 +379,127 @@ export function EncabezadoOscuro({
   );
 }
 
-/** Paletas de las acciones de fila. */
+/** Acciones de fila de las tablas. El color codifica el tipo de acción. */
 export type AccionTabla =
+  | "ver"
+  | "historial"
+  | "foto"
   | "editar"
+  | "subir"
+  | "resolver"
+  | "recambio"
   | "eliminar"
   | "reactivar"
-  | "marca"
-  | "historial"
-  | "calibrar"
   | "cerrar"
-  | "reabrir";
+  | "reabrir"
+  | "intervenir";
 
+/**
+ * Paleta por acción, uniforme en toda la app.
+ *
+ * Ninguna usa `brand`: el encabezado de las tablas ya es teal (`brand.600`) y
+ * una acción del mismo color se confundía con él.
+ *
+ *   consultar (ver/historial/foto)          gris    solo lectura
+ *   modificar/navegar (editar/subir/resolver) azul  cambia datos o abre otra pantalla
+ *   recambio                                verde   se resuelve en la misma pantalla
+ *   eliminar                                rojo    destructivo
+ *   reactivar / cerrar                      verde   cierra el ciclo
+ *   reabrir / intervenir                    naranja vuelve atrás / mantenimiento
+ *                                           (no comparten tabla, así que no se
+ *                                           confunden entre sí)
+ */
 const PALETA_ACCION: Record<AccionTabla, string> = {
-  editar: "orange",
+  ver: "gray",
+  historial: "gray",
+  foto: "gray",
+  editar: "blue",
+  subir: "blue",
+  resolver: "blue",
+  recambio: "green",
   eliminar: "red",
   reactivar: "green",
-  marca: "brand",
-  historial: "brand",
-  calibrar: "neutral",
-  cerrar: "brand",
+  cerrar: "green",
   reabrir: "orange",
+  intervenir: "orange",
 };
 
-export function BotonTabla({
+/** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
+const ICONO_ACCION: Record<AccionTabla, IconType> = {
+  ver: LuEye,
+  historial: LuHistory,
+  foto: LuImage,
+  editar: LuPencil,
+  subir: LuUpload,
+  resolver: LuExternalLink,
+  recambio: LuRepeat,
+  eliminar: LuTrash2,
+  reactivar: LuRefreshCw,
+  cerrar: LuCircleCheck,
+  reabrir: LuRotateCcw,
+  intervenir: LuWrench,
+};
+
+/**
+ * Botón de acción de una fila de tabla: ícono + tooltip, sin texto.
+ *
+ * Estilo *outline pastel*: en reposo, fondo apenas teñido, borde de 2px
+ * (`palette.400`) e ícono de 18px en `palette.600`. El gris de solo lectura va
+ * un escalón más marcado (`gray.100` de fondo, `gray.400` de borde y `gray.700`
+ * de ícono) porque era el que más se perdía sobre el blanco. Al pasar el mouse
+ * el botón se tiñe con `palette.100`, el borde sube a `.600` y el ícono a
+ * `.700`: así el color aparece de verdad y acompaña al tooltip, sin volver al
+ * relleno sólido que desentonaba con el resto de la pantalla.
+ *
+ * El nombre de la acción vive en el tooltip (con flecha y una espera corta para
+ * que no parpadee al pasar el mouse) y en el `aria-label`, así el botón sigue
+ * siendo accesible aunque no muestre texto.
+ */
+export function BotonAccion({
   accion,
-  children,
+  label,
+  onClick,
   ...rest
-}: { accion: AccionTabla; children: ReactNode } & Omit<
-  ButtonProps,
-  "children" | "colorPalette" | "variant"
+}: {
+  accion: AccionTabla;
+  /** Nombre de la acción: se usa en el tooltip y en el `aria-label`. */
+  label: string;
+  onClick: () => void;
+} & Omit<
+  IconButtonProps,
+  "children" | "colorPalette" | "variant" | "onClick" | "aria-label"
 >) {
+  const Icono = ICONO_ACCION[accion];
+  const paleta = PALETA_ACCION[accion];
+  /*
+   * El gris es el que más se perdía sobre el blanco: lleva fondo, borde e ícono
+   * un escalón más marcados que las acciones de color.
+   */
+  const esGris = paleta === "gray";
   return (
-    <Button
-      type="button"
-      colorPalette={PALETA_ACCION[accion]}
-      variant="solid"
-      size="sm"
-      fontWeight="medium"
-      h="auto"
-      px="3"
-      py="1"
-      rounded="sm"
-      {...rest}
-    >
-      {children}
-    </Button>
+    <Tooltip content={label} showArrow openDelay={300} closeDelay={0}>
+      <IconButton
+        type="button"
+        colorPalette={paleta}
+        variant="outline"
+        size="sm"
+        borderWidth="2px"
+        bg={esGris ? "gray.100" : `${paleta}.50`}
+        borderColor={esGris ? "gray.400" : `${paleta}.400`}
+        color={esGris ? "gray.700" : `${paleta}.600`}
+        _hover={{
+          bg: esGris ? "gray.200" : `${paleta}.100`,
+          borderColor: esGris ? "gray.600" : `${paleta}.600`,
+          color: esGris ? "gray.900" : `${paleta}.700`,
+        }}
+        _active={{ bg: esGris ? "gray.300" : `${paleta}.200` }}
+        aria-label={label}
+        onClick={onClick}
+        {...rest}
+      >
+        <Icono size={18} aria-hidden />
+      </IconButton>
+    </Tooltip>
   );
 }
 
@@ -632,9 +727,9 @@ export function TarjetaFormulario({ children, ...rest }: BoxProps) {
   );
 }
 
-export function TituloFormulario({ children }: { children: ReactNode }) {
+export function TituloFormulario({ children, ...rest }: HeadingProps) {
   return (
-    <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="6">
+    <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="6" {...rest}>
       {children}
     </Heading>
   );
@@ -643,6 +738,22 @@ export function TituloFormulario({ children }: { children: ReactNode }) {
 export function AccionesFormulario({ children }: { children: ReactNode }) {
   return (
     <HStack gap="4" flexWrap="wrap" mt="6">
+      {children}
+    </HStack>
+  );
+}
+
+/** Barra de acciones al pie de fichas y páginas de solo lectura. */
+export function AccionesDetalle({ children }: { children: ReactNode }) {
+  return (
+    <HStack
+      gap="4"
+      flexWrap="wrap"
+      mt="6"
+      pt="5"
+      borderTopWidth="1px"
+      borderColor="border.subtle"
+    >
       {children}
     </HStack>
   );
@@ -662,14 +773,17 @@ export function BotonCancelar(props: ButtonProps) {
   );
 }
 
-/** "Volver a la lista", en el encabezado de las páginas de edición. */
+/** "Volver a la lista", al pie de fichas y páginas de edición. */
 export function BotonVolver(props: ButtonProps) {
   return (
     <Button
       type="button"
       colorPalette="neutral"
       variant="outline"
-      size="sm"
+      size="md"
+      bg="bg.panel"
+      borderColor="border"
+      _hover={{ bg: "bg.subtle" }}
       {...props}
     />
   );
@@ -758,6 +872,24 @@ export function Paginacion({
   pageSize: number;
   onPageChange: (page: number) => void;
 }) {
+  // Para « inicio y » fin: los triggers de Chakra solo cubren anterior y
+  // siguiente, así que estos dos botones llaman directo a `onPageChange`.
+  const totalPaginas = Math.max(1, Math.ceil(count / pageSize));
+
+  /*
+   * Mismo lenguaje visual que los botones numéricos de abajo: transparente
+   * con borde sutil, hover con el fondo suave de la marca y el estado
+   * deshabilitado que Chakra ya atenúa en la receta de botón.
+   */
+  const estiloNav: ButtonProps = {
+    bg: "transparent",
+    color: "brand.fg",
+    borderWidth: "1px",
+    borderColor: "border",
+    rounded: "md",
+    _hover: { bg: "brand.subtle" },
+  };
+
   return (
     <Pagination.Root
       count={count}
@@ -766,8 +898,34 @@ export function Paginacion({
       onPageChange={(e) => onPageChange(e.page)}
       mt="6"
     >
+      {/* flexWrap (acá y no en el HStack): los botones viven todos dentro
+          del mismo ButtonGroup, así que la fila que tiene que envolver en
+          pantallas angostas es la del grupo. */}
       <HStack justify="center">
-        <ButtonGroup variant="ghost" size="sm">
+        <ButtonGroup variant="ghost" size="sm" flexWrap="wrap" justifyContent="center">
+          {/* « inicio */}
+          <IconButton
+            aria-label="Primera página"
+            title="Primera página"
+            disabled={page <= 1}
+            onClick={() => onPageChange(1)}
+            {...estiloNav}
+          >
+            <LuChevronsLeft aria-hidden />
+          </IconButton>
+
+          {/* ‹ anterior */}
+          <Pagination.PrevTrigger asChild>
+            <IconButton
+              aria-label="Página anterior"
+              title="Página anterior"
+              disabled={page <= 1}
+              {...estiloNav}
+            >
+              <LuChevronLeft aria-hidden />
+            </IconButton>
+          </Pagination.PrevTrigger>
+
           <Pagination.Items
             render={(pageItem) => {
               const isSelected = pageItem.value === page;
@@ -786,6 +944,29 @@ export function Paginacion({
               );
             }}
           />
+
+          {/* siguiente › */}
+          <Pagination.NextTrigger asChild>
+            <IconButton
+              aria-label="Página siguiente"
+              title="Página siguiente"
+              disabled={page >= totalPaginas}
+              {...estiloNav}
+            >
+              <LuChevronRight aria-hidden />
+            </IconButton>
+          </Pagination.NextTrigger>
+
+          {/* fin » */}
+          <IconButton
+            aria-label="Última página"
+            title="Última página"
+            disabled={page >= totalPaginas}
+            onClick={() => onPageChange(totalPaginas)}
+            {...estiloNav}
+          >
+            <LuChevronsRight aria-hidden />
+          </IconButton>
         </ButtonGroup>
       </HStack>
     </Pagination.Root>

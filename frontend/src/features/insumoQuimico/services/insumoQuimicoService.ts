@@ -2,13 +2,20 @@ import type { InsumoQuimico, InsumoQuimicoFormValues, InsumoQuimicoOpcion } from
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
-export async function listarInsumosQuimicos(incluirInactivos = false): Promise<InsumoQuimico[]> {
-  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+export async function listarInsumosQuimicos(
+  page: number,
+  pageSize: number,
+  incluirInactivos = false
+): Promise<Pagina<InsumoQuimico>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: incluirInactivos || undefined,
+  });
   const response = await apiFetch(`${API_URL}/insumos-quimicos${query}`);
 
-  return pedir<InsumoQuimico[]>(response, "Error al obtener los insumos químicos");
+  return pedir<Pagina<InsumoQuimico>>(response, "Error al obtener los insumos químicos");
 }
 
 export async function listarOpcionesInsumosQuimicos(): Promise<InsumoQuimicoOpcion[]> {

@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { InsumoFormValues } from "../../types/insumo";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -47,11 +46,6 @@ export function InsumoEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar insumo"
-        actions={
-          <BotonVolver onClick={() => navigate("/insumos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {cargando && (

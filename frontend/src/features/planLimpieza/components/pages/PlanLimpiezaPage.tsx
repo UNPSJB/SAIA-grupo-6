@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box } from "@chakra-ui/react";
 import { PlanLimpiezaTable } from "../PlanLimpiezaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -24,16 +23,17 @@ export function PlanLimpiezaPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { planes, loading, error, cargarPlanes } =
-    usePlanesLimpieza(verInactivos);
-  const { equipos } = useOpcionesPlanLimpieza();
   const {
-    paginados: planesPaginados,
-    totalFiltrados,
+    planes,
+    total,
     page,
     setPage,
     hayVariasPaginas,
-  } = usePaginacion(planes, verInactivos, PAGE_SIZE);
+    loading,
+    error,
+    cargarPlanes,
+  } = usePlanesLimpieza(verInactivos, PAGE_SIZE);
+  const { equipos } = useOpcionesPlanLimpieza();
   const { borrar, reactivar, loading: procesando } = usePlanLimpiezaABM();
 
   const [planAEliminar, setPlanAEliminar] = useState<PlanLimpieza | null>(null);
@@ -42,8 +42,8 @@ export function PlanLimpiezaPage() {
   );
 
   const handleToggleInactivos = (checked: boolean) => {
+    // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
     setVerInactivos(checked);
-    setPage(1);
   };
 
   const handleEdit = (plan: PlanLimpieza) =>
@@ -116,7 +116,7 @@ export function PlanLimpiezaPage() {
       {!loading && !error && (
         <>
           <PlanLimpiezaTable
-            planes={planesPaginados}
+            planes={planes}
             equipos={equipos}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
@@ -125,7 +125,7 @@ export function PlanLimpiezaPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

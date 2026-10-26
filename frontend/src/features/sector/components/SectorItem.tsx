@@ -1,6 +1,6 @@
 import { HStack, Table, Text } from "@chakra-ui/react";
 import type { Sector } from "../types/sector";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface SectorItemProps {
   sector: Sector;
@@ -28,17 +28,11 @@ export function SectorItem({ sector, onEdit, onDelete, onReactivar }: SectorItem
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {sector.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(sector)}>
-                Modificar
-              </BotonTabla>
-              <BotonTabla accion="eliminar" onClick={() => onDelete(sector)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(sector)} />
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(sector)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(sector)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(sector)} />
           )}
         </HStack>
       </Celda>

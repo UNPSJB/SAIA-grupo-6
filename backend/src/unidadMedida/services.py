@@ -6,6 +6,7 @@ from src.common.persistence import (
     baja_logica,
     guardar,
     listar,
+    listar_paginado,
     mapa_por_campo,
     obtener,
     verificar_disponibilidad,
@@ -49,6 +50,19 @@ def crear_unidad_medida(db: Session, datos: schemas.UnidadMedidaCreate) -> Unida
 
 def listar_unidades_medida(db: Session, incluir_inactivos: bool = False) -> List[UnidadMedida]:
     return listar(db, UnidadMedida, incluir_inactivos=incluir_inactivos)
+
+
+def listar_unidades_medida_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[List[UnidadMedida], int]:
+    """Mismo filtro que `listar_unidades_medida`, recortado en la base."""
+    return listar_paginado(
+        db,
+        UnidadMedida,
+        incluir_inactivos=incluir_inactivos,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def obtener_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:

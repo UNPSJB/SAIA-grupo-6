@@ -1,6 +1,7 @@
 import type { ElementoLimpieza, ElementoLimpiezaOpcion } from "../types/elementoLimpieza";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
 /**
@@ -19,12 +20,16 @@ export async function listarOpcionesElementosLimpieza(): Promise<ElementoLimpiez
 
 
 export async function listarElementosLimpieza(
+  page: number,
+  pageSize: number,
   incluirInactivos = false
-): Promise<ElementoLimpieza[]> {
-  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+): Promise<Pagina<ElementoLimpieza>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: incluirInactivos || undefined,
+  });
   const response = await apiFetch(`${API_URL}/elementos-limpieza${query}`);
 
-  return pedir<ElementoLimpieza[]>(
+  return pedir<Pagina<ElementoLimpieza>>(
     response,
     "Error al obtener los elementos de limpieza",
   );

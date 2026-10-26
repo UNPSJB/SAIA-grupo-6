@@ -10,6 +10,7 @@ from src.common.persistence import (
     guardar,
     mapa_por_campo,
 )
+from src.common.paginacion import paginar
 from src.auth.roles import puede_administrar
 from src.Equipo.models import Equipo
 from src.PlanCalibracionMantenimiento import exceptions, models, schemas
@@ -98,6 +99,24 @@ def listar_planes_calibracion_mantenimiento(
     if not incluir_inactivos:
         query = query.where(models.PlanCalibracionMantenimiento.activo.is_(True))
     return list(db.scalars(query).all())
+
+
+def listar_planes_calibracion_mantenimiento_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[list[models.PlanCalibracionMantenimiento], int]:
+    """Mismo filtro que `listar_planes_calibracion_mantenimiento`, recortado en la base."""
+    logger.info(
+        "Listando planes de calibración y mantenimiento paginado "
+        "(incluir_inactivos=%s, page=%s)",
+        incluir_inactivos,
+        page,
+    )
+    query = select(models.PlanCalibracionMantenimiento).order_by(
+        models.PlanCalibracionMantenimiento.id
+    )
+    if not incluir_inactivos:
+        query = query.where(models.PlanCalibracionMantenimiento.activo.is_(True))
+    return paginar(db, query, page, page_size)
 
 
 def leer_plan_calibracion_mantenimiento(

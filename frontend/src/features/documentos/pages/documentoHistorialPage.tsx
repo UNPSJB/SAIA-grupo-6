@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Badge, Spinner, Table } from "@chakra-ui/react";
 import {
+  AccionesDetalle,
   BannerError,
   BotonTexto,
   BotonVolver,
@@ -68,11 +69,6 @@ export function DocumentoHistorialPage() {
             ? `${etiquetaTipo(historial.tipo)} · Solo lectura: las versiones anteriores no pueden editarse ni eliminarse.`
             : undefined
         }
-        actions={
-          <BotonVolver onClick={() => navigate(-1)}>
-            Volver
-          </BotonVolver>
-        }
       />
 
       {loading && <Spinner color="brand.500" />}
@@ -115,12 +111,13 @@ export function DocumentoHistorialPage() {
                     {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
                   </Celda>
                   <Celda p="3">
-                    {v.autor.nombre} {v.autor.apellido ?? ""}
+                    {v.fecha_vencimiento
+                      ? fechaCorta(v.fecha_vencimiento)
+                      : "Sin vencimiento"}
                   </Celda>
                   <Celda p="3">
-                      {v.fecha_vencimiento ? fechaCorta(v.fecha_vencimiento)
-                        : "Sin vencimiento"}
-                    </Celda>
+                    {v.autor.nombre} {v.autor.apellido ?? ""}
+                  </Celda>
                   <Celda p="3">
                     <BotonTexto
                       onClick={() =>
@@ -138,6 +135,10 @@ export function DocumentoHistorialPage() {
           </Table.Root>
         </Tarjeta>
       )}
+
+      <AccionesDetalle>
+        <BotonVolver onClick={() => navigate(-1)}>Volver</BotonVolver>
+      </AccionesDetalle>
     </Box>
   );
 }

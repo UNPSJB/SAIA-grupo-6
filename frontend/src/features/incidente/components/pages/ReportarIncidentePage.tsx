@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
-import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { useMisIncidentes } from "../../hooks/useMisIncidentes";
 import { ReportarIncidenteEmptyState } from "./ReportarIncidenteEmptyState";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
+import { notificarCambioIncidentes } from "../../eventoIncidentes";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
 import type { IncidenteFormValues, Incidente } from "../../types/incidente";
 import {
@@ -189,26 +189,20 @@ export function ReportarIncidentePage() {
   const { alta, loading: loadingAlta, error: errorAlta } = useIncidenteABM();
   const {
     misIncidentes,
+    total,
+    page,
+    setPage,
+    primeraPagina,
+    hayVariasPaginas,
     loading: loadingMis,
     error: errorMis,
     cargarMisIncidentes,
-  } = useMisIncidentes();
+  } = useMisIncidentes(PAGE_SIZE);
   const [exito, setExito] = useState(false);
   // `setTimeout` a mano: sin cleanup, si el usuario navega antes de los 3s
   // el setState corre sobre un componente ya desmontado.
   const programarAviso = useSafeTimeout();
   const [activeTab, setActiveTab] = useState<"mis-reportes" | "nuevo-incidente">("mis-reportes");
-
-  // Paginación de "Mis reportes": con el tiempo la lista crece sin límite y
-  // el operador tenía que scrollear todos sus incidentes para ver los nuevos.
-  const {
-    paginados: misIncidentesPaginados,
-    page,
-    setPage,
-    primeraPagina,
-    total,
-    hayVariasPaginas,
-  } = usePaginas(misIncidentes, PAGE_SIZE);
 
   const handleSubmit = async (values: IncidenteFormValues, foto?: File) => {
     try {
@@ -219,6 +213,9 @@ export function ReportarIncidentePage() {
       // apenas termina el submit, sin importar en qué página se estaba.
       primeraPagina();
       await cargarMisIncidentes();
+      // Avisa al resto de las vistas (por ejemplo /incidentes) que hay un
+      // incidente nuevo, para que su estadística se actualice sola.
+      notificarCambioIncidentes();
       programarAviso(() => setExito(false), 3000);
     } catch {
       // El mensaje de error ya quedó en errorAlta.
@@ -289,7 +286,7 @@ export function ReportarIncidentePage() {
                   Tus incidentes reportados (más recientes primero)
                 </Text>
                 <VStack align="stretch" gap="2">
-                  {misIncidentesPaginados.map((inc) => (
+                  {misIncidentes.map((inc) => (
                     <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />
                   ))}
                 </VStack>

@@ -3,6 +3,7 @@ import { Box, Button, SimpleGrid, Spinner, Stack, Text } from "@chakra-ui/react"
 import { useEquipo } from "../../hooks/useEquipo";
 import { IntervencionEquipo } from "../IntervencionEquipo";
 import {
+  AccionesDetalle,
   BannerError,
   BotonVolver,
   PageHeader,
@@ -55,7 +56,6 @@ export function EquipoIntervencionPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Registrar intervención"
-        actions={<BotonVolver onClick={volver}>Volver</BotonVolver>}
       />
 
       <Tarjeta p="5">
@@ -74,6 +74,10 @@ export function EquipoIntervencionPage() {
           </Button>
         </Box>
       </Tarjeta>
+
+      <AccionesDetalle>
+        <BotonVolver onClick={volver}>Volver</BotonVolver>
+      </AccionesDetalle>
 
       {/* El diálogo se abre solo. Al cancelar o terminar, se vuelve a la pantalla de origen. */}
       <IntervencionEquipo equipo={equipo} onCerrar={volver} />

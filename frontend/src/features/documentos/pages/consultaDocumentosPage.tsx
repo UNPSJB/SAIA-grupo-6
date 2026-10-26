@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Badge, Box, Button, Field, HStack, SimpleGrid, Text } from "@chakra-ui/react";
 import { LuExternalLink, LuHistory } from "react-icons/lu";
 import { useAuth } from "../../../common/context/useAuth";
-import { usePaginas } from "../../../common/hooks/usePaginas";
 import {
   BannerError,
   EstadoCargando,
@@ -32,17 +31,39 @@ export function ConsultaDocumentosPage() {
   const { user } = useAuth();
   const [buscar, setBuscar] = useState("");
   const [tipo, setTipo] = useState<TipoDocumento | "">("");
+  const [page, setPage] = useState(1);
 
   const [errorApertura, setErrorApertura] = useState<string | null>(null);
 
-  const { documentos, loading, error } = useDocumentosVigentes(buscar, tipo);
-  const {
-    paginados: documentosPaginados,
+  const { documentos, total, loading, error } = useDocumentosVigentes(
+    buscar,
+    tipo,
     page,
-    setPage,
-    total,
-    hayVariasPaginas,
-  } = usePaginas(documentos, PAGE_SIZE, `${buscar}|${tipo}`);
+    PAGE_SIZE
+  );
+
+  const handleBuscarChange = (nuevo: string) => {
+    setBuscar(nuevo);
+    setPage(1);
+  };
+
+  const handleTipoChange = (nuevo: TipoDocumento | "") => {
+    setTipo(nuevo);
+    setPage(1);
+  };
+
+  const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hayVariasPaginas = totalPaginas > 1;
+
+  // Página fuera de rango: `documentos` vacío con `total > 0` significa que
+  // la página pedida ya no existe (la búsqueda acortó la lista). El ajuste va
+  // DURANTE el render — el mismo "recortar, no corregir con un efecto" de
+  // `useListaPaginada` — porque un `useEffect` con `setPage` dispara la
+  // regla `set-state-in-effect`. Con `page` en las dependencias del hook,
+  // la corrección dispara el re-fetch de la última página válida.
+  if (total > 0 && documentos.length === 0 && page > totalPaginas) {
+    setPage(totalPaginas);
+  }
 
   const handleAbrir = (archivoUrl: string) => {
     setErrorApertura(null);
@@ -67,7 +88,7 @@ export function ConsultaDocumentosPage() {
               <FormInput
                 type="search"
                 value={buscar}
-                onChange={(e) => setBuscar(e.target.value)}
+                onChange={(e) => handleBuscarChange(e.target.value)}
                 placeholder="Buscar por nombre…"
                 aria-label="Buscar documentos por nombre"
               />
@@ -78,7 +99,7 @@ export function ConsultaDocumentosPage() {
               <LabelFiltro>Tipo</LabelFiltro>
               <FormNativeSelect
                 value={tipo}
-                onChange={(e) => setTipo(e.target.value as TipoDocumento | "")}
+                onChange={(e) => handleTipoChange(e.target.value as TipoDocumento | "")}
                 aria-label="Filtrar documentos por tipo"
               >
                 <SelectPlaceholder value="">Todos los tipos</SelectPlaceholder>
@@ -106,7 +127,7 @@ export function ConsultaDocumentosPage() {
       {documentos.length > 0 && (
         <>
           <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="4">
-            {documentosPaginados.map((doc) => {
+            {documentos.map((doc) => {
               const v = doc.version_vigente;
               return (
                 <Tarjeta

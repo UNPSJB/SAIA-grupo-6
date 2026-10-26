@@ -1,17 +1,45 @@
 import { useCallback } from "react";
-import { useLista } from "../../../common/hooks/useLista";
-import { listarMisIncidentes } from "../services/incidenteService";
+import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
+import { listarMisIncidentesPaginados } from "../services/incidenteService";
 import type { Incidente } from "../types/incidente";
 
-export function useMisIncidentes() {
-  const cargarMisIncidentes = useCallback(() => listarMisIncidentes(), []);
+/**
+ * Página actual de los incidentes del operador, pedida al backend
+ * (paginación server-side).
+ */
+export function useMisIncidentes(pageSize = 10) {
+  const cargar = useCallback(
+    (page: number, pageSize: number) => listarMisIncidentesPaginados(page, pageSize),
+    []
+  );
 
-  const { items, loading, error, recargar } = useLista<Incidente[]>({
-    cargar: cargarMisIncidentes,
+  const {
+    items,
+    total,
+    page,
+    setPage,
+    primeraPagina,
+    hayVariasPaginas,
+    loading,
+    error,
+    recargar,
+  } = useListaPaginada<Incidente>({
+    cargar,
     dependencias: [],
     valorInicial: [],
     mensajeError: "No se pudieron cargar tus incidentes",
+    pageSize,
   });
 
-  return { misIncidentes: items, loading, error, cargarMisIncidentes: recargar };
+  return {
+    misIncidentes: items,
+    total,
+    page,
+    setPage,
+    primeraPagina,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarMisIncidentes: recargar,
+  };
 }

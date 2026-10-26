@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { IntervencionEquipo } from "../IntervencionEquipo";
 import { HistorialCalibracionesDialog } from "../HistorialCalibracionesDialog";
-import { useEquipos } from "../../hooks/useEquipos";
+import { useEquiposPaginados } from "../../hooks/useEquiposPaginados";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import type { Equipo } from "../../types/equipo";
 import {
@@ -23,21 +22,22 @@ export function EquiposPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { equipos, loading, error, cargarEquipos } = useEquipos(verInactivos);
+  const {
+    equipos,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarEquipos,
+  } = useEquiposPaginados(verInactivos, PAGE_SIZE);
   const { borrar, reactivar, loading: procesando } = useEquipoABM();
 
   const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
   const [equipoAReactivar, setEquipoAReactivar] = useState<Equipo | null>(null);
   const [equipoAIntervenir, setEquipoAIntervenir] = useState<Equipo | null>(null);
   const [equipoVerHistorial, setEquipoVerHistorial] = useState<Equipo | null>(null);
-
-  const {
-    paginados: equiposPaginados,
-    totalFiltrados,
-    page,
-    setPage,
-    hayVariasPaginas,
-  } = usePaginacion(equipos, verInactivos, PAGE_SIZE);
 
   const handleConfirmReactivar = async () => {
     if (!equipoAReactivar) return;
@@ -90,8 +90,8 @@ export function EquiposPage() {
       <ToggleInactivos
         checked={verInactivos}
         onChange={(checked: boolean) => {
+          // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
           setVerInactivos(checked);
-          setPage(1);
         }}
         children="Ver dadas de baja"
       />
@@ -102,7 +102,7 @@ export function EquiposPage() {
       {!loading && !error && (
         <>
           <EquipoTable
-            equipos={equiposPaginados}
+            equipos={equipos}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onReactivar={(equipo) => setEquipoAReactivar(equipo)}
@@ -112,7 +112,7 @@ export function EquiposPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

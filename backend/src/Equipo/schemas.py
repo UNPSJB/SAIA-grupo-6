@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.common.validators import texto_no_vacio, id_positivo
+from src.common.paginacion import Pagina
+from src.common.validators import texto_no_vacio
 from src.Equipo import exceptions
 from src.sector.schemas import SectorResumen
 
@@ -51,6 +53,12 @@ class EquipoResponse(EquipoBase):
     sector: SectorResumen
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EquipoPagina(Pagina[EquipoResponse]):
+    """Página de equipos: la respuesta del listado paginado en el servidor."""
+
+    pass
 
 
 TipoIntervencion = Literal["calibracion", "mantenimiento"]

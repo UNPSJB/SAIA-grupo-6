@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box } from "@chakra-ui/react";
 import { ElementoLimpiezaTable } from "../ElementoLimpiezaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -25,17 +24,14 @@ export function ElementosLimpiezaPage() {
 
   const {
     elementosLimpieza,
-    loading,
-    error,
-    cargarElementosLimpieza,
-  } = useElementosLimpieza(verInactivos);
-  const {
-    paginados: elementosPaginados,
-    totalFiltrados,
+    total,
     page,
     setPage,
     hayVariasPaginas,
-  } = usePaginacion(elementosLimpieza, verInactivos, PAGE_SIZE);
+    loading,
+    error,
+    cargarElementosLimpieza,
+  } = useElementosLimpieza(verInactivos, PAGE_SIZE);
 
   const { borrar, reactivar, loading: procesando } = useElementoLimpiezaABM();
 
@@ -45,8 +41,8 @@ export function ElementosLimpiezaPage() {
     useState<ElementoLimpieza | null>(null);
 
   const handleToggleInactivos = (checked: boolean) => {
+    // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
     setVerInactivos(checked);
-    setPage(1);
   };
 
   const handleConfirmReactivar = async () => {
@@ -112,7 +108,7 @@ export function ElementosLimpiezaPage() {
       {!loading && !error && (
         <>
           <ElementoLimpiezaTable
-            elementos={elementosPaginados}
+            elementos={elementosLimpieza}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onReactivar={(elemento) => setElementoAReactivar(elemento)}
@@ -120,7 +116,7 @@ export function ElementosLimpiezaPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

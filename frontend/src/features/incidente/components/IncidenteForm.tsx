@@ -174,7 +174,7 @@ export function IncidenteForm({
 
   return (
     <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-      <TituloFormulario fontSize="xl">{title}</TituloFormulario>
+      <TituloFormulario>{title}</TituloFormulario>
 
       <FormField label="Título" required>
         <FormInput

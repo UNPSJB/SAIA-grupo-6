@@ -1,13 +1,15 @@
 import logging
-from typing import Optional
+from typing import Optional, Union
 from datetime import date
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin, require_operador
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.documentos import schemas, services
 from src.documentos.constants import TipoDocumento
+from src.personal.models import Personal
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +22,28 @@ _DEP_ADMIN = [Depends(require_admin)]
 # Va ANTES de "/{documento_id}" para que "vigentes" no se confunda con un id.
 @router.get(
     "/vigentes",
-    response_model=list[schemas.DocumentoVigente],
+    response_model=Union[list[schemas.DocumentoVigente], schemas.DocumentoVigentePagina],
     dependencies=_DEP_OPERADOR,
 )
 def read_documentos_vigentes(
     buscar: Optional[str] = Query(None),
     tipo: Optional[TipoDocumento] = Query(None),
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     db: Session = Depends(get_db),
 ):
-    return services.listar_documentos_vigentes(db, buscar, tipo)
+    if page is None:
+        return services.listar_documentos_vigentes(db, buscar, tipo)
+    items, total = services.listar_documentos_vigentes_paginado(
+        db, buscar, tipo, page, page_size
+    )
+    return schemas.DocumentoVigentePagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 
 @router.post("", response_model=schemas.Documento, dependencies=_DEP_ADMIN)
@@ -75,20 +90,35 @@ def create_version(
 @router.get(
     "/{documento_id}/historial",
     response_model=schemas.HistorialDocumento,
-    dependencies=_DEP_OPERADOR,
 )
 def read_historial(
     documento_id: int,
-    usuario_id: int = Query(...),
+    # El permiso se verifica contra el usuario del TOKEN, no contra un
+    # parámetro del cliente: con `usuario_id` en el query, cualquier operador
+    # pasaba el id de un administrador y veía el historial de cualquier documento.
+    current_user: Personal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    return services.obtener_historial(db, documento_id, usuario_id)
+    return services.obtener_historial(db, documento_id, current_user.id)
 
 
 # ---------- Gestión (administrador) ----------
-@router.get("", response_model=list[schemas.Documento], dependencies=_DEP_ADMIN)
-def read_documentos(db: Session = Depends(get_db)):
-    return services.listar_documentos(db)
+@router.get("", response_model=Union[list[schemas.Documento], schemas.DocumentoPagina], dependencies=_DEP_ADMIN)
+def read_documentos(
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
+    db: Session = Depends(get_db),
+):
+    if page is None:
+        return services.listar_documentos(db)
+    items, total = services.listar_documentos_paginado(db, page, page_size)
+    return schemas.DocumentoPagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 
 @router.get(

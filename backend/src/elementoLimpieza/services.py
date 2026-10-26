@@ -8,6 +8,7 @@ from src.common.persistence import (
     comparar_texto,
     guardar,
     listar,
+    listar_paginado,
     mapa_por_campo,
     obtener,
 )
@@ -56,6 +57,19 @@ def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> Eleme
 
 def listar_elementos_limpieza( db: Session, incluir_inactivos: bool = False) -> list[ElementoLimpieza]:
   return listar(db, ElementoLimpieza, incluir_inactivos=incluir_inactivos)
+
+
+def listar_elementos_limpieza_paginado(
+  db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[list[ElementoLimpieza], int]:
+  """Mismo filtro que `listar_elementos_limpieza`, recortado en la base."""
+  return listar_paginado(
+    db,
+    ElementoLimpieza,
+    incluir_inactivos=incluir_inactivos,
+    page=page,
+    page_size=page_size,
+  )
 
 
 def listar_opciones_elementos(db: Session) -> list[ElementoLimpiezaOpcion]:

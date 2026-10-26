@@ -8,7 +8,6 @@ import { useAptitudABM } from "../../hooks/useAptitudABM";
 import type { Aptitud } from "../../types/aptitud";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -37,11 +36,6 @@ export function AptitudEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar aptitud"
-        actions={
-          <BotonVolver onClick={() => navigate("/aptitudes")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
