@@ -62,13 +62,23 @@ export function useLista<T>(opciones: OpcionesLista<T>): Lista<T> {
   // una y otra vez.
   const valorInicialRef = useRef(valorInicial);
 
+  // Carrera de respuestas: si el usuario pide la página 2 y enseguida la 3, y
+  // la 3 resuelve primero, la respuesta (tardía) de la 2 NO puede pisar
+  // `items` ni apagar `loading`. Cada pedido toma un número; cuando llega una
+  // respuesta que no es la última, se descarta entera.
+  const ultimoPedido = useRef(0);
+
   const recargar = useCallback(async () => {
+    const pedido = ++ultimoPedido.current;
     try {
       setLoading(true);
       setError(null);
 
-      setItems(await cargar());
+      const datos = await cargar();
+      if (pedido !== ultimoPedido.current) return; // llegó tarde: se descarta
+      setItems(datos);
     } catch (err) {
+      if (pedido !== ultimoPedido.current) return;
       // A diferencia de `useABM`, acá no se pisa el mensaje del backend: cada
       // listado tiene su propio texto y así se sigue mostrando el de siempre.
       if (preferirMensajeDelBackend && err instanceof Error) {
@@ -79,7 +89,10 @@ export function useLista<T>(opciones: OpcionesLista<T>): Lista<T> {
 
       if (vaciarAlFallar) setItems(valorInicialRef.current);
     } finally {
-      setLoading(false);
+      // Solo el último pedido apaga el spinner: si apagaran los que van
+      // quedando en el medio, la tabla volvería a ser interactiva con un
+      // fetch todavía en vuelo.
+      if (pedido === ultimoPedido.current) setLoading(false);
     }
   }, [cargar, mensajeError, preferirMensajeDelBackend, vaciarAlFallar]);
 

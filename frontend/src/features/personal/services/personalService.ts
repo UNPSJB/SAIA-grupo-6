@@ -3,13 +3,20 @@ import { pedir } from "../../../common/api/errors";
 
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
 
-export async function listarPersonal(incluirInactivos = false): Promise<Persona[]> {
-    const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+export async function listarPersonal(
+    page: number,
+    pageSize: number,
+    incluirInactivos = false
+): Promise<Pagina<Persona>> {
+    const query = queryPagina(page, pageSize, {
+        incluir_inactivos: incluirInactivos || undefined,
+    });
     const response = await apiFetch(`${API_URL}/personal${query}`);
-    return pedir<Persona[]>(response, "Error al obtener el personal");
+    return pedir<Pagina<Persona>>(response, "Error al obtener el personal");
 }
 
 export async function obtenerPersona(id: number): Promise<Persona> {

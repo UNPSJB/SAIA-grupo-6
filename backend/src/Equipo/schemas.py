@@ -2,6 +2,7 @@ from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.common.validators import texto_no_vacio
 from src.Equipo import exceptions
 
@@ -48,6 +49,12 @@ class EquipoResponse(EquipoBase):
     activo: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EquipoPagina(Pagina[EquipoResponse]):
+    """Página de equipos: la respuesta del listado paginado en el servidor."""
+
+    pass
 
 
 TipoIntervencion = Literal["calibracion", "mantenimiento"]

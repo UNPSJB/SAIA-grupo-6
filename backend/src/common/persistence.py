@@ -14,12 +14,13 @@ Acá se concentran esos patrones:
 * `verificar_disponibilidad` para el chequeo "duplicado activo / dado de baja".
 """
 
-from typing import Any, Callable, Optional, Sequence, Type, TypeVar
+from typing import Any, Callable, Optional, Sequence, Tuple, Type, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.common.paginacion import paginar
 from src.exceptions import ConflictoRegistroInactivo, NotFound
 
 M = TypeVar("M")
@@ -149,6 +150,26 @@ def listar(
     return list(db.scalars(consulta).all())
 
 
+def listar_paginado(
+    db: Session,
+    modelo: Type[M],
+    *,
+    incluir_inactivos: bool = False,
+    orden: str = "id",
+    page: int = 1,
+    page_size: int = 10,
+) -> Tuple[list[M], int]:
+    """Variante server-side de `listar`: devuelve `(items_de_la_página, total)`.
+
+    Mismo criterio de baja lógica y orden que `listar`; el recorte y el conteo
+    los hace `paginar` (ver `src.common.paginacion`).
+    """
+    consulta = select(modelo).order_by(getattr(modelo, orden))
+    if not incluir_inactivos:
+        consulta = consulta.where(getattr(modelo, "activo").is_(True))
+    return paginar(db, consulta, page, page_size)
+
+
 def obtener(
     db: Session,
     modelo: Type[M],
@@ -219,6 +240,17 @@ def pedir_texto_no_duplicado(valor: str) -> str:
 def comparar_texto(columna: Any, valor: str) -> Any:
     """Predicado de igualdad insensible a mayúsculas, sin comodines."""
     return columna.ilike(pedir_texto_no_duplicado(valor), escape="\\")
+
+
+def contiene_texto(columna: Any, valor: str) -> Any:
+    """Predicado de "contiene" (`LIKE %valor%`) sin dejar pasar comodines.
+
+    Es el filtro de los buscadores (documentos, y cualquier listado con
+    campo de búsqueda libre): un `%` o `_` que escriba el usuario es parte
+    del texto que busca, no un comodín. Sin el escape, "Detergente%"
+    matcheaba cualquier fila que empezara con "Detergente".
+    """
+    return columna.ilike(f"%{pedir_texto_no_duplicado(valor)}%", escape="\\")
 
 
 def _traducir(e: IntegrityError, mapear: Optional[Callable[[str], Exception]]) -> Exception:

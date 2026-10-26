@@ -13,6 +13,7 @@ from src.notificaciones.services import (
 )
 from src.personal.models import Personal
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
+from src.vencimientos import schemas
 from src.vencimientos.schemas import VencimientoConsolidadoResponse
 from src.vencimientoPersonal.models import VencimientoPersonal
 from src.documentos.models import VersionDocumento
@@ -177,3 +178,97 @@ def listar_vencimientos(
     # Primero por estado y, dentro de cada estado, el más urgente (menos días) arriba.
     items.sort(key=lambda v: (_ORDEN_ESTADO[v.estado], v.dias_restantes))
     return items
+
+
+# ────────────────────────── Listado paginado ──────────────────────────────
+
+
+def _normalizar_texto(texto: str) -> str:
+    """Minúsculas y sin tildes, igual que la búsqueda que hacía el frontend."""
+    import unicodedata
+
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", texto.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def listar_vencimientos_paginado(
+    db: Session,
+    tipo: Optional[str],
+    persona_id: Optional[int],
+    aptitud: Optional[str],
+    buscar: Optional[str],
+    orden: Optional[str],
+    page: int,
+    page_size: int,
+) -> tuple[List[VencimientoConsolidadoResponse], int]:
+    """Los mismos filtros que tenía el frontend, aplicados server-side.
+
+    `orden` replica las dos opciones del selector: URGENCIA (vencidos primero)
+    y VIGENTES_PRIMERO; en ambos casos el desempate es por días restantes.
+
+    NOTA DE DISEÑO — paginación EN MEMORIA, a propósito: igual que el centro
+    de notificaciones, este listado es un CONSOLIDADO de cuatro fuentes
+    (vencimientos de personal, planes de calibración, planes de
+    mantenimiento y versiones de documentos) con el `estado` calculado en
+    Python contra la fecha de hoy y el margen configurable. No hay una tabla
+    única contra la cual hacer COUNT + OFFSET/LIMIT: se consolidan todas las
+    filas y recién ahí se filtra, ordena y recorta. El recorte acota lo que
+    VIAJA al cliente, no lo que se lee de la base.
+    """
+    items = listar_vencimientos(db, tipo)
+
+    if persona_id is not None:
+        items = [v for v in items if v.sujeto_id == persona_id and v.tipo == "PERSONAL"]
+    if aptitud:
+        items = [v for v in items if v.detalle == aptitud]
+
+    if buscar and buscar.strip():
+        terminos = [
+            t for t in _normalizar_texto(buscar).split() if t
+        ]
+        def buscable(v: VencimientoConsolidadoResponse) -> str:
+            return _normalizar_texto(
+                " ".join(
+                    (
+                        v.detalle,
+                        v.sujeto,
+                        v.estado,
+                        v.tipo,
+                        str(v.fecha_vencimiento),
+                    )
+                )
+            )
+        items = [v for v in items if all(t in buscable(v) for t in terminos)]
+
+    rango = {"URGENCIA": _ORDEN_ESTADO, "VIGENTES_PRIMERO": {"VIGENTE": 0, "PROXIMO": 1, "VENCIDO": 2}}
+    clave = rango.get(orden or "URGENCIA", _ORDEN_ESTADO)
+    items.sort(key=lambda v: (clave[v.estado], v.dias_restantes))
+
+    total = len(items)
+    inicio = (page - 1) * page_size
+    return items[inicio : inicio + page_size], total
+
+
+def listar_opciones_vencimientos(db: Session) -> schemas.VencimientosOpcionesResponse:
+    """Personas y aptitudes que tienen al menos un vencimiento activo.
+
+    Es lo que alimentaba el filtro de la tabla cuando el frontend cargaba
+    TODO el consolidado; con la paginación en el servidor hace falta un
+    endpoint liviano para llenar los dropdowns.
+    """
+    personas: dict[int, str] = {}
+    aptitudes: set[str] = set()
+    for v in _vencimientos_personal(db):
+        personas.setdefault(v.sujeto_id, v.sujeto)
+        aptitudes.add(v.detalle)
+
+    return schemas.VencimientosOpcionesResponse(
+        personas=[
+            schemas.OpcionPersona(id=id_, nombre=nombre)
+            for id_, nombre in sorted(personas.items(), key=lambda par: par[1])
+        ],
+        aptitudes=sorted(aptitudes),
+    )

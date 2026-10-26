@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.auth.roles import puede_administrar
 from src.common.persistence import aplicar_cambios, mapa_por_campo
+from src.common.paginacion import paginar
 from src.PlanLimpieza import models, schemas, exceptions
 from src.personal.models import Personal
 from src.tareas.models import Tarea
@@ -93,6 +94,21 @@ def listar_planes_limpieza(
     if not incluir_inactivos:
         query = query.where(models.PlanLimpieza.activo == True)
     return db.scalars(query).all()
+
+
+def listar_planes_limpieza_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[List[models.PlanLimpieza], int]:
+    """Mismo filtro que `listar_planes_limpieza`, recortado en la base."""
+    logger.info(
+        "Listando planes de limpieza paginado (incluir_inactivos=%s, page=%s)",
+        incluir_inactivos,
+        page,
+    )
+    query = select(models.PlanLimpieza).order_by(models.PlanLimpieza.id)
+    if not incluir_inactivos:
+        query = query.where(models.PlanLimpieza.activo == True)
+    return paginar(db, query, page, page_size)
 
 
 def leer_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:

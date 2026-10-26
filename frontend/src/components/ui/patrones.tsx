@@ -21,6 +21,10 @@ import {
 } from "@chakra-ui/react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
+  LuChevronLeft,
+  LuChevronRight,
+  LuChevronsLeft,
+  LuChevronsRight,
   LuCircleCheck,
   LuPlus,
   LuTriangleAlert,
@@ -632,9 +636,9 @@ export function TarjetaFormulario({ children, ...rest }: BoxProps) {
   );
 }
 
-export function TituloFormulario({ children }: { children: ReactNode }) {
+export function TituloFormulario({ children, ...rest }: { children: ReactNode } & TextProps) {
   return (
-    <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="6">
+    <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="6" {...rest}>
       {children}
     </Heading>
   );
@@ -758,6 +762,24 @@ export function Paginacion({
   pageSize: number;
   onPageChange: (page: number) => void;
 }) {
+  // Para « inicio y » fin: los triggers de Chakra solo cubren anterior y
+  // siguiente, así que estos dos botones llaman directo a `onPageChange`.
+  const totalPaginas = Math.max(1, Math.ceil(count / pageSize));
+
+  /*
+   * Mismo lenguaje visual que los botones numéricos de abajo: transparente
+   * con borde sutil, hover con el fondo suave de la marca y el estado
+   * deshabilitado que Chakra ya atenúa en la receta de botón.
+   */
+  const estiloNav: ButtonProps = {
+    bg: "transparent",
+    color: "brand.fg",
+    borderWidth: "1px",
+    borderColor: "border",
+    rounded: "md",
+    _hover: { bg: "brand.subtle" },
+  };
+
   return (
     <Pagination.Root
       count={count}
@@ -766,8 +788,34 @@ export function Paginacion({
       onPageChange={(e) => onPageChange(e.page)}
       mt="6"
     >
+      {/* flexWrap (acá y no en el HStack): los botones viven todos dentro
+          del mismo ButtonGroup, así que la fila que tiene que envolver en
+          pantallas angostas es la del grupo. */}
       <HStack justify="center">
-        <ButtonGroup variant="ghost" size="sm">
+        <ButtonGroup variant="ghost" size="sm" flexWrap="wrap" justifyContent="center">
+          {/* « inicio */}
+          <IconButton
+            aria-label="Primera página"
+            title="Primera página"
+            disabled={page <= 1}
+            onClick={() => onPageChange(1)}
+            {...estiloNav}
+          >
+            <LuChevronsLeft aria-hidden />
+          </IconButton>
+
+          {/* ‹ anterior */}
+          <Pagination.PrevTrigger asChild>
+            <IconButton
+              aria-label="Página anterior"
+              title="Página anterior"
+              disabled={page <= 1}
+              {...estiloNav}
+            >
+              <LuChevronLeft aria-hidden />
+            </IconButton>
+          </Pagination.PrevTrigger>
+
           <Pagination.Items
             render={(pageItem) => {
               const isSelected = pageItem.value === page;
@@ -786,6 +834,29 @@ export function Paginacion({
               );
             }}
           />
+
+          {/* siguiente › */}
+          <Pagination.NextTrigger asChild>
+            <IconButton
+              aria-label="Página siguiente"
+              title="Página siguiente"
+              disabled={page >= totalPaginas}
+              {...estiloNav}
+            >
+              <LuChevronRight aria-hidden />
+            </IconButton>
+          </Pagination.NextTrigger>
+
+          {/* fin » */}
+          <IconButton
+            aria-label="Última página"
+            title="Última página"
+            disabled={page >= totalPaginas}
+            onClick={() => onPageChange(totalPaginas)}
+            {...estiloNav}
+          >
+            <LuChevronsRight aria-hidden />
+          </IconButton>
         </ButtonGroup>
       </HStack>
     </Pagination.Root>

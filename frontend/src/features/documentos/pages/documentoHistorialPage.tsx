@@ -115,12 +115,13 @@ export function DocumentoHistorialPage() {
                     {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
                   </Celda>
                   <Celda p="3">
-                    {v.autor.nombre} {v.autor.apellido ?? ""}
+                    {v.fecha_vencimiento
+                      ? fechaCorta(v.fecha_vencimiento)
+                      : "Sin vencimiento"}
                   </Celda>
                   <Celda p="3">
-                      {v.fecha_vencimiento ? fechaCorta(v.fecha_vencimiento)
-                        : "Sin vencimiento"}
-                    </Celda>
+                    {v.autor.nombre} {v.autor.apellido ?? ""}
+                  </Celda>
                   <Celda p="3">
                     <BotonTexto
                       onClick={() =>

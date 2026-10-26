@@ -6,6 +6,7 @@ from src.common.persistence import (
     baja_logica,
     guardar,
     listar,
+    listar_paginado,
     mapa_por_campo,
     obtener,
     verificar_disponibilidad,
@@ -50,6 +51,19 @@ def crear_insumo_quimico(db: Session, datos: schemas.InsumoQuimicoCreate) -> Ins
 
 def listar_insumos_quimicos(db: Session, incluir_inactivos: bool = False) -> List[InsumoQuimico]:
     return listar(db, InsumoQuimico, incluir_inactivos=incluir_inactivos)
+
+
+def listar_insumos_quimicos_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[List[InsumoQuimico], int]:
+    """Mismo filtro que `listar_insumos_quimicos`, recortado en la base."""
+    return listar_paginado(
+        db,
+        InsumoQuimico,
+        incluir_inactivos=incluir_inactivos,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def obtener_insumo_quimico(db: Session, insumo_id: int) -> InsumoQuimico:

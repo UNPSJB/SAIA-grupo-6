@@ -1,5 +1,6 @@
 import re
 from pydantic import BaseModel, ConfigDict, field_validator, Field
+from src.common.paginacion import Pagina
 from src.elementoLimpieza import exceptions
 from datetime import date
 from typing import Optional
@@ -48,4 +49,10 @@ class ElementoLimpiezaResponse(ElementoLimpiezaBase):
   #estado_alerta: str  # Propiedad calculada en el modelo: "VENCIDO", "PROXIMO_A_VENCER", "OK", etc.
 
   model_config = ConfigDict(from_attributes=True)
+
+
+class ElementoLimpiezaPagina(Pagina[ElementoLimpiezaResponse]):
+  """Página de elementos de limpieza: la respuesta del listado paginado."""
+
+  pass
 

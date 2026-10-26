@@ -2,6 +2,7 @@ import type { UnidadMedida } from "../types/unidadMedida";
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
 export async function listarUnidadesMedida(incluirInactivos = false): Promise<UnidadMedida[]> {
@@ -9,6 +10,24 @@ export async function listarUnidadesMedida(incluirInactivos = false): Promise<Un
   const response = await apiFetch(`${API_URL}/unidades-medida${query}`);
 
   return pedir<UnidadMedida[]>(response, "Error al obtener las unidades de medida");
+}
+
+/**
+ * Página de unidades para la tabla (paginación server-side). La lista
+ * completa de arriba sigue existiendo para los dropdowns de los formularios
+ * de insumos, que necesitan todas las opciones de una vez.
+ */
+export async function listarUnidadesMedidaPaginadas(
+  page: number,
+  pageSize: number,
+  incluirInactivos = false
+): Promise<Pagina<UnidadMedida>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: incluirInactivos || undefined,
+  });
+  const response = await apiFetch(`${API_URL}/unidades-medida${query}`);
+
+  return pedir<Pagina<UnidadMedida>>(response, "Error al obtener las unidades de medida");
 }
 
 export async function crearUnidadMedida(

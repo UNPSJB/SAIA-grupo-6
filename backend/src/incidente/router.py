@@ -1,11 +1,12 @@
 import os
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
 from src.auth.dependencies import require_admin, require_operador
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.incidente import schemas, services
@@ -105,25 +106,63 @@ def crear_incidente(
     return incidente
 
 
-@router.get("", response_model=List[schemas.IncidenteResponse])
+@router.get("", response_model=Union[List[schemas.IncidenteResponse], schemas.IncidentePagina])
 def listar_incidentes(
     estado: Optional[EstadoIncidente] = None,
     tipo: Optional[str] = None,
     equipo_id: Optional[int] = None,
+    buscar: Optional[str] = Query(
+        None,
+        description="Búsqueda insensible a mayúsculas y tildes en título, descripción y quien reportó.",
+    ),
+    orden: Optional[str] = Query(
+        None,
+        description="'antiguos' ordena del más viejo al más reciente; por defecto, al revés.",
+    ),
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa (la usa el tablero).",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     current_user: Personal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Listado de incidentes. Sin `estado` devuelve abiertos y cerrados."""
-    return services.listar_incidentes(db, estado, tipo, equipo_id)
+    if page is None:
+        # `buscar` también aplica sin `page`: antes se descartaba en silencio
+        # y el cliente recibía la lista completa sin filtrar.
+        return services.listar_incidentes(
+            db, estado, tipo, equipo_id, orden=orden, buscar=buscar
+        )
+    items, total = services.listar_incidentes_paginado(
+        db, estado, tipo, equipo_id, buscar, orden, page, page_size
+    )
+    return schemas.IncidentePagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 
-@router.get("/mios", response_model=List[schemas.IncidenteResponse])
+@router.get("/mios", response_model=Union[List[schemas.IncidenteResponse], schemas.IncidentePagina])
 def listar_mis_incidentes(
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     current_user: Personal = Depends(require_operador),
     db: Session = Depends(get_db),
 ):
     """Endpoint para que operadores vean sus propios incidentes reportados."""
-    return services.listar_mis_incidentes(db, current_user.id)
+    if page is None:
+        return services.listar_mis_incidentes(db, current_user.id)
+    items, total = services.listar_mis_incidentes_paginado(
+        db, current_user.id, page, page_size
+    )
+    return schemas.IncidentePagina(
+        items=items, total=total, page=page, page_size=page_size
+    )
 
 
 @router.get("/resumen-por-tipo", response_model=schemas.IncidenteResumenResponse)

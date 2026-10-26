@@ -2,6 +2,7 @@ from typing import List
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from src.common.paginacion import paginar
 from src.exceptions import ConflictoRegistroInactivo
 from src.insumos.models import Insumo
 from src.insumos import schemas, exceptions
@@ -50,6 +51,16 @@ def listar_insumos(db: Session, incluir_inactivos: bool = False) -> List[Insumo]
     if not incluir_inactivos:
         consulta = consulta.where(Insumo.activo == True)
     return list(db.scalars(consulta).all())
+
+
+def listar_insumos_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[List[Insumo], int]:
+    """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
+    consulta = select(Insumo).order_by(Insumo.id)
+    if not incluir_inactivos:
+        consulta = consulta.where(Insumo.activo == True)
+    return paginar(db, consulta, page, page_size)
 
 
 def leer_insumo(db: Session, insumo_id: int) -> Insumo:
