@@ -43,7 +43,6 @@ import {
 
 const PAGE_SIZE = 10;
 
-type FiltroCriticidad = "todas" | Criticidad;
 type FiltroOrigen =
   | "todas"
   | "ELEMENTO_LIMPIEZA"
@@ -65,7 +64,7 @@ const ORDEN_CRITICIDAD: Record<Criticidad, number> = {
 const PALETA_CRITICIDAD: Record<Criticidad, string> = {
   alta: "red",
   media: "orange",
-  baja: "yellow",
+  baja: "green",
 };
 
 const ICONO_ORIGEN: Record<IconoCriticidad, string> = {
@@ -105,11 +104,11 @@ function etiquetaCriticidad(criticidad: Criticidad) {
       : "BAJA";
 }
 
-function etiquetaNivelGeneral(nivel: CriticidadDashboard["nivel_general"]) {
+function etiquetaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
   return nivel === "alto" ? "ALTO" : nivel === "medio" ? "MEDIO" : "BAJO";
 }
 
-function paletaNivelGeneral(nivel: CriticidadDashboard["nivel_general"]) {
+function paletaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
   return nivel === "alto" ? "red" : nivel === "medio" ? "orange" : "green";
 }
 
@@ -135,7 +134,7 @@ export function NotificacionesPage() {
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
-    nivel_general: "bajo",
+    nivel_riesgo: "bajo",
     total: 0,
     altas: 0,
     medias: 0,
@@ -148,7 +147,7 @@ export function NotificacionesPage() {
   const [alertaEditando, setAlertaEditando] = useState<AlertaCriticidad | null>(null);
   const [recambiando, setRecambiando] = useState<string | null>(null);
 
-  const [filtroCriticidad, setFiltroCriticidad] = useState<FiltroCriticidad>("todas");
+  const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<Criticidad[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
   const [busqueda, setBusqueda] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
@@ -227,9 +226,9 @@ export function NotificacionesPage() {
       );
     }
 
-    if (filtroCriticidad !== "todas") {
-      resultado = resultado.filter(
-        (alerta) => alerta.criticidad === filtroCriticidad,
+    if (criticidadesSeleccionadas.length > 0) {
+      resultado = resultado.filter((alerta) =>
+        criticidadesSeleccionadas.includes(alerta.criticidad),
       );
     }
 
@@ -261,10 +260,20 @@ export function NotificacionesPage() {
     }
 
     return resultado;
-  }, [datos.alertas, filtroCriticidad, filtroOrigen, busqueda, sortColumn, sortDirection]);
+  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda, sortColumn, sortDirection]);
 
   const contadores = useMemo(() => {
-    let base = datos.alertas;
+    // Los contadores de origen siempre representan el conjunto que se está
+    // visualizando, incluyendo los filtros de criticidad, búsqueda y origen.
+    // De esta forma, si se selecciona "Baja", "Elementos" muestra solamente
+    // cuántas situaciones BAJAS provienen de elementos de limpieza.
+    let base = [...datos.alertas];
+
+    if (criticidadesSeleccionadas.length > 0) {
+      base = base.filter((alerta) =>
+        criticidadesSeleccionadas.includes(alerta.criticidad),
+      );
+    }
 
     if (busqueda.trim()) {
       const termino = normalizar(busqueda.trim());
@@ -276,11 +285,12 @@ export function NotificacionesPage() {
       );
     }
 
+    if (filtroOrigen !== "todas") {
+      base = base.filter((alerta) => alerta.origen === filtroOrigen);
+    }
+
     return {
       todas: base.length,
-      altas: base.filter((a) => a.criticidad === "alta").length,
-      medias: base.filter((a) => a.criticidad === "media").length,
-      bajas: base.filter((a) => a.criticidad === "baja").length,
       elementos: base.filter((a) => a.origen === "ELEMENTO_LIMPIEZA").length,
       personal: base.filter((a) => a.origen === "VENCIMIENTO_PERSONAL").length,
       calibracion: base.filter((a) => a.origen === "PLAN_CALIBRACION").length,
@@ -289,7 +299,7 @@ export function NotificacionesPage() {
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
     };
-  }, [datos.alertas, busqueda]);
+  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda]);
 
   const {
     paginados: alertasPaginadas,
@@ -309,14 +319,30 @@ export function NotificacionesPage() {
     setPage(1);
   };
 
-  const handleFiltro = (setter: (value: any) => void, value: any) => {
-    setter(value);
+  const handleFiltroOrigen = (value: FiltroOrigen) => {
+    setFiltroOrigen(value);
     setPage(1);
   };
 
-  const nivel = datos.nivel_general;
-  const nivelTexto = etiquetaNivelGeneral(nivel);
-  const nivelPaleta = paletaNivelGeneral(nivel);
+  const alternarCriticidad = (criticidad: Criticidad) => {
+    setCriticidadesSeleccionadas((actuales) =>
+      actuales.includes(criticidad)
+        ? actuales.filter((actual) => actual !== criticidad)
+        : [...actuales, criticidad],
+    );
+    setPage(1);
+  };
+
+  const mostrarTodasLasSituaciones = () => {
+    setCriticidadesSeleccionadas([]);
+    setFiltroOrigen("todas");
+    setBusqueda("");
+    setPage(1);
+  };
+
+  const nivel = datos.nivel_riesgo;
+  const nivelTexto = etiquetaNivelRiesgo(nivel);
+  const nivelPaleta = paletaNivelRiesgo(nivel);
 
   return (
     <Box p="5">
@@ -351,77 +377,113 @@ export function NotificacionesPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {/* Resumen general del motor de criticidad. */}
-      <Tarjeta p="5" mb="6">
+      {/* Resumen general del motor de riesgo. */}
+      <Tarjeta p={{ base: "4", md: "5" }} mb="6">
         <Flex
           direction={{ base: "column", md: "row" }}
-          justify="space-between"
-          gap="5"
           align={{ base: "stretch", md: "center" }}
+          gap={{ base: "5", md: "8" }}
         >
-          <Box>
+          {/* Nivel general de riesgo: destacado a la izquierda. */}
+          <Box flex="1" minW="0">
             <Text fontSize="sm" color="fg.muted" mb="1">
-              Nivel general de criticidad
+              Nivel de riesgo de la entidad
             </Text>
-            <Badge
-              colorPalette={nivelPaleta}
-              variant="solid"
-              fontSize="lg"
-              px="4"
-              py="1.5"
-              borderRadius="full"
+            <Text
+              fontSize={{ base: "3xl", md: "4xl" }}
+              lineHeight="1.1"
+              fontWeight="extrabold"
+              color={`${nivelPaleta}.600`}
             >
               {nivelTexto}
-            </Badge>
+            </Text>
             <Text fontSize="sm" color="fg.muted" mt="2">
-              Se toma como nivel general la criticidad más alta actualmente detectada.
+              Riesgo general de inocuidad
             </Text>
           </Box>
 
-          <HStack gap="6" flexWrap="wrap">
-            <VStack gap="0" align="start">
-              <Text fontSize="2xl" fontWeight="bold">
-                {datos.total}
+          {/* Contador clickeable: limpia los filtros y muestra todo. */}
+          <Button
+            flexShrink={0}
+            minW={{ base: "100%", md: "170px" }}
+            minH="112px"
+            h="auto"
+            px="6"
+            py="4"
+            borderRadius="xl"
+            bg="gray.50"
+            color="gray.800"
+            borderWidth="1px"
+            borderColor="gray.200"
+            variant="solid"
+            _hover={{ bg: "gray.100", borderColor: "gray.300" }}
+            _dark={{ bg: "gray.800", color: "white", borderColor: "gray.700" }}
+            onClick={mostrarTodasLasSituaciones}
+            aria-label="Mostrar todas las situaciones y limpiar los filtros"
+            title="Mostrar todas las situaciones"
+          >
+            <VStack gap="1" align="center">
+              <Text fontSize="3xl" lineHeight="1" fontWeight="bold">
+                {alertasFiltradas.length}
               </Text>
-              <Text fontSize="xs" color="fg.muted">situaciones</Text>
+              <Text fontSize="xs" letterSpacing="wider" fontWeight="bold">
+                SITUACIONES
+              </Text>
+              <Text fontSize="xs" fontWeight="normal" color="fg.muted">
+                Ver todas
+              </Text>
             </VStack>
-            <Text fontSize="sm">🔴 {datos.altas} altas</Text>
-            <Text fontSize="sm">🟠 {datos.medias} medias</Text>
-            <Text fontSize="sm">🟡 {datos.bajas} bajas</Text>
-          </HStack>
+          </Button>
+
+          {/* Filtros de criticidad acumulables, sin contadores individuales. */}
+          <VStack align="stretch" gap="2" minW={{ base: "100%", md: "145px" }}>
+            <Button
+              justifyContent="flex-start"
+              variant={criticidadesSeleccionadas.includes("alta") ? "solid" : "ghost"}
+              colorPalette="red"
+              size="sm"
+              onClick={() => alternarCriticidad("alta")}
+              aria-pressed={criticidadesSeleccionadas.includes("alta")}
+              title="Filtrar situaciones de criticidad alta"
+            >
+              🔴 Alta
+            </Button>
+            <Button
+              justifyContent="flex-start"
+              variant={criticidadesSeleccionadas.includes("media") ? "solid" : "ghost"}
+              colorPalette="orange"
+              size="sm"
+              onClick={() => alternarCriticidad("media")}
+              aria-pressed={criticidadesSeleccionadas.includes("media")}
+              title="Filtrar situaciones de criticidad media"
+            >
+              🟠 Media
+            </Button>
+            <Button
+              justifyContent="flex-start"
+              variant={criticidadesSeleccionadas.includes("baja") ? "solid" : "ghost"}
+              colorPalette="green"
+              size="sm"
+              onClick={() => alternarCriticidad("baja")}
+              aria-pressed={criticidadesSeleccionadas.includes("baja")}
+              title="Filtrar situaciones de criticidad baja"
+            >
+              🟢 Baja
+            </Button>
+          </VStack>
         </Flex>
       </Tarjeta>
 
       {/* Filtros de la gestión de riesgos. */}
       <Tarjeta p="4" mb="6">
         <HStack gap="4" flexWrap="wrap" align="flex-end">
-          <Box minW="200px">
-            <Field.Root>
-              <LabelFiltro>Criticidad</LabelFiltro>
-              <FormNativeSelect
-                value={filtroCriticidad}
-                onChange={(e) =>
-                  handleFiltro(
-                    setFiltroCriticidad,
-                    e.target.value as FiltroCriticidad,
-                  )
-                }
-              >
-                <option value="todas">Todas ({contadores.todas})</option>
-                <option value="alta">Alta ({contadores.altas})</option>
-                <option value="media">Media ({contadores.medias})</option>
-                <option value="baja">Baja ({contadores.bajas})</option>
-              </FormNativeSelect>
-            </Field.Root>
-          </Box>
-
           <Box minW="220px">
             <Field.Root>
               <LabelFiltro>Origen</LabelFiltro>
               <FormNativeSelect
                 value={filtroOrigen}
                 onChange={(e) =>
-                  handleFiltro(setFiltroOrigen, e.target.value as FiltroOrigen)
+                  handleFiltroOrigen(e.target.value as FiltroOrigen)
                 }
               >
                 <option value="todas">Todos ({contadores.todas})</option>

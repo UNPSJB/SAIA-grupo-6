@@ -441,17 +441,25 @@ def obtener_criticidad_dashboard(
     medias = sum(1 for a in alertas if a["criticidad"] == "media")
     bajas = sum(1 for a in alertas if a["criticidad"] == "baja")
 
-    # El nivel general no se obtiene de un promedio simple: una alerta alta no
-    # debe quedar "compensada" por muchas alertas bajas.
-    if altas > 0:
-        nivel_general = "alto"
-    elif medias > 0:
-        nivel_general = "medio"
+    # Riesgo general de la entidad.
+    # Cada situación conserva su criticidad individual; el nivel de riesgo
+    # se obtiene internamente a partir del promedio de esas criticidades.
+    valores = {"baja": 1, "media": 2, "alta": 3}
+    promedio = (
+        sum(valores[a["criticidad"]] for a in alertas) / len(alertas)
+        if alertas
+        else 1.0
+    )
+
+    if promedio >= 2.5:
+        nivel_riesgo = "alto"
+    elif promedio >= 1.5:
+        nivel_riesgo = "medio"
     else:
-        nivel_general = "bajo"
+        nivel_riesgo = "bajo"
 
     return CriticidadDashboardResponse(
-        nivel_general=nivel_general,
+        nivel_riesgo=nivel_riesgo,
         total=len(alertas),
         altas=altas,
         medias=medias,

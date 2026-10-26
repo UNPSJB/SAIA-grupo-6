@@ -25,7 +25,7 @@ export function nivelLabel(nivel: NivelNotificacion): string {
 
 export type Criticidad = "alta" | "media" | "baja";
 
-export type NivelGeneralCriticidad = "alto" | "medio" | "bajo";
+export type NivelRiesgo = "alto" | "medio" | "bajo";
 
 export type IconoCriticidad =
   | "limpieza"
@@ -51,7 +51,7 @@ export interface AlertaCriticidad {
 }
 
 export interface CriticidadDashboard {
-  nivel_general: NivelGeneralCriticidad;
+  nivel_riesgo: NivelRiesgo;
   total: number;
   altas: number;
   medias: number;

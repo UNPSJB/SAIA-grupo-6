@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 Criticidad = Literal["alta", "media", "baja"]
-NivelGeneralCriticidad = Literal["alto", "medio", "bajo"]
+NivelRiesgo = Literal["alto", "medio", "bajo"]
 IconoCriticidad = Literal[
     "limpieza",
     "calibracion",
@@ -45,7 +45,7 @@ class AlertaCriticidadResponse(BaseModel):
 
 
 class CriticidadDashboardResponse(BaseModel):
-    nivel_general: NivelGeneralCriticidad
+    nivel_riesgo: NivelRiesgo
     total: int
     altas: int
     medias: int
