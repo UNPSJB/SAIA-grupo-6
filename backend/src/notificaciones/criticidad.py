@@ -1,11 +1,10 @@
 from collections import Counter, defaultdict
 from datetime import date, timedelta
-from typing import Iterable
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from src.checklist import services as checklist_services
 from src.checklist.models import Checklist
 from src.documentos.models import Documento
 from src.incidente.constants import EstadoIncidente
@@ -15,42 +14,32 @@ from src.notificaciones.schemas import (
     AlertaCriticidadResponse,
     CriticidadDashboardResponse,
 )
-from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 
 
-REGLAS_BASE = {
+# ============================================================
+# REGLAS BASE DEL MOTOR
+# ============================================================
+
+REGLAS_BASE: dict[str, str] = {
     "INCIDENTE_ABIERTO": "alta",
-
     "ELEMENTO_LIMPIEZA_VENCIDO": "media",
     "ELEMENTO_LIMPIEZA_PROXIMO": "baja",
-
     "PLAN_CALIBRACION_VENCIDO": "media",
     "PLAN_CALIBRACION_PROXIMO": "baja",
-
     "PLAN_MANTENIMIENTO_VENCIDO": "media",
     "PLAN_MANTENIMIENTO_PROXIMO": "baja",
-
     "VENCIMIENTO_PERSONAL_VENCIDO": "media",
     "VENCIMIENTO_PERSONAL_PROXIMO": "baja",
-
     "DOCUMENTO_VENCIDO": "media",
     "DOCUMENTO_PROXIMO": "baja",
-
     "CHECKLIST_INCOMPLETO": "baja",
 }
 
+ORDEN_CRITICIDAD = {"alta": 3, "media": 2, "baja": 1}
 
 DIAS_RECURRENCIA = 30
 UMBRAL_RECURRENCIA = 3
 DIAS_DOCUMENTO_PROXIMO = 15
-
-
-ORDEN_CRITICIDAD = {
-    "alta": 3,
-    "media": 2,
-    "baja": 1,
-}
-
 
 ICONOS = {
     "ELEMENTO_LIMPIEZA": "limpieza",
@@ -63,16 +52,15 @@ ICONOS = {
 }
 
 
+# ============================================================
+# UTILIDADES
+# ============================================================
 
 def _subir(criticidad: str) -> str:
-    """Sube un nivel de criticidad sin superar ALTA."""
-
     if criticidad == "baja":
         return "media"
-
     if criticidad == "media":
         return "alta"
-
     return "alta"
 
 
@@ -85,40 +73,14 @@ def _plazo(fecha: date | None, hoy: date) -> str:
     if dias < 0:
         cantidad = -dias
         return f"hace {cantidad} {'día' if cantidad == 1 else 'días'}"
-
     if dias == 0:
         return "vence hoy"
-
     if dias == 1:
         return "vence mañana"
-
     return f"vence en {dias} días"
 
 
-def _motivo_base(tipo_regla: str) -> str:
-    return {
-        "INCIDENTE_ABIERTO": "Incidente abierto",
-
-        "ELEMENTO_LIMPIEZA_VENCIDO": "Recambio vencido",
-        "ELEMENTO_LIMPIEZA_PROXIMO": "Recambio próximo a vencer",
-
-        "PLAN_CALIBRACION_VENCIDO": "Calibración vencida",
-        "PLAN_CALIBRACION_PROXIMO": "Calibración próxima a vencer",
-
-        "PLAN_MANTENIMIENTO_VENCIDO": "Mantenimiento vencido",
-        "PLAN_MANTENIMIENTO_PROXIMO": "Mantenimiento próximo a vencer",
-
-        "VENCIMIENTO_PERSONAL_VENCIDO": "Aptitud vencida",
-        "VENCIMIENTO_PERSONAL_PROXIMO": "Aptitud próxima a vencer",
-
-        "DOCUMENTO_VENCIDO": "Documento vencido",
-        "DOCUMENTO_PROXIMO": "Documento próximo a vencer",
-
-        "CHECKLIST_INCOMPLETO": "Tareas de checklist pendientes",
-    }[tipo_regla]
-
-
-def _notificacion_regla(nivel: str, tipo: str) -> str:
+def _regla_notificacion(tipo: str, nivel: str) -> str:
     if tipo == "ELEMENTO_LIMPIEZA":
         return (
             "ELEMENTO_LIMPIEZA_VENCIDO"
@@ -150,61 +112,21 @@ def _notificacion_regla(nivel: str, tipo: str) -> str:
     raise ValueError(f"Tipo de notificación no contemplado: {tipo}")
 
 
-
-def _agrupar_recurrencia_checklists(
-    db: Session,
-    desde: date,
-) -> dict[str, int]:
-    """
-    Cuenta días en los que un equipo tuvo al menos una tarea incumplida.
-
-    Cinco tareas incumplidas dentro del mismo checklist cuentan como una
-    ocurrencia y no como cinco repeticiones artificiales.
-    """
-
-    checklists = db.scalars(
-        select(Checklist)
-        .options(selectinload(Checklist.registros))
-        .where(Checklist.fecha >= desde)
-    ).all()
-
-    fechas_por_equipo: dict[int, set[date]] = defaultdict(set)
-
-    for checklist in checklists:
-        if any(
-            not registro.completado
-            for registro in checklist.registros
-        ):
-            fechas_por_equipo[checklist.equipo_id].add(
-                checklist.fecha
-            )
-
+def _motivo_base(regla: str) -> str:
     return {
-        f"equipo:{equipo_id}": len(fechas)
-        for equipo_id, fechas in fechas_por_equipo.items()
-    }
-
-
-def _agrupar_recurrencia_incidentes(
-    incidentes: Iterable[Incidente],
-    desde: date,
-) -> dict[str, int]:
-
-    conteos: Counter[str] = Counter()
-
-    for incidente in incidentes:
-        if incidente.fecha_reporte.date() < desde:
-            continue
-
-        if incidente.equipo_id is not None:
-            clave = f"equipo:{incidente.equipo_id}"
-        else:
-            clave = f"incidente-tipo:{incidente.tipo}"
-
-        conteos[clave] += 1
-
-    return dict(conteos)
-
+        "INCIDENTE_ABIERTO": "Incidente abierto",
+        "ELEMENTO_LIMPIEZA_VENCIDO": "Recambio vencido",
+        "ELEMENTO_LIMPIEZA_PROXIMO": "Recambio próximo a vencer",
+        "PLAN_CALIBRACION_VENCIDO": "Calibración vencida",
+        "PLAN_CALIBRACION_PROXIMO": "Calibración próxima a vencer",
+        "PLAN_MANTENIMIENTO_VENCIDO": "Mantenimiento vencido",
+        "PLAN_MANTENIMIENTO_PROXIMO": "Mantenimiento próximo a vencer",
+        "VENCIMIENTO_PERSONAL_VENCIDO": "Aptitud vencida",
+        "VENCIMIENTO_PERSONAL_PROXIMO": "Aptitud próxima a vencer",
+        "DOCUMENTO_VENCIDO": "Documento vencido",
+        "DOCUMENTO_PROXIMO": "Documento próximo a vencer",
+        "CHECKLIST_INCOMPLETO": "Tarea de checklist incumplida",
+    }[regla]
 
 
 def _crear_alerta(
@@ -213,99 +135,165 @@ def _crear_alerta(
     origen: str,
     entidad_id: int,
     grupo_clave: str,
-    icono: str,
     titulo: str,
     detalle: str,
-    tipo_regla: str,
+    regla: str,
     fecha_referencia: date | None,
     destino: str,
     recambio_id: int | None = None,
-) -> dict:
-
+) -> dict[str, Any]:
     return {
         "clave": clave,
         "origen": origen,
         "entidad_id": entidad_id,
         "grupo_clave": grupo_clave,
-        "icono": icono,
+        "icono": ICONOS[origen],
         "titulo": titulo,
         "detalle": detalle,
-        "tipo_regla": tipo_regla,
-        "criticidad": REGLAS_BASE[tipo_regla],
-        "motivo": _motivo_base(tipo_regla),
+        "regla": regla,
+        "criticidad": REGLAS_BASE[regla],
+        "motivo": _motivo_base(regla),
         "fecha_referencia": fecha_referencia,
         "destino": destino,
         "recambio_id": recambio_id,
     }
 
 
+# ============================================================
+# RECURRENCIA
+# ============================================================
 
-def obtener_panel_criticidad(
+def _recurrencia_incidentes(
+    incidentes: list[Incidente],
+    desde: date,
+) -> Counter[str]:
+    conteos: Counter[str] = Counter()
+
+    for incidente in incidentes:
+        if incidente.fecha_reporte.date() < desde:
+            continue
+
+        if incidente.equipo_id is not None:
+            grupo = f"equipo:{incidente.equipo_id}"
+        else:
+            grupo = f"incidente-tipo:{incidente.tipo}"
+
+        conteos[grupo] += 1
+
+    return conteos
+
+
+def _recurrencia_checklists(
+    db: Session,
+    desde: date,
+    hasta: date,
+) -> Counter[str]:
+    """Cuenta ocurrencias incumplidas durante los últimos 30 días.
+
+    Si una tarea incumplida está vinculada a un elemento de limpieza,
+    la recurrencia se agrupa por elemento. Si no, se agrupa por equipo.
+    """
+
+    checklists = db.scalars(
+        select(Checklist)
+        .options(selectinload(Checklist.registros))
+        .where(
+            Checklist.fecha >= desde,
+            Checklist.fecha <= hasta,
+        )
+    ).all()
+
+    fechas_por_grupo: dict[str, set[date]] = defaultdict(set)
+
+    for checklist in checklists:
+        for registro in checklist.registros:
+            if registro.completado:
+                continue
+
+            if registro.elemento_limpieza_id is not None:
+                grupo = f"elemento:{registro.elemento_limpieza_id}"
+            else:
+                grupo = f"equipo:{checklist.equipo_id}"
+
+            # Varias tareas incumplidas del mismo elemento en un mismo día
+            # representan una sola ocurrencia recurrente.
+            fechas_por_grupo[grupo].add(checklist.fecha)
+
+    return Counter({
+        grupo: len(fechas)
+        for grupo, fechas in fechas_por_grupo.items()
+    })
+
+
+# ============================================================
+# MOTOR DE CRITICIDAD
+# ============================================================
+
+def obtener_criticidad_dashboard(
     db: Session,
 ) -> CriticidadDashboardResponse:
-
     hoy = date.today()
     desde = hoy - timedelta(days=DIAS_RECURRENCIA)
 
-    alertas: list[dict] = []
+    alertas: list[dict[str, Any]] = []
 
+    # --------------------------------------------------------
+    # 1. VENCIMIENTOS EXISTENTES
+    # --------------------------------------------------------
+    for notificacion in notificacion_services.obtener_todas_notificaciones(db):
+        grupo = notificacion.grupo_clave
 
-    for n in notificacion_services.obtener_todas_notificaciones(db):
-
-        grupo = (
-            n.grupo_clave
-            or f"{n.tipo}:{n.entidad_id}"
-        )
+        if grupo is None:
+            if notificacion.tipo == "VENCIMIENTO_PERSONAL":
+                # El backend de notificaciones usa entidad_id = vencimiento.
+                # Recuperamos la persona desde la propia consulta específica
+                # más abajo, por lo que este fallback solo evita perder la alerta.
+                grupo = f"notificacion:{notificacion.entidad_id}"
+            else:
+                grupo = f"{notificacion.tipo}:{notificacion.entidad_id}"
 
         alertas.append(
             _crear_alerta(
-                clave=f"notificacion-{n.id_notificacion}",
-                origen=n.tipo,
-                entidad_id=n.entidad_id,
+                clave=f"notificacion-{notificacion.id_notificacion}",
+                origen=notificacion.tipo,
+                entidad_id=notificacion.entidad_id,
                 grupo_clave=grupo,
-                icono=ICONOS.get(n.tipo, "documento"),
-                titulo=n.titulo,
-                detalle=n.mensaje,
-                tipo_regla=_notificacion_regla(
-                    n.nivel,
-                    n.tipo,
+                titulo=notificacion.titulo,
+                detalle=notificacion.mensaje,
+                regla=_regla_notificacion(
+                    notificacion.tipo,
+                    notificacion.nivel,
                 ),
-                fecha_referencia=n.fecha_referencia,
-                destino=n.link_destino,
+                fecha_referencia=notificacion.fecha_referencia,
+                destino=notificacion.link_destino,
                 recambio_id=(
-                    n.entidad_id
-                    if n.tipo == "ELEMENTO_LIMPIEZA"
+                    notificacion.entidad_id
+                    if notificacion.tipo == "ELEMENTO_LIMPIEZA"
                     else None
                 ),
             )
         )
 
-
+    # --------------------------------------------------------
+    # 2. DOCUMENTOS
+    # --------------------------------------------------------
     documentos = db.scalars(
-        select(Documento)
-        .options(selectinload(Documento.versiones))
+        select(Documento).options(selectinload(Documento.versiones))
     ).all()
 
     for documento in documentos:
-
         version = documento.version_vigente
-
-        if (
-            version is None
-            or version.fecha_vencimiento is None
-        ):
+        if version is None or version.fecha_vencimiento is None:
             continue
 
-        dias = (
-            version.fecha_vencimiento - hoy
-        ).days
+        dias = (version.fecha_vencimiento - hoy).days
 
         if dias < 0:
-            tipo_regla = "DOCUMENTO_VENCIDO"
-
+            regla = "DOCUMENTO_VENCIDO"
+            titulo = "Documento vencido"
         elif dias <= DIAS_DOCUMENTO_PROXIMO:
-            tipo_regla = "DOCUMENTO_PROXIMO"
-
+            regla = "DOCUMENTO_PROXIMO"
+            titulo = "Documento próximo a vencer"
         else:
             continue
 
@@ -315,84 +303,81 @@ def obtener_panel_criticidad(
                 origen="DOCUMENTO",
                 entidad_id=documento.id,
                 grupo_clave=f"documento:{documento.id}",
-                icono="documento",
-                titulo=(
-                    "Documento vencido"
-                    if tipo_regla == "DOCUMENTO_VENCIDO"
-                    else "Documento próximo a vencer"
-                ),
+                titulo=titulo,
                 detalle=(
-                    f"{documento.nombre} · "
-                    f"versión {version.numero_version}"
+                    f"{documento.nombre} · versión {version.numero_version}"
                 ),
-                tipo_regla=tipo_regla,
+                regla=regla,
                 fecha_referencia=version.fecha_vencimiento,
                 destino=f"/documentos/{documento.id}",
             )
         )
 
-
-    tareas_hoy = checklist_services.listar_tareas_del_dia(
-        db,
-        hoy,
-    )
-
-    pendientes_por_equipo: dict[int, list[str]] = defaultdict(list)
-
-    for tarea in tareas_hoy.tareas:
-
-        if not tarea.completado:
-            pendientes_por_equipo[
-                tarea.equipo_id
-            ].append(tarea.nombre)
-
-    nombres_equipo = {
-        equipo_id: next(
-            (
-                tarea.equipo_nombre
-                for tarea in tareas_hoy.tareas
-                if tarea.equipo_id == equipo_id
-            ),
-            f"Equipo {equipo_id}",
+    # --------------------------------------------------------
+    # 3. CHECKLISTS INCUMPLIDOS
+    # --------------------------------------------------------
+    checklists_historicos = db.scalars(
+        select(Checklist)
+        .options(
+            selectinload(Checklist.registros),
+            selectinload(Checklist.equipo),
         )
-        for equipo_id in pendientes_por_equipo
-    }
-
-    for equipo_id, pendientes in pendientes_por_equipo.items():
-
-        alertas.append(
-            _crear_alerta(
-                clave=f"checklist-equipo-{equipo_id}",
-                origen="CHECKLIST",
-                entidad_id=equipo_id,
-                grupo_clave=f"equipo:{equipo_id}",
-                icono="checklist",
-                titulo="Checklist incompleto",
-                detalle=(
-                    f"{nombres_equipo[equipo_id]} · "
-                    f"{len(pendientes)} tarea(s) pendiente(s)"
-                ),
-                tipo_regla="CHECKLIST_INCOMPLETO",
-                fecha_referencia=hoy,
-                destino="/checklist/historial",
-            )
+        .where(
+            Checklist.fecha >= desde,
+            Checklist.fecha <= hoy,
         )
-
-
-    incidentes = db.scalars(
-        select(Incidente)
     ).all()
 
-    for incidente in incidentes:
+    # Para el panel actual mostramos únicamente las situaciones vigentes de
+    # hoy, mientras que todos los días del período se utilizan para recurrencia.
+    for checklist in checklists_historicos:
+        if checklist.fecha != hoy:
+            continue
 
+        for registro in checklist.registros:
+            if registro.completado:
+                continue
+
+            if registro.elemento_limpieza_id is not None:
+                grupo = f"elemento:{registro.elemento_limpieza_id}"
+            else:
+                grupo = f"equipo:{checklist.equipo_id}"
+
+            detalle = checklist.equipo.nombre
+            if registro.nombre_tarea_historico:
+                detalle = f"{detalle} · {registro.nombre_tarea_historico}"
+
+            alertas.append(
+                _crear_alerta(
+                    clave=f"checklist-registro-{registro.id}",
+                    origen="CHECKLIST",
+                    entidad_id=registro.id,
+                    grupo_clave=grupo,
+                    titulo="Tarea de checklist incumplida",
+                    detalle=detalle,
+                    regla="CHECKLIST_INCOMPLETO",
+                    fecha_referencia=checklist.fecha,
+                    destino="/checklist/historial",
+                )
+            )
+
+    # --------------------------------------------------------
+    # 4. INCIDENTES
+    # --------------------------------------------------------
+    incidentes = db.scalars(select(Incidente).options(selectinload(Incidente.equipo))).all()
+
+    for incidente in incidentes:
         if incidente.estado != EstadoIncidente.ABIERTO.value:
             continue
 
-        grupo = (
-            f"equipo:{incidente.equipo_id}"
-            if incidente.equipo_id is not None
-            else f"incidente-tipo:{incidente.tipo}"
-        )
+        if incidente.equipo_id is not None:
+            grupo = f"equipo:{incidente.equipo_id}"
+        else:
+            grupo = f"incidente-tipo:{incidente.tipo}"
+
+        detalle = incidente.descripcion
+        if incidente.equipo is not None:
+            detalle = f"{incidente.equipo.nombre} · {detalle}"
 
         alertas.append(
             _crear_alerta(
@@ -400,146 +385,93 @@ def obtener_panel_criticidad(
                 origen="INCIDENTE",
                 entidad_id=incidente.id,
                 grupo_clave=grupo,
-                icono="incidente",
                 titulo=incidente.titulo,
-                detalle=incidente.descripcion,
-                tipo_regla="INCIDENTE_ABIERTO",
+                detalle=detalle,
+                regla="INCIDENTE_ABIERTO",
                 fecha_referencia=incidente.fecha_reporte.date(),
                 destino=f"/incidentes/{incidente.id}",
             )
         )
 
- 
-    cantidad_por_grupo = Counter(
-        alerta["grupo_clave"]
-        for alerta in alertas
-    )
-
-    recurrencia = _agrupar_recurrencia_incidentes(
-        incidentes,
-        desde,
-    )
-
-    recurrencia_checklists = (
-        _agrupar_recurrencia_checklists(
-            db,
-            desde,
-        )
-    )
-
-    for grupo, cantidad in recurrencia_checklists.items():
-
-        recurrencia[grupo] = max(
-            recurrencia.get(grupo, 0),
-            cantidad,
-        )
-
     # --------------------------------------------------------
-    # 6. APLICAR ELEVACIONES
+    # 5. REGLAS DE ELEVACIÓN
     # --------------------------------------------------------
+    situaciones_por_grupo = Counter(
+        alerta["grupo_clave"] for alerta in alertas
+    )
+
+    recurrencia = _recurrencia_incidentes(incidentes, desde)
+    recurrencia.update(
+        _recurrencia_checklists(db, desde, hoy)
+    )
 
     for alerta in alertas:
-
         elevaciones: list[str] = []
 
-        # Regla 1
-        if cantidad_por_grupo[
-            alerta["grupo_clave"]
-        ] >= 2:
+        # Regla 1: varias situaciones actuales sobre el mismo elemento.
+        if situaciones_por_grupo[alerta["grupo_clave"]] >= 2:
+            alerta["criticidad"] = _subir(alerta["criticidad"])
+            elevaciones.append("varias situaciones sobre el mismo elemento")
 
-            alerta["criticidad"] = _subir(
-                alerta["criticidad"]
-            )
-
+        # Regla 2: recurrencia de la situación en los últimos 30 días.
+        cantidad = recurrencia.get(alerta["grupo_clave"], 0)
+        if cantidad >= UMBRAL_RECURRENCIA:
+            alerta["criticidad"] = _subir(alerta["criticidad"])
             elevaciones.append(
-                "varias situaciones sobre el mismo elemento"
-            )
-
-        # Regla 2
-        cantidad_recurrente = recurrencia.get(
-            alerta["grupo_clave"],
-            0,
-        )
-
-        if cantidad_recurrente >= UMBRAL_RECURRENCIA:
-
-            alerta["criticidad"] = _subir(
-                alerta["criticidad"]
-            )
-
-            elevaciones.append(
-                f"recurrencia de {cantidad_recurrente} "
-                f"ocurrencias en {DIAS_RECURRENCIA} días"
+                f"recurrencia de {cantidad} ocurrencias en {DIAS_RECURRENCIA} días"
             )
 
         if elevaciones:
-            alerta["motivo"] = (
-                f"{alerta['motivo']}; "
-                + "; ".join(elevaciones)
-            )
+            alerta["motivo"] += "; " + "; ".join(elevaciones)
 
-        alerta["plazo"] = _plazo(
-            alerta["fecha_referencia"],
-            hoy,
-        )
+        alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy)
 
     # --------------------------------------------------------
-    # 7. PRIORIZACIÓN
+    # 6. PRIORIZACIÓN
     # --------------------------------------------------------
-
     alertas.sort(
         key=lambda alerta: (
-            -ORDEN_CRITICIDAD[
-                alerta["criticidad"]
-            ],
+            -ORDEN_CRITICIDAD[alerta["criticidad"]],
             alerta["fecha_referencia"] is None,
             alerta["fecha_referencia"] or date.max,
         )
     )
 
-    # --------------------------------------------------------
-    # 8. NIVEL GENERAL
-    # --------------------------------------------------------
+    altas = sum(1 for a in alertas if a["criticidad"] == "alta")
+    medias = sum(1 for a in alertas if a["criticidad"] == "media")
+    bajas = sum(1 for a in alertas if a["criticidad"] == "baja")
 
-    resumen = Counter(
-        alerta["criticidad"]
-        for alerta in alertas
-    )
-
-    # No hacemos promedio:
-    # una situación ALTA no puede ser compensada por muchas BAJAS.
-    if resumen["alta"] > 0:
+    # El nivel general no se obtiene de un promedio simple: una alerta alta no
+    # debe quedar "compensada" por muchas alertas bajas.
+    if altas > 0:
         nivel_general = "alto"
-
-    elif resumen["media"] > 0:
+    elif medias > 0:
         nivel_general = "medio"
-
     else:
         nivel_general = "bajo"
 
-    respuesta = [
-        AlertaCriticidadResponse(
-            clave=alerta["clave"],
-            origen=alerta["origen"],
-            entidad_id=alerta["entidad_id"],
-            grupo_clave=alerta["grupo_clave"],
-            icono=alerta["icono"],
-            titulo=alerta["titulo"],
-            detalle=alerta["detalle"],
-            criticidad=alerta["criticidad"],
-            motivo=alerta["motivo"],
-            plazo=alerta["plazo"],
-            destino=alerta["destino"],
-            recambio_id=alerta["recambio_id"],
-        )
-        for alerta in alertas
-    ]
-
     return CriticidadDashboardResponse(
         nivel_general=nivel_general,
-        total=len(respuesta),
-        altas=resumen["alta"],
-        medias=resumen["media"],
-        bajas=resumen["baja"],
-        alertas=respuesta,
+        total=len(alertas),
+        altas=altas,
+        medias=medias,
+        bajas=bajas,
+        alertas=[
+            AlertaCriticidadResponse(
+                clave=a["clave"],
+                origen=a["origen"],
+                entidad_id=a["entidad_id"],
+                grupo_clave=a["grupo_clave"],
+                icono=a["icono"],
+                titulo=a["titulo"],
+                detalle=a["detalle"],
+                criticidad=a["criticidad"],
+                motivo=a["motivo"],
+                plazo=a["plazo"],
+                fecha_referencia=a["fecha_referencia"],
+                destino=a["destino"],
+                recambio_id=a["recambio_id"],
+            )
+            for a in alertas
+        ],
     )

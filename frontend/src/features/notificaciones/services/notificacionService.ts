@@ -1,4 +1,5 @@
-import type { Notificacion } from "../types/notificacion";
+
+import type { CriticidadDashboard, Notificacion } from "../types/notificacion";
 
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
@@ -30,5 +31,14 @@ export async function actualizarConfiguracionAlertas(dias: number): Promise<{
   return pedir<{ dias_alerta_vencimiento_personal: number }>(
     response,
     "No se pudo guardar la configuración"
+  );
+}
+
+
+export async function obtenerCriticidadDashboard(): Promise<CriticidadDashboard> {
+  const response = await apiFetch(`${API_URL}/notificaciones/criticidad`);
+  return pedir<CriticidadDashboard>(
+    response,
+    "Error al obtener el nivel de criticidad"
   );
 }

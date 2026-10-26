@@ -1,10 +1,11 @@
 from datetime import date
 from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
+
 
 Criticidad = Literal["alta", "media", "baja"]
 NivelGeneralCriticidad = Literal["alto", "medio", "bajo"]
-
 IconoCriticidad = Literal[
     "limpieza",
     "calibracion",
@@ -24,7 +25,6 @@ class NotificacionResponse(BaseModel):
     nivel: str
     link_destino: str
     fecha_referencia: Optional[date] = None
-
     grupo_clave: Optional[str] = None
 
 
@@ -39,6 +39,7 @@ class AlertaCriticidadResponse(BaseModel):
     criticidad: Criticidad
     motivo: str
     plazo: str
+    fecha_referencia: Optional[date] = None
     destino: str
     recambio_id: Optional[int] = None
 

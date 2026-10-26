@@ -1,9 +1,11 @@
+
 from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.auth.dependencies import require_admin
 from src.notificaciones import schemas, services
+from src.notificaciones.criticidad import obtener_criticidad_dashboard
 
 # Las alertas de recambio y vencimientos son parte de las historias de
 # administración ("Como: persona con permiso de administrar").
@@ -16,6 +18,15 @@ router = APIRouter(
 @router.get("", response_model=List[schemas.NotificacionResponse])
 def listar_notificaciones(db: Session = Depends(get_db)):
     return services.obtener_todas_notificaciones(db)
+
+
+@router.get(
+    "/criticidad",
+    response_model=schemas.CriticidadDashboardResponse,
+)
+def obtener_criticidad(db: Session = Depends(get_db)):
+    """Devuelve las situaciones activas priorizadas por el motor de criticidad."""
+    return obtener_criticidad_dashboard(db)
 
 
 @router.get("/configuracion", response_model=schemas.ConfiguracionAlertasResponse)
