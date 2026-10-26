@@ -10,12 +10,16 @@ import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 export async function listarIncidentes(
   estado?: EstadoIncidente | "",
   tipo?: string,
-  equipoId?: number
+  equipoId?: number,
+  fechaDesde?: string,
+  fechaHasta?: string
 ): Promise<Incidente[]> {
   const params = new URLSearchParams();
   if (estado) params.append("estado", estado);
   if (tipo) params.append("tipo", tipo);
   if (equipoId) params.append("equipo_id", String(equipoId));
+  if (fechaDesde) params.append("fecha_desde", fechaDesde);
+  if (fechaHasta) params.append("fecha_hasta", fechaHasta);
 
   const query = params.toString() ? `?${params.toString()}` : "";
   const response = await apiFetch(`${API_URL}/incidentes${query}`);
@@ -37,6 +41,8 @@ export async function listarIncidentesPaginados(
     estado?: EstadoIncidente | "";
     tipo?: string;
     buscar?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
     orden?: "antiguos" | "recientes";
   } = {}
 ): Promise<Pagina<Incidente>> {
@@ -44,6 +50,8 @@ export async function listarIncidentesPaginados(
     estado: opciones.estado || undefined,
     tipo: opciones.tipo || undefined,
     buscar: opciones.buscar?.trim() || undefined,
+    fecha_desde: opciones.fechaDesde || undefined,
+    fecha_hasta: opciones.fechaHasta || undefined,
     orden: opciones.orden || undefined,
   });
   const response = await apiFetch(`${API_URL}/incidentes${query}`);
@@ -140,9 +148,16 @@ export async function obtenerHistorialIncidente(
  * registrada). Con `incluirCerrados` cuenta el histórico completo.
  */
 export async function obtenerResumenIncidentesPorTipo(
-  incluirCerrados = false
+  incluirCerrados = false,
+  fechaDesde?: string,
+  fechaHasta?: string
 ): Promise<IncidenteResumen> {
-  const query = incluirCerrados ? "?incluir_cerrados=true" : "";
+  const params = new URLSearchParams();
+  if (incluirCerrados) params.append("incluir_cerrados", "true");
+  if (fechaDesde) params.append("fecha_desde", fechaDesde);
+  if (fechaHasta) params.append("fecha_hasta", fechaHasta);
+
+  const query = params.toString() ? `?${params.toString()}` : "";
   const response = await apiFetch(
     `${API_URL}/incidentes/resumen-por-tipo${query}`
   );

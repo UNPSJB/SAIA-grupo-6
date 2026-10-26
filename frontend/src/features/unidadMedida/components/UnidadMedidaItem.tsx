@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { UnidadMedida } from "../types/unidadMedida";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface UnidadMedidaItemProps {
   unidad: UnidadMedida;
@@ -32,17 +32,11 @@ export function UnidadMedidaItem({
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {unidad.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(unidad)}>
-                Modificar
-              </BotonTabla>
-              <BotonTabla accion="eliminar" onClick={() => onDelete(unidad)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(unidad)} />
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(unidad)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(unidad)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(unidad)} />
           )}
         </HStack>
       </Celda>

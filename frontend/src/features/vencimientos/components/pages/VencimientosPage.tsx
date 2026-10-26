@@ -14,7 +14,7 @@ import type {
 } from "../../types/vencimiento";
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
-import { Paginacion, TextoTruncado } from "../../../../components/ui/patrones";
+import { Paginacion, BotonAccion, TextoTruncado } from "../../../../components/ui/patrones";
 import { LuCalendarClock, LuCircleCheck, LuTriangleAlert } from "react-icons/lu";
 import {
   ERROR_BORDE,
@@ -395,17 +395,11 @@ export function VencimientosPage() {
                         </Badge>
                       </Table.Cell>
                       <Table.Cell textAlign="center">
-                        <Button
-                          size="sm"
-                          bg="#3182ce"
-                          color="white"
-                          _hover={{ bg: "#2b6cb0" }}
-                          fontWeight="bold"
-                          borderRadius="6px"
+                        <BotonAccion
+                          accion="ver"
+                          label="Ver"
                           onClick={() => navigate(v.link_destino)}
-                        >
-                          Ver
-                        </Button>
+                        />
                       </Table.Cell>
                     </Table.Row>
                   );

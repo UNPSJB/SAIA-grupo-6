@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Box, Checkbox, HStack, Stack, Text } from "@chakra-ui/react";
 import {
   AccionesFormulario,
@@ -24,6 +24,8 @@ interface PersonalFormProps {
   submitLabel?: string;
   title?: string;
   onCancel?: () => void;
+  /** Contenido extra antes de la barra de acciones (ej. vencimientos). */
+  extra?: ReactNode;
   esMiPerfil?: boolean; // Muestra la sección de cambiar la contraseña propia
   // Jerarquía de roles: solo quien puede tocar capacidades las ve, y el flag
   // de super admin únicamente lo muestra un super admin.
@@ -33,7 +35,7 @@ interface PersonalFormProps {
 
 const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false };
 
-export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, extra, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
   const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
   
@@ -217,6 +219,8 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
             </Text>
           </Box>
         )}
+
+        {extra}
 
         <AccionesFormulario>
           <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>

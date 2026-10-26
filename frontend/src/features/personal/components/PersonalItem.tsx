@@ -1,10 +1,9 @@
-import { Button, HStack, Table, Text } from "@chakra-ui/react";
+import { HStack, Table, Text } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
-import { LuEye } from "react-icons/lu";
 import { useAuth } from "../../../common/context/useAuth";
 import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -45,44 +44,24 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
         </Text>
       </Celda>
       <Celda p="3" center>
-        <Button
-          variant="ghost"
-          fontSize="lg"
-          /*
-           * Alto ajustado al contenido: el alto por defecto del botón (~40px)
-           * hacía que las filas de esta tabla midieran más que las del resto
-           * (los BotonTabla de las acciones miden ~28px). Con `h="auto"` y el
-           * padding mínimo, la fila queda a la par de Equipos, Insumos, etc.
-           */
-          h="auto"
-          px="2"
-          py="1"
-          onClick={() => navigate(`/personal/detalle/${persona.id}`)}
-          title="Ver Detalle"
-          aria-label={`Ver detalle de ${persona.nombre}`}
-        >
-          <LuEye aria-hidden />
-        </Button>
-      </Celda>
-      <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
+          <BotonAccion
+            accion="ver"
+            label="Ver detalle"
+            onClick={() => navigate(`/personal/detalle/${persona.id}`)}
+          />
+
           {persona.activo && puedeEditar && (
-            <BotonTabla accion="editar" onClick={() => onEdit(persona)}>
-              Modificar
-            </BotonTabla>
+            <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(persona)} />
           )}
 
           {persona.activo ? (
             puedeBorrar && (
-              <BotonTabla accion="eliminar" onClick={() => onDelete(persona)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(persona)} />
             )
           ) : (
             puedeEditar && (
-              <BotonTabla accion="reactivar" onClick={() => onReactivar(persona)}>
-                Reactivar
-              </BotonTabla>
+              <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(persona)} />
             )
           )}
         </HStack>

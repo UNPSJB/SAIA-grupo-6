@@ -1,6 +1,6 @@
 import logging
 import unicodedata
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
@@ -86,6 +86,35 @@ def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int
     return guardar(db, incidente)
 
 
+def _validar_rango_fechas(
+    fecha_desde: Optional[date], fecha_hasta: Optional[date]
+) -> None:
+    """Rechaza un rango cuya fecha inicial es posterior a la final."""
+    if fecha_desde is not None and fecha_hasta is not None and fecha_desde > fecha_hasta:
+        raise exceptions.FechaInvalida()
+
+
+def _aplicar_rango_fechas(
+    consulta,
+    fecha_desde: Optional[date],
+    fecha_hasta: Optional[date],
+):
+    """Acota la consulta a un rango de fechas de reporte, inclusive.
+
+    Se compara por `func.date(...)`: `fecha_reporte` es un `DateTime` y sin el
+    corte por día un `hasta` a las 00:00 se comería el día completo.
+    """
+    if fecha_desde is not None:
+        consulta = consulta.where(
+            func.date(models.Incidente.fecha_reporte) >= fecha_desde
+        )
+    if fecha_hasta is not None:
+        consulta = consulta.where(
+            func.date(models.Incidente.fecha_reporte) <= fecha_hasta
+        )
+    return consulta
+
+
 def _consulta_incidentes(
     estado: Optional[EstadoIncidente],
     tipo: Optional[str],
@@ -125,6 +154,34 @@ def _consulta_incidentes(
     return consulta
 
 
+def listar_incidentes(
+    db: Session,
+    estado: Optional[EstadoIncidente] = None,
+    tipo: Optional[str] = None,
+    equipo_id: Optional[int] = None,
+    orden: Optional[str] = None,
+    buscar: Optional[str] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
+) -> List[models.Incidente]:
+    """Lista los incidentes, por defecto del más reciente al más viejo.
+
+    Sin `estado` devuelve todos (abiertos y cerrados); con `estado` filtra.
+    `orden="antiguos"` invierte el criterio. Es el camino SIN paginar: lo
+    usan el tablero y el resumen, que necesitan el conjunto completo.
+
+    `buscar` se aplica con la misma lógica que en el camino paginado: antes
+    el router lo descartaba en silencio y quien lo mandaba recibía la lista
+    completa sin filtrar.
+    `fecha_desde`/`fecha_hasta` acotan por fecha de reporte (inclusive).
+    """
+    _validar_rango_fechas(fecha_desde, fecha_hasta)
+    consulta = _consulta_incidentes(estado, tipo, equipo_id, orden)
+    consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
+    incidentes = _completar_nombres(list(db.scalars(consulta).all()))
+    return _filtrar_por_busqueda(incidentes, buscar)
+
+
 def _filtrar_por_busqueda(
     incidentes: List[models.Incidente], buscar: Optional[str]
 ) -> List[models.Incidente]:
@@ -148,29 +205,6 @@ def _filtrar_por_busqueda(
     ]
 
 
-def listar_incidentes(
-    db: Session,
-    estado: Optional[EstadoIncidente] = None,
-    tipo: Optional[str] = None,
-    equipo_id: Optional[int] = None,
-    orden: Optional[str] = None,
-    buscar: Optional[str] = None,
-) -> List[models.Incidente]:
-    """Lista los incidentes, por defecto del más reciente al más viejo.
-
-    Sin `estado` devuelve todos (abiertos y cerrados); con `estado` filtra.
-    `orden="antiguos"` invierte el criterio. Es el camino SIN paginar: lo
-    usan el tablero y el resumen, que necesitan el conjunto completo.
-
-    `buscar` se aplica con la misma lógica que en el camino paginado: antes
-    el router lo descartaba en silencio y quien lo mandaba recibía la lista
-    completa sin filtrar.
-    """
-    consulta = _consulta_incidentes(estado, tipo, equipo_id, orden)
-    incidentes = _completar_nombres(list(db.scalars(consulta).all()))
-    return _filtrar_por_busqueda(incidentes, buscar)
-
-
 def listar_incidentes_paginado(
     db: Session,
     estado: Optional[EstadoIncidente],
@@ -180,12 +214,14 @@ def listar_incidentes_paginado(
     orden: Optional[str],
     page: int,
     page_size: int,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
 ) -> tuple[List[models.Incidente], int]:
     """Página del listado, recortada por la BASE (COUNT + OFFSET/LIMIT).
 
-    `estado`, `tipo`, `equipo_id` y el `orden` van en el WHERE/ORDER BY de
-    la consulta, así que sin término de búsqueda la página sale entera de
-    SQL y no se cargan más filas que las de la página.
+    `estado`, `tipo`, `equipo_id`, el `orden` y el rango de fechas van en
+    el WHERE/ORDER BY de la consulta, así que sin término de búsqueda la
+    página sale entera de SQL y no se cargan más filas que las de la página.
 
     Limitación de `buscar` (documentada a pedido): la búsqueda es
     insensible a mayúsculas y TILDES, y cubre el nombre de quien reportó.
@@ -196,7 +232,9 @@ def listar_incidentes_paginado(
     estado/tipo/equipo. Es el único caso; sin `buscar` la paginación es
     100% en la base.
     """
+    _validar_rango_fechas(fecha_desde, fecha_hasta)
     consulta = _consulta_incidentes(estado, tipo, equipo_id, orden)
+    consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
 
     if not (buscar and buscar.strip()):
         incidentes, total = paginar(db, consulta, page, page_size)
@@ -260,17 +298,24 @@ def listar_mis_incidentes_paginado(
 
 
 def resumen_por_tipo(
-    db: Session, estado: Optional[EstadoIncidente] = None
+    db: Session,
+    estado: Optional[EstadoIncidente] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
 ) -> schemas.IncidenteResumenResponse:
     """Cuenta incidentes por tipo para el indicador del tablero (E7).
 
     Devuelve los cinco tipos siempre, con 0 si no hay registros. Por
     defecto es el universo de los abiertos (la historia de "incidentes abiertos":
-    que ninguno quede reportado y olvidado).
+    que ninguno quede reportado y olvidado). `fecha_desde`/`fecha_hasta`
+    acotan por fecha de reporte (inclusive).
     """
+    _validar_rango_fechas(fecha_desde, fecha_hasta)
+
     consulta = select(
         models.Incidente.tipo, func.count(models.Incidente.id)
     ).group_by(models.Incidente.tipo)
+    consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
     if estado:
         consulta = consulta.where(models.Incidente.estado == estado.value)
 

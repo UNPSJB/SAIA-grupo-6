@@ -6,7 +6,7 @@ import type { Incidente, EstadoIncidente } from "../types/incidente";
 
 /**
  * Página actual de incidentes, pedida al backend con todos los filtros
- * (estado, tipo, búsqueda) aplicados en el servidor.
+ * aplicados en el servidor: estado, tipo, búsqueda, rango de fechas y orden.
  *
  * `orden="antiguos"` deja primero los que llevan más tiempo sin resolverse,
  * que es como la tabla de gestión los muestra siempre.
@@ -19,7 +19,10 @@ export function useIncidentes(
   estado: EstadoIncidente | "" = "",
   tipo = "",
   buscar = "",
-  pageSize = 10
+  fechaDesde?: string,
+  fechaHasta?: string,
+  pageSize = 10,
+  orden = "antiguos"
 ) {
   const buscarAplicado = useValorDebounced(buscar);
 
@@ -29,9 +32,11 @@ export function useIncidentes(
         estado,
         tipo,
         buscar: buscarAplicado,
-        orden: "antiguos",
+        fechaDesde,
+        fechaHasta,
+        orden,
       }),
-    [estado, tipo, buscarAplicado]
+    [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden]
   );
 
   const {
@@ -45,7 +50,7 @@ export function useIncidentes(
     recargar,
   } = useListaPaginada<Incidente>({
     cargar,
-    dependencias: [estado, tipo, buscarAplicado],
+    dependencias: [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los incidentes",
     pageSize,

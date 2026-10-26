@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { ElementoLimpiezaFormValues } from "../../types/elementoLimpieza";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   EstadoCargando,
   PageHeader,
@@ -49,11 +48,6 @@ export function ElementoLimpiezaEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar elemento de limpieza"
-        actions={
-          <BotonVolver onClick={() => navigate("/elementos-limpieza")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {cargando && (

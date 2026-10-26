@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, HStack, Field } from "@chakra-ui/react";
 import { IncidenteTable } from "../IncidenteTable";
@@ -8,8 +8,23 @@ import { ReabrirIncidenteDialog } from "../ReabrirIncidenteDialog";
 import { useIncidentes } from "../../hooks/useIncidentes";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
-import { ESTADOS_INCIDENTE, TIPOS_INCIDENTE, estadoLabel } from "../../types/incidente";
-import type { Incidente, TipoIncidente, EstadoIncidente } from "../../types/incidente";
+import {
+  ESTADOS_INCIDENTE,
+  TIPOS_INCIDENTE,
+  estadoLabel,
+  periodoLabel,
+} from "../../types/incidente";
+import type {
+  EstadoIncidente,
+  Incidente,
+  PeriodoRapido,
+  TipoIncidente,
+} from "../../types/incidente";
+import {
+  escucharCambioIncidentes,
+  notificarCambioIncidentes,
+} from "../../eventoIncidentes";
+import { haceDiasISO, hoyISO, inicioMesISO } from "../../../../common/utils/fechas";
 import {
   BannerError,
   BannerExito,
@@ -35,9 +50,15 @@ export function IncidentesListPage() {
   const [busqueda, setBusqueda] = useState("");
   const [incluirCerrados, setIncluirCerrados] = useState(false);
 
-  // Todos los filtros y el orden viajan al backend, que devuelve una sola
-  // página de filas. `orden="antiguos"` mantiene el criterio de antes: el
-  // incidente más viejo arriba, para resolver primero lo que más espera.
+  // Período de la estadística: por defecto "todo", que es el comportamiento
+  // original (sin acotar por fecha).
+  const [periodo, setPeriodo] = useState<PeriodoRapido>("todo");
+  const [fechaDesde, setFechaDesde] = useState(haceDiasISO(30));
+  const [fechaHasta, setFechaHasta] = useState(hoyISO());
+
+  // Todos los filtros viajan al backend, que devuelve una página de filas.
+  // `orden="antiguos"` mantiene el criterio de antes: el incidente más viejo
+  // arriba, para resolver primero lo que más espera.
   const {
     incidentes,
     total,
@@ -47,7 +68,24 @@ export function IncidentesListPage() {
     loading,
     error,
     cargarIncidentes,
-  } = useIncidentes(filtroEstado, filtroTipo, busqueda, PAGE_SIZE);
+  } = useIncidentes(
+    filtroEstado,
+    filtroTipo,
+    busqueda,
+    periodo === "todo" ? undefined : fechaDesde,
+    periodo === "todo" ? undefined : fechaHasta,
+    PAGE_SIZE,
+    "antiguos"
+  );
+
+  // Refresco automático: el alta, el cierre o la reapertura de un incidente
+  // avisan por el bus y acá se vuelve a pedir la lista. Así la estadística y
+  // la tabla se actualizan aunque el cambio se haya hecho en otra vista.
+  useEffect(() => {
+    return escucharCambioIncidentes(() => {
+      void cargarIncidentes();
+    });
+  }, [cargarIncidentes]);
 
   const { cerrar, reabrir, loading: procesando } = useIncidenteABM();
 
@@ -66,6 +104,27 @@ export function IncidentesListPage() {
     setIncluirCerrados(nuevoEstado === "");
   };
 
+  // Al elegir un chip se recalculan las fechas; "personalizado" arranca con
+  // los últimos 30 días para que el usuario solo ajuste lo que necesite.
+  // "todo" no toca las fechas: sin ellas el backend cuenta el histórico.
+  const handlePeriodoChange = (nuevo: PeriodoRapido) => {
+    setPeriodo(nuevo);
+    if (nuevo === "7d") {
+      setFechaDesde(haceDiasISO(7));
+      setFechaHasta(hoyISO());
+    } else if (nuevo === "30d") {
+      setFechaDesde(haceDiasISO(30));
+      setFechaHasta(hoyISO());
+    } else if (nuevo === "mes") {
+      setFechaDesde(inicioMesISO());
+      setFechaHasta(hoyISO());
+    } else if (nuevo === "personalizado") {
+      setFechaDesde(haceDiasISO(30));
+      setFechaHasta(hoyISO());
+    }
+    setPage(1);
+  };
+
   // El diálogo no se cierra mientras corre la petición: cerrarlo a mitad de
   // camino ocultaría el aviso de que la operación sigue en curso.
   const handleCerrarDialogClose = () => {
@@ -82,7 +141,9 @@ export function IncidentesListPage() {
     try {
       await cerrar(id, observacion);
       setIncidenteACerrar(null);
-      await cargarIncidentes();
+      // El bus hace que la suscripción de arriba vuelva a pedir la lista:
+      // así la estadística y la tabla se actualizan sin recargar la página.
+      notificarCambioIncidentes();
       avisar(`Incidente #${id} cerrado. La resolución quedó registrada.`);
     } catch {
       // El mensaje de error ya quedó en el hook.
@@ -95,7 +156,7 @@ export function IncidentesListPage() {
     try {
       await reabrir(id, motivo);
       setIncidenteAReabrir(null);
-      await cargarIncidentes();
+      notificarCambioIncidentes();
       avisar(`Incidente #${id} reabierto. El motivo quedó registrado en el historial.`);
     } catch {
       // El mensaje de error ya quedó en el hook.
@@ -104,7 +165,11 @@ export function IncidentesListPage() {
 
   // Sin filtros el mensaje es "no hay nada registrado"; con filtros hay que
   // decir que el filtro no arrojó resultados, que es otra situación.
-  const hayFiltros = filtroEstado !== "" || filtroTipo !== "" || busqueda.trim() !== "";
+  const hayFiltros =
+    filtroEstado !== "" ||
+    filtroTipo !== "" ||
+    busqueda.trim() !== "" ||
+    periodo !== "todo";
   const etiquetaTipo = TIPOS_INCIDENTE.find((t) => t.value === filtroTipo)?.label;
 
   let mensajeVacio = filtroEstado
@@ -115,6 +180,7 @@ export function IncidentesListPage() {
     if (filtroEstado) partes.push(`en estado ${estadoLabel(filtroEstado)}`);
     if (etiquetaTipo) partes.push(`de tipo ${etiquetaTipo}`);
     if (busqueda.trim()) partes.push(`que coincidan con "${busqueda.trim()}"`);
+    if (periodo !== "todo") partes.push(`en ${periodoLabel(periodo)}`);
     mensajeVacio = `No hay incidentes ${partes.join(" ")}.`;
   }
 
@@ -139,6 +205,12 @@ export function IncidentesListPage() {
           setIncluirCerrados(checked);
           setFiltroEstado(checked ? "" : "abierto");
         }}
+        periodo={periodo}
+        onPeriodoChange={handlePeriodoChange}
+        fechaDesde={fechaDesde}
+        fechaHasta={fechaHasta}
+        onFechaDesdeChange={(valor) => { setFechaDesde(valor); setPage(1); }}
+        onFechaHastaChange={(valor) => { setFechaHasta(valor); setPage(1); }}
       />
 
       {/* Filtros */}

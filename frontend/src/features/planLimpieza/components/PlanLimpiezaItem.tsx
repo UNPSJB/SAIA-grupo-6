@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { PlanLimpieza } from "../types/planLimpieza";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
@@ -44,17 +44,11 @@ export function PlanLimpiezaItem({
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {plan.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(plan)}>
-                Modificar
-              </BotonTabla>
-              <BotonTabla accion="eliminar" onClick={() => onDelete(plan)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(plan)} />
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(plan)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(plan)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(plan)} />
           )}
         </HStack>
       </Celda>

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
@@ -119,6 +119,14 @@ def listar_incidentes(
         None,
         description="'antiguos' ordena del más viejo al más reciente; por defecto, al revés.",
     ),
+    fecha_desde: Optional[date] = Query(
+        None,
+        description="Fecha desde para acotar el listado (inclusive).",
+    ),
+    fecha_hasta: Optional[date] = Query(
+        None,
+        description="Fecha hasta para acotar el listado (inclusive).",
+    ),
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -133,10 +141,26 @@ def listar_incidentes(
         # `buscar` también aplica sin `page`: antes se descartaba en silencio
         # y el cliente recibía la lista completa sin filtrar.
         return services.listar_incidentes(
-            db, estado, tipo, equipo_id, orden=orden, buscar=buscar
+            db,
+            estado,
+            tipo,
+            equipo_id,
+            orden=orden,
+            buscar=buscar,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
         )
     items, total = services.listar_incidentes_paginado(
-        db, estado, tipo, equipo_id, buscar, orden, page, page_size
+        db,
+        estado,
+        tipo,
+        equipo_id,
+        buscar,
+        orden,
+        page,
+        page_size,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
     )
     return schemas.IncidentePagina(
         items=items, total=total, page=page, page_size=page_size
@@ -168,6 +192,8 @@ def listar_mis_incidentes(
 @router.get("/resumen-por-tipo", response_model=schemas.IncidenteResumenResponse)
 def resumen_incidentes_por_tipo(
     incluir_cerrados: bool = False,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
     current_user: Personal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -175,12 +201,13 @@ def resumen_incidentes_por_tipo(
 
     Por defecto cuenta solo los incidentes sin acción correctiva registrada
     (abiertos). Con `incluir_cerrados=true` cuenta el histórico completo.
+    `fecha_desde`/`fecha_hasta` acotan por fecha de reporte (inclusive).
 
     Se declara ANTES de `/{incidente_id}`: si no, FastAPI intentaría parsear
     "resumen-por-tipo" como id numérico y devolvería 422.
     """
     estado = None if incluir_cerrados else EstadoIncidente.ABIERTO
-    return services.resumen_por_tipo(db, estado)
+    return services.resumen_por_tipo(db, estado, fecha_desde, fecha_hasta)
 
 
 @router.get("/{incidente_id}", response_model=schemas.IncidenteResponse)
