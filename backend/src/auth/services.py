@@ -179,7 +179,14 @@ def revocar_tokens(db: Session, tokens: dict[str, Optional[str]]) -> int:
             jti=payload["jti"],
             usuario_id=usuario_id,
             tipo=tipo,
-            expira=datetime.fromtimestamp(payload["exp"]),
+            # `exp` es un timestamp UTC: sin `tz=timezone.utc`,
+            # `fromtimestamp` lo convierte a hora LOCAL y la purga de
+            # `purgar_revocados_vencidos` (que compara contra UTC) borraba la
+            # revocación apenas arrancaba el server: un token con logout volvía
+            # a autenticar hasta 30 minutos.
+            expira=datetime.fromtimestamp(payload["exp"], tz=timezone.utc).replace(
+                tzinfo=None
+            ),
         )
         revocados += 1
 

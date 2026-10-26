@@ -44,25 +44,47 @@ function expulsarPorSesionVencida() {
   }
 }
 
+// Renovación single-flight: si el access token vence con varias requests en
+// vuelo (dashboard + campana + ...), TODAS reciben 401 al mismo tiempo y cada
+// una intentaba renovar por su cuenta: una ráfaga de POST /auth/refresh que
+// dejaba varios pares de tokens de 7 días vivos (last-write-wins en
+// localStorage). Con la promesa compartida, la primera renueva y el resto
+// reutiliza ese resultado.
+let refreshEnVuelo: Promise<boolean> | null = null;
+
 async function tryRefresh(): Promise<boolean> {
+  if (refreshEnVuelo) return refreshEnVuelo;
+
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
 
-  try {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
+  refreshEnVuelo = (async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
 
-    if (!response.ok) return false;
+      if (!response.ok) return false;
 
-    const data = await response.json();
-    setTokens(data.access_token, data.refresh_token);
-    return true;
-  } catch {
-    return false;
-  }
+      // Carrera con logout: si la sesión se cerró mientras el refresh estaba
+      // en vuelo, el token que inició la renovación ya no está en storage y NO
+      // hay que re-escribir tokens: quedaría una sesión "cerrada" con
+      // credenciales válidas.
+      if (getRefreshToken() !== refreshToken) return false;
+
+      const data = await response.json();
+      setTokens(data.access_token, data.refresh_token);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshEnVuelo = null;
+    }
+  })();
+
+  return refreshEnVuelo;
 }
 
 /**

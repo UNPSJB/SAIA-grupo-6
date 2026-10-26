@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
-import { usePaginas } from "../../../common/hooks/usePaginas";
 import {
   BannerError,
   BotonTabla,
@@ -21,16 +20,15 @@ const PAGE_SIZE = 10;
 
 export function DocumentosPage() {
   const navigate = useNavigate();
-  const { documentos, loading, error } = useDocumentos();
-  // Paginación en memoria, como el resto de los listados: la tabla mostraba
-  // todos los documentos de una vez.
   const {
-    paginados: documentosPaginados,
+    documentos,
+    total,
     page,
     setPage,
-    total,
     hayVariasPaginas,
-  } = usePaginas(documentos, PAGE_SIZE);
+    loading,
+    error,
+  } = useDocumentos(PAGE_SIZE);
 
   return (
     <Box p="5">
@@ -68,7 +66,7 @@ export function DocumentosPage() {
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
-                {documentosPaginados.map((doc) => {
+                {documentos.map((doc) => {
                   const vigente = doc.version_vigente;
                   return (
                     <Table.Row key={doc.id}>

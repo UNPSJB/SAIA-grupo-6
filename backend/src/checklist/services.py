@@ -1,10 +1,11 @@
 from datetime import date as date_, datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import case, select, func
 from sqlalchemy.orm import Session, selectinload
 
 from src.checklist import models, schemas
+from src.common.paginacion import paginar
 from src.Equipo.models import Equipo
 from src.Equipo.services import obtener_equipo
 from src.PlanLimpieza.models import PlanLimpieza
@@ -565,12 +566,121 @@ def obtener_historial_registro(db: Session, registro_id: int) -> schemas.Histori
     # ACTUALIZAMOS  para que muestres el historial 
     # ---------------------------------------------------------
 
+def _estado_a_mostrar(cl: models.Checklist, hoy: date_) -> models.EstadoChecklist:
+    """Estado con el que se MUESTRA un checklist en lectura.
+
+    `_cerrar_checklist_vencido` solo corre al abrir/marcar un día, así que un
+    día pasado que nadie volvió a tocar queda guardado como ABIERTO o COMPLETO.
+    La corrección es de lectura (un GET no escribe): fecha < hoy y estado
+    ABIERTO o COMPLETO se muestra CERRADO. OBSERVADO se muestra tal cual.
+    """
+    if cl.fecha < hoy and cl.estado in (
+        models.EstadoChecklist.ABIERTO,
+        models.EstadoChecklist.COMPLETO,
+    ):
+        return models.EstadoChecklist.CERRADO
+    return cl.estado
+
+
+def _construir_item_historial(
+    cl: models.Checklist, hoy: date_
+) -> schemas.HistorialChecklistItem:
+    """Arma el `HistorialChecklistItem` de un checklist.
+
+    Requiere que `cl.registros` ya esté cargado (selectinload): contar y
+    filtrar las tareas acá es barato porque son las del checklist solo.
+
+    El estado con el que se muestra es el de `_estado_a_mostrar` (la misma
+    regla que usa el detalle): corrige en lectura los días pasados que
+    quedaron guardados como ABIERTO o COMPLETO, y deja el OBSERVADO tal
+    cual (ver nota en `listar_historial_checklists`).
+    """
+    total = len(cl.registros)
+    completadas = sum(1 for r in cl.registros if r.completado)
+    incumplidas = [
+        schemas.TareaIncumplidaItem(tarea_id=r.tarea_id, nombre=r.nombre_tarea_historico)
+        for r in cl.registros
+        if not r.completado
+    ]
+
+    return schemas.HistorialChecklistItem(
+        checklist_id=cl.id,
+        fecha=cl.fecha,
+        equipo_id=cl.equipo_id,
+        equipo_nombre=cl.equipo.nombre,
+        estado=_estado_a_mostrar(cl, hoy),
+        total_tareas=total,
+        tareas_completadas=completadas,
+        porcentaje_cumplimiento=(completadas / total * 100) if total else 0.0,
+        tareas_incumplidas=incumplidas,
+    )
+
+
+def _porcentaje_cumplimiento_periodo(
+    db: Session,
+    fecha_desde: date_,
+    fecha_hasta: date_,
+    equipo_id: Optional[int],
+) -> float:
+    """Cumplimiento de TODO el período, con un agregado en la base.
+
+    COUNT de registros + SUM de completados unidos al checklist, con los
+    MISMOS filtros de fecha y equipo del listado. Sin cargar objetos ORM:
+    el porcentaje no depende de la página que se esté mirando, así que
+    calcularlo recorriendo todos los checklists anularía la paginación.
+    """
+    consulta = (
+        select(
+            func.count(models.RegistroTarea.id),
+            func.coalesce(
+                func.sum(case((models.RegistroTarea.completado == True, 1), else_=0)), 0
+            ),
+        )
+        .join(models.Checklist, models.RegistroTarea.checklist_id == models.Checklist.id)
+        .where(
+            models.Checklist.fecha >= fecha_desde,
+            models.Checklist.fecha <= fecha_hasta,
+        )
+    )
+    if equipo_id is not None:
+        consulta = consulta.where(models.Checklist.equipo_id == equipo_id)
+
+    total, completadas = db.execute(consulta).one()
+    total = int(total or 0)
+    completadas = int(completadas or 0)
+    return (completadas / total * 100) if total else 0.0
+
+
 def listar_historial_checklists(
     db: Session,
     fecha_desde: date_,
     fecha_hasta: date_,
     equipo_id: Optional[int] = None,
-) -> schemas.HistorialChecklistResponse:
+    page: Optional[int] = None,
+    page_size: int = 10,
+) -> schemas.HistorialChecklistResponse | schemas.HistorialChecklistPagina:
+    """Historial de checklists de un rango, paginado en la BASE cuando
+    `page` viene informado.
+
+    Con `page`: COUNT + OFFSET/LIMIT sobre la consulta de `Checklist`
+    (`paginar`), y el `selectinload` de registros se ejecuta solo sobre las
+    filas de la página. El desempate del orden es por `id` porque hay varios
+    checklists por fecha (uno por plan y día): sin desempate, OFFSET/LIMIT
+    puede repetir u omitir filas entre páginas. El cumplimiento general se
+    calcula aparte con un agregado (ver `_porcentaje_cumplimiento_periodo`).
+
+    Sin `page`: comportamiento histórico intacto (lista completa del rango
+    con el porcentaje calculado sobre toda la lista).
+
+    NOTA sobre OBSERVADO: `_cerrar_checklist_vencido` (el camino de
+    escritura) también pisa OBSERVADO con CERRADO al reabrir un día; la
+    corrección de lectura de arriba NO lo replica (un checklist observado
+    de un día pasado se muestra observado). Es una inconsistencia conocida
+    entre ambos caminos: cuál es el comportamiento correcto queda como
+    decisión abierta.
+    """
+    hoy = date_.today()
+
     if fecha_desde > fecha_hasta:
         raise FechaInvalida()
 
@@ -585,45 +695,51 @@ def listar_historial_checklists(
     if equipo_id is not None:
         query = query.where(models.Checklist.equipo_id == equipo_id)
 
-    checklists = db.scalars(query.order_by(models.Checklist.fecha.desc())).all()
+    if page is None:
+        checklists = db.scalars(query.order_by(models.Checklist.fecha.desc())).all()
 
-    items: List[schemas.HistorialChecklistItem] = []
-    total_general = 0
-    completadas_general = 0
+        items: List[schemas.HistorialChecklistItem] = []
+        total_general = 0
+        completadas_general = 0
+        for cl in checklists:
+            item = _construir_item_historial(cl, hoy)
+            items.append(item)
+            total_general += item.total_tareas
+            completadas_general += item.tareas_completadas
 
-    for cl in checklists:
-        total = len(cl.registros)
-        completadas = sum(1 for r in cl.registros if r.completado)
-        incumplidas = [
-            schemas.TareaIncumplidaItem(tarea_id=r.tarea_id, nombre=r.nombre_tarea_historico)
-            for r in cl.registros
-            if not r.completado
-        ]
-        total_general += total
-        completadas_general += completadas
-
-        items.append(
-            schemas.HistorialChecklistItem(
-                checklist_id=cl.id,
-                fecha=cl.fecha,
-                equipo_id=cl.equipo_id,
-                equipo_nombre=cl.equipo.nombre,
-                estado=cl.estado,
-                total_tareas=total,
-                tareas_completadas=completadas,
-                porcentaje_cumplimiento=(completadas / total * 100) if total else 0.0,
-                tareas_incumplidas=incumplidas,
-            )
+        return schemas.HistorialChecklistResponse(
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            equipo_id=equipo_id,
+            porcentaje_cumplimiento_general=(
+                completadas_general / total_general * 100 if total_general else 0.0
+            ),
+            checklists=items,
         )
 
-    return schemas.HistorialChecklistResponse(
+    # Página pedida: el recorte lo hace la base. El `order_by` con desempate
+    # por `id` es lo que garantiza que recorrer las páginas no repita ni
+    # omita checklists.
+    query = query.order_by(
+        models.Checklist.fecha.desc(), models.Checklist.id.desc()
+    )
+    checklists, total = paginar(db, query, page, page_size)
+
+    # El % general se calcula sobre TODO el período (no cambia con la página),
+    # con un agregado en SQL en vez de cargar los registros de cada checklist.
+    porcentaje_general = _porcentaje_cumplimiento_periodo(
+        db, fecha_desde, fecha_hasta, equipo_id
+    )
+
+    return schemas.HistorialChecklistPagina(
+        items=[_construir_item_historial(cl, hoy) for cl in checklists],
+        total=total,
+        page=page,
+        page_size=page_size,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         equipo_id=equipo_id,
-        porcentaje_cumplimiento_general=(
-            completadas_general / total_general * 100 if total_general else 0.0
-        ),
-        checklists=items,
+        porcentaje_cumplimiento_general=porcentaje_general,
     )
 
 
@@ -635,6 +751,11 @@ def obtener_detalle_checklist(
     El nombre y la descripción pertenecen al snapshot de RegistroTarea. En
     cambio, insumo, unidad y elemento se resuelven desde los catálogos vigentes,
     porque esos nombres no se guardan como snapshots históricos.
+
+    El estado se muestra con la MISMA regla que la lista del historial
+    (`_estado_a_mostrar`), para que el badge del diálogo no contradiga al
+    de la fila que lo abrió. La corrección es solo del valor devuelto: el
+    objeto ORM no se modifica.
     """
     checklist = db.scalar(
         select(models.Checklist)
@@ -696,7 +817,9 @@ def obtener_detalle_checklist(
         fecha=checklist.fecha,
         equipo_id=checklist.equipo_id,
         equipo_nombre=checklist.equipo.nombre,
-        estado=checklist.estado,
+        # Mismo criterio que la lista (ver `_estado_a_mostrar`): el ORM
+        # queda intacto, solo cambia lo que se devuelve.
+        estado=_estado_a_mostrar(checklist, date_.today()),
         total_tareas=len(registros),
         tareas_completadas=tareas_completadas,
         porcentaje_cumplimiento=(

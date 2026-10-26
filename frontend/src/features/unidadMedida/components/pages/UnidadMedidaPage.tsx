@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { UnidadMedidaTable } from "../UnidadMedidaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -21,23 +20,25 @@ export function UnidadMedidaPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { unidades, loading, error, cargarUnidades } = useUnidadesMedida(verInactivos);
-  const { borrar, reactivar, loading: procesando, error: errorEliminar } = useUnidadMedidaABM();
   const {
-    paginados: unidadesPaginadas,
-    totalFiltrados,
+    unidades,
+    total,
     page,
     setPage,
     hayVariasPaginas,
-  } = usePaginacion(unidades, verInactivos, PAGE_SIZE);
+    loading,
+    error,
+    cargarUnidades,
+  } = useUnidadesMedida(verInactivos, PAGE_SIZE);
+  const { borrar, reactivar, loading: procesando, error: errorEliminar } = useUnidadMedidaABM();
 
   const [unidadAEliminar, setUnidadAEliminar] = useState<UnidadMedida | null>(null);
   const [unidadAReactivar, setUnidadAReactivar] = useState<UnidadMedida | null>(null);
 
 
   const handleToggleInactivos = (checked: boolean) => {
+    // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
     setVerInactivos(checked);
-    setPage(1);
   };
 
   const handleEdit = (unidad: UnidadMedida) => navigate(`/unidades-medida/${unidad.id}/editar`);
@@ -106,7 +107,7 @@ export function UnidadMedidaPage() {
       {!loading && !error && (
         <>
           <UnidadMedidaTable
-            unidades={unidadesPaginadas}
+            unidades={unidades}
             onEdit={handleEdit}
             onDelete={handleDeleteRequest}
             onReactivar={handleReactivarRequest}
@@ -114,7 +115,7 @@ export function UnidadMedidaPage() {
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

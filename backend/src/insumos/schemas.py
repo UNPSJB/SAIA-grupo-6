@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.insumos import exceptions
 
 
@@ -48,3 +49,9 @@ class UnidadMedidaResponse(BaseModel):
     simbolo: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InsumoPagina(Pagina[Insumo]):
+    """Página de insumos: la respuesta del listado paginado en el servidor."""
+
+    pass

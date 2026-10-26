@@ -5,7 +5,6 @@ import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
 import type { HistorialChecklistItem } from "../../types/checklist";
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
-import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
   BannerError,
@@ -64,10 +63,13 @@ export function HistorialChecklistPage() {
     equipoSeleccionado !== "" ? Number(equipoSeleccionado) : undefined;
 
   const { equipos } = useEquipos();
+  const [page, setPage] = useState(1);
   const { historial, loading, error, recargar } = useHistorialChecklists(
     fechaDesde,
     fechaHasta,
-    equipoIdFiltro
+    equipoIdFiltro,
+    page,
+    PAGE_SIZE
   );
 
   const toggleExpandido = (checklistId: number) => {
@@ -82,21 +84,34 @@ export function HistorialChecklistPage() {
     });
   };
 
-  const checklists = useMemo(() => historial?.checklists ?? [], [historial]);
+  // `items` es la página actual; el cumplimiento general y el total vienen
+  // calculados sobre TODO el período en el backend.
+  const checklists = useMemo(() => historial?.items ?? [], [historial]);
+  const total = historial?.total ?? 0;
+  const totalPaginas = historial?.total_paginas ?? 1;
+  const hayVariasPaginas = totalPaginas > 1;
 
-  // Un rango largo dejaba la tabla creciendo hacia abajo: se pagina de a 10 y
-  // se vuelve a la primera página cuando cambia cualquier filtro.
-  const {
-    paginados: checklistsPaginados,
-    page,
-    setPage,
-    total,
-    hayVariasPaginas,
-  } = usePaginas(
-    checklists,
-    PAGE_SIZE,
-    `${fechaDesde}|${fechaHasta}|${equipoSeleccionado}`,
-  );
+  // Página fuera de rango: si el rango se acortó (p. ej. un refresco después
+  // de que otro usuario cerró checklists) el backend devuelve `items` vacíos
+  // con `total > 0`. El ajuste va DURANTE el render — el mismo "recortar, no
+  // corregir con un efecto" de `useListaPaginada` — porque un `useEffect`
+  // con `setPage` dispara la regla `set-state-in-effect`. Con `page` en las
+  // dependencias del hook, la corrección dispara el re-fetch de la última
+  // página válida y la tabla nunca queda vacía con la paginación oculta.
+  if (
+    historial &&
+    historial.total > 0 &&
+    historial.items.length === 0 &&
+    page > totalPaginas
+  ) {
+    setPage(totalPaginas);
+  }
+
+  /** Al cambiar cualquier filtro la página 1 siempre es válida. */
+  const cambiarFiltro = (aplicar: () => void) => {
+    aplicar();
+    setPage(1);
+  };
 
   /** Botón de "Ver/ocultar N incumplidas" dentro de la celda. */
   const botonIncumplidas = (checklistId: number, cantidad: number) => (
@@ -126,7 +141,7 @@ export function HistorialChecklistPage() {
               <FormInput
                 type="date"
                 value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
+                onChange={(e) => cambiarFiltro(() => setFechaDesde(e.target.value))}
                 w="auto"
               />
             </Field.Root>
@@ -137,7 +152,7 @@ export function HistorialChecklistPage() {
               <FormInput
                 type="date"
                 value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
+                onChange={(e) => cambiarFiltro(() => setFechaHasta(e.target.value))}
                 w="auto"
               />
             </Field.Root>
@@ -147,7 +162,7 @@ export function HistorialChecklistPage() {
               <LabelFiltro>Equipo</LabelFiltro>
               <FormNativeSelect
                 value={equipoSeleccionado}
-                onChange={(e) => setEquipoSeleccionado(e.target.value)}
+                onChange={(e) => cambiarFiltro(() => setEquipoSeleccionado(e.target.value))}
               >
                 <SelectPlaceholder value="">
                   Todos los equipos
@@ -173,7 +188,7 @@ export function HistorialChecklistPage() {
         </EstadoVacio>
       )}
 
-      {!loading && historial && checklists.length > 0 && (
+      {historial && checklists.length > 0 && (
         <>
           <Text fontSize="sm" color="fg.muted" mb="4">
             Cumplimiento general del período:{" "}
@@ -186,7 +201,14 @@ export function HistorialChecklistPage() {
             </Text>
           </Text>
 
-          <Tarjeta>
+          {/* Mientras se pide la página siguiente la tabla SIGUE montada (sin
+              el parpadeo de desmontar/montar): solo se atenúa y se bloquean
+              los clicks hasta que llega la respuesta. */}
+          <Tarjeta
+            opacity={loading ? 0.6 : 1}
+            pointerEvents={loading ? "none" : "auto"}
+            transition="opacity 0.15s"
+          >
             <Table.Root variant="outline" w="100%">
               <Table.Header>
                 <FilaEncabezado>
@@ -203,7 +225,7 @@ export function HistorialChecklistPage() {
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
-                {checklistsPaginados.map((cl) => (
+                {checklists.map((cl) => (
                   <Fragment key={cl.checklist_id}>
                     <Table.Row>
                       <Celda>{formatoFecha(cl.fecha)}</Celda>

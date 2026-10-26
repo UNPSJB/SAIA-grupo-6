@@ -4,13 +4,15 @@ import shutil
 import uuid
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import UploadFile
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from src.common.paginacion import paginar
+from src.common.persistence import contiene_texto
 from src.documentos import exceptions
 from src.documentos.constants import (
     CARPETA_DOCUMENTOS,
@@ -196,20 +198,66 @@ def listar_documentos(db: Session) -> list[Documento]:
     return list(db.scalars(select(Documento).order_by(Documento.nombre)).all())
 
 
+def listar_documentos_paginado(
+    db: Session, page: int, page_size: int
+) -> tuple[list[Documento], int]:
+    """Mismo listado que `listar_documentos`, recortado en la base.
+
+    `Documento.nombre` es UNIQUE, pero el desempate por `id` igual deja el
+    orden determinista ante cualquier cambio del modelo.
+    """
+    consulta = select(Documento).order_by(Documento.nombre, Documento.id)
+    return paginar(db, consulta, page, page_size)
+
+
 def listar_documentos_vigentes(
     db: Session,
     buscar: Optional[str] = None,
     tipo: Optional[TipoDocumento] = None,
 ) -> list[Documento]:
-    """Historia 3: documentos con su versión vigente, con búsqueda por nombre y filtro por tipo."""
+    """Historia 3: documentos con su versión vigente, con búsqueda por nombre y filtro por tipo.
+
+    `buscar` usa `contiene_texto`: un `%` o `_` en el término es texto literal,
+    no comodín (sin el escape, "Detergente%" traía cualquier "Detergente...").
+    """
     consulta = select(Documento).order_by(Documento.nombre)
     if buscar and buscar.strip():
-        consulta = consulta.where(Documento.nombre.ilike(f"%{buscar.strip()}%"))
+        consulta = consulta.where(contiene_texto(Documento.nombre, buscar.strip()))
     if tipo:
         consulta = consulta.where(Documento.tipo == tipo.value)
 
     documentos = db.scalars(consulta).all()
     return [d for d in documentos if d.version_vigente is not None]
+
+
+def listar_documentos_vigentes_paginado(
+    db: Session,
+    buscar: Optional[str],
+    tipo: Optional[TipoDocumento],
+    page: int,
+    page_size: int,
+) -> tuple[list[Documento], int]:
+    """Página de documentos vigentes, con los filtros resueltos en SQL.
+
+    La condición "tiene versión vigente" —que la lista completa resuelve con
+    la propiedad Python `version_vigente`— acá se expresa con un `EXISTS`
+    sobre `VersionDocumento`, así que el COUNT y el OFFSET/LIMIT los hace
+    la base y no se cargan documentos de más. `buscar` usa `contiene_texto`
+    (comodines escapados) y `tipo` es columna directa: también en el WHERE.
+    """
+    existe_version_vigente = exists().where(
+        VersionDocumento.documento_id == Documento.id,
+        VersionDocumento.vigente.is_(True),
+    )
+
+    consulta = select(Documento).where(existe_version_vigente)
+    if buscar and buscar.strip():
+        consulta = consulta.where(contiene_texto(Documento.nombre, buscar.strip()))
+    if tipo:
+        consulta = consulta.where(Documento.tipo == tipo.value)
+
+    consulta = consulta.order_by(Documento.nombre, Documento.id)
+    return paginar(db, consulta, page, page_size)
 
 
 def obtener_historial(db: Session, documento_id: int, usuario_id: int) -> Documento:

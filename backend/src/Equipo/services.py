@@ -5,6 +5,7 @@ from src.common.persistence import (
     baja_logica,
     guardar,
     listar,
+    listar_paginado,
     mapa_por_campo,
     obtener,
 )
@@ -26,6 +27,18 @@ def crear_equipo(db: Session, datos: EquipoCreate)-> Equipo:
 
 def listar_equipos(db: Session, incluir_inactivos: bool = False) -> list[Equipo]:
     return listar(db, Equipo, incluir_inactivos=incluir_inactivos)
+
+def listar_equipos_paginado(
+    db: Session, incluir_inactivos: bool, page: int, page_size: int
+) -> tuple[list[Equipo], int]:
+    """Mismo filtro que `listar_equipos`, recortado en la base: página + total."""
+    return listar_paginado(
+        db,
+        Equipo,
+        incluir_inactivos=incluir_inactivos,
+        page=page,
+        page_size=page_size,
+    )
 
 def obtener_equipo(db: Session, equipo_id:int)-> Equipo:
     return obtener(db, Equipo, equipo_id, lambda: EquipoNoEncontrado(equipo_id))
