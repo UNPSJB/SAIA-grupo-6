@@ -109,7 +109,7 @@ export function PlanCalibracionMantenimientoForm({
           </SelectPlaceholder>
           {equipos.map((equipo) => (
             <option key={equipo.id} value={equipo.id}>
-              {equipo.nombre} - {equipo.tipo} ({equipo.ubicacion})
+              {equipo.nombre} - {equipo.tipo} ({equipo.sector.nombre})
             </option>
           ))}
         </FormNativeSelect>

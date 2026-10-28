@@ -26,6 +26,12 @@ class ModeloBase(DeclarativeBase):
 Base = ModeloBase
 
 
+# Marca para `mapped_column(..., info=AUDITORIA_REDACTAR)`: la bitácora registra
+# QUE la columna cambió, nunca su contenido (hashes, secretos). Ver
+# `src.auditoria.listeners`.
+AUDITORIA_REDACTAR = {"auditoria_redactar": True}
+
+
 # Nota: acá vivía `plan_limpieza_tareas`, la tabla intermedia de la relación
 # muchos a muchos entre PlanLimpieza y Tarea. Se eliminó porque ahora cada
 # Tarea pertenece a un único PlanLimpieza (relación 1-N / composición):

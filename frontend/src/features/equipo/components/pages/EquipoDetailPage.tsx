@@ -105,7 +105,7 @@ export function EquipoDetailPage() {
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
           <Campo etiqueta="Nombre" valor={equipo.nombre} />
           <Campo etiqueta="Tipo" valor={equipo.tipo} />
-          <Campo etiqueta="Ubicación" valor={equipo.ubicacion} />
+          <Campo etiqueta="Sector" valor={equipo.sector.nombre} />
           <Box>
             <Text fontSize="sm" fontWeight="medium" color="fg.muted">
               Estado

@@ -62,6 +62,10 @@ def login(
 
     limpiar_intentos(ip, credentials.dni)
 
+    # La sesión queda asociada al usuario autenticado, para que cualquier
+    # escritura de este request quede auditada con su actor.
+    db.info["usuario_id"] = user.id
+
     access_token, _, _ = crear_access_token(str(user.id))
     refresh_token, _, _ = crear_refresh_token(str(user.id))
 

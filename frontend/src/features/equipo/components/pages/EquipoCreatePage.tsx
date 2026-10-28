@@ -4,7 +4,7 @@ import { Box } from "@chakra-ui/react";
 import { EquipoForm } from "../EquipoForm";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import type { Equipo } from "../../types/equipo";
+import type { EquipoInput } from "../../types/equipo";
 import {
   BannerError,
   DialogoExito,
@@ -17,7 +17,7 @@ export function EquipoCreatePage() {
   const { alta, loading, error } = useEquipoABM();
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Equipo, "id">) => {
+  const handleSubmit = async (values: EquipoInput) => {
     try {
       await alta(values);
       setExito(true);

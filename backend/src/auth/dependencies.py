@@ -37,6 +37,10 @@ def get_current_user(
     if user is None or not user.activo:
         raise NotAuthenticated("Usuario no encontrado o dado de baja.")
 
+    # La sesión queda asociada al usuario: los listeners de auditoría la
+    # leen para registrar quién hizo cada cambio de este request.
+    db.info["usuario_id"] = user.id
+
     return user
 
 
@@ -63,6 +67,10 @@ def get_current_user_opcional(
 
     if user is None or not user.activo:
         return None
+
+    # Igual que get_current_user: deja el actor disponible para la
+    # auditoría de lo que se escriba en este request.
+    db.info["usuario_id"] = user.id
 
     return user
 

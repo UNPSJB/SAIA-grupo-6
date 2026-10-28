@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from typing import Optional
-from src.models import ModeloBase
+from src.models import AUDITORIA_REDACTAR, ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, Date, DateTime
 
@@ -16,7 +16,9 @@ class Personal(ModeloBase):
     email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
 
     # --- CAMPO NUEVO ---
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    password: Mapped[str] = mapped_column(
+        String(255), nullable=False, info=AUDITORIA_REDACTAR
+    )
     # -------------------
 
     puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)

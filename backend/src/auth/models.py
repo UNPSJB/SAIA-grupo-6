@@ -15,6 +15,10 @@ from src.models import ModeloBase
 
 
 class TokenRevocado(ModeloBase):
+    # La bitácora no registra la revocación: es limpieza interna de sesión,
+    # no una operación de negocio sobre una entidad del dominio.
+    __audit__ = False
+
     __tablename__ = "tokens_revocados"
 
     jti: Mapped[str] = mapped_column(String(64), primary_key=True)

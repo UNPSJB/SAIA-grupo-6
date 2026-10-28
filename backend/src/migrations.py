@@ -290,12 +290,81 @@ def run_migrations() -> None:
                     )
                 )
 
-    # 9) Bootstrap del primer super admin.
+    # 9) Equipos: la ubicación pasó a ser su propia entidad (`sectores`).
     #
-    #    Antes corría en cada arranque: un super admin que se degradaba a
-    #    propósito (para pasar el control) volvía a ser promovido en el
-    #    siguiente reinicio, y degradar era imposible sin editar la base a mano.
-    #    Ahora es de una sola vez, con bitácora en `schema_migrations`.
+    #    El CRUD de Sector cambió el modelo de equipos (`sector_id` en vez
+    #    de `ubicacion`), pero `create_all` no altera tablas existentes:
+    #    una base previa a ese cambio quedaba sin la columna y TODA
+    #    consulta de equipos (y la de los listados que lo incluyen:
+    #    checklist, incidentes, vencimientos) reventaba con
+    #    "no such column: equipos.sector_id".
+    #
+    #    La migración conserva los datos: cada ubicación usada se convierte
+    #    en un sector y cada equipo queda asociado al suyo. La columna vieja
+    #    `ubicacion` no se borra (SQLite la tolera; el ORM no la selecciona).
+    if "equipos" in tablas and "sectores" in tablas:
+        columnas = _columnas_de(inspector, "equipos")
+
+        if "sector_id" not in columnas:
+            logger.info("Migración: agregando columna equipos.sector_id")
+            with engine.begin() as conexion:
+                if "ubicacion" in columnas:
+                    # Cada ubicación usada pasa a ser un sector: mismo
+                    # nombre, recortado al ancho de la columna (que es 60).
+                    conexion.execute(
+                        text(
+                            "INSERT INTO sectores (nombre, activo) "
+                            "SELECT DISTINCT SUBSTR(TRIM(ubicacion), 1, 60), 1 "
+                            "FROM equipos "
+                            "WHERE ubicacion IS NOT NULL AND TRIM(ubicacion) <> '' "
+                            "AND NOT EXISTS ("
+                            "    SELECT 1 FROM sectores s "
+                            "    WHERE s.nombre = SUBSTR(TRIM(ubicacion), 1, 60))"
+                        )
+                    )
+
+                conexion.execute(
+                    text(
+                        "ALTER TABLE equipos "
+                        "ADD COLUMN sector_id INTEGER REFERENCES sectores(id)"
+                    )
+                )
+
+                if "ubicacion" in columnas:
+                    conexion.execute(
+                        text(
+                            "UPDATE equipos SET sector_id = ("
+                            "    SELECT s.id FROM sectores s "
+                            "    WHERE s.nombre = SUBSTR(TRIM(equipos.ubicacion), 1, 60)) "
+                            "WHERE sector_id IS NULL"
+                        )
+                    )
+
+                # Los equipos sin ubicación (o que no coincidan con ningún
+                # sector) van a un sector genérico: en el modelo la FK es
+                # NOT NULL y no puede quedar en NULL.
+                conexion.execute(
+                    text(
+                        "INSERT INTO sectores (nombre, activo) "
+                        "SELECT 'Sin sector', 1 "
+                        "WHERE NOT EXISTS ("
+                        "    SELECT 1 FROM sectores WHERE nombre = 'Sin sector')"
+                    )
+                )
+                conexion.execute(
+                    text(
+                        "UPDATE equipos SET sector_id = "
+                        "    (SELECT id FROM sectores WHERE nombre = 'Sin sector') "
+                        "WHERE sector_id IS NULL"
+                    )
+                )
+
+    # 10) Bootstrap del primer super admin.
+    #
+    #     Antes corría en cada arranque: un super admin que se degradaba a
+    #     propósito (para pasar el control) volvía a ser promovido en el
+    #     siguiente reinicio, y degradar era imposible sin editar la base a mano.
+    #     Ahora es de una sola vez, con bitácora en `schema_migrations`.
     if _migracion_ya_corrio("bootstrap_super_admin"):
         return
 

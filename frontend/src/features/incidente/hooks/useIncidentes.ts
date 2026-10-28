@@ -22,7 +22,7 @@ export function useIncidentes(
   fechaDesde?: string,
   fechaHasta?: string,
   pageSize = 10,
-  orden = "antiguos"
+  orden: "antiguos" | "recientes" = "antiguos"
 ) {
   const buscarAplicado = useValorDebounced(buscar);
 

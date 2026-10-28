@@ -1,12 +1,18 @@
 from typing import List
-from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from src.common.paginacion import paginar
+from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.exceptions import ConflictoRegistroInactivo
 from src.insumos.models import Insumo
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
+
+# `insumos.nombre` es UNIQUE: cualquier violación de integridad del PUT se
+# traduce a "ya existe" (mismo criterio que tenía el update() de Core).
+_MAPEA_CONFLICTO = mapa_por_campo(
+    por_defecto=exceptions.InsumoYaExiste,
+)
 
 
 
@@ -79,23 +85,12 @@ def modificar_insumo(
     # (evita pisar 'activo' u otros campos con NULL cuando no se envían).
     datos_a_actualizar = insumo.model_dump(exclude_unset=True)
 
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(Insumo)
-                .where(Insumo.id == insumo_id)
-                .values(**datos_a_actualizar)
-            )
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            raise exceptions.InsumoYaExiste()
-        except Exception:
-            db.rollback()
-            raise
-        db.refresh(db_insumo)
+    if not datos_a_actualizar:
+        return db_insumo
 
-    return db_insumo
+    # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no los vería.
+    return aplicar_cambios(db, db_insumo, datos_a_actualizar, _MAPEA_CONFLICTO)
 
 
 def eliminar_insumo(db: Session, insumo_id: int) -> Insumo:

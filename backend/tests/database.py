@@ -11,6 +11,7 @@ from src.models import Base
 from src.database import get_db
 from src.main import app
 from src.Equipo.models import Equipo
+from src.sector.models import Sector
 
 # Motor de base de datos en memoria para testing
 engine = create_engine(
@@ -50,12 +51,21 @@ def db_session():
 
 
 @pytest.fixture
-def unico_equipo(db_session):
+def sector(db_session):
+    """Un sector activo: los equipos lo exigen como FK NOT NULL."""
+    sector = Sector(nombre="Cocina", activo=True)
+    db_session.add(sector)
+    db_session.commit()
+    return sector
+
+
+@pytest.fixture
+def unico_equipo(db_session, sector):
     """Inserta un equipo de prueba en la BD y lo retorna para usarlo en los tests."""
     equipo = Equipo(
         nombre="Heladera-01",
-        tipo="Refrigeración",       # NUEVO: obligatorio en tu modelo
-        ubicacion="Cocina",         # NUEVO: obligatorio en tu modelo
+        tipo="Refrigeración",
+        sector_id=sector.id,
         activo=True,
     )
     db_session.add(equipo)
@@ -65,12 +75,12 @@ def unico_equipo(db_session):
 
 
 @pytest.fixture
-def multiples_equipos(db_session):
+def multiples_equipos(db_session, sector):
     """Inserta varios equipos para probar listados."""
     equipos = [
-        Equipo(nombre="Cocina-01", tipo="Horno", ubicacion="Cocina", activo=True),             # CAMBIO: name -> nombre
-        Equipo(nombre="Heladera-02", tipo="Refrigeración", ubicacion="Depósito", activo=False),
-        Equipo(nombre="Freezer-01", tipo="Refrigeración", ubicacion="Depósito", activo=True),
+        Equipo(nombre="Cocina-01", tipo="Horno", sector_id=sector.id, activo=True),
+        Equipo(nombre="Heladera-02", tipo="Refrigeración", sector_id=sector.id, activo=False),
+        Equipo(nombre="Freezer-01", tipo="Refrigeración", sector_id=sector.id, activo=True),
     ]
     db_session.add_all(equipos)
     db_session.commit()

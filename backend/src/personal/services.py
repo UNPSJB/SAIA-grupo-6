@@ -1,10 +1,11 @@
 import logging
 from typing import List
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from src.common.paginacion import paginar
+from src.common.persistence import aplicar_cambios
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
 from src.common.persistence import es_violacion_nulo, es_violacion_unica
@@ -155,6 +156,19 @@ def leer_persona(
     return db_persona
 
 
+def _mapear_conflicto_persona(mensaje: str) -> Exception:
+    """Traduce un IntegrityError del PUT a la excepción de negocio.
+
+    Mismas reglas que tenía el update() de Core: el mensaje del driver
+    distingue si el valor duplicado es el DNI o el email.
+    """
+    if "dni" in mensaje:
+        return exceptions.DniDuplicado()
+    if "email" in mensaje:
+        return exceptions.EmailDuplicado()
+    return exceptions.DatoDuplicado()
+
+
 def modificar_persona(
     db: Session,
     persona_id: int,
@@ -169,32 +183,12 @@ def modificar_persona(
     if "password" in datos_a_actualizar and datos_a_actualizar["password"]:
         datos_a_actualizar["password"] = hashear_password(datos_a_actualizar["password"])
 
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(Personal)
-                .where(Personal.id == persona_id)
-                .values(**datos_a_actualizar)
-            )
+    if not datos_a_actualizar:
+        return db_persona
 
-            db.commit()
-            db.refresh(db_persona)
-
-        except IntegrityError as e:
-            db.rollback()
-
-            mensaje_error = str(e.orig).lower()
-
-            if "dni" in mensaje_error:
-                raise exceptions.DniDuplicado()
-
-            elif "email" in mensaje_error:
-                raise exceptions.EmailDuplicado()
-
-            else:
-                raise exceptions.DatoDuplicado()
-
-    return db_persona
+    # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no vería el cambio.
+    return aplicar_cambios(db, db_persona, datos_a_actualizar, _mapear_conflicto_persona)
 
 
 def eliminar_persona(
@@ -231,6 +225,9 @@ def autenticar_persona(db: Session, dni: str, password: str):
     # Migración suave: contraseñas viejas guardadas en texto plano se aceptan
     # una vez y se reemplazan por su hash.
     if not password_ok and not es_hash_bcrypt(persona.password) and persona.password == password:
+        # El rehash lo dispara la propia persona al autenticarse: que la bitácora
+        # lo atribuya a ella y no a "sistema".
+        db.info["usuario_id"] = persona.id
         persona.password = hashear_password(password)
         db.commit()
         db.refresh(persona)

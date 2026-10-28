@@ -187,6 +187,30 @@ print()
 print("== migraciones y arranque ==")
 tmpdir = tempfile.mkdtemp()
 os.environ["DB_URL"] = f"sqlite:///{Path(tmpdir) / 't.db'}"
+
+# Se pre-crea la base con el esquema VIEJO de equipos (previo al CRUD de
+# Sector): `ubicacion` como texto y sin `sector_id`. Así se ejercita la
+# migración que agrega la columna y convierte las ubicaciones en sectores:
+# sin ella, toda consulta de equipos (checklist, incidentes, vencimientos)
+# revienta con "no such column: equipos.sector_id".
+import sqlite3 as _sqlite3  # noqa: E402
+
+with _sqlite3.connect(os.environ["DB_URL"].replace("sqlite:///", "")) as _con:
+    _con.execute(
+        "CREATE TABLE equipos ("
+        "id INTEGER PRIMARY KEY, "
+        "nombre VARCHAR(100) NOT NULL, "
+        "tipo VARCHAR(100) NOT NULL, "
+        "ubicacion VARCHAR(100), "
+        "activo BOOLEAN, "
+        "frecuencia_calibracion_dias INTEGER)"
+    )
+    _con.execute(
+        "INSERT INTO equipos (nombre, tipo, ubicacion, activo) VALUES "
+        "('Heladera 1', 'Refrigeración', 'Cocina', 1), "
+        "('Equipo sin ubicación', 'Otro', NULL, 1)"
+    )
+
 from src.config import settings  # noqa: E402
 
 settings.DB_URL = os.environ["DB_URL"]
@@ -198,6 +222,14 @@ migrations.crear_tablas_y_migrar()
 with eng.begin() as c:
     tablas = set(c.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).scalars())
 check("tablas creadas", {"personal", "checklists", "schema_migrations"} <= tablas)
+with eng.begin() as c:
+    check("migración: equipos.sector_id quedó en todas las filas",
+          c.execute(text("SELECT COUNT(*) FROM equipos WHERE sector_id IS NULL")).scalar() == 0)
+    _nombres = [r[0] for r in c.execute(text("SELECT nombre FROM sectores ORDER BY id"))]
+check("migración: la ubicación se convirtió en sector", "Cocina" in _nombres)
+check("migración: los equipos sin ubicación van a 'Sin sector'", "Sin sector" in _nombres)
+check("migración: no repite sectores", len(_nombres) == len(set(_nombres)))
+
 migrations.crear_tablas_y_migrar()
 with eng.begin() as c:
     c.execute(text("INSERT INTO personal (nombre, apellido, dni, telefono, email, password, "

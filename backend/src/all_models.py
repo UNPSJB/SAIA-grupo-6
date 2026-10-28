@@ -44,8 +44,15 @@ from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
 from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 
+# Bitácora de auditoría: va al final a propósito. Los listeners se registran
+# sobre `ModeloBase` con `propagate=True` y el modelo ya tiene que estar
+# mapeado para poder insertar en su tabla desde los eventos del ORM.
+from src.auditoria.models import AuditLog  # noqa: F401
+import src.auditoria.listeners  # noqa: F401
+
 __all__ = [
     "Aptitud",
+    "AuditLog",
     "Calibracion",
     "Checklist",
     "Documento",

@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     ROOT_PATH_PRODUCTION: str = ""
     LOG_LEVEL: str = "INFO"
 
+    # Zona horaria en la que se interpretan los días que filtra la UI (p. ej. en
+    # la auditoría). Las fechas de la bitácora se guardan en UTC.
+    ZONA_HORARIA: str = "America/Argentina/Buenos_Aires"
+
     # Seguridad JWT: sin valor por defecto a propósito. Si falta en el .env,
     # la aplicación no arranca (fail fast) en lugar de firmar tokens con una
     # clave conocida.

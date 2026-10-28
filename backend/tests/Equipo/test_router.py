@@ -1,4 +1,4 @@
-from tests.database import client, unico_equipo, multiples_equipos, db_session
+from tests.database import client, unico_equipo, multiples_equipos, db_session, sector
 
 
 
@@ -26,8 +26,8 @@ def test_get_equipo_inexistente(client):
     assert response.status_code == 404
 
 
-def test_crear_equipo(client):
-    body = {"nombre": "Horno-01", "tipo": "Horno", "ubicacion": "Cocina"}
+def test_crear_equipo(client, sector):
+    body = {"nombre": "Horno-01", "tipo": "Horno", "sector_id": sector.id}
     response = client.post("/equipos", json=body)
     assert response.status_code == 201
     assert response.json()["nombre"] == "Horno-01"
@@ -39,6 +39,6 @@ def test_dar_de_baja_equipo(client, unico_equipo):
     assert response.json()["activo"] is False
 
 def test_actualizar_equipo(client, unico_equipo):
-    response = client.patch(f"/equipos/{unico_equipo.id}", json={"ubicacion": "Depósito"})
+    response = client.patch(f"/equipos/{unico_equipo.id}", json={"tipo": "Medición"})
     assert response.status_code == 200
-    assert response.json()["ubicacion"] == "Depósito"
+    assert response.json()["tipo"] == "Medición"

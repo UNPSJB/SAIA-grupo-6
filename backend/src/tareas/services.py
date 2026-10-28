@@ -1,10 +1,11 @@
 import logging
 from typing import List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.common.persistence import es_violacion_unica
+from src.common.persistence import aplicar_cambios, es_violacion_unica
 from src.tareas import models, schemas, exceptions
 
 # logger para este módulo específico
@@ -91,16 +92,15 @@ def modificar_tarea(
         if existente:
             raise exceptions.NombreDuplicado()
 
-    if datos_a_actualizar:
-        db.execute(
-            update(models.Tarea)
-            .where(models.Tarea.id == tarea_id)
-            .values(**datos_a_actualizar)
-        )
-        db.commit()
-        db.refresh(db_tarea)
+    if not datos_a_actualizar:
+        return db_tarea
 
-    return db_tarea
+    # Asignación por ORM y no un update() de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no vería el cambio.
+    # Sin mapeo de IntegrityError, igual que antes: el nombre duplicado ya
+    # se validó arriba, cualquier otro error de integridad se propaga tal
+    # cual al manejador global.
+    return aplicar_cambios(db, db_tarea, datos_a_actualizar)
 
 
 def eliminar_tarea(db: Session, tarea_id: int) -> models.Tarea:
