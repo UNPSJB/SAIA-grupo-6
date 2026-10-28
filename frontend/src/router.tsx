@@ -13,6 +13,9 @@ import { Login } from "./features/Login";
 
 import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
+import { useState } from "react";            // sumalo si no está
+import { useLocation } from "react-router-dom"; // sumalo a los que ya importás de ahí
+import { BarraSuperior } from "./common/components/BarraSuperior";
 
 // 0. Panel principal
 const InicioPage = lazy(() =>
@@ -215,29 +218,42 @@ function ConSuspense({ children }: { children: ReactNode }) {
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
+  const { pathname } = useLocation();
+  const [menuColapsado, setMenuColapsado] = useState(true);
+
+  // El panel es overlay: al navegar vuelve a plegarse solo, para no dejar
+  // media vista tapada. Se ajusta durante el render (sin useEffect).
+  const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
+  if (pathname !== pathnamePrevio) {
+    setPathnamePrevio(pathname);
+    setMenuColapsado(true);
+  }
+
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
-      {/*
-       * El sidebar es overlay (`position: fixed`): no ocupa lugar en el
-       * flex. El contenido reserva SIEMPRE el ancho del rail plegado, así
-       * plegar/desplegar no reacomoda nada: con el panel desplegado, este
-       * aparece por encima de la vista en vez de empujarla.
-       */}
-      <Navbar />
+      {/* Overlay: no ocupa lugar en el flex (ver Navbar). */}
+      <Navbar colapsado={menuColapsado} />
 
       <Flex
         flex={1}
         ml={ANCHO_COLAPSADO}
-        p="15px 30px"
-        overflowY="auto"
+        minW={0}
         direction="column"
+        overflow="hidden"
       >
-        <Outlet />
+        <BarraSuperior
+          menuAbierto={!menuColapsado}
+          onAlternarMenu={() => setMenuColapsado((prev) => !prev)}
+        />
+
+        {/* `minH={0}` deja que esta columna scrollee en vez de estirarse. */}
+        <Flex flex={1} minH={0} p="15px 30px" overflowY="auto" direction="column">
+          <Outlet />
+        </Flex>
       </Flex>
     </Flex>
   );
 }
-
 export const router = createBrowserRouter([
   {
     path: "/login",
