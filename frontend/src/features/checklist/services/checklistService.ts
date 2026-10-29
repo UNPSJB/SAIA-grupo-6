@@ -124,13 +124,28 @@ export async function obtenerHistorialRegistro(
 }
 
 
+export interface OpcionesHistorialChecklists {
+  equipoId?: number;
+  page?: number;
+  pageSize?: number;
+  buscar?: string;
+  /** `fecha_desc` (default), `fecha_asc`, `equipo_asc` o `equipo_desc`. */
+  orden?: string;
+}
+
 export async function obtenerHistorialChecklists(
   fechaDesde: string,
   fechaHasta: string,
-  equipoId?: number,
-  page = 1,
-  pageSize = 10
+  opciones: OpcionesHistorialChecklists = {}
 ): Promise<HistorialChecklistPagina> {
+  const {
+    equipoId,
+    page = 1,
+    pageSize = 10,
+    buscar = "",
+    orden = "",
+  } = opciones;
+
   const params = new URLSearchParams({
     fecha_desde: fechaDesde,
     fecha_hasta: fechaHasta,
@@ -138,6 +153,8 @@ export async function obtenerHistorialChecklists(
     page_size: String(pageSize),
   });
   if (equipoId !== undefined) params.append("equipo_id", String(equipoId));
+  if (buscar.trim() !== "") params.append("buscar", buscar.trim());
+  if (orden !== "") params.append("orden", orden);
 
   const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
 

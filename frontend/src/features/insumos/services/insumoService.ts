@@ -5,13 +5,26 @@ import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
+export type ColumnaOrdenInsumo = "nombre" | "unidad";
+export type OrdenInsumo = `${ColumnaOrdenInsumo}_asc` | `${ColumnaOrdenInsumo}_desc`;
+
+export interface FiltrosInsumos {
+    incluirInactivos?: boolean;
+    buscar?: string;
+    unidadMedidaId?: number;
+    orden?: OrdenInsumo;
+}
+
 export async function listarInsumos(
     page: number,
     pageSize: number,
-    incluirInactivos = false
+    filtros: FiltrosInsumos = {}
 ): Promise<Pagina<Insumo>> {
     const query = queryPagina(page, pageSize, {
-        incluir_inactivos: incluirInactivos || undefined,
+        incluir_inactivos: filtros.incluirInactivos || undefined,
+        buscar: filtros.buscar?.trim() || undefined,
+        unidad_medida_id: filtros.unidadMedidaId,
+        orden: filtros.orden,
     });
     const response = await apiFetch(`${API_URL}/insumos${query}`);
 

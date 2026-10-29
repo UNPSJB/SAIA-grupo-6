@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarInsumos } from "../services/insumoService";
+import { listarInsumos, type FiltrosInsumos } from "../services/insumoService";
 import type { Insumo } from "../types/insumo";
 
 /**
@@ -9,11 +9,23 @@ import type { Insumo } from "../types/insumo";
  * `cargarInsumos` re-pide la página actual: es lo que las páginas llaman
  * después de una baja/reactivación para refrescar la tabla.
  */
-export function useInsumos(verInactivos = false, pageSize = 10) {
+export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
+    const {
+        incluirInactivos = false,
+        buscar,
+        unidadMedidaId,
+        orden = "nombre_asc",
+    } = filtros;
+
     const cargar = useCallback(
-        (page: number, pageSize: number) =>
-            listarInsumos(page, pageSize, verInactivos),
-        [verInactivos]
+        (page: number, tamanoPagina: number) =>
+            listarInsumos(page, tamanoPagina, {
+                incluirInactivos,
+                buscar,
+                unidadMedidaId,
+                orden,
+            }),
+        [incluirInactivos, buscar, unidadMedidaId, orden]
     );
 
     const {
@@ -27,7 +39,7 @@ export function useInsumos(verInactivos = false, pageSize = 10) {
         recargar,
     } = useListaPaginada<Insumo>({
         cargar,
-        dependencias: [verInactivos],
+        dependencias: [incluirInactivos, buscar, unidadMedidaId, orden],
         valorInicial: [],
         mensajeError: "No se pudieron cargar los insumos",
         pageSize,

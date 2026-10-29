@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarUnidadesMedidaPaginadas } from "../services/unidadMedidaService";
+import {
+  listarUnidadesMedidaPaginadas,
+  type FiltrosUnidadesMedida,
+} from "../services/unidadMedidaService";
 import type { UnidadMedida } from "../types/unidadMedida";
 
 /**
@@ -8,11 +11,24 @@ import type { UnidadMedida } from "../types/unidadMedida";
  * Los dropdowns de formularios siguen usando `listarUnidadesMedida` (la lista
  * completa) directo del service.
  */
-export function useUnidadesMedida(verInactivos = false, pageSize = 10) {
+export function useUnidadesMedida(
+  filtros: FiltrosUnidadesMedida = {},
+  pageSize = 10
+) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    orden = "nombre_asc",
+  } = filtros;
+
   const cargar = useCallback(
     (page: number, pageSize: number) =>
-      listarUnidadesMedidaPaginadas(page, pageSize, verInactivos),
-    [verInactivos]
+      listarUnidadesMedidaPaginadas(page, pageSize, {
+        incluirInactivos,
+        buscar,
+        orden,
+      }),
+    [incluirInactivos, buscar, orden]
   );
 
   const {
@@ -26,7 +42,7 @@ export function useUnidadesMedida(verInactivos = false, pageSize = 10) {
     recargar,
   } = useListaPaginada<UnidadMedida>({
     cargar,
-    dependencias: [verInactivos],
+    dependencias: [incluirInactivos, buscar, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar las unidades de medida",
     pageSize,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
+import { Badge, Box, Button, Flex, HStack, Text, VStack } from "@chakra-ui/react";
 import { IncidenteForm } from "../IncidenteForm";
 import { CeldaFoto } from "../MiniaturaFoto";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
@@ -9,7 +9,11 @@ import { ReportarIncidenteEmptyState } from "./ReportarIncidenteEmptyState";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { notificarCambioIncidentes } from "../../eventoIncidentes";
 import { estadoLabel, tipoLabel, tipoColor, formatoFecha } from "../../types/incidente";
-import type { IncidenteFormValues, Incidente } from "../../types/incidente";
+import type {
+  IncidenteFormValues,
+  Incidente,
+  EstadoIncidente,
+} from "../../types/incidente";
 import {
   BannerError,
   BannerExito,
@@ -56,6 +60,49 @@ function TabButton({
     >
       {label}
     </Button>
+  );
+}
+
+const ESTADOS_MIS_REPORTES: { valor: EstadoIncidente | ""; etiqueta: string }[] = [
+  { valor: "", etiqueta: "Todos" },
+  { valor: "abierto", etiqueta: "Abiertos" },
+  { valor: "cerrado", etiqueta: "Cerrados" },
+];
+
+/**
+ * Filtro compacto de "Mis reportes".
+ *
+ * Esta vista no es una tabla de gestión: es un feed de los reportes del
+ * operador dentro de la página de alta. Por eso no lleva búsqueda, orden ni
+ * chips; alcanza con separar lo que sigue pendiente de lo ya resuelto.
+ */
+function FiltroEstadoMisReportes({
+  valor,
+  onCambio,
+}: {
+  valor: EstadoIncidente | "";
+  onCambio: (estado: EstadoIncidente | "") => void;
+}) {
+  return (
+    <HStack gap="1" role="group" aria-label="Filtrar tus incidentes por estado">
+      {ESTADOS_MIS_REPORTES.map((opcion) => {
+        const activo = valor === opcion.valor;
+        return (
+          <Button
+            key={opcion.etiqueta}
+            type="button"
+            size="xs"
+            rounded="full"
+            variant={activo ? "solid" : "ghost"}
+            colorPalette={activo ? "brand" : "neutral"}
+            aria-pressed={activo}
+            onClick={() => onCambio(opcion.valor)}
+          >
+            {opcion.etiqueta}
+          </Button>
+        );
+      })}
+    </HStack>
   );
 }
 
@@ -187,6 +234,9 @@ function IncidenteCard({
 export function ReportarIncidentePage() {
   const navigate = useNavigate();
   const { alta, loading: loadingAlta, error: errorAlta } = useIncidenteABM();
+  // Filtro compacto del feed: todos (default), abiertos o cerrados. El orden
+  // sigue fijo en "más recientes primero".
+  const [estadoMis, setEstadoMis] = useState<EstadoIncidente | "">("");
   const {
     misIncidentes,
     total,
@@ -197,7 +247,7 @@ export function ReportarIncidentePage() {
     loading: loadingMis,
     error: errorMis,
     cargarMisIncidentes,
-  } = useMisIncidentes(PAGE_SIZE);
+  } = useMisIncidentes(PAGE_SIZE, estadoMis);
   const [exito, setExito] = useState(false);
   // `setTimeout` a mano: sin cleanup, si el usuario navega antes de los 3s
   // el setState corre sobre un componente ya desmontado.
@@ -209,6 +259,9 @@ export function ReportarIncidentePage() {
       await alta(values, foto);
       setExito(true);
       setActiveTab("mis-reportes");
+      // El reporte nuevo es el más reciente y siempre nace abierto: si había
+      // un filtro "Cerrados", se vuelve a "Todos" para que aparezca.
+      setEstadoMis("");
       // El reporte nuevo es el más reciente: en la primera página se ve
       // apenas termina el submit, sin importar en qué página se estaba.
       primeraPagina();
@@ -273,18 +326,49 @@ export function ReportarIncidentePage() {
       {activeTab === "mis-reportes" && (
         <Box maxW="960px" mx="auto">
           <Tarjeta p="6">
+            {/*
+              El header con el filtro queda visible cuando hay resultados o
+              cuando un filtro dejó la lista vacía: así se puede volver a
+              "Todos" sin salir de la vista.
+            */}
+            {!errorMis && (misIncidentes.length > 0 || estadoMis !== "") && (
+              <Flex
+                justify="space-between"
+                align="center"
+                gap="3"
+                flexWrap="wrap"
+                mb="3"
+              >
+                <Text fontWeight="bold" fontSize="sm" color="fg.muted">
+                  Tus incidentes reportados (más recientes primero)
+                </Text>
+                <FiltroEstadoMisReportes
+                  valor={estadoMis}
+                  onCambio={setEstadoMis}
+                />
+              </Flex>
+            )}
+
             {loadingMis && <EstadoCargando>Cargando tus reportes...</EstadoCargando>}
             {errorMis && (
               <BannerError mb="0">Error al cargar: {errorMis}</BannerError>
             )}
-            {!loadingMis && !errorMis && misIncidentes.length === 0 && (
-              <ReportarIncidenteEmptyState />
-            )}
+            {!loadingMis &&
+              !errorMis &&
+              misIncidentes.length === 0 &&
+              estadoMis === "" && <ReportarIncidenteEmptyState />}
+            {!loadingMis &&
+              !errorMis &&
+              misIncidentes.length === 0 &&
+              estadoMis !== "" && (
+                <Box textAlign="center" py="8">
+                  <Text color="fg.muted">
+                    No tenés incidentes {estadoLabel(estadoMis).toLowerCase()}s.
+                  </Text>
+                </Box>
+              )}
             {!loadingMis && !errorMis && misIncidentes.length > 0 && (
               <VStack align="stretch" gap="3">
-                <Text fontWeight="bold" fontSize="sm" color="fg.muted">
-                  Tus incidentes reportados (más recientes primero)
-                </Text>
                 <VStack align="stretch" gap="2">
                   {misIncidentes.map((inc) => (
                     <IncidenteCard key={inc.id} incidente={inc} onVer={handleVerDetalle} />

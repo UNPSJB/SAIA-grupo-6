@@ -1,17 +1,39 @@
-import type { InsumoQuimico, InsumoQuimicoFormValues, InsumoQuimicoOpcion } from "../types/insumoQuimico";
+import type {
+  InsumoQuimico,
+  InsumoQuimicoFormValues,
+  InsumoQuimicoOpcion,
+  TipoQuimico,
+} from "../types/insumoQuimico";
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
+export type ColumnaOrdenInsumoQuimico = "nombre" | "tipo" | "unidad";
+export type OrdenInsumoQuimico =
+  | `${ColumnaOrdenInsumoQuimico}_asc`
+  | `${ColumnaOrdenInsumoQuimico}_desc`;
+
+export interface FiltrosInsumosQuimicos {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  tipo?: TipoQuimico;
+  unidadMedidaId?: number;
+  orden?: OrdenInsumoQuimico;
+}
+
 export async function listarInsumosQuimicos(
   page: number,
   pageSize: number,
-  incluirInactivos = false
+  filtros: FiltrosInsumosQuimicos = {}
 ): Promise<Pagina<InsumoQuimico>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo,
+    unidad_medida_id: filtros.unidadMedidaId,
+    orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/insumos-quimicos${query}`);
 

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { listarDocumentosVigentes } from "../services/documentoService";
-import type { DocumentoVigente, TipoDocumento } from "../types/documento";
+import {
+  listarDocumentosVigentes,
+  type FiltrosDocumentosVigentes,
+} from "../services/documentoService";
+import type { DocumentoVigente } from "../types/documento";
 
 /**
  * Una página de documentos vigentes, con los filtros aplicados en el
@@ -12,11 +15,11 @@ import type { DocumentoVigente, TipoDocumento } from "../types/documento";
  * también al cambio de página.
  */
 export function useDocumentosVigentes(
-  buscar: string,
-  tipo: TipoDocumento | "",
+  filtros: FiltrosDocumentosVigentes = {},
   page: number,
-  pageSize = 9
+  pageSize = 10
 ) {
+  const { buscar = "", tipo = "", estado = "", orden = "nombre_asc" } = filtros;
   const [documentos, setDocumentos] = useState<DocumentoVigente[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -28,7 +31,12 @@ export function useDocumentosVigentes(
       try {
         setLoading(true);
         setError(null);
-        const data = await listarDocumentosVigentes(page, pageSize, buscar, tipo);
+        const data = await listarDocumentosVigentes(page, pageSize, {
+          buscar,
+          tipo,
+          estado,
+          orden,
+        });
         if (!cancelado) {
           setDocumentos(data.items);
           setTotal(data.total);
@@ -47,7 +55,7 @@ export function useDocumentosVigentes(
       cancelado = true;
       clearTimeout(timer);
     };
-  }, [buscar, tipo, page, pageSize]);
+  }, [buscar, tipo, estado, orden, page, pageSize]);
 
   return { documentos, total, loading, error };
 }

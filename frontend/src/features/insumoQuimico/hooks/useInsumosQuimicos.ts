@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarInsumosQuimicos } from "../services/insumoQuimicoService";
+import {
+  listarInsumosQuimicos,
+  type FiltrosInsumosQuimicos,
+} from "../services/insumoQuimicoService";
 import type { InsumoQuimico } from "../types/insumoQuimico";
 
 /**
@@ -8,11 +11,28 @@ import type { InsumoQuimico } from "../types/insumoQuimico";
  * El selector del checklist usa `listarOpcionesInsumosQuimicos`, que sigue
  * devolviendo la lista liviana completa.
  */
-export function useInsumosQuimicos(verInactivos = false, pageSize = 10) {
+export function useInsumosQuimicos(
+  filtros: FiltrosInsumosQuimicos = {},
+  pageSize = 10
+) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    tipo,
+    unidadMedidaId,
+    orden = "nombre_asc",
+  } = filtros;
+
   const cargar = useCallback(
     (page: number, pageSize: number) =>
-      listarInsumosQuimicos(page, pageSize, verInactivos),
-    [verInactivos]
+      listarInsumosQuimicos(page, pageSize, {
+        incluirInactivos,
+        buscar,
+        tipo,
+        unidadMedidaId,
+        orden,
+      }),
+    [incluirInactivos, buscar, tipo, unidadMedidaId, orden]
   );
 
   const {
@@ -26,7 +46,7 @@ export function useInsumosQuimicos(verInactivos = false, pageSize = 10) {
     recargar,
   } = useListaPaginada<InsumoQuimico>({
     cargar,
-    dependencias: [verInactivos],
+    dependencias: [incluirInactivos, buscar, tipo, unidadMedidaId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los insumos químicos",
     pageSize,

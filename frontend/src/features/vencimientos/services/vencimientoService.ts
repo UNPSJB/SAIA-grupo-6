@@ -1,7 +1,24 @@
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
-import type { TipoVencimiento, VencimientoConsolidado } from "../types/vencimiento";
+import type {
+  EstadoVencimiento,
+  TipoVencimiento,
+  VencimientoConsolidado,
+} from "../types/vencimiento";
+
+export type ColumnaOrdenVencimiento = "tipo" | "vencimiento" | "estado";
+
+/**
+ * Claves de orden del backend. `URGENCIA`/`VIGENTES_PRIMERO` son las dos
+ * opciones históricas del selector; la tabla manda `estado_asc` (equivalente
+ * a URGENCIA) y las claves de columna al hacer clic en el encabezado.
+ */
+export type OrdenVencimiento =
+  | "URGENCIA"
+  | "VIGENTES_PRIMERO"
+  | `${ColumnaOrdenVencimiento}_asc`
+  | `${ColumnaOrdenVencimiento}_desc`;
 
 export async function obtenerVencimientos(
   tipo?: TipoVencimiento
@@ -27,22 +44,24 @@ export async function obtenerOpcionesVencimientos(): Promise<VencimientosOpcione
 
 /**
  * Una página del consolidado, con filtros y orden resueltos en el servidor.
- * `orden` es el mismo criterio del selector: URGENCIA (vencidos primero, el
- * default) o VIGENTES_PRIMERO.
+ * `orden` es la clave que entiende el backend: URGENCIA/VIGENTES_PRIMERO o
+ * una columna (tipo, vencimiento, estado) con dirección.
  */
 export async function obtenerVencimientosPaginados(
   page: number,
   pageSize: number,
   filtros: {
     tipo?: TipoVencimiento;
+    estado?: EstadoVencimiento;
     personaId?: number;
     aptitud?: string;
     buscar?: string;
-    orden?: string;
+    orden?: OrdenVencimiento;
   } = {}
 ): Promise<Pagina<VencimientoConsolidado>> {
   const query = queryPagina(page, pageSize, {
     tipo: filtros.tipo,
+    estado: filtros.estado,
     persona_id: filtros.personaId,
     aptitud: filtros.aptitud,
     buscar: filtros.buscar?.trim() || undefined,

@@ -19,13 +19,29 @@ export async function listarOpcionesElementosLimpieza(): Promise<ElementoLimpiez
 }
 
 
+export type ColumnaOrdenElemento =
+  | "nombre"
+  | "ultimo_recambio"
+  | "frecuencia";
+export type OrdenElemento =
+  | `${ColumnaOrdenElemento}_asc`
+  | `${ColumnaOrdenElemento}_desc`;
+
+export interface FiltrosElementosLimpieza {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  orden?: OrdenElemento;
+}
+
 export async function listarElementosLimpieza(
   page: number,
   pageSize: number,
-  incluirInactivos = false
+  filtros: FiltrosElementosLimpieza = {}
 ): Promise<Pagina<ElementoLimpieza>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/elementos-limpieza${query}`);
 

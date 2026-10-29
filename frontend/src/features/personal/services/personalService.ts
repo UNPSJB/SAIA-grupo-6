@@ -1,4 +1,4 @@
-import type { Persona, PersonaInput } from "../types/personal";
+import type { Persona, PersonaInput, RolPersonal } from "../types/personal";
 import { pedir } from "../../../common/api/errors";
 
 
@@ -6,14 +6,28 @@ import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
+export type ColumnaOrdenPersonal = "nombre" | "dni";
+export type OrdenPersonal =
+    | `${ColumnaOrdenPersonal}_asc`
+    | `${ColumnaOrdenPersonal}_desc`;
+
+export interface FiltrosPersonal {
+    incluirInactivos?: boolean;
+    buscar?: string;
+    rol?: RolPersonal;
+    orden?: OrdenPersonal;
+}
 
 export async function listarPersonal(
     page: number,
     pageSize: number,
-    incluirInactivos = false
+    filtros: FiltrosPersonal = {}
 ): Promise<Pagina<Persona>> {
     const query = queryPagina(page, pageSize, {
-        incluir_inactivos: incluirInactivos || undefined,
+        incluir_inactivos: filtros.incluirInactivos || undefined,
+        buscar: filtros.buscar?.trim() || undefined,
+        rol: filtros.rol,
+        orden: filtros.orden,
     });
     const response = await apiFetch(`${API_URL}/personal${query}`);
     return pedir<Pagina<Persona>>(response, "Error al obtener el personal");

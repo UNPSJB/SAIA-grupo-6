@@ -1,16 +1,34 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarPersonal } from "../services/personalService";
+import {
+    listarPersonal,
+    type FiltrosPersonal,
+} from "../services/personalService";
 import type { Persona } from "../types/personal";
 
 /**
- * Página actual de personal, pedida al backend (paginación server-side).
+ * Página actual de personal.
  */
-export function usePersonales(verInactivos = false, pageSize = 10) {
+export function usePersonales(
+    filtros: FiltrosPersonal = {},
+    pageSize = 10
+) {
+    const {
+        incluirInactivos = false,
+        buscar,
+        rol,
+        orden = "nombre_asc",
+    } = filtros;
+
     const cargar = useCallback(
         (page: number, pageSize: number) =>
-            listarPersonal(page, pageSize, verInactivos),
-        [verInactivos]
+            listarPersonal(page, pageSize, {
+                incluirInactivos,
+                buscar,
+                rol,
+                orden,
+            }),
+        [incluirInactivos, buscar, rol, orden]
     );
 
     const {
@@ -24,7 +42,7 @@ export function usePersonales(verInactivos = false, pageSize = 10) {
         recargar,
     } = useListaPaginada<Persona>({
         cargar,
-        dependencias: [verInactivos],
+        dependencias: [incluirInactivos, buscar, rol, orden],
         valorInicial: [],
         mensajeError: "No se pudo cargar el personal",
         pageSize,

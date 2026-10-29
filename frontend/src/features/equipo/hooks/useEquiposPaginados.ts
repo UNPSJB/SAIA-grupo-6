@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarEquiposPaginados } from "../services/equipoService";
+import {
+  listarEquiposPaginados,
+  type FiltrosEquipos,
+} from "../services/equipoService";
 import type { Equipo } from "../types/equipo";
 
 /**
@@ -9,11 +12,28 @@ import type { Equipo } from "../types/equipo";
  * La tabla de gestión usa este hook; los dropdowns (formularios, filtros) y
  * el tablero siguen usando `useEquipos`, que necesita la lista completa.
  */
-export function useEquiposPaginados(verInactivos = false, pageSize = 10) {
+export function useEquiposPaginados(
+  filtros: FiltrosEquipos = {},
+  pageSize = 10
+) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    tipo,
+    ubicacion,
+    orden = "nombre_asc",
+  } = filtros;
+
   const cargar = useCallback(
-    (page: number, pageSize: number) =>
-      listarEquiposPaginados(page, pageSize, verInactivos),
-    [verInactivos]
+    (page: number, tamanoPagina: number) =>
+      listarEquiposPaginados(page, tamanoPagina, {
+        incluirInactivos,
+        buscar,
+        tipo,
+        ubicacion,
+        orden,
+      }),
+    [incluirInactivos, buscar, tipo, ubicacion, orden]
   );
 
   const {
@@ -27,7 +47,7 @@ export function useEquiposPaginados(verInactivos = false, pageSize = 10) {
     recargar,
   } = useListaPaginada<Equipo>({
     cargar,
-    dependencias: [verInactivos],
+    dependencias: [incluirInactivos, buscar, tipo, ubicacion, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los equipos",
     pageSize,

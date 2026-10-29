@@ -17,13 +17,27 @@ export async function listarUnidadesMedida(incluirInactivos = false): Promise<Un
  * completa de arriba sigue existiendo para los dropdowns de los formularios
  * de insumos, que necesitan todas las opciones de una vez.
  */
+
+export type ColumnaOrdenUnidadMedida = "nombre" | "simbolo";
+export type OrdenUnidadMedida =
+  | `${ColumnaOrdenUnidadMedida}_asc`
+  | `${ColumnaOrdenUnidadMedida}_desc`;
+
+export interface FiltrosUnidadesMedida {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  orden?: OrdenUnidadMedida;
+}
+
 export async function listarUnidadesMedidaPaginadas(
   page: number,
   pageSize: number,
-  incluirInactivos = false
+  filtros: FiltrosUnidadesMedida = {}
 ): Promise<Pagina<UnidadMedida>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/unidades-medida${query}`);
 

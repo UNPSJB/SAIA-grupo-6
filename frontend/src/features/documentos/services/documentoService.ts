@@ -4,6 +4,7 @@ import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 import type {
   Documento,
   DocumentoVigente,
+  EstadoDocumentoFiltro,
   HistorialDocumento,
   TipoDocumento,
 } from "../types/documento";
@@ -13,11 +14,30 @@ export function urlArchivo(archivoUrl: string): string {
 }
 
 // Gestión (administrador): la tabla pide de a una página.
+
+export type ColumnaOrdenDocumento = "nombre" | "tipo" | "estado";
+export type OrdenDocumento =
+  | `${ColumnaOrdenDocumento}_asc`
+  | `${ColumnaOrdenDocumento}_desc`;
+
+export interface FiltrosDocumentos {
+  buscar?: string;
+  tipo?: TipoDocumento | "";
+  estado?: EstadoDocumentoFiltro | "";
+  orden?: OrdenDocumento;
+}
+
 export async function listarDocumentos(
   page: number,
-  pageSize: number
+  pageSize: number,
+  filtros: FiltrosDocumentos = {}
 ): Promise<Pagina<Documento>> {
-  const query = queryPagina(page, pageSize);
+  const query = queryPagina(page, pageSize, {
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo || undefined,
+    estado: filtros.estado || undefined,
+    orden: filtros.orden,
+  });
   const response = await apiFetch(`${API_URL}/documentos${query}`);
   return pedir<Pagina<Documento>>(response, "Error al obtener los documentos");
 }
@@ -27,17 +47,30 @@ export async function obtenerDocumento(id: number): Promise<Documento> {
   return pedir<Documento>(response, "Error al obtener el documento");
 }
 
-// Historia 3: solo versiones vigentes, con búsqueda y filtro por tipo,
+export type ColumnaOrdenDocumentoVigente = "nombre" | "tipo" | "vencimiento";
+export type OrdenDocumentoVigente =
+  | `${ColumnaOrdenDocumentoVigente}_asc`
+  | `${ColumnaOrdenDocumentoVigente}_desc`;
+
+export interface FiltrosDocumentosVigentes {
+  buscar?: string;
+  tipo?: TipoDocumento | "";
+  estado?: EstadoDocumentoFiltro | "";
+  orden?: OrdenDocumentoVigente;
+}
+
+// Historia 3: solo versiones vigentes, con búsqueda, filtro por tipo y orden,
 // aplicados en el servidor junto con la paginación.
 export async function listarDocumentosVigentes(
   page: number,
   pageSize: number,
-  buscar = "",
-  tipo: TipoDocumento | "" = ""
+  filtros: FiltrosDocumentosVigentes = {}
 ): Promise<Pagina<DocumentoVigente>> {
   const query = queryPagina(page, pageSize, {
-    buscar: buscar.trim() || undefined,
-    tipo: tipo || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo || undefined,
+    estado: filtros.estado || undefined,
+    orden: filtros.orden,
   });
 
   const response = await apiFetch(`${API_URL}/documentos/vigentes${query}`);

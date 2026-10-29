@@ -2,10 +2,29 @@ import type {
   PlanCalibracionMantenimiento,
   PlanCalibracionMantenimientoCreate,
   PlanCalibracionMantenimientoUpdate,
+  TipoPlanCalibracionMantenimiento,
 } from "../types/planCalibracionMantenimiento";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
+
+export type ColumnaOrdenPlanCalibracion =
+  | "equipo"
+  | "tipo"
+  | "intervencion"
+  | "periodicidad"
+  | "vencimiento";
+export type OrdenPlanCalibracion =
+  | `${ColumnaOrdenPlanCalibracion}_asc`
+  | `${ColumnaOrdenPlanCalibracion}_desc`;
+
+export interface FiltrosPlanesCalibracion {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  tipo?: TipoPlanCalibracionMantenimiento | "";
+  equipoId?: number;
+  orden?: OrdenPlanCalibracion;
+}
 
 export async function listarPlanesCalibracionMantenimiento(
   incluirInactivos = false,
@@ -29,10 +48,14 @@ export async function listarPlanesCalibracionMantenimiento(
 export async function listarPlanesCalibracionMantenimientoPaginados(
   page: number,
   pageSize: number,
-  incluirInactivos = false,
+  filtros: FiltrosPlanesCalibracion = {},
 ): Promise<Pagina<PlanCalibracionMantenimiento>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo || undefined,
+    equipo_id: filtros.equipoId || undefined,
+    orden: filtros.orden,
   });
   const response = await apiFetch(
     `${API_URL}/planes-calibracion-mantenimiento${query}`,

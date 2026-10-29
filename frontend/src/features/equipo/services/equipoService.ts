@@ -12,6 +12,23 @@ export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]>
   return pedir<Equipo[]>(response, "Error al obtener los equipos");
 }
 
+export type ColumnaOrdenEquipo = "nombre" | "tipo" | "ubicacion";
+export type OrdenEquipo = `${ColumnaOrdenEquipo}_asc` | `${ColumnaOrdenEquipo}_desc`;
+
+export interface FiltrosEquipos {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  tipo?: string;
+  ubicacion?: string;
+  orden?: OrdenEquipo;
+}
+
+/** Tipos y ubicaciones existentes, para los selects de filtro. */
+export interface OpcionesEquipos {
+  tipos: string[];
+  ubicaciones: string[];
+}
+
 /**
  * Página de equipos para la tabla (paginación server-side). La lista completa
  * de arriba sigue existiendo para los dropdowns (reportar incidente, planes)
@@ -20,14 +37,28 @@ export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]>
 export async function listarEquiposPaginados(
   page: number,
   pageSize: number,
-  incluirInactivos = false
+  filtros: FiltrosEquipos = {}
 ): Promise<Pagina<Equipo>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo || undefined,
+    ubicacion: filtros.ubicacion || undefined,
+    orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/equipos${query}`);
 
   return pedir<Pagina<Equipo>>(response, "Error al obtener los equipos");
+}
+
+/** Valores distintos de los equipos activos, para los filtros de la tabla. */
+export async function obtenerOpcionesEquipos(): Promise<OpcionesEquipos> {
+  const response = await apiFetch(`${API_URL}/equipos/opciones`);
+
+  return pedir<OpcionesEquipos>(
+    response,
+    "Error al obtener las opciones de equipos"
+  );
 }
 
 export async function obtenerEquipo(id: number): Promise<Equipo> {

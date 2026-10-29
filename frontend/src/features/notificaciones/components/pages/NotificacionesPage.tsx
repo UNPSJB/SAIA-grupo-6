@@ -1,36 +1,39 @@
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Badge,
-  Box,
-  Field,
-  HStack,
-  Spinner,
-  Table,
-  Text,
-} from "@chakra-ui/react";
+import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
 import {
   obtenerNotificacionesPaginadas,
+  type ColumnaOrdenNotificacion,
   type ContadoresNotificaciones,
+  type OrigenNotificacion,
+  type UrgenciaNotificacion,
 } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
+import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
 import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import { LuBell, LuCircleCheck, LuArrowUpDown, LuArrowUp, LuArrowDown } from "react-icons/lu";
+import { LuBell, LuCircleCheck } from "react-icons/lu";
 import type { Notificacion } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EncabezadoOrdenable,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
 import {
   BannerError,
   BotonAccion,
   Celda,
   DialogoExito,
   EncabezadoOscuro,
+  EstadoCargando,
   FilaEncabezado,
-  FormInput,
-  FormNativeSelect,
-  LabelFiltro,
   PageHeader,
   Paginacion,
   Tarjeta,
@@ -42,7 +45,7 @@ const PAGE_SIZE = 10;
 
 /**
  * Paleta del badge de "Origen", para que el color signifique lo mismo en
- * todas las vistas: el morado es limpieza y el gris, calibración/mantenimiento.
+ * todas las vistas: el morado es limpieza y el azul, vencimiento de personal.
  */
 const PALETA_ORIGEN: Record<string, string> = {
   ELEMENTO_LIMPIEZA: "purple",
@@ -51,17 +54,33 @@ const PALETA_ORIGEN: Record<string, string> = {
 
 const paletaOrigen = (tipo: string) => PALETA_ORIGEN[tipo] ?? "gray";
 
+/** Etiquetas legibles de cada origen. Se usan en los selects y en los chips. */
+const ETIQUETA_ORIGEN: Record<
+  Exclude<OrigenNotificacion, "">,
+  string
+> = {
+  ELEMENTO_LIMPIEZA: "Elemento Limpieza",
+  VENCIMIENTO_PERSONAL: "Venc. Personal",
+  PLAN_CALIBRACION: "Calibración",
+  PLAN_MANTENIMIENTO: "Mantenimiento",
+};
+
+const ETIQUETA_URGENCIA: Record<
+  Exclude<UrgenciaNotificacion, "">,
+  string
+> = {
+  vencidas: "Vencidas",
+  proximas: "Próximas a vencer",
+};
+
+const ETIQUETAS_ORDEN: Record<ColumnaOrdenNotificacion, string> = {
+  estado: "Estado",
+  vencimiento: "Vencimiento",
+  origen: "Origen",
+};
+
 function etiquetaOrigen(tipo: string) {
-  switch (tipo) {
-    case "ELEMENTO_LIMPIEZA":
-      return "Elemento Limpieza";
-    case "VENCIMIENTO_PERSONAL":
-      return "Vencimiento Personal";
-    case "PLAN_CALIBRACION":
-      return "Calibración";
-    case "PLAN_MANTENIMIENTO":
-      return "Mantenimiento";
-  }
+  return ETIQUETA_ORIGEN[tipo as Exclude<OrigenNotificacion, "">] ?? tipo;
 }
 
 function etiquetaAccion(tipo: string) {
@@ -75,21 +94,6 @@ function etiquetaAccion(tipo: string) {
     case "PLAN_MANTENIMIENTO":
       return "Registrar mantenimiento";
   }
-}
-
-type FiltroUrgencia = "todas" | "vencidas" | "proximas";
-type FiltroOrigen = "todas" | "ELEMENTO_LIMPIEZA" | "VENCIMIENTO_PERSONAL" | "PLAN_CALIBRACION" | "PLAN_MANTENIMIENTO";
-type SortColumn = "estado" | "vencimiento" | "origen" | null;
-type SortDirection = "asc" | "desc";
-
-/** Icono de ordenamiento en header de tabla. */
-function SortIcon({ column, sortColumn, sortDirection }: {
-  column: SortColumn & string;
-  sortColumn: SortColumn;
-  sortDirection: SortDirection;
-}) {
-  if (sortColumn !== column) return <LuArrowUpDown size={14} opacity={0.4} />;
-  return sortDirection === "asc" ? <LuArrowUp size={14} /> : <LuArrowDown size={14} />;
 }
 
 export function NotificacionesPage() {
@@ -112,33 +116,37 @@ export function NotificacionesPage() {
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [notifEditando, setNotifEditando] = useState<Notificacion | null>(null);
 
-  // Filtros
-  const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrgencia>("todas");
-  const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
+  // Filtros. El valor vacío es "sin filtro" (la opción "Todas" del select).
+  const [filtroUrgencia, setFiltroUrgencia] = useState<UrgenciaNotificacion>("");
+  const [filtroOrigen, setFiltroOrigen] = useState<OrigenNotificacion>("");
   const [busqueda, setBusqueda] = useState("");
   // El fetch usa la búsqueda con debounce: sin esto, cada tecla pedía una
   // página al servidor. El input actualiza `busqueda`; `cargar` y el efecto
   // de abajo dependen de `busquedaAplicada`.
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // La tabla abre por estado (VENCIDOS primero), que es el orden histórico
+  // de urgencia. `columnaPorDefecto` hace que el header ya muestre la flecha
+  // y que el primer clic invierta el sentido.
   const [page, setPage] = useState(1);
+  const orden = useOrdenTabla<ColumnaOrdenNotificacion, "urgencia">(
+    "urgencia",
+    "estado",
+    () => setPage(1)
+  );
 
   /*
    * Filtros, orden y paginación se resuelven en el servidor: la tabla solo
    * recibe la página actual. El `orden` manda tal cuál al backend:
-   * `estado_asc`, `vencimiento_desc`, ... y "urgencia" (el default) es el
-   * ordenamiento histórico que dejaba los VENCIDOS arriba.
+   * `estado_asc`, `vencimiento_desc`, ...; `urgencia` es el default.
    */
-  const ordenParam: string = sortColumn
-    ? `${sortColumn}_${sortDirection}`
-    : "urgencia";
+  const ordenParam = orden.orden;
 
   // Carrera de respuestas (misma idea que `useLista`): el flag `cancelado`
-  // que había acá era local a cada invocación y nunca llegaba a `true` —
-  // las guardas eran código muerto — así que la respuesta tardía de un
-  // filtro anterior pisaba `items`, `total` y `contadores`. Cada pedido toma
-  // un número; cuando llega una respuesta que no es la última, se descarta.
+  // que había acá era local a cada invocación y nunca llegaba a `true` — las
+  // guardas eran código muerto — así que la respuesta tardía de un filtro
+  // anterior pisaba `items`, `total` y `contadores`. Cada pedido toma un
+  // número; cuando llega una respuesta que no es la última, se descarta.
   const ultimoPedido = useRef(0);
 
   const cargar = async (pagina: number = page) => {
@@ -222,25 +230,58 @@ export function NotificacionesPage() {
     mostrarExito("Fecha de vencimiento actualizada correctamente.");
   };
 
-  const handleSort = (column: SortColumn & string) => {
-    if (sortColumn === column) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortColumn(column);
-      setSortDirection("asc");
-    }
+  const cambiarFiltro = (aplicar: () => void) => {
+    aplicar();
     setPage(1);
   };
 
-  const handleUrgenciaChange = (val: FiltroUrgencia) => {
-    setFiltroUrgencia(val);
-    setPage(1);
+  const limpiarTodo = () => {
+    cambiarFiltro(() => {
+      setBusqueda("");
+      setFiltroUrgencia("");
+      setFiltroOrigen("");
+      orden.reiniciar();
+    });
   };
 
-  const handleOrigenChange = (val: FiltroOrigen) => {
-    setFiltroOrigen(val);
-    setPage(1);
-  };
+  const hayFiltros =
+    busqueda.trim() !== "" ||
+    filtroUrgencia !== "" ||
+    filtroOrigen !== "";
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => cambiarFiltro(() => setBusqueda("")),
+    },
+    {
+      clave: "urgencia",
+      etiqueta: "Urgencia",
+      valor: filtroUrgencia !== "" ? ETIQUETA_URGENCIA[filtroUrgencia] : "",
+      onQuitar: () => cambiarFiltro(() => setFiltroUrgencia("")),
+    },
+    {
+      clave: "origen",
+      etiqueta: "Origen",
+      valor: filtroOrigen !== "" ? ETIQUETA_ORIGEN[filtroOrigen] : "",
+      onQuitar: () => cambiarFiltro(() => setFiltroOrigen("")),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        orden.columna !== null
+          ? `${ETIQUETAS_ORDEN[orden.columna]} ${
+              orden.direccion === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: !orden.esPorDefecto && orden.columna !== null,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
 
   return (
     <Box p="5">
@@ -271,112 +312,113 @@ export function NotificacionesPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {/* FILTROS */}
-      <Tarjeta p="4" mb="6">
-        <HStack gap="4" flexWrap="wrap" align="flex-end">
-          <Box minW="200px">
-            <Field.Root>
-              <LabelFiltro>Urgencia</LabelFiltro>
-              <FormNativeSelect
-                value={filtroUrgencia}
-                onChange={(e) => handleUrgenciaChange(e.target.value as FiltroUrgencia)}
-              >
-                <option value="todas">Todas ({contadores.urgencia.todas})</option>
-                <option value="vencidas" color={contadores.urgencia.vencidas === 0 ? "gray.400" : undefined}>
-                  Vencidas ({contadores.urgencia.vencidas})
-                </option>
-                <option value="proximas" color={contadores.urgencia.proximas === 0 ? "gray.400" : undefined}>
-                  Próximas a vencer ({contadores.urgencia.proximas})
-                </option>
-              </FormNativeSelect>
-            </Field.Root>
-          </Box>
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+            placeholder="Buscar en título o mensaje..."
+          />
+        }
+        filtros={
+          <>
+            <FiltroSelect
+              label="Urgencia"
+              valor={filtroUrgencia}
+              onCambio={(valor) =>
+                cambiarFiltro(() =>
+                  setFiltroUrgencia(valor as UrgenciaNotificacion)
+                )
+              }
+              opciones={[
+                {
+                  valor: "vencidas",
+                  etiqueta: `Vencidas (${contadores.urgencia.vencidas})`,
+                },
+                {
+                  valor: "proximas",
+                  etiqueta: `Próximas a vencer (${contadores.urgencia.proximas})`,
+                },
+              ]}
+              todos={`Todas (${contadores.urgencia.todas})`}
+            />
+            <FiltroSelect
+              label="Origen"
+              valor={filtroOrigen}
+              onCambio={(valor) =>
+                cambiarFiltro(() =>
+                  setFiltroOrigen(valor as OrigenNotificacion)
+                )
+              }
+              opciones={(
+                Object.keys(ETIQUETA_ORIGEN) as Exclude<
+                  OrigenNotificacion,
+                  ""
+                >[]
+              ).map((origen) => ({
+                valor: origen,
+                etiqueta: `${ETIQUETA_ORIGEN[origen]} (${
+                  contadores.origen[origen]
+                })`,
+              }))}
+              todos={`Todos (${contadores.origen.todas})`}
+            />
+          </>
+        }
+      />
 
-          <Box minW="200px">
-            <Field.Root>
-              <LabelFiltro>Origen</LabelFiltro>
-              <FormNativeSelect
-                value={filtroOrigen}
-                onChange={(e) => handleOrigenChange(e.target.value as FiltroOrigen)}
-              >
-                <option value="todas">Todos ({contadores.origen.todas})</option>
-                <option value="ELEMENTO_LIMPIEZA" color={contadores.origen.ELEMENTO_LIMPIEZA === 0 ? "gray.400" : undefined}>
-                  Elemento Limpieza ({contadores.origen.ELEMENTO_LIMPIEZA})
-                </option>
-                <option value="VENCIMIENTO_PERSONAL" color={contadores.origen.VENCIMIENTO_PERSONAL === 0 ? "gray.400" : undefined}>
-                  Venc. Personal ({contadores.origen.VENCIMIENTO_PERSONAL})
-                </option>
-                <option value="PLAN_CALIBRACION" color={contadores.origen.PLAN_CALIBRACION === 0 ? "gray.400" : undefined}>
-                  Calibración ({contadores.origen.PLAN_CALIBRACION})
-                </option>
-                <option value="PLAN_MANTENIMIENTO" color={contadores.origen.PLAN_MANTENIMIENTO === 0 ? "gray.400" : undefined}>
-                  Mantenimiento ({contadores.origen.PLAN_MANTENIMIENTO})
-                </option>
-              </FormNativeSelect>
-            </Field.Root>
-          </Box>
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-          <Box minW="250px" flex="1">
-            <Field.Root>
-              <LabelFiltro>Búsqueda</LabelFiltro>
-              <FormInput
-                type="text"
-                value={busqueda}
-                onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}                placeholder="Buscar en título o mensaje..."
-              />
-            </Field.Root>
-          </Box>
-        </HStack>
-      </Tarjeta>
+      {loading && <EstadoCargando>Cargando notificaciones...</EstadoCargando>}
 
-      {loading ? (
-        <Spinner color="brand.500" />
-      ) : items.length === 0 ? (
-        <Tarjeta p="8" textAlign="center">
-          <HStack justify="center" gap="2" color="green.fg">
-            <LuCircleCheck aria-hidden />
-            <Text fontSize="lg" fontWeight="bold">
-              No hay notificaciones pendientes
+      {!loading && items.length === 0 && (
+        hayFiltros ? (
+          <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+            No hay notificaciones que coincidan con los filtros aplicados.
+          </EstadoVacioFiltrado>
+        ) : (
+          <Tarjeta p="8" textAlign="center">
+            <HStack justify="center" gap="2" color="green.fg">
+              <LuCircleCheck aria-hidden />
+              <Text fontSize="lg" fontWeight="bold">
+                No hay notificaciones pendientes
+              </Text>
+            </HStack>
+            <Text color="fg.muted" fontSize="sm">
+              Todos los vencimientos están al día.
             </Text>
-          </HStack>
-          <Text color="fg.muted" fontSize="sm">
-            Todos los vencimientos están al día.
-          </Text>
-        </Tarjeta>
-      ) : (
+          </Tarjeta>
+        )
+      )}
+
+      {!loading && items.length > 0 && (
         <>
           <Tarjeta overflowX="auto">
             <Table.Root variant="outline" size="md" w="100%" minW="940px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro
+                  <EncabezadoOrdenable
+                    columna="origen"
+                    orden={orden}
                     ancho="media"
-                    onClick={() => handleSort("origen")}
                   >
-                    <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
-                      Origen
-                      <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
-                    </Box>
-                  </EncabezadoOscuro>
-                  <EncabezadoOscuro
+                    Origen
+                  </EncabezadoOrdenable>
+                  <EncabezadoOrdenable
+                    columna="estado"
+                    orden={orden}
                     ancho="angosta"
-                    onClick={() => handleSort("estado")}
                   >
-                    <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
-                      Estado
-                      <SortIcon column="estado" sortColumn={sortColumn} sortDirection={sortDirection} />
-                    </Box>
-                  </EncabezadoOscuro>
+                    Estado
+                  </EncabezadoOrdenable>
                   <EncabezadoOscuro>Detalle / Mensaje</EncabezadoOscuro>
-                  <EncabezadoOscuro
+                  <EncabezadoOrdenable
+                    columna="vencimiento"
+                    orden={orden}
                     ancho="media"
-                    onClick={() => handleSort("vencimiento")}
                   >
-                    <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
-                      Vencimiento
-                      <SortIcon column="vencimiento" sortColumn={sortColumn} sortDirection={sortDirection} />
-                    </Box>
-                  </EncabezadoOscuro>
+                    Vencimiento
+                  </EncabezadoOrdenable>
                   <EncabezadoOscuro center ancho="acciones">
                     Acción
                   </EncabezadoOscuro>

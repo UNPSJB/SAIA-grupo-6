@@ -1,16 +1,24 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
 import { listarMisIncidentesPaginados } from "../services/incidenteService";
-import type { Incidente } from "../types/incidente";
+import type { Incidente, EstadoIncidente } from "../types/incidente";
 
 /**
  * Página actual de los incidentes del operador, pedida al backend
  * (paginación server-side).
+ *
+ * El orden es fijo ("más recientes primero"); el único filtro es el estado,
+ * que se aplica en el servidor. Al cambiarlo, `useListaPaginada` vuelve solo
+ * a la página 1.
  */
-export function useMisIncidentes(pageSize = 10) {
+export function useMisIncidentes(
+  pageSize = 10,
+  estado: EstadoIncidente | "" = ""
+) {
   const cargar = useCallback(
-    (page: number, pageSize: number) => listarMisIncidentesPaginados(page, pageSize),
-    []
+    (page: number, pageSize: number) =>
+      listarMisIncidentesPaginados(page, pageSize, estado),
+    [estado]
   );
 
   const {
@@ -25,7 +33,7 @@ export function useMisIncidentes(pageSize = 10) {
     recargar,
   } = useListaPaginada<Incidente>({
     cargar,
-    dependencias: [],
+    dependencias: [estado],
     valorInicial: [],
     mensajeError: "No se pudieron cargar tus incidentes",
     pageSize,

@@ -27,6 +27,19 @@ export async function listarIncidentes(
   return pedir<Incidente[]>(response, "Error al obtener los incidentes");
 }
 
+export type ColumnaOrdenIncidente = "fecha" | "tipo" | "estado";
+
+/**
+ * Claves de orden del backend. `recientes`/`antiguos` son alias de fecha que
+ * se mantienen por compatibilidad; la tabla manda `fecha_asc`/`fecha_desc`
+ * cuando se hace clic en el encabezado.
+ */
+export type OrdenIncidente =
+  | "recientes"
+  | "antiguos"
+  | `${ColumnaOrdenIncidente}_asc`
+  | `${ColumnaOrdenIncidente}_desc`;
+
 /**
  * Página de incidentes para la tabla de gestión (paginación server-side).
  *
@@ -43,7 +56,7 @@ export async function listarIncidentesPaginados(
     buscar?: string;
     fechaDesde?: string;
     fechaHasta?: string;
-    orden?: "antiguos" | "recientes";
+    orden?: OrdenIncidente;
   } = {}
 ): Promise<Pagina<Incidente>> {
   const query = queryPagina(page, pageSize, {
@@ -67,9 +80,14 @@ export async function listarMisIncidentes(): Promise<Incidente[]> {
 
 export async function listarMisIncidentesPaginados(
   page: number,
-  pageSize: number
+  pageSize: number,
+  estado?: EstadoIncidente | ""
 ): Promise<Pagina<Incidente>> {
-  const query = queryPagina(page, pageSize);
+  // El orden de "Mis reportes" es siempre "más recientes primero": el backend
+  // solo recibe el filtro de estado.
+  const query = queryPagina(page, pageSize, {
+    estado: estado || undefined,
+  });
   const response = await apiFetch(`${API_URL}/incidentes/mios${query}`);
 
   return pedir<Pagina<Incidente>>(response, "Error al obtener tus incidentes");

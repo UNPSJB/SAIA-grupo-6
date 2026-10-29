@@ -13,7 +13,7 @@ import {
 } from "@chakra-ui/react";
 import { Tooltip } from "../../../components/ui/tooltip";
 import { useResumenIncidentesPorTipo } from "../hooks/useResumenIncidentesPorTipo";
-import { TIPOS_INCIDENTE, tipoColor, periodoLabel } from "../types/incidente";
+import { TIPOS_INCIDENTE, ETIQUETA_PERIODO, tipoColor, periodoLabel } from "../types/incidente";
 import type { PeriodoRapido, TipoIncidente } from "../types/incidente";
 import {
   FormInput,
@@ -32,12 +32,9 @@ const COLOR_TIPO: Record<TipoIncidente, string> = {
 };
 
 /** Períodos rápidos, en el orden en que se muestran los chips. */
-const PERIODOS_RAPIDOS: { value: PeriodoRapido; label: string }[] = [
-  { value: "7d", label: "Últimos 7 días" },
-  { value: "30d", label: "Últimos 30 días" },
-  { value: "mes", label: "Este mes" },
-  { value: "todo", label: "Todo" },
-];
+const PERIODOS_RAPIDOS: { value: PeriodoRapido; label: string }[] = (
+  ["7d", "30d", "mes", "todo"] as const
+).map((valor) => ({ value: valor, label: ETIQUETA_PERIODO[valor] }));
 
 interface IncidentesPorTipoPanelProps {
   filtroTipo: TipoIncidente | "";
@@ -160,7 +157,7 @@ export function IncidentesPorTipoPanel({
           />
         ))}
         <ChipPeriodo
-          label="Personalizado"
+          label={ETIQUETA_PERIODO.personalizado}
           isActive={periodo === "personalizado"}
           onClick={() => onPeriodoChange("personalizado")}
         />

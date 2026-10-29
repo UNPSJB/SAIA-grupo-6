@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarAptitudesPaginadas } from "../services/aptitudService";
+import {
+  listarAptitudesPaginadas,
+  type FiltrosAptitudes,
+} from "../services/aptitudService";
 import type { Aptitud } from "../types/aptitud";
 
 /**
@@ -9,11 +12,24 @@ import type { Aptitud } from "../types/aptitud";
  * La tabla de gestión usa este hook; los dropdowns de formularios siguen
  * usando `useAptitudes`, que necesita la lista completa de una vez.
  */
-export function useAptitudesPaginadas(verInactivos = false, pageSize = 10) {
+export function useAptitudesPaginadas(
+  filtros: FiltrosAptitudes = {},
+  pageSize = 10
+) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    orden = "nombre_asc",
+  } = filtros;
+
   const cargar = useCallback(
     (page: number, pageSize: number) =>
-      listarAptitudesPaginadas(page, pageSize, verInactivos),
-    [verInactivos]
+      listarAptitudesPaginadas(page, pageSize, {
+        incluirInactivos,
+        buscar,
+        orden,
+      }),
+    [incluirInactivos, buscar, orden]
   );
 
   const {
@@ -27,7 +43,7 @@ export function useAptitudesPaginadas(verInactivos = false, pageSize = 10) {
     recargar,
   } = useListaPaginada<Aptitud>({
     cargar,
-    dependencias: [verInactivos],
+    dependencias: [incluirInactivos, buscar, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar las aptitudes",
     pageSize,

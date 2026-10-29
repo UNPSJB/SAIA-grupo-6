@@ -15,13 +15,27 @@ export async function listarAptitudes(incluirInactivos = false): Promise<Aptitud
  * completa (`listarAptitudes`) sigue existiendo para los dropdowns de
  * formularios, que necesitan todas las opciones de una vez.
  */
+
+export type ColumnaOrdenAptitud = "nombre" | "descripcion";
+export type OrdenAptitud =
+  | `${ColumnaOrdenAptitud}_asc`
+  | `${ColumnaOrdenAptitud}_desc`;
+
+export interface FiltrosAptitudes {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  orden?: OrdenAptitud;
+}
+
 export async function listarAptitudesPaginadas(
   page: number,
   pageSize: number,
-  incluirInactivos = false
+  filtros: FiltrosAptitudes = {}
 ): Promise<Pagina<Aptitud>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/aptitudes${query}`);
 

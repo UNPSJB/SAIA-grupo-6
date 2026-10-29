@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarPlanesCalibracionMantenimientoPaginados } from "../services/planCalibracionMantenimientoService";
+import {
+  listarPlanesCalibracionMantenimientoPaginados,
+  type FiltrosPlanesCalibracion,
+} from "../services/planCalibracionMantenimientoService";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
 
 /**
@@ -10,13 +13,27 @@ import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMante
  * `usePlanesCalibracionMantenimiento` (lista completa de un solo pedido).
  */
 export function usePlanesCalibracionMantenimientoPaginados(
-  verInactivos = false,
+  filtros: FiltrosPlanesCalibracion = {},
   pageSize = 10
 ) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    tipo,
+    equipoId,
+    orden = "equipo_asc",
+  } = filtros;
+
   const cargar = useCallback(
     (page: number, pageSize: number) =>
-      listarPlanesCalibracionMantenimientoPaginados(page, pageSize, verInactivos),
-    [verInactivos]
+      listarPlanesCalibracionMantenimientoPaginados(page, pageSize, {
+        incluirInactivos,
+        buscar,
+        tipo,
+        equipoId,
+        orden,
+      }),
+    [incluirInactivos, buscar, tipo, equipoId, orden]
   );
 
   const {
@@ -30,7 +47,7 @@ export function usePlanesCalibracionMantenimientoPaginados(
     recargar,
   } = useListaPaginada<PlanCalibracionMantenimiento>({
     cargar,
-    dependencias: [verInactivos],
+    dependencias: [incluirInactivos, buscar, tipo, equipoId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los planes de calibración y mantenimiento",
     pageSize,

@@ -17,13 +17,28 @@ export interface PlanLimpiezaInput {
   autor_id: number;
 }
 
+export type ColumnaOrdenPlanLimpieza = "nombre" | "equipo";
+export type OrdenPlanLimpieza =
+  | `${ColumnaOrdenPlanLimpieza}_asc`
+  | `${ColumnaOrdenPlanLimpieza}_desc`;
+
+export interface FiltrosPlanesLimpieza {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  equipoId?: number;
+  orden?: OrdenPlanLimpieza;
+}
+
 export async function listarPlanesLimpieza(
   page: number,
   pageSize: number,
-  incluirInactivos = false
+  filtros: FiltrosPlanesLimpieza = {}
 ): Promise<Pagina<PlanLimpieza>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: incluirInactivos || undefined,
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    equipo_id: filtros.equipoId || undefined,
+    orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/planes-limpieza${query}`);
 

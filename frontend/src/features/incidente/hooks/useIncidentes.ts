@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
 import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
 import { listarIncidentesPaginados } from "../services/incidenteService";
+import type { OrdenIncidente } from "../services/incidenteService";
 import type { Incidente, EstadoIncidente } from "../types/incidente";
 
 /**
@@ -22,7 +23,7 @@ export function useIncidentes(
   fechaDesde?: string,
   fechaHasta?: string,
   pageSize = 10,
-  orden = "antiguos"
+  orden: OrdenIncidente = "antiguos"
 ) {
   const buscarAplicado = useValorDebounced(buscar);
 

@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
-import { listarElementosLimpieza } from "../services/elementoLimpiezaService";
+import {
+  listarElementosLimpieza,
+  type FiltrosElementosLimpieza,
+} from "../services/elementoLimpiezaService";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
 
 /**
@@ -8,11 +11,24 @@ import type { ElementoLimpieza } from "../types/elementoLimpieza";
  * El selector del checklist usa `listarOpcionesElementosLimpieza`, que sigue
  * devolviendo la lista liviana completa.
  */
-export function useElementosLimpieza(verInactivos = false, pageSize = 10) {
+export function useElementosLimpieza(
+  filtros: FiltrosElementosLimpieza = {},
+  pageSize = 10
+) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    orden = "nombre_asc",
+  } = filtros;
+
   const cargar = useCallback(
     (page: number, pageSize: number) =>
-      listarElementosLimpieza(page, pageSize, verInactivos),
-    [verInactivos]
+      listarElementosLimpieza(page, pageSize, {
+        incluirInactivos,
+        buscar,
+        orden,
+      }),
+    [incluirInactivos, buscar, orden]
   );
 
   const {
@@ -26,7 +42,7 @@ export function useElementosLimpieza(verInactivos = false, pageSize = 10) {
     recargar,
   } = useListaPaginada<ElementoLimpieza>({
     cargar,
-    dependencias: [verInactivos],
+    dependencias: [incluirInactivos, buscar, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los elementos de limpieza",
     pageSize,

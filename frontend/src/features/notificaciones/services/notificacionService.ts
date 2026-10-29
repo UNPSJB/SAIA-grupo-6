@@ -20,6 +20,27 @@ export interface NotificacionPagina extends Pagina<Notificacion> {
   contadores: ContadoresNotificaciones;
 }
 
+export type ColumnaOrdenNotificacion = "estado" | "vencimiento" | "origen";
+
+/**
+ * Claves de orden del backend. `urgencia` es el default histórico (VENCIDOS
+ * arriba); la tabla manda `estado_asc` —equivalente— y las claves de columna
+ * al hacer clic en el encabezado.
+ */
+export type OrdenNotificacion =
+  | "urgencia"
+  | `${ColumnaOrdenNotificacion}_asc`
+  | `${ColumnaOrdenNotificacion}_desc`;
+
+/** Filtros del centro de notificaciones. El valor vacío significa "sin filtro". */
+export type UrgenciaNotificacion = "" | "vencidas" | "proximas";
+export type OrigenNotificacion =
+  | ""
+  | "ELEMENTO_LIMPIEZA"
+  | "VENCIMIENTO_PERSONAL"
+  | "PLAN_CALIBRACION"
+  | "PLAN_MANTENIMIENTO";
+
 /** El listado completo (lo usa la campana del navbar, no la tabla). */
 export async function obtenerNotificaciones(): Promise<Notificacion[]> {
   const response = await apiFetch(`${API_URL}/notificaciones`);
@@ -29,22 +50,22 @@ export async function obtenerNotificaciones(): Promise<Notificacion[]> {
 /**
  * Una página de notificaciones, con filtros + orden + contadores calculados
  * en el servidor. `orden` replica las columnas clickeables de la tabla:
- * urgencia (default, VENCIDOS arriba), estado, vencimiento y origen.
+ * estado (default), vencimiento y origen.
  */
 export async function obtenerNotificacionesPaginadas(
   page: number,
   pageSize: number,
   filtros: {
     buscar?: string;
-    urgencia?: string;
-    origen?: string;
-    orden?: string;
+    urgencia?: UrgenciaNotificacion;
+    origen?: OrigenNotificacion;
+    orden?: OrdenNotificacion;
   } = {}
 ): Promise<NotificacionPagina> {
   const query = queryPagina(page, pageSize, {
     buscar: filtros.buscar?.trim() || undefined,
-    urgencia: filtros.urgencia && filtros.urgencia !== "todas" ? filtros.urgencia : undefined,
-    origen: filtros.origen && filtros.origen !== "todas" ? filtros.origen : undefined,
+    urgencia: filtros.urgencia || undefined,
+    origen: filtros.origen || undefined,
     orden: filtros.orden && filtros.orden !== "urgencia" ? filtros.orden : undefined,
   });
   const response = await apiFetch(`${API_URL}/notificaciones${query}`);

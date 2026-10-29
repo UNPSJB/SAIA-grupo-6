@@ -155,6 +155,22 @@ export interface IncidenteResumen {
 export type PeriodoRapido = "7d" | "30d" | "mes" | "todo" | "personalizado";
 
 /**
+ * Etiqueta corta del período, tal como se muestra en los botones del panel y
+ * en el chip de filtros del listado.
+ *
+ * Existe aparte de `periodoLabel` porque ese devuelve una frase para meter
+ * dentro de una oración ("… · este mes") y acá hace falta el rótulo suelto,
+ * con mayúscula inicial, igual que el resto de los chips ("Abierto", "Tipo ↑").
+ */
+export const ETIQUETA_PERIODO: Record<PeriodoRapido, string> = {
+  "7d": "Últimos 7 días",
+  "30d": "Últimos 30 días",
+  mes: "Este mes",
+  todo: "Todo",
+  personalizado: "Personalizado",
+};
+
+/**
  * Nombre del período para los mensajes de la interfaz.
  *
  * `personalizado` no menciona las fechas acá: el panel ya muestra el rango
