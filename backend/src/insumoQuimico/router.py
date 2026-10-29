@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -7,6 +7,7 @@ from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin, require_operador
 from src.insumoQuimico import schemas, services
+from src.insumoQuimico.models import TipoQuimico
 
 
 router = APIRouter(
@@ -19,6 +20,15 @@ _DEP_ADMIN = [Depends(require_admin)]
 
 # Listado mínimo para completar el checklist: alcanza con tener sesión operativa.
 _DEP_OPERAR = [Depends(require_operador)]
+
+OrdenInsumoQuimico = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "tipo_asc",
+    "tipo_desc",
+    "unidad_asc",
+    "unidad_desc",
+]
 
 
 @router.get("/opciones", response_model=List[schemas.InsumoQuimicoOpcion], dependencies=_DEP_OPERAR)
@@ -35,6 +45,14 @@ def crear_insumo_quimico(datos: schemas.InsumoQuimicoCreate, db: Session = Depen
 @router.get("", response_model=Union[List[schemas.InsumoQuimicoResponse], schemas.InsumoQuimicoPagina], dependencies=_DEP_ADMIN)
 def listar_insumos_quimicos(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre, tipo y unidad de medida (sin distinguir mayúsculas ni tildes).",
+    ),
+    tipo: Optional[TipoQuimico] = Query(None),
+    unidad_medida_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenInsumoQuimico = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -44,9 +62,18 @@ def listar_insumos_quimicos(
     db: Session = Depends(get_db),
 ):
     if page is None:
-        return services.listar_insumos_quimicos(db, incluir_inactivos)
+        return services.listar_insumos_quimicos(
+            db, incluir_inactivos, buscar, tipo, unidad_medida_id
+        )
     items, total = services.listar_insumos_quimicos_paginado(
-        db, incluir_inactivos, page, page_size
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        tipo=tipo,
+        unidad_medida_id=unidad_medida_id,
+        orden=orden,
     )
     return schemas.InsumoQuimicoPagina(
         items=items, total=total, page=page, page_size=page_size

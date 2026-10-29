@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -15,6 +15,13 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+OrdenUnidadMedida = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "simbolo_asc",
+    "simbolo_desc",
+]
+
 
 @router.post("", response_model=schemas.UnidadMedidaResponse, status_code=status.HTTP_201_CREATED)
 def crear_unidad_medida(datos: schemas.UnidadMedidaCreate, db: Session = Depends(get_db)):
@@ -24,6 +31,12 @@ def crear_unidad_medida(datos: schemas.UnidadMedidaCreate, db: Session = Depends
 @router.get("", response_model=Union[List[schemas.UnidadMedidaResponse], schemas.UnidadMedidaPagina])
 def listar_unidades_medida(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre y símbolo (sin distinguir mayúsculas ni tildes).",
+    ),
+    orden: OrdenUnidadMedida = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -33,9 +46,9 @@ def listar_unidades_medida(
     db: Session = Depends(get_db),
 ):
     if page is None:
-        return services.listar_unidades_medida(db, incluir_inactivos)
+        return services.listar_unidades_medida(db, incluir_inactivos, buscar)
     items, total = services.listar_unidades_medida_paginado(
-        db, incluir_inactivos, page, page_size
+        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden
     )
     return schemas.UnidadMedidaPagina(
         items=items, total=total, page=page, page_size=page_size

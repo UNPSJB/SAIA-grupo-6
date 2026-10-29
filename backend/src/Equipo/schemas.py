@@ -57,6 +57,13 @@ class EquipoPagina(Pagina[EquipoResponse]):
     pass
 
 
+class EquipoOpcionesResponse(BaseModel):
+    """Valores distintos de los equipos activos, para los selects de filtro."""
+
+    tipos: list[str]
+    ubicaciones: list[str]
+
+
 TipoIntervencion = Literal["calibracion", "mantenimiento"]
 
 

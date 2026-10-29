@@ -1,16 +1,18 @@
 import logging
 from datetime import date
+from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
     guardar,
     mapa_por_campo,
 )
-from src.common.paginacion import paginar
+from src.common.texto import sin_tildes
 from src.auth.roles import puede_administrar
 from src.Equipo.models import Equipo
 from src.PlanCalibracionMantenimiento import exceptions, models, schemas
@@ -18,6 +20,64 @@ from src.personal.models import Personal
 
 
 logger = logging.getLogger(__name__)
+
+# `dias_restantes = proxima_fecha_vencimiento - hoy`, así que ordenar por la
+# fecha y por los días restantes es exactamente la misma secuencia. SQLite
+# resuelve la suma de días con `julianday`; al migrar a Postgres esta
+# expresión tiene que pasar a `fecha_ultima_intervencion + periodicidad_dias`.
+_PROXIMO_VENCIMIENTO = (
+    func.julianday(models.PlanCalibracionMantenimiento.fecha_ultima_intervencion)
+    + models.PlanCalibracionMantenimiento.periodicidad_dias
+)
+
+# Claves del query string -> expresión de orden. `Equipo` entra por el JOIN de
+# `_consulta_planes`; el desempate por `id` lo agrega `aplicar_orden`.
+_ORDENES = {
+    "equipo_asc": ColumnaOrden(
+        (
+            sin_tildes(Equipo.nombre),
+            sin_tildes(models.PlanCalibracionMantenimiento.tipo),
+        )
+    ),
+    "equipo_desc": ColumnaOrden(
+        (
+            sin_tildes(Equipo.nombre),
+            sin_tildes(models.PlanCalibracionMantenimiento.tipo),
+        ),
+        descendente=True,
+    ),
+    "tipo_asc": ColumnaOrden(
+        (
+            sin_tildes(models.PlanCalibracionMantenimiento.tipo),
+            sin_tildes(Equipo.nombre),
+        )
+    ),
+    "tipo_desc": ColumnaOrden(
+        (
+            sin_tildes(models.PlanCalibracionMantenimiento.tipo),
+            sin_tildes(Equipo.nombre),
+        ),
+        descendente=True,
+    ),
+    "intervencion_asc": ColumnaOrden(
+        (models.PlanCalibracionMantenimiento.fecha_ultima_intervencion,)
+    ),
+    "intervencion_desc": ColumnaOrden(
+        (models.PlanCalibracionMantenimiento.fecha_ultima_intervencion,),
+        descendente=True,
+    ),
+    "periodicidad_asc": ColumnaOrden(
+        (models.PlanCalibracionMantenimiento.periodicidad_dias,)
+    ),
+    "periodicidad_desc": ColumnaOrden(
+        (models.PlanCalibracionMantenimiento.periodicidad_dias,),
+        descendente=True,
+    ),
+    # Ascendente deja primero los vencidos y después los que vencen antes;
+    # descendente, los que más falta.
+    "vencimiento_asc": ColumnaOrden((_PROXIMO_VENCIMIENTO,)),
+    "vencimiento_desc": ColumnaOrden((_PROXIMO_VENCIMIENTO,), descendente=True),
+}
 
 _MAPEA_CONFLICTO = mapa_por_campo(
     por_defecto=exceptions.PlanActivoDuplicado,
@@ -85,24 +145,76 @@ def dar_de_baja_plan_calibracion_mantenimiento(
     return baja_logica(db, leer_plan_calibracion_mantenimiento(db, plan_id))
 
 
+def _consulta_planes(
+    incluir_inactivos: bool,
+    buscar: Optional[str],
+    tipo: Optional[str],
+    equipo_id: Optional[int],
+):
+    """Consulta base compartida por el listado completo y el paginado.
+
+    El JOIN con `Equipo` (1:1 por PK) permite buscar y ordenar por el nombre
+    del equipo sin una subconsulta por fila.
+    """
+    consulta = select(models.PlanCalibracionMantenimiento).join(
+        Equipo, Equipo.id == models.PlanCalibracionMantenimiento.equipo_id
+    )
+
+    filtros = [
+        filtro
+        for filtro in (
+            filtro_busqueda(
+                (
+                    Equipo.nombre,
+                    models.PlanCalibracionMantenimiento.tipo,
+                ),
+                buscar,
+            ),
+            models.PlanCalibracionMantenimiento.tipo == tipo if tipo else None,
+            models.PlanCalibracionMantenimiento.equipo_id == equipo_id
+            if equipo_id
+            else None,
+        )
+        if filtro is not None
+    ]
+    if filtros:
+        consulta = consulta.where(*filtros)
+
+    if not incluir_inactivos:
+        consulta = consulta.where(
+            models.PlanCalibracionMantenimiento.activo.is_(True)
+        )
+
+    return consulta
+
+
 def listar_planes_calibracion_mantenimiento(
-    db: Session, incluir_inactivos: bool = False
+    db: Session,
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+    tipo: Optional[str] = None,
+    equipo_id: Optional[int] = None,
 ) -> list[models.PlanCalibracionMantenimiento]:
     logger.info(
         "Listando planes de calibración y mantenimiento "
         "(incluir_inactivos=%s)",
         incluir_inactivos,
     )
-    query = select(models.PlanCalibracionMantenimiento).order_by(
-        models.PlanCalibracionMantenimiento.id
-    )
-    if not incluir_inactivos:
-        query = query.where(models.PlanCalibracionMantenimiento.activo.is_(True))
-    return list(db.scalars(query).all())
+    consulta = _consulta_planes(
+        incluir_inactivos, buscar, tipo, equipo_id
+    ).order_by(models.PlanCalibracionMantenimiento.id)
+    return list(db.scalars(consulta).all())
 
 
 def listar_planes_calibracion_mantenimiento_paginado(
-    db: Session, incluir_inactivos: bool, page: int, page_size: int
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+    buscar: Optional[str] = None,
+    tipo: Optional[str] = None,
+    equipo_id: Optional[int] = None,
+    orden: str = "vencimiento_asc",
 ) -> tuple[list[models.PlanCalibracionMantenimiento], int]:
     """Mismo filtro que `listar_planes_calibracion_mantenimiento`, recortado en la base."""
     logger.info(
@@ -111,12 +223,16 @@ def listar_planes_calibracion_mantenimiento_paginado(
         incluir_inactivos,
         page,
     )
-    query = select(models.PlanCalibracionMantenimiento).order_by(
-        models.PlanCalibracionMantenimiento.id
+    return paginar_consulta(
+        db,
+        _consulta_planes(incluir_inactivos, buscar, tipo, equipo_id),
+        modelo=models.PlanCalibracionMantenimiento,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="vencimiento_asc",
+        page=page,
+        page_size=page_size,
     )
-    if not incluir_inactivos:
-        query = query.where(models.PlanCalibracionMantenimiento.activo.is_(True))
-    return paginar(db, query, page, page_size)
 
 
 def leer_plan_calibracion_mantenimiento(

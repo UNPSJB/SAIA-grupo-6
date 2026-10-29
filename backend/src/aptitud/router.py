@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -15,6 +15,13 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+OrdenAptitud = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "descripcion_asc",
+    "descripcion_desc",
+]
+
 
 @router.post("", response_model=schemas.AptitudResponse, status_code=status.HTTP_201_CREATED)
 def crear_aptitud(datos: schemas.AptitudCreate, db: Session = Depends(get_db)):
@@ -24,6 +31,12 @@ def crear_aptitud(datos: schemas.AptitudCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=Union[List[schemas.AptitudResponse], schemas.AptitudPagina])
 def listar_aptitudes(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre y descripción (sin distinguir mayúsculas ni tildes).",
+    ),
+    orden: OrdenAptitud = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -33,8 +46,10 @@ def listar_aptitudes(
     db: Session = Depends(get_db),
 ):
     if page is None:
-        return services.listar_aptitudes(db, incluir_inactivos)
-    items, total = services.listar_aptitudes_paginado(db, incluir_inactivos, page, page_size)
+        return services.listar_aptitudes(db, incluir_inactivos, buscar)
+    items, total = services.listar_aptitudes_paginado(
+        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden
+    )
     return schemas.AptitudPagina(items=items, total=total, page=page, page_size=page_size)
 
 

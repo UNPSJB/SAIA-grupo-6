@@ -5,7 +5,9 @@ from sqlalchemy import case, select, func
 from sqlalchemy.orm import Session, selectinload
 
 from src.checklist import models, schemas
+from src.common.listados import ColumnaOrden, aplicar_orden, filtro_busqueda, paginar_consulta
 from src.common.paginacion import paginar
+from src.common.texto import sin_tildes
 from src.Equipo.models import Equipo
 from src.Equipo.services import obtener_equipo
 from src.PlanLimpieza.models import PlanLimpieza
@@ -621,12 +623,13 @@ def _porcentaje_cumplimiento_periodo(
     fecha_desde: date_,
     fecha_hasta: date_,
     equipo_id: Optional[int],
+    buscar: Optional[str] = None,
 ) -> float:
     """Cumplimiento de TODO el período, con un agregado en la base.
 
     COUNT de registros + SUM de completados unidos al checklist, con los
-    MISMOS filtros de fecha y equipo del listado. Sin cargar objetos ORM:
-    el porcentaje no depende de la página que se esté mirando, así que
+    MISMOS filtros de fecha, equipo y búsqueda del listado. Sin cargar objetos
+    ORM: el porcentaje no depende de la página que se esté mirando, así que
     calcularlo recorriendo todos los checklists anularía la paginación.
     """
     consulta = (
@@ -637,6 +640,7 @@ def _porcentaje_cumplimiento_periodo(
             ),
         )
         .join(models.Checklist, models.RegistroTarea.checklist_id == models.Checklist.id)
+        .join(Equipo, Equipo.id == models.Checklist.equipo_id)
         .where(
             models.Checklist.fecha >= fecha_desde,
             models.Checklist.fecha <= fecha_hasta,
@@ -645,10 +649,56 @@ def _porcentaje_cumplimiento_periodo(
     if equipo_id is not None:
         consulta = consulta.where(models.Checklist.equipo_id == equipo_id)
 
+    filtro_texto = filtro_busqueda((Equipo.nombre,), buscar)
+    if filtro_texto is not None:
+        consulta = consulta.where(filtro_texto)
+
     total, completadas = db.execute(consulta).one()
     total = int(total or 0)
     completadas = int(completadas or 0)
     return (completadas / total * 100) if total else 0.0
+
+
+_ORDENES_HISTORIAL = {
+    "fecha_asc": ColumnaOrden((models.Checklist.fecha,)),
+    "fecha_desc": ColumnaOrden((models.Checklist.fecha,), descendente=True),
+    "equipo_asc": ColumnaOrden((sin_tildes(Equipo.nombre),)),
+    "equipo_desc": ColumnaOrden((sin_tildes(Equipo.nombre),), descendente=True),
+}
+
+
+def _consulta_historial(
+    fecha_desde: date_,
+    fecha_hasta: date_,
+    equipo_id: Optional[int],
+    buscar: Optional[str],
+):
+    """Consulta base del historial, con los filtros como lista reutilizable.
+
+    El join con `Equipo` es many-to-one por clave primaria: no duplica filas,
+    y es lo que permite buscar y ordenar por nombre de equipo en SQL.
+    """
+    consulta = (
+        select(models.Checklist)
+        .join(Equipo, Equipo.id == models.Checklist.equipo_id)
+        .options(
+            selectinload(models.Checklist.registros),
+            selectinload(models.Checklist.equipo),
+        )
+    )
+
+    filtros = [
+        models.Checklist.fecha >= fecha_desde,
+        models.Checklist.fecha <= fecha_hasta,
+    ]
+    if equipo_id is not None:
+        filtros.append(models.Checklist.equipo_id == equipo_id)
+
+    filtro_texto = filtro_busqueda((Equipo.nombre,), buscar)
+    if filtro_texto is not None:
+        filtros.append(filtro_texto)
+
+    return consulta, filtros
 
 
 def listar_historial_checklists(
@@ -656,6 +706,8 @@ def listar_historial_checklists(
     fecha_desde: date_,
     fecha_hasta: date_,
     equipo_id: Optional[int] = None,
+    buscar: Optional[str] = None,
+    orden: Optional[str] = None,
     page: Optional[int] = None,
     page_size: int = 10,
 ) -> schemas.HistorialChecklistResponse | schemas.HistorialChecklistPagina:
@@ -663,11 +715,11 @@ def listar_historial_checklists(
     `page` viene informado.
 
     Con `page`: COUNT + OFFSET/LIMIT sobre la consulta de `Checklist`
-    (`paginar`), y el `selectinload` de registros se ejecuta solo sobre las
-    filas de la página. El desempate del orden es por `id` porque hay varios
-    checklists por fecha (uno por plan y día): sin desempate, OFFSET/LIMIT
-    puede repetir u omitir filas entre páginas. El cumplimiento general se
-    calcula aparte con un agregado (ver `_porcentaje_cumplimiento_periodo`).
+    (`paginar_consulta`), y el `selectinload` de registros se ejecuta solo
+    sobre las filas de la página. El desempate por `id` lo agrega
+    `aplicar_orden`: sin él, OFFSET/LIMIT puede repetir u omitir filas entre
+    páginas. El cumplimiento general se calcula aparte con un agregado (ver
+    `_porcentaje_cumplimiento_periodo`), con los mismos filtros.
 
     Sin `page`: comportamiento histórico intacto (lista completa del rango
     con el porcentaje calculado sobre toda la lista).
@@ -684,19 +736,20 @@ def listar_historial_checklists(
     if fecha_desde > fecha_hasta:
         raise FechaInvalida()
 
-    query = (
-        select(models.Checklist)
-        .options(selectinload(models.Checklist.registros), selectinload(models.Checklist.equipo))
-        .where(
-            models.Checklist.fecha >= fecha_desde,
-            models.Checklist.fecha <= fecha_hasta,
-        )
+    consulta, filtros = _consulta_historial(
+        fecha_desde, fecha_hasta, equipo_id, buscar
     )
-    if equipo_id is not None:
-        query = query.where(models.Checklist.equipo_id == equipo_id)
 
     if page is None:
-        checklists = db.scalars(query.order_by(models.Checklist.fecha.desc())).all()
+        checklists = db.scalars(
+            aplicar_orden(
+                consulta.where(*filtros),
+                models.Checklist,
+                orden,
+                _ORDENES_HISTORIAL,
+                "fecha_desc",
+            )
+        ).all()
 
         items: List[schemas.HistorialChecklistItem] = []
         total_general = 0
@@ -717,18 +770,25 @@ def listar_historial_checklists(
             checklists=items,
         )
 
-    # Página pedida: el recorte lo hace la base. El `order_by` con desempate
-    # por `id` es lo que garantiza que recorrer las páginas no repita ni
-    # omita checklists.
-    query = query.order_by(
-        models.Checklist.fecha.desc(), models.Checklist.id.desc()
+    # Página pedida: el recorte lo hace la base y el desempate por `id` lo
+    # agrega `paginar_consulta`, así recorrer las páginas no repite ni omite
+    # checklists.
+    checklists, total = paginar_consulta(
+        db,
+        consulta,
+        modelo=models.Checklist,
+        filtros=filtros,
+        orden=orden,
+        ordenes=_ORDENES_HISTORIAL,
+        por_defecto="fecha_desc",
+        page=page,
+        page_size=page_size,
     )
-    checklists, total = paginar(db, query, page, page_size)
 
     # El % general se calcula sobre TODO el período (no cambia con la página),
     # con un agregado en SQL en vez de cargar los registros de cada checklist.
     porcentaje_general = _porcentaje_cumplimiento_periodo(
-        db, fecha_desde, fecha_hasta, equipo_id
+        db, fecha_desde, fecha_hasta, equipo_id, buscar
     )
 
     return schemas.HistorialChecklistPagina(

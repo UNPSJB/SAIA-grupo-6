@@ -8,6 +8,7 @@ from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 
 from src.aptitud.models import Aptitud
+from src.common.texto import coincide_terminos
 from src.notificaciones.models import ConfiguracionAlerta
 from src.personal.models import Personal
 from src.vencimientoPersonal.models import VencimientoPersonal
@@ -192,18 +193,17 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
 def _filtrar_por_texto(
     notificaciones: List[NotificacionResponse], buscar: str | None
 ) -> List[NotificacionResponse]:
-    """Deja las notificaciones cuyo título o mensaje contiene el término
-    (mayúsculas y tildes insensibles). Lo comparten el camino paginado y el
-    completo, para que la búsqueda signifique lo mismo en ambos."""
-    if not (buscar and buscar.strip()):
-        return notificaciones
+    """Deja las notificaciones que matchean la búsqueda en título o mensaje.
 
-    termino = _normalizar_texto(buscar.strip())
+    Usa `coincide_terminos`, la MISMA regla que los demás consolidados: cada
+    palabra tiene que aparecer (en el título o en el mensaje), sin importar el
+    orden ni las tildes. "personal vencido" encuentra "Vencimiento de Personal
+    Vencido".
+    """
     return [
         n
         for n in notificaciones
-        if termino in _normalizar_texto(n.titulo)
-        or termino in _normalizar_texto(n.mensaje)
+        if coincide_terminos((n.titulo, n.mensaje), buscar)
     ]
 
 
@@ -234,18 +234,6 @@ def obtener_todas_notificaciones(
 # una página.
 
 
-def _normalizar_texto(texto: str) -> str:
-    """Minúsculas y sin tildes: mismo criterio de búsqueda que tenía el
-    frontend ('calibracion' encuentra 'Calibración')."""
-    import unicodedata
-
-    return "".join(
-        c
-        for c in unicodedata.normalize("NFD", texto.lower())
-        if unicodedata.category(c) != "Mn"
-    )
-
-
 _ORDENES = (
     "urgencia",
     "estado_asc",
@@ -268,22 +256,28 @@ def _ordenar(notificaciones: List[NotificacionResponse], orden: str) -> None:
     """Ordena EN EL LUGAR con el criterio pedido.
 
     `urgencia` (el default histórico) deja los VENCIDOS arriba sin tocar el
-    orden relativo del resto; el resto son ordenamientos por columna.
+    orden relativo del resto; el resto son ordenamientos por columna. El
+    desempate por `id_notificacion` hace que el OFFSET/LIMIT sea estable: sin
+    él, dos alertas con la misma fecha podían intercambiarse entre páginas.
     """
     if orden in ("urgencia", "estado_asc"):
-        notificaciones.sort(key=lambda n: 0 if n.nivel == "VENCIDO" else 1)
+        notificaciones.sort(
+            key=lambda n: (0 if n.nivel == "VENCIDO" else 1, n.id_notificacion)
+        )
     elif orden == "estado_desc":
-        notificaciones.sort(key=lambda n: 1 if n.nivel == "VENCIDO" else 0)
+        notificaciones.sort(
+            key=lambda n: (1 if n.nivel == "VENCIDO" else 0, n.id_notificacion)
+        )
     elif orden in ("vencimiento_asc", "vencimiento_desc"):
         # Sin fecha (no debería pasar) queda al final en ascendente.
         epoca_min = date.min
         notificaciones.sort(
-            key=lambda n: n.fecha_referencia or epoca_min,
+            key=lambda n: (n.fecha_referencia or epoca_min, n.id_notificacion),
             reverse=(orden == "vencimiento_desc"),
         )
     elif orden in ("origen_asc", "origen_desc"):
         notificaciones.sort(
-            key=lambda n: n.tipo,
+            key=lambda n: (n.tipo, n.id_notificacion),
             reverse=(orden == "origen_desc"),
         )
 

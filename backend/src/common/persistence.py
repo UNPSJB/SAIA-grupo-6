@@ -14,13 +14,14 @@ Acá se concentran esos patrones:
 * `verificar_disponibilidad` para el chequeo "duplicado activo / dado de baja".
 """
 
-from typing import Any, Callable, Optional, Sequence, Tuple, Type, TypeVar
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Type, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.common.paginacion import paginar
+from src.common.listados import ColumnaOrden, paginar_consulta
+from src.common.texto import comparar_texto, contiene_texto, escapar_like
 from src.exceptions import ConflictoRegistroInactivo, NotFound
 
 M = TypeVar("M")
@@ -155,19 +156,29 @@ def listar_paginado(
     modelo: Type[M],
     *,
     incluir_inactivos: bool = False,
+    filtros: Sequence[Any] = (),
     orden: str = "id",
+    ordenes: Optional[Mapping[str, ColumnaOrden]] = None,
+    por_defecto: str = "id",
     page: int = 1,
     page_size: int = 10,
 ) -> Tuple[list[M], int]:
-    """Variante server-side de `listar`: devuelve `(items_de_la_página, total)`.
-
-    Mismo criterio de baja lógica y orden que `listar`; el recorte y el conteo
-    los hace `paginar` (ver `src.common.paginacion`).
-    """
-    consulta = select(modelo).order_by(getattr(modelo, orden))
+    """Página de `listar`. Sin `ordenes` ordena por `id`."""
+    consulta = select(modelo)
     if not incluir_inactivos:
         consulta = consulta.where(getattr(modelo, "activo").is_(True))
-    return paginar(db, consulta, page, page_size)
+
+    return paginar_consulta(
+        db,
+        consulta,
+        modelo=modelo,
+        filtros=filtros,
+        orden=orden,
+        ordenes=ordenes,
+        por_defecto=por_defecto,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def obtener(
@@ -229,28 +240,8 @@ def verificar_disponibilidad(
 
 
 def pedir_texto_no_duplicado(valor: str) -> str:
-    """Escapa los comodines de `LIKE`/`ILIKE` para comparar por igualdad.
-
-    Sin esto, un nombre con `%` o `_` hace que la preconsulta case con
-    cualquier fila y produzca un "ya existe" falso.
-    """
-    return valor.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
-def comparar_texto(columna: Any, valor: str) -> Any:
-    """Predicado de igualdad insensible a mayúsculas, sin comodines."""
-    return columna.ilike(pedir_texto_no_duplicado(valor), escape="\\")
-
-
-def contiene_texto(columna: Any, valor: str) -> Any:
-    """Predicado de "contiene" (`LIKE %valor%`) sin dejar pasar comodines.
-
-    Es el filtro de los buscadores (documentos, y cualquier listado con
-    campo de búsqueda libre): un `%` o `_` que escriba el usuario es parte
-    del texto que busca, no un comodín. Sin el escape, "Detergente%"
-    matcheaba cualquier fila que empezara con "Detergente".
-    """
-    return columna.ilike(f"%{pedir_texto_no_duplicado(valor)}%", escape="\\")
+    """Escapa comodines de LIKE. Alias de `escapar_like`."""
+    return escapar_like(valor)
 
 
 def _traducir(e: IntegrityError, mapear: Optional[Callable[[str], Exception]]) -> Exception:

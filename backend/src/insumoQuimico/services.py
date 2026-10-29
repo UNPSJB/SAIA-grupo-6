@@ -1,17 +1,17 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
+from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
     guardar,
-    listar,
-    listar_paginado,
     mapa_por_campo,
     obtener,
     verificar_disponibilidad,
 )
-from src.insumoQuimico.models import InsumoQuimico
+from src.common.texto import sin_tildes
+from src.insumoQuimico.models import InsumoQuimico, TipoQuimico
 from src.insumoQuimico import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -21,6 +21,21 @@ _MAPEA_CONFLICTO = mapa_por_campo(
     ("insumos_quimicos.nombre", exceptions.InsumoQuimicoYaExiste),
     por_defecto=exceptions.DatoDuplicado,
 )
+
+_ORDENES = {
+    "nombre_asc": ColumnaOrden((sin_tildes(InsumoQuimico.nombre),)),
+    "nombre_desc": ColumnaOrden(
+        (sin_tildes(InsumoQuimico.nombre),), descendente=True
+    ),
+    "tipo_asc": ColumnaOrden((sin_tildes(InsumoQuimico.tipo),)),
+    "tipo_desc": ColumnaOrden(
+        (sin_tildes(InsumoQuimico.tipo),), descendente=True
+    ),
+    "unidad_asc": ColumnaOrden((sin_tildes(UnidadMedida.nombre),)),
+    "unidad_desc": ColumnaOrden(
+        (sin_tildes(UnidadMedida.nombre),), descendente=True
+    ),
+}
 
 
 def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
@@ -49,18 +64,80 @@ def crear_insumo_quimico(db: Session, datos: schemas.InsumoQuimicoCreate) -> Ins
     return guardar(db, nuevo_insumo, _MAPEA_CONFLICTO)
 
 
-def listar_insumos_quimicos(db: Session, incluir_inactivos: bool = False) -> List[InsumoQuimico]:
-    return listar(db, InsumoQuimico, incluir_inactivos=incluir_inactivos)
+def _consulta_insumos_quimicos(
+    incluir_inactivos: bool,
+    buscar: Optional[str],
+    tipo: Optional[TipoQuimico],
+    unidad_medida_id: Optional[int],
+):
+    """Consulta base con el JOIN a la unidad, compartida por ambos caminos."""
+    consulta = (
+        select(InsumoQuimico)
+        .join(InsumoQuimico.unidad_medida)
+        .options(selectinload(InsumoQuimico.unidad_medida))
+    )
+
+    filtros = [
+        filtro
+        for filtro in (
+            filtro_busqueda(
+                (
+                    InsumoQuimico.nombre,
+                    InsumoQuimico.tipo,
+                    UnidadMedida.nombre,
+                    UnidadMedida.simbolo,
+                ),
+                buscar,
+            ),
+            InsumoQuimico.tipo == tipo if tipo is not None else None,
+            InsumoQuimico.unidad_medida_id == unidad_medida_id
+            if unidad_medida_id
+            else None,
+        )
+        if filtro is not None
+    ]
+    if filtros:
+        consulta = consulta.where(*filtros)
+
+    if not incluir_inactivos:
+        consulta = consulta.where(InsumoQuimico.activo.is_(True))
+
+    return consulta
+
+
+def listar_insumos_quimicos(
+    db: Session,
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+    tipo: Optional[TipoQuimico] = None,
+    unidad_medida_id: Optional[int] = None,
+) -> List[InsumoQuimico]:
+    consulta = _consulta_insumos_quimicos(
+        incluir_inactivos, buscar, tipo, unidad_medida_id
+    ).order_by(InsumoQuimico.id)
+    return list(db.scalars(consulta).all())
 
 
 def listar_insumos_quimicos_paginado(
-    db: Session, incluir_inactivos: bool, page: int, page_size: int
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+    buscar: Optional[str] = None,
+    tipo: Optional[TipoQuimico] = None,
+    unidad_medida_id: Optional[int] = None,
+    orden: str = "nombre_asc",
 ) -> tuple[List[InsumoQuimico], int]:
     """Mismo filtro que `listar_insumos_quimicos`, recortado en la base."""
-    return listar_paginado(
+    return paginar_consulta(
         db,
-        InsumoQuimico,
-        incluir_inactivos=incluir_inactivos,
+        _consulta_insumos_quimicos(
+            incluir_inactivos, buscar, tipo, unidad_medida_id
+        ),
+        modelo=InsumoQuimico,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="nombre_asc",
         page=page,
         page_size=page_size,
     )

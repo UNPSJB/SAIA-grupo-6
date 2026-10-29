@@ -1,10 +1,11 @@
 import logging
-from typing import List
+from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from src.common.paginacion import paginar
+from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
+from src.common.texto import sin_tildes
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
 from src.common.persistence import es_violacion_nulo, es_violacion_unica
@@ -12,6 +13,33 @@ from src.exceptions import ConflictoRegistroInactivo
 from src.auth.services import hashear_password, verificar_password, es_hash_bcrypt
 
 logger = logging.getLogger(__name__)
+
+# Claves del query string -> expresión de orden. La columna "Nombre" de la
+# tabla muestra nombre y apellido juntos, así que ordena por ambos.
+_ORDENES = {
+    "nombre_asc": ColumnaOrden(
+        (sin_tildes(Personal.nombre), sin_tildes(Personal.apellido)),
+        nulos_al_final=True,
+    ),
+    "nombre_desc": ColumnaOrden(
+        (sin_tildes(Personal.nombre), sin_tildes(Personal.apellido)),
+        descendente=True,
+        nulos_al_final=True,
+    ),
+    "dni_asc": ColumnaOrden((Personal.dni,)),
+    "dni_desc": ColumnaOrden((Personal.dni,), descendente=True),
+}
+
+# Filtro por rol. Son excluyentes: "administrador" no incluye a los super
+# admin y "operador" no incluye a quien además administra.
+_ROLES = {
+    "super_admin": Personal.es_super_admin.is_(True),
+    "administrador": Personal.es_super_admin.is_(False)
+    & Personal.puede_administrar.is_(True),
+    "operador": Personal.es_super_admin.is_(False)
+    & Personal.puede_administrar.is_(False)
+    & Personal.puede_operar.is_(True),
+}
 
 # ==========================================
 # OPERACIONES CRUD PARA PERSONAL
@@ -96,9 +124,44 @@ def crear_persona(
         raise exceptions.DatoDuplicado()
 
 
+def _consulta_personas(
+    incluir_inactivos: bool,
+    buscar: Optional[str],
+    rol: Optional[str],
+):
+    """Consulta base compartida por el listado completo y el paginado."""
+    consulta = select(Personal)
+
+    filtros = [
+        filtro
+        for filtro in (
+            filtro_busqueda(
+                (
+                    Personal.nombre,
+                    Personal.apellido,
+                    Personal.dni,
+                    Personal.email,
+                ),
+                buscar,
+            ),
+            _ROLES.get(rol) if rol else None,
+        )
+        if filtro is not None
+    ]
+    if filtros:
+        consulta = consulta.where(*filtros)
+
+    if not incluir_inactivos:
+        consulta = consulta.where(Personal.activo.is_(True))
+
+    return consulta
+
+
 def listar_personas(
     db: Session,
-    incluir_inactivos: bool = False
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+    rol: Optional[str] = None,
 ) -> List[Personal]:
 
     logger.info(
@@ -106,12 +169,10 @@ def listar_personas(
         incluir_inactivos
     )
 
-    query = select(Personal)
-
-    if not incluir_inactivos:
-        query = query.where(Personal.activo.is_(True))
-
-    return db.scalars(query).all()
+    consulta = _consulta_personas(incluir_inactivos, buscar, rol).order_by(
+        Personal.id
+    )
+    return list(db.scalars(consulta).all())
 
 
 def listar_personas_paginado(
@@ -119,12 +180,14 @@ def listar_personas_paginado(
     incluir_inactivos: bool,
     page: int,
     page_size: int,
+    buscar: Optional[str] = None,
+    rol: Optional[str] = None,
+    orden: str = "nombre_asc",
 ) -> tuple[List[Personal], int]:
     """Mismo filtro que `listar_personas`, recortado en la base: página + total.
 
-    El `ORDER BY id` es obligatorio acá: sin un orden determinista,
-    OFFSET/LIMIT puede repetir u omitir filas entre páginas (SQLite no
-    garantiza el orden de una consulta sin ORDER BY).
+    `paginar_consulta` agrega el desempate por `id`: sin un orden
+    determinista, OFFSET/LIMIT puede repetir u omitir filas entre páginas.
     """
     logger.info(
         "Listando personal paginado desde services (incluir_inactivos=%s, page=%s)",
@@ -132,12 +195,16 @@ def listar_personas_paginado(
         page,
     )
 
-    query = select(Personal).order_by(Personal.id)
-
-    if not incluir_inactivos:
-        query = query.where(Personal.activo.is_(True))
-
-    return paginar(db, query, page, page_size)
+    return paginar_consulta(
+        db,
+        _consulta_personas(incluir_inactivos, buscar, rol),
+        modelo=Personal,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="nombre_asc",
+        page=page,
+        page_size=page_size,
+    )
 
 
 def leer_persona(

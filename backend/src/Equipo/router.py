@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 import os
 import uuid
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
@@ -25,6 +25,15 @@ router = APIRouter(
     tags=["Equipos"],
 )
 
+OrdenEquipo = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "tipo_asc",
+    "tipo_desc",
+    "ubicacion_asc",
+    "ubicacion_desc",
+]
+
 @router.post(
     "",
     response_model=schemas.EquipoResponse,
@@ -44,6 +53,14 @@ def crear_equipo(
 )
 def listar_equipos(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre, tipo y ubicación (sin distinguir mayúsculas ni tildes).",
+    ),
+    tipo: Optional[str] = Query(None, max_length=100),
+    ubicacion: Optional[str] = Query(None, max_length=100),
+    orden: OrdenEquipo = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -53,9 +70,34 @@ def listar_equipos(
     db: Session = Depends(get_db),
 ):
     if page is None:
-        return services.listar_equipos(db, incluir_inactivos)
-    items, total = services.listar_equipos_paginado(db, incluir_inactivos, page, page_size)
+        return services.listar_equipos(
+            db, incluir_inactivos, buscar, tipo, ubicacion
+        )
+    items, total = services.listar_equipos_paginado(
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        tipo=tipo,
+        ubicacion=ubicacion,
+        orden=orden,
+    )
     return schemas.EquipoPagina(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get(
+    "/opciones",
+    response_model=schemas.EquipoOpcionesResponse,
+    dependencies=[Depends(require_operador)],
+)
+def obtener_opciones_equipos(db: Session = Depends(get_db)):
+    """Tipos y ubicaciones para los selects del filtro de la tabla.
+
+    Va antes de `/{equipo_id}`: si estuviera después, FastAPI intentaría
+    convertir "opciones" a int y devolvería 422.
+    """
+    return services.obtener_opciones_equipos(db)
 
 @router.get(
     "/{equipo_id}",

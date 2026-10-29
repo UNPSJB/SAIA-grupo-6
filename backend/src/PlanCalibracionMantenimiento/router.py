@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 from sqlalchemy.orm import Session
 
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
@@ -14,6 +14,19 @@ from src.personal.models import Personal
 # el handler, un endpoint nuevo queda protegido solo si uno de los dos se
 # acuerda.
 _DEP_ADMIN = [Depends(require_admin)]
+
+OrdenPlanCalibracionMantenimiento = Literal[
+    "equipo_asc",
+    "equipo_desc",
+    "tipo_asc",
+    "tipo_desc",
+    "intervencion_asc",
+    "intervencion_desc",
+    "periodicidad_asc",
+    "periodicidad_desc",
+    "vencimiento_asc",
+    "vencimiento_desc",
+]
 
 router = APIRouter(
     prefix="/planes-calibracion-mantenimiento",
@@ -40,6 +53,14 @@ def create_plan_calibracion_mantenimiento(
 )
 def read_planes_calibracion_mantenimiento(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en el nombre del equipo y el tipo de plan (sin distinguir mayúsculas ni tildes).",
+    ),
+    tipo: Optional[schemas.TipoPlanCalibracionMantenimiento] = Query(None),
+    equipo_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenPlanCalibracionMantenimiento = "vencimiento_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -49,9 +70,18 @@ def read_planes_calibracion_mantenimiento(
     db: Session = Depends(get_db),
 ):
     if page is None:
-        return services.listar_planes_calibracion_mantenimiento(db, incluir_inactivos)
+        return services.listar_planes_calibracion_mantenimiento(
+            db, incluir_inactivos, buscar, tipo, equipo_id
+        )
     items, total = services.listar_planes_calibracion_mantenimiento_paginado(
-        db, incluir_inactivos, page, page_size
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        tipo=tipo,
+        equipo_id=equipo_id,
+        orden=orden,
     )
     return schemas.PlanCalibracionMantenimientoPagina(
         items=items, total=total, page=page, page_size=page_size

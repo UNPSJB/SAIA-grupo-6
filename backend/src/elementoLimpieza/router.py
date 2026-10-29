@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -19,6 +19,15 @@ _DEP_ADMIN = [Depends(require_admin)]
 
 # Listado mínimo para completar el checklist: alcanza con tener sesión operativa.
 _DEP_OPERAR = [Depends(require_operador)]
+
+OrdenElementoLimpieza = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "ultimo_recambio_asc",
+    "ultimo_recambio_desc",
+    "frecuencia_asc",
+    "frecuencia_desc",
+]
 
 
 @router.get(
@@ -52,6 +61,12 @@ def crear_elemento_limpieza(
 )
 def listar_elementos_limpieza(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en el nombre (sin distinguir mayúsculas ni tildes).",
+    ),
+    orden: OrdenElementoLimpieza = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -61,9 +76,9 @@ def listar_elementos_limpieza(
     db: Session = Depends(get_db),
 ):
     if page is None:
-        return services.listar_elementos_limpieza(db, incluir_inactivos)
+        return services.listar_elementos_limpieza(db, incluir_inactivos, buscar)
     items, total = services.listar_elementos_limpieza_paginado(
-        db, incluir_inactivos, page, page_size
+        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden
     )
     return schemas.ElementoLimpiezaPagina(
         items=items, total=total, page=page, page_size=page_size

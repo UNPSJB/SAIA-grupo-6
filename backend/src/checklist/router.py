@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import date, datetime
-from typing import Optional, List, Union
+from typing import Optional, List, Literal, Union
 
 from fastapi import APIRouter, Depends, Query, File, UploadFile, Form, HTTPException
 from sqlalchemy.orm import Session
@@ -153,6 +153,13 @@ def listar_historial_checklists(
     fecha_desde: date = Query(...),
     fecha_hasta: date = Query(...),
     equipo_id: Optional[int] = Query(None),
+    buscar: Optional[str] = Query(
+        None,
+        description="Búsqueda por nombre de equipo (ignora mayúsculas y tildes).",
+    ),
+    orden: Optional[Literal["fecha_asc", "fecha_desc", "equipo_asc", "equipo_desc"]] = Query(
+        None, description="fecha_desc (default) | fecha_asc | equipo_asc | equipo_desc."
+    ),
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -164,7 +171,7 @@ def listar_historial_checklists(
     """Historial de checklists en un rango de fechas, con % de
     cumplimiento y detalle de tareas incumplidas (Historia #13)."""
     return services.listar_historial_checklists(
-        db, fecha_desde, fecha_hasta, equipo_id, page, page_size
+        db, fecha_desde, fecha_hasta, equipo_id, buscar, orden, page, page_size
     )
 
 

@@ -1,6 +1,6 @@
 import os
 from datetime import date, datetime
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
@@ -15,6 +15,21 @@ from src.personal.models import Personal
 
 
 router = APIRouter(prefix="/incidentes", tags=["Incidentes"])
+
+# Claves de orden que acepta la tabla de gestión. `recientes`/`antiguos` se
+# conservan como alias de fecha: el verifier y los consumidores viejos los
+# siguen mandando. Una clave desconocida es 422 (Literal), no un orden
+# silenciosamente distinto.
+OrdenIncidente = Literal[
+    "recientes",
+    "antiguos",
+    "fecha_asc",
+    "fecha_desc",
+    "estado_asc",
+    "estado_desc",
+    "tipo_asc",
+    "tipo_desc",
+]
 
 # Formatos y tamaño máximo de la foto del incidente. Mismo criterio que las
 # evidencias del checklist: el MIME que manda el navegador no alcanza, el
@@ -115,9 +130,12 @@ def listar_incidentes(
         None,
         description="Búsqueda insensible a mayúsculas y tildes en título, descripción y quien reportó.",
     ),
-    orden: Optional[str] = Query(
+    orden: Optional[OrdenIncidente] = Query(
         None,
-        description="'antiguos' ordena del más viejo al más reciente; por defecto, al revés.",
+        description=(
+            "Orden del listado. 'recientes'/'antiguos' (alias de fecha) o "
+            "una columna con dirección: fecha, estado o tipo."
+        ),
     ),
     fecha_desde: Optional[date] = Query(
         None,
@@ -169,6 +187,10 @@ def listar_incidentes(
 
 @router.get("/mios", response_model=Union[List[schemas.IncidenteResponse], schemas.IncidentePagina])
 def listar_mis_incidentes(
+    estado: Optional[EstadoIncidente] = Query(
+        None,
+        description="Filtra por estado. Sin este parámetro devuelve abiertos y cerrados.",
+    ),
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -178,11 +200,14 @@ def listar_mis_incidentes(
     current_user: Personal = Depends(require_operador),
     db: Session = Depends(get_db),
 ):
-    """Endpoint para que operadores vean sus propios incidentes reportados."""
+    """Endpoint para que operadores vean sus propios incidentes reportados.
+
+    El orden es siempre "más recientes primero": esta vista no expone `orden`.
+    """
     if page is None:
-        return services.listar_mis_incidentes(db, current_user.id)
+        return services.listar_mis_incidentes(db, current_user.id, estado)
     items, total = services.listar_mis_incidentes_paginado(
-        db, current_user.id, page, page_size
+        db, current_user.id, page, page_size, estado
     )
     return schemas.IncidentePagina(
         items=items, total=total, page=page, page_size=page_size

@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from src.aptitud.models import Aptitud
 from src.Equipo.models import Equipo
+from src.common.texto import coincide_terminos, normalizar_texto
 from src.notificaciones.services import (
     MARGEN_DIAS_ALERTA,
     obtener_dias_alerta_vencimiento_personal,
@@ -20,6 +21,16 @@ from src.documentos.models import VersionDocumento
 
 # Orden de urgencia: primero los vencidos, después los próximos, al final los vigentes.
 _ORDEN_ESTADO = {"VENCIDO": 0, "PROXIMO": 1, "VIGENTE": 2}
+
+# Etiqueta visible de cada tipo de vencimiento. El orden por "Tipo" usa esta
+# etiqueta (y no la clave interna) para que coincida con lo que muestra la
+# tabla: Calibración, Documento, Mantenimiento, Personal.
+_ETIQUETA_TIPO = {
+    "PERSONAL": "Personal",
+    "CALIBRACION": "Calibración",
+    "MANTENIMIENTO": "Mantenimiento",
+    "DOCUMENTO": "Documento",
+}
 
 
 def _estado(dias_restantes: int, margen: int) -> str:
@@ -183,15 +194,47 @@ def listar_vencimientos(
 # ────────────────────────── Listado paginado ──────────────────────────────
 
 
-def _normalizar_texto(texto: str) -> str:
-    """Minúsculas y sin tildes, igual que la búsqueda que hacía el frontend."""
-    import unicodedata
+def _ordenar_vencimientos(
+    items: List[VencimientoConsolidadoResponse], orden: str
+) -> None:
+    """Ordena EN EL LUGAR con el criterio pedido.
 
-    return "".join(
-        c
-        for c in unicodedata.normalize("NFD", texto.lower())
-        if unicodedata.category(c) != "Mn"
-    )
+    `URGENCIA` (default histórico) y `estado_asc` son equivalentes: VENCIDO →
+    PRÓXIMO → VIGENTE y, dentro de cada estado, el más urgente primero.
+    `VIGENTES_PRIMERO` y `estado_desc` invierten el orden de los estados sin
+    perder la urgencia dentro de cada uno. El desempate por
+    `id_vencimiento` mantiene estable el OFFSET/LIMIT entre páginas.
+    """
+    if orden in ("VIGENTES_PRIMERO", "estado_desc"):
+        items.sort(
+            key=lambda v: (
+                -_ORDEN_ESTADO[v.estado],
+                v.dias_restantes,
+                v.id_vencimiento,
+            )
+        )
+    elif orden in ("tipo_asc", "tipo_desc"):
+        items.sort(
+            key=lambda v: (
+                normalizar_texto(_ETIQUETA_TIPO.get(v.tipo, v.tipo)),
+                v.dias_restantes,
+                v.id_vencimiento,
+            ),
+            reverse=(orden == "tipo_desc"),
+        )
+    elif orden in ("vencimiento_asc", "vencimiento_desc"):
+        items.sort(
+            key=lambda v: (v.fecha_vencimiento, v.id_vencimiento),
+            reverse=(orden == "vencimiento_desc"),
+        )
+    else:  # URGENCIA / estado_asc
+        items.sort(
+            key=lambda v: (
+                _ORDEN_ESTADO[v.estado],
+                v.dias_restantes,
+                v.id_vencimiento,
+            )
+        )
 
 
 def listar_vencimientos_paginado(
@@ -199,6 +242,7 @@ def listar_vencimientos_paginado(
     tipo: Optional[str],
     persona_id: Optional[int],
     aptitud: Optional[str],
+    estado: Optional[str],
     buscar: Optional[str],
     orden: Optional[str],
     page: int,
@@ -206,8 +250,9 @@ def listar_vencimientos_paginado(
 ) -> tuple[List[VencimientoConsolidadoResponse], int]:
     """Los mismos filtros que tenía el frontend, aplicados server-side.
 
-    `orden` replica las dos opciones del selector: URGENCIA (vencidos primero)
-    y VIGENTES_PRIMERO; en ambos casos el desempate es por días restantes.
+    `orden` acepta las dos opciones históricas del selector (URGENCIA,
+    VIGENTES_PRIMERO) y las claves de columna que usa el encabezado
+    ordenable (estado, tipo y vencimiento).
 
     NOTA DE DISEÑO — paginación EN MEMORIA, a propósito: igual que el centro
     de notificaciones, este listado es un CONSOLIDADO de cuatro fuentes
@@ -224,28 +269,30 @@ def listar_vencimientos_paginado(
         items = [v for v in items if v.sujeto_id == persona_id and v.tipo == "PERSONAL"]
     if aptitud:
         items = [v for v in items if v.detalle == aptitud]
+    if estado:
+        items = [v for v in items if v.estado == estado]
 
     if buscar and buscar.strip():
-        terminos = [
-            t for t in _normalizar_texto(buscar).split() if t
-        ]
-        def buscable(v: VencimientoConsolidadoResponse) -> str:
-            return _normalizar_texto(
-                " ".join(
-                    (
-                        v.detalle,
-                        v.sujeto,
-                        v.estado,
-                        v.tipo,
-                        str(v.fecha_vencimiento),
-                    )
-                )
+        # Misma regla que el resto de los consolidados (`coincide_terminos`):
+        # cada palabra tiene que aparecer en algún campo, sin importar el orden
+        # ni las tildes ("equipo vencimiento" encuentra "Équipo vencimiento").
+        items = [
+            v
+            for v in items
+            if coincide_terminos(
+                (
+                    v.detalle,
+                    v.sujeto,
+                    v.estado,
+                    v.tipo,
+                    _ETIQUETA_TIPO.get(v.tipo, v.tipo),
+                    str(v.fecha_vencimiento),
+                ),
+                buscar,
             )
-        items = [v for v in items if all(t in buscable(v) for t in terminos)]
+        ]
 
-    rango = {"URGENCIA": _ORDEN_ESTADO, "VIGENTES_PRIMERO": {"VIGENTE": 0, "PROXIMO": 1, "VENCIDO": 2}}
-    clave = rango.get(orden or "URGENCIA", _ORDEN_ESTADO)
-    items.sort(key=lambda v: (clave[v.estado], v.dias_restantes))
+    _ordenar_vencimientos(items, orden or "URGENCIA")
 
     total = len(items)
     inicio = (page - 1) * page_size

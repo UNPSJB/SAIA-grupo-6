@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/insumos", tags=["insumos"], dependencies=[Depends(require_admin)])
 
+OrdenInsumo = Literal["nombre_asc", "nombre_desc", "unidad_asc", "unidad_desc"]
+
 # Rutas para Insumos
 
 
@@ -25,6 +27,13 @@ def create_insumo(insumo: schemas.InsumoCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=Union[List[schemas.Insumo], schemas.InsumoPagina])
 def read_insumos(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre, unidad y símbolo (sin distinguir mayúsculas ni tildes).",
+    ),
+    unidad_medida_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenInsumo = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -33,10 +42,23 @@ def read_insumos(
     page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     db: Session = Depends(get_db),
 ):
-    logger.info("Listando insumos desde router (incluir_inactivos=%s)", incluir_inactivos)
+    logger.info(
+        "Listando insumos desde router (incluir_inactivos=%s)",
+        incluir_inactivos,
+    )
     if page is None:
-        return services.listar_insumos(db, incluir_inactivos)
-    items, total = services.listar_insumos_paginado(db, incluir_inactivos, page, page_size)
+        return services.listar_insumos(
+            db, incluir_inactivos, buscar, unidad_medida_id
+        )
+    items, total = services.listar_insumos_paginado(
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        unidad_medida_id=unidad_medida_id,
+        orden=orden,
+    )
     return schemas.InsumoPagina(items=items, total=total, page=page, page_size=page_size)
 
 

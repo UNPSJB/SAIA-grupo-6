@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -16,19 +16,44 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+# Claves de orden que acepta el centro de notificaciones. `urgencia` es el
+# default histórico (VENCIDOS arriba); el resto son las columnas que la tabla
+# puede ordenar. Una clave desconocida es 422, no un orden distinto en
+# silencio.
+OrdenNotificacion = Literal[
+    "urgencia",
+    "estado_asc",
+    "estado_desc",
+    "vencimiento_asc",
+    "vencimiento_desc",
+    "origen_asc",
+    "origen_desc",
+]
+
+UrgenciaNotificacion = Literal["todas", "vencidas", "proximas"]
+
+OrigenNotificacion = Literal[
+    "todas",
+    "ELEMENTO_LIMPIEZA",
+    "VENCIMIENTO_PERSONAL",
+    "PLAN_CALIBRACION",
+    "PLAN_MANTENIMIENTO",
+]
+
+
 @router.get("", response_model=Union[List[schemas.NotificacionResponse], schemas.NotificacionPagina])
 def listar_notificaciones(
     buscar: Optional[str] = Query(
         None, description="Búsqueda en título y mensaje (ignora mayúsculas y tildes)."
     ),
-    urgencia: Optional[str] = Query(
+    urgencia: Optional[UrgenciaNotificacion] = Query(
         None, description="'todas' | 'vencidas' | 'proximas'."
     ),
-    origen: Optional[str] = Query(
+    origen: Optional[OrigenNotificacion] = Query(
         None,
         description="'todas' o el tipo: ELEMENTO_LIMPIEZA, VENCIMIENTO_PERSONAL, PLAN_CALIBRACION, PLAN_MANTENIMIENTO.",
     ),
-    orden: Optional[str] = Query(
+    orden: Optional[OrdenNotificacion] = Query(
         None,
         description="urgencia (default) | estado_asc/desc | vencimiento_asc/desc | origen_asc/desc.",
     ),

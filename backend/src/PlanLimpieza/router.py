@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 # Agrupamos las rutas bajo el prefijo /planes-limpieza
 router = APIRouter(prefix="/planes-limpieza", tags=["planes de limpieza"], dependencies=[Depends(require_admin)])
 
+OrdenPlanLimpieza = Literal[
+    "nombre_asc", "nombre_desc", "equipo_asc", "equipo_desc"
+]
+
 
 @router.post("", response_model=schemas.PlanLimpieza)
 def create_plan_limpieza(
@@ -26,6 +30,13 @@ def create_plan_limpieza(
 @router.get("", response_model=Union[List[schemas.PlanLimpieza], schemas.PlanLimpiezaPagina])
 def read_planes_limpieza(
     incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en el nombre del plan, el del equipo y sus tareas (sin distinguir mayúsculas ni tildes).",
+    ),
+    equipo_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenPlanLimpieza = "nombre_asc",
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -39,9 +50,17 @@ def read_planes_limpieza(
         incluir_inactivos,
     )
     if page is None:
-        return services.listar_planes_limpieza(db, incluir_inactivos)
+        return services.listar_planes_limpieza(
+            db, incluir_inactivos, buscar, equipo_id
+        )
     items, total = services.listar_planes_limpieza_paginado(
-        db, incluir_inactivos, page, page_size
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        equipo_id=equipo_id,
+        orden=orden,
     )
     return schemas.PlanLimpiezaPagina(
         items=items, total=total, page=page, page_size=page_size
