@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { Box, Button, Input, Portal, Text } from "@chakra-ui/react";
 import { actualizarVencimiento } from "../../vencimientoPersonal/services/vencimientoPersonalService";
-import type { Notificacion } from "../types/notificacion";
+
+export interface VencimientoEditable {
+  entidad_id: number;
+  mensaje: string;
+  fecha_referencia?: string;
+}
 
 interface CambiarFechaVencimientoDialogProps {
-  notificacion: Notificacion;
+  vencimiento: VencimientoEditable;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -23,7 +28,7 @@ function formatearFecha(fecha?: string) {
 }
 
 export function CambiarFechaVencimientoDialog({
-  notificacion,
+  vencimiento,
   onClose,
   onSaved,
 }: CambiarFechaVencimientoDialogProps) {
@@ -46,40 +51,129 @@ export function CambiarFechaVencimientoDialog({
     try {
       setGuardando(true);
       setError(null);
-      await actualizarVencimiento(notificacion.entidad_id, { fecha_vencimiento: fecha });
+      await actualizarVencimiento(vencimiento.entidad_id, {
+        fecha_vencimiento: fecha,
+      });
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar el vencimiento.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "No se pudo actualizar el vencimiento.",
+      );
       setGuardando(false);
     }
   };
 
   return (
     <Portal>
-      <Box style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-        <Box style={{ backgroundColor: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 15px rgba(0,0,0,0.2)", width: "400px", maxWidth: "90vw" }}>
-          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>Renovar vencimiento</Box>
-          <Text style={{ color: "#555", marginBottom: "6px" }}>{notificacion.mensaje}</Text>
-          <Text style={{ color: "#777", fontSize: "14px", marginBottom: "16px" }}>
-            Fecha actual: <strong>{formatearFecha(notificacion.fecha_referencia)}</strong>
+      <Box
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        <Box
+          style={{
+            backgroundColor: "white",
+            padding: "25px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+            width: "400px",
+            maxWidth: "90vw",
+          }}
+        >
+          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+            Renovar vencimiento
+          </Box>
+          <Text style={{ color: "#555", marginBottom: "6px" }}>
+            {vencimiento.mensaje}
+          </Text>
+          <Text
+            style={{
+              color: "#777",
+              fontSize: "14px",
+              marginBottom: "16px",
+            }}
+          >
+            Fecha actual: <strong>{formatearFecha(vencimiento.fecha_referencia)}</strong>
           </Text>
 
-          <Text style={{ fontWeight: "bold", color: "#333", marginBottom: "4px" }}>
+          <Text
+            style={{
+              fontWeight: "bold",
+              color: "#333",
+              marginBottom: "4px",
+            }}
+          >
             Nueva fecha de vencimiento
           </Text>
-          <Input type="date" value={fecha} min={hoy} onChange={(e) => setFecha(e.target.value)} />
+          <Input
+            type="date"
+            value={fecha}
+            min={hoy}
+            onChange={(e) => setFecha(e.target.value)}
+          />
 
           {error && (
-            <Text style={{ color: "#c53030", fontSize: "14px", marginTop: "8px" }}>{error}</Text>
+            <Text
+              style={{
+                color: "#c53030",
+                fontSize: "14px",
+                marginTop: "8px",
+              }}
+            >
+              {error}
+            </Text>
           )}
 
-          <Box style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
-            <Button onClick={onClose} disabled={guardando} height="auto" minW="auto"
-              style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ccc", backgroundColor: "#fff", cursor: "pointer", fontWeight: "bold" }}>
+          <Box
+            style={{
+              display: "flex",
+              gap: "10px",
+              justifyContent: "flex-end",
+              marginTop: "20px",
+            }}
+          >
+            <Button
+              onClick={onClose}
+              disabled={guardando}
+              height="auto"
+              minW="auto"
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                backgroundColor: "#fff",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
               Cancelar
             </Button>
-            <Button onClick={handleGuardar} loading={guardando} height="auto" minW="auto"
-              style={{ padding: "8px 16px", borderRadius: "6px", border: "none", backgroundColor: "#3182ce", color: "white", cursor: "pointer", fontWeight: "bold" }}>
+            <Button
+              onClick={handleGuardar}
+              loading={guardando}
+              height="auto"
+              minW="auto"
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: "#3182ce",
+                color: "white",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
               Guardar fecha
             </Button>
           </Box>

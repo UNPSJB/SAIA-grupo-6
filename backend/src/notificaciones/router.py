@@ -7,6 +7,7 @@ from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin
 from src.notificaciones import schemas, services
+from src.notificaciones.criticidad import obtener_criticidad_dashboard
 
 # Las alertas de recambio y vencimientos son parte de las historias de
 # administración ("Como: persona con permiso de administrar").
@@ -79,6 +80,15 @@ def listar_notificaciones(
         page_size=page_size,
         contadores=contadores,
     )
+
+
+@router.get(
+    "/criticidad",
+    response_model=schemas.CriticidadDashboardResponse,
+)
+def obtener_criticidad(db: Session = Depends(get_db)):
+    """Devuelve las situaciones activas priorizadas por el motor de criticidad."""
+    return obtener_criticidad_dashboard(db)
 
 
 @router.get("/configuracion", response_model=schemas.ConfiguracionAlertasResponse)

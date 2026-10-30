@@ -1,3 +1,4 @@
+
 export type NivelNotificacion = "VENCIDO" | "PROXIMO_A_VENCER";
 
 export interface Notificacion { 
@@ -19,4 +20,41 @@ export interface Notificacion {
  */
 export function nivelLabel(nivel: NivelNotificacion): string {
     return nivel === "VENCIDO" ? "VENCIDO" : "PRÓXIMO A VENCER";
+}
+
+
+export type Criticidad = "alta" | "media" | "baja";
+
+export type NivelRiesgo = "alto" | "medio" | "bajo";
+
+export type IconoCriticidad =
+  | "limpieza"
+  | "calibracion"
+  | "incidente"
+  | "personal"
+  | "documento"
+  | "checklist";
+
+export interface AlertaCriticidad {
+  clave: string;
+  origen: string;
+  entidad_id: number;
+  grupo_clave: string;
+  icono: IconoCriticidad;
+  titulo: string;
+  detalle: string;
+  criticidad: Criticidad;
+  motivo: string;
+  plazo: string;
+  destino: string;
+  recambio_id: number | null;
+}
+
+export interface CriticidadDashboard {
+  nivel_riesgo: NivelRiesgo;
+  total: number;
+  altas: number;
+  medias: number;
+  bajas: number;
+  alertas: AlertaCriticidad[];
 }
