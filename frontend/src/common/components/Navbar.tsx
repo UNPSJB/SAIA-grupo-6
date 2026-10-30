@@ -15,6 +15,7 @@ import {
 } from "@chakra-ui/react";
 import {
   LuBadgeCheck,
+  LuMapPin,
   LuBrush,
   LuCalendarClock,
   LuChartPie,
@@ -121,6 +122,7 @@ const GRUPOS: GrupoMenu[] = [
         icon: LuBrush,
       },
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
+      { to: "/sectores", label: "Sectores", rol: "administrar", icon: LuMapPin },
       { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
     ],
   },

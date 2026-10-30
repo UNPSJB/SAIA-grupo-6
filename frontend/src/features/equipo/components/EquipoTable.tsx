@@ -49,11 +49,11 @@ export function EquipoTable({
               Tipo
             </EncabezadoOrdenable>
             <EncabezadoOrdenable
-              columna="ubicacion"
+              columna="sector"
               orden={orden}
               ancho="amplia"
             >
-              Ubicación
+              Sector
             </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="accionesAnchas">
               Acciones

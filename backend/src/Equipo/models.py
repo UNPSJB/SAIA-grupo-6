@@ -16,7 +16,10 @@ class Equipo(ModeloBase):
 
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    ubicacion: Mapped[str] = mapped_column(String(100), nullable=False)
+    sector_id: Mapped[int] = mapped_column(
+        ForeignKey("sectores.id"), nullable=False, index=True
+    )
+    sector: Mapped["Sector"] = relationship(lazy="joined")
 
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

@@ -15,13 +15,12 @@ class NombreVacio(BadRequest):
     DETAIL = ErrorCode.NOMBRE_VACIO
 
 
-class UbicacionVacia(BadRequest):
-    DETAIL = ErrorCode.UBICACION_VACIA
-
-
 class TipoVacio(BadRequest):
     DETAIL = ErrorCode.TIPO_VACIO
 
 
 class NombreDuplicado(BadRequest):
     DETAIL = ErrorCode.NOMBRE_DUPLICADO
+
+class SectorInvalido(BadRequest):
+    DETAIL = ErrorCode.SECTOR_INVALIDO

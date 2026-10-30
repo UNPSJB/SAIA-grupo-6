@@ -20,7 +20,7 @@ export function useEquiposPaginados(
     incluirInactivos = false,
     buscar,
     tipo,
-    ubicacion,
+    sectorId,
     orden = "nombre_asc",
   } = filtros;
 
@@ -30,10 +30,10 @@ export function useEquiposPaginados(
         incluirInactivos,
         buscar,
         tipo,
-        ubicacion,
+        sectorId,
         orden,
       }),
-    [incluirInactivos, buscar, tipo, ubicacion, orden]
+    [incluirInactivos, buscar, tipo, sectorId, orden]
   );
 
   const {
@@ -47,7 +47,7 @@ export function useEquiposPaginados(
     recargar,
   } = useListaPaginada<Equipo>({
     cargar,
-    dependencias: [incluirInactivos, buscar, tipo, ubicacion, orden],
+    dependencias: [incluirInactivos, buscar, tipo, sectorId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los equipos",
     pageSize,

@@ -62,7 +62,7 @@ export function EquipoIntervencionPage() {
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
           <Campo etiqueta="Equipo" valor={equipo.nombre} />
           <Campo etiqueta="Tipo" valor={equipo.tipo} />
-          <Campo etiqueta="Ubicación" valor={equipo.ubicacion} />
+          <Campo etiqueta="Sector" valor={equipo.sector.nombre} />
         </SimpleGrid>
 
         <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">

@@ -12,6 +12,7 @@ from src.common.persistence import (
     obtener,
 )
 from src.common.texto import normalizar_texto, sin_tildes
+from src.sector.models import Sector
 
 from . import exceptions, schemas
 from .exceptions import EquipoNoEncontrado
@@ -31,10 +32,8 @@ _ORDENES = {
     "nombre_desc": ColumnaOrden((sin_tildes(Equipo.nombre),), descendente=True),
     "tipo_asc": ColumnaOrden((sin_tildes(Equipo.tipo),)),
     "tipo_desc": ColumnaOrden((sin_tildes(Equipo.tipo),), descendente=True),
-    "ubicacion_asc": ColumnaOrden((sin_tildes(Equipo.ubicacion),)),
-    "ubicacion_desc": ColumnaOrden(
-        (sin_tildes(Equipo.ubicacion),), descendente=True
-    ),
+    "sector_asc": ColumnaOrden((sin_tildes(Sector.nombre),)),
+    "sector_desc": ColumnaOrden((sin_tildes(Sector.nombre),), descendente=True),
 }
 
 
@@ -42,23 +41,22 @@ def _consulta_equipos(
     incluir_inactivos: bool,
     buscar: Optional[str],
     tipo: Optional[str],
-    ubicacion: Optional[str],
+    sector_id: Optional[int],
 ):
     """Consulta base compartida por el listado completo y el paginado.
 
     Los dropdowns llaman sin filtros: el resultado sigue siendo la lista de
-    siempre ordenada por id.
+    siempre ordenada por id. El JOIN con `Sector` es 1:1 (por PK), así que no
+    duplica filas y sirve para buscar y ordenar por nombre de sector.
     """
-    consulta = select(Equipo)
+    consulta = select(Equipo).join(Sector, Sector.id == Equipo.sector_id)
 
     filtros = [
         filtro
         for filtro in (
-            filtro_busqueda(
-                (Equipo.nombre, Equipo.tipo, Equipo.ubicacion), buscar
-            ),
+            filtro_busqueda((Equipo.nombre, Equipo.tipo, Sector.nombre), buscar),
             Equipo.tipo == tipo if tipo else None,
-            Equipo.ubicacion == ubicacion if ubicacion else None,
+            Equipo.sector_id == sector_id if sector_id else None,
         )
         if filtro is not None
     ]
@@ -71,7 +69,15 @@ def _consulta_equipos(
     return consulta
 
 
+def _verificar_sector(db: Session, sector_id: int) -> None:
+    """El sector debe existir y estar activo (400 si no)."""
+    sector = db.get(Sector, sector_id)
+    if sector is None or not sector.activo:
+        raise exceptions.SectorInvalido()
+
+
 def crear_equipo(db: Session, datos: EquipoCreate) -> Equipo:
+    _verificar_sector(db, datos.sector_id)
     nuevo_equipo = Equipo(**datos.model_dump())
     db.add(nuevo_equipo)
     return guardar(db, nuevo_equipo, _MAPEA_CONFLICTO)
@@ -82,10 +88,10 @@ def listar_equipos(
     incluir_inactivos: bool = False,
     buscar: Optional[str] = None,
     tipo: Optional[str] = None,
-    ubicacion: Optional[str] = None,
+    sector_id: Optional[int] = None,
 ) -> list[Equipo]:
     consulta = _consulta_equipos(
-        incluir_inactivos, buscar, tipo, ubicacion
+        incluir_inactivos, buscar, tipo, sector_id
     ).order_by(Equipo.id)
     return list(db.scalars(consulta).all())
 
@@ -97,13 +103,13 @@ def listar_equipos_paginado(
     page_size: int,
     buscar: Optional[str] = None,
     tipo: Optional[str] = None,
-    ubicacion: Optional[str] = None,
+    sector_id: Optional[int] = None,
     orden: str = "nombre_asc",
 ) -> tuple[list[Equipo], int]:
     """Mismo filtro que `listar_equipos`, recortado en la base: página + total."""
     return paginar_consulta(
         db,
-        _consulta_equipos(incluir_inactivos, buscar, tipo, ubicacion),
+        _consulta_equipos(incluir_inactivos, buscar, tipo, sector_id),
         modelo=Equipo,
         orden=orden,
         ordenes=_ORDENES,
@@ -114,7 +120,7 @@ def listar_equipos_paginado(
 
 
 def obtener_opciones_equipos(db: Session) -> schemas.EquipoOpcionesResponse:
-    """Tipos y ubicaciones que existen hoy, para los selects de filtro.
+    """Tipos y sectores que existen hoy, para los selects de filtro.
 
     Se ordenan en Python con la misma normalización que la búsqueda: hacerlo
     en SQL con `DISTINCT` + `sin_tildes` obliga a repetir la expresión en el
@@ -130,9 +136,16 @@ def obtener_opciones_equipos(db: Session) -> schemas.EquipoOpcionesResponse:
             key=normalizar_texto,
         )
 
+    sectores = db.scalars(
+        select(Sector)
+        .join(Equipo, Equipo.sector_id == Sector.id)
+        .where(Equipo.activo.is_(True))
+        .distinct()
+    ).all()
+
     return schemas.EquipoOpcionesResponse(
         tipos=valores_distintos(Equipo.tipo),
-        ubicaciones=valores_distintos(Equipo.ubicacion),
+        sectores=sorted(sectores, key=lambda sector: normalizar_texto(sector.nombre)),
     )
 
 
@@ -146,6 +159,9 @@ def actualizar_equipo(
     equipo = obtener_equipo(db, equipo_id)
 
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
+
+    if cambios.get("sector_id") is not None:
+        _verificar_sector(db, cambios["sector_id"])
 
     return aplicar_cambios(db, equipo, cambios, _MAPEA_CONFLICTO)
 

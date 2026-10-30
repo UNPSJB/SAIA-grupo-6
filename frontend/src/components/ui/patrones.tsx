@@ -277,7 +277,7 @@ export function TextoTruncado({
  *
  *   angosta          14%  símbolo, estado, foto, cantidad: una palabra corta
  *   media            12%  fechas, DNI, periodicidad, "días restantes"
- *   amplia           16%  tipo, ubicación
+ *   amplia           16%  tipo, sector
  *   acciones         20%  un botón, o dos chicos ("Cerrar", "Reabrir")
  *   accionesAnchas   28%  dos botones ("Modificar" + "Eliminar" miden 177px)
  *                     o cuatro, que pasan a dos filas

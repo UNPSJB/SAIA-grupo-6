@@ -35,15 +35,20 @@ export function PlanLimpiezaTable({
   const nombreEquipo = (id: number) =>
     equipos.find((e) => e.id === id)?.nombre || `#${id}`;
 
+  // El sector del plan es el del equipo al que pertenece.
+  const nombreSector = (id: number) =>
+    equipos.find((e) => e.id === id)?.sector.nombre || "—";
+
   return (
     <Tarjeta overflowX="auto">
-      <Table.Root variant="outline" w="100%" minW="760px">
+      <Table.Root variant="outline" w="100%" minW="860px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOrdenable columna="nombre" orden={orden}>
               Nombre
             </EncabezadoOrdenable>
             <EncabezadoOscuro ancho="amplia">Tareas (frecuencia)</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="media">Sector</EncabezadoOscuro>
             <EncabezadoOrdenable columna="equipo" orden={orden} ancho="media">
               Equipo
             </EncabezadoOrdenable>
@@ -55,6 +60,7 @@ export function PlanLimpiezaTable({
             <PlanLimpiezaItem
               key={plan.id}
               plan={plan}
+              nombreSector={nombreSector(plan.equipo_id)}
               nombreEquipo={nombreEquipo(plan.equipo_id)}
               onEdit={onEdit}
               onDelete={onDelete}

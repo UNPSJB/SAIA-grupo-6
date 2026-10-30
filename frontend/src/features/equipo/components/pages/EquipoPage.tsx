@@ -33,7 +33,7 @@ import {
 
 const PAGE_SIZE = 10;
 
-const SIN_OPCIONES: OpcionesEquipos = { tipos: [], ubicaciones: [] };
+const SIN_OPCIONES: OpcionesEquipos = { tipos: [], sectores: [] };
 
 export function EquiposPage() {
   const navigate = useNavigate();
@@ -42,7 +42,7 @@ export function EquiposPage() {
   const [busqueda, setBusqueda] = useState("");
   const busquedaAplicada = useValorDebounced(busqueda);
   const [tipo, setTipo] = useState("");
-  const [ubicacion, setUbicacion] = useState("");
+  const [sectorId, setSectorId] = useState("");
   const [opciones, setOpciones] = useState<OpcionesEquipos>(SIN_OPCIONES);
   const orden = useOrdenTabla<ColumnaOrdenEquipo, "nombre_asc">("nombre_asc");
 
@@ -60,7 +60,7 @@ export function EquiposPage() {
       incluirInactivos: verInactivos,
       buscar: busquedaAplicada,
       tipo,
-      ubicacion,
+      sectorId,
       orden: orden.orden,
     },
     PAGE_SIZE
@@ -72,7 +72,7 @@ export function EquiposPage() {
   const [equipoAIntervenir, setEquipoAIntervenir] = useState<Equipo | null>(null);
   const [equipoVerHistorial, setEquipoVerHistorial] = useState<Equipo | null>(null);
 
-  // Tipos y ubicaciones para los selects. La página se vuelve a montar al
+  // Tipos y sectores para los selects. La página se vuelve a montar al
   // volver de un alta/edición, así que el catálogo se refresca solo.
   useEffect(() => {
     const cargarOpciones = async () => {
@@ -88,17 +88,17 @@ export function EquiposPage() {
   const limpiarTodo = () => {
     setBusqueda("");
     setTipo("");
-    setUbicacion("");
+    setSectorId("");
     orden.reiniciar();
   };
 
   const hayFiltros =
-    busqueda.trim() !== "" || tipo !== "" || ubicacion !== "";
+    busqueda.trim() !== "" || tipo !== "" || sectorId !== "";
 
   const ETIQUETAS_ORDEN: Record<ColumnaOrdenEquipo, string> = {
     nombre: "Nombre",
     tipo: "Tipo",
-    ubicacion: "Ubicación",
+    sector: "Sector",
   };
 
   const chips = chipsDeFiltros([
@@ -116,10 +116,12 @@ export function EquiposPage() {
       onQuitar: () => setTipo(""),
     },
     {
-      clave: "ubicacion",
-      etiqueta: "Ubicación",
-      valor: ubicacion,
-      onQuitar: () => setUbicacion(""),
+      clave: "sector",
+      etiqueta: "Sector",
+      valor:
+        opciones.sectores.find((sector) => String(sector.id) === sectorId)
+          ?.nombre ?? sectorId,
+      onQuitar: () => setSectorId(""),
     },
     {
       clave: "orden",
@@ -141,7 +143,7 @@ export function EquiposPage() {
       await reactivar(equipoAReactivar.id, {
         nombre: equipoAReactivar.nombre,
         tipo: equipoAReactivar.tipo,
-        ubicacion: equipoAReactivar.ubicacion,
+        sector_id: equipoAReactivar.sector_id,
         activo: true,
       });
       setEquipoAReactivar(null);
@@ -197,7 +199,7 @@ export function EquiposPage() {
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
-            placeholder="Buscar por nombre, tipo o ubicación..."
+            placeholder="Buscar por nombre, tipo o sector..."
           />
         }
         filtros={
@@ -212,14 +214,14 @@ export function EquiposPage() {
               }))}
             />
             <FiltroSelect
-              label="Ubicación"
-              valor={ubicacion}
-              onCambio={setUbicacion}
-              opciones={opciones.ubicaciones.map((valor) => ({
-                valor,
-                etiqueta: valor,
+              label="Sector"
+              valor={sectorId}
+              onCambio={setSectorId}
+              opciones={opciones.sectores.map((sector) => ({
+                valor: String(sector.id),
+                etiqueta: sector.nombre,
               }))}
-              todos="Todas"
+              todos="Todos"
             />
           </>
         }

@@ -30,8 +30,8 @@ OrdenEquipo = Literal[
     "nombre_desc",
     "tipo_asc",
     "tipo_desc",
-    "ubicacion_asc",
-    "ubicacion_desc",
+    "sector_asc",
+    "sector_desc",
 ]
 
 @router.post(
@@ -56,10 +56,10 @@ def listar_equipos(
     buscar: Optional[str] = Query(
         None,
         max_length=100,
-        description="Busca en nombre, tipo y ubicación (sin distinguir mayúsculas ni tildes).",
+        description="Busca en nombre, tipo y sector (sin distinguir mayúsculas ni tildes).",
     ),
     tipo: Optional[str] = Query(None, max_length=100),
-    ubicacion: Optional[str] = Query(None, max_length=100),
+    sector_id: Optional[int] = Query(None, ge=1),
     orden: OrdenEquipo = "nombre_asc",
     page: Optional[int] = Query(
         None,
@@ -71,7 +71,7 @@ def listar_equipos(
 ):
     if page is None:
         return services.listar_equipos(
-            db, incluir_inactivos, buscar, tipo, ubicacion
+            db, incluir_inactivos, buscar, tipo, sector_id
         )
     items, total = services.listar_equipos_paginado(
         db,
@@ -80,7 +80,7 @@ def listar_equipos(
         page_size,
         buscar=buscar,
         tipo=tipo,
-        ubicacion=ubicacion,
+        sector_id=sector_id,
         orden=orden,
     )
     return schemas.EquipoPagina(items=items, total=total, page=page, page_size=page_size)
@@ -92,7 +92,7 @@ def listar_equipos(
     dependencies=[Depends(require_operador)],
 )
 def obtener_opciones_equipos(db: Session = Depends(get_db)):
-    """Tipos y ubicaciones para los selects del filtro de la tabla.
+    """Tipos y sectores para los selects del filtro de la tabla.
 
     Va antes de `/{equipo_id}`: si estuviera después, FastAPI intentaría
     convertir "opciones" a int y devolvería 422.

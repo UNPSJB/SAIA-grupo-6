@@ -3,4 +3,4 @@ class ErrorCode:
     NOMBRE_VACIO = "El nombre del equipo no puede estar vacío."
     TIPO_VACIO = "El tipo de equipo no puede estar vacío."
     NOMBRE_DUPLICADO = "Ya existe un equipo registrado con ese nombre."
-    UBICACION_VACIA = "La ubicación del equipo no puede estar vacía."
+    SECTOR_INVALIDO = "El sector indicado no existe o fue dado de baja."

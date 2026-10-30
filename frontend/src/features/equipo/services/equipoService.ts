@@ -1,8 +1,11 @@
-import type { Calibracion, Equipo, TipoIntervencion } from "../types/equipo";
+import type { Calibracion, Equipo, TipoIntervencion, EquipoInput } from "../types/equipo";
+import type { SectorResumen } from "../../sector/types/sector";
+
 
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
+
 
 
 export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]> {
@@ -12,21 +15,22 @@ export async function listarEquipos(incluirInactivos = false): Promise<Equipo[]>
   return pedir<Equipo[]>(response, "Error al obtener los equipos");
 }
 
-export type ColumnaOrdenEquipo = "nombre" | "tipo" | "ubicacion";
+export type ColumnaOrdenEquipo = "nombre" | "tipo" | "sector";
 export type OrdenEquipo = `${ColumnaOrdenEquipo}_asc` | `${ColumnaOrdenEquipo}_desc`;
 
 export interface FiltrosEquipos {
   incluirInactivos?: boolean;
   buscar?: string;
   tipo?: string;
-  ubicacion?: string;
+  /** Id del sector, como string porque es el valor crudo del <select>. */
+  sectorId?: string;
   orden?: OrdenEquipo;
 }
 
-/** Tipos y ubicaciones existentes, para los selects de filtro. */
+/** Tipos y sectores existentes, para los selects de filtro. */
 export interface OpcionesEquipos {
   tipos: string[];
-  ubicaciones: string[];
+  sectores: SectorResumen[];
 }
 
 /**
@@ -43,7 +47,7 @@ export async function listarEquiposPaginados(
     incluir_inactivos: filtros.incluirInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     tipo: filtros.tipo || undefined,
-    ubicacion: filtros.ubicacion || undefined,
+    sector_id: filtros.sectorId || undefined,
     orden: filtros.orden,
   });
   const response = await apiFetch(`${API_URL}/equipos${query}`);
@@ -68,7 +72,7 @@ export async function obtenerEquipo(id: number): Promise<Equipo> {
 }
 
 export async function crearEquipo(
-  equipo: Omit<Equipo, "id">
+  equipo: EquipoInput
 ): Promise<Equipo> {
   const response = await apiFetch(`${API_URL}/equipos`, {
     method: "POST",
@@ -84,7 +88,7 @@ export async function crearEquipo(
 
 export async function modificarEquipo(
   id: number,
-  equipo: Omit<Equipo, "id">
+  equipo: EquipoInput
 ): Promise<Equipo> {
   const response = await apiFetch(`${API_URL}/equipos/${id}`, {
     method: "PATCH",
@@ -105,7 +109,7 @@ export async function eliminarEquipo(id: number): Promise<void> {
   return pedir<void>(response, "Error al eliminar el equipo");
 }
 
-export async function reactivarEquipo(id: number, equipo: Omit<Equipo, "id">): Promise<Equipo> {
+export async function reactivarEquipo(id: number, equipo:EquipoInput ): Promise<Equipo> {
   const response = await apiFetch(`${API_URL}/equipos/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
