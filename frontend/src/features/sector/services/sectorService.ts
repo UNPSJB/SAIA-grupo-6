@@ -1,12 +1,45 @@
 import type { Sector } from "../types/sector";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 export async function listarSectores(incluirInactivos = false): Promise<Sector[]> {
   const query = incluirInactivos ? "?incluir_inactivos=true" : "";
   const response = await apiFetch(`${API_URL}/sectores${query}`);
 
   return pedir<Sector[]>(response, "Error al obtener los sectores");
+}
+
+/**
+ * Página de sectores para la tabla (paginación server-side). La lista
+ * completa (`listarSectores`) sigue existiendo para los dropdowns de
+ * formularios, que necesitan todas las opciones de una vez.
+ */
+
+export type ColumnaOrdenSector = "nombre" | "descripcion";
+export type OrdenSector =
+  | `${ColumnaOrdenSector}_asc`
+  | `${ColumnaOrdenSector}_desc`;
+
+export interface FiltrosSectores {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  orden?: OrdenSector;
+}
+
+export async function listarSectoresPaginados(
+  page: number,
+  pageSize: number,
+  filtros: FiltrosSectores = {}
+): Promise<Pagina<Sector>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    orden: filtros.orden,
+  });
+  const response = await apiFetch(`${API_URL}/sectores${query}`);
+
+  return pedir<Pagina<Sector>>(response, "Error al obtener los sectores");
 }
 
 export async function crearSector(

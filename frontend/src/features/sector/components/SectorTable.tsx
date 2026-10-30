@@ -1,6 +1,9 @@
 import { Text, Table } from "@chakra-ui/react";
 import { SectorItem } from "./SectorItem";
 import type { Sector } from "../types/sector";
+import type { ColumnaOrdenSector } from "../services/sectorService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   FilaEncabezado,
@@ -9,12 +12,19 @@ import {
 
 interface SectorTableProps {
   sectores: Sector[];
+  orden: OrdenTabla<ColumnaOrdenSector, string>;
   onEdit: (sector: Sector) => void;
   onDelete: (sector: Sector) => void;
   onReactivar: (sector: Sector) => void;
 }
 
-export function SectorTable({ sectores, onEdit, onDelete, onReactivar }: SectorTableProps) {
+export function SectorTable({
+  sectores,
+  orden,
+  onEdit,
+  onDelete,
+  onReactivar,
+}: SectorTableProps) {
   if (sectores.length === 0) {
     return (
       <Tarjeta p="8" textAlign="center">
@@ -28,8 +38,12 @@ export function SectorTable({ sectores, onEdit, onDelete, onReactivar }: SectorT
       <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Descripción</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="nombre" orden={orden}>
+              Nombre
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="descripcion" orden={orden}>
+              Descripción
+            </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.common.validators import texto_obligatorio
 from src.sector import exceptions
 
@@ -41,3 +42,9 @@ class SectorResumen(BaseModel):
     nombre: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SectorPagina(Pagina[SectorResponse]):
+    """Página de sectores: la respuesta del listado paginado en el servidor."""
+
+    pass
