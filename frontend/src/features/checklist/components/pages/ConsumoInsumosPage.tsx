@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Box, Button, Field, HStack, Table, Text } from "@chakra-ui/react";
+import { Box, Button, Field, HStack, SimpleGrid, Table, Text } from "@chakra-ui/react";
 import { LuSearch } from "react-icons/lu";
 import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
 import {
@@ -10,7 +10,6 @@ import {
   FilaEncabezado,
   FormInput,
   LabelFiltro,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 
@@ -32,12 +31,7 @@ export function ConsumoInsumosPage() {
   }, []);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Consumo de productos de limpieza"
-        description="Totales consumidos en el período seleccionado, por producto y por día."
-      />
-
+    <Box>
       <Tarjeta p="4" mb="6">
         <HStack gap="4" flexWrap="wrap" align="flex-end">
           <Box>
@@ -81,12 +75,19 @@ export function ConsumoInsumosPage() {
         <>
           <Tarjeta>
             <Box p="4" borderBottomWidth="1px" borderColor="border">
-              <Text color="fg.muted" fontSize="sm">
-                Total consumido en el período:{" "}
-                <Text as="span" color="fg" fontSize="lg" fontWeight="bold">
-                  {consumo.total_general}
-                </Text>
+              <Text color="fg.muted" fontSize="sm" mb="3">
+                Totales del período por unidad de medida. No se combinan unidades incompatibles.
               </Text>
+              <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap="3">
+                {consumo.totales_por_unidad.map((total) => (
+                  <Box key={total.unidad_medida_id} bg="bg.muted" rounded="md" px="3" py="2">
+                    <Text fontSize="xs" color="fg.muted">Unidad {total.unidad_simbolo ?? "sin símbolo"}</Text>
+                    <Text fontSize="lg" fontWeight="bold">
+                      {total.cantidad_total} {total.unidad_simbolo ?? ""}
+                    </Text>
+                  </Box>
+                ))}
+              </SimpleGrid>
             </Box>
 
             {consumo.insumos.length === 0 ? (
@@ -122,42 +123,31 @@ export function ConsumoInsumosPage() {
             )}
           </Tarjeta>
 
-          {consumo.por_fecha.length > 0 && (
+          {consumo.por_producto_fecha.length > 0 && (
             <Tarjeta mt="6">
               <Box p="4" borderBottomWidth="1px" borderColor="border">
                 <Text color="fg.muted" fontSize="sm" fontWeight="bold">
-                  Consumo por día
+                  Consumo por producto y día
                 </Text>
               </Box>
-              <Box p="4" display="flex" flexDirection="column" gap="2">
-                {consumo.por_fecha.map((item) => {
-                  const maximo = Math.max(
-                    ...consumo.por_fecha.map((i) => i.cantidad_total),
-                    0.0001
-                  );
-                  const porcentaje = (item.cantidad_total / maximo) * 100;
-
-                  return (
-                    <Box key={item.fecha} display="flex" alignItems="center" gap="3">
-                      <Text w="100px" fontSize="sm" color="fg.muted">
-                        {item.fecha}
-                      </Text>
-                      <Box flex={1} bg="bg.muted" rounded="full" h="3" overflow="hidden">
-                        <Box w={`${porcentaje}%`} h="100%" bg="brand.500" />
-                      </Box>
-                      <Text
-                        w="70px"
-                        textAlign="right"
-                        fontSize="sm"
-                        fontWeight="bold"
-                        color="fg"
-                      >
-                        {item.cantidad_total}
-                      </Text>
-                    </Box>
-                  );
-                })}
-              </Box>
+              <Table.Root variant="outline" size="sm" borderRadius="0">
+                <Table.Header>
+                  <FilaEncabezado>
+                    <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+                    <EncabezadoOscuro>Producto</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="amplia">Cantidad</EncabezadoOscuro>
+                  </FilaEncabezado>
+                </Table.Header>
+                <Table.Body>
+                  {consumo.por_producto_fecha.map((item) => (
+                    <Table.Row key={`${item.fecha}-${item.insumo_quimico_id}`}>
+                      <Celda>{item.fecha}</Celda>
+                      <Celda>{item.nombre}</Celda>
+                      <Celda>{item.cantidad_total} {item.unidad_simbolo ?? ""}</Celda>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
             </Tarjeta>
           )}
         </>

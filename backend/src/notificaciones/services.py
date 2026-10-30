@@ -4,12 +4,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from src.Equipo.models import Equipo
 from src.elementoLimpieza.models import ElementoLimpieza
+from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 
 from src.aptitud.models import Aptitud
 from src.notificaciones.models import ConfiguracionAlerta
 from src.personal.models import Personal
+from src.unidadMedida.models import UnidadMedida
 from src.vencimientoPersonal.models import VencimientoPersonal
 
 MARGEN_DIAS_ALERTA = 3
@@ -189,10 +191,50 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
     return notificaciones
 
 
+def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]:
+    filas = db.execute(
+        select(
+            InsumoQuimico.id,
+            InsumoQuimico.nombre,
+            StockInsumoQuimico.cantidad_actual,
+            StockInsumoQuimico.stock_minimo,
+            UnidadMedida.simbolo,
+        )
+        .join(
+            StockInsumoQuimico,
+            StockInsumoQuimico.insumo_quimico_id == InsumoQuimico.id,
+        )
+        .join(UnidadMedida, UnidadMedida.id == InsumoQuimico.unidad_medida_id)
+        .where(
+            InsumoQuimico.activo.is_(True),
+            StockInsumoQuimico.stock_minimo.is_not(None),
+            StockInsumoQuimico.cantidad_actual < StockInsumoQuimico.stock_minimo,
+        )
+        .order_by(InsumoQuimico.nombre)
+    ).all()
+
+    return [
+        NotificacionResponse(
+            id_notificacion=f"stock-bajo-{fila.id}",
+            tipo="STOCK_BAJO",
+            entidad_id=fila.id,
+            titulo="Stock bajo",
+            mensaje=(
+                f"El insumo '{fila.nombre}' tiene {fila.cantidad_actual} {fila.simbolo} "
+                f"disponibles; el mínimo configurado es {fila.stock_minimo} {fila.simbolo}."
+            ),
+            nivel="STOCK_BAJO",
+            link_destino="/gestion-stock/stock",
+        )
+        for fila in filas
+    ]
+
+
 def obtener_todas_notificaciones(db: Session) -> List[NotificacionResponse]:
     lista_total: List[NotificacionResponse] = []
     lista_total.extend(obtener_notificaciones_elementos_limpieza(db))
     lista_total.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
     lista_total.extend(obtener_notificaciones_vencimientos_personal(db))
+    lista_total.extend(obtener_notificaciones_stock_bajo(db))
     lista_total.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
     return lista_total

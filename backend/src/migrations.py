@@ -177,6 +177,62 @@ def run_migrations() -> None:
                 )
             )
 
+    # Instalaciones creadas antes del informe de consumo tienen la tabla pero
+    # no estas dos columnas: create_all no altera tablas existentes.
+    if "registro_tareas" in tablas:
+        columnas = _columnas_de(inspect(engine), "registro_tareas")
+        if "insumo_quimico_id" not in columnas:
+            logger.info("Migración: agregando columna registro_tareas.insumo_quimico_id")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE registro_tareas "
+                        "ADD COLUMN insumo_quimico_id INTEGER "
+                        "REFERENCES insumos_quimicos(id) ON DELETE SET NULL"
+                    )
+                )
+        if "cantidad_consumida" not in columnas:
+            logger.info("Migración: agregando columna registro_tareas.cantidad_consumida")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text("ALTER TABLE registro_tareas ADD COLUMN cantidad_consumida FLOAT")
+                )
+        if "version_stock" not in columnas:
+            logger.info("Migración: agregando columna registro_tareas.version_stock")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE registro_tareas "
+                        "ADD COLUMN version_stock INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+
+    # Los productos que ya existían empiezan explícitamente con saldo cero.
+    # No se reconstruye ni descuenta el histórico de checklist: esa información
+    # no representa una carga inicial verificable.
+    if "insumos_quimicos" in tablas and "stock_insumos_quimicos" in tablas:
+        with engine.begin() as conexion:
+            creados = conexion.execute(
+                text(
+                    "INSERT OR IGNORE INTO stock_insumos_quimicos "
+                    "(insumo_quimico_id, cantidad_actual, actualizado_en) "
+                    "SELECT id, 0, CURRENT_TIMESTAMP FROM insumos_quimicos"
+                )
+            ).rowcount
+        if creados:
+            logger.info("Migración: se inicializaron %s saldos de productos químicos.", creados)
+
+    # Las tablas nuevas se crean con metadata.create_all() antes de esta función.
+    # Estos índices se aseguran de forma idempotente para bases ya existentes.
+    if "lotes_stock" in tablas:
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lotes_stock_proveedor_insumo_lote "
+                    "ON lotes_stock (proveedor_id, insumo_quimico_id, numero_lote)"
+                )
+            )
+
 
     if "equipos" in tablas and "frecuencia_calibracion_dias" not in _columnas_de(
         inspector, "equipos"

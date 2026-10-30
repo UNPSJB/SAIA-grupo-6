@@ -9,7 +9,7 @@ import {
 } from "@chakra-ui/react";
 import type { IconType } from "react-icons";
 import { useNavigate } from "react-router-dom";
-import { LuSprayCan, LuTriangleAlert, LuWrench } from "react-icons/lu";
+import { LuPackage, LuSprayCan, LuTriangleAlert, LuWrench } from "react-icons/lu";
 import { EstadoCargando, MensajeError } from "../../../components/ui/patrones";
 import {
   PRIORIDAD_LABEL,
@@ -33,6 +33,7 @@ interface TarjetaAlertasProps {
 const ICONO: Record<IconoAlerta, IconType> = {
   limpieza: LuSprayCan,
   calibracion: LuWrench,
+  stock: LuPackage,
   incidente: LuTriangleAlert,
 };
 

@@ -131,6 +131,7 @@ def marcar_tarea(
         tarea_id=tarea_id,
         completado=completado,
         usuario_id=current_user.id,
+        usuario_nombre=f"{current_user.nombre} {current_user.apellido or ''}".strip(),
         evidencia_url=ruta_evidencia,
         fecha=fecha,
         insumo_quimico_id=insumo_quimico_id,

@@ -1,5 +1,6 @@
 from typing import List
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from src.common.persistence import (
     aplicar_cambios,
@@ -10,7 +11,7 @@ from src.common.persistence import (
     obtener,
     verificar_disponibilidad,
 )
-from src.insumoQuimico.models import InsumoQuimico
+from src.insumoQuimico.models import InsumoQuimico, MovimientoStockInsumoQuimico, StockInsumoQuimico
 from src.insumoQuimico import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -45,6 +46,15 @@ def crear_insumo_quimico(db: Session, datos: schemas.InsumoQuimicoCreate) -> Ins
 
     nuevo_insumo = InsumoQuimico(**datos.model_dump())
     db.add(nuevo_insumo)
+    try:
+        db.flush()
+    except IntegrityError as error:
+        db.rollback()
+        raise exceptions.InsumoQuimicoYaExiste() from error
+
+    # El catálogo no acepta cantidades: cada producto nace con su propio saldo
+    # cero y solo los endpoints de stock pueden modificarlo.
+    db.add(StockInsumoQuimico(insumo_quimico_id=nuevo_insumo.id))
     return guardar(db, nuevo_insumo, _MAPEA_CONFLICTO)
 
 
@@ -78,6 +88,14 @@ def actualizar_insumo_quimico(db: Session, insumo_id: int, datos: schemas.Insumo
 
     if "unidad_medida_id" in cambios:
         _verificar_unidad_medida(db, cambios["unidad_medida_id"])
+        if cambios["unidad_medida_id"] != insumo.unidad_medida_id:
+            tiene_movimientos = db.scalar(
+                select(MovimientoStockInsumoQuimico.id)
+                .where(MovimientoStockInsumoQuimico.insumo_quimico_id == insumo_id)
+                .limit(1)
+            )
+            if tiene_movimientos is not None:
+                raise exceptions.UnidadConMovimientos()
 
     return aplicar_cambios(db, insumo, cambios, _MAPEA_CONFLICTO)
 

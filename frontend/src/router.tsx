@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, type ReactNode } from "react";
-import { createBrowserRouter, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
@@ -136,6 +136,29 @@ const InsumoQuimicoCreatePage = lazy(() =>
 );
 const InsumoQuimicoEditPage = lazy(() =>
   import("./features/insumoQuimico/components/pages/InsumoQuimicoEditPage").then((mod) => ({ default: mod.InsumoQuimicoEditPage })),
+);
+const GestionStockPage = lazy(() =>
+  import("./features/insumoQuimico/components/pages/GestionStockPage").then((mod) => ({ default: mod.GestionStockPage })),
+);
+const StockActualTab = lazy(() =>
+  import("./features/insumoQuimico/components/StockActualTab").then((mod) => ({ default: mod.StockActualTab })),
+);
+const MovimientosStockTab = lazy(() =>
+  import("./features/insumoQuimico/components/MovimientosStockTab").then((mod) => ({ default: mod.MovimientosStockTab })),
+);
+const LotesStockTab = lazy(() =>
+  import("./features/insumoQuimico/components/LotesStockTab").then((mod) => ({ default: mod.LotesStockTab })),
+);
+
+// Proveedores
+const ProveedorPage = lazy(() =>
+  import("./features/proveedores/components/pages/ProveedorPage").then((mod) => ({ default: mod.ProveedorPage })),
+);
+const ProveedorCreatePage = lazy(() =>
+  import("./features/proveedores/components/pages/ProveedorCreatePage").then((mod) => ({ default: mod.ProveedorCreatePage })),
+);
+const ProveedorEditPage = lazy(() =>
+  import("./features/proveedores/components/pages/ProveedorEditPage").then((mod) => ({ default: mod.ProveedorEditPage })),
 );
 
 // Notificaciones
@@ -519,11 +542,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: "/consumo-productos",
-                element: (
-                <ConSuspense>
-                  <ConsumoInsumosPage />
-                </ConSuspense>
-              ),
+                element: <Navigate to="/gestion-stock/consumos" replace />,
               },
 
               // ---------------- NOTIFICACIONES ----------------
@@ -560,6 +579,78 @@ export const router = createBrowserRouter([
                   <InsumoQuimicoEditPage />
                 </ConSuspense>
               ),
+              },
+              {
+                path: "/gestion-stock",
+                element: (
+                  <ConSuspense>
+                    <GestionStockPage />
+                  </ConSuspense>
+                ),
+                children: [
+                  {
+                    index: true,
+                    element: <Navigate to="/gestion-stock/stock" replace />,
+                  },
+                  {
+                    path: "stock",
+                    element: (
+                      <ConSuspense>
+                        <StockActualTab />
+                      </ConSuspense>
+                    ),
+                  },
+                  {
+                    path: "movimientos",
+                    element: (
+                      <ConSuspense>
+                        <MovimientosStockTab />
+                      </ConSuspense>
+                    ),
+                  },
+                  {
+                    path: "lotes",
+                    element: (
+                      <ConSuspense>
+                        <LotesStockTab />
+                      </ConSuspense>
+                    ),
+                  },
+                  {
+                    path: "consumos",
+                    element: (
+                      <ConSuspense>
+                        <ConsumoInsumosPage />
+                      </ConSuspense>
+                    ),
+                  },
+                ],
+              },
+
+              // ---------------- PROVEEDORES ----------------
+              {
+                path: "/proveedores",
+                element: (
+                  <ConSuspense>
+                    <ProveedorPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/proveedores/nuevo",
+                element: (
+                  <ConSuspense>
+                    <ProveedorCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/proveedores/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <ProveedorEditPage />
+                  </ConSuspense>
+                ),
               },
 
               // ---------------- UNIDAD DE MEDIDA ----------------

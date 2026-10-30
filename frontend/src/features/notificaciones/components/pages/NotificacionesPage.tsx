@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Field,
-  Flex,
   HStack,
   Spinner,
   Table,
@@ -17,7 +16,7 @@ import { obtenerNotificaciones } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import { LuBell, LuCircleCheck, LuArrowUpDown, LuArrowUp, LuArrowDown } from "react-icons/lu";
-import type { Notificacion } from "../../types/notificacion";
+import { nivelLabel, type Notificacion } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
 import {
@@ -45,6 +44,7 @@ const PAGE_SIZE = 10;
 const PALETA_ORIGEN: Record<string, string> = {
   ELEMENTO_LIMPIEZA: "purple",
   VENCIMIENTO_PERSONAL: "blue",
+  STOCK_BAJO: "red",
 };
 
 const paletaOrigen = (tipo: string) => PALETA_ORIGEN[tipo] ?? "gray";
@@ -59,6 +59,8 @@ function etiquetaOrigen(tipo: string) {
       return "Calibración";
     case "PLAN_MANTENIMIENTO":
       return "Mantenimiento";
+    case "STOCK_BAJO":
+      return "Stock bajo";
   }
 }
 
@@ -72,11 +74,13 @@ function etiquetaAccion(tipo: string) {
       return "Registrar calibración";
     case "PLAN_MANTENIMIENTO":
       return "Registrar mantenimiento";
+    case "STOCK_BAJO":
+      return "Gestionar stock";
   }
 }
 
-type FiltroUrgencia = "todas" | "vencidas" | "proximas";
-type FiltroOrigen = "todas" | "ELEMENTO_LIMPIEZA" | "VENCIMIENTO_PERSONAL" | "PLAN_CALIBRACION" | "PLAN_MANTENIMIENTO";
+type FiltroUrgencia = "todas" | "vencidas" | "proximas" | "stock_bajo";
+type FiltroOrigen = "todas" | "ELEMENTO_LIMPIEZA" | "VENCIMIENTO_PERSONAL" | "PLAN_CALIBRACION" | "PLAN_MANTENIMIENTO" | "STOCK_BAJO";
 type SortColumn = "estado" | "vencimiento" | "origen" | null;
 type SortDirection = "asc" | "desc";
 
@@ -185,6 +189,8 @@ export function NotificacionesPage() {
       baseOrigen = baseOrigen.filter((n) => n.nivel === "VENCIDO");
     } else if (filtroUrgencia === "proximas") {
       baseOrigen = baseOrigen.filter((n) => n.nivel === "PROXIMO_A_VENCER");
+    } else if (filtroUrgencia === "stock_bajo") {
+      baseOrigen = baseOrigen.filter((n) => n.nivel === "STOCK_BAJO");
     }
 
     return {
@@ -192,12 +198,14 @@ export function NotificacionesPage() {
       todas: baseUrgencia.length,
       vencidas: baseUrgencia.filter((n) => n.nivel === "VENCIDO").length,
       proximas: baseUrgencia.filter((n) => n.nivel === "PROXIMO_A_VENCER").length,
+      stockBajo: baseUrgencia.filter((n) => n.nivel === "STOCK_BAJO").length,
       // Origen: cuenta sobre baseOrigen (sin filtro de origen, con filtro de urgencia)
       todasOrigen: baseOrigen.length,
       ELEMENTO_LIMPIEZA: baseOrigen.filter((n) => n.tipo === "ELEMENTO_LIMPIEZA").length,
       VENCIMIENTO_PERSONAL: baseOrigen.filter((n) => n.tipo === "VENCIMIENTO_PERSONAL").length,
       PLAN_CALIBRACION: baseOrigen.filter((n) => n.tipo === "PLAN_CALIBRACION").length,
       PLAN_MANTENIMIENTO: baseOrigen.filter((n) => n.tipo === "PLAN_MANTENIMIENTO").length,
+      STOCK_BAJO: baseOrigen.filter((n) => n.tipo === "STOCK_BAJO").length,
     };
   }, [notificaciones, busqueda, filtroOrigen, filtroUrgencia]);
 
@@ -222,6 +230,8 @@ export function NotificacionesPage() {
       resultado = resultado.filter((n) => n.nivel === "VENCIDO");
     } else if (filtroUrgencia === "proximas") {
       resultado = resultado.filter((n) => n.nivel === "PROXIMO_A_VENCER");
+    } else if (filtroUrgencia === "stock_bajo") {
+      resultado = resultado.filter((n) => n.nivel === "STOCK_BAJO");
     }
 
     // Filtro por origen
@@ -296,7 +306,7 @@ export function NotificacionesPage() {
             Centro de notificaciones
           </HStack>
         }
-        description="Vencimientos pendientes del sistema."
+        description="Alertas pendientes del sistema."
       />
 
       <ConfiguracionAlertasPanel
@@ -333,6 +343,9 @@ export function NotificacionesPage() {
                 <option value="proximas" color={contadores.proximas === 0 ? "gray.400" : undefined}>
                   Próximas a vencer ({contadores.proximas})
                 </option>
+                <option value="stock_bajo" color={contadores.stockBajo === 0 ? "gray.400" : undefined}>
+                  Stock bajo ({contadores.stockBajo})
+                </option>
               </FormNativeSelect>
             </Field.Root>
           </Box>
@@ -356,6 +369,9 @@ export function NotificacionesPage() {
                 </option>
                 <option value="PLAN_MANTENIMIENTO" color={contadores.PLAN_MANTENIMIENTO === 0 ? "gray.400" : undefined}>
                   Mantenimiento ({contadores.PLAN_MANTENIMIENTO})
+                </option>
+                <option value="STOCK_BAJO" color={contadores.STOCK_BAJO === 0 ? "gray.400" : undefined}>
+                  Stock bajo ({contadores.STOCK_BAJO})
                 </option>
               </FormNativeSelect>
             </Field.Root>
@@ -386,7 +402,7 @@ export function NotificacionesPage() {
             </Text>
           </HStack>
           <Text color="fg.muted" fontSize="sm">
-            Todos los vencimientos están al día.
+            Todas las alertas están al día.
           </Text>
         </Tarjeta>
       ) : (
@@ -452,7 +468,7 @@ export function NotificacionesPage() {
                     </Celda>
                     <Celda>
                       <Badge
-                        colorPalette={n.nivel === "VENCIDO" ? "red" : "orange"}
+                        colorPalette={n.nivel === "PROXIMO_A_VENCER" ? "orange" : "red"}
                         variant="subtle"
                         px="2"
                         py="1"
@@ -462,7 +478,7 @@ export function NotificacionesPage() {
                         overflow="hidden"
                         textOverflow="ellipsis"
                       >
-                        {n.nivel === "VENCIDO" ? "VENCIDO" : "PRÓXIMO A VENCER"}
+                        {nivelLabel(n.nivel)}
                       </Badge>
                     </Celda>
                     <Celda>

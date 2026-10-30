@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { InsumoQuimicoTable } from "../InsumoQuimicoTable";
+import { notificarCambioNotificaciones } from "../../../notificaciones/eventoNotificaciones";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useInsumosQuimicos } from "../../hooks/useInsumosQuimicos";
@@ -56,6 +57,7 @@ export function InsumosQuimicosPage() {
       await borrar(insumoAEliminar.id);
       setInsumoAEliminar(null);
       await cargarInsumos();
+      notificarCambioNotificaciones();
     } catch {
       // The mutation hook exposes the failure state to this page.
     }
@@ -77,6 +79,7 @@ export function InsumosQuimicosPage() {
       });
       setInsumoAReactivar(null);
       await cargarInsumos();
+      notificarCambioNotificaciones();
     } catch {
       // The mutation hook exposes the failure state to this page.
     }
