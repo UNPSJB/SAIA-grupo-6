@@ -88,13 +88,13 @@ export function Breadcrumbs() {
   if (!user) return null;
 
   return (
-    <Breadcrumb.Root size="sm" minW={0}>
-      <Breadcrumb.List>
+    <Breadcrumb.Root size="lg" minW={0}> 
+      <Breadcrumb.List flexWrap="nowrap"> 
         {migas.map((miga, i) => (
           <Fragment key={miga.to}>
             {i > 0 && (
               <Breadcrumb.Separator>
-                <LuChevronRight size={14} aria-hidden />
+                <LuChevronRight size={18} aria-hidden />
               </Breadcrumb.Separator>
             )}
             <Breadcrumb.Item>
