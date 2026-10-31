@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
@@ -15,6 +15,8 @@ import {
 } from "@chakra-ui/react";
 import {
   LuBadgeCheck,
+  LuFileSearch,
+  LuMapPin,
   LuBrush,
   LuCalendarClock,
   LuChartPie,
@@ -37,6 +39,7 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuTriangleAlert,
+  LuTruck,
   LuUserRound,
   LuUsers,
   LuWrench,
@@ -114,6 +117,7 @@ const GRUPOS: GrupoMenu[] = [
         rol: "administrar",
         icon: LuFlaskConical,
       },
+      { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
       {
         to: "/elementos-limpieza",
         label: "Elementos de Limpieza",
@@ -121,6 +125,8 @@ const GRUPOS: GrupoMenu[] = [
         icon: LuBrush,
       },
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
+      { to: "/sectores", label: "Sectores", rol: "administrar", icon: LuMapPin },
+      { to: "/auditoria", label: "Auditoría", rol: "administrar", icon: LuFileSearch },
       { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
     ],
   },
@@ -168,8 +174,8 @@ const GRUPOS: GrupoMenu[] = [
         icon: LuCalendarClock,
       },
       {
-        to: "/consumo-productos",
-        label: "Consumo de Productos",
+        to: "/gestion-stock",
+        label: "Gestión de Stock",
         rol: "administrar",
         icon: LuChartPie,
       },
@@ -198,7 +204,12 @@ const MENU: EntradaMenu[] = [
 const ANCHO_EXPANDIDO_PX = 280;
 const ANCHO_COLAPSADO_PX = 64;
 const ANCHO_EXPANDIDO = `${ANCHO_EXPANDIDO_PX}px`;
-const ANCHO_COLAPSADO = `${ANCHO_COLAPSADO_PX}px`;
+/*
+ * Se exporta porque el layout (`LayoutPrincipal`) reserva SIEMPRE este ancho
+ * para el rail: la barra es overlay y el contenido no se reacomoda al
+ * plegar/desplegar.
+ */
+export const ANCHO_COLAPSADO = `${ANCHO_COLAPSADO_PX}px`;
 
 /*
  * Columna de íconos.
@@ -272,9 +283,16 @@ function entradaActiva(pathname: string, entradas: EntradaMenu[]): string | null
   let mejor: string | null = null;
 
   for (const entrada of entradas) {
-    if (entrada.to === "/") continue;
+    /*
+     * La raíz no puede participar del `startsWith` ("/" es prefijo de
+     * absolutamente todo) pero sí del match exacto: en "/" la entrada activa
+     * es "Inicio". Antes se la salteaba de raíz y el botón nunca quedaba
+     * seleccionado.
+     */
     const coincide =
-      pathname === entrada.to || pathname.startsWith(`${entrada.to}/`);
+      entrada.to === "/"
+        ? pathname === "/"
+        : pathname === entrada.to || pathname.startsWith(`${entrada.to}/`);
     if (coincide && (mejor === null || entrada.to.length > mejor.length)) {
       mejor = entrada.to;
     }
@@ -384,9 +402,6 @@ function NavGroup({
   onToggle,
   colapsado = false,
 }: NavGroupProps) {
-  // Punto activo para marcar el grupo con el puntito. Que abra solo lo decide
-  // el padre: si contiene la ruta activa siempre está abierto.
-  const contieneActiva = grupo.entradas.some((e) => e.to === rutaActiva);
   const IconoGrupo = grupo.icon;
 
   const lista = (
@@ -467,14 +482,15 @@ function NavGroup({
           Sin `uppercase`: los títulos de la app van en caja normal (el resto
           de la barra y todos los encabezados).
         */}
-        <Flex align="center" gap="2" flexShrink={0}>
-          <Text as="span" fontSize="sm" fontWeight="bold" color="whiteAlpha.900">
-            {grupo.label}
-          </Text>
-          {contieneActiva ? (
-            <Box w="6px" h="6px" rounded="full" bg="white" aria-hidden />
-          ) : null}
-        </Flex>
+        <Text
+          as="span"
+          fontSize="sm"
+          fontWeight="bold"
+          color="whiteAlpha.900"
+          flexShrink={0}
+        >
+          {grupo.label}
+        </Text>
         {/*
           La flecha NO va con `ml="auto"`: pegada al borde derecho de la fila,
           se correría hacia la izquierda mientras la barra se angosta. Con
@@ -592,11 +608,15 @@ export default function Navbar() {
   /*
    * Sidebar reducido a barra de íconos.
    *
+   * La barra es OVERLAY: fija a la izquierda y por encima del contenido, que
+   * en el layout solo reserva el ancho del rail (`ANCHO_COLAPSADO`). Así
+   * plegar y desplegar no reacomodan la vista: el panel desplegado aparece
+   * por encima de ella, en vez de empujarla.
+   *
    * Se persiste en `localStorage` porque es una preferencia de la persona, no
-   * del estado de la app: recargar y que vuelva al ancho completo es molesto.
-   * Se lee de forma tolerante: si el valor no es "1" se toma expandido, así un
-   * dato corrupto no deja la barra en 64px sin forma de recuperarla desde la
-   * UI.
+   * del estado de la app: recargar y que vuelva a otro ancho es molesto. Se
+   * lee de forma tolerante al RAIL: si el valor no es "0" se toma plegado,
+   * así un dato corrupto no deja la vista tapada por el panel al arrancar.
    *
    * Este estado solo cambia el ANCHO de la barra (y tooltips). No hay un
    * segundo layout "plegado": el contenido es el mismo siempre y el borde
@@ -606,14 +626,32 @@ export default function Navbar() {
    * barra empezara a achicarse.
    */
   const [colapsado, setColapsado] = useState(
-    () => localStorage.getItem(CLAVE_COLAPSADO) === "1"
+    () => localStorage.getItem(CLAVE_COLAPSADO) !== "0"
   );
-  const alternarColapso = () =>
-    setColapsado((prev) => {
-      const siguiente = !prev;
-      localStorage.setItem(CLAVE_COLAPSADO, siguiente ? "1" : "0");
-      return siguiente;
-    });
+
+  /*
+   * Con la barra en overlay, dejar el panel desplegado después de navegar es
+   * dejar media vista tapada. Vuelve al rail en cada navegación, ajustando
+   * estado durante el render (el mismo patrón que `grupoYaVisto` de abajo):
+   * sin `useEffect`, que dispararía la regla `set-state-in-effect`. La
+   * primera pasada se saltea: el estado inicial es el que quedó persistido.
+   */
+  const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
+  if (pathname !== pathnamePrevio) {
+    setPathnamePrevio(pathname);
+    if (!colapsado) setColapsado(true);
+  }
+
+  /*
+   * La preferencia se persiste en un efecto: pasan por acá tanto el botón
+   * de plegar como el auto-colapso de arriba, y el storage queda siempre
+   * sincronizado con el estado.
+   */
+  useEffect(() => {
+    localStorage.setItem(CLAVE_COLAPSADO, colapsado ? "1" : "0");
+  }, [colapsado]);
+
+  const alternarColapso = () => setColapsado((prev) => !prev);
 
   /*
    * Grupos que el usuario cerró a mano.
@@ -706,9 +744,17 @@ export default function Navbar() {
       color="white"
       w={colapsado ? ANCHO_COLAPSADO : ANCHO_EXPANDIDO}
       h="100vh"
-      position="sticky"
+      /*
+       * OVERLAY: fija a la izquierda, fuera del flujo y por encima del
+       * contenido — que en `LayoutPrincipal` reserva SIEMPRE el ancho del
+       * rail. Así plegar/desplegar no reacomoda la vista: el panel desplegado
+       * aparece por encima de ella, en vez de empujarla y reflow-ear tablas,
+       * grillas y charts.
+       */
+      position="fixed"
       top={0}
-      flexShrink={0}
+      left={0}
+      zIndex={30}
       flexDirection="column"
       // `overflow: hidden` es lo que hace la animación: el borde derecho de
       // la barra recorre el contenido, que no se mueve.
@@ -716,7 +762,15 @@ export default function Navbar() {
       transitionProperty="width"
       transitionDuration="moderate"
       transitionTimingFunction="ease-in-out"
-      boxShadow="2px 0 5px rgba(0, 0, 0, 0.1)"
+      /*
+       * Desplegada flota sobre la vista: la sombra más marcada es lo que lo
+       * comunica. Plegada es apenas un rail pegado al borde.
+       */
+      boxShadow={
+        colapsado
+          ? "1px 0 4px rgba(0, 0, 0, 0.15)"
+          : "4px 0 16px rgba(0, 0, 0, 0.25)"
+      }
     >
       {/*
         ESCUDO, TÍTULO Y NOTIFICACIONES.
@@ -748,10 +802,14 @@ export default function Navbar() {
         </Flex>
         {/*
           Plegada, la campana queda fuera de la vista pero sigue en el DOM:
-          `inert` evita que el teclado enfoque un botón que no se ve.
+          `inert` evita que el teclado enfoque un botón que no se ve. Con
+          `activa` se marca igual que cualquier ítem del menú cuando la
+          vista actual es la de notificaciones.
         */}
         <Box inert={colapsado}>
-          {puedeAdministrar(user) && <BotonNotificaciones />}
+          {puedeAdministrar(user) && (
+            <BotonNotificaciones activa={pathname.startsWith("/notificaciones")} />
+          )}
         </Box>
       </Flex>
 

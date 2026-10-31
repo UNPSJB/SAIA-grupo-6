@@ -9,7 +9,7 @@ from src.tareas.models import Tarea
 from src.insumoQuimico.models import InsumoQuimico
 from src.elementoLimpieza.models import ElementoLimpieza
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, Enum as SQLEnum
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Enum as SQLEnum
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -74,6 +74,10 @@ class Checklist(ModeloBase):
 
 
 class RegistroTarea(ModeloBase):
+    # El rastro de cada marcado vive en HistorialRegistroTarea (fuente de verdad):
+    # auditar también esta fila lo registraría dos veces.
+    __audit__ = False
+
     __tablename__ = "registro_tareas"
     __table_args__ = (
         UniqueConstraint(
@@ -112,6 +116,9 @@ class RegistroTarea(ModeloBase):
     observaciones_tarea_historico: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     completado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Control optimista de las operaciones que pueden afectar stock. Evita que
+    # dos PATCH simultáneos a la misma tarea apliquen la misma diferencia.
+    version_stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     fecha_completado: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     usuario_id: Mapped[Optional[int]] = mapped_column(
@@ -174,6 +181,9 @@ class HistorialRegistroTarea(ModeloBase):
     nunca se actualiza ni se borra una vez creada. Esto es lo que
     satisface el criterio "una vez marcada, la tarea no puede editarse
     sin dejar rastro del cambio" (Historia #9, fila 9)."""
+
+    # Ya es una bitácora append-only por sí misma: no se vuelve a auditar.
+    __audit__ = False
 
     __tablename__ = "historial_registro_tareas"
 

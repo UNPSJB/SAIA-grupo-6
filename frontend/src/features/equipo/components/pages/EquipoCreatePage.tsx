@@ -4,10 +4,9 @@ import { Box } from "@chakra-ui/react";
 import { EquipoForm } from "../EquipoForm";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import type { Equipo } from "../../types/equipo";
+import type { EquipoInput } from "../../types/equipo";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -18,7 +17,7 @@ export function EquipoCreatePage() {
   const { alta, loading, error } = useEquipoABM();
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Equipo, "id">) => {
+  const handleSubmit = async (values: EquipoInput) => {
     try {
       await alta(values);
       setExito(true);
@@ -33,12 +32,7 @@ export function EquipoCreatePage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Nuevo equipo"
-        description="Cargá el equipo con su tipo y ubicación para poder Planes de Limpieza y calibraciones."
-        actions={
-          <BotonVolver onClick={() => navigate("/equipos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
+        description="Cargá el equipo con su tipo y sector para poder Planes de Limpieza y calibraciones."
       />
 
       {error && <BannerError>{error}</BannerError>}
@@ -48,6 +42,7 @@ export function EquipoCreatePage() {
         isLoading={loading}
         title="Alta de Equipo"
         submitLabel="Crear Equipo"
+        onCancel={() => navigate("/equipos")}
       />
 
       <DialogoExito isOpen={exito} mensaje="Equipo agregado correctamente." />

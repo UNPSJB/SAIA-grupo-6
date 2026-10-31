@@ -10,6 +10,14 @@ class DescripcionVacia(BadRequest):
     DETAIL = ErrorCode.DESCRIPCION_VACIA
 
 
+class TituloVacio(BadRequest):
+    DETAIL = ErrorCode.TITULO_VACIO
+
+
+class TituloDemasiadoLargo(BadRequest):
+    DETAIL = ErrorCode.TITULO_DEMASIADO_LARGO
+
+
 class EquipoNoEncontrado(NotFound):
     """404. Antes era BadRequest (400), a diferencia del mismo nombre en los
     demas módulos."""
@@ -38,3 +46,7 @@ class UsuarioInactivo(BadRequest):
 
 class EstadoInvalido(BadRequest):
     DETAIL = ErrorCode.ESTADO_INVALIDO
+
+
+class FechaInvalida(BadRequest):
+    DETAIL = ErrorCode.FECHA_RANGO_INVALIDO

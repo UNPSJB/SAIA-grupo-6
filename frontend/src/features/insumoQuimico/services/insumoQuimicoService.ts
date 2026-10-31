@@ -1,18 +1,50 @@
-import type { InsumoQuimico, InsumoQuimicoFormValues, InsumoQuimicoOpcion } from "../types/insumoQuimico";
+import type {
+  InsumoQuimico,
+  InsumoQuimicoFormValues,
+  InsumoQuimicoOpcion,
+  TipoQuimico,
+} from "../types/insumoQuimico";
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
-export async function listarInsumosQuimicos(incluirInactivos = false): Promise<InsumoQuimico[]> {
-  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await apiFetch(`${API_URL}/insumos-quimicos${query}`);
+export type ColumnaOrdenInsumoQuimico = "nombre" | "tipo" | "unidad";
+export type OrdenInsumoQuimico =
+  | `${ColumnaOrdenInsumoQuimico}_asc`
+  | `${ColumnaOrdenInsumoQuimico}_desc`;
 
-  return pedir<InsumoQuimico[]>(response, "Error al obtener los insumos químicos");
+export interface FiltrosInsumosQuimicos {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  tipo?: TipoQuimico;
+  unidadMedidaId?: number;
+  orden?: OrdenInsumoQuimico;
 }
 
-export async function listarOpcionesInsumosQuimicos(): Promise<InsumoQuimicoOpcion[]> {
-  const response = await apiFetch(`${API_URL}/insumos-quimicos/opciones`);
+export async function listarInsumosQuimicos(
+  page: number,
+  pageSize: number,
+  filtros: FiltrosInsumosQuimicos = {}
+): Promise<Pagina<InsumoQuimico>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo,
+    unidad_medida_id: filtros.unidadMedidaId,
+    orden: filtros.orden,
+  });
+  const response = await apiFetch(`${API_URL}/insumos-quimicos${query}`);
+
+  return pedir<Pagina<InsumoQuimico>>(response, "Error al obtener los insumos químicos");
+}
+
+export async function listarOpcionesInsumosQuimicos(
+  incluirInactivos = false,
+): Promise<InsumoQuimicoOpcion[]> {
+  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/opciones${query}`);
 
   return pedir<InsumoQuimicoOpcion[]>(response, "Error al obtener los productos de limpieza");
 }

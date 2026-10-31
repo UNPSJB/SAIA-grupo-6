@@ -27,11 +27,12 @@ import sys
 import unicodedata
 import uuid
 from datetime import date, datetime, timedelta
+from itertools import chain
 from pathlib import Path
 from typing import Optional
 
 from faker import Faker
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 # Permite correr el script desde cualquier directorio.
 RAIZ = Path(__file__).resolve().parent
@@ -52,7 +53,9 @@ from src.models import ModeloBase  # noqa: E402
 import src.all_models  # noqa: F401,E402  (registra los modelos)
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
-from src.Equipo.models import Equipo  # noqa: E402
+from src.auditoria.models import AuditLog  # noqa: E402
+from src.sector.models import Sector  # noqa: E402
+from src.Equipo.models import Equipo, Calibracion  # noqa: E402
 from src.aptitud.models import Aptitud  # noqa: E402
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
@@ -76,6 +79,7 @@ from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.documentos.constants import TipoDocumento  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
+from src.notificaciones.models import ConfiguracionAlerta  # noqa: E402
 
 # Asegura que las tablas existan antes de insertar (idempotente).
 ModeloBase.metadata.create_all(bind=engine)
@@ -431,6 +435,9 @@ VOCAB_DOCUMENTOS = [
 def borrar_todo(db) -> None:
     """Limpia las tablas que el seed va a rellenar (orden: hijos primero)."""
     orden = [
+        # La bitácora describe filas que se van a borrar y cuyos ids se
+        # reutilizan: dejarla mezclaría historias de datos distintos.
+        AuditLog,
         HistorialRegistroTarea,
         RegistroTarea,
         Checklist,
@@ -439,6 +446,7 @@ def borrar_todo(db) -> None:
         VersionDocumento,
         Documento,
         VencimientoPersonal,
+        Calibracion,
         PlanCalibracionMantenimiento,
         Tarea,
         PlanLimpieza,
@@ -448,10 +456,13 @@ def borrar_todo(db) -> None:
         Aptitud,
         UnidadMedida,
         Equipo,
+        Sector,
         Personal,
     ]
     for modelo in orden:
-        db.execute(delete(modelo))
+        # Borrado masivo a propósito: este seed SÍ audita lo que carga, pero el
+        # vaciado previo no es una operación de negocio que deba registrarse.
+        db.execute(delete(modelo).execution_options(auditoria_omitir=True))
     db.flush()
 
 
@@ -475,6 +486,21 @@ def crear_unidades(db, vistos: dict) -> dict:
         vistos["unidad"].add(nombre)
     db.flush()
     return {u.nombre: u for u in db.query(UnidadMedida).all()}
+
+
+def crear_configuracion_alertas(db):
+    """Carga valores por defecto de configuración de alertas si no existen."""
+    print("⏳ Cargando configuración de alertas...")
+    defaults = {
+        "vencimiento_proximo_dias": 7,
+        "alerta_calibracion_dias": 30,
+        "alerta_insumo_bajo_stock": 10,
+    }
+    for clave, valor in defaults.items():
+        existente = db.get(ConfiguracionAlerta, clave)
+        if existente is None:
+            db.add(ConfiguracionAlerta(clave=clave, valor=valor))
+    db.flush()
 
 
 def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: str) -> list:
@@ -527,6 +553,21 @@ def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: 
     return personas
 
 
+def obtener_o_crear_sector(db, nombre: str) -> Sector:
+    """Devuelve el sector con ese nombre, creándolo si no existe.
+
+    La ubicación del equipo pasó a ser su propia entidad (FK
+    `equipos.sector_id`, ver src/sector/models.py). En modo `--agregar` los
+    sectores ya existentes se reutilizan en vez de chocar con el UNIQUE.
+    """
+    sector = db.scalar(select(Sector).where(Sector.nombre == nombre))
+    if sector is None:
+        sector = Sector(nombre=nombre, activo=True)
+        db.add(sector)
+        db.flush()
+    return sector
+
+
 def crear_equipos(db, cantidad: int, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} equipos...")
     equipos = []
@@ -541,7 +582,7 @@ def crear_equipos(db, cantidad: int, vistos: dict) -> list:
             Equipo(
                 nombre=recortar(nombre, 100),
                 tipo=tipo,
-                ubicacion=ubicacion,
+                sector_id=obtener_o_crear_sector(db, ubicacion).id,
                 activo=not bernoulli(0.06),
                 frecuencia_calibracion_dias=frecuencia,
             )
@@ -1157,6 +1198,138 @@ def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> int:
 # MAIN
 # ============================================================
 
+def simular_actividad(
+    db,
+    fake: Faker,
+    vistos: dict,
+    password: str,
+    admins: list,
+    personal: list,
+    equipos: list,
+    aptitudes: list,
+    quimicos: list,
+    elementos: list,
+    insumos: list,
+) -> dict:
+    """Genera historia en la bitácora: modificaciones, bajas, reactivaciones y bajas físicas.
+
+    Las altas ya quedaron registradas al cargar los datos. Acá se opera sobre
+    lo recién creado como lo haría la gente en la app: cada cambio es un
+    commit propio, hecho por un administrador al azar (`session.info`), así la
+    bitácora trae acciones MODIFICAR / BAJA / REACTIVAR / ELIMINAR con actores
+    distintos. Se hace por el ORM (nunca con UPDATE/DELETE masivos) porque son
+    los eventos del ORM los que alimentan la auditoría.
+    """
+    print("⏳ Simulando actividad (modificaciones, bajas, reactivaciones y eliminaciones)...")
+    cuenta = {"modificados": 0, "bajas": 0, "reactivados": 0, "eliminados": 0}
+    por_tipo = max(1, len(equipos) // 3)
+
+    def como_admin_commit(clave: str) -> None:
+        """Un evento de negocio = un commit hecho por un administrador al azar."""
+        db.info["usuario_id"] = random.choice(admins).id
+        db.commit()
+        cuenta[clave] += 1
+
+    def muestra(lista: list, n: int = por_tipo):
+        """Elige `n` objetos y los entrega de a uno, recargados.
+
+        Cada commit expira todos los objetos de la sesión. Sobre un objeto
+        expirado, asignar un campo no conoce el valor anterior y el diff de la
+        bitácora saldría como [null, nuevo]. Recargarlo justo antes de
+        tocarlo deja el "antes" correcto (en la app pasa igual: se lee y luego
+        se modifica).
+        """
+        for objeto in random.sample(lista, min(n, len(lista))):
+            db.refresh(objeto)
+            yield objeto
+
+    try:
+        # ---------------- MODIFICAR ----------------
+        for equipo in muestra(equipos):
+            equipo.frecuencia_calibracion_dias = random.choice(
+                [d for d in (90, 180, 365) if d != equipo.frecuencia_calibracion_dias]
+            )
+            _, _, ubicacion = random.choice(VOCAB_EQUIPOS)
+            equipo.sector_id = obtener_o_crear_sector(db, ubicacion).id
+            como_admin_commit("modificados")
+
+        for insumo in muestra(insumos):
+            base = insumo.nombre
+            insumo.nombre = unico(
+                lambda: recortar(f"{base} {random.choice(['Pro', 'Plus', 'XL', 'Eco'])}", 100),
+                vistos["insumo"],
+                largo=100,
+            )
+            como_admin_commit("modificados")
+
+        for elemento in muestra(elementos):
+            elemento.frecuencia_recambio_dias = random.choice([15, 30, 60, 90])
+            elemento.fecha_ultimo_recambio = HOY - timedelta(days=random.randint(0, 20))
+            como_admin_commit("modificados")
+
+        for aptitud in muestra(aptitudes):
+            aptitud.descripcion = recortar(fake.sentence(nb_words=8), 255)
+            como_admin_commit("modificados")
+
+        for persona in muestra(personal):
+            persona.telefono = unico(
+                lambda: f"+549{random.randint(11, 292)}{random.randint(10_000_000, 99_999_999)}",
+                vistos["telefono"],
+                largo=15,
+            )
+            como_admin_commit("modificados")
+
+        ids_personal = [p.id for p in personal]
+        vencimientos = list(
+            db.scalars(
+                select(VencimientoPersonal).where(VencimientoPersonal.persona_id.in_(ids_personal))
+            ).all()
+        )
+        for vencimiento in muestra(vencimientos):
+            # Renovación: se corre la fecha de vencimiento hacia adelante.
+            vencimiento.fecha_vencimiento = vencimiento.fecha_vencimiento + timedelta(
+                days=random.choice([90, 180, 365])
+            )
+            como_admin_commit("modificados")
+
+        # Cambio de contraseña: se audita que cambió, pero redactado ("***").
+        # Un hash nuevo (otra sal) para que haya un cambio neto de verdad.
+        hash_nuevo = hashear_password(password)
+        for persona in muestra([p for p in personal if not p.es_super_admin], 2):
+            persona.password = hash_nuevo
+            como_admin_commit("modificados")
+
+        # ---------------- BAJA ----------------
+        # A los administradores no se los da de baja: son los actores del resto.
+        candidatos_baja = [
+            p for p in personal if not p.puede_administrar and not p.es_super_admin
+        ]
+        grupos = [equipos, insumos, quimicos, elementos, aptitudes, vencimientos, candidatos_baja]
+        for grupo in grupos:
+            for objeto in muestra([o for o in grupo if o.activo]):
+                objeto.activo = False
+                como_admin_commit("bajas")
+
+        # ---------------- REACTIVAR ----------------
+        # Mezcla de lo que se acaba de dar de baja y de lo que ya nació inactivo.
+        for grupo in grupos:
+            inactivos = [o for o in grupo if not o.activo]
+            for objeto in muestra(inactivos, max(1, len(inactivos) // 2)):
+                objeto.activo = True
+                como_admin_commit("reactivados")
+
+        # ---------------- ELIMINAR ----------------
+        # Solo entidades sin dependientes por FK (un insumo general y un
+        # vencimiento no los referencia nadie): el resto se da de baja, no se borra.
+        for objeto in chain(muestra(insumos), muestra(vencimientos)):
+            db.delete(objeto)
+            como_admin_commit("eliminados")
+    finally:
+        db.info.pop("usuario_id", None)
+
+    return cuenta
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Carga datos de ejemplo generados con Faker.",
@@ -1178,6 +1351,14 @@ def parse_args() -> argparse.Namespace:
         help="Días hacia atrás que se generan para cada plan de limpieza.",
     )
     p.add_argument("--locale", default="es_AR", help="Locale de Faker.")
+    p.add_argument(
+        "--sin-actividad",
+        action="store_true",
+        help=(
+            "Solo altas: no simula modificaciones, bajas, reactivaciones ni "
+            "eliminaciones (por defecto la bitácora trae todas las acciones)."
+        ),
+    )
     p.add_argument(
         "--agregar",
         action="store_true",
@@ -1201,6 +1382,8 @@ def main() -> int:
     fake = Faker(args.locale)
 
     db = SessionLocal()
+    # Auditar el seed para que la vista de auditoría muestre todas las entidades.
+    # db.info["sin_auditoria"] = True
     try:
         if not args.agregar:
             borrar_todo(db)
@@ -1229,6 +1412,7 @@ def main() -> int:
         hash_password = hashear_password(args.password)
 
         unidades = crear_unidades(db, vistos)
+        crear_configuracion_alertas(db)
         personal = crear_personal(db, args.cantidad, fake, vistos, hash_password)
         equipos = crear_equipos(db, args.cantidad, vistos)
         aptitudes = crear_aptitudes(db, args.cantidad, vistos)
@@ -1244,7 +1428,7 @@ def main() -> int:
         vencimientos = crear_vencimientos(db, personal, aptitudes)
         quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
         elementos = crear_elementos(db, args.cantidad, vistos)
-        crear_insumos(db, args.cantidad, unidades, vistos)
+        insumos = crear_insumos(db, args.cantidad, unidades, vistos)
         planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos)
         registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
         incidentes = crear_incidentes(db, args.cantidad, equipos, personal, admins, operadores, vistos)
@@ -1252,6 +1436,15 @@ def main() -> int:
         cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
 
         db.commit()
+
+        # Las altas ya están commiteadas (como "sistema"). Sobre ellas se simula
+        # lo que haría la gente en la app, para que la bitácora tenga historia.
+        actividad: dict = {}
+        if not args.sin_actividad:
+            actividad = simular_actividad(
+                db, fake, vistos, args.password, admins, personal, equipos,
+                aptitudes, quimicos, elementos, insumos,
+            )
 
         # --------------------------------------------------------------
         # Resumen
@@ -1264,6 +1457,19 @@ def main() -> int:
         print(f"   Registros de tarea: {registros} · Incidentes: {incidentes}")
         print(f"   Planes calibración/mantenimiento: {cal_mantenimiento}")
         print(f"   Documentos (con su versión vigente): {documentos}")
+        if actividad:
+            print(
+                "   Actividad simulada: "
+                f"{actividad['modificados']} modificaciones · {actividad['bajas']} bajas · "
+                f"{actividad['reactivados']} reactivaciones · {actividad['eliminados']} eliminaciones"
+            )
+        por_accion = dict(
+            db.execute(select(AuditLog.accion, func.count()).group_by(AuditLog.accion)).all()
+        )
+        print(
+            "   Bitácora: "
+            + " · ".join(f"{accion} {n}" for accion, n in sorted(por_accion.items()))
+        )
         print()
         print(f"🔑 Contraseña de todo el personal: {args.password}")
         print("👤 Usuarios administradores (el login es con DNI):")

@@ -1,16 +1,16 @@
 import logging
-import os
-from datetime import date, datetime
-from typing import Optional, List
+from datetime import date
+from typing import Optional, List, Literal, Union
 
 from fastapi import APIRouter, Depends, Query, File, UploadFile, Form, HTTPException
 from sqlalchemy.orm import Session
-from werkzeug.utils import secure_filename
 
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
+from src.common.archivos import guardar_archivo
 from src.database import get_db
 from src.auth.dependencies import require_operador, require_admin
 from src.checklist import schemas, services
-from src.config import CARPETA_UPLOADS
+from src.tareas.models import Tarea
 from src.personal.models import Personal
 
 
@@ -29,60 +29,6 @@ _DEP_ADMIN = [Depends(require_admin)]
 # Extensiones y tamaño máximo permitido para la evidencia fotográfica.
 EXTENSIONES_EVIDENCIA = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 TAMANO_MAX_EVIDENCIA = 5 * 1024 * 1024  # 5 MB
-
-
-def _guardar_evidencia(evidencia: Optional[UploadFile], tarea_id: int) -> Optional[str]:
-    """Guarda la foto de evidencia y devuelve su ruta relativa.
-
-    Sanea el nombre del archivo (evita path traversal) y valida extensión
-    y tamaño antes de escribir en disco.
-    """
-    if evidencia is None or not evidencia.filename:
-        return None
-
-    extension = os.path.splitext(evidencia.filename)[1].lower()
-
-    if extension not in EXTENSIONES_EVIDENCIA:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Formato de imagen no permitido ({extension or 'sin extensión'}). "
-                   f"Formatos válidos: {', '.join(sorted(EXTENSIONES_EVIDENCIA))}.",
-        )
-
-    contenido = evidencia.file.read()
-    evidencia.file.seek(0)
-
-    if len(contenido) > TAMANO_MAX_EVIDENCIA:
-        raise HTTPException(
-            status_code=400,
-            detail=f"La evidencia supera el máximo de "
-                   f"{TAMANO_MAX_EVIDENCIA // (1024 * 1024)} MB.",
-        )
-
-    upload_dir = CARPETA_UPLOADS / "evidencias"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    # secure_filename elimina rutas y caracteres peligrosos del nombre original
-    nombre_seguro = secure_filename(evidencia.filename) or "evidencia"
-    nombre_archivo = (
-        f"tarea_{tarea_id}_"
-        f"{datetime.now().strftime('%Y%m%d%H%M%S')}_"
-        f"{nombre_seguro}"
-    )
-
-    # Guardamos la ruta con "/" (no os.sep) para que sea la misma en la base y
-    # en la URL, sin importar el sistema operativo donde corre el backend.
-    # La carpeta se ancla a CARPETA_UPLOADS (raíz del backend) en lugar del
-    # directorio de trabajo: si el server se arranca desde otro lado, con ruta
-    # relativa la evidencia se guardaría en un uploads distinto al que sirve
-    # GET /uploads y la imagen daría 404.
-    ruta_evidencia = f"uploads/evidencias/{nombre_archivo}"
-    ruta_absoluta = upload_dir / nombre_archivo
-
-    with open(ruta_absoluta, "wb") as buffer:
-        buffer.write(contenido)
-
-    return ruta_evidencia
 
 
 @router.get("/tareas-del-dia", response_model=schemas.TareasDelDiaResponse, dependencies=_DEP_OPERAR)
@@ -124,35 +70,80 @@ def marcar_tarea(
     # no se pueda atribuir una tarea a otro usuario (HU "Registrar autoría").
     current_user: Personal = Depends(require_operador),
 ):
-    ruta_evidencia = _guardar_evidencia(evidencia, tarea_id)
+    # Validar existencia de tarea antes de guardar archivo
+    tarea = db.get(Tarea, tarea_id)
+    if not tarea:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
 
-    return services.marcar_tarea(
-        db=db,
-        tarea_id=tarea_id,
-        completado=completado,
-        usuario_id=current_user.id,
-        evidencia_url=ruta_evidencia,
-        fecha=fecha,
-        insumo_quimico_id=insumo_quimico_id,
-        cantidad_consumida=cantidad_consumida,
-        elemento_limpieza_id=elemento_limpieza_id,
-    )
+    ruta_evidencia = None
+    if evidencia is not None and evidencia.filename:
+        prefijo = f"tarea_{tarea_id}"
+        ruta_evidencia = guardar_archivo(
+            evidencia,
+            EXTENSIONES_EVIDENCIA,
+            TAMANO_MAX_EVIDENCIA,
+            prefijo,
+            "evidencias"
+        )
+
+    try:
+        return services.marcar_tarea(
+            db=db,
+            tarea_id=tarea_id,
+            completado=completado,
+            usuario_id=current_user.id,
+            usuario_nombre=f"{current_user.nombre} {current_user.apellido or ''}".strip(),
+            evidencia_url=ruta_evidencia,
+            fecha=fecha,
+            insumo_quimico_id=insumo_quimico_id,
+            cantidad_consumida=cantidad_consumida,
+            elemento_limpieza_id=elemento_limpieza_id,
+        )
+    except Exception:
+        # Eliminar archivo huérfano si el servicio falla
+        if ruta_evidencia:
+            from src.config import CARPETA_UPLOADS
+            ruta_abs = CARPETA_UPLOADS / ruta_evidencia.removeprefix("uploads/")
+            try:
+                ruta_abs.unlink(missing_ok=True)
+            except Exception:
+                pass
+        raise
 
 
 @router.get("/registro/{registro_id}/historial", response_model=schemas.HistorialRegistroTareaResponse, dependencies=_DEP_OPERAR)
 def obtener_historial_registro(registro_id: int, db: Session = Depends(get_db)):
     return services.obtener_historial_registro(db, registro_id)
 
-@router.get("/historial", response_model=schemas.HistorialChecklistResponse, dependencies=_DEP_ADMIN)
+@router.get(
+    "/historial",
+    response_model=Union[schemas.HistorialChecklistResponse, schemas.HistorialChecklistPagina],
+    dependencies=_DEP_ADMIN,
+)
 def listar_historial_checklists(
     fecha_desde: date = Query(...),
     fecha_hasta: date = Query(...),
     equipo_id: Optional[int] = Query(None),
+    buscar: Optional[str] = Query(
+        None,
+        description="Búsqueda por nombre de equipo (ignora mayúsculas y tildes).",
+    ),
+    orden: Optional[Literal["fecha_asc", "fecha_desc", "equipo_asc", "equipo_desc"]] = Query(
+        None, description="fecha_desc (default) | fecha_asc | equipo_asc | equipo_desc."
+    ),
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve el historial completo del rango.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     db: Session = Depends(get_db),
 ):
     """Historial de checklists en un rango de fechas, con % de
     cumplimiento y detalle de tareas incumplidas (Historia #13)."""
-    return services.listar_historial_checklists(db, fecha_desde, fecha_hasta, equipo_id)
+    return services.listar_historial_checklists(
+        db, fecha_desde, fecha_hasta, equipo_id, buscar, orden, page, page_size
+    )
 
 
 @router.get(

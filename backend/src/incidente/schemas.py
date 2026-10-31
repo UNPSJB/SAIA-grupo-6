@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.incidente import exceptions
 from src.incidente.constants import EstadoIncidente, TipoIncidente
 
@@ -17,7 +18,9 @@ class IncidenteBase(BaseModel):
     def validar_titulo(cls, v: str) -> str:
         texto = v.strip()
         if not texto:
-            raise exceptions.DescripcionVacia()
+            raise exceptions.TituloVacio()
+        if len(texto) > 60:
+            raise exceptions.TituloDemasiadoLargo()
         return texto
 
     @field_validator("descripcion")
@@ -87,6 +90,12 @@ class IncidenteResumenResponse(BaseModel):
     estado: str
     total: int
     por_tipo: List[IncidenteResumenTipo]
+
+
+class IncidentePagina(Pagina["IncidenteResponse"]):
+    """Página de incidentes: la respuesta del listado paginado en el servidor."""
+
+    pass
 
 
 class HistorialIncidenteItem(BaseModel):

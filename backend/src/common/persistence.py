@@ -14,13 +14,15 @@ Acá se concentran esos patrones:
 * `verificar_disponibilidad` para el chequeo "duplicado activo / dado de baja".
 """
 
-from typing import Any, Callable, Optional, Sequence, Type, TypeVar
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Type, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.exceptions import ConflictoRegistroInactivo, NotFound
+from src.common.listados import ColumnaOrden, paginar_consulta
+from src.common.texto import comparar_texto, contiene_texto, escapar_like
+from src.exceptions import ConflictoRegistroInactivo
 
 M = TypeVar("M")
 
@@ -149,6 +151,36 @@ def listar(
     return list(db.scalars(consulta).all())
 
 
+def listar_paginado(
+    db: Session,
+    modelo: Type[M],
+    *,
+    incluir_inactivos: bool = False,
+    filtros: Sequence[Any] = (),
+    orden: str = "id",
+    ordenes: Optional[Mapping[str, ColumnaOrden]] = None,
+    por_defecto: str = "id",
+    page: int = 1,
+    page_size: int = 10,
+) -> Tuple[list[M], int]:
+    """Página de `listar`. Sin `ordenes` ordena por `id`."""
+    consulta = select(modelo)
+    if not incluir_inactivos:
+        consulta = consulta.where(getattr(modelo, "activo").is_(True))
+
+    return paginar_consulta(
+        db,
+        consulta,
+        modelo=modelo,
+        filtros=filtros,
+        orden=orden,
+        ordenes=ordenes,
+        por_defecto=por_defecto,
+        page=page,
+        page_size=page_size,
+    )
+
+
 def obtener(
     db: Session,
     modelo: Type[M],
@@ -196,11 +228,10 @@ def verificar_disponibilidad(
         raise ya_existe()
 
     estado = "dada de baja" if femenina else "dado de baja"
-    aceptacion = "Querés" if femenina else "¿Querés"
     raise ConflictoRegistroInactivo(
         mensaje=(
-            f"{aceptacion} reactivar con estos nuevos datos el registro "
-            f"'{valor}', que ya existe pero está {estado}."
+            f"¿Querés reactivar con estos nuevos datos el registro "
+            f"'{valor}', que ya existe pero está {estado}?"
         ),
         entidad_id=existente.id,
         campo=campo,
@@ -208,17 +239,8 @@ def verificar_disponibilidad(
 
 
 def pedir_texto_no_duplicado(valor: str) -> str:
-    """Escapa los comodines de `LIKE`/`ILIKE` para comparar por igualdad.
-
-    Sin esto, un nombre con `%` o `_` hace que la preconsulta case con
-    cualquier fila y produzca un "ya existe" falso.
-    """
-    return valor.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
-def comparar_texto(columna: Any, valor: str) -> Any:
-    """Predicado de igualdad insensible a mayúsculas, sin comodines."""
-    return columna.ilike(pedir_texto_no_duplicado(valor), escape="\\")
+    """Escapa comodines de LIKE. Alias de `escapar_like`."""
+    return escapar_like(valor)
 
 
 def _traducir(e: IntegrityError, mapear: Optional[Callable[[str], Exception]]) -> Exception:

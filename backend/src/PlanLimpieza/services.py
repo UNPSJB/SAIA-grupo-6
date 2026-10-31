@@ -1,16 +1,32 @@
 import logging
-from typing import List
+from typing import Any, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from src.auth.roles import puede_administrar
+from src.common.listados import ColumnaOrden, paginar_consulta
 from src.common.persistence import aplicar_cambios, mapa_por_campo
+from src.common.texto import contiene_texto, sin_tildes
+from src.Equipo.models import Equipo
+from src.Equipo.services import obtener_equipo
+from src.Equipo.exceptions import EquipoNoEncontrado as EquipoNoEncontradoEquipo
 from src.PlanLimpieza import models, schemas, exceptions
 from src.personal.models import Personal
 from src.tareas.models import Tarea
 from src.tareas.schemas import TareaBase as TareaInput
+
+# Claves del query string -> expresión de orden. El nombre del equipo vive en
+# otra tabla, así que el JOIN de `_consulta_planes` también sirve para ordenar.
+_ORDENES = {
+    "nombre_asc": ColumnaOrden((sin_tildes(models.PlanLimpieza.nombre),)),
+    "nombre_desc": ColumnaOrden(
+        (sin_tildes(models.PlanLimpieza.nombre),), descendente=True
+    ),
+    "equipo_asc": ColumnaOrden((sin_tildes(Equipo.nombre),)),
+    "equipo_desc": ColumnaOrden((sin_tildes(Equipo.nombre),), descendente=True),
+}
 
 # logger para este módulo específico
 logger = logging.getLogger(__name__)
@@ -43,6 +59,16 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
     return db_autor
 
 
+def _verificar_equipo_activo(db: Session, equipo_id: int) -> Equipo:
+    try:
+        equipo = obtener_equipo(db, equipo_id)
+    except EquipoNoEncontradoEquipo as exc:
+        raise exceptions.EquipoNoEncontrado() from exc
+    if not equipo.activo:
+        raise exceptions.EquipoInactivo()
+    return equipo
+
+
 def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
     """Instancia las tareas nuevas y propias del plan (composición, no M2M).
     Cada tarea trae su propia frecuencia, su procedimiento, su tipo
@@ -60,11 +86,13 @@ def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
 
 
 def crear_plan_limpieza(
-    db: Session, plan: schemas.PlanLimpiezaCreate
+    db: Session, plan: schemas.PlanLimpiezaCreate, autor_id: int
 ) -> models.PlanLimpieza:
-    _verificar_autor_administrador(db, plan.autor_id)
+    _verificar_autor_administrador(db, autor_id)
+    _verificar_equipo_activo(db, plan.equipo_id)
 
     datos_plan = plan.model_dump(exclude={"tareas"})
+    datos_plan["autor_id"] = autor_id
     _plan = models.PlanLimpieza(**datos_plan)
     _plan.tareas = _crear_tareas_del_plan(plan.tareas)
     db.add(_plan)
@@ -83,16 +111,108 @@ def crear_plan_limpieza(
             raise exceptions.DatoDuplicado()
 
 
+def _filtro_busqueda_planes(buscar: Optional[str]) -> Any | None:
+    """Busca en el plan, su equipo y el nombre de sus tareas.
+
+    Las tareas son una relación 1-N: un JOIN duplicaría el plan (una fila por
+    tarea) y rompería el COUNT y el LIMIT. Por eso cada término se busca con
+    un `EXISTS` correlacionado, y se exige que TODOS los términos aparezcan
+    en alguno de los tres campos.
+    """
+    terminos = (buscar or "").split()
+    if not terminos:
+        return None
+
+    return and_(
+        *(
+            or_(
+                contiene_texto(models.PlanLimpieza.nombre, termino),
+                contiene_texto(Equipo.nombre, termino),
+                exists().where(
+                    Tarea.plan_limpieza_id == models.PlanLimpieza.id,
+                    contiene_texto(Tarea.nombre, termino),
+                ),
+            )
+            for termino in terminos
+        )
+    )
+
+
+def _consulta_planes(
+    incluir_inactivos: bool,
+    buscar: Optional[str],
+    equipo_id: Optional[int],
+):
+    """Consulta base compartida por el listado completo y el paginado.
+
+    El JOIN con `Equipo` es 1:1 (por PK), así que no duplica filas: sirve para
+    buscar y ordenar por nombre de equipo sin subconsultas por fila.
+    """
+    consulta = (
+        select(models.PlanLimpieza)
+        .join(Equipo, Equipo.id == models.PlanLimpieza.equipo_id)
+        # Las tareas se muestran en la tabla: una sola consulta extra por
+        # página evita el N+1 al serializar cada plan.
+        .options(selectinload(models.PlanLimpieza.tareas))
+    )
+
+    filtros = [
+        filtro
+        for filtro in (
+            _filtro_busqueda_planes(buscar),
+            models.PlanLimpieza.equipo_id == equipo_id if equipo_id else None,
+        )
+        if filtro is not None
+    ]
+    if filtros:
+        consulta = consulta.where(*filtros)
+
+    if not incluir_inactivos:
+        consulta = consulta.where(models.PlanLimpieza.activo.is_(True))
+
+    return consulta
+
+
 def listar_planes_limpieza(
-    db: Session, incluir_inactivos: bool = False
+    db: Session,
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+    equipo_id: Optional[int] = None,
 ) -> List[models.PlanLimpieza]:
     logger.info(
         "Listando planes de limpieza (incluir_inactivos=%s)", incluir_inactivos
     )
-    query = select(models.PlanLimpieza)
-    if not incluir_inactivos:
-        query = query.where(models.PlanLimpieza.activo == True)
-    return db.scalars(query).all()
+    consulta = _consulta_planes(incluir_inactivos, buscar, equipo_id).order_by(
+        models.PlanLimpieza.id
+    )
+    return list(db.scalars(consulta).all())
+
+
+def listar_planes_limpieza_paginado(
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+    buscar: Optional[str] = None,
+    equipo_id: Optional[int] = None,
+    orden: str = "nombre_asc",
+) -> tuple[List[models.PlanLimpieza], int]:
+    """Mismo filtro que `listar_planes_limpieza`, recortado en la base."""
+    logger.info(
+        "Listando planes de limpieza paginado (incluir_inactivos=%s, page=%s)",
+        incluir_inactivos,
+        page,
+    )
+    return paginar_consulta(
+        db,
+        _consulta_planes(incluir_inactivos, buscar, equipo_id),
+        modelo=models.PlanLimpieza,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="nombre_asc",
+        page=page,
+        page_size=page_size,
+    )
 
 
 def leer_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:
@@ -112,15 +232,24 @@ def modificar_plan_limpieza(
 
     datos_a_actualizar = plan.model_dump(exclude_unset=True)
 
+    # Se extraen primero las tareas porque se actualizan como relación aparte.
+    tareas_input = datos_a_actualizar.pop("tareas") if "tareas" in datos_a_actualizar else ...
+    datos_a_actualizar = {
+        campo: valor
+        for campo, valor in datos_a_actualizar.items()
+        if valor is not None
+    }
+
+    equipo_id = datos_a_actualizar.get("equipo_id", db_plan.equipo_id)
+    _verificar_equipo_activo(db, equipo_id)
+
     if "autor_id" in datos_a_actualizar:
         _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
 
     # Manejo seguro de tareas sin DELETE destructivo.
     # Se matchea por id (no por nombre): así renombrar una tarea actualiza
     # la fila existente en vez de desactivarla y crear una tarea nueva.
-    if "tareas" in datos_a_actualizar:
-        tareas_input = datos_a_actualizar.pop("tareas")
-
+    if tareas_input is not ... and tareas_input is not None:
         tareas_actuales_por_id = {t.id: t for t in db_plan.tareas}
         ids_recibidos = {
             t["id"] for t in tareas_input if t.get("id") is not None

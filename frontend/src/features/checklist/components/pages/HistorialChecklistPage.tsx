@@ -1,14 +1,28 @@
 import { Fragment, useMemo, useState } from "react";
-import { Badge, Box, Field, HStack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
 import type { HistorialChecklistItem } from "../../types/checklist";
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
-import { usePaginas } from "../../../../common/hooks/usePaginas";
-import { formatoFecha } from "../../../../common/utils/fechas";
+import {
+  formatoFecha,
+  haceDiasISO,
+  hoyISO,
+} from "../../../../common/utils/fechas";
+import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EncabezadoOrdenable,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
 import {
   BannerError,
+  BotonAccion,
   BotonCancelar,
   BotonTexto,
   Celda,
@@ -17,23 +31,21 @@ import {
   EstadoVacio,
   FilaEncabezado,
   FormInput,
-  FormNativeSelect,
   LabelFiltro,
   PageHeader,
   Paginacion,
-  SelectPlaceholder,
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
 
 const PAGE_SIZE = 10;
 
-function fechaLocalISO(fecha: Date): string {
-  const year = fecha.getFullYear();
-  const month = String(fecha.getMonth() + 1).padStart(2, "0");
-  const day = String(fecha.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+type ColumnaHistorial = "fecha" | "equipo";
+
+const ETIQUETAS_ORDEN: Record<ColumnaHistorial, string> = {
+  fecha: "Fecha",
+  equipo: "Equipo",
+};
 
 /** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
 function colorPorcentaje(pct: number): string {
@@ -43,19 +55,16 @@ function colorPorcentaje(pct: number): string {
 }
 
 export function HistorialChecklistPage() {
-  const [{ hace7DiasISO, hoyISO }] = useState(() => {
-    const hoy = new Date();
-    return {
-      hoyISO: fechaLocalISO(hoy),
-      hace7DiasISO: fechaLocalISO(
-        new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000)
-      ),
-    };
-  });
+  // El rango inicial (últimos 7 días) es también el destino de "Limpiar todo".
+  const [rangoInicial] = useState(() => ({
+    desde: haceDiasISO(7),
+    hasta: hoyISO(),
+  }));
 
-  const [fechaDesde, setFechaDesde] = useState(hace7DiasISO);
-  const [fechaHasta, setFechaHasta] = useState(hoyISO);
+  const [fechaDesde, setFechaDesde] = useState(rangoInicial.desde);
+  const [fechaHasta, setFechaHasta] = useState(rangoInicial.hasta);
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("");
+  const [busqueda, setBusqueda] = useState("");
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
   const [checklistSeleccionado, setChecklistSeleccionado] =
     useState<HistorialChecklistItem | null>(null);
@@ -64,10 +73,26 @@ export function HistorialChecklistPage() {
     equipoSeleccionado !== "" ? Number(equipoSeleccionado) : undefined;
 
   const { equipos } = useEquipos();
+
+  const [page, setPage] = useState(1);
+
+  // La tabla abre por fecha descendente (lo más reciente arriba). Al ordenar
+  // se vuelve a la página 1: `alCambiar` replica lo que hace
+  // `useListaPaginada` en los listados que no manejan `page` a mano.
+  const orden = useOrdenTabla<ColumnaHistorial, "fecha_desc">(
+    "fecha_desc",
+    "fecha",
+    () => setPage(1)
+  );
+
   const { historial, loading, error, recargar } = useHistorialChecklists(
     fechaDesde,
     fechaHasta,
-    equipoIdFiltro
+    equipoIdFiltro,
+    busqueda,
+    orden.orden,
+    page,
+    PAGE_SIZE
   );
 
   const toggleExpandido = (checklistId: number) => {
@@ -82,21 +107,94 @@ export function HistorialChecklistPage() {
     });
   };
 
-  const checklists = useMemo(() => historial?.checklists ?? [], [historial]);
+  // `items` es la página actual; el cumplimiento general y el total vienen
+  // calculados sobre TODO el período en el backend.
+  const checklists = useMemo(() => historial?.items ?? [], [historial]);
+  const total = historial?.total ?? 0;
+  const totalPaginas = historial?.total_paginas ?? 1;
+  const hayVariasPaginas = totalPaginas > 1;
 
-  // Un rango largo dejaba la tabla creciendo hacia abajo: se pagina de a 10 y
-  // se vuelve a la primera página cuando cambia cualquier filtro.
-  const {
-    paginados: checklistsPaginados,
-    page,
-    setPage,
-    total,
-    hayVariasPaginas,
-  } = usePaginas(
-    checklists,
-    PAGE_SIZE,
-    `${fechaDesde}|${fechaHasta}|${equipoSeleccionado}`,
-  );
+  // Página fuera de rango: si el rango se acortó (p. ej. un refresco después
+  // de que otro usuario cerró checklists) el backend devuelve `items` vacíos
+  // con `total > 0`. El ajuste va DURANTE el render — el mismo "recortar, no
+  // corregir con un efecto" de `useListaPaginada` — porque un `useEffect`
+  // con `setPage` dispara la regla `set-state-in-effect`. Con `page` en las
+  // dependencias del hook, la corrección dispara el re-fetch de la última
+  // página válida y la tabla nunca queda vacía con la paginación oculta.
+  if (
+    historial &&
+    historial.total > 0 &&
+    historial.items.length === 0 &&
+    page > totalPaginas
+  ) {
+    setPage(totalPaginas);
+  }
+
+  /** Al cambiar cualquier filtro la página 1 siempre es válida. */
+  const cambiarFiltro = (aplicar: () => void) => {
+    aplicar();
+    setPage(1);
+  };
+
+  const limpiarTodo = () => {
+    cambiarFiltro(() => {
+      setBusqueda("");
+      setEquipoSeleccionado("");
+      setFechaDesde(rangoInicial.desde);
+      setFechaHasta(rangoInicial.hasta);
+      orden.reiniciar();
+    });
+  };
+
+  // El orden no cambia las filas, así que no cuenta para el vacío "por
+  // filtros": solo búsqueda, equipo y un rango distinto al de apertura.
+  const hayFiltros =
+    busqueda.trim() !== "" ||
+    equipoSeleccionado !== "" ||
+    fechaDesde !== rangoInicial.desde ||
+    fechaHasta !== rangoInicial.hasta;
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => cambiarFiltro(() => setBusqueda("")),
+    },
+    {
+      clave: "equipo",
+      etiqueta: "Equipo",
+      valor:
+        equipos.find((equipo) => String(equipo.id) === equipoSeleccionado)
+          ?.nombre ?? (equipoSeleccionado !== "" ? "Equipo seleccionado" : ""),
+      onQuitar: () => cambiarFiltro(() => setEquipoSeleccionado("")),
+    },
+    {
+      clave: "periodo",
+      etiqueta: "Período",
+      valor: `${formatoFecha(fechaDesde)} – ${formatoFecha(fechaHasta)}`,
+      visible:
+        fechaDesde !== rangoInicial.desde || fechaHasta !== rangoInicial.hasta,
+      onQuitar: () =>
+        cambiarFiltro(() => {
+          setFechaDesde(rangoInicial.desde);
+          setFechaHasta(rangoInicial.hasta);
+        }),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        orden.columna !== null
+          ? `${ETIQUETAS_ORDEN[orden.columna]} ${
+              orden.direccion === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: !orden.esPorDefecto && orden.columna !== null,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
 
   /** Botón de "Ver/ocultar N incumplidas" dentro de la celda. */
   const botonIncumplidas = (checklistId: number, cantidad: number) => (
@@ -118,62 +216,77 @@ export function HistorialChecklistPage() {
         }
       />
 
-      <Tarjeta p="4" mb="6">
-        <HStack gap="4" flexWrap="wrap" align="flex-end">
-          <Box minW="180px">
-            <Field.Root>
-              <LabelFiltro>Desde</LabelFiltro>
-              <FormInput
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-                w="auto"
-              />
-            </Field.Root>
-          </Box>
-          <Box minW="180px">
-            <Field.Root>
-              <LabelFiltro>Hasta</LabelFiltro>
-              <FormInput
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-                w="auto"
-              />
-            </Field.Root>
-          </Box>
-          <Box minW="200px">
-            <Field.Root>
-              <LabelFiltro>Equipo</LabelFiltro>
-              <FormNativeSelect
-                value={equipoSeleccionado}
-                onChange={(e) => setEquipoSeleccionado(e.target.value)}
-              >
-                <SelectPlaceholder value="">
-                  Todos los equipos
-                </SelectPlaceholder>
-                {equipos.map((equipo) => (
-                  <option key={equipo.id} value={equipo.id}>
-                    {equipo.nombre}
-                  </option>
-                ))}
-              </FormNativeSelect>
-            </Field.Root>
-          </Box>
-        </HStack>
-      </Tarjeta>
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+            placeholder="Buscar por equipo..."
+          />
+        }
+        filtros={
+          <>
+            <Box minW="170px">
+              <Field.Root>
+                <LabelFiltro>Desde</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) =>
+                    cambiarFiltro(() => setFechaDesde(e.target.value))
+                  }
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <Box minW="170px">
+              <Field.Root>
+                <LabelFiltro>Hasta</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) =>
+                    cambiarFiltro(() => setFechaHasta(e.target.value))
+                  }
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <FiltroSelect
+              label="Equipo"
+              valor={equipoSeleccionado}
+              onCambio={(valor) =>
+                cambiarFiltro(() => setEquipoSeleccionado(valor))
+              }
+              opciones={equipos.map((equipo) => ({
+                valor: String(equipo.id),
+                etiqueta: equipo.nombre,
+              }))}
+              todos="Todos los equipos"
+            />
+          </>
+        }
+      />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
 
       {loading && <EstadoCargando>Cargando historial...</EstadoCargando>}
 
       {!loading && historial && checklists.length === 0 && !error && (
-        <EstadoVacio>
-          No hay checklists registrados en el rango seleccionado.
-        </EstadoVacio>
+        hayFiltros ? (
+          <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+            No hay checklists que coincidan con los filtros aplicados.
+          </EstadoVacioFiltrado>
+        ) : (
+          <EstadoVacio>
+            No hay checklists registrados en el rango seleccionado.
+          </EstadoVacio>
+        )
       )}
 
-      {!loading && historial && checklists.length > 0 && (
+      {historial && checklists.length > 0 && (
         <>
           <Text fontSize="sm" color="fg.muted" mb="4">
             Cumplimiento general del período:{" "}
@@ -186,12 +299,23 @@ export function HistorialChecklistPage() {
             </Text>
           </Text>
 
-          <Tarjeta>
+          {/* Mientras se pide la página siguiente la tabla SIGUE montada (sin
+              el parpadeo de desmontar/montar): solo se atenúa y se bloquean
+              los clicks hasta que llega la respuesta. */}
+          <Tarjeta
+            opacity={loading ? 0.6 : 1}
+            pointerEvents={loading ? "none" : "auto"}
+            transition="opacity 0.15s"
+          >
             <Table.Root variant="outline" w="100%">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Equipo</EncabezadoOscuro>
+                  <EncabezadoOrdenable columna="fecha" orden={orden} ancho="media">
+                    Fecha
+                  </EncabezadoOrdenable>
+                  <EncabezadoOrdenable columna="equipo" orden={orden} ancho="media">
+                    Equipo
+                  </EncabezadoOrdenable>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="media">Cumplimiento</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="media">
@@ -203,7 +327,7 @@ export function HistorialChecklistPage() {
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
-                {checklistsPaginados.map((cl) => (
+                {checklists.map((cl) => (
                   <Fragment key={cl.checklist_id}>
                     <Table.Row>
                       <Celda>{formatoFecha(cl.fecha)}</Celda>
@@ -242,9 +366,11 @@ export function HistorialChecklistPage() {
                         )}
                       </Celda>
                       <Celda center>
-                        <BotonTexto onClick={() => setChecklistSeleccionado(cl)}>
-                          Ver detalle
-                        </BotonTexto>
+                        <BotonAccion
+                          accion="ver"
+                          label="Ver detalle del checklist"
+                          onClick={() => setChecklistSeleccionado(cl)}
+                        />
                       </Celda>
                     </Table.Row>
                     {expandidos.has(cl.checklist_id) && (

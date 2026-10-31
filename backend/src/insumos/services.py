@@ -1,11 +1,28 @@
-from typing import List
-from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from typing import List, Optional
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
+from src.common.texto import sin_tildes
+from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.exceptions import ConflictoRegistroInactivo
 from src.insumos.models import Insumo
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
+
+_ORDENES = {
+    "nombre_asc": ColumnaOrden((sin_tildes(Insumo.nombre),)),
+    "nombre_desc": ColumnaOrden((sin_tildes(Insumo.nombre),), descendente=True),
+    "unidad_asc": ColumnaOrden((sin_tildes(UnidadMedida.nombre),)),
+    "unidad_desc": ColumnaOrden(
+        (sin_tildes(UnidadMedida.nombre),), descendente=True
+    ),
+}
+
+# `insumos.nombre` es UNIQUE: cualquier violación de integridad del PUT se
+# traduce a "ya existe" (mismo criterio que tenía el update() de Core).
+_MAPEA_CONFLICTO = mapa_por_campo(
+    por_defecto=exceptions.InsumoYaExiste,
+)
 
 
 
@@ -45,11 +62,72 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
     return _insumo
 
 
-def listar_insumos(db: Session, incluir_inactivos: bool = False) -> List[Insumo]:
-    consulta = select(Insumo).order_by(Insumo.id)
+def _consulta_insumos(
+    incluir_inactivos: bool,
+    buscar: Optional[str],
+    unidad_medida_id: Optional[int],
+):
+    """Consulta base con el JOIN a la unidad, compartida por ambos caminos."""
+    consulta = (
+        select(Insumo)
+        .join(Insumo.unidad_medida)
+        .options(selectinload(Insumo.unidad_medida))
+    )
+
+    filtros = [
+        filtro
+        for filtro in (
+            filtro_busqueda(
+                (Insumo.nombre, UnidadMedida.nombre, UnidadMedida.simbolo),
+                buscar,
+            ),
+            Insumo.unidad_medida_id == unidad_medida_id
+            if unidad_medida_id
+            else None,
+        )
+        if filtro is not None
+    ]
+    if filtros:
+        consulta = consulta.where(*filtros)
+
     if not incluir_inactivos:
-        consulta = consulta.where(Insumo.activo == True)
+        consulta = consulta.where(Insumo.activo.is_(True))
+
+    return consulta
+
+
+def listar_insumos(
+    db: Session,
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+    unidad_medida_id: Optional[int] = None,
+) -> List[Insumo]:
+    consulta = _consulta_insumos(
+        incluir_inactivos, buscar, unidad_medida_id
+    ).order_by(Insumo.id)
     return list(db.scalars(consulta).all())
+
+
+def listar_insumos_paginado(
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+    buscar: Optional[str] = None,
+    unidad_medida_id: Optional[int] = None,
+    orden: str = "nombre_asc",
+) -> tuple[List[Insumo], int]:
+    """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
+    return paginar_consulta(
+        db,
+        _consulta_insumos(incluir_inactivos, buscar, unidad_medida_id),
+        modelo=Insumo,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="nombre_asc",
+        page=page,
+        page_size=page_size,
+    )
 
 
 def leer_insumo(db: Session, insumo_id: int) -> Insumo:
@@ -67,24 +145,21 @@ def modificar_insumo(
     # Solo actualizamos los campos que realmente vinieron en el request
     # (evita pisar 'activo' u otros campos con NULL cuando no se envían).
     datos_a_actualizar = insumo.model_dump(exclude_unset=True)
+    datos_a_actualizar = {
+        campo: valor
+        for campo, valor in datos_a_actualizar.items()
+        if valor is not None
+    }
 
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(Insumo)
-                .where(Insumo.id == insumo_id)
-                .values(**datos_a_actualizar)
-            )
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            raise exceptions.InsumoYaExiste()
-        except Exception:
-            db.rollback()
-            raise
-        db.refresh(db_insumo)
+    if not datos_a_actualizar:
+        return db_insumo
 
-    return db_insumo
+    if "unidad_medida_id" in datos_a_actualizar:
+        _verificar_unidad_medida(db, datos_a_actualizar["unidad_medida_id"])
+
+    # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no los vería.
+    return aplicar_cambios(db, db_insumo, datos_a_actualizar, _MAPEA_CONFLICTO)
 
 
 def eliminar_insumo(db: Session, insumo_id: int) -> Insumo:

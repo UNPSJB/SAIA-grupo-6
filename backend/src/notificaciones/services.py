@@ -1,15 +1,19 @@
 from datetime import date, timedelta
+from src.common.fechas import hoy
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from src.Equipo.models import Equipo
 from src.elementoLimpieza.models import ElementoLimpieza
+from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 
 from src.aptitud.models import Aptitud
+from src.common.texto import coincide_terminos
 from src.notificaciones.models import ConfiguracionAlerta
 from src.personal.models import Personal
+from src.unidadMedida.models import UnidadMedida
 from src.vencimientoPersonal.models import VencimientoPersonal
 
 MARGEN_DIAS_ALERTA = 3
@@ -20,7 +24,7 @@ DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
 
 def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionResponse]:
     notificaciones: List[NotificacionResponse] = []
-    hoy = date.today()
+    hoy_dia = hoy()
 
     elementos = db.scalars(
         select(ElementoLimpieza).where(ElementoLimpieza.activo.is_(True))
@@ -31,7 +35,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
             continue
 
         fecha_vencimiento = elem.fecha_ultimo_recambio + timedelta(days=elem.frecuencia_recambio_dias)
-        dias_restantes = (fecha_vencimiento - hoy).days
+        dias_restantes = (fecha_vencimiento - hoy_dia).days
 
         if dias_restantes <= 0:
             notificaciones.append(
@@ -44,6 +48,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
                     nivel="VENCIDO",
                     link_destino="/elementos-limpieza",
                     fecha_referencia=fecha_vencimiento,
+                    grupo_clave=f"elemento:{elem.id}",
                 )
             )
         elif dias_restantes <= MARGEN_DIAS_ALERTA:
@@ -57,6 +62,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
                     nivel="PROXIMO_A_VENCER",
                     link_destino="/elementos-limpieza",
                     fecha_referencia=fecha_vencimiento,
+                    grupo_clave=f"elemento:{elem.id}",
                 )
             )
 
@@ -113,6 +119,7 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
                     f"/equipos/{plan.equipo.id}/intervencion"
                 ),
                 fecha_referencia=fecha_vencimiento,
+                grupo_clave=f"equipo:{plan.equipo.id}",
             )
         )
 
@@ -138,9 +145,9 @@ def _nombre_persona(persona: Personal) -> str:
 
 def obtener_notificaciones_vencimientos_personal(db: Session) -> List[NotificacionResponse]:
     notificaciones: List[NotificacionResponse] = []
-    hoy = date.today()
+    hoy_dia = hoy()
     dias_alerta = obtener_dias_alerta_vencimiento_personal(db)
-    limite = hoy + timedelta(days=dias_alerta)
+    limite = hoy_dia + timedelta(days=dias_alerta)
 
     vencimientos = db.scalars(
         select(VencimientoPersonal)
@@ -162,7 +169,7 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
     for venc in vencimientos:
         persona = _nombre_persona(venc.persona)
         aptitud = venc.aptitud.nombre
-        dias_restantes = (venc.fecha_vencimiento - hoy).days
+        dias_restantes = (venc.fecha_vencimiento - hoy_dia).days
 
         if dias_restantes <= 0:
             titulo = "Vencimiento de Personal Vencido"
@@ -183,16 +190,226 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
                 nivel=nivel,
                 link_destino=f"/personal/detalle/{venc.persona_id}",
                 fecha_referencia=venc.fecha_vencimiento,
+                grupo_clave=f"persona:{venc.persona_id}",
             )
         )
 
     return notificaciones
 
 
-def obtener_todas_notificaciones(db: Session) -> List[NotificacionResponse]:
+def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]:
+    filas = db.execute(
+        select(
+            InsumoQuimico.id,
+            InsumoQuimico.nombre,
+            StockInsumoQuimico.cantidad_actual,
+            StockInsumoQuimico.stock_minimo,
+            UnidadMedida.simbolo,
+        )
+        .join(
+            StockInsumoQuimico,
+            StockInsumoQuimico.insumo_quimico_id == InsumoQuimico.id,
+        )
+        .join(UnidadMedida, UnidadMedida.id == InsumoQuimico.unidad_medida_id)
+        .where(
+            InsumoQuimico.activo.is_(True),
+            StockInsumoQuimico.stock_minimo.is_not(None),
+            StockInsumoQuimico.cantidad_actual < StockInsumoQuimico.stock_minimo,
+        )
+        .order_by(InsumoQuimico.nombre)
+    ).all()
+
+    return [
+        NotificacionResponse(
+            id_notificacion=f"stock-bajo-{fila.id}",
+            tipo="STOCK_BAJO",
+            entidad_id=fila.id,
+            titulo="Stock bajo",
+            mensaje=(
+                f"El insumo '{fila.nombre}' tiene {fila.cantidad_actual} {fila.simbolo} "
+                f"disponibles; el mínimo configurado es {fila.stock_minimo} {fila.simbolo}."
+            ),
+            nivel="STOCK_BAJO",
+            link_destino="/gestion-stock/stock",
+        )
+        for fila in filas
+    ]
+
+
+def _filtrar_por_texto(
+    notificaciones: List[NotificacionResponse], buscar: str | None
+) -> List[NotificacionResponse]:
+    """Deja las notificaciones que matchean la búsqueda en título o mensaje.
+
+    Usa `coincide_terminos`, la MISMA regla que los demás consolidados: cada
+    palabra tiene que aparecer (en el título o en el mensaje), sin importar el
+    orden ni las tildes. "personal vencido" encuentra "Vencimiento de Personal
+    Vencido".
+    """
+    return [
+        n
+        for n in notificaciones
+        if coincide_terminos((n.titulo, n.mensaje), buscar)
+    ]
+
+
+def obtener_todas_notificaciones(
+    db: Session, buscar: str | None = None
+) -> List[NotificacionResponse]:
+    """Consolidado completo: lo usa la campana del navbar y el camino sin
+    paginar del router.
+
+    `buscar` se aplica con la misma lógica que en el camino paginado: antes
+    el router lo descartaba en silencio cuando no venía `page`, y quien lo
+    mandaba recibía la lista completa sin filtrar.
+    """
     lista_total: List[NotificacionResponse] = []
     lista_total.extend(obtener_notificaciones_elementos_limpieza(db))
     lista_total.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
     lista_total.extend(obtener_notificaciones_vencimientos_personal(db))
+    lista_total.extend(obtener_notificaciones_stock_bajo(db))
     lista_total.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
-    return lista_total
+    return _filtrar_por_texto(lista_total, buscar)
+
+
+# ────────────────────────── Listado paginado ──────────────────────────────
+#
+# El centro de notificaciones antes traía TODAS las alertas y filtraba,
+# ordenaba y contaba en el navegador. Acá vive toda esa lógica: la
+# consolidación sigue siendo en Python (mezcla tres tablas y fechas
+# calculadas), pero el recorte sale del servidor y el frontend solo recibe
+# una página.
+
+
+_ORDENES = (
+    "urgencia",
+    "estado_asc",
+    "estado_desc",
+    "vencimiento_asc",
+    "vencimiento_desc",
+    "origen_asc",
+    "origen_desc",
+)
+
+_TIPOS_ORIGEN = (
+    "ELEMENTO_LIMPIEZA",
+    "VENCIMIENTO_PERSONAL",
+    "PLAN_CALIBRACION",
+    "PLAN_MANTENIMIENTO",
+    "STOCK_BAJO",
+)
+
+
+def _ordenar(notificaciones: List[NotificacionResponse], orden: str) -> None:
+    """Ordena EN EL LUGAR con el criterio pedido.
+
+    `urgencia` (el default histórico) deja los VENCIDOS arriba sin tocar el
+    orden relativo del resto; el resto son ordenamientos por columna. El
+    desempate por `id_notificacion` hace que el OFFSET/LIMIT sea estable: sin
+    él, dos alertas con la misma fecha podían intercambiarse entre páginas.
+    """
+    if orden in ("urgencia", "estado_asc"):
+        notificaciones.sort(
+            key=lambda n: (0 if n.nivel == "VENCIDO" else 1, n.id_notificacion)
+        )
+    elif orden == "estado_desc":
+        notificaciones.sort(
+            key=lambda n: (1 if n.nivel == "VENCIDO" else 0, n.id_notificacion)
+        )
+    elif orden in ("vencimiento_asc", "vencimiento_desc"):
+        # Las alertas de stock no tienen vencimiento: quedan al final al ascender.
+        epoca_min = date.min
+        epoca_max = date.max
+        notificaciones.sort(
+            key=lambda n: (
+                n.fecha_referencia or (epoca_min if orden == "vencimiento_desc" else epoca_max),
+                n.id_notificacion,
+            ),
+            reverse=(orden == "vencimiento_desc"),
+        )
+    elif orden in ("origen_asc", "origen_desc"):
+        notificaciones.sort(
+            key=lambda n: (n.tipo, n.id_notificacion),
+            reverse=(orden == "origen_desc"),
+        )
+
+
+def obtener_notificaciones_paginadas(
+    db: Session,
+    buscar: str | None,
+    urgencia: str | None,
+    origen: str | None,
+    orden: str | None,
+    page: int,
+    page_size: int,
+) -> tuple[List[NotificacionResponse], int, dict]:
+    """Filtra, ordena, corta la página y calcula los contadores de los filtros.
+
+    Devuelve `(items, total, contadores)`. Los contadores replican la regla
+    que estaba en el frontend: el contador de cada dropdown ignora SU propio
+    filtro pero respeta el otro y la búsqueda.
+
+    NOTA DE DISEÑO — paginación EN MEMORIA, a propósito: el consolidado
+    mezcla tres fuentes (elementos de limpieza, planes de calibración/
+    mantenimiento y vencimientos de personal) con el nivel de urgencia
+    calculado en Python a partir de fechas comparadas contra hoy, y los
+    `contadores` de los dropdowns exigen el conjunto completo. No hay una
+    sola tabla contra la cual hacer COUNT + OFFSET/LIMIT: se leen todas las
+    filas de las tres fuentes, se consolidan, y recién ahí se filtra,
+    ordena y recorta la página. El recorte en Python acota lo que VIAJA al
+    cliente, no lo que se lee de la base; convertirlo a SQL exigiría
+    duplicar la lógica de fechas/estados por fuente (o materializar las
+    alertas en una tabla), y no se justifica para el volumen de un
+    laboratorio.
+    """
+    if orden not in _ORDENES:
+        orden = "urgencia"
+    if urgencia not in ("todas", "vencidas", "proximas", "stock_bajo"):
+        urgencia = "todas"
+    if origen not in ("todas",) + _TIPOS_ORIGEN:
+        origen = "todas"
+
+    notificaciones = obtener_todas_notificaciones(db)
+
+    # 1) Búsqueda: se aplica a todo, contadores incluidos.
+    notificaciones = _filtrar_por_texto(notificaciones, buscar)
+
+    def por_urgencia(lista: List[NotificacionResponse], valor: str) -> List:
+        if valor == "vencidas":
+            return [n for n in lista if n.nivel == "VENCIDO"]
+        if valor == "proximas":
+            return [n for n in lista if n.nivel == "PROXIMO_A_VENCER"]
+        if valor == "stock_bajo":
+            return [n for n in lista if n.nivel == "STOCK_BAJO"]
+        return lista
+
+    def por_origen(lista: List[NotificacionResponse], valor: str) -> List:
+        if valor != "todas":
+            return [n for n in lista if n.tipo == valor]
+        return lista
+
+    # 2) Contadores de urgencia: ignoran el filtro de urgencia.
+    base_urgencia = por_origen(notificaciones, origen)
+    contadores = {
+        "urgencia": {
+            "todas": len(base_urgencia),
+            "vencidas": len(por_urgencia(base_urgencia, "vencidas")),
+            "proximas": len(por_urgencia(base_urgencia, "proximas")),
+            "stock_bajo": len(por_urgencia(base_urgencia, "stock_bajo")),
+        }
+    }
+
+    # 3) Contadores de origen: ignoran el filtro de origen.
+    base_origen = por_urgencia(notificaciones, urgencia)
+    contadores["origen"] = {
+        "todas": len(base_origen),
+        **{tipo: len(por_origen(base_origen, tipo)) for tipo in _TIPOS_ORIGEN},
+    }
+
+    # 4) Filas de la tabla: con los dos filtros aplicados.
+    filtradas = por_urgencia(por_origen(notificaciones, origen), urgencia)
+    _ordenar(filtradas, orden)
+
+    total = len(filtradas)
+    inicio = (page - 1) * page_size
+    return filtradas[inicio : inicio + page_size], total, contadores

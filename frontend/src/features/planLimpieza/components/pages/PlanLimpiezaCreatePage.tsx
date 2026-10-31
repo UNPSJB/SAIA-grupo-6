@@ -7,7 +7,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -33,11 +32,6 @@ export function PlanLimpiezaCreatePage() {
       <PageHeader
         title="Nuevo Plan de Limpieza"
         description="Definí las tareas, con qué frecuencia se repiten y a qué equipo aplican."
-        actions={
-          <BotonVolver onClick={() => navigate("/planes-limpieza")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && <BannerError>{error}</BannerError>}
@@ -52,6 +46,7 @@ export function PlanLimpiezaCreatePage() {
         isLoading={loading}
         title="Alta de Plan de Limpieza"
         submitLabel="Crear plan"
+        onCancel={() => navigate("/planes-limpieza")}
       />
     </Box>
   );

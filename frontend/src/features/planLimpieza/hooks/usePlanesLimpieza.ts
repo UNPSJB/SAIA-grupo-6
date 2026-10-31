@@ -1,17 +1,59 @@
 import { useCallback } from "react";
-import { useLista } from "../../../common/hooks/useLista";
-import { listarPlanesLimpieza } from "../services/planLimpiezaService";
+import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
+import {
+  listarPlanesLimpieza,
+  type FiltrosPlanesLimpieza,
+} from "../services/planLimpiezaService";
 import type { PlanLimpieza } from "../types/planLimpieza";
 
-export function usePlanesLimpieza(incluirInactivos = false) {
-    const cargarPlanes = useCallback(() => listarPlanesLimpieza(incluirInactivos), [incluirInactivos]);
+/** Página actual de planes de limpieza. */
+export function usePlanesLimpieza(
+  filtros: FiltrosPlanesLimpieza = {},
+  pageSize = 10
+) {
+  const {
+    incluirInactivos = false,
+    buscar,
+    equipoId,
+    orden = "nombre_asc",
+  } = filtros;
 
-    const { items, loading, error, recargar } = useLista<PlanLimpieza[]>({
-        cargar: cargarPlanes,
-        dependencias: [incluirInactivos],
-        valorInicial: [],
-        mensajeError: "No se pudieron cargar los planes de limpieza",
-    });
+  const cargar = useCallback(
+    (page: number, pageSize: number) =>
+      listarPlanesLimpieza(page, pageSize, {
+        incluirInactivos,
+        buscar,
+        equipoId,
+        orden,
+      }),
+    [incluirInactivos, buscar, equipoId, orden]
+  );
 
-    return { planes: items, loading, error, cargarPlanes: recargar };
+  const {
+    items,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    recargar,
+  } = useListaPaginada<PlanLimpieza>({
+    cargar,
+    dependencias: [incluirInactivos, buscar, equipoId, orden],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los planes de limpieza",
+    pageSize,
+  });
+
+  return {
+    planes: items,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarPlanes: recargar,
+  };
 }

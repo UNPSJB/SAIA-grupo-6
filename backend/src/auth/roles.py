@@ -43,18 +43,16 @@ def puede_editar_a(actor: Personal, objetivo: Personal) -> bool:
 
 
 def puede_modificar_roles(actor: Personal, objetivo: Personal) -> bool:
-    """True si `actor` puede cambiar capacidades o el flag de super admin.
-
-    Hace falta tener poder de administración: editar tu propio perfil no te
-    permite darte permisos (ni quite) a vos mismo.
-    """
     if not puede_administrar(actor):
+        return False
+
+    # Nadie se concede ni se quita capacidades a sí mismo.
+    if actor.id == objetivo.id:
         return False
 
     if not puede_editar_a(actor, objetivo):
         return False
 
-    # El flag de super admin solo lo mueve otro super admin.
     if objetivo.es_super_admin and not es_super_admin(actor):
         return False
 

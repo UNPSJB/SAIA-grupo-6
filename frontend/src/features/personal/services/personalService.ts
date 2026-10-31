@@ -1,15 +1,36 @@
-import type { Persona, PersonaInput } from "../types/personal";
+import type { Persona, PersonaInput, RolPersonal } from "../types/personal";
 import { pedir } from "../../../common/api/errors";
 
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
+export type ColumnaOrdenPersonal = "nombre" | "dni";
+export type OrdenPersonal =
+    | `${ColumnaOrdenPersonal}_asc`
+    | `${ColumnaOrdenPersonal}_desc`;
 
-export async function listarPersonal(incluirInactivos = false): Promise<Persona[]> {
-    const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+export interface FiltrosPersonal {
+    incluirInactivos?: boolean;
+    buscar?: string;
+    rol?: RolPersonal;
+    orden?: OrdenPersonal;
+}
+
+export async function listarPersonal(
+    page: number,
+    pageSize: number,
+    filtros: FiltrosPersonal = {}
+): Promise<Pagina<Persona>> {
+    const query = queryPagina(page, pageSize, {
+        incluir_inactivos: filtros.incluirInactivos || undefined,
+        buscar: filtros.buscar?.trim() || undefined,
+        rol: filtros.rol,
+        orden: filtros.orden,
+    });
     const response = await apiFetch(`${API_URL}/personal${query}`);
-    return pedir<Persona[]>(response, "Error al obtener el personal");
+    return pedir<Pagina<Persona>>(response, "Error al obtener el personal");
 }
 
 export async function obtenerPersona(id: number): Promise<Persona> {

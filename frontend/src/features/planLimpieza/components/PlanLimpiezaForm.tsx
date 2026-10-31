@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useMemo, useState } from "react";
 import { Button, HStack, Stack, Textarea } from "@chakra-ui/react";
 import { LuPlus, LuTrash2 } from "react-icons/lu";
 import type { PlanLimpiezaInput } from "../services/planLimpiezaService";
@@ -18,7 +19,7 @@ import {
   TarjetaFormulario,
   TituloFormulario,
 } from "../../../components/ui/patrones";
-
+import type { SectorResumen } from "../../sector/types/sector";
 interface PlanLimpiezaFormProps {
   initialValues?: PlanLimpiezaInput;
   onSubmit: (values: PlanLimpiezaInput) => Promise<void> | void;
@@ -74,12 +75,32 @@ export function PlanLimpiezaForm({
     error: errorOpciones,
   } = useOpcionesPlanLimpieza();
 
+
+  const [sectorElegido, setSectorElegido] = useState<number | null>(null);
+
+  const equipoSeleccionado = equipos.find((e) => e.id === values.equipo_id);
+  const sectorId = sectorElegido ?? equipoSeleccionado?.sector_id ?? 0;
+
+  // Sectores que realmente tienen equipos, sin repetir y ordenados.
+  const sectoresDisponibles = useMemo(() => {
+    const porId = new Map<number, SectorResumen>();
+    equipos.forEach((equipo) => porId.set(equipo.sector.id, equipo.sector));
+    return [...porId.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [equipos]);
+
+  const equiposDelSector = equipos.filter((e) => e.sector_id === sectorId);
+
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({ ...prev, nombre: e.target.value }));
 
   const handleEquipoChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({ ...prev, equipo_id: Number(e.target.value) }));
 
+  const handleSectorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSectorElegido(Number(e.target.value));
+    // El equipo anterior puede no pertenecer al sector nuevo.
+    setValues((prev) => ({ ...prev, equipo_id: 0 }));
+  };
   const handleAutorChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({ ...prev, autor_id: Number(e.target.value) }));
 
@@ -164,7 +185,8 @@ export function PlanLimpiezaForm({
     if (!tarea.frecuencia || tarea.frecuencia <= 0)
       faltantes.push(`la frecuencia de la tarea ${indice + 1}`);
   });
-  if (!values.equipo_id) faltantes.push("el equipo");
+  if (!sectorId) faltantes.push("el sector");
+  else if (!values.equipo_id) faltantes.push("el equipo");
   if (!values.autor_id) faltantes.push("el autor");
 
   return (
@@ -317,17 +339,46 @@ export function PlanLimpiezaForm({
         Agregar tarea
       </Button>
 
-      <FormField label="Equipo" required mb="4">
+            <FormField label="Sector" required mb="4">
         <FormNativeSelect
-          value={values.equipo_id}
-          onChange={handleEquipoChange}
+          value={sectorId}
+          onChange={handleSectorChange}
           disabled={cargandoOpciones}
           maxW="500px"
         >
           <SelectPlaceholder value={0}>
-            {cargandoOpciones ? "Cargando..." : "Seleccioná un equipo"}
+            {cargandoOpciones ? "Cargando..." : "Seleccioná un sector"}
           </SelectPlaceholder>
-          {equipos.map((equipo) => (
+          {sectoresDisponibles.map((sector) => (
+            <option key={sector.id} value={sector.id}>
+              {sector.nombre}
+            </option>
+          ))}
+        </FormNativeSelect>
+      </FormField>
+
+      <FormField
+        label="Equipo"
+        required
+        helper="Solo se muestran los equipos del sector elegido."
+        mb="4"
+      >
+        <FormNativeSelect
+          value={values.equipo_id}
+          onChange={handleEquipoChange}
+          disabled={cargandoOpciones || !sectorId}
+          maxW="500px"
+        >
+          <SelectPlaceholder value={0}>
+            {cargandoOpciones
+              ? "Cargando..."
+              : !sectorId
+                ? "Primero elegí un sector"
+                : equiposDelSector.length === 0
+                  ? "Este sector no tiene equipos"
+                  : "Seleccioná un equipo"}
+          </SelectPlaceholder>
+          {equiposDelSector.map((equipo) => (
             <option key={equipo.id} value={equipo.id}>
               {equipo.nombre}
             </option>

@@ -1,8 +1,12 @@
+
+import type { SectorResumen } from "../../sector/types/sector";
+
 export interface Equipo {
   id: number;
   nombre: string;
   tipo: string;
-  ubicacion: string;
+  sector_id: number;
+  sector: SectorResumen;
   activo: boolean;
   /** Cada cuántos días vence la calibración. Si viene null el backend usa 365. */
   frecuencia_calibracion_dias?: number | null;
@@ -23,3 +27,6 @@ export interface Calibracion {
   certificado_url: string;
   tipo: TipoIntervencion;
 }
+
+
+export type EquipoInput = Omit<Equipo, "id" | "sector">;

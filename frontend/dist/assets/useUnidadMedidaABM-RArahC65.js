@@ -1,0 +1,1 @@
+import{Gn as e}from"./index-zc17_PMe.js";import{t}from"./useABM-COjPUDIL.js";import{a as n,n as r,s as i,t as a}from"./unidadMedidaService-CEpflrlf.js";var o=e();function s(){let e=(0,o.c)(1),s;return e[0]===Symbol.for(`react.memo_cache_sentinel`)?(s={crear:a,modificar:n,eliminar:r,reactivar:i,etiqueta:`la unidad de medida`},e[0]=s):s=e[0],t(s)}export{s as t};

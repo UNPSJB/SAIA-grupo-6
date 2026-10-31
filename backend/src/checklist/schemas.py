@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.checklist.models import EstadoChecklist
+from src.common.paginacion import Pagina
 
 
 class ChecklistTareaItem(BaseModel):
@@ -153,6 +154,17 @@ class HistorialChecklistResponse(BaseModel):
     checklists: List[HistorialChecklistItem]
 
 
+class HistorialChecklistPagina(Pagina[HistorialChecklistItem]):
+    """Versión paginada del historial: además del sobre estándar
+    (`items`/`total`/...) trae el cumplimiento general del PERÍODO completo,
+    que no depende de la página que se esté mirando."""
+
+    fecha_desde: date
+    fecha_hasta: date
+    equipo_id: Optional[int] = None
+    porcentaje_cumplimiento_general: float
+
+
 class DetalleChecklistTareaItem(BaseModel):
     """Estado registrado de una tarea dentro de un checklist histórico.
 
@@ -197,12 +209,22 @@ class ConsumoInsumoItem(BaseModel):
 
 class ConsumoPorFechaItem(BaseModel):
     fecha: date
+    insumo_quimico_id: int
+    nombre: str
+    unidad_medida_id: int
+    unidad_simbolo: Optional[str] = None
+    cantidad_total: float
+
+
+class ConsumoPorUnidadItem(BaseModel):
+    unidad_medida_id: int
+    unidad_simbolo: Optional[str] = None
     cantidad_total: float
 
 
 class ConsumoInsumosResponse(BaseModel):
     fecha_desde: date
     fecha_hasta: date
-    total_general: float
     insumos: List[ConsumoInsumoItem]
-    por_fecha: List[ConsumoPorFechaItem]
+    totales_por_unidad: List[ConsumoPorUnidadItem]
+    por_producto_fecha: List[ConsumoPorFechaItem]

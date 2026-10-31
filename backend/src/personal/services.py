@@ -1,9 +1,14 @@
+import hmac
 import logging
-from typing import List
+import secrets
+from typing import List, Optional
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
+from src.common.texto import sin_tildes
+from src.common.persistence import aplicar_cambios
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
 from src.common.persistence import es_violacion_nulo, es_violacion_unica
@@ -11,6 +16,36 @@ from src.exceptions import ConflictoRegistroInactivo
 from src.auth.services import hashear_password, verificar_password, es_hash_bcrypt
 
 logger = logging.getLogger(__name__)
+
+# Hash bcrypt válido generado una sola vez para igualar tiempos cuando el DNI no existe
+_DUMMY_PASSWORD_HASH = hashear_password("dummy-password")
+
+# Claves del query string -> expresión de orden. La columna "Nombre" de la
+# tabla muestra nombre y apellido juntos, así que ordena por ambos.
+_ORDENES = {
+    "nombre_asc": ColumnaOrden(
+        (sin_tildes(Personal.nombre), sin_tildes(Personal.apellido)),
+        nulos_al_final=True,
+    ),
+    "nombre_desc": ColumnaOrden(
+        (sin_tildes(Personal.nombre), sin_tildes(Personal.apellido)),
+        descendente=True,
+        nulos_al_final=True,
+    ),
+    "dni_asc": ColumnaOrden((Personal.dni,)),
+    "dni_desc": ColumnaOrden((Personal.dni,), descendente=True),
+}
+
+# Filtro por rol. Son excluyentes: "administrador" no incluye a los super
+# admin y "operador" no incluye a quien además administra.
+_ROLES = {
+    "super_admin": Personal.es_super_admin.is_(True),
+    "administrador": Personal.es_super_admin.is_(False)
+    & Personal.puede_administrar.is_(True),
+    "operador": Personal.es_super_admin.is_(False)
+    & Personal.puede_administrar.is_(False)
+    & Personal.puede_operar.is_(True),
+}
 
 # ==========================================
 # OPERACIONES CRUD PARA PERSONAL
@@ -57,11 +92,23 @@ def crear_persona(
     _verificar_disponibilidad(db, "dni", persona.dni)
     _verificar_disponibilidad(db, "email", persona.email)
 
-    datos_persona = persona.model_dump()
-    # Contraseña inicial: la que vino explícita o, por defecto, el DNI.
-    # Nadie elige la contraseña de otra persona: se cambia desde "Mi perfil".
-    datos_persona["password"] = hashear_password(datos_persona["password"] or persona.dni)
+    from datetime import datetime, timezone
+    now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    datos_persona = persona.model_dump(exclude={"password"})
+    password_temporal = None
+    if not persona.password:
+        password_temporal = secrets.token_urlsafe(9)
+        password_plain = password_temporal
+    else:
+        password_plain = persona.password
+
+    datos_persona["password"] = hashear_password(password_plain)
+    datos_persona["debe_cambiar_password"] = password_temporal is not None
+    datos_persona["password_changed_at"] = now_utc_naive
     _persona = Personal(**datos_persona)
+    # Exponer la contraseña temporal una sola vez en la respuesta
+    _persona.password_temporal = password_temporal
     db.add(_persona)
 
     try:
@@ -95,9 +142,44 @@ def crear_persona(
         raise exceptions.DatoDuplicado()
 
 
+def _consulta_personas(
+    incluir_inactivos: bool,
+    buscar: Optional[str],
+    rol: Optional[str],
+):
+    """Consulta base compartida por el listado completo y el paginado."""
+    consulta = select(Personal)
+
+    filtros = [
+        filtro
+        for filtro in (
+            filtro_busqueda(
+                (
+                    Personal.nombre,
+                    Personal.apellido,
+                    Personal.dni,
+                    Personal.email,
+                ),
+                buscar,
+            ),
+            _ROLES.get(rol) if rol else None,
+        )
+        if filtro is not None
+    ]
+    if filtros:
+        consulta = consulta.where(*filtros)
+
+    if not incluir_inactivos:
+        consulta = consulta.where(Personal.activo.is_(True))
+
+    return consulta
+
+
 def listar_personas(
     db: Session,
-    incluir_inactivos: bool = False
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+    rol: Optional[str] = None,
 ) -> List[Personal]:
 
     logger.info(
@@ -105,12 +187,42 @@ def listar_personas(
         incluir_inactivos
     )
 
-    query = select(Personal)
+    consulta = _consulta_personas(incluir_inactivos, buscar, rol).order_by(
+        Personal.id
+    )
+    return list(db.scalars(consulta).all())
 
-    if not incluir_inactivos:
-        query = query.where(Personal.activo.is_(True))
 
-    return db.scalars(query).all()
+def listar_personas_paginado(
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+    buscar: Optional[str] = None,
+    rol: Optional[str] = None,
+    orden: str = "nombre_asc",
+) -> tuple[List[Personal], int]:
+    """Mismo filtro que `listar_personas`, recortado en la base: página + total.
+
+    `paginar_consulta` agrega el desempate por `id`: sin un orden
+    determinista, OFFSET/LIMIT puede repetir u omitir filas entre páginas.
+    """
+    logger.info(
+        "Listando personal paginado desde services (incluir_inactivos=%s, page=%s)",
+        incluir_inactivos,
+        page,
+    )
+
+    return paginar_consulta(
+        db,
+        _consulta_personas(incluir_inactivos, buscar, rol),
+        modelo=Personal,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="nombre_asc",
+        page=page,
+        page_size=page_size,
+    )
 
 
 def leer_persona(
@@ -128,6 +240,19 @@ def leer_persona(
     return db_persona
 
 
+def _mapear_conflicto_persona(mensaje: str) -> Exception:
+    """Traduce un IntegrityError del PUT a la excepción de negocio.
+
+    Mismas reglas que tenía el update() de Core: el mensaje del driver
+    distingue si el valor duplicado es el DNI o el email.
+    """
+    if "dni" in mensaje:
+        return exceptions.DniDuplicado()
+    if "email" in mensaje:
+        return exceptions.EmailDuplicado()
+    return exceptions.DatoDuplicado()
+
+
 def modificar_persona(
     db: Session,
     persona_id: int,
@@ -139,35 +264,28 @@ def modificar_persona(
     # Solo actualizamos los campos que realmente fueron enviados.
     datos_a_actualizar = persona.model_dump(exclude_unset=True)
 
+    for campo in ("password", "puede_operar", "puede_administrar", "es_super_admin", "activo", "nombre", "dni", "email"):
+        if campo in datos_a_actualizar and datos_a_actualizar[campo] is None:
+            del datos_a_actualizar[campo]
+
     if "password" in datos_a_actualizar and datos_a_actualizar["password"]:
+        from datetime import datetime, timezone
         datos_a_actualizar["password"] = hashear_password(datos_a_actualizar["password"])
+        datos_a_actualizar["password_changed_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(Personal)
-                .where(Personal.id == persona_id)
-                .values(**datos_a_actualizar)
-            )
+    if not datos_a_actualizar:
+        return db_persona
 
-            db.commit()
-            db.refresh(db_persona)
+    # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no vería el cambio.
+    resultante = {
+    campo: datos_a_actualizar.get(campo, getattr(db_persona, campo))
+        for campo in ("puede_operar", "puede_administrar", "es_super_admin")
+    }
+    if not any(resultante.values()):
+        raise exceptions.DatoInvalido()
 
-        except IntegrityError as e:
-            db.rollback()
-
-            mensaje_error = str(e.orig).lower()
-
-            if "dni" in mensaje_error:
-                raise exceptions.DniDuplicado()
-
-            elif "email" in mensaje_error:
-                raise exceptions.EmailDuplicado()
-
-            else:
-                raise exceptions.DatoDuplicado()
-
-    return db_persona
+    return aplicar_cambios(db, db_persona, datos_a_actualizar, _mapear_conflicto_persona)
 
 
 def eliminar_persona(
@@ -191,19 +309,27 @@ def autenticar_persona(db: Session, dni: str, password: str):
         select(Personal).where(Personal.dni == dni)
     )
     
-    # 2. Si no encontramos a nadie con ese DNI, tiramos el error específico
+    # Para timing equality, verificamos contra un hash dummy si no existe
     if not persona:
+        # Ejecutar verificación contra hash dummy para igualar tiempo
+        verificar_password(password, _DUMMY_PASSWORD_HASH)
         raise HTTPException(
-            status_code=404, 
-            detail="El DNI ingresado no está registrado en el sistema."
+            status_code=401,
+            detail="DNI o contraseña incorrectos."
         )
     
-    # 3. Si el DNI existe, pero la contraseña está mal
+    # 3. Si el DNI existe, verificar contraseña
     password_ok = verificar_password(password, persona.password)
 
     # Migración suave: contraseñas viejas guardadas en texto plano se aceptan
     # una vez y se reemplazan por su hash.
-    if not password_ok and not es_hash_bcrypt(persona.password) and persona.password == password:
+    if (
+        not password_ok
+        and persona.password
+        and not es_hash_bcrypt(persona.password)
+        and hmac.compare_digest(persona.password.encode(), password.encode())
+    ):
+        db.info["usuario_id"] = persona.id
         persona.password = hashear_password(password)
         db.commit()
         db.refresh(persona)
@@ -212,7 +338,7 @@ def autenticar_persona(db: Session, dni: str, password: str):
     if not password_ok:
         raise HTTPException(
             status_code=401,
-            detail="La contraseña es incorrecta."
+            detail="DNI o contraseña incorrectos."
         )
     
     # 4. Si la contraseña es correcta, revisamos si está dado de baja
@@ -221,6 +347,8 @@ def autenticar_persona(db: Session, dni: str, password: str):
             status_code=403, 
             detail="Este usuario se encuentra dado de baja. Comunicate con un administrador para reactivarlo."
         )
+
+    
     
     # 5. Si pasó todos los filtros, lo dejamos entrar
     return persona

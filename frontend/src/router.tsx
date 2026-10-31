@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, type ReactNode } from "react";
-import { createBrowserRouter, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
@@ -11,7 +11,7 @@ import { Login } from "./features/Login";
 // `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
 // las 35 páginas entraban al bundle inicial.
 
-import Navbar from "./common/components/Navbar";
+import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
 
 // 0. Panel principal
@@ -137,6 +137,29 @@ const InsumoQuimicoCreatePage = lazy(() =>
 const InsumoQuimicoEditPage = lazy(() =>
   import("./features/insumoQuimico/components/pages/InsumoQuimicoEditPage").then((mod) => ({ default: mod.InsumoQuimicoEditPage })),
 );
+const GestionStockPage = lazy(() =>
+  import("./features/insumoQuimico/components/pages/GestionStockPage").then((mod) => ({ default: mod.GestionStockPage })),
+);
+const StockActualTab = lazy(() =>
+  import("./features/insumoQuimico/components/StockActualTab").then((mod) => ({ default: mod.StockActualTab })),
+);
+const MovimientosStockTab = lazy(() =>
+  import("./features/insumoQuimico/components/MovimientosStockTab").then((mod) => ({ default: mod.MovimientosStockTab })),
+);
+const LotesStockTab = lazy(() =>
+  import("./features/insumoQuimico/components/LotesStockTab").then((mod) => ({ default: mod.LotesStockTab })),
+);
+
+// Proveedores
+const ProveedorPage = lazy(() =>
+  import("./features/proveedores/components/pages/ProveedorPage").then((mod) => ({ default: mod.ProveedorPage })),
+);
+const ProveedorCreatePage = lazy(() =>
+  import("./features/proveedores/components/pages/ProveedorCreatePage").then((mod) => ({ default: mod.ProveedorCreatePage })),
+);
+const ProveedorEditPage = lazy(() =>
+  import("./features/proveedores/components/pages/ProveedorEditPage").then((mod) => ({ default: mod.ProveedorEditPage })),
+);
 
 // Notificaciones
 const NotificacionesPage = lazy(() =>
@@ -164,6 +187,22 @@ const AptitudCreatePage = lazy(() =>
 );
 const AptitudEditPage = lazy(() =>
   import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
+);
+
+//  Sector
+const SectorPage = lazy(() =>
+  import("./features/sector/components/pages/SectorPage").then((mod) => ({ default: mod.SectorPage })),
+);
+const SectorCreatePage = lazy(() =>
+  import("./features/sector/components/pages/SectorCreatePage").then((mod) => ({ default: mod.SectorCreatePage })),
+);
+const SectorEditPage = lazy(() =>
+  import("./features/sector/components/pages/SectorEditPage").then((mod) => ({ default: mod.SectorEditPage })),
+);
+
+// Auditoría
+const AuditoriaPage = lazy(() =>
+  import("./features/auditoria/components/pages/AuditoriaPage").then((mod) => ({ default: mod.AuditoriaPage })),
 );
 
 // 9. Incidentes
@@ -206,10 +245,17 @@ function ConSuspense({ children }: { children: ReactNode }) {
 function LayoutPrincipal() {
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
+      {/*
+       * El sidebar es overlay (`position: fixed`): no ocupa lugar en el
+       * flex. El contenido reserva SIEMPRE el ancho del rail plegado, así
+       * plegar/desplegar no reacomoda nada: con el panel desplegado, este
+       * aparece por encima de la vista en vez de empujarla.
+       */}
       <Navbar />
 
       <Flex
         flex={1}
+        ml={ANCHO_COLAPSADO}
         p="15px 30px"
         overflowY="auto"
         direction="column"
@@ -508,6 +554,42 @@ export const router = createBrowserRouter([
               ),
               },
 
+              // ---------------- SECTORES ----------------
+              {
+                path: "/sectores",
+                element: (
+                <ConSuspense>
+                  <SectorPage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/sectores/nuevo",
+                element: (
+                <ConSuspense>
+                  <SectorCreatePage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/sectores/:id/editar",
+                element: (
+                <ConSuspense>
+                  <SectorEditPage />
+                </ConSuspense>
+              ),
+              },
+
+              // ---------------- AUDITORÍA ----------------
+              {
+                path: "/auditoria",
+                element: (
+                <ConSuspense>
+                  <AuditoriaPage />
+                </ConSuspense>
+              ),
+              },
+
               // ---------------- CHECKLIST ----------------
               {
                 path: "/checklist/historial",
@@ -519,11 +601,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: "/consumo-productos",
-                element: (
-                <ConSuspense>
-                  <ConsumoInsumosPage />
-                </ConSuspense>
-              ),
+                element: <Navigate to="/gestion-stock/consumos" replace />,
               },
 
               // ---------------- NOTIFICACIONES ----------------
@@ -560,6 +638,78 @@ export const router = createBrowserRouter([
                   <InsumoQuimicoEditPage />
                 </ConSuspense>
               ),
+              },
+              {
+                path: "/gestion-stock",
+                element: (
+                  <ConSuspense>
+                    <GestionStockPage />
+                  </ConSuspense>
+                ),
+                children: [
+                  {
+                    index: true,
+                    element: <Navigate to="/gestion-stock/stock" replace />,
+                  },
+                  {
+                    path: "stock",
+                    element: (
+                      <ConSuspense>
+                        <StockActualTab />
+                      </ConSuspense>
+                    ),
+                  },
+                  {
+                    path: "movimientos",
+                    element: (
+                      <ConSuspense>
+                        <MovimientosStockTab />
+                      </ConSuspense>
+                    ),
+                  },
+                  {
+                    path: "lotes",
+                    element: (
+                      <ConSuspense>
+                        <LotesStockTab />
+                      </ConSuspense>
+                    ),
+                  },
+                  {
+                    path: "consumos",
+                    element: (
+                      <ConSuspense>
+                        <ConsumoInsumosPage />
+                      </ConSuspense>
+                    ),
+                  },
+                ],
+              },
+
+              // ---------------- PROVEEDORES ----------------
+              {
+                path: "/proveedores",
+                element: (
+                  <ConSuspense>
+                    <ProveedorPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/proveedores/nuevo",
+                element: (
+                  <ConSuspense>
+                    <ProveedorCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/proveedores/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <ProveedorEditPage />
+                  </ConSuspense>
+                ),
               },
 
               // ---------------- UNIDAD DE MEDIDA ----------------

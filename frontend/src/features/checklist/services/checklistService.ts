@@ -5,7 +5,7 @@ import type {
   HistorialRegistroTareaResponse,
 } from "../types/checklist";
 
-import type { ConsumoInsumosResponse, HistorialChecklistResponse } from "../types/checklist";
+import type { ConsumoInsumosResponse, HistorialChecklistPagina } from "../types/checklist";
 
 
 import { pedir } from "../../../common/api/errors";
@@ -124,20 +124,41 @@ export async function obtenerHistorialRegistro(
 }
 
 
+export interface OpcionesHistorialChecklists {
+  equipoId?: number;
+  page?: number;
+  pageSize?: number;
+  buscar?: string;
+  /** `fecha_desc` (default), `fecha_asc`, `equipo_asc` o `equipo_desc`. */
+  orden?: string;
+}
+
 export async function obtenerHistorialChecklists(
   fechaDesde: string,
   fechaHasta: string,
-  equipoId?: number
-): Promise<HistorialChecklistResponse> {
+  opciones: OpcionesHistorialChecklists = {}
+): Promise<HistorialChecklistPagina> {
+  const {
+    equipoId,
+    page = 1,
+    pageSize = 10,
+    buscar = "",
+    orden = "",
+  } = opciones;
+
   const params = new URLSearchParams({
     fecha_desde: fechaDesde,
     fecha_hasta: fechaHasta,
+    page: String(page),
+    page_size: String(pageSize),
   });
   if (equipoId !== undefined) params.append("equipo_id", String(equipoId));
+  if (buscar.trim() !== "") params.append("buscar", buscar.trim());
+  if (orden !== "") params.append("orden", orden);
 
   const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
 
-  return pedir<HistorialChecklistResponse>(
+  return pedir<HistorialChecklistPagina>(
     response,
     "Error al obtener el historial de checklists"
   );

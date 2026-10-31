@@ -16,6 +16,10 @@ class ChecklistFuturo(BadRequest):
     DETAIL = ErrorCode.CHECKLIST_FUTURO
 
 
+class TareaNoCorrespondeALaFecha(BadRequest):
+    DETAIL = ErrorCode.TAREA_NO_CORRESPONDE_A_LA_FECHA
+
+
 class CantidadConsumidaInvalida(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_CONSUMIDA_INVALIDA
 
@@ -27,6 +31,11 @@ class ChecklistInmutable(DetailedHTTPException):
 
     STATUS_CODE = status.HTTP_409_CONFLICT
     DETAIL = ErrorCode.CHECKLIST_INMUTABLE
+
+
+class ActualizacionConcurrente(DetailedHTTPException):
+    STATUS_CODE = status.HTTP_409_CONFLICT
+    DETAIL = "La tarea fue actualizada por otra operación. Actualizá la pantalla e intentá nuevamente."
 
 # Nota: para "tarea no encontrada" y "equipo no encontrado" reutilizamos las
 # excepciones ya definidas en src.tareas.exceptions y src.Equipo.exceptions,

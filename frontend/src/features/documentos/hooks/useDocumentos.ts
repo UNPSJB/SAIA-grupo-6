@@ -1,18 +1,45 @@
 import { useCallback } from "react";
-import { useLista } from "../../../common/hooks/useLista";
-import { listarDocumentos } from "../services/documentoService";
+import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
+import { listarDocumentos, type FiltrosDocumentos } from "../services/documentoService";
 import type { Documento } from "../types/documento";
 
-export function useDocumentos() {
-  const cargarDocumentos = useCallback(() => listarDocumentos(), []);
+/**
+ * Página actual de documentos.
+ */
+export function useDocumentos(filtros: FiltrosDocumentos = {}, pageSize = 10) {
+  const { buscar, tipo = "", estado = "", orden = "nombre_asc" } = filtros;
 
-  const { items, loading, error, recargar } = useLista<Documento[]>({
-    cargar: cargarDocumentos,
-    dependencias: [],
+  const cargar = useCallback(
+    (page: number, pageSize: number) =>
+      listarDocumentos(page, pageSize, { buscar, tipo, estado, orden }),
+    [buscar, tipo, estado, orden]
+  );
+
+  const {
+    items,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    recargar,
+  } = useListaPaginada<Documento>({
+    cargar,
+    dependencias: [buscar, tipo, estado, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los documentos",
-    preferirMensajeDelBackend: true,
+    pageSize,
   });
 
-  return { documentos: items, loading, error, cargarDocumentos: recargar };
+  return {
+    documentos: items,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    recargar,
+  };
 }

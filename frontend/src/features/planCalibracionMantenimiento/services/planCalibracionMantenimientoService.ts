@@ -2,9 +2,29 @@ import type {
   PlanCalibracionMantenimiento,
   PlanCalibracionMantenimientoCreate,
   PlanCalibracionMantenimientoUpdate,
+  TipoPlanCalibracionMantenimiento,
 } from "../types/planCalibracionMantenimiento";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
+
+export type ColumnaOrdenPlanCalibracion =
+  | "equipo"
+  | "tipo"
+  | "intervencion"
+  | "periodicidad"
+  | "vencimiento";
+export type OrdenPlanCalibracion =
+  | `${ColumnaOrdenPlanCalibracion}_asc`
+  | `${ColumnaOrdenPlanCalibracion}_desc`;
+
+export interface FiltrosPlanesCalibracion {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  tipo?: TipoPlanCalibracionMantenimiento | "";
+  equipoId?: number;
+  orden?: OrdenPlanCalibracion;
+}
 
 export async function listarPlanesCalibracionMantenimiento(
   incluirInactivos = false,
@@ -15,6 +35,33 @@ export async function listarPlanesCalibracionMantenimiento(
   );
 
   return pedir<PlanCalibracionMantenimiento[]>(
+    response,
+    "Error al obtener los planes de calibración y mantenimiento",
+  );
+}
+
+/**
+ * Página de planes para la tabla (paginación server-side). La lista completa
+ * de arriba sigue existiendo para las pantallas de equipo, que muestran todos
+ * los planes de un equipo de una vez.
+ */
+export async function listarPlanesCalibracionMantenimientoPaginados(
+  page: number,
+  pageSize: number,
+  filtros: FiltrosPlanesCalibracion = {},
+): Promise<Pagina<PlanCalibracionMantenimiento>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    tipo: filtros.tipo || undefined,
+    equipo_id: filtros.equipoId || undefined,
+    orden: filtros.orden,
+  });
+  const response = await apiFetch(
+    `${API_URL}/planes-calibracion-mantenimiento${query}`,
+  );
+
+  return pedir<Pagina<PlanCalibracionMantenimiento>>(
     response,
     "Error al obtener los planes de calibración y mantenimiento",
   );

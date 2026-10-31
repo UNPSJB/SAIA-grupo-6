@@ -1,3 +1,5 @@
+import type { SectorResumen } from "../../sector/types/sector";
+
 export type TipoTarea =
   | "preoperacional"
   | "operacional"
@@ -49,6 +51,8 @@ export interface PlanLimpieza {
 export interface EquipoOption {
   id: number;
   nombre: string;
+  sector_id: number;
+  sector: SectorResumen;
 }
 
 export interface PersonalOption {

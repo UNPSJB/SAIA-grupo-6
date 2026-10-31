@@ -84,15 +84,25 @@ export interface ConsumoInsumoItem {
 
 export interface ConsumoPorFechaItem {
   fecha: string;
+  insumo_quimico_id: number;
+  nombre: string;
+  unidad_medida_id: number;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+}
+
+export interface ConsumoPorUnidadItem {
+  unidad_medida_id: number;
+  unidad_simbolo?: string | null;
   cantidad_total: number;
 }
 
 export interface ConsumoInsumosResponse {
   fecha_desde: string;
   fecha_hasta: string;
-  total_general: number;
   insumos: ConsumoInsumoItem[];
-  por_fecha: ConsumoPorFechaItem[];
+  totales_por_unidad: ConsumoPorUnidadItem[];
+  por_producto_fecha: ConsumoPorFechaItem[];
 }
 
 export interface TareasDelDiaResponse {
@@ -138,6 +148,23 @@ export interface HistorialChecklistResponse {
   equipo_id: number | null;
   porcentaje_cumplimiento_general: number;
   checklists: HistorialChecklistItem[];
+}
+
+/**
+ * Versión paginada del historial: `items` trae una sola página y el
+ * cumplimiento general sigue siendo del PERÍODO completo (no cambia con la
+ * página que se esté mirando).
+ */
+export interface HistorialChecklistPagina {
+  items: HistorialChecklistItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_paginas: number;
+  fecha_desde: string;
+  fecha_hasta: string;
+  equipo_id: number | null;
+  porcentaje_cumplimiento_general: number;
 }
 
 export interface DetalleChecklistTareaItem {

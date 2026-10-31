@@ -1,10 +1,11 @@
 import logging
 from typing import List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.common.persistence import es_violacion_unica
+from src.common.persistence import aplicar_cambios, es_violacion_unica
 from src.tareas import models, schemas, exceptions
 
 # logger para este módulo específico
@@ -35,6 +36,17 @@ def crear_tarea(db: Session, tarea: schemas.TareaCreate) -> models.Tarea:
     """Agrega una tarea suelta a un plan de limpieza ya existente.
     Para crear varias tareas junto con el plan, ver PlanLimpieza.services.crear_plan_limpieza."""
     _verificar_plan_existe(db, tarea.plan_limpieza_id)
+
+    # Validar nombre duplicado dentro del mismo plan, ignorando tareas inactivas
+    existente = db.scalar(
+        select(models.Tarea).where(
+            models.Tarea.nombre == tarea.nombre,
+            models.Tarea.plan_limpieza_id == tarea.plan_limpieza_id,
+            models.Tarea.activo == True,
+        )
+    )
+    if existente:
+        raise exceptions.NombreDuplicado()
 
     _tarea = models.Tarea(**tarea.model_dump())
     db.add(_tarea)
@@ -78,6 +90,10 @@ def modificar_tarea(
 
     datos_a_actualizar = tarea.model_dump(exclude_unset=True)
 
+    for campo in ("nombre", "frecuencia", "tipo", "activo"):
+        if campo in datos_a_actualizar and datos_a_actualizar[campo] is None:
+            del datos_a_actualizar[campo]
+
     # si se está cambiando el nombre, verifico que no choque con otra tarea
     # DEL MISMO PLAN (dos planes distintos sí pueden tener una tarea "Limpiar" cada uno)
     if "nombre" in datos_a_actualizar:
@@ -85,22 +101,22 @@ def modificar_tarea(
             select(models.Tarea).where(
                 models.Tarea.nombre == datos_a_actualizar["nombre"],
                 models.Tarea.plan_limpieza_id == db_tarea.plan_limpieza_id,
+                models.Tarea.activo == True,
                 models.Tarea.id != tarea_id,
             )
         )
         if existente:
             raise exceptions.NombreDuplicado()
 
-    if datos_a_actualizar:
-        db.execute(
-            update(models.Tarea)
-            .where(models.Tarea.id == tarea_id)
-            .values(**datos_a_actualizar)
-        )
-        db.commit()
-        db.refresh(db_tarea)
+    if not datos_a_actualizar:
+        return db_tarea
 
-    return db_tarea
+    # Asignación por ORM y no un update() de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no vería el cambio.
+    # Sin mapeo de IntegrityError, igual que antes: el nombre duplicado ya
+    # se validó arriba, cualquier otro error de integridad se propaga tal
+    # cual al manejador global.
+    return aplicar_cambios(db, db_tarea, datos_a_actualizar)
 
 
 def eliminar_tarea(db: Session, tarea_id: int) -> models.Tarea:

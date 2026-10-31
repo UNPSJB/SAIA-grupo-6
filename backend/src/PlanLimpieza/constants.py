@@ -13,3 +13,6 @@ class ErrorCode:
     TAREAS_VACIAS = "El plan de limpieza debe tener al menos una tarea."
     EQUIPO_ID_INVALIDO = "El equipo indicado no es válido."
     AUTOR_ID_INVALIDO = "El autor indicado no es válido."
+
+    EQUIPO_NO_ENCONTRADO = "El equipo indicado no existe."
+    EQUIPO_INACTIVO = "El equipo indicado está dado de baja."

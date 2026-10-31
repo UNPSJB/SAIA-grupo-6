@@ -60,6 +60,11 @@ export function haceDiasISO(dias: number): string {
   return fechaLocalISO(fecha);
 }
 
+/** Primer día del mes de `fecha` en formato `YYYY-MM-DD`. */
+export function inicioMesISO(fecha: Date = new Date()): string {
+  return fechaLocalISO(new Date(fecha.getFullYear(), fecha.getMonth(), 1));
+}
+
 /**
  * `YYYY-MM-DD` en hora local. `toISOString()` no sirve: convierte a UTC y en
  * el timezone UTC-3 devuelve el día anterior.

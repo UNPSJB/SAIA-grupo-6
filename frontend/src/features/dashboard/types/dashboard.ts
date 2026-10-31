@@ -5,9 +5,9 @@ import {
   type Incidente,
   type TipoIncidente,
 } from "../../incidente/types/incidente";
-import type { Notificacion } from "../../notificaciones/types/notificacion";
 import type { Equipo } from "../../equipo/types/equipo";
 import type { PlanCalibracionMantenimiento } from "../../planCalibracionMantenimiento/types/planCalibracionMantenimiento";
+import type { Notificacion } from "../../notificaciones/types/notificacion";
 import { hoyISO } from "../../../common/utils/fechas";
 
 /**
@@ -143,6 +143,8 @@ export function diasDesdeHoy(fecha: string): number {
  * que el vencimiento es hoy.
  */
 export function etiquetaPlazo(notificacion: Notificacion): string {
+  if (notificacion.nivel === "STOCK_BAJO") return "Requiere reposición";
+
   const { fecha_referencia: fecha } = notificacion;
   if (!fecha) return "Sin fecha";
 
@@ -187,6 +189,7 @@ export const PRIORIDAD_LABEL: Record<PrioridadAlerta, string> = {
 
 export function prioridadAlerta(notificacion: Notificacion): PrioridadAlerta {
   if (notificacion.nivel === "VENCIDO") return "critico";
+  if (notificacion.nivel === "STOCK_BAJO") return "urgente";
 
   // Sin fecha no se puede medir la cercanía: se trata como pendiente.
   if (!notificacion.fecha_referencia) return "pendiente";
@@ -201,7 +204,7 @@ export function prioridadAlerta(notificacion: Notificacion): PrioridadAlerta {
 /* ─────────────────────── Requiere atención ─────────────────────── */
 
 /** Qué ícono lleva la fila: sale del origen de la alerta. */
-export type IconoAlerta = "limpieza" | "calibracion" | "incidente";
+export type IconoAlerta = "limpieza" | "calibracion" | "stock" | "incidente";
 
 /**
  * Una fila de "Requiere atención".
@@ -266,10 +269,11 @@ export function alertasDelPanel(
 
   for (const n of notificaciones) {
     const esLimpieza = n.tipo === "ELEMENTO_LIMPIEZA";
+    const esStockBajo = n.tipo === "STOCK_BAJO";
 
     filas.push({
       clave: `notificacion-${n.id_notificacion}`,
-      icono: esLimpieza ? "limpieza" : "calibracion",
+      icono: esLimpieza ? "limpieza" : esStockBajo ? "stock" : "calibracion",
       titulo: n.titulo,
       detalle: n.mensaje,
       prioridad: prioridadAlerta(n),

@@ -13,6 +13,9 @@ de cambios:
   * services: un duplicado en un PUT devuelve la excepcion de negocio en vez de
     un 500, y un `NOT NULL` ya no se reporta como "ya existe";
   * migraciones: el bootstrap de super admin corre una sola vez.
+
+La paginación server-side tiene su propio script (contra la base real, vía
+API): `verificar_paginacion.py`.
 """
 
 import os
@@ -57,7 +60,7 @@ from src.aptitud import schemas as apt, exceptions as apt_exc  # noqa: E402
 check("TareaUpdate tolera null", tareas.TareaUpdate.model_validate(
     {"nombre": None, "frecuencia": None, "descripcion": None}))
 check("PlanLimpiezaUpdate tolera null", planes.PlanLimpiezaUpdate.model_validate(
-    {"nombre": None, "equipo_id": None, "autor_id": None, "tareas": None}))
+    {"nombre": None, "equipo_id": None, "tareas": None}))
 check("PersonaUpdate tolera null", personal.PersonaUpdate.model_validate(
     {"nombre": None, "dni": None, "email": None}))
 check("UnidadMedidaUpdate tolera null", um.UnidadMedidaUpdate.model_validate(
@@ -71,7 +74,6 @@ check_raises("PersonaUpdate email inválido", lambda: personal.PersonaUpdate.mod
 check_raises("UnidadMedidaUpdate símbolo vacío", lambda: um.UnidadMedidaUpdate.model_validate({"simbolo": ""}), um_exc.SimboloVacio)
 check_raises("AptitudUpdate nombre vacío", lambda: apt.AptitudUpdate.model_validate({"nombre": ""}), apt_exc.NombreVacio)
 check_raises("PlanLimpiezaUpdate tareas vacías", lambda: planes.PlanLimpiezaUpdate.model_validate({"tareas": []}), pl_exc.TareasVacias)
-check_raises("PlanLimpiezaUpdate autor_id 0", lambda: planes.PlanLimpiezaUpdate.model_validate({"autor_id": 0}), pl_exc.AutorIdInvalido)
 check("PersonaUpdate no exige capacidades", bool(personal.PersonaUpdate.model_validate(
     {"puede_operar": False, "puede_administrar": False, "es_super_admin": False})))
 
@@ -132,12 +134,82 @@ check("comodín % no matchea filas ajenas",
       db.scalar(select(UnidadMedida).where(comparar_texto(UnidadMedida.nombre, "Detergente%"))) is None)
 check("comodín _ no matchea filas ajenas",
       db.scalar(select(UnidadMedida).where(comparar_texto(UnidadMedida.nombre, "Detergente_"))) is None)
+
+print()
+print("== búsqueda con comodines escapados (contiene_texto / documentos) ==")
+from src.common.persistence import contiene_texto  # noqa: E402
+from src.documentos import services as doc_srv  # noqa: E402
+from src.documentos.models import Documento, VersionDocumento  # noqa: E402
+from src.personal.models import Personal  # noqa: E402
+
+# El "%" no pasa por el validador del alta, así que va directo por ORM.
+db.add(UnidadMedida(nombre="Detergente%", simbolo="DP", activo=True))
+db.add(Personal(nombre="Autor", dni="87654321", email="autor@test.local", password="x"))
+db.commit()
+doc_porcentaje = Documento(nombre="Detergente%", tipo="manual_bpm")
+doc_equis = Documento(nombre="DetergenteX", tipo="manual_bpm")
+db.add_all([doc_porcentaje, doc_equis])
+db.commit()
+for doc in (doc_porcentaje, doc_equis):
+    db.add(VersionDocumento(
+        documento_id=doc.id,
+        numero_version=1,
+        nombre_archivo="x.pdf",
+        archivo_url="uploads/documentos/x.pdf",
+        autor_id=1,
+    ))
+db.commit()
+
+check("contiene_texto: buscar '%' solo trae el nombre literal",
+      [u.nombre for u in db.scalars(
+          select(UnidadMedida).where(contiene_texto(UnidadMedida.nombre, "%"))).all()] == ["Detergente%"])
+check("contiene_texto: buscar '_' no matchea cualquier carácter",
+      db.scalars(select(UnidadMedida).where(contiene_texto(UnidadMedida.nombre, "_"))).all() == [])
+check("contiene_texto: la búsqueda por contenido sigue funcionando",
+      sorted(u.nombre for u in db.scalars(
+          select(UnidadMedida).where(contiene_texto(UnidadMedida.nombre, "tergen"))).all())
+      == ["Detergente%", "DetergenteX"])
+
+check("documentos vigentes: buscar '%' no trae todo",
+      [d.nombre for d in doc_srv.listar_documentos_vigentes(db, "%")] == ["Detergente%"])
+check("documentos vigentes: buscar '_' no matchea cualquier carácter",
+      doc_srv.listar_documentos_vigentes(db, "Detergente_") == [])
+check("documentos vigentes: buscar por contenido sigue funcionando",
+      sorted(d.nombre for d in doc_srv.listar_documentos_vigentes(db, "tergen"))
+      == ["Detergente%", "DetergenteX"])
+check("documentos vigentes paginado: buscar '%' respeta el escape",
+      [d.nombre for d in doc_srv.listar_documentos_vigentes_paginado(db, "%", None, 1, 10)[0]]
+      == ["Detergente%"])
 db.close()
 
 print()
 print("== migraciones y arranque ==")
 tmpdir = tempfile.mkdtemp()
 os.environ["DB_URL"] = f"sqlite:///{Path(tmpdir) / 't.db'}"
+
+# Se pre-crea la base con el esquema VIEJO de equipos (previo al CRUD de
+# Sector): `ubicacion` como texto y sin `sector_id`. Así se ejercita la
+# migración que agrega la columna y convierte las ubicaciones en sectores:
+# sin ella, toda consulta de equipos (checklist, incidentes, vencimientos)
+# revienta con "no such column: equipos.sector_id".
+import sqlite3 as _sqlite3  # noqa: E402
+
+with _sqlite3.connect(os.environ["DB_URL"].replace("sqlite:///", "")) as _con:
+    _con.execute(
+        "CREATE TABLE equipos ("
+        "id INTEGER PRIMARY KEY, "
+        "nombre VARCHAR(100) NOT NULL, "
+        "tipo VARCHAR(100) NOT NULL, "
+        "ubicacion VARCHAR(100), "
+        "activo BOOLEAN, "
+        "frecuencia_calibracion_dias INTEGER)"
+    )
+    _con.execute(
+        "INSERT INTO equipos (nombre, tipo, ubicacion, activo) VALUES "
+        "('Heladera 1', 'Refrigeración', 'Cocina', 1), "
+        "('Equipo sin ubicación', 'Otro', NULL, 1)"
+    )
+
 from src.config import settings  # noqa: E402
 
 settings.DB_URL = os.environ["DB_URL"]
@@ -149,11 +221,19 @@ migrations.crear_tablas_y_migrar()
 with eng.begin() as c:
     tablas = set(c.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).scalars())
 check("tablas creadas", {"personal", "checklists", "schema_migrations"} <= tablas)
+with eng.begin() as c:
+    check("migración: equipos.sector_id quedó en todas las filas",
+          c.execute(text("SELECT COUNT(*) FROM equipos WHERE sector_id IS NULL")).scalar() == 0)
+    _nombres = [r[0] for r in c.execute(text("SELECT nombre FROM sectores ORDER BY id"))]
+check("migración: la ubicación se convirtió en sector", "Cocina" in _nombres)
+check("migración: los equipos sin ubicación van a 'Sin sector'", "Sin sector" in _nombres)
+check("migración: no repite sectores", len(_nombres) == len(set(_nombres)))
+
 migrations.crear_tablas_y_migrar()
 with eng.begin() as c:
     c.execute(text("INSERT INTO personal (nombre, apellido, dni, telefono, email, password, "
-                   "puede_operar, puede_administrar, es_super_admin, activo, fecha_creacion) "
-                   "VALUES ('Ana','P','12345678',NULL,'a@b.com','x',1,0,0,1,CURRENT_TIMESTAMP)"))
+                   "puede_operar, puede_administrar, es_super_admin, debe_cambiar_password, activo, fecha_creacion) "
+                   "VALUES ('Ana','P','12345678',NULL,'a@b.com','x',1,0,0,0,1,CURRENT_TIMESTAMP)"))
 migrations.crear_tablas_y_migrar()
 with eng.begin() as c:
     check("bootstrap promueve una vez", c.execute(text("SELECT es_super_admin FROM personal")).scalar() == 1)

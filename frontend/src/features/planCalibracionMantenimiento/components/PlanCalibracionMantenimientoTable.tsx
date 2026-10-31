@@ -1,6 +1,9 @@
 import { Table } from "@chakra-ui/react";
 import { PlanCalibracionMantenimientoItem } from "./PlanCalibracionMantenimientoItem";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
+import type { ColumnaOrdenPlanCalibracion } from "../services/planCalibracionMantenimientoService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   EstadoVacio,
@@ -11,6 +14,7 @@ import {
 interface PlanCalibracionMantenimientoTableProps {
   planes: PlanCalibracionMantenimiento[];
   nombresEquipos: Map<number, string>;
+  orden: OrdenTabla<ColumnaOrdenPlanCalibracion, string>;
   onEdit: (plan: PlanCalibracionMantenimiento) => void;
   onDelete: (plan: PlanCalibracionMantenimiento) => void;
 }
@@ -18,6 +22,7 @@ interface PlanCalibracionMantenimientoTableProps {
 export function PlanCalibracionMantenimientoTable({
   planes,
   nombresEquipos,
+  orden,
   onEdit,
   onDelete,
 }: PlanCalibracionMantenimientoTableProps) {
@@ -30,11 +35,33 @@ export function PlanCalibracionMantenimientoTable({
       <Table.Root variant="outline" minW="1200px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Equipo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Última intervención</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Periodicidad</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Próximo vencimiento</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="equipo" orden={orden}>
+              Equipo
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
+              Tipo
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable
+              columna="intervencion"
+              orden={orden}
+              ancho="media"
+            >
+              Última intervención
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable
+              columna="periodicidad"
+              orden={orden}
+              ancho="media"
+            >
+              Periodicidad
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable
+              columna="vencimiento"
+              orden={orden}
+              ancho="media"
+            >
+              Próximo vencimiento
+            </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="media">Días restantes</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>

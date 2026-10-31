@@ -1,8 +1,9 @@
-from datetime import datetime, date
+import sqlalchemy as sa
+from datetime import datetime
 from typing import Optional
-from src.models import ModeloBase
+from src.models import AUDITORIA_REDACTAR, ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, Date, DateTime
+from sqlalchemy import String, Boolean, DateTime
 
 class Personal(ModeloBase):
     __tablename__ = "personal"
@@ -16,7 +17,9 @@ class Personal(ModeloBase):
     email: Mapped[str] = mapped_column(String(60), unique=True, index=True)
 
     # --- CAMPO NUEVO ---
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    password: Mapped[str] = mapped_column(
+        String(255), nullable=False, info=AUDITORIA_REDACTAR
+    )
     # -------------------
 
     puede_operar: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -29,6 +32,10 @@ class Personal(ModeloBase):
     es_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    debe_cambiar_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default=sa.false())
+
+    password_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     planes: Mapped[list["PlanLimpieza"]] = relationship(
         back_populates="autor"

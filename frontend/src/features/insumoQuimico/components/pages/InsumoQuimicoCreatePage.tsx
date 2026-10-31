@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -59,11 +58,6 @@ export function InsumoQuimicoCreatePage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Nuevo insumo químico"
-        actions={
-          <BotonVolver onClick={() => navigate("/insumos-quimicos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
@@ -73,6 +67,7 @@ export function InsumoQuimicoCreatePage() {
         isLoading={loading}
         title="Alta de insumo químico"
         submitLabel="Crear insumo químico"
+        onCancel={() => navigate("/insumos-quimicos")}
       />
 
       <DialogoExito

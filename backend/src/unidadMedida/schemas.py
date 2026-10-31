@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.common.validators import texto_obligatorio, texto_no_vacio
 from src.unidadMedida import exceptions
 
@@ -42,3 +43,9 @@ class UnidadMedidaResponse(UnidadMedidaBase):
     activo: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UnidadMedidaPagina(Pagina[UnidadMedidaResponse]):
+    """Página de unidades de medida: la respuesta del listado paginado."""
+
+    pass

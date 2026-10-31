@@ -1,0 +1,1 @@
+import{Gn as e}from"./index-zc17_PMe.js";import{t}from"./useABM-COjPUDIL.js";import{i as n,n as r,o as i,t as a}from"./sectorService-D-8eqac-.js";var o=e();function s(){let e=(0,o.c)(1),s;return e[0]===Symbol.for(`react.memo_cache_sentinel`)?(s={crear:a,modificar:n,eliminar:r,reactivar:i,etiqueta:`el sector`},e[0]=s):s=e[0],t(s)}export{s as t};

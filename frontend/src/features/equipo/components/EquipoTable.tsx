@@ -1,6 +1,9 @@
 import { Table, Text } from "@chakra-ui/react";
 import { EquipoItem } from "./EquipoItem";
 import type { Equipo } from "../types/equipo";
+import type { ColumnaOrdenEquipo } from "../services/equipoService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   FilaEncabezado,
@@ -9,6 +12,7 @@ import {
 
 interface EquipoTableProps {
   equipos: Equipo[];
+  orden: OrdenTabla<ColumnaOrdenEquipo, string>;
   onEdit: (equipo: Equipo) => void;
   onDelete: (equipo: Equipo) => void;
   onReactivar: (equipo: Equipo) => void;
@@ -18,6 +22,7 @@ interface EquipoTableProps {
 
 export function EquipoTable({
   equipos,
+  orden,
   onEdit,
   onDelete,
   onReactivar,
@@ -37,10 +42,22 @@ export function EquipoTable({
       <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Ubicación</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="nombre" orden={orden}>
+              Nombre
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
+              Tipo
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable
+              columna="sector"
+              orden={orden}
+              ancho="amplia"
+            >
+              Sector
+            </EncabezadoOrdenable>
+            <EncabezadoOscuro center ancho="accionesAnchas">
+              Acciones
+            </EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

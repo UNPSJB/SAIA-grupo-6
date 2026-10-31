@@ -1,10 +1,11 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { PlanLimpieza } from "../types/planLimpieza";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
   nombreEquipo: string;
+  nombreSector: string;
   onEdit: (plan: PlanLimpieza) => void;
   onDelete: (plan: PlanLimpieza) => void;
   onReactivar: (plan: PlanLimpieza) => void;
@@ -13,6 +14,7 @@ interface PlanLimpiezaItemProps {
 export function PlanLimpiezaItem({
   plan,
   nombreEquipo,
+  nombreSector,
   onEdit,
   onDelete,
   onReactivar,
@@ -38,23 +40,20 @@ export function PlanLimpiezaItem({
         />
       </Celda>
       <Celda p="3">
+        <TextoTruncado texto={nombreSector} />
+      </Celda>
+      <Celda p="3">
         <TextoTruncado texto={nombreEquipo} />
       </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {plan.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(plan)}>
-                Modificar
-              </BotonTabla>
-              <BotonTabla accion="eliminar" onClick={() => onDelete(plan)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(plan)} />
+              <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(plan)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(plan)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(plan)} />
           )}
         </HStack>
       </Celda>

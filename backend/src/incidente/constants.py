@@ -24,6 +24,8 @@ class EstadoIncidente(str, Enum):
 class ErrorCode:
     INCIDENTE_NO_ENCONTRADO = "El incidente no fue encontrado."
     DESCRIPCION_VACIA = "La descripción del incidente no puede estar vacía."
+    TITULO_VACIO = "El título del incidente no puede estar vacío."
+    TITULO_DEMASIADO_LARGO = "El título del incidente no puede superar los 60 caracteres."
     TIPO_INVALIDO = "El tipo de incidente seleccionado no es válido."
     EQUIPO_NO_ENCONTRADO = "El equipo seleccionado no existe."
     USUARIO_NO_ENCONTRADO = "El usuario que reporta no existe."
@@ -31,3 +33,4 @@ class ErrorCode:
     ESTADO_INVALIDO = "El estado del incidente no es válido."
     EQUIPO_INACTIVO = "El equipo seleccionado está dado de baja."
     PERMISO_DENEGADO = "No tenés permiso para ver este incidente."
+    FECHA_RANGO_INVALIDO = "La fecha 'desde' no puede ser posterior a la fecha 'hasta'."

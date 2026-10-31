@@ -16,10 +16,12 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import delete
 
 # Importamos configuración y modelos
+import src.all_models  # noqa: F401  (registra todos los modelos, incluida la FK de equipos a sectores)
 from src.database import SessionLocal, engine
 from src.models import ModeloBase
 from src.auth.services import hashear_password
 from src.personal.models import Personal
+from src.sector.models import Sector
 from src.Equipo.models import Equipo, Calibracion
 from src.aptitud.models import Aptitud
 from src.vencimientoPersonal.models import VencimientoPersonal
@@ -49,6 +51,10 @@ HOY = date.today()
 
 db = SessionLocal()
 
+# El seed no audita: la bitácora registra operaciones de negocio, no la
+# construcción (idempotente) del escenario de demostración.
+db.info["sin_auditoria"] = True
+
 
 def _borrar_previamente() -> None:
     """Limpia todas las tablas que el seed va a rellenar (orden: hijos primero)."""
@@ -71,6 +77,7 @@ def _borrar_previamente() -> None:
         Aptitud,
         UnidadMedida,
         Equipo,
+        Sector,
         Personal,
     ]
     for modelo in orden:
@@ -147,9 +154,11 @@ try:
     operadores = [p for p in personas_obj if not p.puede_administrar]
 
     # ------------------------------------------------------------------
-    # 3) Equipos (15)
+    # 3) Equipos (15), cada uno en su sector
     # ------------------------------------------------------------------
-    print("⏳ Cargando 15 equipos...")
+    # La ubicación del equipo pasó a ser su propia entidad: primero se
+    # crea el catálogo de sectores (uno por ubicación usada) y después los
+    # equipos referenciándolo por `sector_id` (FK, ver src/sector/models.py).
     equipos = [
         ("Heladera 1", "Refrigeración", "Cocina", None),
         ("Heladera 2", "Refrigeración", "Cocina", None),
@@ -167,12 +176,23 @@ try:
         ("Amasadora", "Procesamiento", "Zona de elaboración", None),
         ("Lavavajillas industrial", "Procesamiento", "Lavadero", None),
     ]
+
+    print("⏳ Cargando sectores...")
+    sectores_obj = []
+    for nombre_ubicacion in sorted({ubicacion for _, _, ubicacion, _ in equipos}):
+        sector = Sector(nombre=nombre_ubicacion, activo=True)
+        db.add(sector)
+        sectores_obj.append(sector)
+    db.flush()
+    sector_por_ubicacion = {s.nombre: s for s in sectores_obj}
+
+    print("⏳ Cargando 15 equipos...")
     equipos_obj = []
     for nombre, tipo, ubicacion, frecuencia in equipos:
         equipo = Equipo(
             nombre=nombre,
             tipo=tipo,
-            ubicacion=ubicacion,
+            sector_id=sector_por_ubicacion[ubicacion].id,
             activo=True,
             frecuencia_calibracion_dias=frecuencia,
         )

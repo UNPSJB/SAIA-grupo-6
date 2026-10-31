@@ -7,6 +7,7 @@ from src.Equipo.models import Equipo
 from src.personal.models import Personal
 
 from src.models import ModeloBase
+from src.common.fechas import hoy
 
 
 class PlanCalibracionMantenimiento(ModeloBase):
@@ -35,4 +36,4 @@ class PlanCalibracionMantenimiento(ModeloBase):
 
     @property
     def dias_restantes(self) -> int:
-        return (self.proxima_fecha_vencimiento - date.today()).days
+        return (self.proxima_fecha_vencimiento - hoy()).days

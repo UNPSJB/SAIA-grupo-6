@@ -8,7 +8,6 @@ import { ConfirmarReactivacionDialog } from "../../../../common/components/Confi
 import type { Aptitud } from "../../types/aptitud";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -50,11 +49,6 @@ export function AptitudCreatePage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Nueva aptitud"
-        actions={
-          <BotonVolver onClick={() => navigate("/aptitudes")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
@@ -64,6 +58,7 @@ export function AptitudCreatePage() {
         isLoading={loading}
         title="Alta de aptitud"
         submitLabel="Crear aptitud"
+        onCancel={() => navigate("/aptitudes")}
       />
 
       <DialogoExito isOpen={exito} mensaje="Aptitud agregada correctamente." />

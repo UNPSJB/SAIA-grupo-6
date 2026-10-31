@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -48,11 +47,6 @@ export function InsumoQuimicoEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar insumo químico"
-        actions={
-          <BotonVolver onClick={() => navigate("/insumos-quimicos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {cargando && (

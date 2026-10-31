@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 
 class ErrorCode:
@@ -31,6 +32,12 @@ class EstadoVersion(StrEnum):
     VIGENTE = "vigente"
     VENCIDO = "vencido"
     ARCHIVADA = "archivado"
+
+
+# Valores del filtro `estado` de los listados de documentos. Es un subconjunto
+# de `EstadoVersion`: "archivado" describe una VERSIÓN, no un documento; un
+# documento sin versión vigente no entra en ninguno de los dos filtros.
+EstadoDocumentoFiltro = Literal["vigente", "vencido"]
 
 
 EXTENSIONES_PERMITIDAS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}

@@ -1,13 +1,13 @@
 from datetime import date, timedelta
-import os
-import uuid
+from typing import Literal, Optional, Union
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from werkzeug.utils import secure_filename
 
 from src.auth.dependencies import require_admin, require_operador
+from src.common.archivos import guardar_archivo
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
@@ -23,6 +23,15 @@ router = APIRouter(
     tags=["Equipos"],
 )
 
+OrdenEquipo = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "tipo_asc",
+    "tipo_desc",
+    "sector_asc",
+    "sector_desc",
+]
+
 @router.post(
     "",
     response_model=schemas.EquipoResponse,
@@ -37,14 +46,56 @@ def crear_equipo(
 
 @router.get(
     "",
-    response_model=list[schemas.EquipoResponse],
+    response_model=Union[list[schemas.EquipoResponse], schemas.EquipoPagina],
     dependencies=[Depends(require_operador)]
 )
 def listar_equipos(
     incluir_inactivos: bool = False,
-    db:Session = Depends(get_db)
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre, tipo y sector (sin distinguir mayúsculas ni tildes).",
+    ),
+    tipo: Optional[str] = Query(None, max_length=100),
+    sector_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenEquipo = "nombre_asc",
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa (la usan los dropdowns y el tablero).",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
+    db: Session = Depends(get_db),
 ):
-    return services.listar_equipos(db, incluir_inactivos)
+    if page is None:
+        return services.listar_equipos(
+            db, incluir_inactivos, buscar, tipo, sector_id
+        )
+    items, total = services.listar_equipos_paginado(
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        tipo=tipo,
+        sector_id=sector_id,
+        orden=orden,
+    )
+    return schemas.EquipoPagina(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get(
+    "/opciones",
+    response_model=schemas.EquipoOpcionesResponse,
+    dependencies=[Depends(require_operador)],
+)
+def obtener_opciones_equipos(db: Session = Depends(get_db)):
+    """Tipos y sectores para los selects del filtro de la tabla.
+
+    Va antes de `/{equipo_id}`: si estuviera después, FastAPI intentaría
+    convertir "opciones" a int y devolvería 422.
+    """
+    return services.obtener_opciones_equipos(db)
 
 @router.get(
     "/{equipo_id}",
@@ -111,43 +162,16 @@ def registrar_intervencion_con_archivo(
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
 
-    # 2. Validar que sea PDF o Imagen (Criterio de Aceptación)
-    #
-    #    `secure_filename` recorta la ruta que venga en el nombre del archivo
-    #    para que no se pueda escribir fuera de la carpeta de certificados.
-    extension = os.path.splitext(secure_filename(certificado.filename or ""))[1].lower()
-    if extension not in EXTENSIONES_ARCHIVO_ADJUNTO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El archivo adjunto debe ser PDF o imagen. "
-                f"Formatos válidos: {', '.join(sorted(EXTENSIONES_ARCHIVO_ADJUNTO))}."
-            ),
-        )
-
-    # 3. Tope de tamaño antes de escribir nada en disco.
-    contenido = certificado.file.read()
-    if len(contenido) > TAMANO_MAX_ARCHIVO_ADJUNTO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El archivo adjunto supera el máximo de "
-                f"{TAMANO_MAX_ARCHIVO_ADJUNTO // (1024 * 1024)} MB."
-            ),
-        )
-
-    # 4. Guardar el archivo con un nombre único para que dos intervenciones del
-    #    mismo equipo no se pisen. Va anclado a CARPETA_UPLOADS y no al CWD del
-    #    proceso: arrancar el server desde otra carpeta guardaba (y dejaba de
-    #    servir) los archivos en otro lado.
-    nombre_archivo = f"eq{equipo_id}_{uuid.uuid4().hex[:8]}{extension}"
-    carpeta = CARPETA_UPLOADS / "certificados"
-    os.makedirs(carpeta, exist_ok=True)
-    (carpeta / nombre_archivo).write_bytes(contenido)
-
-    # La ruta se guarda CON el prefijo "uploads/" y sin "/" inicial, que es lo
-    # que espera el endpoint /uploads para resolverla dentro de CARPETA_UPLOADS.
-    ruta_relativa = f"uploads/certificados/{nombre_archivo}"
+    # 2. Guardar archivo validado con helper (extensión vía Path, tamaño limitado,
+    #    nombre {prefijo}_{uuid4().hex}{ext})
+    prefijo = f"eq{equipo_id}"
+    ruta_relativa = guardar_archivo(
+        certificado,
+        EXTENSIONES_ARCHIVO_ADJUNTO,
+        TAMANO_MAX_ARCHIVO_ADJUNTO,
+        prefijo,
+        "certificados"
+    )
 
     # 5. Calcular próximo vencimiento. Si hay un plan activo del mismo tipo,
     #    manda su periodicidad (la misma que usa el sistema de alertas). Para
@@ -187,7 +211,11 @@ def registrar_intervencion_con_archivo(
         db.rollback()
         # Evita adjuntos huérfanos cuando la intervención y su plan no pueden
         # confirmarse de forma atómica en la base.
-        (carpeta / nombre_archivo).unlink(missing_ok=True)
+        try:
+            ruta_abs = CARPETA_UPLOADS / ruta_relativa.removeprefix("uploads/")
+            ruta_abs.unlink(missing_ok=True)
+        except Exception:
+            pass
         raise
     db.refresh(nueva_calibracion)
 
