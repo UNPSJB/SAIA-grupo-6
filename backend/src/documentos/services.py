@@ -2,12 +2,13 @@ import logging
 import os
 import shutil
 import uuid
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from fastapi import UploadFile
 from sqlalchemy import and_, case, exists, or_, select
+from src.common.fechas import hoy, ahora
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -78,13 +79,13 @@ def _filtro_estado_documento(
     if estado is None:
         return None
 
-    hoy = date.today()
+    hoy_val = hoy()
     if estado == "vencido":
-        condicion = _VENCIMIENTO_VIGENTE < hoy
+        condicion = _VENCIMIENTO_VIGENTE < hoy_val
     else:
         condicion = or_(
             _VENCIMIENTO_VIGENTE.is_(None),
-            _VENCIMIENTO_VIGENTE >= hoy,
+            _VENCIMIENTO_VIGENTE >= hoy_val,
         )
 
     if exigir_version_vigente:
@@ -98,9 +99,10 @@ def _orden_estado_documento():
     0 = vencido, 1 = vigente, 2 = sin versión vigente. Así `estado_asc` deja
     arriba lo urgente y `estado_desc` agrupa los documentos sin vigente.
     """
+    hoy_val = hoy()
     return case(
         (~_EXISTE_VERSION_VIGENTE, 2),
-        (_VENCIMIENTO_VIGENTE < date.today(), 0),
+        (_VENCIMIENTO_VIGENTE < hoy_val, 0),
         else_=1,
     )
 
@@ -132,12 +134,13 @@ def _ordenes_documentos() -> dict[str, ColumnaOrden]:
 
 def _verificar_administrador(db: Session, usuario_id: int) -> Personal:
     """Verifica que el usuario exista, esté activo y tenga permiso de administrar."""
+    from src.auth.roles import puede_administrar
     usuario = db.scalar(select(Personal).where(Personal.id == usuario_id))
     if usuario is None:
         raise exceptions.UsuarioNoEncontrado()
     if not usuario.activo:
         raise exceptions.UsuarioInactivo()
-    if not usuario.puede_administrar:
+    if not puede_administrar(usuario):
         raise exceptions.UsuarioSinPermisoDeAdministrar()
     return usuario
 
@@ -200,7 +203,7 @@ def crear_documento(
 
     extension = _validar_archivo(archivo)
     ruta = _guardar_archivo(archivo, extension)
-    ahora = datetime.now()
+    momento = ahora()
 
     try:
         documento = Documento(nombre=nombre, tipo=tipo.value)
@@ -210,8 +213,8 @@ def crear_documento(
                 nombre_archivo=archivo.filename,
                 archivo_url=ruta,
                 vigente=True,
-                vigente_desde=ahora,
-                fecha_subida=ahora,
+                vigente_desde=momento,
+                fecha_subida=momento,
                 autor_id=autor.id,
                 fecha_vencimiento=fecha_vencimiento,
             )
@@ -244,7 +247,7 @@ def subir_nueva_version(
 
     extension = _validar_archivo(archivo)
     ruta = _guardar_archivo(archivo, extension)
-    ahora = datetime.now()
+    momento = ahora()
 
     try:
         numero = documento.proximo_numero_version
@@ -252,7 +255,7 @@ def subir_nueva_version(
 
         if anterior is not None:
             anterior.vigente = False       # pasa a "archivada"
-            anterior.vigente_hasta = ahora
+            anterior.vigente_hasta = momento
             # flush para que la BD "suelte" la vigente anterior antes de insertar la nueva
             # (el índice único parcial solo admite una vigente por documento).
             db.flush()
@@ -263,8 +266,8 @@ def subir_nueva_version(
                 nombre_archivo=archivo.filename,
                 archivo_url=ruta,
                 vigente=True,
-                vigente_desde=ahora,
-                fecha_subida=ahora,
+                vigente_desde=momento,
+                fecha_subida=momento,
                 autor_id=autor.id,
                 fecha_vencimiento=fecha_vencimiento,
             )

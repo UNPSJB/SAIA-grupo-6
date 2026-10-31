@@ -2,7 +2,7 @@ from datetime import date
 from typing import Optional
 from src.models import ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Boolean, Date, DateTime, Integer
+from sqlalchemy import String, Boolean, Date, Integer
 
 class ElementoLimpieza(ModeloBase):
     __tablename__ = "elementos_limpieza"

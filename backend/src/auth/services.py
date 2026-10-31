@@ -92,20 +92,44 @@ def decodificar_token(token: str, token_type: Optional[str] = None) -> Optional[
 # Intentos fallidos por clave "ip|dni". Es un contador en memoria: con varios
 # procesos o réplicas el límite aplicaría por proceso.
 _intentos: dict[str, list[datetime]] = defaultdict(list)
+_ultima_purga_global: datetime = datetime.fromtimestamp(0, tz=timezone.utc)
 
 
 def _clave_intentos(ip: str, dni: str) -> str:
     return f"{ip}|{dni.strip().lower()}"
 
 
+def _purgar_global(ventana: timedelta) -> None:
+    global _ultima_purga_global
+    ahora = datetime.now(timezone.utc)
+    if (ahora - _ultima_purga_global).total_seconds() < 60:
+        return
+    _ultima_purga_global = ahora
+    limite = ahora - ventana
+    claves_a_borrar = []
+    for clave, marcas in list(_intentos.items()):
+        filtrados = [m for m in marcas if m > limite]
+        if filtrados:
+            _intentos[clave] = filtrados
+        else:
+            claves_a_borrar.append(clave)
+    for clave in claves_a_borrar:
+        _intentos.pop(clave, None)
+
+
 def _purgar_ventana(clave: str, ventana: timedelta) -> None:
     limite = datetime.now(timezone.utc) - ventana
-    _intentos[clave] = [m for m in _intentos[clave] if m > limite]
+    filtrados = [m for m in _intentos.get(clave, []) if m > limite]
+    if filtrados:
+        _intentos[clave] = filtrados
+    else:
+        _intentos.pop(clave, None)
 
 
 def verificar_intentos_permitidos(ip: str, dni: str) -> None:
     """Bloquea el login si hubo demasiados intentos fallidos recientes."""
     ventana = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
+    _purgar_global(ventana)
     clave = _clave_intentos(ip, dni)
     _purgar_ventana(clave, ventana)
 
@@ -124,6 +148,7 @@ def verificar_intentos_permitidos(ip: str, dni: str) -> None:
 
 def registrar_intento_fallido(ip: str, dni: str) -> None:
     ventana = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
+    _purgar_global(ventana)
     clave = _clave_intentos(ip, dni)
     _purgar_ventana(clave, ventana)
     _intentos[clave].append(datetime.now(timezone.utc))
@@ -132,6 +157,18 @@ def registrar_intento_fallido(ip: str, dni: str) -> None:
         "Login fallido para DNI %s desde %s (%s intentos en la ventana)",
         dni, ip, len(_intentos[clave]),
     )
+
+
+def obtener_ip_cliente(request) -> str:
+    from src.config import settings
+    if settings.TRUSTED_PROXY:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            partes = [p.strip() for p in forwarded.split(",") if p.strip()]
+            hops = max(1, settings.TRUSTED_PROXY_HOPS)
+            if len(partes) >= hops:
+                return partes[-hops]
+    return request.client.host if request.client else "desconocida"
 
 
 def limpiar_intentos(ip: str, dni: str) -> None:
@@ -204,6 +241,35 @@ def token_revocado(db: Session, jti: Optional[str]) -> bool:
         return False
 
     return db.get(TokenRevocado, jti) is not None
+
+
+def token_posterior_a_cambio_password(payload: dict, user_password_changed_at) -> bool:
+    """Devuelve True si el token es válido respecto al cambio de contraseña.
+
+    Compara iat con password_changed_at truncado a segundos para evitar
+    falsos rechazos por microsegundos. Un token emitido en el mismo segundo
+    que el cambio es válido; uno emitido al menos 1 segundo antes no lo es.
+    """
+    iat = payload.get("iat")
+    if iat is None or user_password_changed_at is None:
+        return True
+
+    if isinstance(iat, datetime):
+        iat_naive = iat.replace(tzinfo=None) if iat.tzinfo else iat
+    else:
+        # JWT serializa iat como timestamp entero (segundos UTC).
+        iat_naive = datetime.fromtimestamp(float(iat), tz=timezone.utc).replace(tzinfo=None)
+
+    # Ambas fechas como naive UTC para poder compararlas sin TypeError.
+    changed_naive = user_password_changed_at
+    if isinstance(changed_naive, datetime) and changed_naive.tzinfo is not None:
+        changed_naive = changed_naive.replace(tzinfo=None)
+
+    # Truncar a segundos
+    iat_sec = iat_naive.replace(microsecond=0)
+    changed_sec = changed_naive.replace(microsecond=0)
+
+    return iat_sec >= changed_sec
 
 
 def purgar_revocados_vencidos(db: Session) -> int:

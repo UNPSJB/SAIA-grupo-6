@@ -257,7 +257,7 @@ def modificar_plan_calibracion_mantenimiento(
 
     if "equipo_id" in cambios:
         _verificar_equipo_activo(db, equipo_id)
-    if "equipo_id" in cambios or "tipo" in cambios:
+    if "equipo_id" in cambios or "tipo" in cambios or cambios.get("activo") is True:
         _verificar_plan_activo_duplicado(db, equipo_id, tipo, plan.id)
 
     return aplicar_cambios(db, plan, cambios, _MAPEA_CONFLICTO)

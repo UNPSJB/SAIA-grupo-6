@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from datetime import date, timedelta
+from src.common.fechas import hoy
 from typing import Any
 
 from sqlalchemy import select
@@ -232,8 +233,8 @@ def _recurrencia_checklists(
 def obtener_criticidad_dashboard(
     db: Session,
 ) -> CriticidadDashboardResponse:
-    hoy = date.today()
-    desde = hoy - timedelta(days=DIAS_RECURRENCIA)
+    hoy_dia = hoy()
+    desde = hoy_dia - timedelta(days=DIAS_RECURRENCIA)
 
     alertas: list[dict[str, Any]] = []
 
@@ -286,7 +287,7 @@ def obtener_criticidad_dashboard(
         if version is None or version.fecha_vencimiento is None:
             continue
 
-        dias = (version.fecha_vencimiento - hoy).days
+        dias = (version.fecha_vencimiento - hoy_dia).days
 
         if dias < 0:
             regla = "DOCUMENTO_VENCIDO"
@@ -324,14 +325,14 @@ def obtener_criticidad_dashboard(
         )
         .where(
             Checklist.fecha >= desde,
-            Checklist.fecha <= hoy,
+            Checklist.fecha <= hoy_dia,
         )
     ).all()
 
     # Para el panel actual mostramos únicamente las situaciones vigentes de
     # hoy, mientras que todos los días del período se utilizan para recurrencia.
     for checklist in checklists_historicos:
-        if checklist.fecha != hoy:
+        if checklist.fecha != hoy_dia:
             continue
 
         for registro in checklist.registros:
@@ -402,7 +403,7 @@ def obtener_criticidad_dashboard(
 
     recurrencia = _recurrencia_incidentes(incidentes, desde)
     recurrencia.update(
-        _recurrencia_checklists(db, desde, hoy)
+        _recurrencia_checklists(db, desde, hoy_dia)
     )
 
     for alerta in alertas:
@@ -424,7 +425,7 @@ def obtener_criticidad_dashboard(
         if elevaciones:
             alerta["motivo"] += "; " + "; ".join(elevaciones)
 
-        alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy)
+        alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy_dia)
 
     # --------------------------------------------------------
     # 6. PRIORIZACIÓN

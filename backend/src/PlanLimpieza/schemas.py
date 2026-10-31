@@ -18,7 +18,6 @@ class PlanLimpiezaBase(BaseModel):
     # y la frecuencia de cada tarea nueva que va a pertenecer a este plan.
     tareas: List[TareaInput]
     equipo_id: int
-    autor_id: int
 
     @field_validator("nombre")
     @classmethod
@@ -39,11 +38,6 @@ class PlanLimpiezaBase(BaseModel):
     def validar_equipo_id(cls, v: Optional[int]) -> Optional[int]:
         return id_positivo(v, invalido=exceptions.EquipoIdInvalido)
 
-    @field_validator("autor_id")
-    @classmethod
-    def validar_autor_id(cls, v: Optional[int]) -> Optional[int]:
-        return id_positivo(v, invalido=exceptions.AutorIdInvalido)
-
 
 class PlanLimpiezaCreate(PlanLimpiezaBase):
     pass
@@ -53,7 +47,6 @@ class PlanLimpiezaUpdate(PlanLimpiezaBase):
     nombre: Optional[str] = None
     tareas: Optional[List[TareaEnPlanInput]] = None
     equipo_id: Optional[int] = None
-    autor_id: Optional[int] = None
     activo: Optional[bool] = None
 
 

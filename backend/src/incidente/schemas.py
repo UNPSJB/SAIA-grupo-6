@@ -18,7 +18,9 @@ class IncidenteBase(BaseModel):
     def validar_titulo(cls, v: str) -> str:
         texto = v.strip()
         if not texto:
-            raise exceptions.DescripcionVacia()
+            raise exceptions.TituloVacio()
+        if len(texto) > 60:
+            raise exceptions.TituloDemasiadoLargo()
         return texto
 
     @field_validator("descripcion")

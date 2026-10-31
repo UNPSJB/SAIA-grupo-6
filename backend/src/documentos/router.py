@@ -80,17 +80,17 @@ def read_documentos_vigentes(
 def create_documento(
     nombre: str = Form(...),
     tipo: TipoDocumento = Form(...),
-    autor_id: int = Form(...),
     archivo: UploadFile = File(...),
     fecha_vencimiento: Optional[date] = Form(None),
     db: Session = Depends(get_db),
+    current_user: Personal = Depends(require_admin),
 ):
     logger.info("Alta de documento '%s'", nombre)
     return services.crear_documento(
         db,
         nombre,
         tipo,
-        autor_id,
+        current_user.id,
         archivo,
         fecha_vencimiento,
     )
@@ -102,16 +102,16 @@ def create_documento(
 )
 def create_version(
     documento_id: int,
-    autor_id: int = Form(...),
     archivo: UploadFile = File(...),
     fecha_vencimiento: Optional[date] = Form(None),
     db: Session = Depends(get_db),
+    current_user: Personal = Depends(require_admin),
 ):
     logger.info("Nueva versión para el documento %s", documento_id)
     return services.subir_nueva_version(
         db,
         documento_id,
-        autor_id,
+        current_user.id,
         archivo,
         fecha_vencimiento,
     )

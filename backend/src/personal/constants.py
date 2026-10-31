@@ -7,3 +7,4 @@ class ErrorCode:
     NOMBRE_INVALIDO = "El nombre no puede estar vacío y debe contener solo letras."
     DNI_INVALIDO = "El DNI debe contener entre 7 y 8 dígitos numéricos."
     EMAIL_INVALIDO = "El correo electrónico no tiene un formato válido."
+    PASSWORD_INVALIDA = "La contraseña debe tener al menos 8 caracteres."

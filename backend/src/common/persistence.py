@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from src.common.listados import ColumnaOrden, paginar_consulta
 from src.common.texto import comparar_texto, contiene_texto, escapar_like
-from src.exceptions import ConflictoRegistroInactivo, NotFound
+from src.exceptions import ConflictoRegistroInactivo
 
 M = TypeVar("M")
 
@@ -228,11 +228,10 @@ def verificar_disponibilidad(
         raise ya_existe()
 
     estado = "dada de baja" if femenina else "dado de baja"
-    aceptacion = "Querés" if femenina else "¿Querés"
     raise ConflictoRegistroInactivo(
         mensaje=(
-            f"{aceptacion} reactivar con estos nuevos datos el registro "
-            f"'{valor}', que ya existe pero está {estado}."
+            f"¿Querés reactivar con estos nuevos datos el registro "
+            f"'{valor}', que ya existe pero está {estado}?"
         ),
         entidad_id=existente.id,
         campo=campo,

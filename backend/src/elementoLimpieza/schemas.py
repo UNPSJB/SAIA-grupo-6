@@ -1,6 +1,6 @@
-import re
 from pydantic import BaseModel, ConfigDict, field_validator, Field
 from src.common.paginacion import Pagina
+from src.common.validators import RE_NOMBRE_GENERICO, texto_obligatorio
 from src.elementoLimpieza import exceptions
 from datetime import date
 from typing import Optional
@@ -9,19 +9,15 @@ class ElementoLimpiezaBase(BaseModel):
     nombre: str 
     frecuencia_recambio_dias: Optional[int] = Field(default=30, ge=1) 
     
-    @field_validator("nombre") 
-    @classmethod 
-    def validar_nombre(cls, v: str) -> str: 
-        # El validador también corre en ElementoLimpiezaUpdate, donde el campo
-        # es opcional: si viene None no hay nada que validar.
-        if v is None:
-            return v
-        texto = v.strip() 
-        if not texto: 
-            raise exceptions.NombreVacio() 
-        if not re.match(r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ \\-\\.()]+$", texto) or not re.search(r"[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ]", texto): 
-            raise exceptions.NombreInvalido() 
-        return texto
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str | None) -> str | None:
+        return texto_obligatorio(
+            v,
+            vacio=exceptions.NombreVacio,
+            invalido=exceptions.NombreInvalido,
+            patron=RE_NOMBRE_GENERICO,
+        )
 
 class ElementoLimpiezaCreate(ElementoLimpiezaBase):
     fecha_ultimo_recambio: Optional[date] = Field(default_factory=date.today)
@@ -55,4 +51,3 @@ class ElementoLimpiezaPagina(Pagina[ElementoLimpiezaResponse]):
   """Página de elementos de limpieza: la respuesta del listado paginado."""
 
   pass
-

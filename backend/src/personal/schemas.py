@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 from src.common.paginacion import Pagina
@@ -53,30 +53,40 @@ class PersonaCamposValidos(BaseModel):
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
         return email_valido(v, invalido=exceptions.EmailInvalido)
 
+def _validar_password(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    # bcrypt 5 limita la contraseña a 72 bytes UTF-8 (no 72 caracteres).
+    # Validarlo aquí evita que el hash falle con un error 500 al guardar.
+    longitud_bytes = len(v.encode("utf-8"))
+    if len(v) < 8 or longitud_bytes > 72:
+        raise exceptions.PasswordInvalida(
+            "La contraseña debe tener al menos 8 caracteres y no superar 72 bytes UTF-8."
+        )
+    return v
+
 
 class PersonaBase(PersonaCamposValidos):
     nombre: str
     dni: str
     email: str
-
     puede_operar: bool = False
     puede_administrar: bool = False
     es_super_admin: bool = False
 
-    @model_validator(mode='after')
+class PersonaCreate(PersonaBase):
+    password: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def validar_password(cls, v):
+        return _validar_password(v)
+
+    @model_validator(mode="after")
     def validar_capacidades(self):
-        if not self.es_super_admin and not self.puede_operar and not self.puede_administrar:
+        if not (self.es_super_admin or self.puede_operar or self.puede_administrar):
             raise ValueError("Debe asignar al menos una capacidad (operar o administrar).")
         return self
-
-class PersonaCreate(PersonaBase):
-    """
-    Contraseña inicial: opcional a propósito. Si no se manda, la persona
-    arranca con su DNI como contraseña — así ni el registro público ni el
-    alta de personal manejan la credencial de otra persona. Cada quien
-    cambia la suya desde "Mi perfil".
-    """
-    password: Optional[str] = None
 
 class PersonaUpdate(PersonaCamposValidos):
     """Edición parcial. Comparte los validadores de campo con `PersonaBase`
@@ -88,11 +98,18 @@ class PersonaUpdate(PersonaCamposValidos):
     es_super_admin: Optional[bool] = None
     activo: Optional[bool] = None
 
+    @field_validator("password")
+    @classmethod
+    def validar_password(cls, v):
+        return _validar_password(v)
+
 class Persona(PersonaBase):
     id: int
     activo: bool
+    debe_cambiar_password: bool
     fecha_creacion: datetime
     fecha_actualizacion: Optional[datetime] = None
+    password_temporal: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -104,4 +121,4 @@ class PersonaPagina(Pagina["Persona"]):
     
 class LoginRequest(BaseModel):
     dni: str
-    password: str
+    password: str = Field(min_length=1)

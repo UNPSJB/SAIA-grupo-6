@@ -1,0 +1,1 @@
+import{In as e,bt as t}from"./index-zc17_PMe.js";var{withContext:n,PropsProvider:r}=e({key:`textarea`}),i=n(t.Textarea);export{i as t};

@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from datetime import date
+from src.common.fechas import hoy
 from typing import Optional
 
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
@@ -73,7 +73,7 @@ def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> Eleme
 
   # Si no se envía fecha de último recambio, se establece la fecha actual por defecto
   if nuevo_elementoLimpieza.get("fecha_ultimo_recambio") is None:
-    nuevo_elementoLimpieza["fecha_ultimo_recambio"] = date.today()
+    nuevo_elementoLimpieza["fecha_ultimo_recambio"] = hoy()
 
   
   instancia = ElementoLimpieza(**nuevo_elementoLimpieza)
@@ -173,6 +173,6 @@ def dar_de_baja_elemento_limpieza(db: Session, elemento_id: int) -> ElementoLimp
 def registrar_recambio_elemento( db: Session, elemento_id: int) -> ElementoLimpieza:
   elemento = obtener_elemento_limpieza(db, elemento_id)
 
-  elemento.fecha_ultimo_recambio = date.today()
+  elemento.fecha_ultimo_recambio = hoy()
 
   return guardar(db, elemento)

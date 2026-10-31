@@ -1,9 +1,9 @@
 from typing import List, Optional
-from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.texto import sin_tildes
+from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.exceptions import ConflictoRegistroInactivo
 from src.insumos.models import Insumo
 from src.insumos import schemas, exceptions
@@ -17,6 +17,12 @@ _ORDENES = {
         (sin_tildes(UnidadMedida.nombre),), descendente=True
     ),
 }
+
+# `insumos.nombre` es UNIQUE: cualquier violación de integridad del PUT se
+# traduce a "ya existe" (mismo criterio que tenía el update() de Core).
+_MAPEA_CONFLICTO = mapa_por_campo(
+    por_defecto=exceptions.InsumoYaExiste,
+)
 
 
 
@@ -139,24 +145,21 @@ def modificar_insumo(
     # Solo actualizamos los campos que realmente vinieron en el request
     # (evita pisar 'activo' u otros campos con NULL cuando no se envían).
     datos_a_actualizar = insumo.model_dump(exclude_unset=True)
+    datos_a_actualizar = {
+        campo: valor
+        for campo, valor in datos_a_actualizar.items()
+        if valor is not None
+    }
 
-    if datos_a_actualizar:
-        try:
-            db.execute(
-                update(Insumo)
-                .where(Insumo.id == insumo_id)
-                .values(**datos_a_actualizar)
-            )
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            raise exceptions.InsumoYaExiste()
-        except Exception:
-            db.rollback()
-            raise
-        db.refresh(db_insumo)
+    if not datos_a_actualizar:
+        return db_insumo
 
-    return db_insumo
+    if "unidad_medida_id" in datos_a_actualizar:
+        _verificar_unidad_medida(db, datos_a_actualizar["unidad_medida_id"])
+
+    # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no los vería.
+    return aplicar_cambios(db, db_insumo, datos_a_actualizar, _MAPEA_CONFLICTO)
 
 
 def eliminar_insumo(db: Session, insumo_id: int) -> Insumo:

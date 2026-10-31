@@ -1,10 +1,11 @@
 from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.vencimientoPersonal import exceptions
+from src.common.fechas import hoy
 
 
 def _validar_no_vencida(v: date) -> date:
-    if v < date.today():
+    if v < hoy():
         raise exceptions.FechaVencimientoPasada()
     return v
 

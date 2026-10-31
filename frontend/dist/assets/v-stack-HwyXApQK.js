@@ -1,0 +1,1 @@
+import{$n as e,Wn as t,Xn as n,ct as r}from"./index-zc17_PMe.js";var i=t(),a=(0,e(n(),1).forwardRef)(function(e,t){return(0,i.jsx)(r,{align:`center`,...e,direction:`column`,ref:t})});a.displayName=`VStack`;export{a as t};

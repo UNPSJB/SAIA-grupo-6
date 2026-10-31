@@ -209,12 +209,18 @@ class ConsumoInsumoItem(BaseModel):
 
 class ConsumoPorFechaItem(BaseModel):
     fecha: date
+    unidad_simbolo: Optional[str] = None
+    cantidad_total: float
+
+
+class ConsumoPorUnidadItem(BaseModel):
+    unidad_simbolo: Optional[str] = None
     cantidad_total: float
 
 
 class ConsumoInsumosResponse(BaseModel):
     fecha_desde: date
     fecha_hasta: date
-    total_general: float
+    total_por_unidad: List[ConsumoPorUnidadItem]
     insumos: List[ConsumoInsumoItem]
     por_fecha: List[ConsumoPorFechaItem]

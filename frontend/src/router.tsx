@@ -177,6 +177,11 @@ const SectorEditPage = lazy(() =>
   import("./features/sector/components/pages/SectorEditPage").then((mod) => ({ default: mod.SectorEditPage })),
 );
 
+// Auditoría
+const AuditoriaPage = lazy(() =>
+  import("./features/auditoria/components/pages/AuditoriaPage").then((mod) => ({ default: mod.AuditoriaPage })),
+);
+
 // 9. Incidentes
 const IncidentesListPage = lazy(() =>
   import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
@@ -548,6 +553,16 @@ export const router = createBrowserRouter([
                 element: (
                 <ConSuspense>
                   <SectorEditPage />
+                </ConSuspense>
+              ),
+              },
+
+              // ---------------- AUDITORÍA ----------------
+              {
+                path: "/auditoria",
+                element: (
+                <ConSuspense>
+                  <AuditoriaPage />
                 </ConSuspense>
               ),
               },

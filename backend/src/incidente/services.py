@@ -1,8 +1,9 @@
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import List, Optional
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
+from src.common.fechas import ahora
 from src.common.listados import ColumnaOrden, aplicar_orden, filtro_busqueda
 from src.common.paginacion import paginar
 from src.common.persistence import guardar
@@ -84,7 +85,7 @@ def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int
         equipo_id=datos.equipo_id,
         foto_url=datos.foto_url,
         usuario_id=usuario_id,
-        fecha_reporte=datetime.now(),
+        fecha_reporte=ahora(),
         estado=EstadoIncidente.ABIERTO.value,
     )
     db.add(incidente)
@@ -373,7 +374,7 @@ def cambiar_estado_incidente(
     if estado == EstadoIncidente.CERRADO:
         _verificar_usuario(db, current_user.id)
         incidente.estado = EstadoIncidente.CERRADO.value
-        incidente.fecha_cierre = datetime.now()
+        incidente.fecha_cierre = ahora()
         incidente.responsable_cierre_id = current_user.id
         incidente.observacion_cierre = observacion_cierre
         logger.info(

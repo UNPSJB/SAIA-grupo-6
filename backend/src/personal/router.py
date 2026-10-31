@@ -134,7 +134,12 @@ def update_persona(
         )
 
     datos = persona.model_dump(exclude_unset=True)
-    toca_roles = {"puede_operar", "puede_administrar", "es_super_admin", "activo"} & datos.keys()
+
+    ROLES = ("puede_operar", "puede_administrar", "es_super_admin", "activo")
+    toca_roles = {
+        campo for campo in ROLES
+        if campo in datos and datos[campo] != getattr(objetivo, campo)
+    }
 
     if toca_roles:
         exige_permiso_para_editar(
@@ -142,7 +147,27 @@ def update_persona(
             "Necesitás permiso de administrar para cambiar capacidades o el estado de una persona.",
         )
 
-    return services.modificar_persona(db, persona_id, persona)
+    if "es_super_admin" in toca_roles:
+        exige_permiso_para_editar(
+            es_super_admin(current_user),
+            "Solo un super administrador puede cambiar el flag de super administrador.",
+        )
+
+    updated = services.modificar_persona(db, persona_id, persona)
+
+    # Gestionar flag debe_cambiar_password al cambiar contraseña
+    if "password" in datos and datos["password"]:
+        if current_user.id == persona_id:
+            # Cambio propio: ya no debe cambiar
+            updated.debe_cambiar_password = False
+        else:
+            # Cambio por admin: debe cambiar
+            updated.debe_cambiar_password = True
+        db.add(updated)
+        db.commit()
+        db.refresh(updated)
+
+    return updated
 
 
 @router.delete("/{persona_id}", response_model=schemas.Persona)

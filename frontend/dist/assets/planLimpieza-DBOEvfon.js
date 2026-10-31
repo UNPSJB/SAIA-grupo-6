@@ -1,0 +1,1 @@
+var e=[{value:`preoperacional`,label:`Preoperacional`},{value:`operacional`,label:`Operacional`},{value:`postoperacional`,label:`Postoperacional`}];export{e as t};

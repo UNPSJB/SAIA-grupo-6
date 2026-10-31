@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     ROOT_PATH_PRODUCTION: str = ""
     LOG_LEVEL: str = "INFO"
 
+    # Zona horaria en la que se interpretan los días que filtra la UI (p. ej. en
+    # la auditoría). Las fechas de la bitácora se guardan en UTC.
+    ZONA_HORARIA: str = "America/Argentina/Buenos_Aires"
+
     # Seguridad JWT: sin valor por defecto a propósito. Si falta en el .env,
     # la aplicación no arranca (fail fast) en lugar de firmar tokens con una
     # clave conocida.
@@ -33,7 +37,9 @@ class Settings(BaseSettings):
     # Máximo de intentos fallidos de login por combinación IP + DNI.
     LOGIN_MAX_INTENTOS: int = 5
     LOGIN_VENTANA_MINUTOS: int = 5
-   
+    TRUSTED_PROXY: bool = False
+    TRUSTED_PROXY_HOPS: int = 1
+
 
     # Orígenes permitidos por CORS, separados por coma.
     # Para probar desde el celular hay que agregar la IP de la red local,
@@ -42,8 +48,8 @@ class Settings(BaseSettings):
 
     @field_validator("DB_URL")
     @classmethod
-    def anclar_sqlite(cls, v: str) -> str:
-        """Convierte a absoluta la ruta de una base SQLite relativa.
+    def validar_y_anclear_db_url(cls, v: str) -> str:
+        """Valida que DB_URL use SQLite y ancla la ruta relativa al backend.
 
         `sqlite:///db.sqlite3` es una ruta RELATIVA, y SQLite la resuelve
         contra el directorio del proceso, no contra el lugar del `.env`. Eso
@@ -56,7 +62,7 @@ class Settings(BaseSettings):
         memoria, usada por los tests) y los esquemas de servidor.
         """
         if not v.startswith("sqlite"):
-            return v
+            raise ValueError("Solo SQLite está soportado actualmente.")
 
         # sqlite://  -> memoria, sin archivo
         # sqlite://:memory: -> memoria
@@ -79,15 +85,22 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def validar_secret_key(cls, v: str) -> str:
-        if len(v.strip()) < LONGITUD_MINIMA_SECRET_KEY:
+        v_stripped = v.strip()
+        if v_stripped == SECRET_KEY_DE_EJEMPLO or not v_stripped:
+            raise ValueError(
+                "SECRET_KEY sigue con el valor de ejemplo. Definí una clave propia en el .env."
+            )
+
+        lower = v_stripped.lower()
+        if "pega-aqui" in lower or "cambiar" in lower:
+            raise ValueError(
+                "SECRET_KEY contiene un marcador de ejemplo. Definí una clave propia en el .env."
+            )
+
+        if len(v_stripped) < LONGITUD_MINIMA_SECRET_KEY:
             raise ValueError(
                 f"SECRET_KEY debe tener al menos {LONGITUD_MINIMA_SECRET_KEY} caracteres. "
                 "Generá una con: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
-            )
-
-        if v.strip() == SECRET_KEY_DE_EJEMPLO:
-            raise ValueError(
-                "SECRET_KEY sigue con el valor de ejemplo. Definí una clave propia en el .env."
             )
 
         return v

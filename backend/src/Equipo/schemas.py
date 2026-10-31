@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from src.common.validators import texto_no_vacio, id_positivo
 from src.common.paginacion import Pagina
 from src.Equipo import exceptions
@@ -12,6 +12,7 @@ class EquipoBase(BaseModel):
     nombre: str
     sector_id: int
     tipo: str
+    frecuencia_calibracion_dias: int | None = Field(default=None, ge=1)
 
     @field_validator("nombre")
     @classmethod
@@ -42,12 +43,14 @@ class EquipoUpdate(EquipoBase):
     nombre: str | None = None
     sector_id: int | None = None
     tipo: str | None = None
+    frecuencia_calibracion_dias: int | None = Field(default=None, ge=1)
     activo: bool | None = None    
 
 
 class EquipoResponse(EquipoBase):
     id: int
     activo: bool
+    frecuencia_calibracion_dias: int | None = Field(default=None, ge=1)
     sector: SectorResumen
 
     model_config = ConfigDict(from_attributes=True)

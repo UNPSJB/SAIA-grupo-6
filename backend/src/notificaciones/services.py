@@ -1,5 +1,5 @@
-
 from datetime import date, timedelta
+from src.common.fechas import hoy
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -22,7 +22,7 @@ DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
 
 def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionResponse]:
     notificaciones: List[NotificacionResponse] = []
-    hoy = date.today()
+    hoy_dia = hoy()
 
     elementos = db.scalars(
         select(ElementoLimpieza).where(ElementoLimpieza.activo.is_(True))
@@ -33,7 +33,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
             continue
 
         fecha_vencimiento = elem.fecha_ultimo_recambio + timedelta(days=elem.frecuencia_recambio_dias)
-        dias_restantes = (fecha_vencimiento - hoy).days
+        dias_restantes = (fecha_vencimiento - hoy_dia).days
 
         if dias_restantes <= 0:
             notificaciones.append(
@@ -143,9 +143,9 @@ def _nombre_persona(persona: Personal) -> str:
 
 def obtener_notificaciones_vencimientos_personal(db: Session) -> List[NotificacionResponse]:
     notificaciones: List[NotificacionResponse] = []
-    hoy = date.today()
+    hoy_dia = hoy()
     dias_alerta = obtener_dias_alerta_vencimiento_personal(db)
-    limite = hoy + timedelta(days=dias_alerta)
+    limite = hoy_dia + timedelta(days=dias_alerta)
 
     vencimientos = db.scalars(
         select(VencimientoPersonal)
@@ -167,7 +167,7 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
     for venc in vencimientos:
         persona = _nombre_persona(venc.persona)
         aptitud = venc.aptitud.nombre
-        dias_restantes = (venc.fecha_vencimiento - hoy).days
+        dias_restantes = (venc.fecha_vencimiento - hoy_dia).days
 
         if dias_restantes <= 0:
             titulo = "Vencimiento de Personal Vencido"

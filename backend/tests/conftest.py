@@ -26,6 +26,10 @@ from src.auth.services import crear_access_token  # noqa: E402
 from src.database import get_db  # noqa: E402
 from src.main import app  # noqa: E402
 from src.models import ModeloBase  # noqa: E402
+from src.tareas.models import Tarea  # noqa: E402
+from src.Equipo.models import Equipo  # noqa: E402
+from src.PlanLimpieza.models import PlanLimpieza  # noqa: E402
+from src.sector.models import Sector  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
 
 
@@ -67,6 +71,76 @@ def client(session_factory):
     app.dependency_overrides.clear()
 
 
+
+@pytest.fixture
+def db_session():
+    """Sesión aislada por test para los casos de auditoría."""
+    motor = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    @event.listens_for(motor, "connect")
+    def _fk_on(dbapi_conexion, _):
+        dbapi_conexion.execute("PRAGMA foreign_keys = ON")
+
+    ModeloBase.metadata.create_all(motor)
+    fabrica = sessionmaker(autocommit=False, autoflush=False, bind=motor)
+    db = fabrica()
+    try:
+        yield db
+    finally:
+        db.close()
+        ModeloBase.metadata.drop_all(motor)
+        motor.dispose()
+
+
+@pytest.fixture
+def sector(db_session):
+    """Sector activo de prueba, aislado en la base de cada test."""
+    from src.sector.models import Sector
+
+    fila = Sector(nombre="Sector de prueba", activo=True)
+    # El sector es infraestructura de la prueba, no una acción de negocio.
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(fila)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+    db_session.refresh(fila)
+    return fila
+
+
+@pytest.fixture
+def client_auditoria(client, db_session):
+    """Cliente de filtros con get_db compartiendo la sesión del test."""
+    from src.auth.dependencies import require_admin
+
+    anterior_db = app.dependency_overrides.get(get_db)
+    anterior_admin = app.dependency_overrides.get(require_admin)
+
+    def _get_db_de_test():
+        yield db_session
+
+    # Estos tests prueban filtros/paginación, no autorización: el router de
+    # auditoría exige admin, así que se reemplaza solo esa dependencia en esta
+    # variante aislada. La sesión de negocio sigue siendo la misma del test.
+    app.dependency_overrides[get_db] = _get_db_de_test
+    app.dependency_overrides[require_admin] = lambda: None
+    try:
+        yield TestClient(app)
+    finally:
+        if anterior_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = anterior_db
+        if anterior_admin is None:
+            app.dependency_overrides.pop(require_admin, None)
+        else:
+            app.dependency_overrides[require_admin] = anterior_admin
+
 def _headers(personal_id: int) -> dict:
     token, _, _ = crear_access_token(str(personal_id))
     return {"Authorization": f"Bearer {token}"}
@@ -100,10 +174,32 @@ def H_ADMIN(usuarios):
     return usuarios["admin"]
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def seed(session_factory, usuarios):
-    """Checklists deterministas + el oráculo con lo que se espera de ellos."""
+    """Checklists deterministas + el oráculo con lo que se espera de ellos.
+
+    Scope de función (no session): cada test de paginación parte de una base
+    limpia, así datos creados por otros tests (p. ej. PATCH /checklist/tarea)
+    no contaminan los conteos exactos (48 checklists) que asumen estas pruebas.
+    """
     from tests.seed_checklists import sembrar
+    from src.checklist.models import Checklist, RegistroTarea, HistorialRegistroTarea
 
     with session_factory() as db:
+        # Limpiar datos previos de otros tests para aislar cada prueba.
+        db.info["sin_auditoria"] = True
+        try:
+            from sqlalchemy import text
+            from src.models import ModeloBase
+            db.execute(text("PRAGMA foreign_keys = OFF"))
+            for table in reversed(ModeloBase.metadata.sorted_tables):
+                if table.name in ("audit_log", "personal"):
+                    continue  # bitácora de solo agregado; personal tiene los usuarios de prueba
+                db.execute(
+                    table.delete().execution_options(auditoria_omitir=True)
+                )
+            db.execute(text("PRAGMA foreign_keys = ON"))
+            db.commit()
+        finally:
+            db.info.pop("sin_auditoria", None)
         return sembrar(db, usuarios["admin_id"])

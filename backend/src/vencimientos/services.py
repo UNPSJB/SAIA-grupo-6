@@ -1,13 +1,13 @@
-from datetime import date
 from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-from datetime import date, datetime
+from datetime import datetime
 
 from src.aptitud.models import Aptitud
 from src.Equipo.models import Equipo
 from src.common.texto import coincide_terminos, normalizar_texto
+from src.common.fechas import hoy
 from src.notificaciones.services import (
     MARGEN_DIAS_ALERTA,
     obtener_dias_alerta_vencimiento_personal,
@@ -47,7 +47,7 @@ def _nombre_persona(persona: Personal) -> str:
 
 
 def _vencimientos_personal(db: Session) -> List[VencimientoConsolidadoResponse]:
-    hoy = date.today()
+    hoy_dia = hoy()
     margen = obtener_dias_alerta_vencimiento_personal(db)
 
     vencimientos = db.scalars(
@@ -67,7 +67,7 @@ def _vencimientos_personal(db: Session) -> List[VencimientoConsolidadoResponse]:
 
     resultado = []
     for venc in vencimientos:
-        dias = (venc.fecha_vencimiento - hoy).days
+        dias = (venc.fecha_vencimiento - hoy_dia).days
         resultado.append(
             VencimientoConsolidadoResponse(
                 id_vencimiento=f"personal-{venc.id}",
@@ -131,7 +131,7 @@ _ETIQUETA_TIPO_DOCUMENTO = {
 
 
 def _vencimientos_documentos(db: Session) -> List[VencimientoConsolidadoResponse]:
-    hoy = date.today()
+    hoy_dia = hoy()
     # Los documentos usan el mismo margen configurable que el personal (15 días por defecto).
     margen = obtener_dias_alerta_vencimiento_personal(db)
 
@@ -152,7 +152,7 @@ def _vencimientos_documentos(db: Session) -> List[VencimientoConsolidadoResponse
             fecha = fecha.date()
 
         documento = version.documento
-        dias = (fecha - hoy).days
+        dias = (fecha - hoy_dia).days
         resultado.append(
             VencimientoConsolidadoResponse(
                 id_vencimiento=f"documento-{version.id}",

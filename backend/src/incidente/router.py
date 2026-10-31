@@ -1,13 +1,11 @@
-import os
-from datetime import date, datetime
+from datetime import date
 from typing import List, Literal, Optional, Union
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
-from werkzeug.utils import secure_filename
 
 from src.auth.dependencies import require_admin, require_operador
+from src.common.archivos import guardar_archivo
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
-from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.incidente import schemas, services
 from src.incidente.constants import EstadoIncidente, TipoIncidente
@@ -38,63 +36,6 @@ EXTENSIONES_FOTO = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 TAMANO_MAX_FOTO = 5 * 1024 * 1024  # 5 MB
 
 
-def _guardar_foto(foto: Optional[UploadFile]) -> Optional[str]:
-    """Guarda la foto del incidente y devuelve su ruta relativa.
-
-    Sanea el nombre del archivo (evita path traversal) y valida extensión y
-    tamaño antes de escribir en disco.
-    """
-    if foto is None or not foto.filename:
-        return None
-
-    extension = os.path.splitext(foto.filename)[1].lower()
-    if extension not in EXTENSIONES_FOTO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Formato de imagen no permitido ({extension or 'sin extensión'}). "
-                f"Formatos válidos: {', '.join(sorted(EXTENSIONES_FOTO))}."
-            ),
-        )
-
-    contenido = foto.file.read()
-    foto.file.seek(0)
-
-    if len(contenido) > TAMANO_MAX_FOTO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "La foto supera el máximo de "
-                f"{TAMANO_MAX_FOTO // (1024 * 1024)} MB."
-            ),
-        )
-
-    # secure_filename elimina rutas y caracteres peligrosos del nombre original.
-    nombre_seguro = secure_filename(foto.filename)
-
-    # secure_filename puede quedarse sin extensión (ej. "foto.jpg" -> "jpg") y
-    # no recorta: se rehace el nombre con la extensión ya validada y un largo
-    # razonable, porque un nombre gigante hace fallar el open() con 500.
-    base = os.path.splitext(nombre_seguro)[0] or "foto"
-    base = base[:120]
-
-    nombre_archivo = f"incidente_{datetime.now().strftime('%Y%m%d%H%M%S')}_{base}{extension}"
-
-    upload_dir = CARPETA_UPLOADS / "incidentes"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    # La ruta se guarda con "/" para que sea la misma en la base y en la URL.
-    ruta_relativa = f"uploads/incidentes/{nombre_archivo}"
-
-    # La carpeta se ancla a CARPETA_UPLOADS (raíz del backend) y no al
-    # directorio de trabajo: si el server se arranca desde otro lado, con
-    # ruta relativa la foto se guardaría en un uploads distinto al que
-    # sirve GET /uploads y la imagen daría 404.
-    with open(upload_dir / nombre_archivo, "wb") as buffer:
-        buffer.write(contenido)
-
-    return ruta_relativa
-
 
 @router.post("", response_model=schemas.IncidenteResponse)
 def crear_incidente(
@@ -106,7 +47,21 @@ def crear_incidente(
     current_user: Personal = Depends(require_operador),
     db: Session = Depends(get_db),
 ):
-    ruta_foto = _guardar_foto(foto)
+    ruta_foto = None
+    if foto is not None and foto.filename:
+        # Validar equipo si se indica para guardar archivo solo después de validar
+        if equipo_id is not None:
+            from src.Equipo.models import Equipo
+            if db.get(Equipo, equipo_id) is None:
+                raise HTTPException(status_code=404, detail="Equipo no encontrado")
+        prefijo = "incidente"
+        ruta_foto = guardar_archivo(
+            foto,
+            EXTENSIONES_FOTO,
+            TAMANO_MAX_FOTO,
+            prefijo,
+            "incidentes"
+        )
 
     datos = schemas.IncidenteCreate(
         titulo=titulo,
@@ -116,9 +71,18 @@ def crear_incidente(
         foto_url=ruta_foto,
     )
 
-    # Crear incidente a través del service
-    incidente = services.crear_incidente(db, datos, current_user.id)
-    return incidente
+    try:
+        incidente = services.crear_incidente(db, datos, current_user.id)
+        return incidente
+    except Exception:
+        if ruta_foto:
+            from src.config import CARPETA_UPLOADS
+            ruta_abs = CARPETA_UPLOADS / ruta_foto.removeprefix("uploads/")
+            try:
+                ruta_abs.unlink(missing_ok=True)
+            except Exception:
+                pass
+        raise
 
 
 @router.get("", response_model=Union[List[schemas.IncidenteResponse], schemas.IncidentePagina])

@@ -32,3 +32,6 @@ class DniInvalido(BadRequest):
 
 class EmailInvalido(BadRequest):
     DETAIL = ErrorCode.EMAIL_INVALIDO
+
+class PasswordInvalida(BadRequest):
+    DETAIL = ErrorCode.PASSWORD_INVALIDA

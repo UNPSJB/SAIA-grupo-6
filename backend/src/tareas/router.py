@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tareas", tags=["tareas"], dependencies=[Depends(require_admin)])
 
 
-@router.post("/", response_model=schemas.Tarea)
+@router.post("", response_model=schemas.Tarea)
 def create_tarea(tarea: schemas.TareaCreate, db: Session = Depends(get_db)):
     return services.crear_tarea(db, tarea)
 
 
-@router.get("/", response_model=List[schemas.Tarea])
+@router.get("", response_model=List[schemas.Tarea])
 def read_tareas(
     plan_limpieza_id: Optional[int] = None, db: Session = Depends(get_db)
 ):

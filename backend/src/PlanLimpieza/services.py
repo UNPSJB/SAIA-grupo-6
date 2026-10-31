@@ -10,6 +10,8 @@ from src.common.listados import ColumnaOrden, paginar_consulta
 from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.common.texto import contiene_texto, sin_tildes
 from src.Equipo.models import Equipo
+from src.Equipo.services import obtener_equipo
+from src.Equipo.exceptions import EquipoNoEncontrado as EquipoNoEncontradoEquipo
 from src.PlanLimpieza import models, schemas, exceptions
 from src.personal.models import Personal
 from src.tareas.models import Tarea
@@ -57,6 +59,16 @@ def _verificar_autor_administrador(db: Session, autor_id: int) -> Personal:
     return db_autor
 
 
+def _verificar_equipo_activo(db: Session, equipo_id: int) -> Equipo:
+    try:
+        equipo = obtener_equipo(db, equipo_id)
+    except EquipoNoEncontradoEquipo as exc:
+        raise exceptions.EquipoNoEncontrado() from exc
+    if not equipo.activo:
+        raise exceptions.EquipoInactivo()
+    return equipo
+
+
 def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
     """Instancia las tareas nuevas y propias del plan (composición, no M2M).
     Cada tarea trae su propia frecuencia, su procedimiento, su tipo
@@ -74,11 +86,13 @@ def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
 
 
 def crear_plan_limpieza(
-    db: Session, plan: schemas.PlanLimpiezaCreate
+    db: Session, plan: schemas.PlanLimpiezaCreate, autor_id: int
 ) -> models.PlanLimpieza:
-    _verificar_autor_administrador(db, plan.autor_id)
+    _verificar_autor_administrador(db, autor_id)
+    _verificar_equipo_activo(db, plan.equipo_id)
 
     datos_plan = plan.model_dump(exclude={"tareas"})
+    datos_plan["autor_id"] = autor_id
     _plan = models.PlanLimpieza(**datos_plan)
     _plan.tareas = _crear_tareas_del_plan(plan.tareas)
     db.add(_plan)
@@ -218,15 +232,24 @@ def modificar_plan_limpieza(
 
     datos_a_actualizar = plan.model_dump(exclude_unset=True)
 
+    # Se extraen primero las tareas porque se actualizan como relación aparte.
+    tareas_input = datos_a_actualizar.pop("tareas") if "tareas" in datos_a_actualizar else ...
+    datos_a_actualizar = {
+        campo: valor
+        for campo, valor in datos_a_actualizar.items()
+        if valor is not None
+    }
+
+    equipo_id = datos_a_actualizar.get("equipo_id", db_plan.equipo_id)
+    _verificar_equipo_activo(db, equipo_id)
+
     if "autor_id" in datos_a_actualizar:
         _verificar_autor_administrador(db, datos_a_actualizar["autor_id"])
 
     # Manejo seguro de tareas sin DELETE destructivo.
     # Se matchea por id (no por nombre): así renombrar una tarea actualiza
     # la fila existente en vez de desactivarla y crear una tarea nueva.
-    if "tareas" in datos_a_actualizar:
-        tareas_input = datos_a_actualizar.pop("tareas")
-
+    if tareas_input is not ... and tareas_input is not None:
         tareas_actuales_por_id = {t.id: t for t in db_plan.tareas}
         ids_recibidos = {
             t["id"] for t in tareas_input if t.get("id") is not None

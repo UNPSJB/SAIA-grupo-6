@@ -16,6 +16,10 @@ class ChecklistFuturo(BadRequest):
     DETAIL = ErrorCode.CHECKLIST_FUTURO
 
 
+class TareaNoCorrespondeALaFecha(BadRequest):
+    DETAIL = ErrorCode.TAREA_NO_CORRESPONDE_A_LA_FECHA
+
+
 class CantidadConsumidaInvalida(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_CONSUMIDA_INVALIDA
 

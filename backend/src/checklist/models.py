@@ -74,6 +74,10 @@ class Checklist(ModeloBase):
 
 
 class RegistroTarea(ModeloBase):
+    # El rastro de cada marcado vive en HistorialRegistroTarea (fuente de verdad):
+    # auditar también esta fila lo registraría dos veces.
+    __audit__ = False
+
     __tablename__ = "registro_tareas"
     __table_args__ = (
         UniqueConstraint(
@@ -174,6 +178,9 @@ class HistorialRegistroTarea(ModeloBase):
     nunca se actualiza ni se borra una vez creada. Esto es lo que
     satisface el criterio "una vez marcada, la tarea no puede editarse
     sin dejar rastro del cambio" (Historia #9, fila 9)."""
+
+    # Ya es una bitácora append-only por sí misma: no se vuelve a auditar.
+    __audit__ = False
 
     __tablename__ = "historial_registro_tareas"
 

@@ -1,5 +1,5 @@
 from sqlalchemy import inspect
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase
 
 
 class ModeloBase(DeclarativeBase):
@@ -24,6 +24,12 @@ class ModeloBase(DeclarativeBase):
 
 # Alias conservado por compatibilidad con los módulos que lo importan.
 Base = ModeloBase
+
+
+# Marca para `mapped_column(..., info=AUDITORIA_REDACTAR)`: la bitácora registra
+# QUE la columna cambió, nunca su contenido (hashes, secretos). Ver
+# `src.auditoria.listeners`.
+AUDITORIA_REDACTAR = {"auditoria_redactar": True}
 
 
 # Nota: acá vivía `plan_limpieza_tareas`, la tabla intermedia de la relación

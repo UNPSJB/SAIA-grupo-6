@@ -9,6 +9,9 @@ class ErrorCode:
         "El checklist de una fecha futura es solo una previsualización: "
         "todavía no hay nada que marcar."
     )
+    TAREA_NO_CORRESPONDE_A_LA_FECHA = (
+        "La tarea no corresponde al día del checklist seleccionado."
+    )
     CANTIDAD_CONSUMIDA_INVALIDA = "La cantidad consumida debe ser mayor a cero."
     INSUMO_QUIMICO_NO_ENCONTRADO = (
         "El insumo químico seleccionado no existe o fue dado de baja."

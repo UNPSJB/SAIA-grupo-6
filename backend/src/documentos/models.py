@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.common.fechas import hoy
 from src.documentos.constants import EstadoVersion
 from src.models import ModeloBase
 from src.personal.models import Personal  # noqa: F401  (para resolver la relación "Personal")
@@ -103,7 +104,7 @@ class VersionDocumento(ModeloBase):
 
         if (
             self.fecha_vencimiento is not None
-            and self.fecha_vencimiento < date.today()
+            and self.fecha_vencimiento < hoy()
         ):
             return EstadoVersion.VENCIDO
 

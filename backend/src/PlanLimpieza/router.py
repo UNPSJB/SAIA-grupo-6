@@ -8,6 +8,7 @@ from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin
 from src.PlanLimpieza import schemas, services
+from src.personal.models import Personal
 
 # Creamos un logger para este módulo específico
 logger = logging.getLogger(__name__)
@@ -22,9 +23,9 @@ OrdenPlanLimpieza = Literal[
 
 @router.post("", response_model=schemas.PlanLimpieza)
 def create_plan_limpieza(
-    plan: schemas.PlanLimpiezaCreate, db: Session = Depends(get_db)
+    plan: schemas.PlanLimpiezaCreate, db: Session = Depends(get_db), current_user: Personal = Depends(require_admin)
 ):
-    return services.crear_plan_limpieza(db, plan)
+    return services.crear_plan_limpieza(db, plan, current_user.id)
 
 
 @router.get("", response_model=Union[List[schemas.PlanLimpieza], schemas.PlanLimpiezaPagina])

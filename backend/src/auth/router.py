@@ -46,21 +46,24 @@ def login(
     Tras varios intentos fallidos se bloquea temporalmente la combinación
     IP + DNI para frenar la fuerza bruta.
     """
-    ip = request.client.host if request.client else "desconocida"
+    from src.auth.services import obtener_ip_cliente
+    ip = obtener_ip_cliente(request)
 
     verificar_intentos_permitidos(ip, credentials.dni)
 
     try:
         user = autenticar_persona(db, credentials.dni, credentials.password)
     except HTTPException as error:
-        # Solo cuentan los intentos fallidos por credenciales incorrectas: un
-        # usuario dado de baja o un DNI inexistente también cuentan, pero un
-        # error de validación de la base no debería "castigar" al cliente.
-        if error.status_code in (401, 404):
+        # Solo cuentan los intentos fallidos por credenciales incorrectas
+        if error.status_code == 401:
             registrar_intento_fallido(ip, credentials.dni)
         raise
 
     limpiar_intentos(ip, credentials.dni)
+
+    # La sesión queda asociada al usuario autenticado, para que cualquier
+    # escritura de este request quede auditada con su actor.
+    db.info["usuario_id"] = user.id
 
     access_token, _, _ = crear_access_token(str(user.id))
     refresh_token, _, _ = crear_refresh_token(str(user.id))
@@ -75,7 +78,8 @@ def login(
 @router.post("/refresh", response_model=schemas.Token)
 def refresh(body: schemas.RefreshRequest, db: Session = Depends(get_db)):
     """Renueva el access token a partir de un refresh token válido."""
-    from src.auth.services import decodificar_token, token_revocado
+    from src.auth.services import decodificar_token, token_posterior_a_cambio_password, token_revocado, revocar_token
+    from datetime import datetime, timezone
 
     payload = decodificar_token(body.refresh_token, token_type="refresh")
 
@@ -102,6 +106,18 @@ def refresh(body: schemas.RefreshRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no encontrado o dado de baja.",
         )
+
+    if not token_posterior_a_cambio_password(payload, user.password_changed_at):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido por cambio de contraseña.")
+
+    # Revocar el refresh usado
+    try:
+        exp_ts = payload.get("exp")
+        expira = datetime.fromtimestamp(float(exp_ts), tz=timezone.utc).replace(tzinfo=None)
+    except Exception:
+        expira = datetime.now(timezone.utc).replace(tzinfo=None)
+    revocar_token(db, jti=payload.get("jti"), usuario_id=user.id, tipo="refresh", expira=expira)
+    db.commit()
 
     access_token, _, _ = crear_access_token(str(user.id))
     refresh_token, _, _ = crear_refresh_token(str(user.id))

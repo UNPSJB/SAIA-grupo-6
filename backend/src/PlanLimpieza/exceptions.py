@@ -40,3 +40,11 @@ class EquipoIdInvalido(BadRequest):
 
 class AutorIdInvalido(BadRequest):
     DETAIL = ErrorCode.AUTOR_ID_INVALIDO
+
+
+class EquipoNoEncontrado(NotFound):
+    DETAIL = ErrorCode.EQUIPO_NO_ENCONTRADO
+
+
+class EquipoInactivo(BadRequest):
+    DETAIL = ErrorCode.EQUIPO_INACTIVO
