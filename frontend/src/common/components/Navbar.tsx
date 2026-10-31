@@ -190,7 +190,7 @@ const MENU: EntradaMenu[] = [
    * quede fijo arriba del todo: es la entrada más personal de la barra y no
    * debería scrollearse nunca.
    */
-  { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
+ // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
 ];
 
