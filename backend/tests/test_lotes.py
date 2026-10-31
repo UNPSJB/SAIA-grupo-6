@@ -186,3 +186,9 @@ def test_post_exige_sesion(client_lotes):
     )
 
     assert respuesta.status_code == 401
+
+
+def test_la_app_principal_incluye_el_router_de_lotes():
+    from src.main import app
+
+    assert "/lotes" in app.openapi()["paths"]
