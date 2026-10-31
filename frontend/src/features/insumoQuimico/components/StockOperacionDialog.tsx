@@ -110,6 +110,9 @@ export function StockOperacionDialog({
       motionPreset="none"
       closeOnEscape={!loading}
       closeOnInteractOutside={!loading}
+      onOpenChange={(detalle) => {
+        if (!detalle.open && !loading) onClose();
+      }}
     >
       <DialogContent bg="bg.panel" p="6" rounded="lg" boxShadow="dialog" width="420px" maxW="calc(100vw - 32px)">
         <DialogForm onSubmit={handleSubmit}>

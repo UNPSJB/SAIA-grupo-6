@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from src.common.paginacion import Pagina
 from src.documentos.constants import EstadoVersion, TipoDocumento
 
 
@@ -63,3 +64,15 @@ class HistorialDocumento(BaseModel):
     versiones: list[VersionDocumento]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentoPagina(Pagina["Documento"]):
+    """Página de documentos (gestión): la respuesta del listado paginado."""
+
+    pass
+
+
+class DocumentoVigentePagina(Pagina["DocumentoVigente"]):
+    """Página de documentos vigentes (consulta): la respuesta del listado paginado."""
+
+    pass

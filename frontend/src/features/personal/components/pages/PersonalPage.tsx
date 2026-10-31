@@ -1,13 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { PersonalTable } from "../PersonalTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePersonales } from "../../hooks/usePersonales";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
-import type { Persona } from "../../types/personal";
+import {
+  ROLES_PERSONAL,
+  type Persona,
+  type RolPersonal,
+} from "../../types/personal";
+import type { ColumnaOrdenPersonal } from "../../services/personalService";
+import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
+import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
 import {
   BannerError,
   PageHeader,
@@ -21,29 +35,85 @@ export function PersonalPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { personales, loading, error, cargarPersonales } = usePersonales(verInactivos);
+  const [busqueda, setBusqueda] = useState("");
+  const busquedaAplicada = useValorDebounced(busqueda);
+  const [rol, setRol] = useState("");
+  const orden = useOrdenTabla<ColumnaOrdenPersonal, "nombre_asc">("nombre_asc");
+
+  const {
+    personales,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarPersonales,
+  } = usePersonales(
+    {
+      incluirInactivos: verInactivos,
+      buscar: busquedaAplicada,
+      rol: rol ? (rol as RolPersonal) : undefined,
+      orden: orden.orden,
+    },
+    PAGE_SIZE
+  );
   const {
     borrar,
     reactivar,
     loading: procesando,
     error: errorReactivar,
-} = usePersonalABM();
-  const {
-    paginados: personalPaginado,
-    totalFiltrados,
-    page,
-    setPage,
-    hayVariasPaginas,
-  } = usePaginacion(personales, verInactivos, PAGE_SIZE);
+  } = usePersonalABM();
 
   const [personaAEliminar, setPersonaAEliminar] = useState<Persona | null>(null);
   const [personaAReactivar, setPersonaAReactivar] = useState<Persona | null>(null);
 
 
   const handleToggleInactivos = (checked: boolean) => {
+    // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
     setVerInactivos(checked);
-    setPage(1); 
   };
+
+  const limpiarTodo = () => {
+    setBusqueda("");
+    setRol("");
+    orden.reiniciar();
+  };
+
+  const hayFiltros = busqueda.trim() !== "" || rol !== "";
+
+  const ETIQUETAS_ORDEN: Record<ColumnaOrdenPersonal, string> = {
+    nombre: "Nombre",
+    dni: "DNI",
+  };
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => setBusqueda(""),
+    },
+    {
+      clave: "rol",
+      etiqueta: "Rol",
+      valor: ROLES_PERSONAL.find((opcion) => opcion.value === rol)?.label ?? rol,
+      onQuitar: () => setRol(""),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        orden.columna !== null
+          ? `${ETIQUETAS_ORDEN[orden.columna]} ${
+              orden.direccion === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: orden.columna !== null,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
 
   const handleEdit = (persona: Persona) => navigate(`/personal/${persona.id}/editar`);
   
@@ -107,13 +177,48 @@ export function PersonalPage() {
         children="Ver dados de baja"
       />
 
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre, apellido, DNI o email..."
+          />
+        }
+        filtros={
+          <FiltroSelect
+            label="Rol"
+            valor={rol}
+            onCambio={setRol}
+            opciones={ROLES_PERSONAL.map((opcion) => ({
+              valor: opcion.value,
+              etiqueta: opcion.label,
+            }))}
+          />
+        }
+      />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+
       {!loading && !error && (
         <>
-          <PersonalTable personales={personalPaginado} onEdit={handleEdit} onDelete={handleDeleteRequest} onReactivar={handleReactivarRequest} />
+          {hayFiltros && personales.length === 0 ? (
+            <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+              No hay personal que coincida con los filtros aplicados.
+            </EstadoVacioFiltrado>
+          ) : (
+            <PersonalTable
+              personales={personales}
+              orden={orden}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+              onReactivar={handleReactivarRequest}
+            />
+          )}
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

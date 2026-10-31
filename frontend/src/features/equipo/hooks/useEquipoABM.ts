@@ -7,9 +7,9 @@ import {
   reactivarEquipo,
   registrarIntervencion,
 } from "../services/equipoService";
-import type { Calibracion, Equipo, TipoIntervencion } from "../types/equipo";
+import type { Calibracion, Equipo, TipoIntervencion,EquipoInput } from "../types/equipo";
 
-type EquipoInput = Omit<Equipo, "id">;
+
 
 export function useEquipoABM() {
   const abm = useABM<EquipoInput, Equipo>({

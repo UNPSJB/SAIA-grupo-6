@@ -5,6 +5,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.common.paginacion import Pagina
 from src.insumoQuimico.models import TipoMovimientoStock, TipoQuimico
 from src.insumoQuimico import exceptions
 
@@ -184,3 +185,15 @@ class LotesStockResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class InsumoQuimicoPagina(Pagina["InsumoQuimicoResponse"]):
+    """Página de insumos químicos: la respuesta del listado paginado."""
+
+    pass
+
+
+class StockInsumoQuimicoPagina(Pagina[StockInsumoQuimicoResponse]):
+    """Página del saldo actual de productos químicos activos."""
+
+    pass

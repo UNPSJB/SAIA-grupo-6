@@ -11,7 +11,7 @@ import { Login } from "./features/Login";
 // `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
 // las 35 páginas entraban al bundle inicial.
 
-import Navbar from "./common/components/Navbar";
+import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
 
 // 0. Panel principal
@@ -189,6 +189,17 @@ const AptitudEditPage = lazy(() =>
   import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
 );
 
+//  Sector
+const SectorPage = lazy(() =>
+  import("./features/sector/components/pages/SectorPage").then((mod) => ({ default: mod.SectorPage })),
+);
+const SectorCreatePage = lazy(() =>
+  import("./features/sector/components/pages/SectorCreatePage").then((mod) => ({ default: mod.SectorCreatePage })),
+);
+const SectorEditPage = lazy(() =>
+  import("./features/sector/components/pages/SectorEditPage").then((mod) => ({ default: mod.SectorEditPage })),
+);
+
 // 9. Incidentes
 const IncidentesListPage = lazy(() =>
   import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
@@ -229,10 +240,17 @@ function ConSuspense({ children }: { children: ReactNode }) {
 function LayoutPrincipal() {
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
+      {/*
+       * El sidebar es overlay (`position: fixed`): no ocupa lugar en el
+       * flex. El contenido reserva SIEMPRE el ancho del rail plegado, así
+       * plegar/desplegar no reacomoda nada: con el panel desplegado, este
+       * aparece por encima de la vista en vez de empujarla.
+       */}
       <Navbar />
 
       <Flex
         flex={1}
+        ml={ANCHO_COLAPSADO}
         p="15px 30px"
         overflowY="auto"
         direction="column"
@@ -527,6 +545,32 @@ export const router = createBrowserRouter([
                 element: (
                 <ConSuspense>
                   <AptitudEditPage />
+                </ConSuspense>
+              ),
+              },
+
+              // ---------------- SECTORES ----------------
+              {
+                path: "/sectores",
+                element: (
+                <ConSuspense>
+                  <SectorPage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/sectores/nuevo",
+                element: (
+                <ConSuspense>
+                  <SectorCreatePage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/sectores/:id/editar",
+                element: (
+                <ConSuspense>
+                  <SectorEditPage />
                 </ConSuspense>
               ),
               },

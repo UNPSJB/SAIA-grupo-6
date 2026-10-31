@@ -1,6 +1,9 @@
 import { Table, Text } from "@chakra-ui/react";
 import { InsumoItem } from "./InsumoItem";
 import type { Insumo } from "../types/insumo";
+import type { ColumnaOrdenInsumo } from "../services/insumoService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   FilaEncabezado,
@@ -9,6 +12,7 @@ import {
 
 interface InsumoTableProps {
   insumos: Insumo[];
+  orden: OrdenTabla<ColumnaOrdenInsumo, string>;
   onEdit: (insumo: Insumo) => void;
   onDelete: (insumo: Insumo) => void;
   onReactivar: (insumo: Insumo) => void;
@@ -16,6 +20,7 @@ interface InsumoTableProps {
 
 export function InsumoTable({
   insumos,
+  orden,
   onEdit,
   onDelete,
   onReactivar,
@@ -33,9 +38,15 @@ export function InsumoTable({
       <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Unidad Medida</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="nombre" orden={orden}>
+              Nombre
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media">
+              Unidad Medida
+            </EncabezadoOrdenable>
+            <EncabezadoOscuro center ancho="accionesAnchas">
+              Acciones
+            </EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>

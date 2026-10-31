@@ -16,6 +16,20 @@ export interface Persona {
 }
 
 /**
+ * Rol excluyente de una persona. Es el mismo criterio que usa el filtro del
+ * listado: el super admin no cuenta como administrador, y quien administra no
+ * cuenta como operador.
+ */
+export type RolPersonal = "super_admin" | "administrador" | "operador";
+
+/** Opciones del filtro por rol, con su etiqueta legible. */
+export const ROLES_PERSONAL: { value: RolPersonal; label: string }[] = [
+  { value: "super_admin", label: "Super admin" },
+  { value: "administrador", label: "Administrador" },
+  { value: "operador", label: "Operador" },
+];
+
+/**
  * Lo que se puede enviar al backend al crear o editar.
  *
  * `password` vive acá y no en `Persona` porque es de solo ida: es un campo de

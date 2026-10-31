@@ -1,6 +1,9 @@
 import { Table, Text } from "@chakra-ui/react";
 import { UnidadMedidaItem } from "./UnidadMedidaItem";
 import type { UnidadMedida } from "../types/unidadMedida";
+import type { ColumnaOrdenUnidadMedida } from "../services/unidadMedidaService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   FilaEncabezado,
@@ -9,6 +12,7 @@ import {
 
 interface UnidadMedidaTableProps {
   unidades: UnidadMedida[];
+  orden: OrdenTabla<ColumnaOrdenUnidadMedida, string>;
   onEdit: (unidad: UnidadMedida) => void;
   onDelete: (unidad: UnidadMedida) => void;
   onReactivar: (unidad: UnidadMedida) => void;
@@ -16,6 +20,7 @@ interface UnidadMedidaTableProps {
 
 export function UnidadMedidaTable({
   unidades,
+  orden,
   onEdit,
   onDelete,
   onReactivar,
@@ -33,8 +38,12 @@ export function UnidadMedidaTable({
       <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="angosta">Símbolo</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="nombre" orden={orden}>
+              Nombre
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="simbolo" orden={orden} ancho="angosta">
+              Símbolo
+            </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

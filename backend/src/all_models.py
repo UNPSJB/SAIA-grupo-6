@@ -31,6 +31,7 @@ from src.personal.models import Personal  # noqa: F401
 from src.unidadMedida.models import UnidadMedida  # noqa: F401
 from src.aptitud.models import Aptitud  # noqa: F401
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: F401
+from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
 from src.insumos.models import Insumo  # noqa: F401
 from src.proveedores.models import Proveedor  # noqa: F401
@@ -42,12 +43,15 @@ from src.tareas.models import Tarea  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
+from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 
 __all__ = [
     "Aptitud",
     "Calibracion",
     "Checklist",
+    "Documento",
     "ElementoLimpieza",
+    "Sector",
     "Equipo",
     "HistorialRegistroTarea",
     "Incidente",
@@ -63,4 +67,5 @@ __all__ = [
     "TokenRevocado",
     "UnidadMedida",
     "VencimientoPersonal",
+    "VersionDocumento",
 ]

@@ -1,12 +1,13 @@
 import logging
 import os
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Literal, Union
 
 from fastapi import APIRouter, Depends, Query, File, UploadFile, Form, HTTPException
 from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_operador, require_admin
 from src.checklist import schemas, services
@@ -144,16 +145,35 @@ def marcar_tarea(
 def obtener_historial_registro(registro_id: int, db: Session = Depends(get_db)):
     return services.obtener_historial_registro(db, registro_id)
 
-@router.get("/historial", response_model=schemas.HistorialChecklistResponse, dependencies=_DEP_ADMIN)
+@router.get(
+    "/historial",
+    response_model=Union[schemas.HistorialChecklistResponse, schemas.HistorialChecklistPagina],
+    dependencies=_DEP_ADMIN,
+)
 def listar_historial_checklists(
     fecha_desde: date = Query(...),
     fecha_hasta: date = Query(...),
     equipo_id: Optional[int] = Query(None),
+    buscar: Optional[str] = Query(
+        None,
+        description="Búsqueda por nombre de equipo (ignora mayúsculas y tildes).",
+    ),
+    orden: Optional[Literal["fecha_asc", "fecha_desc", "equipo_asc", "equipo_desc"]] = Query(
+        None, description="fecha_desc (default) | fecha_asc | equipo_asc | equipo_desc."
+    ),
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve el historial completo del rango.",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
     db: Session = Depends(get_db),
 ):
     """Historial de checklists en un rango de fechas, con % de
     cumplimiento y detalle de tareas incumplidas (Historia #13)."""
-    return services.listar_historial_checklists(db, fecha_desde, fecha_hasta, equipo_id)
+    return services.listar_historial_checklists(
+        db, fecha_desde, fecha_hasta, equipo_id, buscar, orden, page, page_size
+    )
 
 
 @router.get(

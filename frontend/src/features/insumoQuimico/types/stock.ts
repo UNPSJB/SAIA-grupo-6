@@ -12,11 +12,26 @@ export interface StockInsumoQuimico {
 }
 
 export type OperacionAjusteStock = "incremento" | "decremento";
+export type TipoMovimientoStock =
+  | "ingreso"
+  | "ajuste_positivo"
+  | "ajuste_negativo"
+  | "consumo_automatico"
+  | "reverso_consumo";
+
+export type ColumnaOrdenStock = "nombre" | "cantidad" | "minimo";
+export type OrdenStock = `${ColumnaOrdenStock}_asc` | `${ColumnaOrdenStock}_desc`;
+
+export interface FiltrosStockActual {
+  buscar?: string;
+  stockBajo?: boolean;
+  orden?: OrdenStock;
+}
 
 export interface MovimientoStock {
   id: number;
   fecha: string;
-  tipo: string;
+  tipo: TipoMovimientoStock;
   cantidad_variacion: ValorDecimal;
   nombre_producto: string;
   unidad_simbolo: string | null;
@@ -39,7 +54,7 @@ export interface FiltrosMovimientosStock {
   insumo_quimico_id?: number;
   fecha_desde?: string;
   fecha_hasta?: string;
-  tipo?: string;
+  tipo?: TipoMovimientoStock;
   limit?: number;
   offset?: number;
 }

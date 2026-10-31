@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin
@@ -19,8 +21,16 @@ def crear_proveedor(datos: schemas.ProveedorCreate, db: Session = Depends(get_db
 
 
 @router.get("", response_model=list[schemas.ProveedorResponse])
-def listar_proveedores(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
-    return services.listar_proveedores(db, incluir_inactivos)
+def listar_proveedores(
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre y matrícula (sin distinguir mayúsculas ni tildes).",
+    ),
+    db: Session = Depends(get_db),
+):
+    return services.listar_proveedores(db, incluir_inactivos, buscar)
 
 
 @router.get("/{proveedor_id}", response_model=schemas.ProveedorResponse)

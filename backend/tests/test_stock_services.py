@@ -7,6 +7,7 @@ from src.insumoQuimico import stock_services
 from src.insumoQuimico.models import InsumoQuimico, LoteStock, StockInsumoQuimico, TipoQuimico
 from src.insumoQuimico.stock_services import (
     listar_movimientos,
+    listar_lotes,
     listar_stock_actual,
     registrar_ajuste,
     registrar_ingreso,
@@ -184,6 +185,7 @@ def test_stock_actual_omite_inactivos_pero_conserva_su_historial(db):
 
     assert listar_stock_actual(db) == []
     assert listar_movimientos(db, producto.id, None, None, None, 25, 0).total == 1
+    assert listar_lotes(db, None, producto.id, None, 25, 0).total == 1
 
 
 def test_fallo_al_crear_lote_revierte_saldo_y_movimiento(db, monkeypatch):

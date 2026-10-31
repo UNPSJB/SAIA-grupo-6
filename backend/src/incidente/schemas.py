@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.paginacion import Pagina
 from src.incidente import exceptions
 from src.incidente.constants import EstadoIncidente, TipoIncidente
 
@@ -87,6 +88,12 @@ class IncidenteResumenResponse(BaseModel):
     estado: str
     total: int
     por_tipo: List[IncidenteResumenTipo]
+
+
+class IncidentePagina(Pagina["IncidenteResponse"]):
+    """Página de incidentes: la respuesta del listado paginado en el servidor."""
+
+    pass
 
 
 class HistorialIncidenteItem(BaseModel):

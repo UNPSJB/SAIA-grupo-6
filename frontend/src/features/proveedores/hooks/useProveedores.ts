@@ -3,15 +3,15 @@ import { useLista } from "../../../common/hooks/useLista";
 import { listarProveedores } from "../services/proveedorService";
 import type { Proveedor } from "../types/proveedor";
 
-export function useProveedores(incluirInactivos = false) {
+export function useProveedores(incluirInactivos = false, buscar = "") {
   const cargarProveedores = useCallback(
-    () => listarProveedores(incluirInactivos),
-    [incluirInactivos]
+    () => listarProveedores(incluirInactivos, buscar),
+    [incluirInactivos, buscar]
   );
 
   const { items, loading, error, recargar } = useLista<Proveedor[]>({
     cargar: cargarProveedores,
-    dependencias: [incluirInactivos],
+    dependencias: [incluirInactivos, buscar],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los proveedores",
   });

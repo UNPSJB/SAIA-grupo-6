@@ -1,21 +1,36 @@
 import { useState } from "react";
 import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { LuArrowDown, LuArrowUp, LuPencil } from "react-icons/lu";
-import { useStockAcciones } from "../hooks/useStockAcciones";
-import { useStockActual } from "../hooks/useStockActual";
-import type { StockInsumoQuimico } from "../types/stock";
+
+import { useOrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EncabezadoOrdenable,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../components/ui/filtros";
 import {
   BannerError,
+  BotonAccion,
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
   FilaEncabezado,
+  Paginacion,
   Tarjeta,
 } from "../../../components/ui/patrones";
-import { StockOperacionDialog, type TipoDialogoStock } from "./StockOperacionDialog";
-import { useProveedores } from "../../proveedores/hooks/useProveedores";
 import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
+import { useProveedores } from "../../proveedores/hooks/useProveedores";
+import { useStockAcciones } from "../hooks/useStockAcciones";
+import { useStockActual } from "../hooks/useStockActual";
+import type { ColumnaOrdenStock, StockInsumoQuimico } from "../types/stock";
+import { StockOperacionDialog, type TipoDialogoStock } from "./StockOperacionDialog";
+
+const PAGE_SIZE = 10;
 
 interface DialogoAbierto {
   tipo: TipoDialogoStock;
@@ -27,7 +42,21 @@ function valorDecimal(valor: number | string | null) {
 }
 
 export function StockActualTab() {
-  const { stock, loading, error, recargar } = useStockActual();
+  const [busqueda, setBusqueda] = useState("");
+  const [estado, setEstado] = useState("");
+  const busquedaAplicada = useValorDebounced(busqueda);
+  const orden = useOrdenTabla<ColumnaOrdenStock>("nombre_asc", "nombre");
+  const stockBajo = estado === "bajo" ? true : estado === "normal" ? false : undefined;
+  const {
+    stock,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    recargar,
+  } = useStockActual({ buscar: busquedaAplicada, stockBajo, orden: orden.orden });
   const { proveedores } = useProveedores();
   const { loading: guardando, actualizarMinimo, registrarAjuste, registrarIngreso } = useStockAcciones();
   const [dialogo, setDialogo] = useState<DialogoAbierto | null>(null);
@@ -42,13 +71,74 @@ export function StockActualTab() {
     notificarCambioNotificaciones();
   };
 
+  const limpiarTodo = () => {
+    setBusqueda("");
+    setEstado("");
+    orden.reiniciar();
+  };
+  const hayFiltros = busqueda.trim() !== "" || estado !== "";
+  const etiquetasOrden: Record<ColumnaOrdenStock, string> = {
+    nombre: "Producto",
+    cantidad: "Stock actual",
+    minimo: "Stock mínimo",
+  };
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => setBusqueda(""),
+    },
+    {
+      clave: "estado",
+      etiqueta: "Estado",
+      valor: estado === "bajo" ? "Stock bajo" : estado === "normal" ? "Disponible" : "",
+      onQuitar: () => setEstado(""),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor: `${etiquetasOrden[orden.columna ?? "nombre"]} ${orden.direccion === "asc" ? "↑" : "↓"}`,
+      visible: !orden.esPorDefecto,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
+
   return (
     <>
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por producto o unidad..."
+          />
+        }
+        filtros={
+          <FiltroSelect
+            label="Estado"
+            valor={estado}
+            onCambio={setEstado}
+            opciones={[
+              { valor: "bajo", etiqueta: "Stock bajo" },
+              { valor: "normal", etiqueta: "Disponible" },
+            ]}
+          />
+        }
+      />
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+
       {error ? <BannerError>{error}</BannerError> : null}
       {loading ? <EstadoCargando>Cargando stock actual...</EstadoCargando> : null}
-
       {!loading && !error && stock.length === 0 ? (
-        <EstadoVacio>No hay productos químicos registrados para gestionar.</EstadoVacio>
+        hayFiltros ? (
+          <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+            No hay productos que coincidan con los filtros aplicados.
+          </EstadoVacioFiltrado>
+        ) : (
+          <EstadoVacio>No hay productos químicos registrados para gestionar.</EstadoVacio>
+        )
       ) : null}
 
       {!loading && !error && stock.length > 0 ? (
@@ -57,42 +147,32 @@ export function StockActualTab() {
             <Table.Root variant="outline" size="sm">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="angosta">Actual</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="angosta">Mínimo</EncabezadoOscuro>
+                  <EncabezadoOrdenable columna="nombre" orden={orden}>Producto</EncabezadoOrdenable>
+                  <EncabezadoOrdenable columna="cantidad" orden={orden} ancho="angosta">Actual</EncabezadoOrdenable>
+                  <EncabezadoOrdenable columna="minimo" orden={orden} ancho="angosta">Mínimo</EncabezadoOrdenable>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
                 {stock.map((insumo) => (
-                  <Table.Row key={insumo.insumo_quimico_id} opacity={insumo.activo ? 1 : 0.65}>
+                  <Table.Row key={insumo.insumo_quimico_id}>
                     <Celda fontWeight="medium">{insumo.nombre}</Celda>
-                    <Celda>
-                      {valorDecimal(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}
-                    </Celda>
+                    <Celda>{valorDecimal(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Celda>
                     <Celda>
                       {valorDecimal(insumo.stock_minimo)}
                       {insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}
                     </Celda>
                     <Celda>
-                      {insumo.stock_bajo ? (
-                        <Badge colorPalette="red">Stock bajo</Badge>
-                      ) : (
-                        <Badge colorPalette="green">Disponible</Badge>
-                      )}
+                      <Badge colorPalette={insumo.stock_bajo ? "red" : "green"}>
+                        {insumo.stock_bajo ? "Stock bajo" : "Disponible"}
+                      </Badge>
                     </Celda>
-                    <Celda>
-                      <HStack gap="2" flexWrap="wrap">
-                        <Button size="xs" colorPalette="brand" onClick={() => setDialogo({ tipo: "ingreso", insumo })}>
-                          <LuArrowUp aria-hidden /> Ingreso
-                        </Button>
-                        <Button size="xs" variant="outline" colorPalette="neutral" onClick={() => setDialogo({ tipo: "ajuste", insumo })}>
-                          <LuArrowDown aria-hidden /> Ajuste
-                        </Button>
-                        <Button size="xs" variant="plain" color="brand.fg" onClick={() => setDialogo({ tipo: "minimo", insumo })}>
-                          <LuPencil aria-hidden /> Mínimo
-                        </Button>
+                    <Celda center>
+                      <HStack gap="2" justify="center">
+                        <BotonAccion accion="ingreso" label="Registrar ingreso" onClick={() => setDialogo({ tipo: "ingreso", insumo })} />
+                        <BotonAccion accion="ajuste" label="Ajustar stock" onClick={() => setDialogo({ tipo: "ajuste", insumo })} />
+                        <BotonAccion accion="minimo" label="Configurar stock mínimo" onClick={() => setDialogo({ tipo: "minimo", insumo })} />
                       </HStack>
                     </Celda>
                   </Table.Row>
@@ -107,32 +187,21 @@ export function StockActualTab() {
                 <HStack justify="space-between" align="flex-start" gap="3" mb="3">
                   <Box>
                     <Text fontWeight="bold">{insumo.nombre}</Text>
-                    <Text color="fg.muted" fontSize="sm">
-                      Actual: {valorDecimal(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}
-                    </Text>
+                    <Text color="fg.muted" fontSize="sm">Actual: {valorDecimal(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Text>
                   </Box>
-                  <Badge colorPalette={insumo.stock_bajo ? "red" : "green"} flexShrink={0}>
-                    {insumo.stock_bajo ? "Stock bajo" : "Disponible"}
-                  </Badge>
+                  <Badge colorPalette={insumo.stock_bajo ? "red" : "green"}>{insumo.stock_bajo ? "Stock bajo" : "Disponible"}</Badge>
                 </HStack>
-                <Text color="fg.muted" fontSize="sm" mb="3">
-                  Mínimo: {valorDecimal(insumo.stock_minimo)}
-                  {insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}
-                </Text>
+                <Text color="fg.muted" fontSize="sm" mb="3">Mínimo: {valorDecimal(insumo.stock_minimo)}{insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}</Text>
                 <Stack direction="row" gap="2" flexWrap="wrap">
-                  <Button size="sm" colorPalette="brand" onClick={() => setDialogo({ tipo: "ingreso", insumo })}>
-                    Ingreso
-                  </Button>
-                  <Button size="sm" variant="outline" colorPalette="neutral" onClick={() => setDialogo({ tipo: "ajuste", insumo })}>
-                    Ajuste
-                  </Button>
-                  <Button size="sm" variant="plain" color="brand.fg" onClick={() => setDialogo({ tipo: "minimo", insumo })}>
-                    Mínimo
-                  </Button>
+                  <Button size="sm" colorPalette="brand" onClick={() => setDialogo({ tipo: "ingreso", insumo })}>Ingreso</Button>
+                  <Button size="sm" variant="outline" colorPalette="neutral" onClick={() => setDialogo({ tipo: "ajuste", insumo })}>Ajuste</Button>
+                  <Button size="sm" variant="plain" color="brand.fg" onClick={() => setDialogo({ tipo: "minimo", insumo })}>Mínimo</Button>
                 </Stack>
               </Tarjeta>
             ))}
           </Stack>
+
+          {hayVariasPaginas ? <Paginacion count={total} pageSize={PAGE_SIZE} page={page} onPageChange={setPage} /> : null}
         </>
       ) : null}
 
@@ -144,19 +213,9 @@ export function StockActualTab() {
           loading={guardando}
           proveedores={proveedores}
           onClose={cerrarDialogo}
-          onIngreso={(cantidad, proveedorId, numeroLote) =>
-            recargarDespuesDeGuardar(() =>
-              registrarIngreso(dialogo.insumo.insumo_quimico_id, cantidad, proveedorId, numeroLote),
-            )
-          }
-          onAjuste={(cantidad, operacion, motivo) =>
-            recargarDespuesDeGuardar(() =>
-              registrarAjuste(dialogo.insumo.insumo_quimico_id, cantidad, operacion, motivo),
-            )
-          }
-          onMinimo={(minimo) =>
-            recargarDespuesDeGuardar(() => actualizarMinimo(dialogo.insumo.insumo_quimico_id, minimo))
-          }
+          onIngreso={(cantidad, proveedorId, numeroLote) => recargarDespuesDeGuardar(() => registrarIngreso(dialogo.insumo.insumo_quimico_id, cantidad, proveedorId, numeroLote))}
+          onAjuste={(cantidad, operacion, motivo) => recargarDespuesDeGuardar(() => registrarAjuste(dialogo.insumo.insumo_quimico_id, cantidad, operacion, motivo))}
+          onMinimo={(minimo) => recargarDespuesDeGuardar(() => actualizarMinimo(dialogo.insumo.insumo_quimico_id, minimo))}
         />
       ) : null}
     </>

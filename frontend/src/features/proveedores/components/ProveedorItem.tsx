@@ -1,6 +1,6 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { Proveedor } from "../types/proveedor";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface ProveedorItemProps {
   proveedor: Proveedor;
@@ -22,17 +22,11 @@ export function ProveedorItem({ proveedor, onEdit, onDelete, onReactivar }: Prov
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {proveedor.activo ? (
             <>
-              <BotonTabla accion="editar" onClick={() => onEdit(proveedor)}>
-                Modificar
-              </BotonTabla>
-              <BotonTabla accion="eliminar" onClick={() => onDelete(proveedor)}>
-                Eliminar
-              </BotonTabla>
+              <BotonAccion accion="editar" label="Modificar proveedor" onClick={() => onEdit(proveedor)} />
+              <BotonAccion accion="eliminar" label="Eliminar proveedor" onClick={() => onDelete(proveedor)} />
             </>
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(proveedor)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar proveedor" onClick={() => onReactivar(proveedor)} />
           )}
         </HStack>
       </Celda>

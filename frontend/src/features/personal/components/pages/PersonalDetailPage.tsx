@@ -16,6 +16,7 @@ import { useVencimientosPersonal } from "../../../vencimientoPersonal/hooks/useV
 import { useAptitudes } from "../../../aptitud/hooks/useAptitudes";
 import { hoyISO } from "../../../../common/utils/fechas";
 import {
+  AccionesDetalle,
   BannerError,
   BotonVolver,
   Celda,
@@ -99,9 +100,6 @@ export function PersonalDetailPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title={`Ficha de personal #${persona.id}`}
-        actions={
-          <BotonVolver onClick={volver}>Volver</BotonVolver>
-        }
       />
 
       <Tarjeta p="5">
@@ -175,6 +173,10 @@ export function PersonalDetailPage() {
           )}
         </Box>
       </Tarjeta>
+
+      <AccionesDetalle>
+        <BotonVolver onClick={volver}>Volver</BotonVolver>
+      </AccionesDetalle>
     </Box>
   );
 }

@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { UnidadMedida } from "../../types/unidadMedida";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -50,11 +49,6 @@ export function UnidadMedidaEditPage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Editar unidad de medida"
-        actions={
-          <BotonVolver onClick={() => navigate("/unidades-medida")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}

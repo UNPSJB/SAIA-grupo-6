@@ -15,7 +15,6 @@ import type {
 import {
   BannerError,
   BannerExito,
-  BotonVolver,
   EstadoCargando,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -76,11 +75,6 @@ export function PlanCalibracionMantenimientoEditPage() {
                 plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"
               }`
             : undefined
-        }
-        actions={
-          <BotonVolver onClick={() => navigate("/planes-calibracion-mantenimiento")}>
-            Volver a la lista
-          </BotonVolver>
         }
       />
 

@@ -39,6 +39,7 @@ import {
 import {
   BadgeEstado,
   BannerError,
+  BotonAccion,
   BotonCancelar,
   BotonTexto,
   Celda,
@@ -533,14 +534,14 @@ function FilaTarea({
                 </Checkbox.Control>
               </Checkbox.Root>
               {tarea.evidencia_url && (
-                <BotonTexto onClick={() => setMostrarFoto(true)}>
-                  Ver foto
-                </BotonTexto>
+                <BotonAccion
+                  accion="foto"
+                  label="Ver foto"
+                  onClick={() => setMostrarFoto(true)}
+                />
               )}
               {tarea.registro_id > 0 && (
-                <BotonTexto color="fg.muted" onClick={verHistorial}>
-                  Historial
-                </BotonTexto>
+                <BotonAccion accion="historial" label="Ver historial" onClick={verHistorial} />
               )}
             </Box>
           )}

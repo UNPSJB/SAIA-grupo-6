@@ -1,6 +1,9 @@
 import { Table, Text } from "@chakra-ui/react";
 import { IncidenteItem } from "./IncidenteItem";
 import type { Incidente } from "../types/incidente";
+import type { ColumnaOrdenIncidente } from "../services/incidenteService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   FilaEncabezado,
@@ -9,6 +12,11 @@ import {
 
 interface IncidenteTableProps {
   incidentes: Incidente[];
+  /**
+   * Orden server-side. Si se pasa, Fecha/Tipo/Estado se pueden clickear; si
+   * no, la tabla se muestra con encabezados fijos (por ejemplo en un detalle).
+   */
+  orden?: OrdenTabla<ColumnaOrdenIncidente, string>;
   onCerrar?: (incidente: Incidente) => void;
   onReabrir?: (incidente: Incidente) => void;
   onVer?: (incidente: Incidente) => void;
@@ -18,6 +26,7 @@ interface IncidenteTableProps {
 
 export function IncidenteTable({
   incidentes,
+  orden,
   onCerrar,
   onReabrir,
   onVer,
@@ -43,13 +52,31 @@ export function IncidenteTable({
             incidente, no solo el nombre.
           */}
           <FilaEncabezado>
-            <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+            {orden ? (
+              <EncabezadoOrdenable columna="fecha" orden={orden} ancho="media">
+                Fecha
+              </EncabezadoOrdenable>
+            ) : (
+              <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+            )}
             <EncabezadoOscuro>Título</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="angosta">
               Foto
             </EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Estado</EncabezadoOscuro>
+            {orden ? (
+              <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
+                Tipo
+              </EncabezadoOrdenable>
+            ) : (
+              <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+            )}
+            {orden ? (
+              <EncabezadoOrdenable columna="estado" orden={orden} ancho="media">
+                Estado
+              </EncabezadoOrdenable>
+            ) : (
+              <EncabezadoOscuro ancho="media">Estado</EncabezadoOscuro>
+            )}
             <EncabezadoOscuro>Reportado por</EncabezadoOscuro>
             {showActions && <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>}
           </FilaEncabezado>

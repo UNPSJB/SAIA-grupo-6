@@ -13,6 +13,9 @@ de cambios:
   * services: un duplicado en un PUT devuelve la excepcion de negocio en vez de
     un 500, y un `NOT NULL` ya no se reporta como "ya existe";
   * migraciones: el bootstrap de super admin corre una sola vez.
+
+La paginación server-side tiene su propio script (contra la base real, vía
+API): `verificar_paginacion.py`.
 """
 
 import os
@@ -132,6 +135,52 @@ check("comodín % no matchea filas ajenas",
       db.scalar(select(UnidadMedida).where(comparar_texto(UnidadMedida.nombre, "Detergente%"))) is None)
 check("comodín _ no matchea filas ajenas",
       db.scalar(select(UnidadMedida).where(comparar_texto(UnidadMedida.nombre, "Detergente_"))) is None)
+
+print()
+print("== búsqueda con comodines escapados (contiene_texto / documentos) ==")
+from src.common.persistence import contiene_texto  # noqa: E402
+from src.documentos import services as doc_srv  # noqa: E402
+from src.documentos.models import Documento, VersionDocumento  # noqa: E402
+from src.personal.models import Personal  # noqa: E402
+
+# El "%" no pasa por el validador del alta, así que va directo por ORM.
+db.add(UnidadMedida(nombre="Detergente%", simbolo="DP", activo=True))
+db.add(Personal(nombre="Autor", dni="87654321", email="autor@test.local", password="x"))
+db.commit()
+doc_porcentaje = Documento(nombre="Detergente%", tipo="manual_bpm")
+doc_equis = Documento(nombre="DetergenteX", tipo="manual_bpm")
+db.add_all([doc_porcentaje, doc_equis])
+db.commit()
+for doc in (doc_porcentaje, doc_equis):
+    db.add(VersionDocumento(
+        documento_id=doc.id,
+        numero_version=1,
+        nombre_archivo="x.pdf",
+        archivo_url="uploads/documentos/x.pdf",
+        autor_id=1,
+    ))
+db.commit()
+
+check("contiene_texto: buscar '%' solo trae el nombre literal",
+      [u.nombre for u in db.scalars(
+          select(UnidadMedida).where(contiene_texto(UnidadMedida.nombre, "%"))).all()] == ["Detergente%"])
+check("contiene_texto: buscar '_' no matchea cualquier carácter",
+      db.scalars(select(UnidadMedida).where(contiene_texto(UnidadMedida.nombre, "_"))).all() == [])
+check("contiene_texto: la búsqueda por contenido sigue funcionando",
+      sorted(u.nombre for u in db.scalars(
+          select(UnidadMedida).where(contiene_texto(UnidadMedida.nombre, "tergen"))).all())
+      == ["Detergente%", "DetergenteX"])
+
+check("documentos vigentes: buscar '%' no trae todo",
+      [d.nombre for d in doc_srv.listar_documentos_vigentes(db, "%")] == ["Detergente%"])
+check("documentos vigentes: buscar '_' no matchea cualquier carácter",
+      doc_srv.listar_documentos_vigentes(db, "_") == [])
+check("documentos vigentes: buscar por contenido sigue funcionando",
+      sorted(d.nombre for d in doc_srv.listar_documentos_vigentes(db, "tergen"))
+      == ["Detergente%", "DetergenteX"])
+check("documentos vigentes paginado: buscar '%' respeta el escape",
+      [d.nombre for d in doc_srv.listar_documentos_vigentes_paginado(db, "%", None, 1, 10)[0]]
+      == ["Detergente%"])
 db.close()
 
 print()

@@ -27,6 +27,7 @@ from src.insumoQuimico.models import (
 )
 from src.migrations import crear_tablas_y_migrar
 from src.proveedores.models import Proveedor
+from src.sector.models import Sector
 
 
 _MIL = Decimal("0.001")
@@ -63,6 +64,7 @@ def borrar_todo(db) -> None:
         base.Aptitud,
         base.UnidadMedida,
         base.Equipo,
+        Sector,
         Proveedor,
         base.Personal,
     ]
@@ -87,6 +89,59 @@ def crear_proveedores(db, cantidad: int, fake: Faker, vistos: set[str]) -> list[
         proveedores.append(proveedor)
     db.flush()
     return proveedores
+
+
+def crear_sectores(db) -> dict[str, Sector]:
+    """Crea los sectores usados por el vocabulario de equipos si faltan."""
+    nombres = sorted({ubicacion for _, _, ubicacion in base.VOCAB_EQUIPOS})
+    existentes = {
+        sector.nombre: sector
+        for sector in db.scalars(select(Sector).where(Sector.nombre.in_(nombres))).all()
+    }
+
+    for nombre in nombres:
+        if nombre not in existentes:
+            sector = Sector(
+                nombre=nombre,
+                descripcion="Sector de prueba generado por Faker.",
+                activo=True,
+            )
+            db.add(sector)
+            existentes[nombre] = sector
+
+    db.flush()
+    return existentes
+
+
+def crear_equipos(db, cantidad: int, vistos: dict, sectores: dict[str, Sector]) -> list:
+    """Genera equipos vinculados a los sectores del esquema actual."""
+    print(f"Cargando {cantidad} equipos...")
+    equipos = []
+    for _ in range(cantidad):
+        nombre_base, tipo, ubicacion = random.choice(base.VOCAB_EQUIPOS)
+        nombre = base.unico(
+            lambda: f"{nombre_base} {random.randint(1, 30)}",
+            vistos["equipo"],
+            largo=100,
+        )
+        frecuencia = (
+            random.choice([None, 90, 180, 365])
+            if tipo == "Medición"
+            else random.choice([None, None, 180, 365])
+        )
+        equipos.append(
+            base.Equipo(
+                nombre=base.recortar(nombre, 100),
+                tipo=tipo,
+                sector_id=sectores[ubicacion].id,
+                activo=not base.bernoulli(0.06),
+                frecuencia_calibracion_dias=frecuencia,
+            )
+        )
+
+    db.add_all(equipos)
+    db.flush()
+    return equipos
 
 
 def _crear_movimiento(
@@ -313,7 +368,8 @@ def main() -> int:
         hash_password = base.hashear_password(args.password)
         unidades = base.crear_unidades(db, vistos)
         personal = base.crear_personal(db, args.cantidad, fake, vistos, hash_password)
-        equipos = base.crear_equipos(db, args.cantidad, vistos)
+        sectores = crear_sectores(db)
+        equipos = crear_equipos(db, args.cantidad, vistos, sectores)
         aptitudes = base.crear_aptitudes(db, args.cantidad, vistos)
         admins = [persona for persona in personal if persona.puede_administrar]
         operadores = [persona for persona in personal if not persona.puede_administrar and persona.puede_operar]
@@ -341,7 +397,10 @@ def main() -> int:
 
         print()
         print("Datos cargados con exito.")
-        print(f"Personal: {len(personal)} | Proveedores: {len(proveedores)}")
+        print(
+            f"Personal: {len(personal)} | Sectores: {len(sectores)} | "
+            f"Equipos: {len(equipos)} | Proveedores: {len(proveedores)}"
+        )
         print(f"Productos quimicos con saldo: {saldos} | Lotes: {lotes} | Movimientos: {movimientos}")
         print(f"Vencimientos: {vencimientos} | Planes: {len(planes)} | Registros: {registros}")
         print(f"Incidentes: {incidentes} | Documentos: {documentos} | Calibracion/mantenimiento: {cal_mantenimiento}")

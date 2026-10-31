@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { Box, Switch } from "@chakra-ui/react";
-import type { Equipo } from "../types/equipo";
+import type { EquipoInput } from "../types/equipo";
+import type { SectorResumen } from "../../sector/types/sector";
+import { useSectores } from "../../sector/hooks/useSectores";
 import {
   AccionesFormulario,
   BotonCancelar,
   BotonGuardar,
   FormField,
   FormInput,
+  FormNativeSelect,
+  SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
 } from "../../../components/ui/patrones";
 
-type EquipoFormValues = Omit<Equipo, "id">;
+type EquipoFormValues = EquipoInput;
 
 interface EquipoFormProps {
   initialValues?: EquipoFormValues;
@@ -25,12 +29,14 @@ interface EquipoFormProps {
   onSolicitarBaja?: () => void;
   /** El usuario confirmó la baja y el formulario puede aplicarla. */
   bajaConfirmada?: boolean;
+  /** Sector actual del equipo: se muestra aunque haya sido dado de baja. */
+  sectorActual?: SectorResumen;
 }
 
 const emptyValues: EquipoFormValues = {
   nombre: "",
   tipo: "",
-  ubicacion: "",
+  sector_id: 0,
   activo: true,
 };
 
@@ -49,8 +55,16 @@ export function EquipoForm({
   mostrarBaja = false,
   onSolicitarBaja,
   bajaConfirmada = false,
+  sectorActual,
 }: EquipoFormProps) {
   const [values, setValues] = useState<EquipoFormValues>(initialValues);
+  const { sectores, loading: cargandoSectores } = useSectores();
+
+  // Si el sector del equipo se dio de baja, igual tiene que aparecer en la lista.
+  const opcionesSector =
+    sectorActual && !sectores.some((s) => s.id === sectorActual.id)
+      ? [...sectores, sectorActual]
+      : sectores;
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({
@@ -64,10 +78,10 @@ export function EquipoForm({
       tipo: e.target.value,
     }));
 
-  const handleUbicacionChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+  const handleSectorChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
     setValues((prev) => ({
       ...prev,
-      ubicacion: e.target.value,
+      sector_id: Number(e.target.value),
     }));
 
   const handleBajaChange = (checked: boolean) => {
@@ -114,14 +128,23 @@ export function EquipoForm({
         />
       </FormField>
 
-      {/* Ubicación */}
-      <FormField label="Ubicación" required mb={mostrarBaja ? "4" : "0"}>
-        <FormInput
-          value={values.ubicacion}
-          onChange={handleUbicacionChange}
-          placeholder="Ej: Sector A - Laboratorio"
+      {/* Sector */}
+      <FormField label="Sector" required mb={mostrarBaja ? "4" : "0"}>
+        <FormNativeSelect
+          value={values.sector_id}
+          onChange={handleSectorChange}
+          disabled={cargandoSectores}
           maxW="500px"
-        />
+        >
+          <SelectPlaceholder>
+            {cargandoSectores ? "Cargando sectores..." : "Seleccioná un sector"}
+          </SelectPlaceholder>
+          {opcionesSector.map((sector) => (
+            <option key={sector.id} value={sector.id}>
+              {sector.nombre}
+            </option>
+          ))}
+        </FormNativeSelect>
       </FormField>
 
       {/* Dar de baja - solo aparece al modificar */}
@@ -143,7 +166,9 @@ export function EquipoForm({
 
       {/* Botones */}
       <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
+        <BotonGuardar loading={isLoading} disabled={!values.sector_id}>
+          {submitLabel}
+        </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
       </AccionesFormulario>
     </TarjetaFormulario>

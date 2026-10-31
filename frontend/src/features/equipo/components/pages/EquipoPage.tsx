@@ -1,15 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { IntervencionEquipo } from "../IntervencionEquipo";
 import { HistorialCalibracionesDialog } from "../HistorialCalibracionesDialog";
-import { useEquipos } from "../../hooks/useEquipos";
+import { useEquiposPaginados } from "../../hooks/useEquiposPaginados";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import type { Equipo } from "../../types/equipo";
+import {
+  obtenerOpcionesEquipos,
+  type ColumnaOrdenEquipo,
+  type OpcionesEquipos,
+} from "../../services/equipoService";
+import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
+import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
 import {
   BannerError,
   PageHeader,
@@ -19,11 +33,38 @@ import {
 
 const PAGE_SIZE = 10;
 
+const SIN_OPCIONES: OpcionesEquipos = { tipos: [], sectores: [] };
+
 export function EquiposPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { equipos, loading, error, cargarEquipos } = useEquipos(verInactivos);
+  const [busqueda, setBusqueda] = useState("");
+  const busquedaAplicada = useValorDebounced(busqueda);
+  const [tipo, setTipo] = useState("");
+  const [sectorId, setSectorId] = useState("");
+  const [opciones, setOpciones] = useState<OpcionesEquipos>(SIN_OPCIONES);
+  const orden = useOrdenTabla<ColumnaOrdenEquipo, "nombre_asc">("nombre_asc");
+
+  const {
+    equipos,
+    total,
+    page,
+    setPage,
+    hayVariasPaginas,
+    loading,
+    error,
+    cargarEquipos,
+  } = useEquiposPaginados(
+    {
+      incluirInactivos: verInactivos,
+      buscar: busquedaAplicada,
+      tipo,
+      sectorId,
+      orden: orden.orden,
+    },
+    PAGE_SIZE
+  );
   const { borrar, reactivar, loading: procesando } = useEquipoABM();
 
   const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
@@ -31,13 +72,70 @@ export function EquiposPage() {
   const [equipoAIntervenir, setEquipoAIntervenir] = useState<Equipo | null>(null);
   const [equipoVerHistorial, setEquipoVerHistorial] = useState<Equipo | null>(null);
 
-  const {
-    paginados: equiposPaginados,
-    totalFiltrados,
-    page,
-    setPage,
-    hayVariasPaginas,
-  } = usePaginacion(equipos, verInactivos, PAGE_SIZE);
+  // Tipos y sectores para los selects. La página se vuelve a montar al
+  // volver de un alta/edición, así que el catálogo se refresca solo.
+  useEffect(() => {
+    const cargarOpciones = async () => {
+      try {
+        setOpciones(await obtenerOpcionesEquipos());
+      } catch (err) {
+        console.error("Error al cargar las opciones de equipos:", err);
+      }
+    };
+    void cargarOpciones();
+  }, []);
+
+  const limpiarTodo = () => {
+    setBusqueda("");
+    setTipo("");
+    setSectorId("");
+    orden.reiniciar();
+  };
+
+  const hayFiltros =
+    busqueda.trim() !== "" || tipo !== "" || sectorId !== "";
+
+  const ETIQUETAS_ORDEN: Record<ColumnaOrdenEquipo, string> = {
+    nombre: "Nombre",
+    tipo: "Tipo",
+    sector: "Sector",
+  };
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => setBusqueda(""),
+    },
+    {
+      clave: "tipo",
+      etiqueta: "Tipo",
+      valor: tipo,
+      onQuitar: () => setTipo(""),
+    },
+    {
+      clave: "sector",
+      etiqueta: "Sector",
+      valor:
+        opciones.sectores.find((sector) => String(sector.id) === sectorId)
+          ?.nombre ?? sectorId,
+      onQuitar: () => setSectorId(""),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        orden.columna !== null
+          ? `${ETIQUETAS_ORDEN[orden.columna]} ${
+              orden.direccion === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: orden.columna !== null,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
 
   const handleConfirmReactivar = async () => {
     if (!equipoAReactivar) return;
@@ -45,7 +143,7 @@ export function EquiposPage() {
       await reactivar(equipoAReactivar.id, {
         nombre: equipoAReactivar.nombre,
         tipo: equipoAReactivar.tipo,
-        ubicacion: equipoAReactivar.ubicacion,
+        sector_id: equipoAReactivar.sector_id,
         activo: true,
       });
       setEquipoAReactivar(null);
@@ -90,29 +188,71 @@ export function EquiposPage() {
       <ToggleInactivos
         checked={verInactivos}
         onChange={(checked: boolean) => {
+          // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
           setVerInactivos(checked);
-          setPage(1);
         }}
         children="Ver dadas de baja"
       />
+
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre, tipo o sector..."
+          />
+        }
+        filtros={
+          <>
+            <FiltroSelect
+              label="Tipo"
+              valor={tipo}
+              onCambio={setTipo}
+              opciones={opciones.tipos.map((valor) => ({
+                valor,
+                etiqueta: valor,
+              }))}
+            />
+            <FiltroSelect
+              label="Sector"
+              valor={sectorId}
+              onCambio={setSectorId}
+              opciones={opciones.sectores.map((sector) => ({
+                valor: String(sector.id),
+                etiqueta: sector.nombre,
+              }))}
+              todos="Todos"
+            />
+          </>
+        }
+      />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}
 
       {!loading && !error && (
         <>
-          <EquipoTable
-            equipos={equiposPaginados}
-            onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
-            onReactivar={(equipo) => setEquipoAReactivar(equipo)}
-            onIntervenir={(equipo) => setEquipoAIntervenir(equipo)}
-            onVerHistorial={(equipo) => setEquipoVerHistorial(equipo)}
-          />
+          {hayFiltros && equipos.length === 0 ? (
+            <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+              No hay equipos que coincidan con los filtros aplicados.
+            </EstadoVacioFiltrado>
+          ) : (
+            <EquipoTable
+              equipos={equipos}
+              orden={orden}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+              onReactivar={(equipo) => setEquipoAReactivar(equipo)}
+              onIntervenir={(equipo) => setEquipoAIntervenir(equipo)}
+              onVerHistorial={(equipo) => setEquipoVerHistorial(equipo)}
+            />
+          )}
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

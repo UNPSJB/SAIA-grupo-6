@@ -150,6 +150,23 @@ export interface HistorialChecklistResponse {
   checklists: HistorialChecklistItem[];
 }
 
+/**
+ * Versión paginada del historial: `items` trae una sola página y el
+ * cumplimiento general sigue siendo del PERÍODO completo (no cambia con la
+ * página que se esté mirando).
+ */
+export interface HistorialChecklistPagina {
+  items: HistorialChecklistItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_paginas: number;
+  fecha_desde: string;
+  fecha_hasta: string;
+  equipo_id: number | null;
+  porcentaje_cumplimiento_general: number;
+}
+
 export interface DetalleChecklistTareaItem {
   registro_id: number;
   nombre: string;

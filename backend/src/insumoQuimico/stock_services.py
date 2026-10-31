@@ -3,8 +3,10 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
+from src.common.listados import ColumnaOrden, aplicar_orden, filtro_busqueda, paginar_consulta
+from src.common.texto import sin_tildes
 from src.insumoQuimico import exceptions, schemas
 from src.insumoQuimico.models import (
     InsumoQuimico,
@@ -91,65 +93,127 @@ def _movimiento(
     )
 
 
-def _respuesta_stock(db: Session, insumo_id: int) -> schemas.StockInsumoQuimicoResponse:
-    fila = db.execute(
-        select(
-            InsumoQuimico.id,
-            InsumoQuimico.nombre,
-            InsumoQuimico.unidad_medida_id,
-            InsumoQuimico.activo,
-            StockInsumoQuimico.cantidad_actual,
-            StockInsumoQuimico.stock_minimo,
-        )
-        .join(StockInsumoQuimico, StockInsumoQuimico.insumo_quimico_id == InsumoQuimico.id)
-        .where(InsumoQuimico.id == insumo_id)
-    ).one()
-    insumo = db.get(InsumoQuimico, insumo_id)
-    cantidad = fila.cantidad_actual
-    minimo = fila.stock_minimo
+def _respuesta_stock_desde(
+    insumo: InsumoQuimico, stock: StockInsumoQuimico
+) -> schemas.StockInsumoQuimicoResponse:
+    minimo = stock.stock_minimo
+    cantidad = stock.cantidad_actual
     return schemas.StockInsumoQuimicoResponse(
-        insumo_quimico_id=fila.id,
-        nombre=fila.nombre,
-        unidad_medida_id=fila.unidad_medida_id,
-        unidad_simbolo=insumo.unidad_medida.simbolo if insumo and insumo.unidad_medida else None,
-        activo=fila.activo,
+        insumo_quimico_id=insumo.id,
+        nombre=insumo.nombre,
+        unidad_medida_id=insumo.unidad_medida_id,
+        unidad_simbolo=insumo.unidad_medida.simbolo if insumo.unidad_medida else None,
+        activo=insumo.activo,
         cantidad_actual=cantidad,
         stock_minimo=minimo,
         stock_bajo=minimo is not None and cantidad < minimo,
     )
 
 
-def listar_stock_actual(db: Session) -> list[schemas.StockInsumoQuimicoResponse]:
-    filas = db.execute(
-        select(
-            InsumoQuimico.id,
-            InsumoQuimico.nombre,
-            InsumoQuimico.unidad_medida_id,
-            InsumoQuimico.activo,
-            StockInsumoQuimico.cantidad_actual,
-            StockInsumoQuimico.stock_minimo,
-        )
-        .join(StockInsumoQuimico, StockInsumoQuimico.insumo_quimico_id == InsumoQuimico.id)
+def _respuesta_stock(db: Session, insumo_id: int) -> schemas.StockInsumoQuimicoResponse:
+    insumo = db.get(InsumoQuimico, insumo_id)
+    stock = db.get(StockInsumoQuimico, insumo_id)
+    return _respuesta_stock_desde(insumo, stock)
+
+
+_ORDENES_STOCK = {
+    "nombre_asc": ColumnaOrden((sin_tildes(InsumoQuimico.nombre),)),
+    "nombre_desc": ColumnaOrden((sin_tildes(InsumoQuimico.nombre),), descendente=True),
+    "cantidad_asc": ColumnaOrden((StockInsumoQuimico.cantidad_actual,)),
+    "cantidad_desc": ColumnaOrden((StockInsumoQuimico.cantidad_actual,), descendente=True),
+    "minimo_asc": ColumnaOrden((StockInsumoQuimico.stock_minimo,), nulos_al_final=True),
+    "minimo_desc": ColumnaOrden(
+        (StockInsumoQuimico.stock_minimo,), descendente=True, nulos_al_final=True
+    ),
+}
+
+
+def _consulta_stock(
+    buscar: Optional[str], stock_bajo: Optional[bool]
+):
+    consulta = (
+        select(InsumoQuimico)
+        .join(StockInsumoQuimico)
+        .join(UnidadMedida)
+        .options(selectinload(InsumoQuimico.unidad_medida))
         .where(InsumoQuimico.activo.is_(True))
-        .order_by(InsumoQuimico.nombre)
-    ).all()
-    resultado = []
-    for fila in filas:
-        insumo = db.get(InsumoQuimico, fila.id)
-        minimo = fila.stock_minimo
-        resultado.append(
-            schemas.StockInsumoQuimicoResponse(
-                insumo_quimico_id=fila.id,
-                nombre=fila.nombre,
-                unidad_medida_id=fila.unidad_medida_id,
-                unidad_simbolo=insumo.unidad_medida.simbolo if insumo and insumo.unidad_medida else None,
-                activo=fila.activo,
-                cantidad_actual=fila.cantidad_actual,
-                stock_minimo=minimo,
-                stock_bajo=minimo is not None and fila.cantidad_actual < minimo,
+    )
+    filtros = [
+        filtro_busqueda(
+            (InsumoQuimico.nombre, UnidadMedida.nombre, UnidadMedida.simbolo), buscar
+        )
+    ]
+    if stock_bajo is True:
+        filtros.extend(
+            (
+                StockInsumoQuimico.stock_minimo.is_not(None),
+                StockInsumoQuimico.cantidad_actual < StockInsumoQuimico.stock_minimo,
             )
         )
-    return resultado
+    elif stock_bajo is False:
+        filtros.append(
+            (StockInsumoQuimico.stock_minimo.is_(None))
+            | (StockInsumoQuimico.cantidad_actual >= StockInsumoQuimico.stock_minimo)
+        )
+    return consulta, [filtro for filtro in filtros if filtro is not None]
+
+
+def _respuestas_stock(
+    db: Session, insumos: list[InsumoQuimico]
+) -> list[schemas.StockInsumoQuimicoResponse]:
+    if not insumos:
+        return []
+    saldos = {
+        stock.insumo_quimico_id: stock
+        for stock in db.scalars(
+            select(StockInsumoQuimico).where(
+                StockInsumoQuimico.insumo_quimico_id.in_([insumo.id for insumo in insumos])
+            )
+        ).all()
+    }
+    return [_respuesta_stock_desde(insumo, saldos[insumo.id]) for insumo in insumos]
+
+
+def listar_stock_actual(
+    db: Session,
+    buscar: Optional[str] = None,
+    stock_bajo: Optional[bool] = None,
+    orden: str = "nombre_asc",
+) -> list[schemas.StockInsumoQuimicoResponse]:
+    consulta, filtros = _consulta_stock(buscar, stock_bajo)
+    insumos = db.scalars(
+        aplicar_orden(
+            consulta.where(*filtros),
+            InsumoQuimico,
+            orden,
+            _ORDENES_STOCK,
+            "nombre_asc",
+        )
+    ).all()
+    return _respuestas_stock(db, list(insumos))
+
+
+def listar_stock_actual_paginado(
+    db: Session,
+    buscar: Optional[str],
+    stock_bajo: Optional[bool],
+    orden: str,
+    page: int,
+    page_size: int,
+) -> tuple[list[schemas.StockInsumoQuimicoResponse], int]:
+    consulta, filtros = _consulta_stock(buscar, stock_bajo)
+    insumos, total = paginar_consulta(
+        db,
+        consulta,
+        modelo=InsumoQuimico,
+        filtros=filtros,
+        orden=orden,
+        ordenes=_ORDENES_STOCK,
+        por_defecto="nombre_asc",
+        page=page,
+        page_size=page_size,
+    )
+    return _respuestas_stock(db, insumos), total
 
 
 def actualizar_stock_minimo(

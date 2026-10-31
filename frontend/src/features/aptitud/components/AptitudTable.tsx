@@ -1,6 +1,9 @@
 import { Text, Table } from "@chakra-ui/react";
 import { AptitudItem } from "./AptitudItem";
 import type { Aptitud } from "../types/aptitud";
+import type { ColumnaOrdenAptitud } from "../services/aptitudService";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
+import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
   EncabezadoOscuro,
   FilaEncabezado,
@@ -9,12 +12,19 @@ import {
 
 interface AptitudTableProps {
   aptitudes: Aptitud[];
+  orden: OrdenTabla<ColumnaOrdenAptitud, string>;
   onEdit: (aptitud: Aptitud) => void;
   onDelete: (aptitud: Aptitud) => void;
   onReactivar: (aptitud: Aptitud) => void;
 }
 
-export function AptitudTable({ aptitudes, onEdit, onDelete, onReactivar }: AptitudTableProps) {
+export function AptitudTable({
+  aptitudes,
+  orden,
+  onEdit,
+  onDelete,
+  onReactivar,
+}: AptitudTableProps) {
   if (aptitudes.length === 0) {
     return (
       <Tarjeta p="8" textAlign="center">
@@ -28,8 +38,12 @@ export function AptitudTable({ aptitudes, onEdit, onDelete, onReactivar }: Aptit
       <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Descripción</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="nombre" orden={orden}>
+              Nombre
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="descripcion" orden={orden}>
+              Descripción
+            </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

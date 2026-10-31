@@ -7,6 +7,7 @@ import type {
 
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
+import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 
 export interface PlanLimpiezaInput {
@@ -16,13 +17,32 @@ export interface PlanLimpiezaInput {
   autor_id: number;
 }
 
+export type ColumnaOrdenPlanLimpieza = "nombre" | "equipo";
+export type OrdenPlanLimpieza =
+  | `${ColumnaOrdenPlanLimpieza}_asc`
+  | `${ColumnaOrdenPlanLimpieza}_desc`;
+
+export interface FiltrosPlanesLimpieza {
+  incluirInactivos?: boolean;
+  buscar?: string;
+  equipoId?: number;
+  orden?: OrdenPlanLimpieza;
+}
+
 export async function listarPlanesLimpieza(
-  incluirInactivos = false
-): Promise<PlanLimpieza[]> {
-  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+  page: number,
+  pageSize: number,
+  filtros: FiltrosPlanesLimpieza = {}
+): Promise<Pagina<PlanLimpieza>> {
+  const query = queryPagina(page, pageSize, {
+    incluir_inactivos: filtros.incluirInactivos || undefined,
+    buscar: filtros.buscar?.trim() || undefined,
+    equipo_id: filtros.equipoId || undefined,
+    orden: filtros.orden,
+  });
   const response = await apiFetch(`${API_URL}/planes-limpieza${query}`);
 
-  return pedir<PlanLimpieza[]>(response, "Error al obtener los planes de limpieza");
+  return pedir<Pagina<PlanLimpieza>>(response, "Error al obtener los planes de limpieza");
 }
 
 export async function obtenerPlanLimpieza(id: number): Promise<PlanLimpieza> {

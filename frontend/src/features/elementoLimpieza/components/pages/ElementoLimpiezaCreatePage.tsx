@@ -8,7 +8,6 @@ import { ConfirmarReactivacionDialog } from "../../../../common/components/Confi
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -54,11 +53,6 @@ export function ElementoLimpiezaCreatePage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Nuevo elemento de limpieza"
-        actions={
-          <BotonVolver onClick={() => navigate("/elementos-limpieza")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}

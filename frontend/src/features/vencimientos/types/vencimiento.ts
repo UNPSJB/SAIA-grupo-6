@@ -10,6 +10,13 @@ export const TIPOS_VENCIMIENTO: { value: TipoVencimiento; label: string }[] = [
   { value: "DOCUMENTO", label: "Documento" },
 ];
 
+/** Estados con los que se puede filtrar el consolidado. */
+export const ESTADOS_VENCIMIENTO: { value: EstadoVencimiento; label: string }[] = [
+  { value: "VENCIDO", label: "Vencido" },
+  { value: "PROXIMO", label: "Próximo a vencer" },
+  { value: "VIGENTE", label: "Vigente" },
+];
+
 
 export interface VencimientoConsolidado {
   id_vencimiento: string;

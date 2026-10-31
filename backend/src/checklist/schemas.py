@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.checklist.models import EstadoChecklist
+from src.common.paginacion import Pagina
 
 
 class ChecklistTareaItem(BaseModel):
@@ -151,6 +152,17 @@ class HistorialChecklistResponse(BaseModel):
     equipo_id: Optional[int] = None
     porcentaje_cumplimiento_general: float
     checklists: List[HistorialChecklistItem]
+
+
+class HistorialChecklistPagina(Pagina[HistorialChecklistItem]):
+    """Versión paginada del historial: además del sobre estándar
+    (`items`/`total`/...) trae el cumplimiento general del PERÍODO completo,
+    que no depende de la página que se esté mirando."""
+
+    fecha_desde: date
+    fecha_hasta: date
+    equipo_id: Optional[int] = None
+    porcentaje_cumplimiento_general: float
 
 
 class DetalleChecklistTareaItem(BaseModel):

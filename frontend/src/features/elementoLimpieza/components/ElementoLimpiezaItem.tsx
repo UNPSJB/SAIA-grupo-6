@@ -1,7 +1,7 @@
 import { HStack, Table } from "@chakra-ui/react";
 import { formatoFecha } from "../../../common/utils/fechas";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
-import { BotonTabla, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface ElementoLimpiezaItemProps {
   elemento: ElementoLimpieza;
@@ -34,18 +34,12 @@ export function ElementoLimpiezaItem({
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {elemento.activo && (
-            <BotonTabla accion="editar" onClick={() => onEdit(elemento)}>
-              Modificar
-            </BotonTabla>
+            <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(elemento)} />
           )}
           {elemento.activo ? (
-            <BotonTabla accion="eliminar" onClick={() => onDelete(elemento)}>
-              Eliminar
-            </BotonTabla>
+            <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(elemento)} />
           ) : (
-            <BotonTabla accion="reactivar" onClick={() => onReactivar(elemento)}>
-              Reactivar
-            </BotonTabla>
+            <BotonAccion accion="reactivar" label="Reactivar" onClick={() => onReactivar(elemento)} />
           )}
         </HStack>
       </Celda>

@@ -1,13 +1,15 @@
 from datetime import date, timedelta
 import os
 import uuid
+from typing import Literal, Optional, Union
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from werkzeug.utils import secure_filename
 
 from src.auth.dependencies import require_admin, require_operador
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
@@ -23,6 +25,15 @@ router = APIRouter(
     tags=["Equipos"],
 )
 
+OrdenEquipo = Literal[
+    "nombre_asc",
+    "nombre_desc",
+    "tipo_asc",
+    "tipo_desc",
+    "sector_asc",
+    "sector_desc",
+]
+
 @router.post(
     "",
     response_model=schemas.EquipoResponse,
@@ -37,14 +48,56 @@ def crear_equipo(
 
 @router.get(
     "",
-    response_model=list[schemas.EquipoResponse],
+    response_model=Union[list[schemas.EquipoResponse], schemas.EquipoPagina],
     dependencies=[Depends(require_operador)]
 )
 def listar_equipos(
     incluir_inactivos: bool = False,
-    db:Session = Depends(get_db)
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre, tipo y sector (sin distinguir mayúsculas ni tildes).",
+    ),
+    tipo: Optional[str] = Query(None, max_length=100),
+    sector_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenEquipo = "nombre_asc",
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa (la usan los dropdowns y el tablero).",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
+    db: Session = Depends(get_db),
 ):
-    return services.listar_equipos(db, incluir_inactivos)
+    if page is None:
+        return services.listar_equipos(
+            db, incluir_inactivos, buscar, tipo, sector_id
+        )
+    items, total = services.listar_equipos_paginado(
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        tipo=tipo,
+        sector_id=sector_id,
+        orden=orden,
+    )
+    return schemas.EquipoPagina(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get(
+    "/opciones",
+    response_model=schemas.EquipoOpcionesResponse,
+    dependencies=[Depends(require_operador)],
+)
+def obtener_opciones_equipos(db: Session = Depends(get_db)):
+    """Tipos y sectores para los selects del filtro de la tabla.
+
+    Va antes de `/{equipo_id}`: si estuviera después, FastAPI intentaría
+    convertir "opciones" a int y devolvería 422.
+    """
+    return services.obtener_opciones_equipos(db)
 
 @router.get(
     "/{equipo_id}",

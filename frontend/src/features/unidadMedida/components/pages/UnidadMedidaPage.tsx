@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePaginacion } from "../../../../common/hooks/usePaginacion";
 import { Box, Button, Spinner } from "@chakra-ui/react";
 import { UnidadMedidaTable } from "../UnidadMedidaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -8,6 +7,16 @@ import { ConfirmarReactivacionDialog } from "../../../../common/components/Confi
 import { useUnidadesMedida } from "../../hooks/useUnidadesMedida";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import type { UnidadMedida } from "../../types/unidadMedida";
+import type { ColumnaOrdenUnidadMedida } from "../../services/unidadMedidaService";
+import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
+import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EstadoVacioFiltrado,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
 import {
   BannerError,
   PageHeader,
@@ -21,24 +30,73 @@ export function UnidadMedidaPage() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const { unidades, loading, error, cargarUnidades } = useUnidadesMedida(verInactivos);
-  const { borrar, reactivar, loading: procesando, error: errorEliminar } = useUnidadMedidaABM();
+  const [busqueda, setBusqueda] = useState("");
+  const busquedaAplicada = useValorDebounced(busqueda);
+  const orden = useOrdenTabla<ColumnaOrdenUnidadMedida, "nombre_asc">(
+    "nombre_asc"
+  );
+
   const {
-    paginados: unidadesPaginadas,
-    totalFiltrados,
+    unidades,
+    total,
     page,
     setPage,
     hayVariasPaginas,
-  } = usePaginacion(unidades, verInactivos, PAGE_SIZE);
+    loading,
+    error,
+    cargarUnidades,
+  } = useUnidadesMedida(
+    {
+      incluirInactivos: verInactivos,
+      buscar: busquedaAplicada,
+      orden: orden.orden,
+    },
+    PAGE_SIZE
+  );
+  const { borrar, reactivar, loading: procesando, error: errorEliminar } = useUnidadMedidaABM();
 
   const [unidadAEliminar, setUnidadAEliminar] = useState<UnidadMedida | null>(null);
   const [unidadAReactivar, setUnidadAReactivar] = useState<UnidadMedida | null>(null);
 
 
   const handleToggleInactivos = (checked: boolean) => {
+    // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
     setVerInactivos(checked);
-    setPage(1);
   };
+
+  const limpiarTodo = () => {
+    setBusqueda("");
+    orden.reiniciar();
+  };
+
+  const hayFiltros = busqueda.trim() !== "";
+
+  const ETIQUETAS_ORDEN: Record<ColumnaOrdenUnidadMedida, string> = {
+    nombre: "Nombre",
+    simbolo: "Símbolo",
+  };
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => setBusqueda(""),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        orden.columna !== null
+          ? `${ETIQUETAS_ORDEN[orden.columna]} ${
+              orden.direccion === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: orden.columna !== null,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
 
   const handleEdit = (unidad: UnidadMedida) => navigate(`/unidades-medida/${unidad.id}/editar`);
   const handleDeleteRequest = (unidad: UnidadMedida) => setUnidadAEliminar(unidad);
@@ -100,21 +158,42 @@ export function UnidadMedidaPage() {
         onChange={handleToggleInactivos}
       />
 
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre o símbolo..."
+          />
+        }
+        filtros={null}
+      />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+
       {loading && <Spinner color="brand.500" />}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && (
         <>
-          <UnidadMedidaTable
-            unidades={unidadesPaginadas}
-            onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
-            onReactivar={handleReactivarRequest}
-          />
+          {hayFiltros && unidades.length === 0 ? (
+            <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+              No hay unidades de medida que coincidan con los filtros
+              aplicados.
+            </EstadoVacioFiltrado>
+          ) : (
+            <UnidadMedidaTable
+              unidades={unidades}
+              orden={orden}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+              onReactivar={handleReactivarRequest}
+            />
+          )}
 
           {hayVariasPaginas && (
             <Paginacion
-              count={totalFiltrados}
+              count={total}
               pageSize={PAGE_SIZE}
               page={page}
               onPageChange={setPage}

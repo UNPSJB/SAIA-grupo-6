@@ -1,15 +1,16 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
     guardar,
-    listar,
     mapa_por_campo,
     obtener,
     verificar_disponibilidad,
 )
+from src.common.texto import sin_tildes
 from src.aptitud.models import Aptitud
 from src.aptitud import schemas, exceptions
 
@@ -19,6 +20,21 @@ _MAPEA_CONFLICTO = mapa_por_campo(
     ("aptitudes.nombre", exceptions.AptitudYaExiste),
     por_defecto=exceptions.AptitudYaExiste,
 )
+
+# Claves del query string -> expresión de orden. `descripcion` es opcional:
+# los NULL van al final para que no encabecen una lista ascendente.
+_ORDENES = {
+    "nombre_asc": ColumnaOrden((sin_tildes(Aptitud.nombre),)),
+    "nombre_desc": ColumnaOrden((sin_tildes(Aptitud.nombre),), descendente=True),
+    "descripcion_asc": ColumnaOrden(
+        (sin_tildes(Aptitud.descripcion),), nulos_al_final=True
+    ),
+    "descripcion_desc": ColumnaOrden(
+        (sin_tildes(Aptitud.descripcion),),
+        descendente=True,
+        nulos_al_final=True,
+    ),
+}
 
 
 def crear_aptitud(db: Session, datos: schemas.AptitudCreate) -> Aptitud:
@@ -37,8 +53,50 @@ def crear_aptitud(db: Session, datos: schemas.AptitudCreate) -> Aptitud:
     return guardar(db, nueva, _MAPEA_CONFLICTO)
 
 
-def listar_aptitudes(db: Session, incluir_inactivos: bool = False) -> List[Aptitud]:
-    return listar(db, Aptitud, incluir_inactivos=incluir_inactivos)
+def _consulta_aptitudes(
+    incluir_inactivos: bool, buscar: Optional[str]
+):
+    """Consulta base compartida por el listado completo y el paginado."""
+    consulta = select(Aptitud)
+
+    filtro = filtro_busqueda((Aptitud.nombre, Aptitud.descripcion), buscar)
+    if filtro is not None:
+        consulta = consulta.where(filtro)
+
+    if not incluir_inactivos:
+        consulta = consulta.where(Aptitud.activo.is_(True))
+
+    return consulta
+
+
+def listar_aptitudes(
+    db: Session,
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+) -> List[Aptitud]:
+    consulta = _consulta_aptitudes(incluir_inactivos, buscar).order_by(Aptitud.id)
+    return list(db.scalars(consulta).all())
+
+
+def listar_aptitudes_paginado(
+    db: Session,
+    incluir_inactivos: bool,
+    page: int,
+    page_size: int,
+    buscar: Optional[str] = None,
+    orden: str = "nombre_asc",
+) -> tuple[List[Aptitud], int]:
+    """Mismo filtro que `listar_aptitudes`, recortado en la base: página + total."""
+    return paginar_consulta(
+        db,
+        _consulta_aptitudes(incluir_inactivos, buscar),
+        modelo=Aptitud,
+        orden=orden,
+        ordenes=_ORDENES,
+        por_defecto="nombre_asc",
+        page=page,
+        page_size=page_size,
+    )
 
 
 def obtener_aptitud(db: Session, aptitud_id: int) -> Aptitud:

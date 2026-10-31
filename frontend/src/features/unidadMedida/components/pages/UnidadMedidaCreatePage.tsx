@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import type { UnidadMedida } from "../../types/unidadMedida";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -51,11 +50,6 @@ export function UnidadMedidaCreatePage() {
     <Box p="5" maxW="600px" mx="auto">
       <PageHeader
         title="Nueva unidad de medida"
-        actions={
-          <BotonVolver onClick={() => navigate("/unidades-medida")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && !conflicto && <BannerError>{error}</BannerError>}
@@ -70,6 +64,7 @@ export function UnidadMedidaCreatePage() {
         isLoading={loading}
         title="Alta de unidad de medida"
         submitLabel="Crear unidad de medida"
+        onCancel={() => navigate("/unidades-medida")}
       />
 
       <ConfirmarReactivacionDialog

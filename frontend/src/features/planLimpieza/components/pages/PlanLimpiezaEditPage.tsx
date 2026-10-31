@@ -9,7 +9,6 @@ import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
 import {
   BannerError,
   BannerExito,
-  BotonVolver,
   EstadoCargando,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -51,11 +50,6 @@ export function PlanLimpiezaEditPage() {
       <PageHeader
         title="Editar Plan de Limpieza"
         description="Los cambios rigen para los checklists que se generen desde mañana."
-        actions={
-          <BotonVolver onClick={() => navigate("/planes-limpieza")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {mostrarAviso && (

@@ -2,14 +2,12 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
 import { EquipoForm } from "../../components/EquipoForm";
-import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { useEquipo } from "../../hooks/useEquipo";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import type { Equipo } from "../../types/equipo";
+import type { EquipoInput } from "../../types/equipo";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   PageHeader,
 } from "../../../../components/ui/patrones";
@@ -32,17 +30,8 @@ export function EquipoEditPage() {
   } = useEquipoABM();
 
   const [exito, setExito] = useState(false);
-  // Dar de baja desde el formulario pasa por la misma confirmación que exige
-  // la tabla: antes el switch escribía `activo: false` sin preguntar nada.
-  const [bajaSolicitada, setBajaSolicitada] = useState(false);
-  const [bajaConfirmada, setBajaConfirmada] = useState(false);
 
-  const handleConfirmarBaja = () => {
-    setBajaSolicitada(false);
-    setBajaConfirmada(true);
-  };
-
-  const handleSubmit = async (values: Omit<Equipo, "id">) => {
+  const handleSubmit = async (values: EquipoInput) => {
     try {
       await modificar(equipoId, values);
       setExito(true);
@@ -58,11 +47,6 @@ export function EquipoEditPage() {
       <PageHeader
         title="Editar Equipo"
         description="Modificá los datos del equipo. La baja lo saca de los listados y por eso pide confirmación."
-        actions={
-          <BotonVolver onClick={() => navigate("/equipos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {cargando && (
@@ -83,31 +67,18 @@ export function EquipoEditPage() {
             initialValues={{
               nombre: equipo.nombre,
               tipo: equipo.tipo,
-              ubicacion: equipo.ubicacion,
+              sector_id: equipo.sector_id,
               activo: equipo.activo,
             }}
+            sectorActual={equipo.sector}
             onSubmit={handleSubmit}
             isLoading={guardando}
             title="Modificar Equipo"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/equipos")}
-            mostrarBaja={true}
-            onSolicitarBaja={() => setBajaSolicitada(true)}
-            bajaConfirmada={bajaConfirmada}
           />
         </>
       )}
-
-      <ConfirmDialog
-        isOpen={bajaSolicitada}
-        titulo="Dar de baja el equipo"
-        mensaje={`El equipo "${equipo?.nombre}" va a desaparecer de los listados. ¿Querés continuar?`}
-        textoConfirmar="Sí, dar de baja"
-        confirmPalette="red"
-        isLoading={guardando}
-        onCancel={() => setBajaSolicitada(false)}
-        onConfirm={handleConfirmarBaja}
-      />
 
       <DialogoExito
         isOpen={exito}

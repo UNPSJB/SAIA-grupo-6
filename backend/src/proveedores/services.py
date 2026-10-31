@@ -1,10 +1,14 @@
+from typing import Optional
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from src.common.listados import filtro_busqueda
 
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
     guardar,
-    listar,
     mapa_por_campo,
     obtener,
     verificar_disponibilidad,
@@ -33,8 +37,19 @@ def crear_proveedor(db: Session, datos: schemas.ProveedorCreate) -> Proveedor:
     return guardar(db, proveedor, _MAPEA_CONFLICTO)
 
 
-def listar_proveedores(db: Session, incluir_inactivos: bool = False) -> list[Proveedor]:
-    return listar(db, Proveedor, incluir_inactivos=incluir_inactivos)
+def listar_proveedores(
+    db: Session,
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = None,
+) -> list[Proveedor]:
+    consulta = select(Proveedor)
+    filtro = filtro_busqueda((Proveedor.nombre, Proveedor.matricula), buscar)
+    if filtro is not None:
+        consulta = consulta.where(filtro)
+    if not incluir_inactivos:
+        consulta = consulta.where(Proveedor.activo.is_(True))
+
+    return list(db.scalars(consulta.order_by(Proveedor.id)).all())
 
 
 def obtener_proveedor(db: Session, proveedor_id: int) -> Proveedor:

@@ -14,6 +14,7 @@ import { useEquipo } from "../../hooks/useEquipo";
 import { usePlanesCalibracionMantenimiento } from "../../../planCalibracionMantenimiento/hooks/usePlanesCalibracionMantenimiento";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
+  AccionesDetalle,
   BannerError,
   BotonVolver,
   Celda,
@@ -98,14 +99,13 @@ export function EquipoDetailPage() {
     <Box p="5" maxW="900px" mx="auto">
       <PageHeader
         title={`Ficha de equipo #${equipo.id}`}
-        actions={<BotonVolver onClick={volver}>Volver</BotonVolver>}
       />
 
       <Tarjeta p="5">
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
           <Campo etiqueta="Nombre" valor={equipo.nombre} />
           <Campo etiqueta="Tipo" valor={equipo.tipo} />
-          <Campo etiqueta="Ubicación" valor={equipo.ubicacion} />
+          <Campo etiqueta="Sector" valor={equipo.sector.nombre} />
           <Box>
             <Text fontSize="sm" fontWeight="medium" color="fg.muted">
               Estado
@@ -187,14 +187,13 @@ export function EquipoDetailPage() {
                         <Badge colorPalette={estado.paleta}>{estado.etiqueta}</Badge>
                       </Celda>
                       {/*<Celda p="3" center>
-                        <BotonTabla
+                        <BotonAccion
                           accion="editar"
+                          label="Modificar"
                           onClick={() =>
                             navigate(`/planes-calibracion-mantenimiento/${plan.id}/editar`)
                           }
-                        >
-                          Modificar
-                        </BotonTabla>
+                        />
                       </Celda>*/}
                     </Table.Row>
                   );
@@ -204,6 +203,10 @@ export function EquipoDetailPage() {
           )}
         </Box>
       </Tarjeta>
+
+      <AccionesDetalle>
+        <BotonVolver onClick={volver}>Volver</BotonVolver>
+      </AccionesDetalle>
     </Box>
   );
 }

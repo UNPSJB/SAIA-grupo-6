@@ -8,7 +8,6 @@ import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
   BannerExito,
-  BotonVolver,
   PageHeader,
 } from "../../../components/ui/patrones";
 
@@ -33,11 +32,6 @@ export function DocumentoCreatePage() {
       <PageHeader
         title="Nuevo documento"
         description="Cargá un documento con su nombre y tipo; queda como versión 1 vigente."
-        actions={
-          <BotonVolver onClick={() => navigate("/documentos")}>
-            Volver a la lista
-          </BotonVolver>
-        }
       />
 
       {error && <BannerError>{error}</BannerError>}

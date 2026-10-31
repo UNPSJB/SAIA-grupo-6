@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Image, Portal, Text, type BoxProps } from "@chakra-ui/react";
 import { useImagenAutenticada } from "../../../common/hooks/useImagenAutenticada";
+import { Tooltip } from "../../../components/ui/tooltip";
 
 /**
  * Marco fijo de la miniatura. Se comparte entre los tres estados (cargando,
@@ -59,22 +60,23 @@ export function MiniaturaFoto({ rutaFoto }: { rutaFoto: string }) {
 
   return (
     <>
-      <Box
-        {...MARCO}
-        borderColor="brand.300"
-        cursor="pointer"
-        title="Ver foto ampliada"
-        onClick={() => setAmpliada(true)}
-        _hover={{ borderColor: "brand.500" }}
-      >
-        <Image
-          src={imagen.src}
-          alt="Foto del incidente"
-          w="100%"
-          h="100%"
-          objectFit="contain"
-        />
-      </Box>
+      <Tooltip content="Ver foto ampliada" showArrow openDelay={300} closeDelay={0}>
+        <Box
+          {...MARCO}
+          borderColor="brand.300"
+          cursor="pointer"
+          onClick={() => setAmpliada(true)}
+          _hover={{ borderColor: "brand.500" }}
+        >
+          <Image
+            src={imagen.src}
+            alt="Foto del incidente"
+            w="100%"
+            h="100%"
+            objectFit="contain"
+          />
+        </Box>
+      </Tooltip>
 
       {ampliada && (
         <Portal>

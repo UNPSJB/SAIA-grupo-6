@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from src.common import texto as _texto  # noqa: F401  (registra `sin_tildes` en SQLite)
 from src.config import settings
 
 

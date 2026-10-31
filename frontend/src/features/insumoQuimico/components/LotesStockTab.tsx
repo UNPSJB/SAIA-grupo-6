@@ -1,13 +1,29 @@
-import { useState } from "react";
-import { Button, Field, Stack, Table } from "@chakra-ui/react";
-import { LuSearch } from "react-icons/lu";
-import { useInsumosQuimicos } from "../hooks/useInsumosQuimicos";
-import { useLotesStock } from "../hooks/useLotesStock";
-import { useProveedores } from "../../proveedores/hooks/useProveedores";
+import { useEffect, useState } from "react";
+import { Table } from "@chakra-ui/react";
+
+import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
 import {
-  BannerError, Celda, EncabezadoOscuro, EstadoCargando, EstadoVacio, FilaEncabezado,
-  FormInput, FormNativeSelect, LabelFiltro, Paginacion, Tarjeta,
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../components/ui/filtros";
+import {
+  BannerError,
+  Celda,
+  EncabezadoOscuro,
+  EstadoCargando,
+  EstadoVacio,
+  FilaEncabezado,
+  Paginacion,
+  Tarjeta,
 } from "../../../components/ui/patrones";
+import { useProveedores } from "../../proveedores/hooks/useProveedores";
+import { useLotesStock } from "../hooks/useLotesStock";
+import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
+import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
 
 const PAGE_SIZE = 10;
 
@@ -17,36 +33,51 @@ function fechaCorta(fecha: string) {
 
 export function LotesStockTab() {
   const { proveedores } = useProveedores(true);
-  const { insumos } = useInsumosQuimicos(true);
+  const [insumos, setInsumos] = useState<InsumoQuimicoOpcion[]>([]);
   const [proveedor, setProveedor] = useState("");
   const [producto, setProducto] = useState("");
   const [numeroLote, setNumeroLote] = useState("");
-  const [filtros, setFiltros] = useState({ proveedor: "", producto: "", numeroLote: "", offset: 0 });
-  const { lotes, loading, error } = useLotesStock({
-    proveedor_id: filtros.proveedor ? Number(filtros.proveedor) : undefined,
-    insumo_quimico_id: filtros.producto ? Number(filtros.producto) : undefined,
-    numero_lote: filtros.numeroLote || undefined,
-    limit: PAGE_SIZE,
-    offset: filtros.offset,
+  const numeroLoteAplicado = useValorDebounced(numeroLote);
+  const { lotes, total, page, setPage, hayVariasPaginas, loading, error } = useLotesStock({
+    proveedor_id: proveedor ? Number(proveedor) : undefined,
+    insumo_quimico_id: producto ? Number(producto) : undefined,
+    numero_lote: numeroLoteAplicado.trim() || undefined,
   });
-  const page = Math.floor(filtros.offset / PAGE_SIZE) + 1;
+
+  useEffect(() => {
+    void listarOpcionesInsumosQuimicos(true).then(setInsumos).catch(console.error);
+  }, []);
+
+  const limpiarTodo = () => {
+    setProveedor("");
+    setProducto("");
+    setNumeroLote("");
+  };
+  const hayFiltros = proveedor !== "" || producto !== "" || numeroLote.trim() !== "";
+  const chips = chipsDeFiltros([
+    { clave: "proveedor", etiqueta: "Proveedor", valor: proveedores.find((item) => String(item.id) === proveedor)?.nombre ?? "", onQuitar: () => setProveedor("") },
+    { clave: "producto", etiqueta: "Producto", valor: insumos.find((item) => String(item.id) === producto)?.nombre ?? "", onQuitar: () => setProducto("") },
+    { clave: "lote", etiqueta: "Lote", valor: numeroLote, recortar: true, onQuitar: () => setNumeroLote("") },
+  ]);
 
   return (
     <>
-      <Tarjeta p="4" mb="6">
-        <Stack direction={{ base: "column", md: "row" }} gap="4" align={{ base: "stretch", md: "flex-end" }}>
-          <Field.Root flex="1"><LabelFiltro>Proveedor</LabelFiltro><FormNativeSelect value={proveedor} onChange={(event) => setProveedor(event.target.value)}><option value="">Todos los proveedores</option>{proveedores.map((item) => <option key={item.id} value={item.id}>{item.nombre}{item.activo ? "" : " (dado de baja)"}</option>)}</FormNativeSelect></Field.Root>
-          <Field.Root flex="1"><LabelFiltro>Producto</LabelFiltro><FormNativeSelect value={producto} onChange={(event) => setProducto(event.target.value)}><option value="">Todos los productos</option>{insumos.map((item) => <option key={item.id} value={item.id}>{item.nombre}{item.activo ? "" : " (dado de baja)"}</option>)}</FormNativeSelect></Field.Root>
-          <Field.Root flex="1"><LabelFiltro>Número de lote</LabelFiltro><FormInput value={numeroLote} onChange={(event) => setNumeroLote(event.target.value)} placeholder="Buscar lote" /></Field.Root>
-          <Button colorPalette="brand" onClick={() => setFiltros({ proveedor, producto, numeroLote, offset: 0 })} loading={loading} flexShrink={0}><LuSearch aria-hidden /> Filtrar</Button>
-        </Stack>
-      </Tarjeta>
+      <BarraFiltros
+        busqueda={<CampoBusqueda valor={numeroLote} onCambio={setNumeroLote} placeholder="Buscar número de lote..." />}
+        filtros={<>
+          <FiltroSelect label="Proveedor" valor={proveedor} onCambio={setProveedor} opciones={proveedores.map((item) => ({ valor: String(item.id), etiqueta: `${item.nombre}${item.activo ? "" : " (dado de baja)"}` }))} todos="Todos los proveedores" />
+          <FiltroSelect label="Producto" valor={producto} onCambio={setProducto} opciones={insumos.map((item) => ({ valor: String(item.id), etiqueta: `${item.nombre}${item.unidad_simbolo ? ` (${item.unidad_simbolo})` : ""}` }))} todos="Todos los productos" />
+        </>}
+      />
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
       {error ? <BannerError>{error}</BannerError> : null}
       {loading ? <EstadoCargando>Cargando lotes...</EstadoCargando> : null}
-      {!loading && !error && lotes.items.length === 0 ? <EstadoVacio>No hay lotes que coincidan con los filtros seleccionados.</EstadoVacio> : null}
-      {!loading && !error && lotes.items.length > 0 ? <>
-        <Tarjeta overflowX="auto"><Table.Root variant="outline" size="sm" minW="750px"><Table.Header><FilaEncabezado><EncabezadoOscuro>Proveedor</EncabezadoOscuro><EncabezadoOscuro>Lote</EncabezadoOscuro><EncabezadoOscuro>Producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Cantidad producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Fecha ingreso</EncabezadoOscuro></FilaEncabezado></Table.Header><Table.Body>{lotes.items.map((lote) => <Table.Row key={lote.id}><Celda>{lote.proveedor_nombre}</Celda><Celda fontWeight="medium">{lote.numero_lote}</Celda><Celda>{lote.nombre_producto}</Celda><Celda>{lote.cantidad_producto} {lote.unidad_simbolo ?? ""}</Celda><Celda>{fechaCorta(lote.fecha_ingreso)}</Celda></Table.Row>)}</Table.Body></Table.Root></Tarjeta>
-        {lotes.total > PAGE_SIZE ? <Paginacion count={lotes.total} page={page} pageSize={PAGE_SIZE} onPageChange={(nuevaPagina) => setFiltros((actual) => ({ ...actual, offset: (nuevaPagina - 1) * PAGE_SIZE }))} /> : null}
+      {!loading && !error && lotes.length === 0 ? (
+        hayFiltros ? <EstadoVacioFiltrado onLimpiar={limpiarTodo}>No hay lotes que coincidan con los filtros aplicados.</EstadoVacioFiltrado> : <EstadoVacio>No hay lotes registrados.</EstadoVacio>
+      ) : null}
+      {!loading && !error && lotes.length > 0 ? <>
+        <Tarjeta overflowX="auto"><Table.Root variant="outline" size="sm" minW="750px"><Table.Header><FilaEncabezado><EncabezadoOscuro>Proveedor</EncabezadoOscuro><EncabezadoOscuro>Lote</EncabezadoOscuro><EncabezadoOscuro>Producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Cantidad producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Fecha ingreso</EncabezadoOscuro></FilaEncabezado></Table.Header><Table.Body>{lotes.map((lote) => <Table.Row key={lote.id}><Celda>{lote.proveedor_nombre}</Celda><Celda fontWeight="medium">{lote.numero_lote}</Celda><Celda>{lote.nombre_producto}</Celda><Celda>{lote.cantidad_producto} {lote.unidad_simbolo ?? ""}</Celda><Celda>{fechaCorta(lote.fecha_ingreso)}</Celda></Table.Row>)}</Table.Body></Table.Root></Tarjeta>
+        {hayVariasPaginas ? <Paginacion count={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} /> : null}
       </> : null}
     </>
   );

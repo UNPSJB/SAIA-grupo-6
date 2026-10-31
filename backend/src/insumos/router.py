@@ -1,6 +1,10 @@
 import logging
-from fastapi import APIRouter, Depends
+from typing import List, Literal, Optional, Union
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+
+from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin
 from src.insumos import schemas, services
@@ -10,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/insumos", tags=["insumos"], dependencies=[Depends(require_admin)])
 
+OrdenInsumo = Literal["nombre_asc", "nombre_desc", "unidad_asc", "unidad_desc"]
+
 # Rutas para Insumos
 
 
@@ -18,10 +24,42 @@ def create_insumo(insumo: schemas.InsumoCreate, db: Session = Depends(get_db)):
     return services.crear_insumo(db, insumo)
 
 
-@router.get("", response_model=list[schemas.Insumo])
-def read_insumos(incluir_inactivos: bool = False, db: Session = Depends(get_db)):
-    logger.info("Listando insumos desde router (incluir_inactivos=%s)", incluir_inactivos) 
-    return services.listar_insumos(db, incluir_inactivos)
+@router.get("", response_model=Union[List[schemas.Insumo], schemas.InsumoPagina])
+def read_insumos(
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(
+        None,
+        max_length=100,
+        description="Busca en nombre, unidad y símbolo (sin distinguir mayúsculas ni tildes).",
+    ),
+    unidad_medida_id: Optional[int] = Query(None, ge=1),
+    orden: OrdenInsumo = "nombre_asc",
+    page: Optional[int] = Query(
+        None,
+        ge=1,
+        description="Número de página. Sin este parámetro se devuelve la lista completa (la usan los dropdowns).",
+    ),
+    page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
+    db: Session = Depends(get_db),
+):
+    logger.info(
+        "Listando insumos desde router (incluir_inactivos=%s)",
+        incluir_inactivos,
+    )
+    if page is None:
+        return services.listar_insumos(
+            db, incluir_inactivos, buscar, unidad_medida_id
+        )
+    items, total = services.listar_insumos_paginado(
+        db,
+        incluir_inactivos,
+        page,
+        page_size,
+        buscar=buscar,
+        unidad_medida_id=unidad_medida_id,
+        orden=orden,
+    )
+    return schemas.InsumoPagina(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{insumo_id}", response_model=schemas.Insumo)

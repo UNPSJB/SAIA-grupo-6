@@ -1,31 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
 import { listarStockActual } from "../services/stockService";
-import type { StockInsumoQuimico } from "../types/stock";
+import type { FiltrosStockActual, StockInsumoQuimico } from "../types/stock";
 
-export function useStockActual() {
-  const [stock, setStock] = useState<StockInsumoQuimico[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const recargar = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setStock(await listarStockActual());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo obtener el stock actual");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void recargar();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  return { stock, loading, error, recargar };
+export function useStockActual(filtros: FiltrosStockActual) {
+  const { buscar, stockBajo, orden = "nombre_asc" } = filtros;
+  const cargar = useCallback(
+    (page: number, pageSize: number) =>
+      listarStockActual(page, pageSize, { buscar, stockBajo, orden }),
+    [buscar, stockBajo, orden],
+  );
+  const listado = useListaPaginada<StockInsumoQuimico>({
+    cargar,
+    dependencias: [buscar, stockBajo, orden],
+    valorInicial: [],
+    mensajeError: "No se pudo obtener el stock actual",
+  });
+  return { stock: listado.items, ...listado };
 }
