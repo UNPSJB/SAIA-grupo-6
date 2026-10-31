@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 import pytest
 from fastapi import FastAPI
@@ -8,10 +9,12 @@ from sqlalchemy.exc import IntegrityError
 
 from src.auth.services import crear_access_token
 from src.database import get_db
-from src.lotes.models import ESTADO_PENDIENTE, LoteProduccion
+from src.insumos.models import Insumo
+from src.lotes.models import ESTADO_PENDIENTE, InsumoLote, LoteProduccion
 from src.lotes.router import router as lotes_router
 from src.lotes.schemas import LoteCreate, LoteResponse
 from src.personal.models import Personal
+from src.unidadMedida.models import UnidadMedida
 
 
 def _datos(**cambios):
@@ -126,6 +129,29 @@ def headers_operador(db_session):
 
     token, _, _ = crear_access_token(str(operador.id))
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def lote(db_session):
+    lote = LoteProduccion(**_datos())
+    db_session.add(lote)
+    db_session.commit()
+    db_session.refresh(lote)
+    return lote
+
+
+@pytest.fixture
+def insumo(db_session):
+    unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg")
+    insumo = Insumo(nombre="Harina", unidad_medida=unidad)
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add_all([unidad, insumo])
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+    db_session.refresh(insumo)
+    return insumo
 
 
 def test_post_registra_un_lote(client_lotes, headers_operador):
@@ -313,9 +339,132 @@ def test_dashboard_exige_sesion(client_lotes):
     assert respuesta.status_code == 401
 
 
+def test_relaciones_entre_lote_e_insumo(db_session, lote, insumo):
+    registro = InsumoLote(lote=lote, insumo=insumo, cantidad=Decimal("1.250"))
+    db_session.add(registro)
+    db_session.commit()
+    db_session.refresh(registro)
+
+    assert registro.lote.codigo_lote == "L-001"
+    assert registro.insumo.nombre == "Harina"
+    assert registro.insumo.unidad_medida.simbolo == "kg"
+    assert registro in lote.insumos
+
+
+def test_post_registra_insumo_en_lote(
+    client_lotes, headers_operador, lote, insumo
+):
+    respuesta = client_lotes.post(
+        f"/lotes/{lote.id}/insumos",
+        json={"insumo_id": insumo.id, "cantidad": "2.500"},
+        headers=headers_operador,
+    )
+
+    assert respuesta.status_code == 201
+    datos = respuesta.json()
+    assert datos["lote_id"] == lote.id
+    assert datos["insumo_id"] == insumo.id
+    assert datos["cantidad"] == "2.500"
+    assert datos["insumo"]["nombre"] == "Harina"
+    assert datos["insumo"]["unidad_medida"]["simbolo"] == "kg"
+    assert datos["fecha_registro"] is not None
+
+
+def test_get_lista_los_insumos_del_lote(
+    client_lotes, headers_operador, lote, insumo
+):
+    client_lotes.post(
+        f"/lotes/{lote.id}/insumos",
+        json={"insumo_id": insumo.id, "cantidad": "2.500"},
+        headers=headers_operador,
+    )
+
+    respuesta = client_lotes.get(
+        f"/lotes/{lote.id}/insumos", headers=headers_operador
+    )
+
+    assert respuesta.status_code == 200
+    assert [item["insumo"]["nombre"] for item in respuesta.json()] == ["Harina"]
+
+
+def test_post_rechaza_insumo_duplicado(
+    client_lotes, headers_operador, lote, insumo
+):
+    datos = {"insumo_id": insumo.id, "cantidad": "2.500"}
+
+    assert (
+        client_lotes.post(
+            f"/lotes/{lote.id}/insumos", json=datos, headers=headers_operador
+        ).status_code
+        == 201
+    )
+    respuesta = client_lotes.post(
+        f"/lotes/{lote.id}/insumos", json=datos, headers=headers_operador
+    )
+
+    assert respuesta.status_code == 400
+    assert respuesta.json()["detail"] == "El insumo ya está registrado en el lote."
+
+
+def test_get_insumos_de_lote_inexistente_da_404(client_lotes, headers_operador):
+    respuesta = client_lotes.get("/lotes/999/insumos", headers=headers_operador)
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Lote no encontrado."
+
+
+def test_post_insumo_de_lote_inexistente_da_404(
+    client_lotes, headers_operador, insumo
+):
+    respuesta = client_lotes.post(
+        "/lotes/999/insumos",
+        json={"insumo_id": insumo.id, "cantidad": "1"},
+        headers=headers_operador,
+    )
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Lote no encontrado."
+
+
+def test_post_insumo_inexistente_da_404(client_lotes, headers_operador, lote):
+    respuesta = client_lotes.post(
+        f"/lotes/{lote.id}/insumos",
+        json={"insumo_id": 999, "cantidad": "1"},
+        headers=headers_operador,
+    )
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Insumo no encontrado."
+
+
+@pytest.mark.parametrize("cantidad", ["0", "-1"])
+def test_post_cantidad_invalida_da_422(
+    client_lotes, headers_operador, lote, insumo, cantidad
+):
+    respuesta = client_lotes.post(
+        f"/lotes/{lote.id}/insumos",
+        json={"insumo_id": insumo.id, "cantidad": cantidad},
+        headers=headers_operador,
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_insumos_del_lote_exigen_sesion(client_lotes, lote):
+    assert client_lotes.get(f"/lotes/{lote.id}/insumos").status_code == 401
+    assert (
+        client_lotes.post(
+            f"/lotes/{lote.id}/insumos",
+            json={"insumo_id": 1, "cantidad": "1"},
+        ).status_code
+        == 401
+    )
+
+
 def test_la_app_principal_incluye_el_router_de_lotes():
     from src.main import app
 
     rutas = app.openapi()["paths"]
     assert "/lotes" in rutas
     assert "/lotes/dashboard" in rutas
+    assert "/lotes/{lote_id}/insumos" in rutas

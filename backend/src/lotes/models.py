@@ -1,7 +1,17 @@
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
 
@@ -39,3 +49,37 @@ class LoteProduccion(ModeloBase):
     fecha_inicio: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    insumos: Mapped[list["InsumoLote"]] = relationship(
+        back_populates="lote", cascade="all, delete-orphan"
+    )
+
+
+class InsumoLote(ModeloBase):
+    __tablename__ = "lotes_insumos"
+    __table_args__ = (
+        CheckConstraint(
+            "cantidad > 0",
+            name="ck_lotes_insumos_cantidad_positiva",
+        ),
+        UniqueConstraint(
+            "lote_id",
+            "insumo_id",
+            name="uq_lotes_insumos_lote_insumo",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    lote_id: Mapped[int] = mapped_column(
+        ForeignKey("lotes.id"), nullable=False, index=True
+    )
+    insumo_id: Mapped[int] = mapped_column(
+        ForeignKey("insumos.id"), nullable=False, index=True
+    )
+    cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    fecha_registro: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    lote: Mapped["LoteProduccion"] = relationship(back_populates="insumos")
+    insumo: Mapped["Insumo"] = relationship()

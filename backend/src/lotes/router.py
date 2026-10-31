@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from src.auth.dependencies import require_operador
 from src.database import get_db
+from src.insumos.models import Insumo
 from src.lotes import schemas
-from src.lotes.models import ESTADOS_LOTE, LoteProduccion
+from src.lotes.models import ESTADOS_LOTE, InsumoLote, LoteProduccion
 
 router = APIRouter(
     prefix="/lotes",
@@ -91,3 +92,77 @@ def crear_lote(datos: schemas.LoteCreate, db: Session = Depends(get_db)):
         )
     db.refresh(lote)
     return lote
+
+
+@router.get(
+    "/{lote_id}/insumos",
+    response_model=list[schemas.InsumoLoteResponse],
+)
+def listar_insumos_del_lote(lote_id: int, db: Session = Depends(get_db)):
+    lote = db.get(LoteProduccion, lote_id)
+    if lote is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lote no encontrado.",
+        )
+
+    return list(
+        db.scalars(
+            select(InsumoLote)
+            .where(InsumoLote.lote_id == lote_id)
+            .options(
+                selectinload(InsumoLote.insumo).selectinload(Insumo.unidad_medida)
+            )
+            .order_by(InsumoLote.id)
+        ).all()
+    )
+
+
+@router.post(
+    "/{lote_id}/insumos",
+    response_model=schemas.InsumoLoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def registrar_insumo_del_lote(
+    lote_id: int,
+    datos: schemas.InsumoLoteCreate,
+    db: Session = Depends(get_db),
+):
+    lote = db.get(LoteProduccion, lote_id)
+    if lote is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lote no encontrado.",
+        )
+
+    insumo = db.get(Insumo, datos.insumo_id)
+    if insumo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Insumo no encontrado.",
+        )
+
+    existente = db.scalar(
+        select(InsumoLote).where(
+            InsumoLote.lote_id == lote_id,
+            InsumoLote.insumo_id == datos.insumo_id,
+        )
+    )
+    if existente is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El insumo ya está registrado en el lote.",
+        )
+
+    registro = InsumoLote(lote=lote, insumo=insumo, cantidad=datos.cantidad)
+    db.add(registro)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El insumo ya está registrado en el lote.",
+        )
+    db.refresh(registro)
+    return registro

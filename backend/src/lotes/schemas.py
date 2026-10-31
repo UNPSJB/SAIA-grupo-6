@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -34,6 +35,38 @@ class LoteResponse(LoteBase):
     cantidad_producida: int
     estado: str
     fecha_inicio: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InsumoLoteCreate(BaseModel):
+    insumo_id: int = Field(gt=0)
+    cantidad: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+
+
+class UnidadMedidaResumen(BaseModel):
+    id: int
+    nombre: str
+    simbolo: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InsumoResumen(BaseModel):
+    id: int
+    nombre: str
+    unidad_medida: UnidadMedidaResumen
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InsumoLoteResponse(BaseModel):
+    id: int
+    lote_id: int
+    insumo_id: int
+    cantidad: Decimal
+    fecha_registro: datetime
+    insumo: InsumoResumen
 
     model_config = ConfigDict(from_attributes=True)
 
