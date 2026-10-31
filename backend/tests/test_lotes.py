@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -184,6 +186,47 @@ def test_post_exige_sesion(client_lotes):
             "cantidad_planificada": 100,
         },
     )
+
+    assert respuesta.status_code == 401
+
+
+def test_get_devuelve_el_historial_ordenado_por_fecha_descendente(
+    client_lotes, headers_operador, db_session
+):
+    db_session.add_all(
+        [
+            LoteProduccion(
+                **_datos(codigo_lote="L-001", fecha_inicio=datetime(2026, 1, 1))
+            ),
+            LoteProduccion(
+                **_datos(codigo_lote="L-003", fecha_inicio=datetime(2026, 3, 1))
+            ),
+            LoteProduccion(
+                **_datos(codigo_lote="L-002", fecha_inicio=datetime(2026, 2, 1))
+            ),
+        ]
+    )
+    db_session.commit()
+
+    respuesta = client_lotes.get("/lotes", headers=headers_operador)
+
+    assert respuesta.status_code == 200
+    assert [lote["codigo_lote"] for lote in respuesta.json()] == [
+        "L-003",
+        "L-002",
+        "L-001",
+    ]
+
+
+def test_get_sin_lotes_devuelve_lista_vacia(client_lotes, headers_operador):
+    respuesta = client_lotes.get("/lotes", headers=headers_operador)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
+
+def test_get_exige_sesion(client_lotes):
+    respuesta = client_lotes.get("/lotes")
 
     assert respuesta.status_code == 401
 

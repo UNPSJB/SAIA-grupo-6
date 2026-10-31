@@ -15,6 +15,18 @@ router = APIRouter(
 )
 
 
+@router.get("", response_model=list[schemas.LoteResponse])
+def listar_lotes(db: Session = Depends(get_db)):
+    return list(
+        db.scalars(
+            select(LoteProduccion).order_by(
+                LoteProduccion.fecha_inicio.desc(),
+                LoteProduccion.id.desc(),
+            )
+        ).all()
+    )
+
+
 @router.post(
     "",
     response_model=schemas.LoteResponse,
