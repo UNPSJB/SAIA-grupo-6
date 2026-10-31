@@ -1,9 +1,15 @@
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
+from src.auth.services import crear_access_token
+from src.database import get_db
 from src.lotes.models import ESTADO_PENDIENTE, LoteProduccion
+from src.lotes.router import router as lotes_router
 from src.lotes.schemas import LoteCreate, LoteResponse
+from src.personal.models import Personal
 
 
 def _datos(**cambios):
@@ -86,3 +92,97 @@ def test_respuesta_se_construye_desde_el_modelo(db_session):
     assert respuesta.cantidad_producida == 0
     assert respuesta.estado == ESTADO_PENDIENTE
     assert respuesta.fecha_inicio == lote.fecha_inicio
+
+
+@pytest.fixture
+def client_lotes(db_session):
+    app = FastAPI()
+    app.include_router(lotes_router)
+    app.dependency_overrides[get_db] = lambda: db_session
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def headers_operador(db_session):
+    operador = Personal(
+        nombre="Operador",
+        apellido="Lotes",
+        dni="12345678",
+        email="operador.lotes@test.local",
+        password="x",
+        puede_operar=True,
+    )
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(operador)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+
+    token, _, _ = crear_access_token(str(operador.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_post_registra_un_lote(client_lotes, headers_operador):
+    respuesta = client_lotes.post(
+        "/lotes",
+        json={
+            "codigo_lote": " L-001 ",
+            "producto_nombre": " Pan ",
+            "cantidad_planificada": 100,
+        },
+        headers=headers_operador,
+    )
+
+    assert respuesta.status_code == 201
+    datos = respuesta.json()
+    assert datos["codigo_lote"] == "L-001"
+    assert datos["producto_nombre"] == "Pan"
+    assert datos["cantidad_planificada"] == 100
+    assert datos["cantidad_producida"] == 0
+    assert datos["estado"] == ESTADO_PENDIENTE
+    assert datos["fecha_inicio"] is not None
+
+
+def test_post_rechaza_codigo_duplicado(client_lotes, headers_operador):
+    datos = {
+        "codigo_lote": "L-001",
+        "producto_nombre": "Pan",
+        "cantidad_planificada": 100,
+    }
+
+    assert client_lotes.post("/lotes", json=datos, headers=headers_operador).status_code == 201
+    respuesta = client_lotes.post("/lotes", json=datos, headers=headers_operador)
+
+    assert respuesta.status_code == 400
+    assert respuesta.json()["detail"] == "El código de lote ya existe."
+
+
+def test_post_rechaza_datos_invalidos(client_lotes, headers_operador):
+    respuesta = client_lotes.post(
+        "/lotes",
+        json={
+            "codigo_lote": "   ",
+            "producto_nombre": "Pan",
+            "cantidad_planificada": 0,
+        },
+        headers=headers_operador,
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_post_exige_sesion(client_lotes):
+    respuesta = client_lotes.post(
+        "/lotes",
+        json={
+            "codigo_lote": "L-001",
+            "producto_nombre": "Pan",
+            "cantidad_planificada": 100,
+        },
+    )
+
+    assert respuesta.status_code == 401
