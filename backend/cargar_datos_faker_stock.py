@@ -19,6 +19,9 @@ from sqlalchemy import delete, select, text
 
 import cargar_datos_faker as base
 from src.database import SessionLocal
+from src.auditoria.models import AuditLog
+from src.auth.models import TokenRevocado
+from src.Equipo.models import Calibracion
 from src.insumoQuimico.models import (
     LoteStock,
     MovimientoStockInsumoQuimico,
@@ -44,9 +47,14 @@ def _nombre_persona(persona) -> str:
 def borrar_todo(db) -> None:
     """Elimina primero las referencias del libro mayor y luego el catálogo."""
     orden = [
+        # Se borra antes de Personal porque conserva una FK opcional a esa tabla.
+        # La ejecución explícitamente omite auditoría: es un reinicio técnico,
+        # no una operación de negocio, y los INSERT posteriores sí se auditan.
+        AuditLog,
         LoteStock,
         MovimientoStockInsumoQuimico,
         StockInsumoQuimico,
+        TokenRevocado,
         base.HistorialRegistroTarea,
         base.RegistroTarea,
         base.Checklist,
@@ -55,6 +63,7 @@ def borrar_todo(db) -> None:
         base.VersionDocumento,
         base.Documento,
         base.VencimientoPersonal,
+        Calibracion,
         base.PlanCalibracionMantenimiento,
         base.Tarea,
         base.PlanLimpieza,
@@ -69,7 +78,7 @@ def borrar_todo(db) -> None:
         base.Personal,
     ]
     for modelo in orden:
-        db.execute(delete(modelo))
+        db.execute(delete(modelo).execution_options(auditoria_omitir=True))
     db.flush()
 
 
@@ -367,6 +376,7 @@ def main() -> int:
         print("Hasheando la contrasena...")
         hash_password = base.hashear_password(args.password)
         unidades = base.crear_unidades(db, vistos)
+        base.crear_configuracion_alertas(db)
         personal = base.crear_personal(db, args.cantidad, fake, vistos, hash_password)
         sectores = crear_sectores(db)
         equipos = crear_equipos(db, args.cantidad, vistos, sectores)
