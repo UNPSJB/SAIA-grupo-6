@@ -232,7 +232,7 @@ function LayoutPrincipal() {
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
       {/* Overlay: no ocupa lugar en el flex (ver Navbar). */}
-      <Navbar colapsado={menuColapsado} />
+      <Navbar/>
 
       <Flex
         flex={1}
@@ -241,10 +241,7 @@ function LayoutPrincipal() {
         direction="column"
         overflow="hidden"
       >
-        <BarraSuperior
-          menuAbierto={!menuColapsado}
-          onAlternarMenu={() => setMenuColapsado((prev) => !prev)}
-        />
+        <BarraSuperior />
 
         {/* `minH={0}` deja que esta columna scrollee en vez de estirarse. */}
         <Flex flex={1} minH={0} p="15px 30px" overflowY="auto" direction="column">
@@ -254,6 +251,7 @@ function LayoutPrincipal() {
     </Flex>
   );
 }
+
 export const router = createBrowserRouter([
   {
     path: "/login",

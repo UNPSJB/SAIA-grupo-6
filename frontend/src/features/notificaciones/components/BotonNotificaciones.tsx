@@ -30,23 +30,17 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
         aria-current={activa ? "page" : undefined}
         variant="ghost"
         rounded="md"
-        /*
-         * `bg` explícito en los dos estados: la variante `ghost` no queda
-         * transparente en reposo sobre el fondo del sidebar (mismo motivo
-         * que el `BotonPlegar` de la barra).
-         */
-        bg={activa ? "white" : "transparent"}
-        color={activa ? "brand.700" : "white"}
-        _hover={{ bg: activa ? "white" : "rgba(255, 255, 255, 0.2)" }}
+        bg={activa ? "brand.700" : "transparent"}
+        color={activa ? "white" : "brand.700"}
+        _hover={{ bg: activa ? "brand.700" : "brand.50" }}
         _focusVisible={{
           outline: "2px solid",
-          outlineColor: activa ? "brand.700" : "white",
+          outlineColor: "brand.700",
           outlineOffset: "-2px",
         }}
         onClick={() => navigate("/notificaciones")}
       >
-         {/* Cambiamos el emoji por el ícono blanco */}
-         <FaBell size={24} />
+        <FaBell size={20} />
       </IconButton>
       
       {cantidad > 0 && (
@@ -65,7 +59,7 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
           fontWeight="bold"
           borderWidth="2px"
           borderStyle="solid"
-          borderColor="brand.500"
+          borderColor="white"
         >
           {cantidad}
         </Badge>

@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Navigate, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
-import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 import {
   Box,
   Button,
@@ -30,6 +29,8 @@ import {
   LuHouse,
   LuListChecks,
   LuMicroscope,
+  LuPanelLeftClose,
+  LuPanelLeftOpen,
   LuPackage,
   LuRuler,
   LuShieldCheck,
@@ -230,14 +231,6 @@ const PAD_ICONO_ITEM = "11px";
 const PAD_ICONO_GRUPO = "12px";
 const PAD_ESCUDO = "18px";
 const PAD_BOTON_PLEGAR = "15px";
-const PAD_ICONO_LOGOUT = "10px";
-
-/**
- * Textos alineados en una sola columna: 12 (lista) + 11 (padding del ícono)
- * + 18 (ícono) + 12 (gap) = 53px. El nombre usa el mismo valor menos los 12px
- * del contenedor, y queda fuera de la vista con la barra plegada.
- */
-const PAD_NOMBRE = "41px";
 
 /**
  * Separación escudo → título.
@@ -547,21 +540,85 @@ function NavGroup({
 }
 
 
-interface NavbarProps {
-  /** Lo controla el layout: el botón que lo cambia vive en `BarraSuperior`. */
+function BotonPlegar({
+  colapsado,
+  onClick,
+}: {
   colapsado: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      onClick={onClick}
+      variant="ghost"
+      size="sm"
+      aria-expanded={!colapsado}
+      aria-label={colapsado ? "Desplegar el menú" : "Plegar el menú"}
+      title={colapsado ? "Desplegar el menú" : "Plegar el menú"}
+      minW="auto"
+      w="auto"
+      h="auto"
+      px="2"
+      py="2"
+      // `bg` explícito: la variante `ghost` no queda transparente en reposo.
+      bg="transparent"
+      color="white"
+      _hover={{ bg: "whiteAlpha.200" }}
+      _focusVisible={{
+        outline: "2px solid",
+        outlineColor: "white",
+        outlineOffset: "-2px",
+      }}
+    >
+      {colapsado ? (
+        <LuPanelLeftOpen size={18} aria-hidden />
+      ) : (
+        <LuPanelLeftClose size={18} aria-hidden />
+      )}
+    </Button>
+  );
 }
 
-export default function Navbar({ colapsado }: NavbarProps) {
+export default function Navbar() {
   const { user } = useAuth();
   const { pathname } = useLocation();
+
+  /*
+   * Sidebar reducido a barra de íconos.
+   *
+   * La barra es OVERLAY: fija a la izquierda y por encima del contenido, que
+   * en el layout solo reserva el ancho del rail (`ANCHO_COLAPSADO`). Se
+   * persiste en `localStorage` porque es una preferencia de la persona. Se
+   * lee de forma tolerante: si el valor no es "0" se toma plegado.
+   */
+  const [colapsado, setColapsado] = useState(
+    () => localStorage.getItem(CLAVE_COLAPSADO) !== "0"
+  );
+
+  /*
+   * Con la barra en overlay, dejar el panel desplegado después de navegar es
+   * dejar media vista tapada. Vuelve al rail en cada navegación, ajustando
+   * estado durante el render (sin `useEffect`).
+   */
+  const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
+  if (pathname !== pathnamePrevio) {
+    setPathnamePrevio(pathname);
+    if (!colapsado) setColapsado(true);
+  }
+
+  // La preferencia se persiste en un efecto: pasan por acá tanto el botón de
+  // plegar como el auto-colapso de arriba.
+  useEffect(() => {
+    localStorage.setItem(CLAVE_COLAPSADO, colapsado ? "1" : "0");
+  }, [colapsado]);
+
+  const alternarColapso = () => setColapsado((prev) => !prev);
 
   /*
    * Grupos que el usuario cerró a mano.
    *
    * Un grupo está abierto si contiene la ruta activa o si nunca se lo cerró.
-   * Así navegar a otra sección la abre sola, sin un `useEffect` que
-   * sincronice estado.
    */
   const [cerrados, setCerrados] = useState<Set<string>>(
     () => new Set(GRUPOS.map((g) => g.id))
@@ -589,12 +646,8 @@ export default function Navbar({ colapsado }: NavbarProps) {
   const grupoDeRutaActual =
     grupos.find((g) => g.entradas.some((e) => e.to === rutaActiva))?.id ?? null;
 
-  /*
-   * Se inicializa con el grupo YA visto a propósito: si arrancara en `null`,
-   * el ajuste de abajo se dispararía en el primer render y abriría el grupo
-   * de la ruta actual. Quedan todos colapsados al entrar, y el grupo se abre
-   * solo cuando la navegación cambia.
-   */
+  // Se inicializa con el grupo YA visto a propósito: así los grupos quedan
+  // colapsados al entrar y el grupo se abre solo cuando la navegación cambia.
   const [grupoYaVisto, setGrupoYaVisto] = useState<string | null>(grupoDeRutaActual);
 
   // Abrir el grupo de la sección a la que se navega, ajustando estado durante
@@ -612,8 +665,8 @@ export default function Navbar({ colapsado }: NavbarProps) {
   }
 
   // EL CANDADO: si no hay nadie logueado, lo mandamos al Login.
-  // Va después de los hooks a propósito: un return temprano antes de un
-  // `useMemo` rompe el orden de hooks y la app crashea al cambiar de sesión.
+  // Va después de los hooks a propósito (un return temprano antes de un
+  // `useMemo` rompe el orden de hooks).
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -633,8 +686,6 @@ export default function Navbar({ colapsado }: NavbarProps) {
     <Flex
       as="nav"
       id="menu-principal"
-      // brand.700 en vez de brand.500: el blanco sobre brand.500 da 4.4:1 y
-      // queda por debajo del 4.5:1 que pide WCAG AA. Sobre brand.700 da 6.4:1.
       bg="brand.700"
       color="white"
       w={colapsado ? ANCHO_COLAPSADO : ANCHO_EXPANDIDO}
@@ -658,12 +709,10 @@ export default function Navbar({ colapsado }: NavbarProps) {
           : "4px 0 16px rgba(0, 0, 0, 0.25)"
       }
     >
-      {/* ESCUDO, TÍTULO Y NOTIFICACIONES. Ancho fijo (el desplegado) para que
-          nada se reacomode al plegar: el borde de la barra los recorta. */}
+      {/* ESCUDO Y TÍTULO. Ancho fijo (el desplegado) para que nada se
+          reacomode al plegar: el borde de la barra los recorta. */}
       <Flex
         align="center"
-        justify="space-between"
-        gap="2"
         w={ANCHO_EXPANDIDO}
         pl={PAD_ESCUDO}
         pr="5"
@@ -681,13 +730,17 @@ export default function Navbar({ colapsado }: NavbarProps) {
             SAIA
           </Heading>
         </Flex>
-        {/* Plegada, la campana queda fuera de la vista pero sigue en el DOM:
-            `inert` evita que el teclado enfoque un botón que no se ve. */}
-        <Box inert={colapsado}>
-          {puedeAdministrar(user) && (
-            <BotonNotificaciones activa={pathname.startsWith("/notificaciones")} />
-          )}
-        </Box>
+      </Flex>
+
+      {/* Botón de plegar/desplegar: mismo lugar en los dos modos. */}
+      <Flex
+        align="center"
+        w={ANCHO_EXPANDIDO}
+        h="10"
+        pl={PAD_BOTON_PLEGAR}
+        flexShrink={0}
+      >
+        <BotonPlegar colapsado={colapsado} onClick={alternarColapso} />
       </Flex>
 
       {/* Área de enlaces: scrollea como red de seguridad. */}
