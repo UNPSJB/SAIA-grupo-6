@@ -1,8 +1,21 @@
 from datetime import date
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 from pydantic import BaseModel, Field
 
 from src.common.paginacion import Pagina
+
+
+Criticidad = Literal["alta", "media", "baja"]
+NivelRiesgo = Literal["alto", "medio", "bajo"]
+IconoCriticidad = Literal[
+    "limpieza",
+    "calibracion",
+    "stock",
+    "incidente",
+    "personal",
+    "documento",
+    "checklist",
+]
 
 class NotificacionResponse(BaseModel):
     id_notificacion: str
@@ -13,6 +26,34 @@ class NotificacionResponse(BaseModel):
     nivel: str
     link_destino: str
     fecha_referencia: Optional[date] = None
+    # Solo coordina agrupaciones del motor de criticidad; no es parte del
+    # contrato público de notificaciones.
+    grupo_clave: Optional[str] = Field(default=None, exclude=True)
+
+
+class AlertaCriticidadResponse(BaseModel):
+    clave: str
+    origen: str
+    entidad_id: int
+    grupo_clave: str
+    icono: IconoCriticidad
+    titulo: str
+    detalle: str
+    criticidad: Criticidad
+    motivo: str
+    plazo: str
+    fecha_referencia: Optional[date] = None
+    destino: str
+    recambio_id: Optional[int] = None
+
+
+class CriticidadDashboardResponse(BaseModel):
+    nivel_riesgo: NivelRiesgo
+    total: int
+    altas: int
+    medias: int
+    bajas: int
+    alertas: list[AlertaCriticidadResponse]
 
 
 class ContadoresNotificaciones(BaseModel):

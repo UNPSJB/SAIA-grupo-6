@@ -5,9 +5,9 @@ import {
   type Incidente,
   type TipoIncidente,
 } from "../../incidente/types/incidente";
-import type { Notificacion } from "../../notificaciones/types/notificacion";
 import type { Equipo } from "../../equipo/types/equipo";
 import type { PlanCalibracionMantenimiento } from "../../planCalibracionMantenimiento/types/planCalibracionMantenimiento";
+import type { Notificacion } from "../../notificaciones/types/notificacion";
 import { hoyISO } from "../../../common/utils/fechas";
 
 /**

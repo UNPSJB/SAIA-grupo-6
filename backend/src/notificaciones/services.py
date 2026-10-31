@@ -1,3 +1,4 @@
+
 from datetime import date, timedelta
 from typing import List
 from sqlalchemy import select
@@ -47,6 +48,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
                     nivel="VENCIDO",
                     link_destino="/elementos-limpieza",
                     fecha_referencia=fecha_vencimiento,
+                    grupo_clave=f"elemento:{elem.id}",
                 )
             )
         elif dias_restantes <= MARGEN_DIAS_ALERTA:
@@ -60,6 +62,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
                     nivel="PROXIMO_A_VENCER",
                     link_destino="/elementos-limpieza",
                     fecha_referencia=fecha_vencimiento,
+                    grupo_clave=f"elemento:{elem.id}",
                 )
             )
 
@@ -116,6 +119,7 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
                     f"/equipos/{plan.equipo.id}/intervencion"
                 ),
                 fecha_referencia=fecha_vencimiento,
+                grupo_clave=f"equipo:{plan.equipo.id}",
             )
         )
 
@@ -186,6 +190,7 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
                 nivel=nivel,
                 link_destino=f"/personal/detalle/{venc.persona_id}",
                 fecha_referencia=venc.fecha_vencimiento,
+                grupo_clave=f"persona:{venc.persona_id}",
             )
         )
 

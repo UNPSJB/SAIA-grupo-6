@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
 import {
+  obtenerCriticidadDashboard,
   obtenerNotificacionesPaginadas,
   type ColumnaOrdenNotificacion,
   type ContadoresNotificaciones,
@@ -14,7 +15,11 @@ import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
 import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import { LuBell, LuCircleCheck } from "react-icons/lu";
-import { nivelLabel, type Notificacion } from "../../types/notificacion";
+import {
+  nivelLabel,
+  type CriticidadDashboard,
+  type Notificacion,
+} from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
 import {
@@ -54,6 +59,12 @@ const PALETA_ORIGEN: Record<string, string> = {
 };
 
 const paletaOrigen = (tipo: string) => PALETA_ORIGEN[tipo] ?? "gray";
+
+const PALETA_CRITICIDAD = {
+  alta: "red",
+  media: "orange",
+  baja: "yellow",
+} as const;
 
 /** Etiquetas legibles de cada origen. Se usan en los selects y en los chips. */
 const ETIQUETA_ORIGEN: Record<
@@ -118,6 +129,7 @@ export function NotificacionesPage() {
     },
   });
   const [loading, setLoading] = useState(true);
+  const [criticidad, setCriticidad] = useState<CriticidadDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [notifEditando, setNotifEditando] = useState<Notificacion | null>(null);
@@ -179,9 +191,18 @@ export function NotificacionesPage() {
     }
   };
 
+  const cargarCriticidad = async () => {
+    try {
+      setCriticidad(await obtenerCriticidadDashboard());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar la criticidad");
+    }
+  };
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void cargar();
+      void cargarCriticidad();
     }, 0);
     return () => window.clearTimeout(timeoutId);
     // Los filtros y la página son la "dependencia real" de la recarga: al
@@ -208,6 +229,7 @@ export function NotificacionesPage() {
     delayed(() => {
       setMensajeExito(null);
       cargar();
+      void cargarCriticidad();
     }, 1500);
   };
 
@@ -305,12 +327,60 @@ export function NotificacionesPage() {
         onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
 
+      {criticidad && (
+        <Tarjeta p="4" mb="5">
+          <HStack justify="space-between" align="start" gap="4" flexWrap="wrap" mb="4">
+            <Box>
+              <Text fontWeight="bold" fontSize="lg">Resumen de criticidad</Text>
+              <Text color="fg.muted" fontSize="sm">
+                Riesgo general: {criticidad.nivel_riesgo.toUpperCase()} ({criticidad.total} alertas)
+              </Text>
+            </Box>
+            <HStack gap="2" flexWrap="wrap">
+              {(["alta", "media", "baja"] as const).map((nivel) => (
+                <Badge key={nivel} colorPalette={PALETA_CRITICIDAD[nivel]} variant="subtle" px="2" py="1">
+                  {nivel.toUpperCase()}: {criticidad[`${nivel}s` as "altas" | "medias" | "bajas"]}
+                </Badge>
+              ))}
+            </HStack>
+          </HStack>
+          {criticidad.alertas.slice(0, 5).map((alerta) => (
+            <HStack
+              key={alerta.clave}
+              justify="space-between"
+              align="center"
+              gap="3"
+              py="3"
+              borderTopWidth="1px"
+              borderColor="border.subtle"
+              flexWrap="wrap"
+            >
+              <Box flex="1" minW="220px">
+                <HStack gap="2" mb="1">
+                  <Badge colorPalette={PALETA_CRITICIDAD[alerta.criticidad]} variant="subtle">
+                    {alerta.criticidad.toUpperCase()}
+                  </Badge>
+                  <Text fontSize="sm" color="fg.muted">{alerta.motivo}</Text>
+                </HStack>
+                <Text fontWeight="semibold">{alerta.titulo}</Text>
+                <Text fontSize="sm" color="fg.muted">{alerta.detalle}</Text>
+              </Box>
+              <BotonAccion
+                accion="resolver"
+                label="Ver detalle"
+                onClick={() => navigate(alerta.destino)}
+              />
+            </HStack>
+          ))}
+        </Tarjeta>
+      )}
+
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
 
       {notifEditando && (
-        <CambiarFechaVencimientoDialog
-          key={notifEditando.id_notificacion}
-          notificacion={notifEditando}
+          <CambiarFechaVencimientoDialog
+            key={notifEditando.id_notificacion}
+            vencimiento={notifEditando}
           onClose={() => setNotifEditando(null)}
           onSaved={handleFechaGuardada}
         />

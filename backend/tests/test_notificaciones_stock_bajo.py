@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico, TipoQuimico
+from src.notificaciones.criticidad import obtener_criticidad_dashboard
 from src.notificaciones.services import obtener_todas_notificaciones
 from src.unidadMedida.models import UnidadMedida
 
@@ -65,3 +66,9 @@ def test_notificaciones_stock_bajo_solo_incluyen_insumos_activos_bajo_el_minimo(
         "link_destino": "/gestion-stock/stock",
         "fecha_referencia": None,
     }
+
+    criticidad = obtener_criticidad_dashboard(db)
+
+    assert criticidad.medias == 1
+    assert criticidad.alertas[0].origen == "STOCK_BAJO"
+    assert criticidad.alertas[0].icono == "stock"

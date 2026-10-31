@@ -27,3 +27,42 @@ export function nivelLabel(nivel: NivelNotificacion): string {
             return "STOCK BAJO";
     }
 }
+
+
+export type Criticidad = "alta" | "media" | "baja";
+
+export type NivelRiesgo = "alto" | "medio" | "bajo";
+
+export type IconoCriticidad =
+  | "limpieza"
+  | "calibracion"
+  | "stock"
+  | "incidente"
+  | "personal"
+  | "documento"
+  | "checklist";
+
+export interface AlertaCriticidad {
+  clave: string;
+  origen: string;
+  entidad_id: number;
+  grupo_clave: string;
+  icono: IconoCriticidad;
+  titulo: string;
+  detalle: string;
+  criticidad: Criticidad;
+  motivo: string;
+  plazo: string;
+  fecha_referencia?: string;
+  destino: string;
+  recambio_id: number | null;
+}
+
+export interface CriticidadDashboard {
+  nivel_riesgo: NivelRiesgo;
+  total: number;
+  altas: number;
+  medias: number;
+  bajas: number;
+  alertas: AlertaCriticidad[];
+}
