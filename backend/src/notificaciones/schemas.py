@@ -10,6 +10,7 @@ NivelRiesgo = Literal["alto", "medio", "bajo"]
 IconoCriticidad = Literal[
     "limpieza",
     "calibracion",
+    "stock",
     "incidente",
     "personal",
     "documento",
@@ -25,7 +26,9 @@ class NotificacionResponse(BaseModel):
     nivel: str
     link_destino: str
     fecha_referencia: Optional[date] = None
-    grupo_clave: Optional[str] = None
+    # Solo coordina agrupaciones del motor de criticidad; no es parte del
+    # contrato público de notificaciones.
+    grupo_clave: Optional[str] = Field(default=None, exclude=True)
 
 
 class AlertaCriticidadResponse(BaseModel):

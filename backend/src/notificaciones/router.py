@@ -31,7 +31,7 @@ OrdenNotificacion = Literal[
     "origen_desc",
 ]
 
-UrgenciaNotificacion = Literal["todas", "vencidas", "proximas"]
+UrgenciaNotificacion = Literal["todas", "vencidas", "proximas", "stock_bajo"]
 
 OrigenNotificacion = Literal[
     "todas",
@@ -39,6 +39,7 @@ OrigenNotificacion = Literal[
     "VENCIMIENTO_PERSONAL",
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
+    "STOCK_BAJO",
 ]
 
 
@@ -48,11 +49,11 @@ def listar_notificaciones(
         None, description="Búsqueda en título y mensaje (ignora mayúsculas y tildes)."
     ),
     urgencia: Optional[UrgenciaNotificacion] = Query(
-        None, description="'todas' | 'vencidas' | 'proximas'."
+        None, description="'todas' | 'vencidas' | 'proximas' | 'stock_bajo'."
     ),
     origen: Optional[OrigenNotificacion] = Query(
         None,
-        description="'todas' o el tipo: ELEMENTO_LIMPIEZA, VENCIMIENTO_PERSONAL, PLAN_CALIBRACION, PLAN_MANTENIMIENTO.",
+        description="'todas' o el tipo de alerta, incluido STOCK_BAJO.",
     ),
     orden: Optional[OrdenNotificacion] = Query(
         None,

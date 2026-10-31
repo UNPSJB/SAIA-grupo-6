@@ -84,15 +84,25 @@ export interface ConsumoInsumoItem {
 
 export interface ConsumoPorFechaItem {
   fecha: string;
+  insumo_quimico_id: number;
+  nombre: string;
+  unidad_medida_id: number;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+}
+
+export interface ConsumoPorUnidadItem {
+  unidad_medida_id: number;
+  unidad_simbolo?: string | null;
   cantidad_total: number;
 }
 
 export interface ConsumoInsumosResponse {
   fecha_desde: string;
   fecha_hasta: string;
-  total_general: number;
   insumos: ConsumoInsumoItem[];
-  por_fecha: ConsumoPorFechaItem[];
+  totales_por_unidad: ConsumoPorUnidadItem[];
+  por_producto_fecha: ConsumoPorFechaItem[];
 }
 
 export interface TareasDelDiaResponse {

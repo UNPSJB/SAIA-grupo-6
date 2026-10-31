@@ -7,13 +7,19 @@ import { queryPagina, type Pagina } from "../../../common/api/paginacion";
 
 /** Contadores de los dropdowns de filtro, calculados en el backend. */
 export interface ContadoresNotificaciones {
-  urgencia: { todas: number; vencidas: number; proximas: number };
+  urgencia: {
+    todas: number;
+    vencidas: number;
+    proximas: number;
+    stock_bajo: number;
+  };
   origen: {
     todas: number;
     ELEMENTO_LIMPIEZA: number;
     VENCIMIENTO_PERSONAL: number;
     PLAN_CALIBRACION: number;
     PLAN_MANTENIMIENTO: number;
+    STOCK_BAJO: number;
   };
 }
 
@@ -34,13 +40,14 @@ export type OrdenNotificacion =
   | `${ColumnaOrdenNotificacion}_desc`;
 
 /** Filtros del centro de notificaciones. El valor vacío significa "sin filtro". */
-export type UrgenciaNotificacion = "" | "vencidas" | "proximas";
+export type UrgenciaNotificacion = "" | "vencidas" | "proximas" | "stock_bajo";
 export type OrigenNotificacion =
   | ""
   | "ELEMENTO_LIMPIEZA"
   | "VENCIMIENTO_PERSONAL"
   | "PLAN_CALIBRACION"
-  | "PLAN_MANTENIMIENTO";
+  | "PLAN_MANTENIMIENTO"
+  | "STOCK_BAJO";
 
 /** El listado completo (lo usa la campana del navbar, no la tabla). */
 export async function obtenerNotificaciones(): Promise<Notificacion[]> {
@@ -96,8 +103,6 @@ export async function actualizarConfiguracionAlertas(dias: number): Promise<{
     "No se pudo guardar la configuración"
   );
 }
-
-
 export async function obtenerCriticidadDashboard(): Promise<CriticidadDashboard> {
   const response = await apiFetch(`${API_URL}/notificaciones/criticidad`);
   return pedir<CriticidadDashboard>(

@@ -27,6 +27,7 @@ from typing import List, Optional
 from src.checklist.models import Checklist, EstadoChecklist, RegistroTarea
 from src.Equipo.models import Equipo
 from src.PlanLimpieza.models import PlanLimpieza
+from src.sector.models import Sector
 
 DIAS_EN_RANGO = 12          # HOY-11 ... HOY
 PLANES_POR_EQUIPO = 2
@@ -93,9 +94,12 @@ class Seed:
 def sembrar(db, autor_id: int) -> Seed:
     hoy = date.today()
     azar = random.Random(20260101)
+    sector = Sector(nombre="Sector de pruebas")
+    db.add(sector)
+    db.flush()
 
     equipos = [
-        Equipo(nombre=n, tipo="Envasadora", ubicacion="Planta", activo=True)
+        Equipo(nombre=n, tipo="Envasadora", sector_id=sector.id, activo=True)
         for n in ("Equipo A", "Equipo B", "Equipo Vacío")
     ]
     db.add_all(equipos)

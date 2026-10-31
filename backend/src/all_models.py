@@ -34,7 +34,8 @@ from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: F401
 from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
 from src.insumos.models import Insumo  # noqa: F401
-from src.insumoQuimico.models import InsumoQuimico  # noqa: F401
+from src.proveedores.models import Proveedor  # noqa: F401
+from src.insumoQuimico.models import InsumoQuimico, LoteStock  # noqa: F401
 from src.elementoLimpieza.models import ElementoLimpieza  # noqa: F401
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: F401
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento  # noqa: F401
@@ -56,9 +57,11 @@ __all__ = [
     "Incidente",
     "Insumo",
     "InsumoQuimico",
+    "LoteStock",
     "Personal",
     "PlanCalibracionMantenimiento",
     "PlanLimpieza",
+    "Proveedor",
     "RegistroTarea",
     "Tarea",
     "TokenRevocado",

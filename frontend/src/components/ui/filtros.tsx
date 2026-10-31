@@ -30,7 +30,7 @@ export function BarraFiltros({
         gap="4"
         flexWrap="wrap"
         align="flex-end"
-        justify={busqueda ? "space-between" : "flex-end"}
+        justify={busqueda ? "space-between" : "flex-start"}
       >
         {busqueda ? (
           <Box flex="1" minW="250px" maxW="420px">

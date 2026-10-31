@@ -1,5 +1,4 @@
-
-export type NivelNotificacion = "VENCIDO" | "PROXIMO_A_VENCER";
+export type NivelNotificacion = "VENCIDO" | "PROXIMO_A_VENCER" | "STOCK_BAJO";
 
 export interface Notificacion { 
     id_notificacion: string; 
@@ -19,7 +18,14 @@ export interface Notificacion {
  * terminaba diciendo una cosa distinta.
  */
 export function nivelLabel(nivel: NivelNotificacion): string {
-    return nivel === "VENCIDO" ? "VENCIDO" : "PRÓXIMO A VENCER";
+    switch (nivel) {
+        case "VENCIDO":
+            return "VENCIDO";
+        case "PROXIMO_A_VENCER":
+            return "PRÓXIMO A VENCER";
+        case "STOCK_BAJO":
+            return "STOCK BAJO";
+    }
 }
 
 
@@ -30,6 +36,7 @@ export type NivelRiesgo = "alto" | "medio" | "bajo";
 export type IconoCriticidad =
   | "limpieza"
   | "calibracion"
+  | "stock"
   | "incidente"
   | "personal"
   | "documento"
@@ -46,6 +53,7 @@ export interface AlertaCriticidad {
   criticidad: Criticidad;
   motivo: string;
   plazo: string;
+  fecha_referencia?: string;
   destino: string;
   recambio_id: number | null;
 }
