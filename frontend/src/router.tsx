@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
-import { Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
+import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -11,8 +11,10 @@ import { Login } from "./features/Login";
 // `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
 // las 35 páginas entraban al bundle inicial.
 
-import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar";
-import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
+import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar"; 
+import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
+import { BarraSuperior } from "./common/components/BarraSuperior";
+import { useLocation } from "react-router-dom";
 
 // 0. Panel principal
 const InicioPage = lazy(() =>
@@ -243,24 +245,48 @@ function ConSuspense({ children }: { children: ReactNode }) {
 
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
+  const { pathname } = useLocation();
+  const [menuColapsado, setMenuColapsado] = useState(true);
+
+  // El panel es overlay: al navegar vuelve a plegarse solo.
+  const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
+  if (pathname !== pathnamePrevio) {
+    setPathnamePrevio(pathname);
+    setMenuColapsado(true);
+  }
+
+  // Esc pliega el menú.
+  useEffect(() => {
+    if (menuColapsado) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuColapsado(true);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [menuColapsado]);
+
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
-      {/*
-       * El sidebar es overlay (`position: fixed`): no ocupa lugar en el
-       * flex. El contenido reserva SIEMPRE el ancho del rail plegado, así
-       * plegar/desplegar no reacomoda nada: con el panel desplegado, este
-       * aparece por encima de la vista en vez de empujarla.
-       */}
-      <Navbar />
+      {/* Overlay: no ocupa lugar en el flex (ver Navbar). */}
+      <Navbar colapsado={menuColapsado} onAlternarMenu={() => setMenuColapsado((prev) => !prev)} />
 
-      <Flex
-        flex={1}
-        ml={ANCHO_COLAPSADO}
-        p="15px 30px"
-        overflowY="auto"
-        direction="column"
-      >
-        <Outlet />
+      {/* Fondo oscuro: un clic afuera pliega el menú. Va debajo de la barra (zIndex 30). */}
+      {!menuColapsado && (
+        <Box
+          position="fixed"
+          inset={0}
+          zIndex={20}
+          bg="blackAlpha.400"
+          aria-hidden
+          onClick={() => setMenuColapsado(true)}
+        />
+      )}
+
+      <Flex flex={1} ml={ANCHO_COLAPSADO} minW={0} direction="column" overflow="hidden">
+        <BarraSuperior />
+        <Flex flex={1} minH={0} p="15px 30px" overflowY="auto" direction="column">
+          <Outlet />
+        </Flex>
       </Flex>
     </Flex>
   );
