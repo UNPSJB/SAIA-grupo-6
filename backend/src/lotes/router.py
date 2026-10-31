@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_operador
 from src.database import get_db
 from src.lotes import schemas
-from src.lotes.models import LoteProduccion
+from src.lotes.models import ESTADOS_LOTE, LoteProduccion
 
 router = APIRouter(
     prefix="/lotes",
@@ -24,6 +24,43 @@ def listar_lotes(db: Session = Depends(get_db)):
                 LoteProduccion.id.desc(),
             )
         ).all()
+    )
+
+
+@router.get("/dashboard", response_model=schemas.DashboardLotesResponse)
+def obtener_dashboard(db: Session = Depends(get_db)):
+    total_lotes, total_planificada, total_producida = db.execute(
+        select(
+            func.count(LoteProduccion.id),
+            func.coalesce(func.sum(LoteProduccion.cantidad_planificada), 0),
+            func.coalesce(func.sum(LoteProduccion.cantidad_producida), 0),
+        )
+    ).one()
+
+    conteos = {estado: 0 for estado in ESTADOS_LOTE}
+    for estado, cantidad in db.execute(
+        select(LoteProduccion.estado, func.count(LoteProduccion.id)).group_by(
+            LoteProduccion.estado
+        )
+    ).all():
+        if estado in conteos:
+            conteos[estado] = cantidad
+
+    porcentaje = (
+        round(total_producida / total_planificada * 100, 2)
+        if total_planificada
+        else 0.0
+    )
+
+    return schemas.DashboardLotesResponse(
+        total_lotes=total_lotes,
+        total_cantidad_planificada=total_planificada,
+        total_cantidad_producida=total_producida,
+        porcentaje_cumplimiento=porcentaje,
+        por_estado=[
+            schemas.LoteResumenEstado(estado=estado, cantidad=conteos[estado])
+            for estado in ESTADOS_LOTE
+        ],
     )
 
 

@@ -36,3 +36,16 @@ class LoteResponse(LoteBase):
     fecha_inicio: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LoteResumenEstado(BaseModel):
+    estado: str
+    cantidad: int
+
+
+class DashboardLotesResponse(BaseModel):
+    total_lotes: int
+    total_cantidad_planificada: int
+    total_cantidad_producida: int
+    porcentaje_cumplimiento: float
+    por_estado: list[LoteResumenEstado]

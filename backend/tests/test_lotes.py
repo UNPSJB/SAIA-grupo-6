@@ -231,7 +231,91 @@ def test_get_exige_sesion(client_lotes):
     assert respuesta.status_code == 401
 
 
+def test_dashboard_sin_lotes_devuelve_totales_en_cero(
+    client_lotes, headers_operador
+):
+    respuesta = client_lotes.get("/lotes/dashboard", headers=headers_operador)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {
+        "total_lotes": 0,
+        "total_cantidad_planificada": 0,
+        "total_cantidad_producida": 0,
+        "porcentaje_cumplimiento": 0.0,
+        "por_estado": [
+            {"estado": "Pendiente", "cantidad": 0},
+            {"estado": "En proceso", "cantidad": 0},
+            {"estado": "Finalizado", "cantidad": 0},
+            {"estado": "Cancelado", "cantidad": 0},
+        ],
+    }
+
+
+def test_dashboard_agrega_totales_y_cuenta_por_estado(
+    client_lotes, headers_operador, db_session
+):
+    db_session.add_all(
+        [
+            LoteProduccion(
+                **_datos(
+                    codigo_lote="L-001",
+                    cantidad_planificada=100,
+                    cantidad_producida=40,
+                )
+            ),
+            LoteProduccion(
+                **_datos(
+                    codigo_lote="L-002",
+                    cantidad_planificada=50,
+                    cantidad_producida=50,
+                    estado="Finalizado",
+                )
+            ),
+            LoteProduccion(
+                **_datos(
+                    codigo_lote="L-003",
+                    cantidad_planificada=30,
+                    cantidad_producida=0,
+                    estado="En proceso",
+                )
+            ),
+            LoteProduccion(
+                **_datos(
+                    codigo_lote="L-004",
+                    cantidad_planificada=20,
+                    cantidad_producida=0,
+                    estado="Cancelado",
+                )
+            ),
+        ]
+    )
+    db_session.commit()
+
+    respuesta = client_lotes.get("/lotes/dashboard", headers=headers_operador)
+
+    assert respuesta.status_code == 200
+    datos = respuesta.json()
+    assert datos["total_lotes"] == 4
+    assert datos["total_cantidad_planificada"] == 200
+    assert datos["total_cantidad_producida"] == 90
+    assert datos["porcentaje_cumplimiento"] == 45.0
+    assert datos["por_estado"] == [
+        {"estado": "Pendiente", "cantidad": 1},
+        {"estado": "En proceso", "cantidad": 1},
+        {"estado": "Finalizado", "cantidad": 1},
+        {"estado": "Cancelado", "cantidad": 1},
+    ]
+
+
+def test_dashboard_exige_sesion(client_lotes):
+    respuesta = client_lotes.get("/lotes/dashboard")
+
+    assert respuesta.status_code == 401
+
+
 def test_la_app_principal_incluye_el_router_de_lotes():
     from src.main import app
 
-    assert "/lotes" in app.openapi()["paths"]
+    rutas = app.openapi()["paths"]
+    assert "/lotes" in rutas
+    assert "/lotes/dashboard" in rutas
