@@ -11,6 +11,7 @@ from src.migrations import crear_tablas_y_migrar
 from src.auth.services import purgar_revocados_vencidos
 from src.uploads.router import router as uploads_router
 from src.config import CARPETA_UPLOADS
+from src.common.archivos import LimiteTamanoSubidaMiddleware
 
 # Importamos la configuración validada por Pydantic
 from src.config import settings
@@ -112,6 +113,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Primera barrera contra subidas demasiado grandes: Content-Length y el
+# cuerpo real del stream. Conviene además limitar en el proxy (nginx
+# `client_max_body_size`, o equivalente) para rechazar antes de que el
+# cuerpo llegue a la aplicación.
+app.add_middleware(LimiteTamanoSubidaMiddleware)
 
 
 # Asociamos los routers a nuestra app

@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import UploadFile
 from sqlalchemy import and_, case, exists, or_, select
+from src.common.estado_documento import estado_documento, VIGENTE
 from src.common.fechas import hoy, ahora
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -91,6 +92,18 @@ def _filtro_estado_documento(
     if exigir_version_vigente:
         condicion = and_(_EXISTE_VERSION_VIGENTE, condicion)
     return condicion
+
+
+def _estado_documento_de(documento: Documento, hoy: date, margen: int) -> str:
+    """Estado de vencimiento de un documento, usando la misma regla única que
+    el resto de la aplicación (`estado_documento`)."""
+    version = documento.version_vigente
+    if version is None or version.fecha_vencimiento is None:
+        return VIGENTE
+    fecha = version.fecha_vencimiento
+    if isinstance(fecha, datetime):
+        fecha = fecha.date()
+    return estado_documento(fecha, hoy, margen)
 
 
 def _orden_estado_documento():

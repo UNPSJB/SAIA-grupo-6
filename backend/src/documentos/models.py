@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.common.fechas import hoy
+from src.common.fechas import ahora, hoy
 from src.documentos.constants import EstadoVersion
 from src.models import ModeloBase
 from src.personal.models import Personal  # noqa: F401  (para resolver la relación "Personal")
@@ -16,7 +16,7 @@ class Documento(ModeloBase):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     nombre: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     tipo: Mapped[str] = mapped_column(String(30))
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     # Relación 1-N, de la más nueva a la más vieja.
     versiones: Mapped[list["VersionDocumento"]] = relationship(
@@ -64,7 +64,7 @@ class VersionDocumento(ModeloBase):
 
     vigente_desde: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.now,
+        default=ahora,
     )
 
     vigente_hasta: Mapped[Optional[datetime]] = mapped_column(
@@ -85,7 +85,7 @@ class VersionDocumento(ModeloBase):
 
     fecha_subida: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.now,
+        default=ahora,
     )
 
     documento: Mapped["Documento"] = relationship(

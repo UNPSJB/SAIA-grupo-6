@@ -1,13 +1,16 @@
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin
 from src.auditoria import schemas, services
+from src.auditoria.enriquecer import enriquecer_detalle_auditoria
 from src.common.paginacion import ParamsPaginacion
 from src.database import get_db
+from src.personal.models import Personal
 
 # La bitácora es de la persona con permiso de administrar: contiene el
 # detalle de cada cambio de TODAS las entidades del sistema.
@@ -59,4 +62,44 @@ def listar_auditoria(
 def listar_entidades(db: Session = Depends(get_db)):
     """Lista de entidades distintas presentes en la bitácora, para autocompletar filtros."""
     return services.listar_entidades(db)
+
+
+@router.get("/{audit_id}", response_model=schemas.AuditLogDetalle)
+def obtener_detalle_auditoria(
+    audit_id: int = Path(..., description="ID del evento de auditoría."),
+    db: Session = Depends(get_db),
+):
+    """Detalle de un evento de auditoría, con los cambios enriquecidos para
+    mostrar nombres legibles de entidades relacionadas (nombres de equipos,
+    personas, insumos, etc.) en vez de solo IDs."""
+    fila = services.obtener_auditoria_por_id(db, audit_id)
+    if fila is None:
+        raise HTTPException(
+            status_code=404, detail="Evento de auditoría no encontrado."
+        )
+
+    # Enriquecer con el nombre del actor
+    usuario_nombre = None
+    if fila.usuario_id is not None:
+        persona = db.execute(
+            select(Personal).where(Personal.id == fila.usuario_id)
+        ).scalar_one_or_none()
+        if persona is not None:
+            usuario_nombre = " ".join(
+                parte for parte in (persona.nombre, persona.apellido) if parte
+            )
+
+    extra = enriquecer_detalle_auditoria(db, fila)
+
+    return schemas.AuditLogDetalle(
+        id=fila.id,
+        fecha=fila.fecha,
+        usuario_id=fila.usuario_id,
+        usuario_nombre=usuario_nombre,
+        entidad=fila.entidad,
+        entidad_id=fila.entidad_id,
+        accion=fila.accion,
+        cambios=extra["cambios_detalle"],
+        registro=extra["registro"],
+    )
 

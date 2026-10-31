@@ -6,14 +6,15 @@ este módulo es solo la lectura que expone el endpoint `GET /auditoria`.
 
 import logging
 from datetime import date, datetime, time, timezone, tzinfo
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
+from src.auditoria.enriquecer import enriquecer_lote_auditoria
 from src.auditoria.models import AuditLog
-from src.auditoria.schemas import AuditLogItem
+from src.auditoria.schemas import AuditLogItem, CambioCampoEnriquecido, RegistroAuditado
 from src.common.paginacion import paginar
 from src.config import settings
 from src.personal.models import Personal
@@ -98,12 +99,29 @@ def listar_auditoria(
             for p in personas
         }
 
+    # Enriquecer toda la página de una vez (una consulta IN por tabla, sin N+1):
+    # nombres de las FKs de los cambios y el registro afectado de cada evento.
+    enriquecidos: dict[int, dict[str, Any]] = (
+        enriquecer_lote_auditoria(db, items) if items else {}
+    )
+
     # Se arman los schemas en vez de pegarle atributos sueltos a las
     # instancias ORM de la sesión.
     resultado = []
     for fila in items:
         item = AuditLogItem.model_validate(fila)
         item.usuario_nombre = nombres.get(fila.usuario_id)
+
+        extra = enriquecidos.get(fila.id) or {}
+        detalle = extra.get("cambios_detalle")
+        if detalle is not None:
+            item.cambios_detalle = {
+                campo: CambioCampoEnriquecido.model_validate(valor)
+                for campo, valor in detalle.items()
+            }
+        if extra.get("registro") is not None:
+            item.registro = RegistroAuditado.model_validate(extra["registro"])
+
         resultado.append(item)
 
     return resultado, total
@@ -113,3 +131,8 @@ def listar_entidades(db: Session) -> list[str]:
     """Devuelve las entidades distintas presentes en la bitácora."""
     consulta = select(distinct(AuditLog.entidad)).order_by(AuditLog.entidad)
     return [r[0] for r in db.execute(consulta).all()]
+
+
+def obtener_auditoria_por_id(db: Session, audit_id: int) -> AuditLog | None:
+    """Devuelve un evento de auditoría por su ID, o None si no existe."""
+    return db.get(AuditLog, audit_id)

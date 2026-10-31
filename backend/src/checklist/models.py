@@ -2,6 +2,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
+from src.common.fechas import ahora
 from src.Equipo.models import Equipo
 from src.PlanLimpieza.models import PlanLimpieza
 from src.personal.models import Personal
@@ -55,11 +56,11 @@ class Checklist(ModeloBase):
         nullable=True
     )
 
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(
         DateTime,
         nullable=True,
-        onupdate=datetime.now
+        onupdate=ahora
     )
 
     equipo: Mapped["Equipo"] = relationship()

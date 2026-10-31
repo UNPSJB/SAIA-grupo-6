@@ -59,6 +59,27 @@ def puede_modificar_roles(actor: Personal, objetivo: Personal) -> bool:
     return True
 
 
+def puede_asignar_roles(
+    actor: Personal, *, es_super_admin_flag: bool = False, puede_administrar_flag: bool = False
+) -> bool:
+    """True si `actor` puede crear a una persona con los roles indicados.
+
+    Reutiliza la misma jerarquía que `puede_modificar_roles` (el PUT): un
+    admin común no puede crear a otro administrador ni a un super admin;
+    solo el super admin puede conceder esos flags.
+    """
+    if not puede_administrar(actor):
+        return False
+
+    if es_super_admin_flag and not es_super_admin(actor):
+        return False
+
+    if puede_administrar_flag and not es_super_admin(actor):
+        return False
+
+    return True
+
+
 def exigir_permiso(condicion: bool, mensaje: str) -> None:
     if not condicion:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=mensaje)

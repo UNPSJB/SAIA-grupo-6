@@ -65,4 +65,8 @@ class Calibracion(ModeloBase):
         String(20), nullable=False, server_default="calibracion"
     )
 
+    # Borrado lógico: una intervención dada de baja ya no cuenta para el
+    # recálculo de la última intervención del plan.
+    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
     equipo: Mapped["Equipo"] = relationship(back_populates="calibraciones")

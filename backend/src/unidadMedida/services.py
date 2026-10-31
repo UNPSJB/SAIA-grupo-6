@@ -1,10 +1,13 @@
 from typing import List, Optional
+import logging
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
+    es_violacion_unica,
     guardar,
     mapa_por_campo,
     obtener,
@@ -14,14 +17,29 @@ from src.common.texto import sin_tildes
 from src.unidadMedida.models import UnidadMedida
 from src.unidadMedida import schemas, exceptions
 
+logger = logging.getLogger(__name__)
+
 # `unidades_medida.nombre` y `.simbolo` son UNIQUE. El orden importa: primero
-# el campo mas especifico, porque un mensaje del driver puede mentionar la
+# el campo más específico, porque un mensaje del driver puede mentionar la
 # tabla completa y no el column.
-_MAPEA_CONFLICTO = mapa_por_campo(
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     ("unidades_medida.simbolo", exceptions.SimboloYaExiste),
     ("unidades_medida.nombre", exceptions.UnidadMedidaYaExiste),
     por_defecto=exceptions.DatoDuplicado,
 )
+
+
+def _mapear_conflicto_unidad_medida(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en unidad de medida (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 _ORDENES = {
     "nombre_asc": ColumnaOrden((sin_tildes(UnidadMedida.nombre),)),
@@ -56,7 +74,7 @@ def crear_unidad_medida(db: Session, datos: schemas.UnidadMedidaCreate) -> Unida
 
     nueva_unidad = UnidadMedida(**datos.model_dump())
     db.add(nueva_unidad)
-    return guardar(db, nueva_unidad, _MAPEA_CONFLICTO)
+    return guardar(db, nueva_unidad, _mapear_conflicto_unidad_medida)
 
 
 def _consulta_unidades_medida(
@@ -116,7 +134,7 @@ def obtener_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:
 def actualizar_unidad_medida(db: Session, unidad_id: int, datos: schemas.UnidadMedidaUpdate) -> UnidadMedida:
     unidad = obtener_unidad_medida(db, unidad_id)
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
-    return aplicar_cambios(db, unidad, cambios, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, unidad, cambios, _mapear_conflicto_unidad_medida)
 
 
 def eliminar_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:

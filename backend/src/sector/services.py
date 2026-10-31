@@ -1,10 +1,13 @@
 from typing import List, Optional
+import logging
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
+    es_violacion_unica,
     guardar,
     mapa_por_campo,
     obtener,
@@ -14,10 +17,25 @@ from src.common.texto import sin_tildes
 from src.sector.models import Sector
 from src.sector import schemas, exceptions
 
-_MAPEA_CONFLICTO = mapa_por_campo(
+logger = logging.getLogger(__name__)
+
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     ("sectores.nombre", exceptions.SectorYaExiste),
     por_defecto=exceptions.SectorYaExiste,
 )
+
+
+def _mapear_conflicto_sector(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en sector (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 # Claves del query string -> expresión de orden. `descripcion` es opcional:
 # los NULL van al final para que no encabecen una lista ascendente.
@@ -47,7 +65,7 @@ def crear_sector(db: Session, datos: schemas.SectorCreate) -> Sector:
 
     nuevo = Sector(**datos.model_dump())
     db.add(nuevo)
-    return guardar(db, nuevo, _MAPEA_CONFLICTO)
+    return guardar(db, nuevo, _mapear_conflicto_sector)
 
 
 def _consulta_sectores(
@@ -103,7 +121,7 @@ def obtener_sector(db: Session, sector_id: int) -> Sector:
 def actualizar_sector(db: Session, sector_id: int, datos: schemas.SectorUpdate) -> Sector:
     sector = obtener_sector(db, sector_id)
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
-    return aplicar_cambios(db, sector, cambios, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, sector, cambios, _mapear_conflicto_sector)
 
 
 def eliminar_sector(db: Session, sector_id: int) -> Sector:

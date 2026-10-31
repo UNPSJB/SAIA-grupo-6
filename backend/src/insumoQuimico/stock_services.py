@@ -50,18 +50,13 @@ def _obtener_proveedor_activo(db: Session, proveedor_id: int) -> Proveedor:
 
 
 def _aplicar_variacion(db: Session, insumo_id: int, variacion: Decimal) -> None:
-    _asegurar_stock(db, insumo_id)
-    condicion = StockInsumoQuimico.cantidad_actual + variacion >= 0
-    resultado = db.execute(
-        update(StockInsumoQuimico)
-        .where(
-            StockInsumoQuimico.insumo_quimico_id == insumo_id,
-            condicion,
-        )
-        .values(cantidad_actual=StockInsumoQuimico.cantidad_actual + variacion)
-    )
-    if resultado.rowcount != 1:
+    stock = _asegurar_stock(db, insumo_id)
+    nueva_cantidad = stock.cantidad_actual + variacion
+    if nueva_cantidad < 0:
         raise exceptions.StockInsuficiente()
+    # Asignación por ORM (no `update()` de Core): así el listener de
+    # auditoría se dispara y no se rechaza como DML masivo.
+    stock.cantidad_actual = nueva_cantidad
 
 
 def _movimiento(

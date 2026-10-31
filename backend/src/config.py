@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     TRUSTED_PROXY: bool = False
     TRUSTED_PROXY_HOPS: int = 1
 
+    # Tamaño máximo permitido para subidas de archivos (bytes). El proxy
+    # inverso (nginx `client_max_body_size`, etc.) debería limitar también,
+    # pero este middleware es la primera barrera en la aplicación.
+    MAX_UPLOAD_SIZE_BYTES: int = 10 * 1024 * 1024
+
 
     # Orígenes permitidos por CORS, separados por coma.
     # Para probar desde el celular hay que agregar la IP de la red local,

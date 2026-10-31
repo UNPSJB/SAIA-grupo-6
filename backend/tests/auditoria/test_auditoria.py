@@ -1,24 +1,27 @@
 """Tests de la bitácora de auditoría automática.
 
-Cubren los listeners del ORM (`src/auditoria/listeners.py`) y el endpoint
-`GET /auditoria`. Usan las fixtures de `tests/database.py`: `db_session`
+Cubren los listeners del ORM (`src/auditoria/listeners.py`), el endpoint
+`GET /auditoria` y el enriquecimiento del detalle (`src/auditoria/enriquecer.py`:
+nombres de las relaciones y registro afectado). Usan las fixtures de `tests/database.py`: `db_session`
 crea todas las tablas por test (incluida `audit_log`) y `client` expone la
 app con `get_db` sobre esa misma sesión.
 """
 
 import json
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Optional
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import String, delete, insert, select, update
+from sqlalchemy import String, delete, event, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.Equipo.models import Equipo
 from src.Equipo.schemas import EquipoCreate, EquipoUpdate
 from src.Equipo.services import actualizar_equipo, crear_equipo, dar_de_baja_equipo
+from src.auditoria.enriquecer import enriquecer_detalle_auditoria
 from src.auditoria.listeners import BitacoraInmutableError, DmlMasivoSinAuditoriaError
 from src.auditoria.models import AuditLog
 from src.auth.models import TokenRevocado
@@ -547,3 +550,219 @@ def test_el_marcado_de_tareas_no_se_audita_dos_veces(db_session):
     assert _auditoria(db_session, entidad="historial_registro_tareas") == []
     # El resto de las entidades siguen auditadas.
     assert _auditoria(db_session, entidad="checklists")
+
+
+# --------------------------------------------------------------------------
+# Enriquecimiento: nombres de las relaciones y registro afectado
+# --------------------------------------------------------------------------
+#
+# El diff de una baja, reactivación o modificación solo trae las columnas que
+# cambiaron (p. ej. `activo`): no dice a quién ni a qué le pasó. El detalle
+# agrega `registro` (nombre, DNI, relaciones) y `cambios_detalle` (nombres de
+# las FKs), y tiene que funcionar también cuando la fila ya no existe.
+
+def _items(client, **params):
+    """Eventos de `GET /auditoria` con esos filtros."""
+    params.setdefault("page_size", 50)
+    respuesta = client.get("/auditoria", params=params)
+    assert respuesta.status_code == 200
+    return respuesta.json()["items"]
+
+
+def _dato(registro, campo):
+    """El dato `campo` del registro afectado (None si no está)."""
+    return next((d for d in registro["datos"] if d["campo"] == campo), None)
+
+
+@contextmanager
+def _contando_consultas(db_session):
+    """Junta los SQL que se ejecutan dentro del bloque."""
+    bind = db_session.get_bind()
+    consultas = []
+
+    def _registrar(conn, cursor, statement, parameters, context, executemany):
+        consultas.append(statement)
+
+    event.listen(bind, "before_cursor_execute", _registrar)
+    try:
+        yield consultas
+    finally:
+        event.remove(bind, "before_cursor_execute", _registrar)
+
+
+def test_la_baja_muestra_el_registro_afectado_y_su_relacion(
+    db_session, client_auditoria, sector
+):
+    equipo = _crear_equipo(db_session, sector, "Balanza-01")
+    dar_de_baja_equipo(db_session, equipo.id)
+
+    (item,) = _items(client_auditoria, entidad="equipos", accion="BAJA")
+
+    # El diff solo trae lo que cambió...
+    assert item["cambios"] == {"activo": [True, False]}
+    # ...pero el detalle dice QUÉ equipo es y de qué sector.
+    assert item["registro"]["etiqueta"] == "Balanza-01"
+    assert _dato(item["registro"], "sector_id") == {
+        "campo": "sector_id",
+        "valor": sector.id,
+        "valor_nombre": sector.nombre,
+    }
+
+
+def test_la_reactivacion_de_personal_muestra_nombre_y_dni(db_session, client_auditoria):
+    persona = crear_persona(
+        db_session,
+        PersonaCreate(
+            nombre="Ana",
+            apellido="García",
+            dni="30111222",
+            email="ana@test.local",
+            puede_operar=True,
+            password="Clave1234",
+        ),
+    )
+    persona.activo = False
+    db_session.commit()
+    persona.activo = True
+    db_session.commit()
+
+    (item,) = _items(client_auditoria, entidad="personal", accion="REACTIVAR")
+
+    assert item["cambios"] == {"activo": [False, True]}
+    assert item["registro"]["etiqueta"] == "Ana García"
+    assert _dato(item["registro"], "dni") == {
+        "campo": "dni",
+        "valor": "30111222",
+        "valor_nombre": None,
+    }
+    # El registro describe a la persona, pero jamás filtra su contraseña.
+    assert persona.password not in json.dumps(item)
+
+
+def test_eliminar_resuelve_nombres_aunque_la_fila_ya_no_exista(
+    db_session, client_auditoria, sector
+):
+    equipo = _crear_equipo(db_session, sector, "Balanza-01")
+    db_session.delete(equipo)
+    db_session.commit()
+
+    (item,) = _items(client_auditoria, entidad="equipos", accion="ELIMINAR")
+
+    # La FK sale con el nombre del sector, tomado de los IDs del propio diff.
+    assert item["cambios_detalle"]["sector_id"] == {
+        "antes": sector.id,
+        "despues": None,
+        "antes_nombre": sector.nombre,
+        "despues_nombre": None,
+    }
+    # Los campos que no son FK vuelven con el mismo contrato, sin nombres.
+    assert item["cambios_detalle"]["nombre"] == {
+        "antes": "Balanza-01",
+        "despues": None,
+        "antes_nombre": None,
+        "despues_nombre": None,
+    }
+    assert item["registro"]["etiqueta"] == "Balanza-01"
+
+
+def test_un_evento_viejo_conserva_el_registro_aunque_se_borre_despues(
+    db_session, client_auditoria, sector
+):
+    equipo = _crear_equipo(db_session, sector, "Balanza-01")
+    actualizar_equipo(db_session, equipo.id, EquipoUpdate(nombre="Balanza-02"))
+    db_session.delete(equipo)
+    db_session.commit()
+
+    (modificar,) = _items(client_auditoria, entidad="equipos", accion="MODIFICAR")
+
+    # La fila ya no está en la base: el registro sale del evento ELIMINAR.
+    assert modificar["registro"]["etiqueta"] == "Balanza-02"
+
+
+def test_el_registro_queda_vacio_si_no_se_puede_resolver(db_session):
+    inexistente = AuditLog(
+        id=1,
+        entidad="equipos",
+        entidad_id="999",
+        accion="BAJA",
+        cambios={"activo": [True, False]},
+    )
+    compuesta = AuditLog(
+        id=2,
+        entidad="tmp_auditoria_pk_compuesta",
+        entidad_id="3-7",
+        accion="MODIFICAR",
+        cambios={"nombre": ["x", "y"]},
+    )
+
+    # Ni la fila inexistente ni una PK compuesta se resuelven: sin registro,
+    # pero tampoco se rompe nada.
+    for fila in (inexistente, compuesta):
+        assert enriquecer_detalle_auditoria(db_session, fila)["registro"] is None
+
+    # El diff igual vuelve completo.
+    detalle = enriquecer_detalle_auditoria(db_session, inexistente)["cambios_detalle"]
+    assert detalle["activo"] == {
+        "antes": True,
+        "despues": False,
+        "antes_nombre": None,
+        "despues_nombre": None,
+    }
+
+
+def test_get_auditoria_por_id_devuelve_cambios_y_registro_enriquecidos(
+    db_session, client_auditoria, sector
+):
+    equipo = _crear_equipo(db_session, sector, "Balanza-01")
+    dar_de_baja_equipo(db_session, equipo.id)
+    baja = _auditoria(db_session, entidad="equipos", accion="BAJA")[0]
+
+    respuesta = client_auditoria.get(f"/auditoria/{baja.id}")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["id"] == baja.id
+    assert cuerpo["cambios"]["activo"] == {
+        "antes": True,
+        "despues": False,
+        "antes_nombre": None,
+        "despues_nombre": None,
+    }
+    assert cuerpo["registro"]["etiqueta"] == "Balanza-01"
+    assert _dato(cuerpo["registro"], "sector_id")["valor_nombre"] == sector.nombre
+
+    assert client_auditoria.get("/auditoria/999999").status_code == 404
+
+
+def test_get_auditoria_entidades_no_se_confunde_con_un_id(
+    db_session, client_auditoria, sector
+):
+    _crear_equipo(db_session, sector, "Balanza-01")
+
+    # `/entidades` tiene que declararse antes de `/{audit_id}`: si no, FastAPI
+    # intenta leer "entidades" como un entero y responde 422.
+    respuesta = client_auditoria.get("/auditoria/entidades")
+
+    assert respuesta.status_code == 200
+    assert "equipos" in respuesta.json()
+
+
+def test_el_listado_no_hace_una_consulta_por_fila(db_session, client_auditoria, sector):
+    def _equipo_con_baja(nombre):
+        equipo = _crear_equipo(db_session, sector, nombre)
+        dar_de_baja_equipo(db_session, equipo.id)
+
+    for i in range(2):
+        _equipo_con_baja(f"Balanza-{i}")
+    with _contando_consultas(db_session) as pocas:
+        assert len(_items(client_auditoria, entidad="equipos")) == 4  # CREAR + BAJA
+
+    for i in range(2, 12):
+        _equipo_con_baja(f"Balanza-{i}")
+    with _contando_consultas(db_session) as muchas:
+        assert len(_items(client_auditoria, entidad="equipos")) == 24
+
+    # Nombres de relaciones y registros afectados se resuelven en lote: la
+    # cantidad de consultas no depende de cuántos eventos tenga la página.
+    assert len(muchas) == len(pocas)
+

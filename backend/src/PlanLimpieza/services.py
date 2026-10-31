@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from src.auth.roles import puede_administrar
 from src.common.listados import ColumnaOrden, paginar_consulta
-from src.common.persistence import aplicar_cambios, mapa_por_campo
+from src.common.persistence import aplicar_cambios, es_violacion_unica, mapa_por_campo
 from src.common.texto import contiene_texto, sin_tildes
 from src.Equipo.models import Equipo
 from src.Equipo.services import obtener_equipo
@@ -31,12 +31,27 @@ _ORDENES = {
 # logger para este módulo específico
 logger = logging.getLogger(__name__)
 
-# `plan_limpieza.nombre` es UNIQUE. El pre-chequeo no existia en este modulo,
-# asi que un PUT con nombre repetido llegaba hasta el commit.
-_MAPEA_CONFLICTO = mapa_por_campo(
+# Mapeador de violaciones UNIQUE para plan de limpieza. Solo se traduce a
+# "duplicado" cuando el driver reporta una restricción UNIQUE real.
+_mapear_conflicto_unico_plan = mapa_por_campo(
     ("plan_limpieza.nombre", exceptions.NombrePlanDuplicado),
     por_defecto=exceptions.DatoDuplicado,
 )
+
+
+def _mapear_conflicto_plan_limpieza(mensaje: str) -> Exception:
+    """Traduce un IntegrityError de plan de limpieza a excepción de negocio.
+
+    Solo una violación UNIQUE es un duplicado. Cualquier otro IntegrityError
+    (NOT NULL, FK rota) se propaga como error genérico (500) y queda logueado.
+    """
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en plan de limpieza (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _mapear_conflicto_unico_plan(mensaje)
 
 # ==========================================
 # OPERACIONES CRUD PARA PLAN DE LIMPIEZA
@@ -104,11 +119,7 @@ def crear_plan_limpieza(
 
     except IntegrityError as e:
         db.rollback()
-        mensaje_error = str(e.orig).lower()
-        if "nombre" in mensaje_error:
-            raise exceptions.NombrePlanDuplicado()
-        else:
-            raise exceptions.DatoDuplicado()
+        raise _mapear_conflicto_plan_limpieza(str(e.orig).lower())
 
 
 def _filtro_busqueda_planes(buscar: Optional[str]) -> Any | None:
@@ -282,7 +293,7 @@ def modificar_plan_limpieza(
                     )
                 )
 
-    return aplicar_cambios(db, db_plan, datos_a_actualizar, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, db_plan, datos_a_actualizar, _mapear_conflicto_plan_limpieza)
 
 
 def eliminar_plan_limpieza(db: Session, plan_id: int) -> models.PlanLimpieza:

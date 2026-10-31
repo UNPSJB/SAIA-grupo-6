@@ -7,11 +7,15 @@ from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin, require_operador
 from src.common.archivos import guardar_archivo
+from src.common.fechas import hoy
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
-from src.PlanCalibracionMantenimiento.services import asentar_ultima_intervencion
+from src.PlanCalibracionMantenimiento.services import (
+    asentar_ultima_intervencion,
+    recalcular_ultima_intervencion,
+)
 from . import schemas, services
 from .models import Calibracion, Equipo
 
@@ -157,10 +161,23 @@ def registrar_intervencion_con_archivo(
     tipo: schemas.TipoIntervencion = Form("calibracion"),
     db: Session = Depends(get_db)
 ):
-    # 1. Buscar que el equipo exista
+    # 1. Buscar que el equipo exista y esté activo.
     equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
     if not equipo:
         raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if not equipo.activo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El equipo no está activo; no se pueden registrar intervenciones.",
+        )
+
+    # 2. Validar que la fecha de realización no sea futura (zona horaria del
+    #    proyecto). Un error de tipeo no debe silenciar la alerta.
+    if fecha_realizacion > hoy():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La fecha de realización no puede ser futura.",
+        )
 
     # 2. Guardar archivo validado con helper (extensión vía Path, tamaño limitado,
     #    nombre {prefijo}_{uuid4().hex}{ext})
@@ -190,10 +207,18 @@ def registrar_intervencion_con_archivo(
         dias_frecuencia = equipo.frecuencia_calibracion_dias or 365
     else:
         dias_frecuencia = 365
-    fecha_vencimiento = fecha_realizacion + timedelta(days=dias_frecuencia)
+    try:
+        fecha_vencimiento = fecha_realizacion + timedelta(days=dias_frecuencia)
+    except OverflowError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La periodicidad es demasiado grande y desborda el cálculo de fechas.",
+        )
 
     # 6. Guardar el registro y asentar el plan correspondiente en la misma
     #    transacción: o se confirman ambos cambios, o no se confirma ninguno.
+    #    `asentar_ultima_intervencion` va DENTRO del try para que, si falla,
+    #    se haga rollback y no quede el certificado huérfano.
     nueva_calibracion = Calibracion(
         equipo_id=equipo_id,
         fecha_realizacion=fecha_realizacion,
@@ -203,9 +228,8 @@ def registrar_intervencion_con_archivo(
     )
     db.add(nueva_calibracion)
 
-    asentar_ultima_intervencion(db, equipo_id, tipo, fecha_realizacion)
-
     try:
+        asentar_ultima_intervencion(db, equipo_id, tipo, fecha_realizacion)
         db.commit()
     except Exception:
         db.rollback()
@@ -220,6 +244,149 @@ def registrar_intervencion_con_archivo(
     db.refresh(nueva_calibracion)
 
     return nueva_calibracion
+
+
+@router.patch(
+    "/{equipo_id}/calibraciones/{calibracion_id}",
+    response_model=schemas.CalibracionResponse,
+    dependencies=[Depends(require_operador)]
+)
+def editar_intervencion(
+    equipo_id: int,
+    calibracion_id: int,
+    datos: schemas.CalibracionUpdate,
+    db: Session = Depends(get_db)
+):
+    """Corrige la fecha (y opcionalmente el tipo) de una intervención.
+
+    Revalida que la fecha no sea futura, recalcula `proximo_vencimiento` y
+    recalcula la última intervención del plan afectado (puede subir o bajar).
+    """
+    equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if not equipo.activo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El equipo no está activo.",
+        )
+
+    calibracion = db.scalar(
+        select(Calibracion).where(
+            Calibracion.id == calibracion_id,
+            Calibracion.equipo_id == equipo_id,
+        )
+    )
+    if not calibracion:
+        raise HTTPException(status_code=404, detail="Intervención no encontrada")
+
+    nueva_fecha = (
+        datos.fecha_realizacion if datos.fecha_realizacion is not None
+        else calibracion.fecha_realizacion
+    )
+    if nueva_fecha > hoy():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La fecha de realización no puede ser futura.",
+        )
+
+    nuevo_tipo = datos.tipo if datos.tipo is not None else calibracion.tipo
+    tipo_anterior = calibracion.tipo
+
+    calibracion.fecha_realizacion = nueva_fecha
+    calibracion.tipo = nuevo_tipo
+
+    plan_activo = db.scalar(
+        select(PlanCalibracionMantenimiento).where(
+            PlanCalibracionMantenimiento.equipo_id == equipo_id,
+            PlanCalibracionMantenimiento.tipo == nuevo_tipo,
+            PlanCalibracionMantenimiento.activo.is_(True),
+        )
+    )
+    if plan_activo is not None:
+        dias_frecuencia = plan_activo.periodicidad_dias
+    elif nuevo_tipo == "calibracion":
+        dias_frecuencia = equipo.frecuencia_calibracion_dias or 365
+    else:
+        dias_frecuencia = 365
+    try:
+        calibracion.proximo_vencimiento = nueva_fecha + timedelta(
+            days=dias_frecuencia
+        )
+    except OverflowError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La periodicidad es demasiado grande y desborda el cálculo de fechas.",
+        )
+
+    db.add(calibracion)
+    recalcular_ultima_intervencion(db, equipo_id, nuevo_tipo)
+    if tipo_anterior != nuevo_tipo:
+        recalcular_ultima_intervencion(db, equipo_id, tipo_anterior)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(calibracion)
+
+    return calibracion
+
+
+@router.delete(
+    "/{equipo_id}/calibraciones/{calibracion_id}",
+    response_model=schemas.CalibracionResponse,
+    dependencies=[Depends(require_operador)]
+)
+def eliminar_intervencion(
+    equipo_id: int,
+    calibracion_id: int,
+    db: Session = Depends(get_db)
+):
+    """Baja lógica de una intervención y recalcula la última intervención
+    del plan. Borra el archivo de certificado asociado."""
+    equipo = db.scalar(select(Equipo).where(Equipo.id == equipo_id))
+    if not equipo:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    if not equipo.activo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El equipo no está activo.",
+        )
+
+    calibracion = db.scalar(
+        select(Calibracion).where(
+            Calibracion.id == calibracion_id,
+            Calibracion.equipo_id == equipo_id,
+        )
+    )
+    if not calibracion:
+        raise HTTPException(status_code=404, detail="Intervención no encontrada")
+
+    tipo = calibracion.tipo
+    ruta_certificado = calibracion.certificado_url
+
+    calibracion.activo = False
+    db.add(calibracion)
+    recalcular_ultima_intervencion(db, equipo_id, tipo)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    # Borrar el archivo de certificado tras el commit exitoso.
+    if ruta_certificado:
+        try:
+            ruta_abs = CARPETA_UPLOADS / ruta_certificado.removeprefix("uploads/")
+            ruta_abs.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    db.refresh(calibracion)
+    return calibracion
 
 
 @router.get(
