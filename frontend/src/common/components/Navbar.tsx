@@ -27,6 +27,7 @@ import {
   LuFileText,
   LuFlaskConical,
   LuFolderSearch,
+  LuGlobe,
   LuHistory,
   LuHouse,
   LuListChecks,
@@ -191,13 +192,9 @@ const GRUPOS: GrupoMenu[] = [
 
 /** Enlaces sueltos, fuera de cualquier grupo. */
 const MENU: EntradaMenu[] = [
-  /*
-   * Va primero en la lista —entre el botón de plegar y "Inicio"— para que
-   * quede fijo arriba del todo: es la entrada más personal de la barra y no
-   * debería scrollearse nunca.
-   */
-  { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
+  { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
+  { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
 ];
 
 /** Ancho del sidebar según el estado. */

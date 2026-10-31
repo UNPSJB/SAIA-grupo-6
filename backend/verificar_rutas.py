@@ -6,9 +6,9 @@ Ejecutar desde `backend/`:
 
 Comprueba tres cosas:
 
-  1. que todo endpoint fuera de `/auth/*` exija token;
-  2. que `/auth/*` sea justamente lo público (login, refresh y bootstrap), y no
-     se haya colado algún endpoint nuevo;
+   1. que todo endpoint fuera de las excepciones explícitas exija token;
+   2. que solo login, refresh, bootstrap y la validación opaca de vista pública
+      sean públicos, y no se haya colado algún endpoint nuevo;
   3. que los catálogos con baja lógica expongan el verbo DELETE — el
      `PlanCalibracionMantenimiento` era el único sin él, aunque su modelo
      tuviera `activo`.
@@ -26,12 +26,14 @@ import src.main as m  # noqa: E402
 
 spec = m.app.openapi()
 
-# Los endpoints que por diseño no llevan token: el token es lo que se pide ahí.
+# Los endpoints que por diseño no llevan token. La validación pública no
+# devuelve datos: solo confirma el código opaco actualmente habilitado.
 PUBLICOS_ESPERADOS = {
     ("GET", "/auth/bootstrap"),
     ("POST", "/auth/login"),
     ("POST", "/auth/logout"),
     ("POST", "/auth/refresh"),
+    ("GET", "/vista-publica/publica/{codigo_publico}/validar"),
 }
 
 # Catálogos con baja lógica: deben exponer DELETE.
@@ -66,7 +68,7 @@ if publicos != PUBLICOS_ESPERADOS:
     print(f"     faltantes:    {sorted(PUBLICOS_ESPERADOS - publicos)}")
     fallos.append("conjunto de endpoints públicos")
 else:
-    print("   ok  solo /auth/* está público")
+    print("   ok  solo las excepciones públicas explícitas están disponibles")
 
 print()
 print("2) verbos de baja lógica")

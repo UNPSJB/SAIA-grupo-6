@@ -578,6 +578,18 @@ def run_migrations() -> None:
                 )
             )
 
+    # La tabla se crea con metadata.create_all() antes de esta función. Todas
+    # las instalaciones, incluso las ya existentes, deben partir opt-in: una
+    # única fila persistida con la vista pública desactivada.
+    if "configuracion_vista_publica" in set(inspect(engine).get_table_names()):
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "INSERT OR IGNORE INTO configuracion_vista_publica "
+                    "(id, habilitada, codigo_publico) VALUES (1, 0, NULL)"
+                )
+            )
+
     # 10) Bootstrap del primer super admin.
     #
     #    El CRUD de Sector cambió el modelo de equipos (`sector_id` en vez

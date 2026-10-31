@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -45,6 +46,30 @@ class Settings(BaseSettings):
     # Para probar desde el celular hay que agregar la IP de la red local,
     # por ejemplo: "http://localhost:5173,http://192.168.0.10:5173"
     CORS_ORIGINS: str = "http://localhost:5173"
+
+    # Origen canónico del frontend que hospeda el futuro enlace público. Puede
+    # incluir un subpath de despliegue, por ejemplo https://ejemplo.com/saia.
+    # Se deja vacío hasta que un administrador quiera activar esta función.
+    PUBLIC_APP_URL: str | None = None
+
+    @field_validator("PUBLIC_APP_URL")
+    @classmethod
+    def validar_public_app_url(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+
+        valor = v.strip().rstrip("/")
+        partes = urlsplit(valor)
+        if (
+            partes.scheme not in {"http", "https"}
+            or not partes.netloc
+            or partes.query
+            or partes.fragment
+        ):
+            raise ValueError(
+                "PUBLIC_APP_URL debe ser una URL absoluta http(s), sin query ni fragmento."
+            )
+        return valor
 
     @field_validator("DB_URL")
     @classmethod

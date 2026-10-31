@@ -205,6 +205,18 @@ const AuditoriaPage = lazy(() =>
   import("./features/auditoria/components/pages/AuditoriaPage").then((mod) => ({ default: mod.AuditoriaPage })),
 );
 
+// Vista pública: configuración administrativa y página provisional anónima.
+const VistaPublicaSettingsPage = lazy(() =>
+  import("./features/vistaPublica/components/pages/VistaPublicaSettingsPage").then((mod) => ({
+    default: mod.VistaPublicaSettingsPage,
+  })),
+);
+const VistaPublicaPage = lazy(() =>
+  import("./features/vistaPublica/components/pages/VistaPublicaPage").then((mod) => ({
+    default: mod.VistaPublicaPage,
+  })),
+);
+
 // 9. Incidentes
 const IncidentesListPage = lazy(() =>
   import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
@@ -267,6 +279,14 @@ function LayoutPrincipal() {
 }
 
 export const router = createBrowserRouter([
+  {
+    path: "/publico/:codigo",
+    element: (
+      <ConSuspense>
+        <VistaPublicaPage />
+      </ConSuspense>
+    ),
+  },
   {
     path: "/login",
     element: (
@@ -736,6 +756,16 @@ export const router = createBrowserRouter([
                   <UnidadMedidaEditPage />
                 </ConSuspense>
               ),
+              },
+
+              // ---------------- VISTA PÚBLICA ----------------
+              {
+                path: "/vista-publica",
+                element: (
+                  <ConSuspense>
+                    <VistaPublicaSettingsPage />
+                  </ConSuspense>
+                ),
               },
 
               // ---------------- INCIDENTES ----------------
