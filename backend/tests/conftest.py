@@ -17,13 +17,13 @@ os.environ["SECRET_KEY"] = "clave-solo-para-tests-" + "x" * 32
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, event  # noqa: E402
+from sqlalchemy import create_engine, event, text  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 import src.all_models  # noqa: E402,F401  (registro completo de modelos)
 from src.auth.services import crear_access_token  # noqa: E402
-from src.database import get_db  # noqa: E402
+from src.database import SessionLocal, engine as app_engine, get_db  # noqa: E402
 from src.main import app  # noqa: E402
 from src.models import ModeloBase  # noqa: E402
 from src.tareas.models import Tarea  # noqa: E402
@@ -203,3 +203,22 @@ def seed(session_factory, usuarios):
         finally:
             db.info.pop("sin_auditoria", None)
         return sembrar(db, usuarios["admin_id"])
+
+
+@pytest.fixture
+def db():
+    """Base aislada para los tests de stock que administran su propio cliente.
+
+    Es independiente del motor compartido de los tests de paginación de dev,
+    por lo que el alta/baja de tablas de una prueba no puede contaminar a otra.
+    """
+    ModeloBase.metadata.drop_all(bind=app_engine)
+    ModeloBase.metadata.create_all(bind=app_engine)
+    session = SessionLocal()
+    session.execute(text("PRAGMA foreign_keys = ON"))
+    try:
+        yield session
+    finally:
+        session.rollback()
+        session.close()
+        ModeloBase.metadata.drop_all(bind=app_engine)

@@ -39,6 +39,7 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuTriangleAlert,
+  LuTruck,
   LuUserRound,
   LuUsers,
   LuWrench,
@@ -116,6 +117,7 @@ const GRUPOS: GrupoMenu[] = [
         rol: "administrar",
         icon: LuFlaskConical,
       },
+      { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
       {
         to: "/elementos-limpieza",
         label: "Elementos de Limpieza",
@@ -172,8 +174,8 @@ const GRUPOS: GrupoMenu[] = [
         icon: LuCalendarClock,
       },
       {
-        to: "/consumo-productos",
-        label: "Consumo de Productos",
+        to: "/gestion-stock",
+        label: "Gestión de Stock",
         rol: "administrar",
         icon: LuChartPie,
       },

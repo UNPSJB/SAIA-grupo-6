@@ -41,6 +41,7 @@ from src.unidadMedida.router import router as unidad_medida_router
 from src.incidente.router import router as incidente_router
 from src.vencimientoPersonal.router import router as vencimiento_personal_router
 from src.aptitud.router import router as aptitud_router
+from src.proveedores.router import router as proveedores_router
 
 from src.documentos.router import router as documentos_router
 from src.vencimientos.router import router as vencimientos_router
@@ -133,6 +134,7 @@ app.include_router(notificaciones_router)
 app.include_router(unidad_medida_router)
 app.include_router(vencimiento_personal_router)
 app.include_router(aptitud_router)
+app.include_router(proveedores_router)
 app.include_router(incidente_router)
 app.include_router(documentos_router)
 app.include_router(vencimientos_router)

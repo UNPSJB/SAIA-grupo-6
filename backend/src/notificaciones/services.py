@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from src.Equipo.models import Equipo
 from src.elementoLimpieza.models import ElementoLimpieza
+from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 
@@ -12,6 +13,7 @@ from src.aptitud.models import Aptitud
 from src.common.texto import coincide_terminos
 from src.notificaciones.models import ConfiguracionAlerta
 from src.personal.models import Personal
+from src.unidadMedida.models import UnidadMedida
 from src.vencimientoPersonal.models import VencimientoPersonal
 
 MARGEN_DIAS_ALERTA = 3
@@ -195,6 +197,45 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
     return notificaciones
 
 
+def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]:
+    filas = db.execute(
+        select(
+            InsumoQuimico.id,
+            InsumoQuimico.nombre,
+            StockInsumoQuimico.cantidad_actual,
+            StockInsumoQuimico.stock_minimo,
+            UnidadMedida.simbolo,
+        )
+        .join(
+            StockInsumoQuimico,
+            StockInsumoQuimico.insumo_quimico_id == InsumoQuimico.id,
+        )
+        .join(UnidadMedida, UnidadMedida.id == InsumoQuimico.unidad_medida_id)
+        .where(
+            InsumoQuimico.activo.is_(True),
+            StockInsumoQuimico.stock_minimo.is_not(None),
+            StockInsumoQuimico.cantidad_actual < StockInsumoQuimico.stock_minimo,
+        )
+        .order_by(InsumoQuimico.nombre)
+    ).all()
+
+    return [
+        NotificacionResponse(
+            id_notificacion=f"stock-bajo-{fila.id}",
+            tipo="STOCK_BAJO",
+            entidad_id=fila.id,
+            titulo="Stock bajo",
+            mensaje=(
+                f"El insumo '{fila.nombre}' tiene {fila.cantidad_actual} {fila.simbolo} "
+                f"disponibles; el mínimo configurado es {fila.stock_minimo} {fila.simbolo}."
+            ),
+            nivel="STOCK_BAJO",
+            link_destino="/gestion-stock/stock",
+        )
+        for fila in filas
+    ]
+
+
 def _filtrar_por_texto(
     notificaciones: List[NotificacionResponse], buscar: str | None
 ) -> List[NotificacionResponse]:
@@ -226,6 +267,7 @@ def obtener_todas_notificaciones(
     lista_total.extend(obtener_notificaciones_elementos_limpieza(db))
     lista_total.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
     lista_total.extend(obtener_notificaciones_vencimientos_personal(db))
+    lista_total.extend(obtener_notificaciones_stock_bajo(db))
     lista_total.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
     return _filtrar_por_texto(lista_total, buscar)
 
@@ -254,6 +296,7 @@ _TIPOS_ORIGEN = (
     "VENCIMIENTO_PERSONAL",
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
+    "STOCK_BAJO",
 )
 
 
@@ -274,10 +317,14 @@ def _ordenar(notificaciones: List[NotificacionResponse], orden: str) -> None:
             key=lambda n: (1 if n.nivel == "VENCIDO" else 0, n.id_notificacion)
         )
     elif orden in ("vencimiento_asc", "vencimiento_desc"):
-        # Sin fecha (no debería pasar) queda al final en ascendente.
+        # Las alertas de stock no tienen vencimiento: quedan al final al ascender.
         epoca_min = date.min
+        epoca_max = date.max
         notificaciones.sort(
-            key=lambda n: (n.fecha_referencia or epoca_min, n.id_notificacion),
+            key=lambda n: (
+                n.fecha_referencia or (epoca_min if orden == "vencimiento_desc" else epoca_max),
+                n.id_notificacion,
+            ),
             reverse=(orden == "vencimiento_desc"),
         )
     elif orden in ("origen_asc", "origen_desc"):
@@ -317,7 +364,7 @@ def obtener_notificaciones_paginadas(
     """
     if orden not in _ORDENES:
         orden = "urgencia"
-    if urgencia not in ("todas", "vencidas", "proximas"):
+    if urgencia not in ("todas", "vencidas", "proximas", "stock_bajo"):
         urgencia = "todas"
     if origen not in ("todas",) + _TIPOS_ORIGEN:
         origen = "todas"
@@ -332,6 +379,8 @@ def obtener_notificaciones_paginadas(
             return [n for n in lista if n.nivel == "VENCIDO"]
         if valor == "proximas":
             return [n for n in lista if n.nivel == "PROXIMO_A_VENCER"]
+        if valor == "stock_bajo":
+            return [n for n in lista if n.nivel == "STOCK_BAJO"]
         return lista
 
     def por_origen(lista: List[NotificacionResponse], valor: str) -> List:
@@ -346,6 +395,7 @@ def obtener_notificaciones_paginadas(
             "todas": len(base_urgencia),
             "vencidas": len(por_urgencia(base_urgencia, "vencidas")),
             "proximas": len(por_urgencia(base_urgencia, "proximas")),
+            "stock_bajo": len(por_urgencia(base_urgencia, "stock_bajo")),
         }
     }
 

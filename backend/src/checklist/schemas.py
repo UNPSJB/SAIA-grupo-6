@@ -209,11 +209,15 @@ class ConsumoInsumoItem(BaseModel):
 
 class ConsumoPorFechaItem(BaseModel):
     fecha: date
+    insumo_quimico_id: int
+    nombre: str
+    unidad_medida_id: int
     unidad_simbolo: Optional[str] = None
     cantidad_total: float
 
 
 class ConsumoPorUnidadItem(BaseModel):
+    unidad_medida_id: int
     unidad_simbolo: Optional[str] = None
     cantidad_total: float
 
@@ -221,6 +225,6 @@ class ConsumoPorUnidadItem(BaseModel):
 class ConsumoInsumosResponse(BaseModel):
     fecha_desde: date
     fecha_hasta: date
-    total_por_unidad: List[ConsumoPorUnidadItem]
     insumos: List[ConsumoInsumoItem]
-    por_fecha: List[ConsumoPorFechaItem]
+    totales_por_unidad: List[ConsumoPorUnidadItem]
+    por_producto_fecha: List[ConsumoPorFechaItem]

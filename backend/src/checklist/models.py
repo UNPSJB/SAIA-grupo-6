@@ -9,7 +9,7 @@ from src.tareas.models import Tarea
 from src.insumoQuimico.models import InsumoQuimico
 from src.elementoLimpieza.models import ElementoLimpieza
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, Enum as SQLEnum
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Enum as SQLEnum
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -116,6 +116,9 @@ class RegistroTarea(ModeloBase):
     observaciones_tarea_historico: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     completado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Control optimista de las operaciones que pueden afectar stock. Evita que
+    # dos PATCH simultáneos a la misma tarea apliquen la misma diferencia.
+    version_stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     fecha_completado: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     usuario_id: Mapped[Optional[int]] = mapped_column(

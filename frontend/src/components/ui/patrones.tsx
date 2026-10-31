@@ -23,6 +23,7 @@ import {
 } from "@chakra-ui/react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
+  LuArrowUp,
   LuChevronLeft,
   LuChevronRight,
   LuChevronsLeft,
@@ -392,7 +393,10 @@ export type AccionTabla =
   | "reactivar"
   | "cerrar"
   | "reabrir"
-  | "intervenir";
+  | "intervenir"
+  | "ingreso"
+  | "ajuste"
+  | "minimo";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -422,6 +426,9 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   cerrar: "green",
   reabrir: "orange",
   intervenir: "orange",
+  ingreso: "green",
+  ajuste: "blue",
+  minimo: "blue",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -438,6 +445,9 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   cerrar: LuCircleCheck,
   reabrir: LuRotateCcw,
   intervenir: LuWrench,
+  ingreso: LuArrowUp,
+  ajuste: LuPencil,
+  minimo: LuPencil,
 };
 
 /**

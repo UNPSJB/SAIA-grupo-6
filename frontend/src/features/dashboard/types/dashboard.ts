@@ -7,6 +7,7 @@ import {
 } from "../../incidente/types/incidente";
 import type { Equipo } from "../../equipo/types/equipo";
 import type { PlanCalibracionMantenimiento } from "../../planCalibracionMantenimiento/types/planCalibracionMantenimiento";
+import type { Notificacion } from "../../notificaciones/types/notificacion";
 import { hoyISO } from "../../../common/utils/fechas";
 
 /**
@@ -121,6 +122,209 @@ export function partesPorTipo(
       porcentaje: Math.round((cantidad / total) * 100),
     };
   }).filter((parte) => parte.cantidad > 0);
+}
+
+const MS_POR_DIA = 86_400_000;
+
+/** Días de calendario entre hoy y la fecha (negativo si ya pasó). */
+export function diasDesdeHoy(fecha: string): number {
+  return Math.round(
+    (new Date(`${fecha}T00:00:00`).getTime() -
+      new Date(`${hoyISO()}T00:00:00`).getTime()) /
+      MS_POR_DIA
+  );
+}
+
+/**
+ * Plazo de una alerta en palabras: "hace 5 días", "vence mañana".
+ *
+ * El texto sale del signo de `diasDesdeHoy` y no del `nivel` que manda el
+ * backend: la verdad es la fecha, y las dos pueden quedar desfasadas el día
+ * que el vencimiento es hoy.
+ */
+export function etiquetaPlazo(notificacion: Notificacion): string {
+  if (notificacion.nivel === "STOCK_BAJO") return "Requiere reposición";
+
+  const { fecha_referencia: fecha } = notificacion;
+  if (!fecha) return "Sin fecha";
+
+  const dias = diasDesdeHoy(fecha);
+  if (dias < 0) {
+    const cantidad = -dias;
+    return `hace ${cantidad} ${cantidad === 1 ? "día" : "días"}`;
+  }
+  if (dias === 0) {
+    return notificacion.nivel === "VENCIDO" ? "venció hoy" : "vence hoy";
+  }
+  if (dias === 1) return "vence mañana";
+
+  return `vence en ${dias} días`;
+}
+
+/**
+ * Prioridad de una alerta, para el badge de "Requiere atención".
+ *
+ * El backend solo distingue `VENCIDO` de `PROXIMO_A_VENCER`; la prioridad
+ * afina lo segundo por la cercanía del vencimiento:
+ *
+ *   crítico     ya venció
+ *   urgente     vence en `DIAS_URGENTE` días o menos
+ *   pendiente   vence en `DIAS_PENDIENTE` días o menos
+ *   programada  vence más adelante
+ *
+ * Los dos umbrales son una decisión de la pantalla, no del backend: se cambian
+ * acá sin tocar nada más.
+ */
+export type PrioridadAlerta = "critico" | "urgente" | "pendiente" | "programada";
+
+const DIAS_URGENTE = 3;
+const DIAS_PENDIENTE = 7;
+
+export const PRIORIDAD_LABEL: Record<PrioridadAlerta, string> = {
+  critico: "Crítico",
+  urgente: "Urgente",
+  pendiente: "Pendiente",
+  programada: "Programada",
+};
+
+export function prioridadAlerta(notificacion: Notificacion): PrioridadAlerta {
+  if (notificacion.nivel === "VENCIDO") return "critico";
+  if (notificacion.nivel === "STOCK_BAJO") return "urgente";
+
+  // Sin fecha no se puede medir la cercanía: se trata como pendiente.
+  if (!notificacion.fecha_referencia) return "pendiente";
+
+  const dias = diasDesdeHoy(notificacion.fecha_referencia);
+  if (dias <= DIAS_URGENTE) return "urgente";
+  if (dias <= DIAS_PENDIENTE) return "pendiente";
+
+  return "programada";
+}
+
+/* ─────────────────────── Requiere atención ─────────────────────── */
+
+/** Qué ícono lleva la fila: sale del origen de la alerta. */
+export type IconoAlerta = "limpieza" | "calibracion" | "stock" | "incidente";
+
+/**
+ * Una fila de "Requiere atención".
+ *
+ * La lista mezcla dos orígenes distintos —las notificaciones de vencimientos y
+ * los incidentes abiertos— y la tarjeta no tiene por qué saber de cuál viene
+ * cada una: acá se normalizan a una forma común y la tarjeta solo dibuja.
+ */
+export interface AlertaPanel {
+  /** Estable y único entre los dos orígenes (sirve de `key`). */
+  clave: string;
+  icono: IconoAlerta;
+  titulo: string;
+  detalle: string;
+  prioridad: PrioridadAlerta;
+  /** Plazo en palabras: "hace 5 días", "vence mañana". */
+  plazo: string;
+  /** Ruta a la que lleva la fila. */
+  destino: string;
+  /**
+   * Id del elemento de limpieza cuyo recambio se puede registrar desde la fila,
+   * o `null` si la alerta no admite ese botón.
+   */
+  recambioId: number | null;
+}
+
+const ORDEN_PRIORIDAD: Record<PrioridadAlerta, number> = {
+  critico: 0,
+  urgente: 1,
+  pendiente: 2,
+  programada: 3,
+};
+
+/** "Abierto hace 3 días", "Reportado hoy". */
+function etiquetaIncidente(diasAbierto: number): string {
+  if (diasAbierto <= 0) return "Reportado hoy";
+
+  return `Abierto hace ${diasAbierto} ${diasAbierto === 1 ? "día" : "días"}`;
+}
+
+/**
+ * Las `limite` filas más urgentes de "Requiere atención".
+ *
+ * Mezcla los vencimientos (notificaciones) con los incidentes **abiertos**, que
+ * entran con prioridad "pendiente". El orden es:
+ *
+ *   1. por prioridad: crítico, urgente, pendiente, programada;
+ *   2. dentro de la misma prioridad, lo que más tiempo lleva sin atenderse: el
+ *      vencimiento más antiguo y el incidente abierto hace más días van primero.
+ *
+ * Una alerta sin fecha de referencia no se puede ordenar por plazo: va al
+ * final de su prioridad en vez de inventar una posición.
+ *
+ * Un incidente cerrado ya no pide nada, así que no entra.
+ */
+export function alertasDelPanel(
+  notificaciones: Notificacion[],
+  incidentes: Incidente[],
+  limite = 5
+): AlertaPanel[] {
+  const filas: (AlertaPanel & { orden: number })[] = [];
+
+  for (const n of notificaciones) {
+    const esLimpieza = n.tipo === "ELEMENTO_LIMPIEZA";
+    const esStockBajo = n.tipo === "STOCK_BAJO";
+
+    filas.push({
+      clave: `notificacion-${n.id_notificacion}`,
+      icono: esLimpieza ? "limpieza" : esStockBajo ? "stock" : "calibracion",
+      titulo: n.titulo,
+      detalle: n.mensaje,
+      prioridad: prioridadAlerta(n),
+      plazo: etiquetaPlazo(n),
+      destino: n.link_destino,
+      recambioId: esLimpieza ? n.entidad_id : null,
+      // Los días hasta el vencimiento: negativo si ya venció, así lo más viejo
+      // queda primero.
+      orden: n.fecha_referencia
+        ? diasDesdeHoy(n.fecha_referencia)
+        : Number.POSITIVE_INFINITY,
+    });
+  }
+
+  for (const i of incidentes) {
+    if (i.estado !== "abierto") continue;
+
+    // `fecha_reporte` es un ISO con hora: `diasDesdeHoy` espera solo la fecha.
+    const dias = diasDesdeHoy(i.fecha_reporte.slice(0, 10));
+    const equipo = i.equipo_nombre ? ` · ${i.equipo_nombre}` : "";
+
+    filas.push({
+      clave: `incidente-${i.id}`,
+      icono: "incidente",
+      titulo: i.titulo,
+      detalle: `${tipoLabel(i.tipo)}${equipo}`,
+      prioridad: "pendiente",
+      plazo: etiquetaIncidente(-dias),
+      destino: `/incidentes/${i.id}`,
+      recambioId: null,
+      orden: dias,
+    });
+  }
+
+  return filas
+    .sort(
+      (a, b) =>
+        ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad] ||
+        (a.orden === b.orden ? 0 : a.orden < b.orden ? -1 : 1)
+    )
+    .slice(0, limite)
+    .map((fila) => ({
+      clave: fila.clave,
+      icono: fila.icono,
+      titulo: fila.titulo,
+      detalle: fila.detalle,
+      prioridad: fila.prioridad,
+      plazo: fila.plazo,
+      destino: fila.destino,
+      recambioId: fila.recambioId,
+    }));
 }
 
 /* ─────────────────────── Equipos calibrados ─────────────────────── */

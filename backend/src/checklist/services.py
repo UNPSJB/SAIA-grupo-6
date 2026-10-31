@@ -1,7 +1,8 @@
-from datetime import date as date_
+from datetime import date as date_, datetime
+from decimal import Decimal
 from typing import Dict, List, Optional
 
-from sqlalchemy import case, select, func
+from sqlalchemy import case, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -17,12 +18,14 @@ from src.tareas.services import leer_tarea
 from src.tareas.exceptions import TareaNoEncontrada
 from src.checklist import exceptions
 from src.checklist.exceptions import (
+    ActualizacionConcurrente,
     CantidadConsumidaInvalida,
     ChecklistFuturo,
     ChecklistInmutable,
     TareaNoCorrespondeALaFecha,
 )
 from src.insumoQuimico.models import InsumoQuimico
+from src.insumoQuimico.stock_services import sincronizar_consumo_checklist
 from src.unidadMedida.models import UnidadMedida
 from src.elementoLimpieza.models import ElementoLimpieza
 
@@ -403,6 +406,7 @@ def marcar_tarea(
     tarea_id: int,
     completado: bool,
     usuario_id: int,
+    usuario_nombre: str,
     evidencia_url: Optional[str],
     fecha: Optional[date_] = None,
     insumo_quimico_id: Optional[int] = None,
@@ -412,6 +416,16 @@ def marcar_tarea(
 
     if cantidad_consumida is not None and cantidad_consumida <= 0:
         raise CantidadConsumidaInvalida()
+    if (insumo_quimico_id is None) != (cantidad_consumida is None):
+        raise CantidadConsumidaInvalida()
+    if completado and insumo_quimico_id is not None:
+        insumo_validado = db.get(InsumoQuimico, insumo_quimico_id)
+        if insumo_validado is None or not insumo_validado.activo:
+            raise exceptions.InsumoQuimicoNoEncontrado()
+    if completado and elemento_limpieza_id is not None:
+        elemento_validado = db.get(ElementoLimpieza, elemento_limpieza_id)
+        if elemento_validado is None or not elemento_validado.activo:
+            raise exceptions.ElementoLimpiezaNoEncontrado()
 
     tarea = leer_tarea(db, tarea_id)
     if not tarea.activo or not tarea.plan.activo:
@@ -443,9 +457,6 @@ def marcar_tarea(
         checklist, _ = _obtener_o_crear_checklist_de_plan(
             db, tarea.plan, tareas_del_dia, fecha_registro, hoy_val
         )
-        if checklist is not None:
-            db.commit()
-
     if checklist is None:
         # Si la tarea no corresponde a la fecha, no se crea checklist
         raise TareaNoCorrespondeALaFecha()
@@ -481,6 +492,25 @@ def marcar_tarea(
 
         # Necesitamos el ID antes de registrar el historial
         db.flush()
+
+    consumo_anterior = (
+        registro.insumo_quimico_id,
+        Decimal(str(registro.cantidad_consumida)) if registro.cantidad_consumida is not None else None,
+    )
+
+    version_anterior = registro.version_stock
+    resultado_version = db.execute(
+        update(models.RegistroTarea)
+        .where(
+            models.RegistroTarea.id == registro.id,
+            models.RegistroTarea.version_stock == version_anterior,
+        )
+        .values(version_stock=version_anterior + 1)
+    )
+    if resultado_version.rowcount != 1:
+        db.rollback()
+        raise ActualizacionConcurrente()
+    registro.version_stock = version_anterior + 1
 
     # Actualizamos el estado de la tarea
     registro.completado = completado
@@ -521,12 +551,32 @@ def marcar_tarea(
     # Registro del elemento de limpieza utilizado
 
     if completado and elemento_limpieza_id is not None:
-        elemento = db.get(ElementoLimpieza, elemento_limpieza_id)
-        if elemento is None or not elemento.activo:
-            raise exceptions.ElementoLimpiezaNoEncontrado()
         registro.elemento_limpieza_id = elemento_limpieza_id
     elif not completado:
         registro.elemento_limpieza_id = None
+
+    consumo_nuevo = (
+        registro.insumo_quimico_id,
+        Decimal(str(registro.cantidad_consumida)) if registro.cantidad_consumida is not None else None,
+    )
+
+    # El descuento y su trazabilidad son parte de la misma unidad de trabajo
+    # que el estado de la tarea. Un reintento idéntico no genera diferencia.
+    try:
+        sincronizar_consumo_checklist(
+            db,
+            registro_id=registro.id,
+            checklist_id=checklist.id,
+            checklist_fecha=checklist.fecha,
+            tarea_nombre=registro.nombre_tarea_historico,
+            consumo_anterior=consumo_anterior,
+            consumo_nuevo=consumo_nuevo,
+            usuario_id=usuario_id,
+            usuario_nombre=usuario_nombre,
+        )
+    except Exception:
+        db.rollback()
+        raise
     # ---------------------------------------------------------
     # AUDITORÍA
     # ---------------------------------------------------------
@@ -565,7 +615,11 @@ def marcar_tarea(
     # - estado de la tarea
     # - historial
     # - producto químico utilizado y cantidad aproximada consumida
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     db.refresh(registro)
 
@@ -961,10 +1015,10 @@ def listar_consumo_insumos(
         .group_by(models.RegistroTarea.insumo_quimico_id, models.Checklist.fecha)
     ).all()
 
-    # Acumulamos por producto y por fecha/unidad en un solo recorrido.
+    # Acumulamos por producto. Las fechas se mantienen por producto, porque
+    # sumar en una misma fecha litros, kilos u otras unidades es inválido.
     por_insumo: Dict[int, Dict[str, object]] = {}
-    por_fecha_por_unidad: Dict[tuple, float] = {}
-    total_por_unidad: Dict[str, float] = {}
+    por_producto_fecha: Dict[tuple[int, date_], float] = {}
 
     for insumo_id, fecha, cantidad_total, cantidad_registros in filas:
         cantidad_total = float(cantidad_total or 0)
@@ -983,15 +1037,22 @@ def listar_consumo_insumos(
         insumo["cantidad_total"] = float(insumo["cantidad_total"]) + cantidad_total
         insumo["cantidad_registros"] = int(insumo["cantidad_registros"]) + cantidad_registros
 
+        por_producto_fecha[(insumo_id, fecha)] = cantidad_total
+
     # Completamos nombre y unidad de cada producto con una sola consulta.
     ids = list(por_insumo.keys())
     nombres: Dict[int, tuple] = {}
 
     if ids:
         nombres = {
-            id_: (nombre, simbolo)
-            for id_, nombre, simbolo in db.execute(
-                select(InsumoQuimico.id, InsumoQuimico.nombre, UnidadMedida.simbolo)
+            id_: (nombre, unidad_id, simbolo)
+            for id_, nombre, unidad_id, simbolo in db.execute(
+                select(
+                    InsumoQuimico.id,
+                    InsumoQuimico.nombre,
+                    InsumoQuimico.unidad_medida_id,
+                    UnidadMedida.simbolo,
+                )
                 .join(UnidadMedida, InsumoQuimico.unidad_medida_id == UnidadMedida.id)
                 .where(InsumoQuimico.id.in_(ids))
             ).all()
@@ -1000,13 +1061,7 @@ def listar_consumo_insumos(
     items: List[schemas.ConsumoInsumoItem] = []
 
     for insumo_id, datos in por_insumo.items():
-        nombre, simbolo = nombres.get(insumo_id, (None, None))
-        datos["nombre"] = nombre
-        datos["unidad_simbolo"] = simbolo
-        # Acumular totales por unidad
-        unidad_key = simbolo or ""
-        total_por_unidad[unidad_key] = total_por_unidad.get(unidad_key, 0.0) + float(datos["cantidad_total"])
-
+        nombre, _, simbolo = nombres.get(insumo_id, (None, None, None))
         items.append(
             schemas.ConsumoInsumoItem(
                 insumo_quimico_id=insumo_id,
@@ -1017,27 +1072,36 @@ def listar_consumo_insumos(
             )
         )
 
-    # Construir por_fecha agrupado por unidad
-    # Necesitamos re-correlar filas con unidad
-    # Para simplificar, recorremos filas de nuevo usando nombres
-    for insumo_id, fecha, cantidad_total, _ in filas:
-        cantidad_total = float(cantidad_total or 0)
-        _, simbolo = nombres.get(insumo_id, (None, None))
-        key = (fecha, simbolo or "")
-        por_fecha_por_unidad[key] = por_fecha_por_unidad.get(key, 0.0) + cantidad_total
-
     items.sort(key=lambda i: i.cantidad_total, reverse=True)
+
+    totales_por_unidad: Dict[tuple[int, Optional[str]], float] = {}
+    detalle_por_fecha = []
+    for (insumo_id, fecha), cantidad_total in sorted(por_producto_fecha.items(), key=lambda item: item[0][1]):
+        nombre, unidad_id, simbolo = nombres.get(insumo_id, (f"Insumo {insumo_id}", 0, None))
+        clave_unidad = (unidad_id, simbolo)
+        totales_por_unidad[clave_unidad] = totales_por_unidad.get(clave_unidad, 0.0) + cantidad_total
+        detalle_por_fecha.append(
+            schemas.ConsumoPorFechaItem(
+                fecha=fecha,
+                insumo_quimico_id=insumo_id,
+                nombre=nombre,
+                unidad_medida_id=unidad_id,
+                unidad_simbolo=simbolo,
+                cantidad_total=round(cantidad_total, 2),
+            )
+        )
 
     return schemas.ConsumoInsumosResponse(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
-        total_por_unidad=[
-            schemas.ConsumoPorUnidadItem(unidad_simbolo=unidad if unidad else None, cantidad_total=round(total, 2))
-            for unidad, total in sorted(total_por_unidad.items(), key=lambda x: x[0] or "")
-        ],
         insumos=items,
-        por_fecha=[
-            schemas.ConsumoPorFechaItem(fecha=fecha, unidad_simbolo=unidad if unidad else None, cantidad_total=round(total, 2))
-            for (fecha, unidad), total in sorted(por_fecha_por_unidad.items())
+        totales_por_unidad=[
+            schemas.ConsumoPorUnidadItem(
+                unidad_medida_id=unidad_id,
+                unidad_simbolo=simbolo,
+                cantidad_total=round(total, 2),
+            )
+            for (unidad_id, simbolo), total in sorted(totales_por_unidad.items())
         ],
+        por_producto_fecha=detalle_por_fecha,
     )

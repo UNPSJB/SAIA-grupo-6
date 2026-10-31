@@ -34,6 +34,7 @@ REGLAS_BASE: dict[str, str] = {
     "DOCUMENTO_VENCIDO": "media",
     "DOCUMENTO_PROXIMO": "baja",
     "CHECKLIST_INCOMPLETO": "baja",
+    "STOCK_BAJO": "media",
 }
 
 ORDEN_CRITICIDAD = {"alta": 3, "media": 2, "baja": 1}
@@ -46,6 +47,7 @@ ICONOS = {
     "ELEMENTO_LIMPIEZA": "limpieza",
     "PLAN_CALIBRACION": "calibracion",
     "PLAN_MANTENIMIENTO": "calibracion",
+    "STOCK_BAJO": "stock",
     "VENCIMIENTO_PERSONAL": "personal",
     "DOCUMENTO": "documento",
     "CHECKLIST": "checklist",
@@ -110,6 +112,9 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
             else "VENCIMIENTO_PERSONAL_PROXIMO"
         )
 
+    if tipo == "STOCK_BAJO":
+        return "STOCK_BAJO"
+
     raise ValueError(f"Tipo de notificación no contemplado: {tipo}")
 
 
@@ -127,6 +132,7 @@ def _motivo_base(regla: str) -> str:
         "DOCUMENTO_VENCIDO": "Documento vencido",
         "DOCUMENTO_PROXIMO": "Documento próximo a vencer",
         "CHECKLIST_INCOMPLETO": "Tarea de checklist incumplida",
+        "STOCK_BAJO": "Stock por debajo del mínimo",
     }[regla]
 
 

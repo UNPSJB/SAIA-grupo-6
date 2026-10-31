@@ -40,8 +40,11 @@ export async function listarInsumosQuimicos(
   return pedir<Pagina<InsumoQuimico>>(response, "Error al obtener los insumos químicos");
 }
 
-export async function listarOpcionesInsumosQuimicos(): Promise<InsumoQuimicoOpcion[]> {
-  const response = await apiFetch(`${API_URL}/insumos-quimicos/opciones`);
+export async function listarOpcionesInsumosQuimicos(
+  incluirInactivos = false,
+): Promise<InsumoQuimicoOpcion[]> {
+  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
+  const response = await apiFetch(`${API_URL}/insumos-quimicos/opciones${query}`);
 
   return pedir<InsumoQuimicoOpcion[]>(response, "Error al obtener los productos de limpieza");
 }

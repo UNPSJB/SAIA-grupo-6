@@ -1,5 +1,6 @@
 from typing import List, Optional
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
@@ -10,8 +11,9 @@ from src.common.persistence import (
     obtener,
     verificar_disponibilidad,
 )
+from src.insumoQuimico.models import InsumoQuimico, MovimientoStockInsumoQuimico, StockInsumoQuimico
 from src.common.texto import sin_tildes
-from src.insumoQuimico.models import InsumoQuimico, TipoQuimico
+from src.insumoQuimico.models import TipoQuimico
 from src.insumoQuimico import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -61,6 +63,15 @@ def crear_insumo_quimico(db: Session, datos: schemas.InsumoQuimicoCreate) -> Ins
 
     nuevo_insumo = InsumoQuimico(**datos.model_dump())
     db.add(nuevo_insumo)
+    try:
+        db.flush()
+    except IntegrityError as error:
+        db.rollback()
+        raise exceptions.InsumoQuimicoYaExiste() from error
+
+    # El catálogo no acepta cantidades: cada producto nace con su propio saldo
+    # cero y solo los endpoints de stock pueden modificarlo.
+    db.add(StockInsumoQuimico(insumo_quimico_id=nuevo_insumo.id))
     return guardar(db, nuevo_insumo, _MAPEA_CONFLICTO)
 
 
@@ -147,15 +158,21 @@ def obtener_insumo_quimico(db: Session, insumo_id: int) -> InsumoQuimico:
     return obtener(db, InsumoQuimico, insumo_id, exceptions.InsumoQuimicoNoEncontrado)
 
 
-def listar_opciones_insumos(db: Session) -> List[schemas.InsumoQuimicoOpcion]:
+def listar_opciones_insumos(
+    db: Session, incluir_inactivos: bool = False
+) -> List[schemas.InsumoQuimicoOpcion]:
     """Solo los datos necesarios para que el operario elija un producto
     químico al marcar su tarea del checklist."""
-    filas = db.execute(
+    consulta = (
         select(InsumoQuimico.id, InsumoQuimico.nombre, UnidadMedida.simbolo)
         .join(UnidadMedida, InsumoQuimico.unidad_medida_id == UnidadMedida.id)
-        .where(InsumoQuimico.activo.is_(True))
         .order_by(InsumoQuimico.nombre)
-    ).all()
+    )
+
+    if not incluir_inactivos:
+        consulta = consulta.where(InsumoQuimico.activo.is_(True))
+
+    filas = db.execute(consulta).all()
 
     return [
         schemas.InsumoQuimicoOpcion(id=id_, nombre=nombre, unidad_simbolo=simbolo)
@@ -169,6 +186,14 @@ def actualizar_insumo_quimico(db: Session, insumo_id: int, datos: schemas.Insumo
 
     if "unidad_medida_id" in cambios:
         _verificar_unidad_medida(db, cambios["unidad_medida_id"])
+        if cambios["unidad_medida_id"] != insumo.unidad_medida_id:
+            tiene_movimientos = db.scalar(
+                select(MovimientoStockInsumoQuimico.id)
+                .where(MovimientoStockInsumoQuimico.insumo_quimico_id == insumo_id)
+                .limit(1)
+            )
+            if tiene_movimientos is not None:
+                raise exceptions.UnidadConMovimientos()
 
     return aplicar_cambios(db, insumo, cambios, _MAPEA_CONFLICTO)
 

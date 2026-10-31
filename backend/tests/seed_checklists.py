@@ -94,6 +94,9 @@ class Seed:
 def sembrar(db, autor_id: int) -> Seed:
     hoy = date.today()
     azar = random.Random(20260101)
+    sector = Sector(nombre="Sector de pruebas")
+    db.add(sector)
+    db.flush()
 
     # Los equipos exigen un sector (FK sectores.id NOT NULL).
     sector = Sector(nombre="Planta", activo=True)
