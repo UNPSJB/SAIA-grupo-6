@@ -73,3 +73,59 @@ def validar_vista_publica(
 
     response.headers.update(_CABECERAS_SIN_CACHE)
     return schemas.ValidacionVistaPublicaResponse()
+
+
+@router.get(
+    "/indicadores",
+    response_model=schemas.IndicadoresVistaPublicaResponse,
+    dependencies=[Depends(require_admin)],
+)
+def obtener_indicadores(db: Session = Depends(get_db)):
+    """Catálogo y estado de cada indicador para el panel administrativo.
+
+    Incluye `con_datos` para poder avisar cuando un indicador está visible pero
+    el público todavía no lo ve porque no hay datos suficientes.
+    """
+    return schemas.IndicadoresVistaPublicaResponse(
+        indicadores=services.obtener_indicadores(db, incluir_datos=True)
+    )
+
+
+@router.put(
+    "/indicadores",
+    response_model=schemas.IndicadoresVistaPublicaResponse,
+    dependencies=[Depends(require_admin)],
+)
+def actualizar_indicadores(
+    datos: schemas.IndicadoresVistaPublicaUpdate,
+    db: Session = Depends(get_db),
+):
+    """Reemplaza la selección de indicadores. Solo admin, validado por catálogo."""
+    return schemas.IndicadoresVistaPublicaResponse(
+        indicadores=services.actualizar_indicadores(
+            db, [(item.clave, item.habilitado) for item in datos.indicadores]
+        )
+    )
+
+
+@router.get(
+    "/publica/{codigo_publico}/indicadores",
+    response_model=schemas.IndicadoresPublicosResponse,
+)
+def indicadores_publicos(
+    codigo_publico: str,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Indicadores agregados del enlace público. Anónimo y sin caché.
+
+    Si el código no es el vigente, responde 404 sin distinguir entre
+    "desactivada" y "código inválido".
+    """
+    if not services.codigo_publico_valido(db, codigo_publico):
+        raise NotFound("Vista pública no disponible.", headers=_CABECERAS_SIN_CACHE)
+
+    response.headers.update(_CABECERAS_SIN_CACHE)
+    return schemas.IndicadoresPublicosResponse(
+        indicadores=services.indicadores_publicos(db)
+    )

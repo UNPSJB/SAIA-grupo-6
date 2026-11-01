@@ -11,6 +11,7 @@ import {
   PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { ElegirIndicadoresPanel } from "../ElegirIndicadoresPanel";
 import {
   actualizarConfiguracionVistaPublica,
   obtenerConfiguracionVistaPublica,
@@ -140,9 +141,9 @@ export function VistaPublicaSettingsPage() {
                   </Text>
                 </HStack>
                 <Text fontSize="sm" color="fg.muted">
-                  Compartí este enlace cuando la futura vista de indicadores esté disponible. Al
-                  desactivar la publicación, este QR y los enlaces anteriores dejarán de funcionar
-                  permanentemente.
+                  Compartí este enlace para que tus clientes vean los indicadores que
+                  elijas abajo. Al desactivar la publicación, este QR y los enlaces
+                  anteriores dejarán de funcionar permanentemente.
                 </Text>
                 <Stack direction={{ base: "column", md: "row" }} gap="3">
                   <Input value={configuracion.url_publica} readOnly bg="bg.subtle" />
@@ -164,13 +165,7 @@ export function VistaPublicaSettingsPage() {
             </Tarjeta>
           ) : null}
 
-          <Tarjeta p="5" bg="bg.subtle">
-            <Text fontSize="sm" color="fg.muted">
-              La selección de indicadores y la página pública de consulta se implementarán en
-              historias posteriores. Esta configuración no publica incidentes, no conformidades ni
-              otros datos internos.
-            </Text>
-          </Tarjeta>
+          <ElegirIndicadoresPanel />
         </Stack>
       ) : null}
 

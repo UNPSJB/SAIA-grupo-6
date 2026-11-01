@@ -27,13 +27,15 @@ import src.main as m  # noqa: E402
 spec = m.app.openapi()
 
 # Los endpoints que por diseño no llevan token. La validación pública no
-# devuelve datos: solo confirma el código opaco actualmente habilitado.
+# devuelve datos: solo confirma el código opaco actualmente habilitado. Los
+# indicadores públicos son agregados y no identifican a nadie.
 PUBLICOS_ESPERADOS = {
     ("GET", "/auth/bootstrap"),
     ("POST", "/auth/login"),
     ("POST", "/auth/logout"),
     ("POST", "/auth/refresh"),
     ("GET", "/vista-publica/publica/{codigo_publico}/validar"),
+    ("GET", "/vista-publica/publica/{codigo_publico}/indicadores"),
 }
 
 # Catálogos con baja lógica: deben exponer DELETE.

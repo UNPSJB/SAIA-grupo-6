@@ -68,6 +68,7 @@ const PALETA_CRITICIDAD: Record<Criticidad, string> = {
 };
 
 const ICONO_ORIGEN: Record<IconoCriticidad, string> = {
+  stock: "\u{1F4E6}",
   limpieza: "­ƒº¢",
   calibracion: "­ƒöº",
   incidente: "ÔÜá´©Å",

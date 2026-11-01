@@ -27,3 +27,19 @@ class ConfiguracionVistaPublica(ModeloBase):
         unique=True,
         info=AUDITORIA_REDACTAR,
     )
+
+
+class IndicadorVistaPublica(ModeloBase):
+    """Preferencia de publicación de un indicador agregado.
+
+    La fila ausente se interpreta con el default del catálogo
+    (`constants.CATALOGO`). Así una instalación nueva no necesita seed y la
+    configuración sobrevive a desactivar/reactivar la vista pública.
+    """
+
+    __tablename__ = "indicadores_vista_publica"
+
+    clave: Mapped[str] = mapped_column(String(60), primary_key=True)
+    habilitado: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
+    )

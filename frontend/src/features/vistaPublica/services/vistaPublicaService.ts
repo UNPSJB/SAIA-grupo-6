@@ -1,6 +1,9 @@
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
-import type { ConfiguracionVistaPublica } from "../types/vistaPublica";
+import type {
+  ConfiguracionVistaPublica,
+  IndicadorVistaPublica,
+} from "../types/vistaPublica";
 
 export async function obtenerConfiguracionVistaPublica(): Promise<ConfiguracionVistaPublica> {
   const response = await apiFetch(`${API_URL}/vista-publica/configuracion`);
@@ -22,4 +25,28 @@ export async function actualizarConfiguracionVistaPublica(
     response,
     "No se pudo actualizar la vista pública.",
   );
+}
+
+export async function obtenerIndicadoresVistaPublica(): Promise<IndicadorVistaPublica[]> {
+  const response = await apiFetch(`${API_URL}/vista-publica/indicadores`);
+  const datos = await pedir<{ indicadores: IndicadorVistaPublica[] }>(
+    response,
+    "No se pudieron cargar los indicadores de la vista pública.",
+  );
+  return datos.indicadores;
+}
+
+export async function actualizarIndicadoresVistaPublica(
+  indicadores: Array<Pick<IndicadorVistaPublica, "clave" | "habilitado">>,
+): Promise<IndicadorVistaPublica[]> {
+  const response = await apiFetch(`${API_URL}/vista-publica/indicadores`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ indicadores }),
+  });
+  const datos = await pedir<{ indicadores: IndicadorVistaPublica[] }>(
+    response,
+    "No se pudo actualizar la selección de indicadores.",
+  );
+  return datos.indicadores;
 }
