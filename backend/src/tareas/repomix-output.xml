@@ -1,0 +1,457 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+__init__.py
+constants.py
+exceptions.py
+models.py
+router.py
+schemas.py
+services.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="__init__.py">
+
+</file>
+
+<file path="constants.py">
+from enum import Enum
+
+
+class TipoTarea(str, Enum):
+    """Momento del proceso productivo en el que se realiza la tarea.
+
+    Igual que el estado de un incidente, se guarda como texto plano en la
+    columna y se valida contra este enum en el schema.
+    """
+
+    PREOPERACIONAL = "preoperacional"
+    OPERACIONAL = "operacional"
+    POSTOPERACIONAL = "postoperacional"
+
+
+class ErrorCode:
+    TAREA_NO_ENCONTRADA = "La tarea solicitada no existe o fue dada de baja."
+    TIPO_INVALIDO = "El tipo de tarea seleccionado no es válido."
+    NOMBRE_INVALIDO = (
+        "El nombre de la tarea no puede estar vacío y debe contener solo letras."
+    )
+    NOMBRE_DUPLICADO = "Ya existe una tarea con ese nombre."
+    DATO_DUPLICADO = "Ya existe un registro activo con esos datos."
+    PLAN_LIMPIEZA_ID_INVALIDO = "El plan de limpieza indicado no es válido."
+    PLAN_LIMPIEZA_NO_ENCONTRADO = "El plan de limpieza no existe o fue dado de baja."
+    FRECUENCIA_INVALIDA = "La frecuencia debe ser mayor a cero."
+</file>
+
+<file path="exceptions.py">
+from src.exceptions import NotFound, BadRequest
+from src.tareas.constants import ErrorCode
+
+
+class TareaNoEncontrada(NotFound):
+    DETAIL = ErrorCode.TAREA_NO_ENCONTRADA
+
+
+class NombreInvalido(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_INVALIDO
+
+
+class NombreDuplicado(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_DUPLICADO
+
+
+class DatoDuplicado(BadRequest):
+    DETAIL = ErrorCode.DATO_DUPLICADO
+
+
+class PlanLimpiezaIdInvalido(BadRequest):
+    DETAIL = ErrorCode.PLAN_LIMPIEZA_ID_INVALIDO
+
+
+class PlanLimpiezaNoEncontrado(NotFound):
+    DETAIL = ErrorCode.PLAN_LIMPIEZA_NO_ENCONTRADO
+
+
+class FrecuenciaInvalida(BadRequest):
+    DETAIL = ErrorCode.FRECUENCIA_INVALIDA
+
+
+class TipoInvalido(BadRequest):
+    DETAIL = ErrorCode.TIPO_INVALIDO
+</file>
+
+<file path="models.py">
+from typing import Optional
+from src.PlanLimpieza.models import PlanLimpieza
+from src.models import ModeloBase
+from src.tareas.constants import TipoTarea
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Boolean, ForeignKey, Integer, Text
+
+
+class Tarea(ModeloBase):
+    __tablename__ = "tareas"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Cada tarea tiene su propia frecuencia (antes vivía en PlanLimpieza):
+    # cada N días desde la fecha de creación del plan al que pertenece.
+    frecuencia: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Momento del proceso en que se realiza (preoperacional / operacional /
+    # postoperacional). Se guarda como texto y se valida contra TipoTarea.
+    tipo: Mapped[str] = mapped_column(
+        String(30), default=TipoTarea.OPERACIONAL.value, nullable=False
+    )
+
+    # Procedimiento / pasos para realizar la tarea. Igual que `nombre`,
+    # esto SÍ se congela en el checklist al generarse el registro del día:
+    # el checklist es una foto de cómo estaba la tarea en ese momento.
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Aclaraciones libres que el administrador define para la tarea.
+    # Igual que `descripcion`, se congela en el checklist al generarse.
+    observaciones: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Cada tarea pertenece a un único plan de limpieza (composición, no
+    # catálogo compartido). Si se borra el plan, se borran sus tareas
+    # (ver cascade="all, delete-orphan" en PlanLimpieza.tareas).
+    plan_limpieza_id: Mapped[int] = mapped_column(ForeignKey("plan_limpieza.id"))
+    plan: Mapped["PlanLimpieza"] = relationship(back_populates="tareas")
+
+    # Operador responsable por defecto de esta tarea dentro del plan.
+    # Se hereda al RegistroTarea diario al generarse el checklist.
+    operador_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("personal.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    operador: Mapped[Optional["Personal"]] = relationship(
+        "Personal", foreign_keys=[operador_id]
+    )
+</file>
+
+<file path="router.py">
+import logging
+from typing import List, Optional
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.auth.dependencies import require_admin
+from src.tareas import schemas, services
+
+# Creamos un logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# Agrupamos las rutas bajo el prefijo /tareas
+router = APIRouter(prefix="/tareas", tags=["tareas"], dependencies=[Depends(require_admin)])
+
+
+@router.post("", response_model=schemas.Tarea)
+def create_tarea(tarea: schemas.TareaCreate, db: Session = Depends(get_db)):
+    return services.crear_tarea(db, tarea)
+
+
+@router.get("", response_model=List[schemas.Tarea])
+def read_tareas(
+    plan_limpieza_id: Optional[int] = None, db: Session = Depends(get_db)
+):
+    logger.info("Consultando la lista de tareas activas")
+    return services.listar_tareas(db, plan_limpieza_id)
+
+
+@router.get("/{tarea_id}", response_model=schemas.Tarea)
+def read_tarea(tarea_id: int, db: Session = Depends(get_db)):
+    return services.leer_tarea(db, tarea_id)
+
+
+@router.put("/{tarea_id}", response_model=schemas.Tarea)
+def update_tarea(
+    tarea_id: int,
+    tarea: schemas.TareaUpdate,
+    db: Session = Depends(get_db),
+):
+    return services.modificar_tarea(db, tarea_id, tarea)
+
+
+@router.delete("/{tarea_id}", response_model=schemas.Tarea)
+def delete_tarea(tarea_id: int, db: Session = Depends(get_db)):
+    return services.eliminar_tarea(db, tarea_id)
+</file>
+
+<file path="schemas.py">
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from src.common.validators import (
+    RE_NOMBRE_SOLO_LETRAS,
+    id_positivo,
+    texto_obligatorio,
+    texto_opcional,
+)
+from src.tareas import exceptions
+from src.tareas.constants import TipoTarea
+
+
+class TareaBase(BaseModel):
+    nombre: str
+    frecuencia: int
+    tipo: str
+    descripcion: Optional[str] = None
+    observaciones: Optional[str] = None
+    operador_id: Optional[int] = None
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
+        return texto_obligatorio(
+            v, invalido=exceptions.NombreInvalido, patron=RE_NOMBRE_SOLO_LETRAS
+        )
+
+    @field_validator("frecuencia")
+    @classmethod
+    def validar_frecuencia(cls, v: Optional[int]) -> Optional[int]:
+        return id_positivo(v, invalido=exceptions.FrecuenciaInvalida)
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: Optional[str]) -> Optional[str]:
+        # En el update el campo es opcional: si no viene, no se valida.
+        if v is None:
+            return v
+        if v not in {t.value for t in TipoTarea}:
+            raise exceptions.TipoInvalido()
+        return v
+
+    @field_validator("descripcion")
+    @classmethod
+    def limpiar_descripcion(cls, v: Optional[str]) -> Optional[str]:
+        # Texto libre (el procedimiento paso a paso): sin restricción de
+        # caracteres, solo recortamos espacios y lo dejamos en None si
+        # queda vacío.
+        return texto_opcional(v)
+
+    @field_validator("observaciones")
+    @classmethod
+    def limpiar_observaciones(cls, v: Optional[str]) -> Optional[str]:
+        # Texto libre definido por el administrador; mismo criterio que
+        # `descripcion`.
+        return texto_opcional(v)
+
+
+class TareaCreate(TareaBase):
+    """Para crear una tarea suelta, agregándola a un plan que ya existe.
+    Cuando la tarea nace junto con el plan (alta de PlanLimpieza), se usa
+    TareaBase directamente desde src.PlanLimpieza.schemas — ahí todavía no
+    hay un plan_limpieza_id porque el plan no fue creado."""
+
+    plan_limpieza_id: int
+
+    @field_validator("plan_limpieza_id")
+    @classmethod
+    def validar_plan_limpieza_id(cls, v: int) -> int:
+        if v <= 0:
+            raise exceptions.PlanLimpiezaIdInvalido()
+        return v
+
+
+class TareaUpdate(TareaBase):
+    nombre: Optional[str] = None
+    frecuencia: Optional[int] = None
+    tipo: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+class Tarea(TareaBase):
+    id: int
+    activo: bool
+    plan_limpieza_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class TareaEnPlanInput(TareaBase):
+    """Igual que TareaBase, pero con id opcional para usar dentro de
+    PlanLimpiezaUpdate.tareas: id=None significa 'tarea nueva a crear',
+    id=<n> significa 'actualizar la tarea existente con ese id' (en vez
+    de matchear por nombre, que rompe la identidad de la tarea si se
+    renombra)."""
+
+    id: Optional[int] = None
+</file>
+
+<file path="services.py">
+import logging
+from typing import List, Optional
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from src.common.persistence import aplicar_cambios, es_violacion_unica
+from src.tareas import models, schemas, exceptions
+
+# logger para este módulo específico
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# OPERACIONES CRUD PARA TAREA
+# ==========================================
+
+
+def _verificar_plan_existe(db: Session, plan_limpieza_id: int) -> None:
+    """Verifica que el plan de limpieza al que se quiere asociar la tarea exista.
+
+    Se importa PlanLimpieza acá adentro (y no arriba del archivo) para evitar
+    un import circular con src.PlanLimpieza.services, que sí importa
+    src.tareas.models a nivel de módulo.
+    """
+    from src.PlanLimpieza.models import PlanLimpieza
+
+    existe = db.scalar(
+        select(PlanLimpieza).where(PlanLimpieza.id == plan_limpieza_id)
+    )
+    if existe is None:
+        raise exceptions.PlanLimpiezaNoEncontrado()
+
+
+def crear_tarea(db: Session, tarea: schemas.TareaCreate) -> models.Tarea:
+    """Agrega una tarea suelta a un plan de limpieza ya existente.
+    Para crear varias tareas junto con el plan, ver PlanLimpieza.services.crear_plan_limpieza."""
+    _verificar_plan_existe(db, tarea.plan_limpieza_id)
+
+    # Validar nombre duplicado dentro del mismo plan, ignorando tareas inactivas
+    existente = db.scalar(
+        select(models.Tarea).where(
+            models.Tarea.nombre == tarea.nombre,
+            models.Tarea.plan_limpieza_id == tarea.plan_limpieza_id,
+            models.Tarea.activo == True,
+        )
+    )
+    if existente:
+        raise exceptions.NombreDuplicado()
+
+    _tarea = models.Tarea(**tarea.model_dump())
+    db.add(_tarea)
+
+    try:
+        db.commit()
+        db.refresh(_tarea)
+    except IntegrityError as e:
+        # Antes era `except Exception`: convertia en "dato_duplicado" (400)
+        # desde una base trabada, un error de programacion o un fallo de
+        # serializacion. Solo una violacion de restriccion es un conflicto.
+        db.rollback()
+        logger.error("Error de integridad al crear tarea: %s", e)
+        raise exceptions.NombreDuplicado() if es_violacion_unica(str(e.orig).lower()) else e
+
+    return _tarea
+
+
+def listar_tareas(
+    db: Session, plan_limpieza_id: Optional[int] = None
+) -> List[models.Tarea]:
+    logger.info("Listando tareas activas desde services")
+    # traigo solo las tareas activas, opcionalmente filtradas por plan
+    stmt = select(models.Tarea).where(models.Tarea.activo == True)
+    if plan_limpieza_id is not None:
+        stmt = stmt.where(models.Tarea.plan_limpieza_id == plan_limpieza_id)
+    return db.scalars(stmt).all()
+
+
+def leer_tarea(db: Session, tarea_id: int) -> models.Tarea:
+    db_tarea = db.scalar(select(models.Tarea).where(models.Tarea.id == tarea_id))
+    if db_tarea is None:
+        raise exceptions.TareaNoEncontrada()
+    return db_tarea
+
+
+def modificar_tarea(
+    db: Session, tarea_id: int, tarea: schemas.TareaUpdate
+) -> models.Tarea:
+    db_tarea = leer_tarea(db, tarea_id)
+
+    datos_a_actualizar = tarea.model_dump(exclude_unset=True)
+
+    for campo in ("nombre", "frecuencia", "tipo", "activo"):
+        if campo in datos_a_actualizar and datos_a_actualizar[campo] is None:
+            del datos_a_actualizar[campo]
+
+    # si se está cambiando el nombre, verifico que no choque con otra tarea
+    # DEL MISMO PLAN (dos planes distintos sí pueden tener una tarea "Limpiar" cada uno)
+    if "nombre" in datos_a_actualizar:
+        existente = db.scalar(
+            select(models.Tarea).where(
+                models.Tarea.nombre == datos_a_actualizar["nombre"],
+                models.Tarea.plan_limpieza_id == db_tarea.plan_limpieza_id,
+                models.Tarea.activo == True,
+                models.Tarea.id != tarea_id,
+            )
+        )
+        if existente:
+            raise exceptions.NombreDuplicado()
+
+    if not datos_a_actualizar:
+        return db_tarea
+
+    # Asignación por ORM y no un update() de Core: los UPDATE de Core no
+    # disparan eventos del ORM, así que la auditoría no vería el cambio.
+    # Sin mapeo de IntegrityError, igual que antes: el nombre duplicado ya
+    # se validó arriba, cualquier otro error de integridad se propaga tal
+    # cual al manejador global.
+    return aplicar_cambios(db, db_tarea, datos_a_actualizar)
+
+
+def eliminar_tarea(db: Session, tarea_id: int) -> models.Tarea:
+    db_tarea = leer_tarea(db, tarea_id)
+
+    # BAJA LÓGICA: en vez de borrar de la bd, cambio el estado a inactivo
+    db_tarea.activo = False
+    db.commit()
+    db.refresh(db_tarea)
+
+    return db_tarea
+</file>
+
+</files>

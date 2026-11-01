@@ -1,0 +1,2710 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+components/
+  pages/
+    ChecklistPage.tsx
+    ConsumoInsumosPage.tsx
+    HistorialChecklistPage.tsx
+  DetalleChecklistDialog.tsx
+hooks/
+  useChecklist.ts
+  useConsumoInsumos.ts
+  useHistorialChecklists.ts
+services/
+  checklistService.ts
+types/
+  checklist.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="components/pages/ChecklistPage.tsx">
+import { useEffect, useMemo, useState } from "react";
+import {
+  Box,
+  Button,
+  Checkbox,
+  Field,
+  HStack,
+  IconButton,
+  Image,
+  Spinner,
+  Table,
+  Badge,
+  Text,
+} from "@chakra-ui/react";
+import {
+  LuCalendarClock,
+  LuCheck,
+  LuChevronDown,
+  LuChevronUp,
+  LuLock,
+  LuPaperclip,
+  LuRefreshCw,
+  LuUser,
+  LuShieldAlert,
+  LuX,
+} from "react-icons/lu";
+import { useChecklist } from "../../hooks/useChecklist";
+import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
+import {
+  obtenerHistorialRegistro,
+  asignarCobertura,
+} from "../../services/checklistService";
+import { TIPOS_TAREA } from "../../../planLimpieza/types/planLimpieza";
+import { usePersonales } from "../../../personal/hooks/usePersonales";
+import type { Persona } from "../../../personal/types/personal";
+import { listarOpcionesInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
+import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQuimico";
+import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
+import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
+import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
+import { useAuth } from "../../../../common/context/useAuth";
+import type { User } from "../../../../common/context/auth-context";
+import {
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../../components/ui/dialog";
+import {
+  BadgeEstado,
+  BannerError,
+  BotonAccion,
+  BotonCancelar,
+  BotonTexto,
+  Celda,
+  ColumnaHeader,
+  EstadoCargando,
+  EstadoVacio,
+  FormField,
+  FormInput,
+  FormNativeSelect,
+  LabelFiltro,
+  MensajeError,
+  PageHeader,
+  SelectPlaceholder,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
+
+// Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
+// src/checklist/router.py).
+const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+// Etiqueta y color del badge del tipo de tarea. El label sale de la misma
+// lista que usa el formulario del plan (TIPOS_TAREA) para no duplicar textos.
+const COLOR_TIPO_TAREA: Record<string, string> = {
+  preoperacional: "blue",
+  operacional: "green",
+  postoperacional: "orange",
+};
+
+function etiquetaTipoTarea(tipo: string): string {
+  return TIPOS_TAREA.find((opcion) => opcion.value === tipo)?.label ?? tipo;
+}
+
+interface GrupoPlan {
+  key: string;
+  planNombre: string;
+  equipoNombre: string;
+  tareas: TareaDelDia[];
+}
+
+function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
+  const grupos = new Map<string, GrupoPlan>();
+  for (const tarea of tareas) {
+    const key = `${tarea.equipo_id}-${tarea.plan_id ?? "sin-plan"}`;
+    if (!grupos.has(key)) {
+      grupos.set(key, {
+        key,
+        planNombre: tarea.plan_nombre,
+        equipoNombre: tarea.equipo_nombre,
+        tareas: [],
+      });
+    }
+    grupos.get(key)!.tareas.push(tarea);
+  }
+  return Array.from(grupos.values());
+}
+
+function fechaLocalISO(fecha: Date): string {
+  const year = fecha.getFullYear();
+  const month = String(fecha.getMonth() + 1).padStart(2, "0");
+  const day = String(fecha.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function unidadMedidaLabel(insumo: InsumoQuimicoOpcion): string {
+  return insumo.unidad_simbolo ? `(${insumo.unidad_simbolo})` : "";
+}
+
+interface FilaTareaProps {
+  tarea: TareaDelDia;
+  isLoading: boolean;
+  insumosQuimicos: InsumoQuimicoOpcion[];
+  elementosLimpieza: ElementoLimpiezaOpcion[];
+  usuarioActual: User | null;
+  puedeAsignarCobertura: boolean;
+  onAsignarCobertura: (registroId: number) => void;
+  onToggle: (
+    tareaId: number,
+    estadoActual: boolean,
+    evidencia?: File,
+    insumoQuimicoId?: number,
+    cantidadConsumida?: number,
+    elementoLimpiezaId?: number
+  ) => void;
+}
+
+function FilaTarea({
+  tarea,
+  isLoading,
+  insumosQuimicos,
+  elementosLimpieza,
+  usuarioActual,
+  puedeAsignarCobertura,
+  onAsignarCobertura,
+  onToggle,
+}: FilaTareaProps) {
+  const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
+  const [insumoSeleccionado, setInsumoSeleccionado] = useState<string>(
+    tarea.insumo_quimico_id ? String(tarea.insumo_quimico_id) : ""
+  );
+  const [cantidadConsumida, setCantidadConsumida] = useState<string>(
+    tarea.cantidad_consumida ? String(tarea.cantidad_consumida) : ""
+  );
+  const [elementoSeleccionado, setElementoSeleccionado] = useState<string>(
+    tarea.elemento_limpieza_id ? String(tarea.elemento_limpieza_id) : ""
+  );
+  const [errorConsumo, setErrorConsumo] = useState<string | null>(null);
+  const [mostrarProcedimiento, setMostrarProcedimiento] = useState(false);
+  const [mostrarFoto, setMostrarFoto] = useState(false);
+  const [previewEvidencia, setPreviewEvidencia] = useState<string | null>(null);
+  const [errorEvidencia, setErrorEvidencia] = useState<string | null>(null);
+  const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
+
+  // La evidencia vive detrás de /uploads, que exige token: no se puede poner la
+  // ruta en el src del <img>, hay que bajarla con la sesión.
+  //
+  // Se pide SOLO con el modal abierto: pasar siempre la ruta hacía que cada
+  // fila bajara su foto al renderizarse (30 filas = 30 descargas) aunque nadie
+  // haya abierto ninguna. El hook no dispara nada cuando recibe `null`.
+  const imagen = useImagenAutenticada(mostrarFoto ? tarea.evidencia_url : null);
+
+  const insumoActual = insumosQuimicos.find(
+    (insumo) => insumo.id === Number(insumoSeleccionado)
+  );
+
+  const verHistorial = async () => {
+    if (tarea.registro_id === 0) return;
+    setCargandoHistorial(true);
+    try {
+      const datos = await obtenerHistorialRegistro(tarea.registro_id);
+      setHistorial(datos.eventos);
+    } catch {
+      setHistorial([]);
+    } finally {
+      setCargandoHistorial(false);
+    }
+  };
+
+  const esHistorico = tarea.checklist_estado === "cerrado";
+  const esFuturo = tarea.registro_id === 0;
+  const esCerrado = esHistorico || esFuturo;
+
+  const esAdmin =
+    usuarioActual?.puede_administrar || usuarioActual?.es_super_admin || false;
+
+  const esOperadorAsignado =
+    tarea.operador_id != null && tarea.operador_id === usuarioActual?.id;
+
+  const esReemplazado =
+    tarea.reemplazado_por_id != null &&
+    tarea.reemplazado_por_id === usuarioActual?.id;
+
+  const tareaSinAsignar = tarea.operador_id == null;
+
+  // Puede marcar si: es admin, es el operador asignado, es quien la cubrió,
+  // o la tarea no tiene asignado operador (cualquier operador la toma).
+  const puedeMarcar =
+    esAdmin || esOperadorAsignado || esReemplazado || tareaSinAsignar;
+
+  const idInputEvidencia = `evidencia-${tarea.registro_id}-${tarea.id}`;
+
+  /** Limpia el archivo seleccionado, el preview y el input oculto.
+   *  También vacía el value del input para que volver a elegir la misma foto
+   *  vuelva a disparar el onChange. */
+  const limpiarEvidencia = () => {
+    setArchivoEvidencia(null);
+    setPreviewEvidencia(null);
+    setErrorEvidencia(null);
+    const input = document.getElementById(idInputEvidencia) as HTMLInputElement | null;
+    if (input) input.value = "";
+  };
+
+  const handleEvidenciaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setErrorEvidencia(null);
+
+    if (!file) {
+      limpiarEvidencia();
+      return;
+    }
+
+    if (!FORMATOS_PERMITIDOS.includes(file.type)) {
+      setErrorEvidencia(
+        "Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP)."
+      );
+      limpiarEvidencia();
+      return;
+    }
+
+    setArchivoEvidencia(file);
+
+    // Leemos el archivo como data URL para mostrarlo sin tener que subirlo.
+    const reader = new FileReader();
+    reader.onloadend = () => setPreviewEvidencia(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCheckboxClick = () => {
+    if (tarea.completado) {
+      onToggle(
+        tarea.id,
+        tarea.completado,
+        archivoEvidencia || undefined,
+        undefined,
+        undefined,
+        undefined
+      );
+      limpiarEvidencia();
+      setErrorConsumo(null);
+      return;
+    }
+
+    const hayProducto = insumoSeleccionado !== "";
+    const hayCantidad = cantidadConsumida !== "";
+
+    if (hayProducto !== hayCantidad) {
+      setErrorConsumo(
+        "Seleccioná el producto químico e indicá la cantidad consumida."
+      );
+      return;
+    }
+
+    let cantidad: number | undefined;
+    let insumoId: number | undefined;
+
+    if (hayProducto && hayCantidad) {
+      cantidad = Number(cantidadConsumida);
+      insumoId = Number(insumoSeleccionado);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+        setErrorConsumo("La cantidad consumida debe ser mayor que 0.");
+        return;
+      }
+    }
+
+    const elementoId = elementoSeleccionado ? Number(elementoSeleccionado) : undefined;
+
+    setErrorConsumo(null);
+    onToggle(
+      tarea.id,
+      tarea.completado,
+      archivoEvidencia || undefined,
+      insumoId,
+      cantidad,
+      elementoId
+    );
+    limpiarEvidencia();
+  };
+
+  return (
+    <>
+      <Table.Row
+        key={tarea.registro_id > 0 ? `r-${tarea.registro_id}` : `p-${tarea.id}`}
+      >
+        <Celda opacity={esCerrado ? 0.7 : 1}>
+          {/*
+            Nombre y tipo de la tarea. El tipo viene del plan y se muestra
+            como píldora al lado del nombre porque condiciona cómo se ejecuta
+            la tarea, no es un dato de detalle.
+          */}
+          <HStack gap="2" align="center" flexWrap="wrap">
+            <Text fontWeight="bold">{tarea.nombre}</Text>
+            {tarea.tipo && (
+              <Badge
+                colorPalette={COLOR_TIPO_TAREA[tarea.tipo] ?? "gray"}
+                borderRadius="md"
+                px="2"
+                py="1"
+                fontSize="xs"
+              >
+                {etiquetaTipoTarea(tarea.tipo)}
+              </Badge>
+            )}
+          </HStack>
+
+          {/* Asignación de operador y cobertura */}
+          {(!esCerrado || tarea.operador_id || tarea.reemplazado_por_id) && (
+            <Box mt="1" display="flex" alignItems="center" gap="2" flexWrap="wrap">
+              {tarea.operador_id && tarea.operador_nombre && (
+                <Badge
+                  colorPalette="blue"
+                  borderRadius="md"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                  title={`Asignado a: ${tarea.operador_nombre}`}
+                >
+                  <LuUser size={14} />
+                  {tarea.operador_nombre}
+                </Badge>
+              )}
+              {tarea.reemplazado_por_id && tarea.reemplazado_por_nombre && (
+                <Badge
+                  colorPalette="orange"
+                  borderRadius="md"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                  title={`Cubierto por: ${tarea.reemplazado_por_nombre}`}
+                >
+                  <LuShieldAlert size={14} />
+                  {tarea.reemplazado_por_nombre}
+                </Badge>
+              )}
+              {!tarea.operador_id && !esCerrado && !tarea.completado && (
+                <Badge
+                  colorPalette="gray"
+                  borderRadius="md"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                >
+                  Sin asignar
+                </Badge>
+              )}
+              {puedeAsignarCobertura && !esCerrado && (
+                <BotonTexto
+                  onClick={() => onAsignarCobertura(tarea.registro_id)}
+                  size="sm"
+                >
+                  <LuShieldAlert size={14} /> Asignar cobertura
+                </BotonTexto>
+              )}
+            </Box>
+          )}
+
+          {tarea.observaciones && (
+            <Box
+              mt="1"
+              fontSize="sm"
+              color="fg.muted"
+              whiteSpace="pre-line"
+            >
+              <Text as="span" fontWeight="bold">
+                Observaciones:{" "}
+              </Text>
+              {tarea.observaciones}
+            </Box>
+          )}
+
+          {tarea.descripcion && (
+            <Box mt="1">
+              <BotonTexto
+                onClick={() => setMostrarProcedimiento((v) => !v)}
+                aria-expanded={mostrarProcedimiento}
+              >
+                {mostrarProcedimiento
+                  ? "Ocultar procedimiento"
+                  : "Ver procedimiento"}
+                {mostrarProcedimiento ? (
+                  <LuChevronUp aria-hidden />
+                ) : (
+                  <LuChevronDown aria-hidden />
+                )}
+              </BotonTexto>
+              {mostrarProcedimiento && (
+                <Box
+                  mt="2"
+                  p="3"
+                  bg="bg.subtle"
+                  borderWidth="1px"
+                  borderColor="brand.200"
+                  rounded="md"
+                  maxW="500px"
+                  whiteSpace="pre-line"
+                  fontSize="sm"
+                  color="fg"
+                >
+                  {tarea.descripcion}
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* Opciones de Insumo Químico y Elemento de Limpieza */}
+          {!tarea.completado && !esCerrado && (
+            <Box
+              mt="3"
+              p="3"
+              bg="bg.subtle"
+              borderWidth="1px"
+              borderColor="brand.200"
+              rounded="md"
+              maxW="500px"
+            >
+              {/* Selector de Elemento de Limpieza */}
+              <FormField label="Elemento de limpieza utilizado" mb="4">
+                <FormNativeSelect
+                  value={elementoSeleccionado}
+                  onChange={(e) => setElementoSeleccionado(e.target.value)}
+                  maxW="350px"
+                >
+                  <SelectPlaceholder value="">
+                    Sin elemento específico
+                  </SelectPlaceholder>
+                  {elementosLimpieza.map((elem) => (
+                    <option key={elem.id} value={elem.id}>
+                      {elem.nombre}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+
+              {/* Selector de Insumo Químico */}
+              <FormField label="Producto químico utilizado" mb="4">
+                <FormNativeSelect
+                  value={insumoSeleccionado}
+                  onChange={(e) => {
+                    setInsumoSeleccionado(e.target.value);
+                    setCantidadConsumida("");
+                    setErrorConsumo(null);
+                  }}
+                  maxW="350px"
+                >
+                  <SelectPlaceholder value="">
+                    Sin producto químico
+                  </SelectPlaceholder>
+                  {insumosQuimicos.map((insumo) => (
+                    <option key={insumo.id} value={insumo.id}>
+                      {insumo.nombre} — {unidadMedidaLabel(insumo)}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+
+              {insumoSeleccionado && (
+                <Box mt="2">
+                  <FormField label="Cantidad aproximada consumida" mb="0">
+                    <Box display="flex" alignItems="center" gap="2">
+                      <FormInput
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={cantidadConsumida}
+                        onChange={(e) => {
+                          setCantidadConsumida(e.target.value);
+                          setErrorConsumo(null);
+                        }}
+                        placeholder="Ej: 2"
+                        w="130px"
+                      />
+                      {insumoActual && (
+                        <Text fontSize="sm" fontWeight="bold" color="brand.fg">
+                          {unidadMedidaLabel(insumoActual)}
+                        </Text>
+                      )}
+                    </Box>
+                  </FormField>
+                </Box>
+              )}
+
+              {errorConsumo && <MensajeError>{errorConsumo}</MensajeError>}
+            </Box>
+          )}
+
+          {/* Adjuntar evidencia */}
+          {!tarea.completado && !esCerrado && (
+            <Box mt="2">
+              <FormInput
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                display="none"
+                id={idInputEvidencia}
+                onChange={handleEvidenciaChange}
+              />
+              <Box display="flex" alignItems="center" gap="3">
+                <BotonCancelar
+                  onClick={() =>
+                    document.getElementById(idInputEvidencia)?.click()
+                  }
+                >
+                  <LuPaperclip aria-hidden />
+                  Adjuntar evidencia
+                </BotonCancelar>
+                {archivoEvidencia && (
+                  <Text fontSize="sm" color="brand.fg" fontWeight="bold">
+                    {archivoEvidencia.name} (lista para enviar)
+                  </Text>
+                )}
+              </Box>
+
+              {errorEvidencia && <MensajeError>{errorEvidencia}</MensajeError>}
+
+              {/* Vista previa de la foto elegida, con opción de quitarla */}
+              {previewEvidencia && (
+                <Box mt="3" position="relative" display="inline-block">
+                  <Image
+                    src={previewEvidencia}
+                    alt="Vista previa de la evidencia"
+                    maxW="160px"
+                    maxH="160px"
+                    rounded="lg"
+                    borderWidth="2px"
+                    borderColor="brand.300"
+                    display="block"
+                  />
+                  <IconButton
+                    type="button"
+                    onClick={limpiarEvidencia}
+                    aria-label="Quitar evidencia"
+                    position="absolute"
+                    top="-2"
+                    right="-2"
+                    size="xs"
+                    rounded="full"
+                    colorPalette="red"
+                  >
+                    <LuX />
+                  </IconButton>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Celda>
+
+        <Celda center>
+          {isLoading ? (
+            <Spinner size="sm" color="brand.500" />
+          ) : esFuturo ? (
+            <Text fontSize="sm" color="fg.subtle">
+              —
+            </Text>
+          ) : esHistorico ? (
+            <Box
+              display="inline-flex"
+              color={tarea.completado ? "green.fg" : "red.fg"}
+              role="img"
+              aria-label={
+                tarea.completado
+                  ? "Completada (checklist cerrado)"
+                  : "No completada (checklist cerrado)"
+              }
+              title={
+                tarea.completado
+                  ? "Completada (checklist cerrado)"
+                  : "No completada (checklist cerrado)"
+              }
+            >
+              {tarea.completado ? <LuCheck size={22} /> : <LuX size={22} />}
+            </Box>
+          ) : (
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="center"
+              gap="1"
+            >
+              {/*
+                Era un `<Input type="checkbox">`: la receta `input` del tema le
+                pone `appearance: none`, borde de 2px y fondo blanco, así que
+                el tilde nunca se dibujaba. `Checkbox` de Chakra trae su propio
+                control con el indicador, y sigue siendo controlado por
+                `tarea.completado`: si la validación del consumo falla, la
+                casilla queda sin marcar.
+              */}
+              <Checkbox.Root
+                checked={tarea.completado}
+                onCheckedChange={puedeMarcar ? handleCheckboxClick : undefined}
+                colorPalette="brand"
+                cursor={puedeMarcar ? "pointer" : "not-allowed"}
+
+              >
+                <Checkbox.HiddenInput
+                  aria-label={`Marcar "${tarea.nombre}" como completada`}
+                />
+                <Checkbox.Control cursor="pointer">
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+              </Checkbox.Root>
+              {tarea.evidencia_url && (
+                <BotonAccion
+                  accion="foto"
+                  label="Ver foto"
+                  onClick={() => setMostrarFoto(true)}
+                />
+              )}
+              {tarea.registro_id > 0 && (
+                <BotonAccion accion="historial" label="Ver historial" onClick={verHistorial} />
+              )}
+            </Box>
+          )}
+        </Celda>
+      </Table.Row>
+
+      {/*
+        Los dos modales eran `Box position="fixed"` armados a mano, y además
+        quedaban dentro del `<tbody>` (un `div` dentro de una tabla). Con
+        `Dialog` van en un portal, atrapan el foco y se ven igual que el resto
+        de los diálogos de la app.
+      */}
+      {mostrarFoto && (
+        <DialogRoot
+          open
+          placement="center"
+          motionPreset="none"
+          closeOnEscape={false}
+          closeOnInteractOutside={false}
+        >
+          <DialogContent
+            bg="bg.panel"
+            p="6"
+            rounded="lg"
+            boxShadow="dialog"
+            width="auto"
+            minW="320px"
+            maxW="90vw"
+            maxH="90vh"
+            alignItems="center"
+            gap="4"
+          >
+            <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
+              Evidencia fotográfica
+            </DialogTitle>
+            {imagen.loading && <EstadoCargando>Cargando imagen...</EstadoCargando>}
+            {!imagen.loading && imagen.error && (
+              <MensajeError>{imagen.error}</MensajeError>
+            )}
+            {imagen.src && (
+              <Image
+                src={imagen.src}
+                alt="Evidencia fotográfica"
+                maxW="100%"
+                maxH="60vh"
+                objectFit="contain"
+                rounded="lg"
+              />
+            )}
+            <BotonCancelar onClick={() => setMostrarFoto(false)}>
+              Cerrar
+            </BotonCancelar>
+          </DialogContent>
+        </DialogRoot>
+      )}
+
+      {historial && (
+        <DialogRoot
+          open
+          placement="center"
+          motionPreset="none"
+          closeOnEscape={false}
+          closeOnInteractOutside={false}
+        >
+          <DialogContent
+            bg="bg.panel"
+            p="6"
+            rounded="lg"
+            boxShadow="dialog"
+            width="400px"
+            maxW="90vw"
+            maxH="80vh"
+            overflowY="auto"
+            textAlign="left"
+          >
+            <DialogTitle fontSize="lg" fontWeight="bold" color="brand.fg" mb="4">
+              Historial de cambios — {tarea.nombre}
+            </DialogTitle>
+            {cargandoHistorial ? (
+              <EstadoCargando>Cargando historial...</EstadoCargando>
+            ) : historial.length === 0 ? (
+              <Text fontSize="sm" color="fg.muted">
+                Sin eventos registrados todavía.
+              </Text>
+            ) : (
+              historial.map((ev) => (
+                <Box
+                  key={ev.id}
+                  borderBottomWidth="1px"
+                  borderColor="border.subtle"
+                  py="2"
+                >
+                  <HStack gap="2" align="center" fontSize="sm" fontWeight="bold">
+                    <Box
+                      as="span"
+                      display="inline-flex"
+                      color={ev.completado ? "green.fg" : "red.fg"}
+                      aria-hidden
+                    >
+                      {ev.completado ? <LuCheck size={16} /> : <LuX size={16} />}
+                    </Box>
+                    <Text as="span" color="fg">
+                      {ev.completado ? "Marcada" : "Desmarcada"}
+                    </Text>
+                  </HStack>
+                  <Text fontSize="xs" color="fg.muted" mt="1">
+                    {new Date(ev.fecha_evento).toLocaleString()}
+                    {ev.usuario_nombre ? ` · por ${ev.usuario_nombre}` : ""}
+                    {ev.evidencia_url ? " · con foto adjunta" : ""}
+                  </Text>
+                </Box>
+              ))
+            )}
+            <HStack mt="6">
+              <BotonCancelar onClick={() => setHistorial(null)}>
+                Cerrar
+              </BotonCancelar>
+            </HStack>
+          </DialogContent>
+        </DialogRoot>
+      )}
+    </>
+  );
+}
+
+export function ChecklistPage() {
+  const hoyISO = fechaLocalISO(new Date());
+  const { user: usuarioActual } = useAuth();
+
+  const esAdmin =
+    usuarioActual?.puede_administrar || usuarioActual?.es_super_admin || false;
+
+  const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
+  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimicoOpcion[]>([]);
+  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpiezaOpcion[]>([]);
+
+  const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
+    useChecklist(selectedFecha);
+
+  const { personales: operadoresDisponibles, loading: cargandoOperadores } =
+    usePersonales({ rol: "operador", incluirInactivos: false }, 50);
+
+  const [coberturaDialog, setCoberturaDialog] = useState(false);
+  const [coberturaRegistroId, setCoberturaRegistroId] = useState<
+    number | null
+  >(null);
+  const [coberturaOperadorId, setCoberturaOperadorId] = useState<
+    number | null
+  >(null);
+  const [coberturaGuardando, setCoberturaGuardando] = useState(false);
+
+  useEffect(() => {
+    // Usamos los endpoints de "opciones": son los únicos de estos catálogos
+    // accesibles para un operario sin permisos de administración.
+    const cargarOpciones = async () => {
+      try {
+        const [datosQuimicos, datosElementos] = await Promise.all([
+          listarOpcionesInsumosQuimicos().catch(() => []),
+          listarOpcionesElementosLimpieza().catch(() => []),
+        ]);
+        setInsumosQuimicos(datosQuimicos);
+        setElementosLimpieza(datosElementos);
+      } catch (err) {
+        console.error("Error al cargar opciones auxiliares:", err);
+      }
+    };
+    cargarOpciones();
+  }, []);
+
+  const grupos = useMemo(() => agruparPorPlan(tareas), [tareas]);
+  const totalTareas = tareas.length;
+  const tareasCompletadas = tareas.filter((t) => t.completado).length;
+  const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(
+    new Set()
+  );
+
+  const toggleGrupo = (key: string) => {
+    setGruposExpandidos((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(key)) {
+        nuevo.delete(key);
+      } else {
+        nuevo.add(key);
+      }
+      return nuevo;
+    });
+  };
+
+  return (
+    <Box p="5">
+      <PageHeader
+        title="Checklist diario de limpieza"
+        description="Control, persistencia e historial auditable por fecha, para todos los equipos."
+        actions={
+          <BotonCancelar onClick={recargar}>
+            <LuRefreshCw aria-hidden />
+            Actualizar
+          </BotonCancelar>
+        }
+      />
+
+      <Tarjeta p="4" mb="6">
+        <Box minW="180px">
+          <Field.Root>
+            <LabelFiltro>Fecha</LabelFiltro>
+            <FormInput
+              type="date"
+              value={selectedFecha}
+              onChange={(e) => setSelectedFecha(e.target.value)}
+              w="auto"
+            />
+          </Field.Root>
+        </Box>
+      </Tarjeta>
+
+      {error && <BannerError>{error}</BannerError>}
+
+      {loading && <EstadoCargando>Cargando tareas...</EstadoCargando>}
+
+      {!loading && grupos.length === 0 && !error && (
+        <EstadoVacio>
+          No hay tareas de limpieza programadas para la fecha seleccionada.
+        </EstadoVacio>
+      )}
+
+      {!loading && grupos.length > 0 && (
+        <>
+          <Text fontSize="sm" color="fg.muted" mb="4">
+            Progreso general: <strong>{tareasCompletadas}</strong> de{" "}
+            <strong>{totalTareas}</strong> tareas completadas.
+          </Text>
+
+          {grupos.map((grupo) => {
+            const colapsado = !gruposExpandidos.has(grupo.key);
+            return (
+              <Tarjeta key={grupo.key} mb="6">
+                {/*
+                  Era un `div` con `role="button"`: no respondía al teclado y no
+                  se podía enfocar con Tab. Ahora es un `<button>` real, que
+                  trae Enter y Espacio de vuelta. `brand.600` para que el
+                  blanco llegue a 4.5:1, igual que la franja de las tablas.
+                */}
+                <Button
+                  type="button"
+                  onClick={() => toggleGrupo(grupo.key)}
+                  aria-expanded={!colapsado}
+                  variant="ghost"
+                  bg="brand.600"
+                  color="white"
+                  _hover={{ bg: "brand.700" }}
+                  w="100%"
+                  h="auto"
+                  px="4"
+                  py="3"
+                  rounded="none"
+                  justifyContent="space-between"
+                  textAlign="left"
+                  cursor="pointer"
+                  userSelect="none"
+                >
+                  <HStack justify="space-between" align="center" w="100%">
+                    <HStack align="center" gap="3">
+                      <Box
+                        color="white"
+                        transform={colapsado ? "rotate(-90deg)" : "rotate(0deg)"}
+                        transition="transform 0.15s ease"
+                        display="inline-flex"
+                        aria-hidden
+                      >
+                        <LuChevronDown size={18} />
+                      </Box>
+                      <Box>
+                        <Text fontSize="md" fontWeight="bold" color="white">
+                          {grupo.planNombre}
+                        </Text>
+                        <Text fontSize="xs" color="brand.50" mt="1">
+                          Equipo: {grupo.equipoNombre}
+                        </Text>
+                      </Box>
+                    </HStack>
+
+                    {grupo.tareas[0]?.checklist_estado === "cerrado" && (
+                      <BadgeEstado icono={<LuLock size={12} />}>
+                        Cerrado (histórico)
+                      </BadgeEstado>
+                    )}
+
+                    {grupo.tareas[0]?.registro_id === 0 && (
+                      <BadgeEstado icono={<LuCalendarClock size={12} />}>
+                        Vista previa
+                      </BadgeEstado>
+                    )}
+                  </HStack>
+                </Button>
+
+                {/*
+                  Despliegue animado con `grid-template-rows: 0fr → 1fr`, el
+                  mismo recurso que los grupos del sidebar: la altura se
+                  anima sin medirla en JavaScript. El hijo lleva
+                  `overflow: hidden` (y nada de `min-height: 0`, que
+                  colapsaría el `1fr` a cero), y `inert` evita que el teclado
+                  enfocle los controles de una sección plegada.
+                */}
+                <Box
+                  display="grid"
+                  gridTemplateRows={colapsado ? "0fr" : "1fr"}
+                  transitionProperty="grid-template-rows"
+                  transitionDuration="moderate"
+                  transitionTimingFunction="ease-in-out"
+                  inert={colapsado}
+                >
+                  <Box overflow="hidden">
+                    <Table.Root w="100%">
+                      <Table.Header>
+                        <Table.Row bg="brand.100" borderBottomWidth="2px" borderColor="brand.300">
+                          <ColumnaHeader>Tarea</ColumnaHeader>
+                          <ColumnaHeader center width="140px">
+                            Completada
+                          </ColumnaHeader>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {grupo.tareas.map((t) => (
+                          <FilaTarea
+                            key={
+                              t.registro_id > 0
+                                ? `r-${t.registro_id}`
+                                : `p-${t.id}`
+                            }
+                            tarea={t}
+                            isLoading={actualizandoId === t.id}
+                            insumosQuimicos={insumosQuimicos}
+                            elementosLimpieza={elementosLimpieza}
+                            usuarioActual={usuarioActual}
+                            puedeAsignarCobertura={esAdmin}
+                            onAsignarCobertura={(registroId) => {
+                              setCoberturaRegistroId(registroId);
+                              setCoberturaOperadorId(null);
+                              setCoberturaDialog(true);
+                            }}
+                            onToggle={toggleTarea}
+                          />
+                        ))}
+                      </Table.Body>
+                    </Table.Root>
+                  </Box>
+                </Box>
+              </Tarjeta>
+            );
+          })}
+        </>
+      )}
+
+      {/* Diálogo de asignación de cobertura / reemplazo de operador */}
+      {coberturaDialog && (
+        <DialogRoot
+          open
+          placement="center"
+          motionPreset="none"
+          closeOnEscape={false}
+          closeOnInteractOutside={false}
+        >
+          <DialogContent
+            bg="bg.panel"
+            p="6"
+            rounded="lg"
+            boxShadow="dialog"
+            width="450px"
+            maxW="90vw"
+            maxH="80vh"
+          >
+            <DialogTitle fontSize="lg" fontWeight="bold" color="fg" mb="4">
+              Asignar cobertura de tarea
+            </DialogTitle>
+            <FormField label="Operador suplente" mb="4">
+              <FormNativeSelect
+                value={coberturaOperadorId ?? ""}
+                onChange={(e) =>
+                  setCoberturaOperadorId(
+                    e.target.value === "" ? null : Number(e.target.value)
+                  )
+                }
+              >
+                <SelectPlaceholder value="">
+                  Sin asignar (cualquier operador puede tomar)
+                </SelectPlaceholder>
+                {operadoresDisponibles.map((operador) => (
+                  <option key={operador.id} value={operador.id}>
+                    {operador.nombre} {operador.apellido || ""}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
+            {cargandoOperadores && (
+              <EstadoCargando>Cargando operadores...</EstadoCargando>
+            )}
+            <HStack justify="flex-end" mt="6" gap="3">
+              <BotonCancelar onClick={() => setCoberturaDialog(false)}>
+                Cancelar
+              </BotonCancelar>
+              <Button
+                type="button"
+                colorScheme="brand"
+                onClick={async () => {
+                  setCoberturaGuardando(true);
+                  try {
+                    await asignarCobertura(
+                      coberturaRegistroId!,
+                      coberturaOperadorId
+                    );
+                    setCoberturaDialog(false);
+                    await recargar();
+                  } catch {
+                    // asignarCobertura ya comunica el error vía pedir
+                  } finally {
+                    setCoberturaGuardando(false);
+                  }
+                }}
+                disabled={coberturaGuardando}
+                isLoading={coberturaGuardando}
+              >
+                Guardar
+              </Button>
+            </HStack>
+          </DialogContent>
+        </DialogRoot>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="components/pages/ConsumoInsumosPage.tsx">
+import { useEffect } from "react";
+import { Box, Button, Field, HStack, SimpleGrid, Table, Text } from "@chakra-ui/react";
+import { LuSearch } from "react-icons/lu";
+import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
+import {
+  BannerError,
+  Celda,
+  EncabezadoOscuro,
+  EstadoCargando,
+  FilaEncabezado,
+  FormInput,
+  LabelFiltro,
+  Tarjeta,
+} from "../../../../components/ui/patrones";
+
+export function ConsumoInsumosPage() {
+  const {
+    fechaDesde,
+    fechaHasta,
+    setFechaDesde,
+    setFechaHasta,
+    consumo,
+    loading,
+    error,
+    cargar,
+  } = useConsumoInsumos();
+
+  useEffect(() => {
+    cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Box>
+      <Tarjeta p="4" mb="6">
+        <HStack gap="4" flexWrap="wrap" align="flex-end">
+          <Box>
+            <Field.Root>
+              <LabelFiltro>Desde</LabelFiltro>
+              <FormInput
+                type="date"
+                value={fechaDesde}
+                max={fechaHasta}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                w="auto"
+              />
+            </Field.Root>
+          </Box>
+
+          <Box>
+            <Field.Root>
+              <LabelFiltro>Hasta</LabelFiltro>
+              <FormInput
+                type="date"
+                value={fechaHasta}
+                min={fechaDesde}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                w="auto"
+              />
+            </Field.Root>
+          </Box>
+
+          <Button colorPalette="brand" onClick={() => cargar()} loading={loading}>
+            <LuSearch aria-hidden />
+            Consultar
+          </Button>
+        </HStack>
+      </Tarjeta>
+
+      {error && <BannerError>{error}</BannerError>}
+
+      {loading && <EstadoCargando>Cargando consumo...</EstadoCargando>}
+
+      {!loading && consumo && (
+        <>
+          <Tarjeta>
+            <Box p="4" borderBottomWidth="1px" borderColor="border">
+              <Text color="fg.muted" fontSize="sm" mb="3">
+                Totales del período por unidad de medida. No se combinan unidades incompatibles.
+              </Text>
+              <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap="3">
+                {consumo.totales_por_unidad.map((total) => (
+                  <Box key={total.unidad_medida_id} bg="bg.muted" rounded="md" px="3" py="2">
+                    <Text fontSize="xs" color="fg.muted">Unidad {total.unidad_simbolo ?? "sin símbolo"}</Text>
+                    <Text fontSize="lg" fontWeight="bold">
+                      {total.cantidad_total} {total.unidad_simbolo ?? ""}
+                    </Text>
+                  </Box>
+                ))}
+              </SimpleGrid>
+            </Box>
+
+            {consumo.insumos.length === 0 ? (
+              <Box p="8" textAlign="center">
+                <Text color="fg.muted">
+                  No hay consumos registrados en el período seleccionado.
+                </Text>
+              </Box>
+            ) : (
+              // `borderRadius="0"`: la tabla va debajo del bloque del total, y
+              // con el radio del tema el encabezado oscuro quedaba con las
+              // esquinas superiores redondeadas en mitad de la tarjeta.
+              <Table.Root variant="outline" size="sm" borderRadius="0">
+                <Table.Header>
+                  <FilaEncabezado>
+                    <EncabezadoOscuro>Producto</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="amplia">Cantidad acumulada</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="media">Registros</EncabezadoOscuro>
+                  </FilaEncabezado>
+                </Table.Header>
+                <Table.Body>
+                  {consumo.insumos.map((insumo) => (
+                    <Table.Row key={insumo.insumo_quimico_id}>
+                      <Celda>{insumo.nombre}</Celda>
+                      <Celda>
+                        {insumo.cantidad_total} {insumo.unidad_simbolo ?? ""}
+                      </Celda>
+                      <Celda>{insumo.cantidad_registros}</Celda>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            )}
+          </Tarjeta>
+
+          {consumo.por_producto_fecha.length > 0 && (
+            <Tarjeta mt="6">
+              <Box p="4" borderBottomWidth="1px" borderColor="border">
+                <Text color="fg.muted" fontSize="sm" fontWeight="bold">
+                  Consumo por producto y día
+                </Text>
+              </Box>
+              <Table.Root variant="outline" size="sm" borderRadius="0">
+                <Table.Header>
+                  <FilaEncabezado>
+                    <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+                    <EncabezadoOscuro>Producto</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="amplia">Cantidad</EncabezadoOscuro>
+                  </FilaEncabezado>
+                </Table.Header>
+                <Table.Body>
+                  {consumo.por_producto_fecha.map((item) => (
+                    <Table.Row key={`${item.fecha}-${item.insumo_quimico_id}`}>
+                      <Celda>{item.fecha}</Celda>
+                      <Celda>{item.nombre}</Celda>
+                      <Celda>{item.cantidad_total} {item.unidad_simbolo ?? ""}</Celda>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Tarjeta>
+          )}
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="components/pages/HistorialChecklistPage.tsx">
+import { Fragment, useMemo, useState } from "react";
+import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
+import { LuRefreshCw } from "react-icons/lu";
+import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
+import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
+import type { HistorialChecklistItem } from "../../types/checklist";
+import { useEquipos } from "../../../equipo/hooks/useEquipos";
+import {
+  formatoFecha,
+  haceDiasISO,
+  hoyISO,
+} from "../../../../common/utils/fechas";
+import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EncabezadoOrdenable,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
+import {
+  BannerError,
+  BotonAccion,
+  BotonCancelar,
+  BotonTexto,
+  Celda,
+  EncabezadoOscuro,
+  EstadoCargando,
+  EstadoVacio,
+  FilaEncabezado,
+  FormInput,
+  LabelFiltro,
+  PageHeader,
+  Paginacion,
+  Tarjeta,
+  TextoTruncado,
+} from "../../../../components/ui/patrones";
+
+const PAGE_SIZE = 10;
+
+type ColumnaHistorial = "fecha" | "equipo";
+
+const ETIQUETAS_ORDEN: Record<ColumnaHistorial, string> = {
+  fecha: "Fecha",
+  equipo: "Equipo",
+};
+
+/** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
+function colorPorcentaje(pct: number): string {
+  if (pct >= 80) return "green.600";
+  if (pct >= 50) return "orange.400";
+  return "red.700";
+}
+
+export function HistorialChecklistPage() {
+  // El rango inicial (últimos 7 días) es también el destino de "Limpiar todo".
+  const [rangoInicial] = useState(() => ({
+    desde: haceDiasISO(7),
+    hasta: hoyISO(),
+  }));
+
+  const [fechaDesde, setFechaDesde] = useState(rangoInicial.desde);
+  const [fechaHasta, setFechaHasta] = useState(rangoInicial.hasta);
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("");
+  const [busqueda, setBusqueda] = useState("");
+  const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
+  const [checklistSeleccionado, setChecklistSeleccionado] =
+    useState<HistorialChecklistItem | null>(null);
+
+  const equipoIdFiltro =
+    equipoSeleccionado !== "" ? Number(equipoSeleccionado) : undefined;
+
+  const { equipos } = useEquipos();
+
+  const [page, setPage] = useState(1);
+
+  // La tabla abre por fecha descendente (lo más reciente arriba). Al ordenar
+  // se vuelve a la página 1: `alCambiar` replica lo que hace
+  // `useListaPaginada` en los listados que no manejan `page` a mano.
+  const orden = useOrdenTabla<ColumnaHistorial, "fecha_desc">(
+    "fecha_desc",
+    "fecha",
+    () => setPage(1)
+  );
+
+  const { historial, loading, error, recargar } = useHistorialChecklists(
+    fechaDesde,
+    fechaHasta,
+    equipoIdFiltro,
+    busqueda,
+    orden.orden,
+    page,
+    PAGE_SIZE
+  );
+
+  const toggleExpandido = (checklistId: number) => {
+    setExpandidos((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(checklistId)) {
+        nuevo.delete(checklistId);
+      } else {
+        nuevo.add(checklistId);
+      }
+      return nuevo;
+    });
+  };
+
+  // `items` es la página actual; el cumplimiento general y el total vienen
+  // calculados sobre TODO el período en el backend.
+  const checklists = useMemo(() => historial?.items ?? [], [historial]);
+  const total = historial?.total ?? 0;
+  const totalPaginas = historial?.total_paginas ?? 1;
+  const hayVariasPaginas = totalPaginas > 1;
+
+  // Página fuera de rango: si el rango se acortó (p. ej. un refresco después
+  // de que otro usuario cerró checklists) el backend devuelve `items` vacíos
+  // con `total > 0`. El ajuste va DURANTE el render — el mismo "recortar, no
+  // corregir con un efecto" de `useListaPaginada` — porque un `useEffect`
+  // con `setPage` dispara la regla `set-state-in-effect`. Con `page` en las
+  // dependencias del hook, la corrección dispara el re-fetch de la última
+  // página válida y la tabla nunca queda vacía con la paginación oculta.
+  if (
+    historial &&
+    historial.total > 0 &&
+    historial.items.length === 0 &&
+    page > totalPaginas
+  ) {
+    setPage(totalPaginas);
+  }
+
+  /** Al cambiar cualquier filtro la página 1 siempre es válida. */
+  const cambiarFiltro = (aplicar: () => void) => {
+    aplicar();
+    setPage(1);
+  };
+
+  const limpiarTodo = () => {
+    cambiarFiltro(() => {
+      setBusqueda("");
+      setEquipoSeleccionado("");
+      setFechaDesde(rangoInicial.desde);
+      setFechaHasta(rangoInicial.hasta);
+      orden.reiniciar();
+    });
+  };
+
+  // El orden no cambia las filas, así que no cuenta para el vacío "por
+  // filtros": solo búsqueda, equipo y un rango distinto al de apertura.
+  const hayFiltros =
+    busqueda.trim() !== "" ||
+    equipoSeleccionado !== "" ||
+    fechaDesde !== rangoInicial.desde ||
+    fechaHasta !== rangoInicial.hasta;
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => cambiarFiltro(() => setBusqueda("")),
+    },
+    {
+      clave: "equipo",
+      etiqueta: "Equipo",
+      valor:
+        equipos.find((equipo) => String(equipo.id) === equipoSeleccionado)
+          ?.nombre ?? (equipoSeleccionado !== "" ? "Equipo seleccionado" : ""),
+      onQuitar: () => cambiarFiltro(() => setEquipoSeleccionado("")),
+    },
+    {
+      clave: "periodo",
+      etiqueta: "Período",
+      valor: `${formatoFecha(fechaDesde)} – ${formatoFecha(fechaHasta)}`,
+      visible:
+        fechaDesde !== rangoInicial.desde || fechaHasta !== rangoInicial.hasta,
+      onQuitar: () =>
+        cambiarFiltro(() => {
+          setFechaDesde(rangoInicial.desde);
+          setFechaHasta(rangoInicial.hasta);
+        }),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        orden.columna !== null
+          ? `${ETIQUETAS_ORDEN[orden.columna]} ${
+              orden.direccion === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: !orden.esPorDefecto && orden.columna !== null,
+      onQuitar: orden.reiniciar,
+    },
+  ]);
+
+  /** Botón de "Ver/ocultar N incumplidas" dentro de la celda. */
+  const botonIncumplidas = (checklistId: number, cantidad: number) => (
+    <BotonTexto onClick={() => toggleExpandido(checklistId)}>
+      {expandidos.has(checklistId) ? "Ocultar" : `Ver ${cantidad}`}
+    </BotonTexto>
+  );
+
+  return (
+    <Box p="5">
+      <PageHeader
+        title="Historial de checklists"
+        description="Cumplimiento por período, filtrado por rango de fechas y equipo."
+        actions={
+          <BotonCancelar onClick={recargar}>
+            <LuRefreshCw aria-hidden />
+            Actualizar
+          </BotonCancelar>
+        }
+      />
+
+      <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+            placeholder="Buscar por equipo..."
+          />
+        }
+        filtros={
+          <>
+            <Box minW="170px">
+              <Field.Root>
+                <LabelFiltro>Desde</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) =>
+                    cambiarFiltro(() => setFechaDesde(e.target.value))
+                  }
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <Box minW="170px">
+              <Field.Root>
+                <LabelFiltro>Hasta</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) =>
+                    cambiarFiltro(() => setFechaHasta(e.target.value))
+                  }
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <FiltroSelect
+              label="Equipo"
+              valor={equipoSeleccionado}
+              onCambio={(valor) =>
+                cambiarFiltro(() => setEquipoSeleccionado(valor))
+              }
+              opciones={equipos.map((equipo) => ({
+                valor: String(equipo.id),
+                etiqueta: equipo.nombre,
+              }))}
+              todos="Todos los equipos"
+            />
+          </>
+        }
+      />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+
+      {error && <BannerError>{error}</BannerError>}
+
+      {loading && <EstadoCargando>Cargando historial...</EstadoCargando>}
+
+      {!loading && historial && checklists.length === 0 && !error && (
+        hayFiltros ? (
+          <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
+            No hay checklists que coincidan con los filtros aplicados.
+          </EstadoVacioFiltrado>
+        ) : (
+          <EstadoVacio>
+            No hay checklists registrados en el rango seleccionado.
+          </EstadoVacio>
+        )
+      )}
+
+      {historial && checklists.length > 0 && (
+        <>
+          <Text fontSize="sm" color="fg.muted" mb="4">
+            Cumplimiento general del período:{" "}
+            <Text
+              as="span"
+              fontWeight="bold"
+              color={colorPorcentaje(historial.porcentaje_cumplimiento_general)}
+            >
+              {historial.porcentaje_cumplimiento_general.toFixed(0)}%
+            </Text>
+          </Text>
+
+          {/* Mientras se pide la página siguiente la tabla SIGUE montada (sin
+              el parpadeo de desmontar/montar): solo se atenúa y se bloquean
+              los clicks hasta que llega la respuesta. */}
+          <Tarjeta
+            opacity={loading ? 0.6 : 1}
+            pointerEvents={loading ? "none" : "auto"}
+            transition="opacity 0.15s"
+          >
+            <Table.Root variant="outline" w="100%">
+              <Table.Header>
+                <FilaEncabezado>
+                  <EncabezadoOrdenable columna="fecha" orden={orden} ancho="media">
+                    Fecha
+                  </EncabezadoOrdenable>
+                  <EncabezadoOrdenable columna="equipo" orden={orden} ancho="media">
+                    Equipo
+                  </EncabezadoOrdenable>
+                  <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="media">Cumplimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="media">
+                    Incumplidas
+                  </EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="media">
+                    Acciones
+                  </EncabezadoOscuro>
+                </FilaEncabezado>
+              </Table.Header>
+              <Table.Body>
+                {checklists.map((cl) => (
+                  <Fragment key={cl.checklist_id}>
+                    <Table.Row>
+                      <Celda>{formatoFecha(cl.fecha)}</Celda>
+                      <Celda>
+                        <TextoTruncado texto={cl.equipo_nombre} />
+                      </Celda>
+                      <Celda>
+                        <Badge
+                          colorPalette={cl.estado === "cerrado" ? "green" : "orange"}
+                          rounded="md"
+                          px="2"
+                          py="1"
+                          textTransform="capitalize"
+                          maxW="100%"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                        >
+                          {cl.estado}
+                        </Badge>
+                      </Celda>
+                      <Celda center>
+                        <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
+                          {cl.porcentaje_cumplimiento.toFixed(0)}%
+                        </Text>
+                        <Text fontSize="xs" color="fg.muted">
+                          {cl.tareas_completadas}/{cl.total_tareas}
+                        </Text>
+                      </Celda>
+                      <Celda center>
+                        {cl.tareas_incumplidas.length === 0 ? (
+                          <Text fontSize="sm" color="fg.subtle">
+                            —
+                          </Text>
+                        ) : (
+                          botonIncumplidas(cl.checklist_id, cl.tareas_incumplidas.length)
+                        )}
+                      </Celda>
+                      <Celda center>
+                        <BotonAccion
+                          accion="ver"
+                          label="Ver detalle del checklist"
+                          onClick={() => setChecklistSeleccionado(cl)}
+                        />
+                      </Celda>
+                    </Table.Row>
+                    {expandidos.has(cl.checklist_id) && (
+                      <Table.Row>
+                        <Table.Cell
+                          colSpan={6}
+                          color="fg"
+                          fontSize="sm"
+                          px="4"
+                          py="3"
+                          borderBottomWidth="1px"
+                          borderColor="border.subtle"
+                          bg="red.50"
+                        >
+                          <Text fontSize="sm" fontWeight="bold" color="red.fg" mb="2">
+                            Tareas incumplidas:
+                          </Text>
+                          {cl.tareas_incumplidas.map((t, i) => (
+                            <Text key={t.tarea_id ?? i} fontSize="sm" color="fg.muted">
+                              • {t.nombre}
+                            </Text>
+                          ))}
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Fragment>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Tarjeta>
+
+          {hayVariasPaginas && (
+            <Paginacion
+              count={total}
+              pageSize={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+            />
+          )}
+
+          {checklistSeleccionado && (
+            <DetalleChecklistDialog
+              isOpen
+              checklist={checklistSeleccionado}
+              onClose={() => setChecklistSeleccionado(null)}
+            />
+          )}
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="components/DetalleChecklistDialog.tsx">
+import { useEffect, useState } from "react";
+import { Badge, Box, HStack, Image, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+
+import { useImagenAutenticada } from "../../../common/hooks/useImagenAutenticada";
+import {
+  BannerError,
+  BotonCancelar,
+  BotonTexto,
+  EstadoCargando,
+  EstadoVacio,
+  Tarjeta,
+} from "../../../components/ui/patrones";
+import {
+  DialogContent,
+  DialogRoot,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import { obtenerDetalleChecklist } from "../services/checklistService";
+import type {
+  DetalleChecklistResponse,
+  HistorialChecklistItem,
+} from "../types/checklist";
+
+interface DetalleChecklistDialogProps {
+  isOpen: boolean;
+  checklist: HistorialChecklistItem | null;
+  onClose: () => void;
+}
+
+interface CargaDetalle {
+  checklistId: number;
+  detalle: DetalleChecklistResponse | null;
+  error: string | null;
+}
+
+interface EvidenciaSeleccionada {
+  checklistId: number;
+  ruta: string;
+}
+
+function valorRegistrado(valor: string | number | null | undefined): string | number {
+  return valor ?? "No registrado";
+}
+
+function formatoFechaHora(fecha: string | null | undefined): string {
+  if (!fecha) return "No registrado";
+  return new Date(fecha).toLocaleString();
+}
+
+/** Vista de solo lectura para la fotografía histórica de un checklist. */
+export function DetalleChecklistDialog({
+  isOpen,
+  checklist,
+  onClose,
+}: DetalleChecklistDialogProps) {
+  const [carga, setCarga] = useState<CargaDetalle | null>(null);
+  const [evidenciaSeleccionada, setEvidenciaSeleccionada] =
+    useState<EvidenciaSeleccionada | null>(null);
+  const evidenciaActiva =
+    isOpen &&
+    evidenciaSeleccionada &&
+    evidenciaSeleccionada.checklistId === checklist?.checklist_id
+      ? evidenciaSeleccionada.ruta
+      : null;
+  const imagen = useImagenAutenticada(evidenciaActiva);
+
+  useEffect(() => {
+    if (!isOpen || !checklist) return;
+
+    let vigente = true;
+
+    obtenerDetalleChecklist(checklist.checklist_id)
+      .then((detalle) => {
+        if (vigente) {
+          setCarga({
+            checklistId: checklist.checklist_id,
+            detalle,
+            error: null,
+          });
+        }
+      })
+      .catch((err) => {
+        if (!vigente) return;
+        setCarga({
+          checklistId: checklist.checklist_id,
+          detalle: null,
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo cargar el detalle del checklist.",
+        });
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [isOpen, checklist]);
+
+  if (!isOpen || !checklist) return null;
+
+  // La respuesta sólo se usa si corresponde al checklist que sigue seleccionado.
+  const cargando = !carga || carga.checklistId !== checklist.checklist_id;
+  const detalle = cargando ? null : carga.detalle;
+  const error = cargando ? null : carga.error;
+
+  return (
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="bg.panel"
+        p="6"
+        rounded="lg"
+        boxShadow="dialog"
+        width="960px"
+        maxW="95vw"
+        maxH="90vh"
+        display="flex"
+        flexDirection="column"
+      >
+        <DialogTitle fontSize="lg" fontWeight="bold" color="fg" mb="4">
+          Detalle del checklist
+        </DialogTitle>
+
+        <Box overflowY="auto" pr="1">
+          {cargando ? (
+            <EstadoCargando>Cargando detalle del checklist...</EstadoCargando>
+          ) : error ? (
+            <BannerError>{error}</BannerError>
+          ) : detalle ? (
+            <Stack gap="5">
+              <Tarjeta p="4">
+                <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4">
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted">Fecha</Text>
+                    <Text fontWeight="bold">{detalle.fecha}</Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted">Equipo</Text>
+                    <Text fontWeight="bold">{detalle.equipo_nombre}</Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted">Estado general</Text>
+                    <Badge
+                      colorPalette={detalle.estado === "cerrado" ? "green" : "orange"}
+                      rounded="md"
+                      px="2"
+                      py="1"
+                      textTransform="capitalize"
+                    >
+                      {detalle.estado}
+                    </Badge>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted">Cumplimiento</Text>
+                    <Text fontWeight="bold">
+                      {detalle.porcentaje_cumplimiento.toFixed(0)}% ({detalle.tareas_completadas}/
+                      {detalle.total_tareas})
+                    </Text>
+                  </Box>
+                </SimpleGrid>
+              </Tarjeta>
+
+              {detalle.tareas.length === 0 ? (
+                <EstadoVacio>No hay tareas registradas en este checklist.</EstadoVacio>
+              ) : (
+                detalle.tareas.map((tarea) => {
+                  const evidenciaVisible = evidenciaActiva === tarea.evidencia_url;
+
+                  return (
+                    <Tarjeta key={tarea.registro_id} p="4">
+                      <HStack justify="space-between" align="flex-start" gap="4" mb="3">
+                        <Box>
+                          <Text fontWeight="bold" color="fg">{tarea.nombre}</Text>
+                          <Text mt="1" fontSize="sm" color="fg.muted" whiteSpace="pre-line">
+                            {valorRegistrado(tarea.descripcion)}
+                          </Text>
+                        </Box>
+                        <Badge
+                          flexShrink={0}
+                          colorPalette={tarea.completado ? "green" : "red"}
+                          rounded="md"
+                          px="2"
+                          py="1"
+                        >
+                          {tarea.completado ? "Completada" : "Incumplida"}
+                        </Badge>
+                      </HStack>
+
+                      {!tarea.completado &&
+                        (tarea.fecha_completado || tarea.usuario_nombre) && (
+                          <Text fontSize="xs" color="fg.muted" mb="3">
+                            La tarea figura actualmente como incumplida. La fecha y el
+                            responsable conservados corresponden a su último registro de
+                            realización.
+                          </Text>
+                        )}
+
+                      <SimpleGrid columns={{ base: 1, md: 2 }} gapX="6" gapY="3" fontSize="sm">
+                        <Box>
+                          <Text color="fg.muted">Fecha y hora de realización</Text>
+                          <Text>{formatoFechaHora(tarea.fecha_completado)}</Text>
+                        </Box>
+                        <Box>
+                          <Text color="fg.muted">Responsable registrado</Text>
+                          <Text>{valorRegistrado(tarea.usuario_nombre)}</Text>
+                        </Box>
+                        <Box>
+                          <Text color="fg.muted">Insumo químico</Text>
+                          <Text>{valorRegistrado(tarea.insumo_quimico_nombre)}</Text>
+                        </Box>
+                        <Box>
+                          <Text color="fg.muted">Cantidad consumida</Text>
+                          <Text>{valorRegistrado(tarea.cantidad_consumida)}</Text>
+                        </Box>
+                        <Box>
+                          <Text color="fg.muted">Unidad de medida</Text>
+                          <Text>{valorRegistrado(tarea.unidad_medida_simbolo)}</Text>
+                        </Box>
+                        <Box>
+                          <Text color="fg.muted">Elemento de limpieza</Text>
+                          <Text>{valorRegistrado(tarea.elemento_limpieza_nombre)}</Text>
+                        </Box>
+                      </SimpleGrid>
+
+                      <Box mt="4">
+                        <Text fontSize="sm" color="fg.muted" mb="1">Evidencia fotográfica</Text>
+                        {tarea.evidencia_url ? (
+                          <>
+                            <BotonTexto
+                              onClick={() => {
+                                if (evidenciaVisible) {
+                                  setEvidenciaSeleccionada(null);
+                                } else if (tarea.evidencia_url) {
+                                  setEvidenciaSeleccionada({
+                                    checklistId: checklist.checklist_id,
+                                    ruta: tarea.evidencia_url,
+                                  });
+                                }
+                              }}
+                            >
+                              {evidenciaVisible ? "Ocultar evidencia" : "Ver evidencia"}
+                            </BotonTexto>
+                            {evidenciaVisible && (
+                              <Box mt="3">
+                                {imagen.loading && (
+                                  <EstadoCargando>Cargando imagen...</EstadoCargando>
+                                )}
+                                {!imagen.loading && imagen.error && (
+                                  <Text color="red.fg" fontSize="sm" role="alert">
+                                    {imagen.error}
+                                  </Text>
+                                )}
+                                {imagen.src && (
+                                  <Image
+                                    src={imagen.src}
+                                    alt={`Evidencia de la tarea ${tarea.nombre}`}
+                                    maxW="100%"
+                                    maxH="60vh"
+                                    objectFit="contain"
+                                    rounded="lg"
+                                    borderWidth="1px"
+                                    borderColor="border.subtle"
+                                  />
+                                )}
+                              </Box>
+                            )}
+                          </>
+                        ) : (
+                          <Text fontSize="sm">Sin evidencia</Text>
+                        )}
+                      </Box>
+                    </Tarjeta>
+                  );
+                })
+              )}
+            </Stack>
+          ) : null}
+        </Box>
+
+        <HStack justify="flex-end" mt="5">
+          <BotonCancelar onClick={onClose}>Cerrar</BotonCancelar>
+        </HStack>
+      </DialogContent>
+    </DialogRoot>
+  );
+}
+</file>
+
+<file path="hooks/useChecklist.ts">
+import { useState, useEffect, useCallback } from "react";
+import { obtenerTareasDelDia, marcarTarea } from "../services/checklistService";
+import type { TareaDelDia } from "../types/checklist";
+
+// Un solo fetch para todos los equipos: el backend ya arma la lista plana
+// de tareas del día con el nombre del plan al que pertenece cada una.
+// El usuario que completa cada tarea lo toma el backend del token de sesión,
+// por eso este hook no lo necesita.
+export function useChecklist(fecha: string) {
+  const [tareas, setTareas] = useState<TareaDelDia[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actualizandoId, setActualizandoId] = useState<number | null>(null);
+
+  const cargarTareas = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const datos = await obtenerTareasDelDia(fecha);
+      setTareas(datos.tareas);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al cargar las tareas del día"
+      );
+      setTareas([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [fecha]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(cargarTareas, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [cargarTareas]);
+
+  const toggleTarea = async (
+    tareaId: number,
+    completadoActual: boolean,
+    evidencia?: File,
+    insumoQuimicoId?: number,
+    cantidadConsumida?: number,
+    elementoLimpiezaId?: number
+  ) => {
+    const tarea = tareas.find((t) => t.id === tareaId);
+
+    if (tarea?.checklist_estado === "cerrado") {
+      setError(
+        "Este checklist corresponde a un día anterior y ya no se puede modificar."
+      );
+      return;
+    }
+
+    if (tarea?.registro_id === 0) {
+      setError(
+        "Todavía no llegó ese día: por ahora es solo una vista previa de las tareas."
+      );
+      return;
+    }
+
+    const nuevoEstado = !completadoActual;
+
+    const aplicarEstado = (estado: boolean) =>
+      setTareas((prev) =>
+        prev.map((t) =>
+          t.id === tareaId
+            ? { ...t, completado: estado }
+            : t
+        )
+      );
+
+    try {
+      setActualizandoId(tareaId);
+      setError(null);
+
+      aplicarEstado(nuevoEstado);
+
+      // Mandamos:
+      // - estado de la tarea
+      // - evidencia
+      // - fecha
+      // - insumo químico utilizado
+      // - cantidad aproximada consumida
+      await marcarTarea(
+        tareaId,
+        nuevoEstado,
+        evidencia,
+        fecha,
+        insumoQuimicoId,
+        cantidadConsumida,
+        elementoLimpiezaId
+      );
+
+      // Refrescamos los datos desde el servidor
+      await cargarTareas();
+    } catch (err) {
+      aplicarEstado(completadoActual);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo actualizar la tarea"
+      );
+    } finally {
+      setActualizandoId(null);
+    }
+  };
+
+  return {
+    tareas,
+    loading,
+    error,
+    actualizandoId,
+    toggleTarea,
+    recargar: cargarTareas,
+  };
+}
+</file>
+
+<file path="hooks/useConsumoInsumos.ts">
+import { useState } from "react";
+import { obtenerConsumoInsumos } from "../services/checklistService";
+import type { ConsumoInsumosResponse } from "../types/checklist";
+
+const hoyISO = (): string => {
+  const hoy = new Date();
+  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoy.getDate()).padStart(2, "0");
+  return `${hoy.getFullYear()}-${mes}-${dia}`;
+};
+
+const haceDiasISO = (dias: number): string => {
+  const fecha = new Date();
+  fecha.setDate(fecha.getDate() - dias);
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+};
+
+/**
+ * Consumo acumulado de productos de limpieza en un rango de fechas.
+ * Solo accesible para usuarios con permiso de administrar.
+ */
+export function useConsumoInsumos() {
+  const [fechaDesde, setFechaDesde] = useState(haceDiasISO(30));
+  const [fechaHasta, setFechaHasta] = useState(hoyISO());
+  const [data, setData] = useState<ConsumoInsumosResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = async (desde = fechaDesde, hasta = fechaHasta) => {
+    if (!desde || !hasta) return;
+
+    if (desde > hasta) {
+      setError("La fecha desde no puede ser posterior a la fecha hasta.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      setData(await obtenerConsumoInsumos(desde, hasta));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al obtener el consumo");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    fechaDesde,
+    fechaHasta,
+    setFechaDesde,
+    setFechaHasta,
+    consumo: data,
+    loading,
+    error,
+    cargar,
+  };
+}
+</file>
+
+<file path="hooks/useHistorialChecklists.ts">
+import { useCallback } from "react";
+import { useLista } from "../../../common/hooks/useLista";
+import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
+import { obtenerHistorialChecklists } from "../services/checklistService";
+import type { HistorialChecklistPagina } from "../types/checklist";
+
+/**
+ * Una página del historial de checklists, con los filtros de rango, equipo,
+ * búsqueda y orden aplicados en el servidor.
+ *
+ * `page` entra en las dependencias a propósito: `useLista` arma su efecto con
+ * `[recargar, ...dependencias]` y `recargar` depende de `cargar`, que cambia
+ * de identidad cuando cambia la página — así cada cambio de `page` dispara el
+ * re-fetch de esa página.
+ *
+ * La búsqueda llega con debounce: el input actualiza el término con cada
+ * tecla y el pedido espera a que el usuario deje de escribir.
+ */
+export function useHistorialChecklists(
+  fechaDesde: string,
+  fechaHasta: string,
+  equipoId: number | undefined,
+  buscar: string,
+  orden: string,
+  page: number,
+  pageSize = 10
+) {
+  const buscarAplicado = useValorDebounced(buscar);
+
+  const cargarHistorial = useCallback(() => {
+    // Guard del cliente: el backend también valida el rango (responde 400
+    // `FechaInvalida`), pero avisar acá da un mensaje más claro y ahorra el
+    // request.
+    if (!fechaDesde || !fechaHasta) {
+      throw new Error("Completá las fechas 'desde' y 'hasta'.");
+    }
+    if (fechaDesde > fechaHasta) {
+      throw new Error("La fecha 'desde' no puede ser posterior a la fecha 'hasta'.");
+    }
+
+    return obtenerHistorialChecklists(fechaDesde, fechaHasta, {
+      equipoId,
+      buscar: buscarAplicado,
+      orden,
+      page,
+      pageSize,
+    });
+  }, [fechaDesde, fechaHasta, equipoId, buscarAplicado, orden, page, pageSize]);
+
+  const { items, loading, error, recargar } = useLista<HistorialChecklistPagina | null>({
+    cargar: cargarHistorial,
+    dependencias: [fechaDesde, fechaHasta, equipoId, buscarAplicado, orden, page],
+    valorInicial: null,
+    mensajeError: "Error al cargar el historial de checklists",
+    preferirMensajeDelBackend: true,
+    vaciarAlFallar: true,
+  });
+
+  return {
+    historial: items,
+    loading,
+    error,
+    recargar,
+  };
+}
+</file>
+
+<file path="services/checklistService.ts">
+import type {
+  DetalleChecklistResponse,
+  RegistroTareaResponse,
+  TareasDelDiaResponse,
+  HistorialRegistroTareaResponse,
+  CoberturaTareaResponse,
+} from "../types/checklist";
+
+import type { ConsumoInsumosResponse, HistorialChecklistPagina } from "../types/checklist";
+
+
+import { pedir } from "../../../common/api/errors";
+import { apiFetch, API_URL } from "../../../common/api/apiClient";
+
+
+export async function obtenerTareasDelDia(
+  fecha?: string
+): Promise<TareasDelDiaResponse> {
+  const params = fecha ? `?fecha=${fecha}` : "";
+
+  const response = await apiFetch(
+    `${API_URL}/checklist/tareas-del-dia${params}`
+  );
+
+  return pedir<TareasDelDiaResponse>(
+    response,
+    "Error al obtener las tareas del día"
+  );
+}
+
+
+// ---------------------------------------------------------
+// MARCAR / DESMARCAR UNA TAREA
+// ---------------------------------------------------------
+export async function marcarTarea(
+  tareaId: number,
+  completado: boolean,
+  evidencia?: File,
+  fecha?: string,
+  insumoQuimicoId?: number,
+  cantidadConsumida?: number,
+  elementoLimpiezaId?: number
+): Promise<RegistroTareaResponse> {
+
+  const params = fecha ? `?fecha=${fecha}` : "";
+
+  // FormData permite enviar tanto datos normales como archivos.
+  const formData = new FormData();
+
+  formData.append(
+    "completado",
+    String(completado)
+  );
+
+  // El usuario que completa la tarea lo determina el backend a partir del
+  // token de sesión: no se envía desde el cliente para que no se pueda
+  // atribuir la tarea a otra persona.
+
+  // Evidencia fotográfica
+  if (evidencia) {
+    formData.append(
+      "evidencia",
+      evidencia
+    );
+  }
+
+  // Producto químico utilizado
+  if (insumoQuimicoId !== undefined) {
+    formData.append(
+      "insumo_quimico_id",
+      String(insumoQuimicoId)
+    );
+  }
+
+  // Cantidad aproximada consumida
+  if (cantidadConsumida !== undefined) {
+    formData.append(
+      "cantidad_consumida",
+      String(cantidadConsumida)
+    );
+  }
+  
+  // Elemento Limpieza utilizado
+  if (elementoLimpiezaId !== undefined){
+    formData.append(
+      "elemento_limpieza_id",
+      String(elementoLimpiezaId)
+    );
+  } 
+
+
+  const response = await apiFetch(
+    `${API_URL}/checklist/tarea/${tareaId}${params}`,
+    {
+      method: "PATCH",
+
+      // No agregamos Content-Type manualmente.
+      // fetch lo configura automáticamente para FormData.
+      body: formData,
+    }
+  );
+
+  return pedir<RegistroTareaResponse>(
+    response,
+    "Error al actualizar la tarea"
+  );
+}
+
+
+// ---------------------------------------------------------
+// HISTORIAL DE UNA TAREA
+// ---------------------------------------------------------
+export async function obtenerHistorialRegistro(
+  registroId: number
+): Promise<HistorialRegistroTareaResponse> {
+
+  const response = await apiFetch(
+    `${API_URL}/checklist/registro/${registroId}/historial`
+  );
+
+  return pedir<HistorialRegistroTareaResponse>(
+    response,
+    "Error al obtener el historial de la tarea"
+  );
+}
+
+
+export interface OpcionesHistorialChecklists {
+  equipoId?: number;
+  page?: number;
+  pageSize?: number;
+  buscar?: string;
+  /** `fecha_desc` (default), `fecha_asc`, `equipo_asc` o `equipo_desc`. */
+  orden?: string;
+}
+
+export async function obtenerHistorialChecklists(
+  fechaDesde: string,
+  fechaHasta: string,
+  opciones: OpcionesHistorialChecklists = {}
+): Promise<HistorialChecklistPagina> {
+  const {
+    equipoId,
+    page = 1,
+    pageSize = 10,
+    buscar = "",
+    orden = "",
+  } = opciones;
+
+  const params = new URLSearchParams({
+    fecha_desde: fechaDesde,
+    fecha_hasta: fechaHasta,
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (equipoId !== undefined) params.append("equipo_id", String(equipoId));
+  if (buscar.trim() !== "") params.append("buscar", buscar.trim());
+  if (orden !== "") params.append("orden", orden);
+
+  const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
+
+  return pedir<HistorialChecklistPagina>(
+    response,
+    "Error al obtener el historial de checklists"
+  );
+}
+
+
+export async function obtenerDetalleChecklist(
+  checklistId: number
+): Promise<DetalleChecklistResponse> {
+  const response = await apiFetch(
+    `${API_URL}/checklist/historial/${checklistId}`
+  );
+
+  return pedir<DetalleChecklistResponse>(
+    response,
+    "Error al obtener el detalle del checklist"
+  );
+}
+
+
+// ---------------------------------------------------------
+// CONSUMO DE INSUMOS EN UN RANGO DE FECHAS
+// ---------------------------------------------------------
+export async function obtenerConsumoInsumos(
+  fechaDesde: string,
+  fechaHasta: string
+): Promise<ConsumoInsumosResponse> {
+  const params = new URLSearchParams({
+    fecha_desde: fechaDesde,
+    fecha_hasta: fechaHasta,
+  });
+
+  const response = await apiFetch(`${API_URL}/checklist/consumo?${params}`);
+
+  return pedir<ConsumoInsumosResponse>(
+    response,
+    "Error al obtener el consumo"
+  );
+}
+
+// ---------------------------------------------------------
+// COBERTURA / REEMPLAZO DE OPERADOR
+// ---------------------------------------------------------
+export async function asignarCobertura(
+  registroId: number,
+  operadorId: number | null
+): Promise<CoberturaTareaResponse> {
+  const formData = new FormData();
+
+  if (operadorId !== null) {
+    formData.append("operador_id", String(operadorId));
+  } else {
+    formData.append("operador_id", "");
+  }
+
+  const response = await apiFetch(
+    `${API_URL}/checklist/registro/${registroId}/cobertura`,
+    {
+      method: "PATCH",
+      body: formData,
+    }
+  );
+
+  return pedir<CoberturaTareaResponse>(
+    response,
+    "Error al asignar cobertura de la tarea"
+  );
+}
+</file>
+
+<file path="types/checklist.ts">
+export type EstadoChecklist =
+  | "abierto"
+  | "completo"
+  | "observado"
+  | "cerrado";
+
+export interface ChecklistTareaItem {
+  id: number;
+  registro_id: number;
+  nombre: string;
+  plan_limpieza_id: number;
+  completado: boolean;
+  fecha_completado?: string | null;
+  usuario_id?: number | null;
+  evidencia_url?: string | null;
+  descripcion?: string | null;
+  tipo?: string | null;
+  observaciones?: string | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
+  elemento_limpieza_id?: number | null;
+
+  // Asignación de operador y cobertura
+  operador_id?: number | null;
+  operador_nombre?: string | null;
+  reemplazado_por_id?: number | null;
+  reemplazado_por_nombre?: string | null;
+}
+
+export interface ChecklistResponse {
+  checklist_id: number | null;
+  fecha: string;
+  equipo_id: number;
+  plan_id: number;
+  plan_nombre: string;
+  estado: EstadoChecklist | null;
+  observaciones?: string | null;
+  tareas: ChecklistTareaItem[];
+}
+
+export interface RegistroTareaUpdate {
+  completado: boolean;
+  usuario_id?: number | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
+  elemento_limpieza_id?: number | null;
+}
+
+export interface RegistroTareaResponse {
+  id: number;
+  checklist_id: number;
+  tarea_id: number | null;
+  nombre_tarea_historico: string;
+  completado: boolean;
+  fecha_completado?: string | null;
+  usuario_id?: number | null;
+  evidencia_url?: string | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
+}
+
+export interface TareaDelDia {
+  id: number;
+  registro_id: number;
+  nombre: string;
+  plan_id: number | null;
+  plan_nombre: string;
+  equipo_id: number;
+  equipo_nombre: string;
+  completado: boolean;
+  fecha_completado?: string | null;
+  usuario_id?: number | null;
+  evidencia_url?: string | null;
+  insumo_quimico_id?: number | null;
+  cantidad_consumida?: number | null;
+  elemento_limpieza_id?: number | null;
+  checklist_estado?: EstadoChecklist | null;
+  descripcion?: string | null;
+  tipo?: string | null;
+  observaciones?: string | null;
+
+  // Asignación de operador y cobertura
+  operador_id?: number | null;
+  operador_nombre?: string | null;
+  reemplazado_por_id?: number | null;
+  reemplazado_por_nombre?: string | null;
+}
+
+export interface ConsumoInsumoItem {
+  insumo_quimico_id: number;
+  nombre: string;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+  cantidad_registros: number;
+}
+
+export interface ConsumoPorFechaItem {
+  fecha: string;
+  insumo_quimico_id: number;
+  nombre: string;
+  unidad_medida_id: number;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+}
+
+export interface ConsumoPorUnidadItem {
+  unidad_medida_id: number;
+  unidad_simbolo?: string | null;
+  cantidad_total: number;
+}
+
+export interface ConsumoInsumosResponse {
+  fecha_desde: string;
+  fecha_hasta: string;
+  insumos: ConsumoInsumoItem[];
+  totales_por_unidad: ConsumoPorUnidadItem[];
+  por_producto_fecha: ConsumoPorFechaItem[];
+}
+
+export interface TareasDelDiaResponse {
+  fecha: string;
+  tareas: TareaDelDia[];
+}
+
+export interface HistorialRegistroTareaItem {
+  id: number;
+  completado: boolean;
+  usuario_id?: number | null;
+  usuario_nombre?: string | null;  
+  evidencia_url?: string | null;
+  fecha_evento: string;
+}
+// esto para el historial 
+export interface HistorialRegistroTareaResponse {
+  registro_id: number;
+  eventos: HistorialRegistroTareaItem[];
+}
+
+
+export interface TareaIncumplidaItem {
+  tarea_id: number | null;
+  nombre: string;
+}
+
+export interface HistorialChecklistItem {
+  checklist_id: number;
+  fecha: string;
+  equipo_id: number;
+  equipo_nombre: string;
+  estado: EstadoChecklist;
+  total_tareas: number;
+  tareas_completadas: number;
+  porcentaje_cumplimiento: number;
+  tareas_incumplidas: TareaIncumplidaItem[];
+}
+
+export interface HistorialChecklistResponse {
+  fecha_desde: string;
+  fecha_hasta: string;
+  equipo_id: number | null;
+  porcentaje_cumplimiento_general: number;
+  checklists: HistorialChecklistItem[];
+}
+
+/**
+ * Versión paginada del historial: `items` trae una sola página y el
+ * cumplimiento general sigue siendo del PERÍODO completo (no cambia con la
+ * página que se esté mirando).
+ */
+export interface HistorialChecklistPagina {
+  items: HistorialChecklistItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_paginas: number;
+  fecha_desde: string;
+  fecha_hasta: string;
+  equipo_id: number | null;
+  porcentaje_cumplimiento_general: number;
+}
+
+export interface DetalleChecklistTareaItem {
+  registro_id: number;
+  nombre: string;
+  descripcion?: string | null;
+  completado: boolean;
+  fecha_completado?: string | null;
+  usuario_nombre?: string | null;
+  evidencia_url?: string | null;
+  insumo_quimico_nombre?: string | null;
+  cantidad_consumida?: number | null;
+  unidad_medida_simbolo?: string | null;
+  elemento_limpieza_nombre?: string | null;
+}
+
+export interface DetalleChecklistResponse {
+  checklist_id: number;
+  fecha: string;
+  equipo_id: number;
+  equipo_nombre: string;
+  estado: EstadoChecklist;
+  total_tareas: number;
+  tareas_completadas: number;
+  porcentaje_cumplimiento: number;
+  tareas: DetalleChecklistTareaItem[];
+}
+
+export interface CoberturaTareaResponse {
+  registro_id: number;
+  operador_id: number | null;
+  operador_nombre: string | null;
+  reemplazado_por_id: number | null;
+  reemplazado_por_nombre: string | null;
+}
+</file>
+
+</files>

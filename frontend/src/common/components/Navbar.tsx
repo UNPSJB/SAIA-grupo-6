@@ -1,13 +1,13 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
   Box,
-  Button,
   Collapsible,
   Flex,
   Heading,
+  IconButton,
   Link,
   Stack,
   Text,
@@ -29,9 +29,8 @@ import {
   LuHistory,
   LuHouse,
   LuListChecks,
+  LuMenu,
   LuMicroscope,
-  LuPanelLeftClose,
-  LuPanelLeftOpen,
   LuPackage,
   LuRuler,
   LuShieldCheck,
@@ -41,6 +40,7 @@ import {
   LuUserRound,
   LuUsers,
   LuWrench,
+  LuX,
 } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
 
@@ -234,7 +234,6 @@ export const ANCHO_COLAPSADO = `${ANCHO_COLAPSADO_PX}px`;
 const PAD_ICONO_ITEM = "11px";
 const PAD_ICONO_GRUPO = "12px";
 const PAD_ESCUDO = "18px";
-const PAD_BOTON_PLEGAR = "15px";
 
 /**
  * Separación escudo → título.
@@ -253,9 +252,6 @@ const GAP_ESCUDO_TITULO = "20px";
  * - 12 (padding derecho del trigger) - 14 (tamaño de la flecha).
  */
 const LEFT_FLECHA = `${ANCHO_EXPANDIDO_PX - 24 - 12 - 14}px`;
-
-/** Clave de `localStorage` para recordar el estado entre recargas. */
-const CLAVE_COLAPSADO = "saia_nav_colapsado";
 
 export function esVisibleEntrada(
   entrada: EntradaMenu,
@@ -544,80 +540,21 @@ function NavGroup({
 }
 
 
-function BotonPlegar({
-  colapsado,
-  onClick,
-}: {
+interface NavbarProps {
+  /**
+   * Barra reducida a íconos. El estado vive en `LayoutPrincipal`.
+   */
   colapsado: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      onClick={onClick}
-      variant="ghost"
-      size="sm"
-      aria-expanded={!colapsado}
-      aria-label={colapsado ? "Desplegar el menú" : "Plegar el menú"}
-      title={colapsado ? "Desplegar el menú" : "Plegar el menú"}
-      minW="auto"
-      w="auto"
-      h="auto"
-      px="2"
-      py="2"
-      // `bg` explícito: la variante `ghost` no queda transparente en reposo.
-      bg="transparent"
-      color="white"
-      _hover={{ bg: "whiteAlpha.200" }}
-      _focusVisible={{
-        outline: "2px solid",
-        outlineColor: "white",
-        outlineOffset: "-2px",
-      }}
-    >
-      {colapsado ? (
-        <LuPanelLeftOpen size={18} aria-hidden />
-      ) : (
-        <LuPanelLeftClose size={18} aria-hidden />
-      )}
-    </Button>
-  );
+  /**
+   * Alterna el menú lateral: lo usa el botón hamburguesa del encabezado
+   * cuando está colapsado, y la "X" cuando está desplegado.
+   */
+  onAlternarMenu: () => void;
 }
 
-export default function Navbar() {
+export default function Navbar({ colapsado, onAlternarMenu }: NavbarProps) {
   const { user } = useAuth();
   const { pathname } = useLocation();
-
-  /*
-   * Sidebar reducido a barra de íconos.
-   *
-   * La barra es OVERLAY: fija a la izquierda y por encima del contenido, que
-   * en el layout solo reserva el ancho del rail (`ANCHO_COLAPSADO`). Se
-   * persiste en `localStorage` porque es una preferencia de la persona. Se
-   * lee de forma tolerante: si el valor no es "0" se toma plegado.
-   */
-  const [colapsado, setColapsado] = useState(
-    () => localStorage.getItem(CLAVE_COLAPSADO) !== "0"
-  );
-
-  /*
-   * Con la barra en overlay, dejar el panel desplegado después de navegar es
-   * dejar media vista tapada. Vuelve al rail en cada navegación, ajustando
-   * estado durante el render (sin `useEffect`).
-   */
-  const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
-  if (pathname !== pathnamePrevio) {
-    setPathnamePrevio(pathname);
-    if (!colapsado) setColapsado(true);
-  }
-
-  // La preferencia se persiste en un efecto: pasan por acá tanto el botón de
-  // plegar como el auto-colapso de arriba.
-  useEffect(() => {
-    localStorage.setItem(CLAVE_COLAPSADO, colapsado ? "1" : "0");
-  }, [colapsado]);
-
-  const alternarColapso = () => setColapsado((prev) => !prev);
 
   /*
    * Grupos que el usuario cerró a mano.
@@ -714,37 +651,78 @@ export default function Navbar() {
       }
     >
       {/* ESCUDO Y TÍTULO. Ancho fijo (el desplegado) para que nada se
-          reacomode al plegar: el borde de la barra los recorta. */}
+          reacomode al plegar: el borde de la barra los recorta.
+
+          Cuando está colapsada (64px), el encabezado ocupa el ancho completo
+          del sidebar y centra el botón hamburguesa, para que no quede
+          descentrado ni recortado por el borde de la barra. */}
       <Flex
         align="center"
-        w={ANCHO_EXPANDIDO}
-        pl={PAD_ESCUDO}
-        pr="5"
+        w={colapsado ? "full" : ANCHO_EXPANDIDO}
+        pl={colapsado ? "3" : PAD_ESCUDO}
+        pr="3"
         h="16"
         flexShrink={0}
+        justify={colapsado ? "center" : "space-between"}
       >
-        <Flex align="center" gap={GAP_ESCUDO_TITULO}>
-          <LuShieldCheck
-            size={28}
-            color="brand.100"
-            aria-hidden
-            style={{ flexShrink: 0 }}
-          />
-          <Heading as="h2" size="lg" letterSpacing="wider" whiteSpace="nowrap">
-            SAIA
-          </Heading>
-        </Flex>
-      </Flex>
+        {/* Colapsado: solo el botón hamburguesa que despliega el menú lateral. */}
+        {colapsado ? (
+          <Flex align="center" gap={GAP_ESCUDO_TITULO}>
+            <IconButton
+              aria-label="Desplegar el menú"
+              aria-controls="menu-principal"
+              aria-expanded={false}
+              variant="ghost"
+              size="md"
+              rounded="md"
+              color="white"
+              flexShrink={0}
+              _hover={{ bg: "whiteAlpha.200" }}
+              _focusVisible={{
+                outline: "2px solid",
+                outlineColor: "white",
+                outlineOffset: "-2px",
+              }}
+              onClick={onAlternarMenu}
+            >
+              <LuMenu size={20} aria-hidden />
+            </IconButton>
+          </Flex>
+        ) : (
+          <>
+            <Flex align="center" gap={GAP_ESCUDO_TITULO}>
+              <LuShieldCheck
+                size={28}
+                color="brand.100"
+                aria-hidden
+                style={{ flexShrink: 0 }}
+              />
+              <Heading as="h2" size="lg" letterSpacing="wider" whiteSpace="nowrap">
+                SAIA
+              </Heading>
+            </Flex>
 
-      {/* Botón de plegar/desplegar: mismo lugar en los dos modos. */}
-      <Flex
-        align="center"
-        w={ANCHO_EXPANDIDO}
-        h="10"
-        pl={PAD_BOTON_PLEGAR}
-        flexShrink={0}
-      >
-        <BotonPlegar colapsado={colapsado} onClick={alternarColapso} />
+            {/* Cerrar: la "X" vive acá cuando está desplegada. */}
+            <IconButton
+              aria-label="Cerrar el menú"
+              variant="ghost"
+              size="md"
+              rounded="md"
+              flexShrink={0}
+              color="white"
+              visibility={colapsado ? "hidden" : "visible"}
+              _hover={{ bg: "whiteAlpha.200" }}
+              _focusVisible={{
+                outline: "2px solid",
+                outlineColor: "white",
+                outlineOffset: "-2px",
+              }}
+              onClick={onAlternarMenu}
+            >
+              <LuX size={20} aria-hidden />
+            </IconButton>
+          </>
+        )}
       </Flex>
 
       {/* Área de enlaces: scrollea como red de seguridad. */}

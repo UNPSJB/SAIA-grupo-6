@@ -22,14 +22,17 @@ from src.checklist.exceptions import (
     CantidadConsumidaInvalida,
     ChecklistFuturo,
     ChecklistInmutable,
+    FechaInvalida,
     TareaNoCorrespondeALaFecha,
+    RegistroTareaNoEncontrado,
+    ChecklistNoEncontrado,
 )
 from src.insumoQuimico.models import InsumoQuimico
 from src.insumoQuimico.stock_services import sincronizar_consumo_checklist
 from src.unidadMedida.models import UnidadMedida
 from src.elementoLimpieza.models import ElementoLimpieza
-
-from src.checklist.exceptions import FechaInvalida
+from src.personal.models import Personal
+from src.exceptions import PermissionDenied, BadRequest
 
 
 
@@ -170,6 +173,7 @@ def _obtener_o_crear_checklist_de_plan(
                         tipo_tarea_historico=tarea.tipo,
                         observaciones_tarea_historico=tarea.observaciones,
                         completado=False,
+                        operador_id=tarea.operador_id,
                     ))
                 db.flush()
         except IntegrityError:
@@ -306,10 +310,17 @@ def obtener_o_crear_checklists_del_dia(
 
 
 def listar_tareas_del_dia(
-    db: Session, fecha: Optional[date_] = None
+    db: Session,
+    fecha: Optional[date_] = None,
+    current_user: Optional[Personal] = None,
 ) -> schemas.TareasDelDiaResponse:
     """Devuelve, en una lista plana, las tareas de todos los equipos activos
     para una fecha, junto con el nombre del plan al que pertenecen (solo lectura).
+
+    Si `current_user` es un operador (sin permisos de administración), solo se
+    devuelven las tareas que le están asignadas (operador_id == su id), las que
+    cubre como suplente (reemplazado_por_id == su id) o las tareas sin asignar
+    (operador_id IS NULL), para que pueda tomarlas.
 
     No crea ni persiste nada. Si un plan no tiene checklist para la fecha
     consultada, se devuelve una vista calculada con las tareas del día
@@ -334,7 +345,15 @@ def listar_tareas_del_dia(
             c.plan_id: c
             for c in db.scalars(
                 select(models.Checklist)
-                .options(selectinload(models.Checklist.registros))
+                .options(
+                    selectinload(models.Checklist.registros),
+                    selectinload(models.Checklist.registros).selectinload(
+                        models.RegistroTarea.operador
+                    ),
+                    selectinload(models.Checklist.registros).selectinload(
+                        models.RegistroTarea.reemplazado_por
+                    ),
+                )
                 .where(
                     models.Checklist.plan_id.in_(plan_ids),
                     models.Checklist.fecha == fecha_consulta,
@@ -343,6 +362,13 @@ def listar_tareas_del_dia(
         }
 
     items: List[schemas.TareaDelDiaItem] = []
+
+    es_operador_simple = (
+        current_user is not None
+        and current_user.puede_operar
+        and not current_user.puede_administrar
+        and not current_user.es_super_admin
+    )
 
     for equipo_id in equipo_ids:
         planes = planes_por_equipo[equipo_id]
@@ -356,8 +382,10 @@ def listar_tareas_del_dia(
             if checklist is None:
                 if not tareas_del_dia:
                     continue
-                # Vista calculada sin persistencia.
+                # Vista calculada sin persistencia (tareas sin asignar todavía).
                 for tarea in tareas_del_dia:
+                    if es_operador_simple:
+                        continue  # Las tareas sin checklist aún no tienen operador asignado
                     items.append(schemas.TareaDelDiaItem(
                         id=tarea.id,
                         registro_id=0,
@@ -377,6 +405,20 @@ def listar_tareas_del_dia(
                 continue
 
             for reg in checklist.registros:
+                operador = reg.operador
+                reemplazado_por = reg.reemplazado_por
+
+                # Filtro por operador: ve las suyas, las que cubre como
+                # suplente y las sin asignar.
+                if es_operador_simple:
+                    es_suyo = (
+                        reg.operador_id is None
+                        or reg.operador_id == current_user.id
+                        or reg.reemplazado_por_id == current_user.id
+                    )
+                    if not es_suyo:
+                        continue
+
                 items.append(schemas.TareaDelDiaItem(
                     id=reg.tarea_id if reg.tarea_id is not None else 0,
                     registro_id=reg.id,
@@ -396,6 +438,16 @@ def listar_tareas_del_dia(
                     descripcion=reg.descripcion_tarea_historico,
                     tipo=reg.tipo_tarea_historico,
                     observaciones=reg.observaciones_tarea_historico,
+                    operador_id=reg.operador_id,
+                    operador_nombre=(
+                        f"{operador.nombre} {operador.apellido or ''}".strip()
+                        if operador is not None else None
+                    ),
+                    reemplazado_por_id=reg.reemplazado_por_id,
+                    reemplazado_por_nombre=(
+                        f"{reemplazado_por.nombre} {reemplazado_por.apellido or ''}".strip()
+                        if reemplazado_por is not None else None
+                    ),
                 ))
 
     return schemas.TareasDelDiaResponse(fecha=fecha_consulta, tareas=items)
@@ -486,12 +538,45 @@ def marcar_tarea(
             descripcion_tarea_historico=tarea.descripcion,
             tipo_tarea_historico=tarea.tipo,
             observaciones_tarea_historico=tarea.observaciones,
+            operador_id=tarea.operador_id,
         )
 
         db.add(registro)
 
         # Necesitamos el ID antes de registrar el historial
         db.flush()
+
+    # ---------------------------------------------------------
+    # VALIDACIÓN DE ASIGNACIÓN DE OPERADOR
+    # ---------------------------------------------------------
+    # Quién puede marcar esta tarea:
+    # 1. Cualquier administrador / super admin.
+    # 2. El operador asignado (operador_id == usuario_id).
+    # 3. Quien la cubrió (reemplazado_por_id == usuario_id).
+    # 4. Cualquier operador si la tarea no tiene asignado operador (operador_id IS NULL).
+    current_user = db.get(Personal, usuario_id)
+    if current_user is None:
+        raise PermissionDenied("Usuario no encontrado.")
+
+    puede_marcar = False
+    if current_user.puede_administrar or current_user.es_super_admin:
+        puede_marcar = True
+    elif registro.operador_id is None:
+        puede_marcar = True  # Tarea sin asignar: cualquier operador la toma
+    elif registro.operador_id == usuario_id:
+        puede_marcar = True
+    elif registro.reemplazado_por_id == usuario_id:
+        puede_marcar = True
+
+    if not puede_marcar:
+        operador_nombre = None
+        if registro.operador_id is not None:
+            op = db.get(Personal, registro.operador_id)
+            if op is not None:
+                operador_nombre = f"{op.nombre} {op.apellido or ''}".strip()
+        raise PermissionDenied(
+            f"Esta tarea está asignada a {operador_nombre or 'otro operador'} y no puede ser marcada por usted."
+        )
 
     consumo_anterior = (
         registro.insumo_quimico_id,
@@ -1105,3 +1190,67 @@ def listar_consumo_insumos(
         ],
         por_producto_fecha=detalle_por_fecha,
     )
+
+
+def asignar_cobertura_tarea(
+    db: Session,
+    registro_id: int,
+    operador_id: Optional[int],
+    reemplazado_por_id: int,
+) -> models.RegistroTarea:
+    """Asigna (o reasigna) el operador responsable de una tarea de hoy.
+
+    Solo aplica sobre checklists del día actual (no cerrados). El
+    `reemplazado_por_id` registra al administrador que hizo el cambio, para
+    conservar rastro de quién cubrió la ausencia del operador original.
+
+    Si `operador_id` es None, se desasigna el operador (cualquier operador
+    podrá tomar la tarea al marcarla).
+    """
+    registro = db.get(models.RegistroTarea, registro_id)
+    if registro is None:
+        raise RegistroTareaNoEncontrado()
+
+    checklist = db.get(models.Checklist, registro.checklist_id)
+    if checklist is None:
+        raise ChecklistNoEncontrado()
+
+    hoy_val = hoy()
+    if checklist.fecha < hoy_val:
+        raise ChecklistInmutable()
+
+    # Validar que el nuevo operador exista, esté activo y pueda operar.
+    if operador_id is not None:
+        nuevo_operador = db.get(Personal, operador_id)
+        if (
+            nuevo_operador is None
+            or not nuevo_operador.activo
+            or not nuevo_operador.puede_operar
+        ):
+            raise BadRequest(
+                "El operador indicado no existe, está dado de baja o no tiene permiso de operar."
+            )
+
+    # Si ya tiene operador asignado (responsable original), no lo cambiamos:
+    # solo registramos quién lo cubre en reemplazado_por_id.
+    if registro.operador_id is not None:
+        registro.reemplazado_por_id = reemplazado_por_id
+    else:
+        # No tiene operador asignado: asignamos el nuevo operador.
+        registro.operador_id = operador_id
+        registro.reemplazado_por_id = reemplazado_por_id
+
+    # Queda constancia en el historial de cobertura (sin cambiar el
+    # completado de la tarea).
+    db.add(
+        models.HistorialRegistroTarea(
+            registro_tarea_id=registro.id,
+            completado=registro.completado,
+            usuario_id=reemplazado_por_id,
+            evidencia_url=None,
+        )
+    )
+
+    db.commit()
+    db.refresh(registro)
+    return registro
