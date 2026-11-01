@@ -19,6 +19,12 @@ export interface ChecklistTareaItem {
   insumo_quimico_id?: number | null;
   cantidad_consumida?: number | null;
   elemento_limpieza_id?: number | null;
+
+  // Asignación de operador y cobertura
+  operador_id?: number | null;
+  operador_nombre?: string | null;
+  reemplazado_por_id?: number | null;
+  reemplazado_por_nombre?: string | null;
 }
 
 export interface ChecklistResponse {
@@ -72,6 +78,12 @@ export interface TareaDelDia {
   descripcion?: string | null;
   tipo?: string | null;
   observaciones?: string | null;
+
+  // Asignación de operador y cobertura
+  operador_id?: number | null;
+  operador_nombre?: string | null;
+  reemplazado_por_id?: number | null;
+  reemplazado_por_nombre?: string | null;
 }
 
 export interface ConsumoInsumoItem {
@@ -191,4 +203,12 @@ export interface DetalleChecklistResponse {
   tareas_completadas: number;
   porcentaje_cumplimiento: number;
   tareas: DetalleChecklistTareaItem[];
+}
+
+export interface CoberturaTareaResponse {
+  registro_id: number;
+  operador_id: number | null;
+  operador_nombre: string | null;
+  reemplazado_por_id: number | null;
+  reemplazado_por_nombre: string | null;
 }
