@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useAuth } from "../../../common/context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../../../common/api/permissions";
 import { useLista } from "../../../common/hooks/useLista";
@@ -11,6 +11,16 @@ import { listarEquipos } from "../../equipo/services/equipoService";
 import type { Equipo } from "../../equipo/types/equipo";
 import { listarPlanesCalibracionMantenimiento } from "../../planCalibracionMantenimiento/services/planCalibracionMantenimientoService";
 import type { PlanCalibracionMantenimiento } from "../../planCalibracionMantenimiento/types/planCalibracionMantenimiento";
+//import { useCumplimientoLimpieza } from "../../checklist/hooks/useCumplimientoLimpieza";
+
+import { useCumplimientoLimpieza } from "../../checklist/hooks/useCumplimientoLimpieza";
+import {
+  errorDeRango,
+  rangoInicial,
+  type PuntoDiario,
+} from "../../checklist/types/cumplimiento";
+
+
 
 /** Un bloque del panel con su estado de carga propio. */
 export interface BloquePanel<T> {
@@ -18,7 +28,11 @@ export interface BloquePanel<T> {
   loading: boolean;
   error: string | null;
 }
-
+export interface PeriodoLimpieza extends BloquePanel<PuntoDiario[]> {
+  desde: string;
+  hasta: string;
+  cambiarRango: (desde: string, hasta: string) => void;
+}
 export interface PanelInicio {
   /** El usuario puede operar: hay tareas del día y se puede pedir su porcentaje. */
   verOperacion: boolean;
@@ -26,6 +40,8 @@ export interface PanelInicio {
   verIncidentes: boolean;
   cumplimiento: BloquePanel<TareasDelDiaResponse>;
   incidentes: BloquePanel<Incidente[]>;
+  /** Cumplimiento de limpieza del mes, por semana (solo administradores). */
+  limpieza: PeriodoLimpieza;
   /** Equipos y sus planes de calibración, para el indicador de aptos. */
   calibracion: BloquePanel<{
     equipos: Equipo[];
@@ -119,16 +135,32 @@ export function useDashboard(): PanelInicio {
     mensajeError: "No se pudo cargar el estado de calibración de los equipos",
   });
 
+  // Gráfico mensual de la tarjeta de cumplimiento. Es de administración (el
+  // historial de checklists pide ese permiso): un operador no lo pide.
+  // Es un hook: va acá, en el nivel principal, nunca dentro de otra función.
+ const [rango, setRango] = useState(() => rangoInicial(hoy));
+  const errorRango = errorDeRango(rango.desde, rango.hasta, hoy);
+  const periodo = useCumplimientoLimpieza(
+    rango.desde,
+    rango.hasta,
+    verIncidentes && errorRango === null
+  );
+
   const recargar = useCallback(
     () =>
       Promise.all([
         recargarCumplimiento(),
         recargarIncidentes(),
         recargarCalibracion(),
+        periodo.recargar(),
       ]).then(() => undefined),
-    [recargarCumplimiento, recargarIncidentes, recargarCalibracion],
+    [
+      recargarCumplimiento,
+      recargarIncidentes,
+      recargarCalibracion,
+      periodo.recargar,
+    ],
   );
-
   return {
     verOperacion,
     verIncidentes,
@@ -141,6 +173,14 @@ export function useDashboard(): PanelInicio {
       datos: listaIncidentes,
       loading: cargandoIncidentes,
       error: errorIncidentes,
+    },
+    limpieza: {
+      datos: periodo.serie,
+      loading: periodo.loading,
+      error: errorRango ?? periodo.error,
+      desde: rango.desde,
+      hasta: rango.hasta,
+      cambiarRango: (desde, hasta) => setRango({ desde, hasta }),
     },
     calibracion: {
       datos: datosCalibracion,

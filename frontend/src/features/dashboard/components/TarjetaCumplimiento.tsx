@@ -1,5 +1,19 @@
-import { Badge, Box, Flex, HStack, Text, type BoxProps } from "@chakra-ui/react";
+import { useState } from "react";
+import {
+  Badge,
+  Box,
+  Button,
+  Flex,
+  HStack,
+  Input,
+  Stack,
+  Text,
+  type BoxProps,
+} from "@chakra-ui/react";
+import { hoyISO } from "../../../common/utils/fechas";
 import { EstadoCargando, MensajeError } from "../../../components/ui/patrones";
+import { GraficoCumplimiento } from "../../checklist/components/GraficoCumplimiento";
+import type { PeriodoLimpieza } from "../hooks/useDashboard";
 import { AnilloProgreso } from "./AnilloProgreso";
 import { TarjetaPanel } from "./TarjetaPanel";
 
@@ -9,7 +23,15 @@ interface TarjetaCumplimientoProps {
   porcentaje: number;
   loading: boolean;
   error: string | null;
+  /**
+   * Si viene, la tarjeta suma el selector Hoy | Período con el gráfico de
+   * líneas. Sin esta prop (un operador) se comporta como siempre: solo el día
+   * de hoy.
+   */
+  periodo?: PeriodoLimpieza;
 }
+
+type Vista = "hoy" | "periodo";
 
 /**
  * Estado del día según el porcentaje.
@@ -36,13 +58,47 @@ function estadoDelDia(total: number, porcentaje: number) {
   return { color: "var(--chakra-colors-red-500)", paleta: "red", texto: "Muy atrasado" };
 }
 
+/** Selector Hoy | Período. Cada botón avisa su estado con `aria-pressed`. */
+function SelectorVista({
+  vista,
+  onChange,
+}: {
+  vista: Vista;
+  onChange: (vista: Vista) => void;
+}) {
+  const opciones: { valor: Vista; texto: string }[] = [
+    { valor: "hoy", texto: "Hoy" },
+    { valor: "periodo", texto: "Período" },
+  ];
+
+  return (
+    <HStack gap="1">
+      {opciones.map((opcion) => (
+        <Button
+          key={opcion.valor}
+          size="xs"
+          colorPalette="brand"
+          variant={vista === opcion.valor ? "solid" : "outline"}
+          aria-pressed={vista === opcion.valor}
+          onClick={() => onChange(opcion.valor)}
+        >
+          {opcion.texto}
+        </Button>
+      ))}
+    </HStack>
+  );
+}
+
 /**
- * Indicador del día: qué porcentaje de los checklists de hoy está hecho.
+ * Indicador de cumplimiento.
  *
- * A la izquierda, el porcentaje grande con el estado del día y el desglose
- * (hechas y pendientes); a la derecha, el anillo con el conteo en el centro.
- * Con `total === 0` no se muestra "0%" sino "—": un plan sin tareas para la
- * fecha no es un día con cero cumplimiento.
+ * Vista "Hoy": a la izquierda, el porcentaje grande con el estado del día y el
+ * desglose (hechas y pendientes); a la derecha, el anillo con el conteo en el
+ * centro. Con `total === 0` no se muestra "0%" sino "—": un plan sin tareas
+ * para la fecha no es un día con cero cumplimiento.
+ *
+ * Vista "Período" (solo administradores): evolución diaria del porcentaje de
+ * cumplimiento en el rango de fechas que se elija.
  */
 export function TarjetaCumplimiento({
   total,
@@ -50,18 +106,31 @@ export function TarjetaCumplimiento({
   porcentaje,
   loading,
   error,
+  periodo,
   ...rest
 }: TarjetaCumplimientoProps & BoxProps) {
+  const [vista, setVista] = useState<Vista>("hoy");
+
   const estado = estadoDelDia(total, porcentaje);
   const pendientes = total - completadas;
 
+  // Resumen del período: se suman las tareas, no se promedian los porcentajes.
+  const cumplidasPeriodo = periodo?.datos.reduce((suma, p) => suma + p.cumplidas, 0) ?? 0;
+  const totalPeriodo = periodo?.datos.reduce((suma, p) => suma + p.total, 0) ?? 0;
+
   return (
-    <TarjetaPanel titulo="Cumplimiento de Checklist" tamanoTitulo="sm" {...rest}>
-      {loading && <EstadoCargando />}
+    <TarjetaPanel
+      titulo="Cumplimiento de Checklist"
+      tamanoTitulo="sm"
+      acciones={periodo ? <SelectorVista vista={vista} onChange={setVista} /> : undefined}
+      {...rest}
+    >
+      {/* ---------------------------- Vista: Hoy ---------------------------- */}
+      {vista === "hoy" && loading && <EstadoCargando />}
 
-      {!loading && error && <MensajeError>{error}</MensajeError>}
+      {vista === "hoy" && !loading && error && <MensajeError>{error}</MensajeError>}
 
-      {!loading && !error && (
+      {vista === "hoy" && !loading && !error && (
         <Flex align="center" gap="4" flex="1" my="auto">
           <Box minW="0">
             {/*
@@ -113,6 +182,56 @@ export function TarjetaCumplimiento({
             </AnilloProgreso>
           </Box>
         </Flex>
+      )}
+
+      {/* -------------------------- Vista: Período -------------------------- */}
+      {vista === "periodo" && periodo && (
+        <Stack gap="2" flex="1">
+          <HStack gap="2">
+            <Input
+              type="date"
+              size="xs"
+              aria-label="Desde"
+              value={periodo.desde}
+              max={periodo.hasta || hoyISO()}
+              onChange={(e) => periodo.cambiarRango(e.target.value, periodo.hasta)}
+            />
+            <Text as="span" fontSize="xs" color="fg.muted">
+              a
+            </Text>
+            <Input
+              type="date"
+              size="xs"
+              aria-label="Hasta"
+              value={periodo.hasta}
+              min={periodo.desde}
+              max={hoyISO()}
+              onChange={(e) => periodo.cambiarRango(periodo.desde, e.target.value)}
+            />
+          </HStack>
+
+          {periodo.loading && <EstadoCargando />}
+
+          {!periodo.loading && periodo.error && <MensajeError>{periodo.error}</MensajeError>}
+
+          {/* Sin tareas no se muestra "0%": un período sin checklists no es un
+              período sin cumplimiento. */}
+          {!periodo.loading && !periodo.error && totalPeriodo === 0 && (
+            <Text fontSize="sm" color="fg.muted" my="auto">
+              No hay tareas registradas en este período.
+            </Text>
+          )}
+
+          {!periodo.loading && !periodo.error && totalPeriodo > 0 && (
+            <>
+              <Text fontSize="xs" color="fg.subtle">
+                <b>{Math.round((cumplidasPeriodo / totalPeriodo) * 100)}%</b> de las tareas
+                cumplidas en el período
+              </Text>
+              <GraficoCumplimiento datos={periodo.datos} alto={150} />
+            </>
+          )}
+        </Stack>
       )}
     </TarjetaPanel>
   );

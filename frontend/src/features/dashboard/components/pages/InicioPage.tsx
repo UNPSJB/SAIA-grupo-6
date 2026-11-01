@@ -25,6 +25,7 @@ export function InicioPage() {
   const {
     cumplimiento,
     incidentes,
+    limpieza,
     calibracion,
     verOperacion,
     verIncidentes,
@@ -105,6 +106,7 @@ export function InicioPage() {
                 porcentaje={resumen.porcentaje}
                 loading={cumplimiento.loading}
                 error={cumplimiento.error}
+                periodo={verIncidentes ? limpieza : undefined}
               />
             )}
 
