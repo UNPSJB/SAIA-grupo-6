@@ -139,7 +139,7 @@ def asignar_cobertura(
         db=db,
         registro_id=registro_id,
         operador_id=operador_id,
-        admin_id=current_user.id,
+        reemplazado_por_id=current_user.id,
     )
 
     operador_nombre = None

@@ -22,6 +22,7 @@ from src.checklist.exceptions import (
     CantidadConsumidaInvalida,
     ChecklistFuturo,
     ChecklistInmutable,
+    FechaInvalida,
     TareaNoCorrespondeALaFecha,
     RegistroTareaNoEncontrado,
     ChecklistNoEncontrado,
@@ -32,8 +33,6 @@ from src.unidadMedida.models import UnidadMedida
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.personal.models import Personal
 from src.exceptions import PermissionDenied, BadRequest
-
-from src.checklist.exceptions import FechaInvalida
 
 
 
