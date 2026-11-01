@@ -36,12 +36,16 @@ def listar_tareas_del_dia(
 
     fecha: Optional[date] = Query(None),
     db: Session = Depends(get_db),
+    current_user: Personal = Depends(require_operador),
 ):
     """Lista plana de las tareas de todos los equipos activos para una fecha,
     con el nombre del plan al que pertenece cada una. Reemplaza el patrón de
-    pedir /checklist/hoy una vez por equipo desde el frontend."""
+    pedir /checklist/hoy una vez por equipo desde el frontend.
+
+    Un operador simple solo ve las tareas asignadas a él (o sin asignar).
+    """
     logger.info(f"Consultando tareas del día para fecha {fecha}")
-    return services.listar_tareas_del_dia(db, fecha)
+    return services.listar_tareas_del_dia(db, fecha, current_user)
 
 
 @router.get("/equipo/{equipo_id}", response_model=List[schemas.ChecklistResponse], dependencies=_DEP_OPERAR)
@@ -109,6 +113,53 @@ def marcar_tarea(
             except Exception:
                 pass
         raise
+
+
+@router.patch(
+    "/registro/{registro_id}/cobertura",
+    response_model=schemas.CoberturaTareaResponse,
+    dependencies=_DEP_ADMIN,
+)
+def asignar_cobertura(
+    registro_id: int,
+    operador_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: Personal = Depends(require_admin),
+):
+    """Asigna o reasigna el operador responsable de una tarea de hoy.
+
+    Solo administradores. Permite cubrir la ausencia del operador asignado:
+    se registra `reemplazado_por_id` con el administrador que hace el cambio.
+    Si `operador_id` se envía vacío (null), se desasigna el operador y
+    cualquier operador podrá tomar la tarea al marcarla.
+
+    No se permite sobre checklists de días anteriores (históricos).
+    """
+    registro = services.asignar_cobertura_tarea(
+        db=db,
+        registro_id=registro_id,
+        operador_id=operador_id,
+        admin_id=current_user.id,
+    )
+
+    operador_nombre = None
+    if registro.operador is not None:
+        operador_nombre = (
+            f"{registro.operador.nombre} {registro.operador.apellido or ''}".strip()
+        )
+    reemplazado_por_nombre = None
+    if registro.reemplazado_por is not None:
+        reemplazado_por_nombre = (
+            f"{registro.reemplazado_por.nombre} {registro.reemplazado_por.apellido or ''}".strip()
+        )
+
+    return schemas.CoberturaTareaResponse(
+        registro_id=registro.id,
+        operador_id=registro.operador_id,
+        operador_nombre=operador_nombre,
+        reemplazado_por_id=registro.reemplazado_por_id,
+        reemplazado_por_nombre=reemplazado_por_nombre,
+    )
 
 
 @router.get("/registro/{registro_id}/historial", response_model=schemas.HistorialRegistroTareaResponse, dependencies=_DEP_OPERAR)

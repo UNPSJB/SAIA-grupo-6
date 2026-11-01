@@ -36,3 +36,14 @@ class Tarea(ModeloBase):
     # (ver cascade="all, delete-orphan" en PlanLimpieza.tareas).
     plan_limpieza_id: Mapped[int] = mapped_column(ForeignKey("plan_limpieza.id"))
     plan: Mapped["PlanLimpieza"] = relationship(back_populates="tareas")
+
+    # Operador responsable por defecto de esta tarea dentro del plan.
+    # Se hereda al RegistroTarea diario al generarse el checklist.
+    operador_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("personal.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    operador: Mapped[Optional["Personal"]] = relationship(
+        "Personal", foreign_keys=[operador_id]
+    )

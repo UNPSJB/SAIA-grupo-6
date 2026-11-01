@@ -774,7 +774,9 @@ def crear_insumos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
     return insumos
 
 
-def crear_planes_y_tareas(db, cantidad: int, equipos, admins, vistos: dict) -> list:
+def crear_planes_y_tareas(
+    db, cantidad: int, equipos, admins, vistos: dict, operadores: list
+) -> list:
     print(f"⏳ Cargando {cantidad} planes de limpieza con sus tareas...")
     planes = []
     autor = random.choice(admins)
@@ -806,6 +808,8 @@ def crear_planes_y_tareas(db, cantidad: int, equipos, admins, vistos: dict) -> l
                 nombres_usados,
                 largo=100,
             )
+            # Cada tarea se asigna a un operador responsable por defecto.
+            operador_default = random.choice(operadores) if operadores else None
             plan.tareas.append(
                 Tarea(
                     nombre=tarea_nombre,
@@ -814,6 +818,7 @@ def crear_planes_y_tareas(db, cantidad: int, equipos, admins, vistos: dict) -> l
                     tipo=random.choice(list(TipoTarea)).value,
                     descripcion=_descripcion_tarea(equipo.nombre),
                     observaciones=random.choice(OBSERVACIONES) if bernoulli(0.6) else None,
+                    operador_id=operador_default.id if operador_default else None,
                 )
             )
         planes.append(plan)
@@ -897,8 +902,6 @@ def crear_checklists(
             # Se guardan los datos y se arman los objetos recien después del
             # flush: `HistorialRegistroTarea` expone `registro_tarea_id`, y ese
             # id solo existe una vez insertado el registro.
-            para_historial = []
-
             for tarea in plan.tareas:
                 if es_hoy:
                     # Hoy: la primera tarea queda hecha, el resto pendiente.
@@ -912,6 +915,33 @@ def crear_checklists(
                     insumo = cantidad = elemento = None
                 else:
                     insumo, cantidad, elemento = _consumo_para(tarea.nombre, quimicos, elementos)
+
+                # Operador asignado: hereda el de la plantilla de la tarea;
+                # si la tarea no tiene operador asignado, elige uno al azar.
+                operador_id_tarea = tarea.operador_id
+                if operador_id_tarea is not None:
+                    operador = next(
+                        (o for o in operadores if o.id == operador_id_tarea),
+                        random.choice(operadores),
+                    )
+                else:
+                    operador = random.choice(operadores)
+
+                # Con baja probabilidad, el operador asignado se ausentó y otro
+                # lo cubrió: se registra reemplazado_por_id (estrategia C de
+                # cobertura). Si hay cobertura, quien realmente completó la
+                # tarea fue quien la cubrió.
+                reemplazado_por = None
+                if bernoulli(0.10) and len(operadores) > 1:
+                    candidatos = [o for o in operadores if o.id != operador.id]
+                    if candidatos:
+                        reemplazado_por = random.choice(candidatos)
+
+                quien_hizo = (
+                    reemplazado_por.id
+                    if (completado and reemplazado_por)
+                    else (operador.id if completado else None)
+                )
 
                 registro = RegistroTarea(
                     checklist_id=cabecera.id,
@@ -928,30 +958,20 @@ def crear_checklists(
                         if completado
                         else None
                     ),
-                    usuario_id=random.choice(operadores).id if completado else None,
+                    operador_id=operador.id,
+                    reemplazado_por_id=reemplazado_por.id if reemplazado_por else None,
+                    usuario_id=quien_hizo,
                     insumo_quimico_id=insumo.id if insumo else None,
                     cantidad_consumida=cantidad,
                     elemento_limpieza_id=elemento.id if elemento else None,
                 )
                 registros.append(registro)
 
-                if completado:
-                    # Una fila de bitácora por tarea completada.
-                    para_historial.append((registro, registro.usuario_id, registro.fecha_completado))
-
-            # Un flush para los registros (hace falta su id) y otro para la
-            # bitácora, que los referencia.
+            # Un flush para los registros (hace falta su id). El historial
+            # de cada registro completado se crea después en
+            # crear_historial_registro_tarea, para no duplicar filas.
             db.add_all(registros)
             db.flush()
-            db.add_all(
-                HistorialRegistroTarea(
-                    registro_tarea_id=registro.id,
-                    completado=True,
-                    usuario_id=usuario_id,
-                    fecha_evento=fecha_evento,
-                )
-                for registro, usuario_id, fecha_evento in para_historial
-            )
             total_registros += len(registros)
 
             if es_hoy and pendientes == 0:
@@ -2019,7 +2039,7 @@ def main() -> int:
         lotes = crear_lotes_stock(db, args.cantidad, proveedores, quimicos, vistos)
         elementos = crear_elementos(db, args.cantidad, vistos)
         insumos = crear_insumos(db, args.cantidad, unidades, vistos)
-        planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos)
+        planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
         registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
         historial_registros = crear_historial_registro_tarea(db)
         incidentes = crear_incidentes(db, args.cantidad, equipos, personal, admins, operadores, vistos)
