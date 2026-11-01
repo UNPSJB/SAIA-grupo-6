@@ -70,7 +70,7 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
       aria-label="Evolución del porcentaje diario de cumplimiento de limpieza en el período elegido"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+        <LineChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 6 }}>
           <CartesianGrid
             vertical={false}
             stroke="var(--chakra-colors-gray-100)"
@@ -80,7 +80,7 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
             dataKey="etiqueta"
             tickLine={false}
             axisLine={false}
-            tick={{ fontSize: 12, fill: COLOR_TEXTO }}
+            tick={{ fontSize: 10, fill: COLOR_TEXTO }}
             dy={4}
             interval="preserveStartEnd"
             minTickGap={24}
@@ -92,7 +92,7 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
             tickFormatter={(valor: number) => `${valor}%`}
             tickLine={false}
             axisLine={false}
-            tick={{ fontSize: 12, fill: COLOR_TEXTO }}
+            tick={{ fontSize: 10, fill: COLOR_TEXTO }}
           />
           <Tooltip
             content={<TooltipDia />}
