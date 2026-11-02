@@ -28,9 +28,8 @@ import type { OrdenDocumentoVigente } from "../services/documentoService";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
 import { abrirArchivo } from "../services/documentoService";
 
-// 10 tarjetas: 3 filas de 3 en pantallas anchas y una cuarta fila con la
-// restante. Sin tope, la grilla crecía hacia abajo con cada documento nuevo.
-const PAGE_SIZE = 10;
+// 9 tarjetas: tres filas de tres en pantallas anchas, sin fila incompleta.
+const PAGE_SIZE = 9;
 
 const ORDEN_POR_DEFECTO: OrdenDocumentoVigente = "nombre_asc";
 

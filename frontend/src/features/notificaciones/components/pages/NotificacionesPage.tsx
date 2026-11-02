@@ -102,16 +102,6 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
   INCIDENTE: "Incidente",
 };
 
-const ETIQUETA_ACCION: Record<string, string> = {
-  ELEMENTO_LIMPIEZA: "Registrar recambio",
-  VENCIMIENTO_PERSONAL: "Cambiar fecha",
-  PLAN_CALIBRACION: "Gestionar calibración",
-  PLAN_MANTENIMIENTO: "Gestionar mantenimiento",
-  DOCUMENTO: "Ver documento",
-  CHECKLIST: "Ver checklist",
-  INCIDENTE: "Ver incidente",
-};
-
 function etiquetaCriticidad(criticidad: Criticidad) {
   return criticidad === "alta"
     ? "ALTA"
@@ -166,7 +156,6 @@ export function NotificacionesPage() {
   const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [alertaEditando, setAlertaEditando] = useState<AlertaCriticidad | null>(null);
-  const [recambiando, setRecambiando] = useState<string | null>(null);
 
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<Criticidad[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
@@ -208,21 +197,26 @@ export function NotificacionesPage() {
   const handleResolver = async (alerta: AlertaCriticidad) => {
     if (alerta.origen === "ELEMENTO_LIMPIEZA" && alerta.recambio_id !== null) {
       try {
-        setRecambiando(alerta.clave);
         await registrarRecambioElemento(alerta.recambio_id);
         mostrarExito("Recambio registrado correctamente.");
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "No se pudo registrar el recambio",
         );
-      } finally {
-        setRecambiando(null);
       }
       return;
     }
 
     if (alerta.origen === "VENCIMIENTO_PERSONAL") {
       setAlertaEditando(alerta);
+      return;
+    }
+
+    // Las notificaciones de documento solían apuntar a /documentos/:id, que no
+    // existe y devolvía 404. El destino real es la pantalla de nueva versión,
+    // que recibe el id del documento (disponible en entidad_id).
+    if (alerta.origen === "DOCUMENTO") {
+      navigate(`/documentos/${alerta.entidad_id}/nueva-version`);
       return;
     }
 
@@ -568,7 +562,7 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro>Situación</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="media">Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo
@@ -576,69 +570,78 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="acciones">Acción</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
 
               <Table.Body>
-                {alertasPaginadas.map((alerta) => (
-                  <Table.Row
-                    key={alerta.clave}
-                    _hover={{ bg: "brand.50" }}
-                    transition="background 0.2s"
-                  >
-                    <Celda>
-                      <Badge
-                        colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
-                        variant="subtle"
-                        px="2"
-                        py="1"
-                        borderRadius="md"
-                        fontWeight="bold"
-                      >
-                        {etiquetaCriticidad(alerta.criticidad)}
-                      </Badge>
-                    </Celda>
+                {alertasPaginadas.map((alerta) => {
+                  const accionable =
+                    alerta.origen === "ELEMENTO_LIMPIEZA" ||
+                    alerta.origen === "VENCIMIENTO_PERSONAL" ||
+                    Boolean(alerta.destino);
 
-                    <Celda>
-                      <HStack gap="2">
-                        <OrigenIcono icono={alerta.icono} />
-                        <Text fontSize="sm" fontWeight="medium">
-                          {ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen}
+                  return (
+                    <Table.Row
+                      key={alerta.clave}
+                      role={accionable ? "button" : undefined}
+                      tabIndex={accionable ? 0 : -1}
+                      aria-label={accionable ? `Notificación: ${alerta.titulo}` : undefined}
+                      onClick={() => accionable && handleResolver(alerta)}
+                      onKeyDown={(e) => {
+                        if (!accionable) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleResolver(alerta);
+                        }
+                      }}
+                      _hover={{
+                        bg: accionable ? "brand.50" : undefined,
+                        cursor: accionable ? "pointer" : "default",
+                      }}
+                      transition="background 0.2s"
+                      cursor={accionable ? "pointer" : "default"}
+                    >
+                      <Celda>
+                        <Badge
+                          colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
+                          variant="subtle"
+                          px="2"
+                          py="1"
+                          borderRadius="md"
+                          fontWeight="bold"
+                        >
+                          {etiquetaCriticidad(alerta.criticidad)}
+                        </Badge>
+                      </Celda>
+
+                      <Celda>
+                        <HStack gap="2">
+                          <OrigenIcono icono={alerta.icono} />
+                          <Text fontSize="sm" fontWeight="medium">
+                            {ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen}
+                          </Text>
+                        </HStack>
+                      </Celda>
+
+                      <Celda>
+                        <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
+                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
+                      </Celda>
+
+                      <Celda fontSize="sm">
+                        {alerta.fecha_referencia
+                          ? formatoFechaOCorta(alerta.fecha_referencia)
+                          : alerta.plazo}
+                      </Celda>
+
+                      <Celda>
+                        <Text fontSize="sm" color="fg.muted" title={alerta.motivo}>
+                          {alerta.motivo}
                         </Text>
-                      </HStack>
-                    </Celda>
-
-                    <Celda>
-                      <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
-                      <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
-                    </Celda>
-
-                    <Celda fontSize="sm">
-                      {alerta.fecha_referencia
-                        ? formatoFechaOCorta(alerta.fecha_referencia)
-                        : alerta.plazo}
-                    </Celda>
-
-                    <Celda>
-                      <Text fontSize="sm" color="fg.muted" title={alerta.motivo}>
-                        {alerta.motivo}
-                      </Text>
-                    </Celda>
-
-                    <Celda center>
-                      <Button
-                        size="sm"
-                        colorPalette="brand"
-                        fontWeight="bold"
-                        loading={recambiando === alerta.clave}
-                        onClick={() => handleResolver(alerta)}
-                      >
-                        {ETIQUETA_ACCION[alerta.origen] ?? "Ver situación"}
-                      </Button>
-                    </Celda>
-                  </Table.Row>
-                ))}
+                      </Celda>
+                    </Table.Row>
+                  );
+                })}
               </Table.Body>
             </Table.Root>
           </Tarjeta>
