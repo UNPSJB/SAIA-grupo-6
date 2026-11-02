@@ -6,7 +6,7 @@ este módulo es solo la lectura que expone el endpoint `GET /auditoria`.
 
 import logging
 from datetime import date, datetime, time, timezone, tzinfo
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import distinct, select
@@ -64,6 +64,27 @@ def listar_auditoria(
     comparación cubre el día completo (00:00:00 a 23:59:59.999999 locales),
     convertido a UTC porque `fecha` se guarda en UTC.
     """
+    consulta = _consulta_filtrada(
+        entidad=entidad,
+        entidad_id=entidad_id,
+        usuario_id=usuario_id,
+        accion=accion,
+        desde=desde,
+        hasta=hasta,
+    )
+    items, total = paginar(db, consulta, page, page_size)
+    return _armar_items(db, items), total
+
+
+def _consulta_filtrada(
+    *,
+    entidad: Optional[str],
+    entidad_id: Optional[str],
+    usuario_id: Optional[int],
+    accion: Optional[str],
+    desde: Optional[date],
+    hasta: Optional[date],
+):
     consulta = select(AuditLog)
 
     if entidad is not None:
@@ -81,10 +102,10 @@ def listar_auditoria(
 
     # Orden estable con desempate por id: dos eventos del mismo segundo no
     # pueden repetirse ni omitirse entre páginas.
-    consulta = consulta.order_by(AuditLog.fecha.desc(), AuditLog.id.desc())
+    return consulta.order_by(AuditLog.fecha.desc(), AuditLog.id.desc())
 
-    items, total = paginar(db, consulta, page, page_size)
 
+def _armar_items(db: Session, items: list[AuditLog]) -> list[AuditLogItem]:
     # Enriquecer con el nombre del actor para la UI, en una sola consulta.
     ids = {fila.usuario_id for fila in items if fila.usuario_id}
     nombres: dict[int, str] = {}
@@ -124,7 +145,40 @@ def listar_auditoria(
 
         resultado.append(item)
 
-    return resultado, total
+    return resultado
+
+
+LOTE_EXPORTACION = 500
+
+
+def iterar_auditoria(
+    db: Session,
+    *,
+    entidad: Optional[str] = None,
+    entidad_id: Optional[str] = None,
+    usuario_id: Optional[int] = None,
+    accion: Optional[str] = None,
+    desde: Optional[date] = None,
+    hasta: Optional[date] = None,
+) -> Iterator[AuditLogItem]:
+    """Todos los eventos que cumplen los filtros (sin paginar), en lotes."""
+    consulta = _consulta_filtrada(
+        entidad=entidad,
+        entidad_id=entidad_id,
+        usuario_id=usuario_id,
+        accion=accion,
+        desde=desde,
+        hasta=hasta,
+    )
+    pagina = 1
+    while True:
+        filas, _ = paginar(db, consulta, pagina, LOTE_EXPORTACION)
+        if not filas:
+            return
+        yield from _armar_items(db, filas)
+        if len(filas) < LOTE_EXPORTACION:
+            return
+        pagina += 1
 
 
 def listar_entidades(db: Session) -> list[str]:

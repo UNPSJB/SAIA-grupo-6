@@ -41,3 +41,6 @@ uvicorn==0.52.1
 watchfiles==1.2.0
 websockets==17.0.1
 tzdata==2026.6
+charset-normalizer==3.5.2
+pillow==13.0.0
+reportlab==5.1.0
