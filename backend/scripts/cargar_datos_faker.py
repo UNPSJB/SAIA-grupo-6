@@ -95,6 +95,7 @@ from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
 )
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.documentos.constants import TipoDocumento  # noqa: E402
+from src.documentos.pdf_generator import ContextoDocumento, generar_pdf_documento  # noqa: E402
 from src.proveedores.models import Proveedor  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
 from src.notificaciones.models import ConfiguracionAlerta  # noqa: E402
@@ -1042,49 +1043,6 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
     return total
 
 
-def _pdf_de_prueba(texto: str) -> bytes:
-    """Arma un PDF de una página con `texto`, a mano y sin dependencias.
-
-    El seed de documentos escribe filas que apuntan a un archivo real: con
-    solo la fila, "Abrir documento" terminaría en un 404. No hay ninguna
-    librería de PDF en requirements, así que el archivo se construye byte a
-    byte, con su tabla xref correcta para que cualquier visor lo abra.
-    """
-    # Los paréntesis y la barra se escapan dentro de la cadena de texto del PDF.
-    seguro = texto.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
-    contenido = (
-        "BT /F1 16 Tf 60 760 Td (SAIA - documento de prueba) Tj "
-        f"0 -24 Td /F1 12 Tf ({seguro}) Tj ET"
-    ).encode("latin-1", errors="replace")
-
-    objetos = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
-        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        b"<< /Length " + str(len(contenido)).encode() + b" >>\nstream\n"
-        + contenido + b"\nendstream",
-    ]
-
-    salida = bytearray(b"%PDF-1.4\n")
-    offsets = []
-    for numero, objeto in enumerate(objetos, start=1):
-        offsets.append(len(salida))
-        salida += f"{numero} 0 obj\n".encode() + objeto + b"\nendobj\n"
-
-    inicio_xref = len(salida)
-    salida += f"xref\n0 {len(objetos) + 1}\n".encode()
-    salida += b"0000000000 65535 f \n"
-    for offset in offsets:
-        salida += f"{offset:010d} 00000 n \n".encode()
-    salida += (
-        f"trailer\n<< /Size {len(objetos) + 1} /Root 1 0 R >>\n"
-        f"startxref\n{inicio_xref}\n%%EOF"
-    ).encode()
-    return bytes(salida)
-
-
 def crear_documentos(db, cantidad: int, admins, vistos: dict) -> int:
     """Documentos con su versión vigente (y alguna archivada).
 
@@ -1178,9 +1136,29 @@ def _guardar_version(
     vencimiento: Optional[date],
     vigente_hasta: Optional[datetime],
 ) -> None:
-    """Escribe el archivo físico y la fila de `VersionDocumento`."""
+    """Escribe el archivo físico (PDF propio de SAIA) y la fila de `VersionDocumento`."""
     nombre_archivo = f"{uuid.uuid4().hex}.pdf"
-    (carpeta / nombre_archivo).write_bytes(_pdf_de_prueba(nombre_documento))
+    if vencimiento and vencimiento < HOY:
+        estado = "vencido"
+    elif not vigente:
+        estado = "archivado"
+    else:
+        estado = "vigente"
+    pdf_bytes = generar_pdf_documento(
+        ContextoDocumento(
+            nombre=nombre_documento,
+            tipo=documento.tipo,
+            numero_version=numero_version,
+            identificador=f"SAIA-DOC-{documento.id:04d}",
+            fecha_emision=subida.date(),
+            fecha_vencimiento=vencimiento,
+            estado=estado,
+            autor=f"{autor.nombre} {autor.apellido or ''}".strip(),
+            documento_id=documento.id,
+            fecha_subida=subida,
+        )
+    )
+    (carpeta / nombre_archivo).write_bytes(pdf_bytes)
 
     db.add(
         VersionDocumento(

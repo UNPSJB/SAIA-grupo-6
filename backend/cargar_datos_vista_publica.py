@@ -47,6 +47,7 @@ from src.checklist.models import (  # noqa: E402
     RegistroTarea,
 )
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
+from src.documentos.pdf_generator import ContextoDocumento, generar_pdf_documento  # noqa: E402
 from src.elementoLimpieza.models import ElementoLimpieza  # noqa: E402
 from src.Equipo.models import Equipo  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
@@ -184,42 +185,6 @@ def obtener_o_crear_aptitud(db, nombre: str, descripcion: str) -> Aptitud:
         db.add(aptitud)
         db.flush()
     return aptitud
-
-
-def _pdf_de_prueba(texto: str) -> bytes:
-    """PDF mínimo de una página para que "Abrir documento" no dé 404."""
-    seguro = texto.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
-    contenido = (
-        "BT /F1 14 Tf 60 760 Td (SAIA - documento de prueba) Tj "
-        f"0 -24 Td /F1 11 Tf ({seguro}) Tj ET"
-    ).encode("latin-1", errors="replace")
-
-    objetos = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
-        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        b"<< /Length " + str(len(contenido)).encode() + b" >>\nstream\n"
-        + contenido + b"\nendstream",
-    ]
-
-    salida = bytearray(b"%PDF-1.4\n")
-    offsets = []
-    for numero, objeto in enumerate(objetos, start=1):
-        offsets.append(len(salida))
-        salida += f"{numero} 0 obj\n".encode() + objeto + b"\nendobj\n"
-
-    inicio_xref = len(salida)
-    salida += f"xref\n0 {len(objetos) + 1}\n".encode()
-    salida += b"0000000000 65535 f \n"
-    for offset in offsets:
-        salida += f"{offset:010d} 00000 n \n".encode()
-    salida += (
-        f"trailer\n<< /Size {len(objetos) + 1} /Root 1 0 R >>\n"
-        f"startxref\n{inicio_xref}\n%%EOF"
-    ).encode()
-    return bytes(salida)
 
 
 # ============================================================
@@ -362,8 +327,27 @@ def sembrar_documentos(db, autor: Personal) -> None:
         db.add(documento)
         db.flush()
 
+        vencimiento = (
+            HOY + timedelta(days=dias_hasta_vencimiento)
+            if dias_hasta_vencimiento is not None
+            else None
+        )
+        estado = "vencido" if (vencimiento and vencimiento < HOY) else "vigente"
+        pdf_bytes = generar_pdf_documento(
+            ContextoDocumento(
+                nombre=nombre,
+                tipo=tipo,
+                numero_version=1,
+                identificador=f"SAIA-DOC-{documento.id:04d}",
+                fecha_emision=HOY,
+                fecha_vencimiento=vencimiento,
+                estado=estado,
+                autor=f"{autor.nombre} {autor.apellido or ''}".strip(),
+                documento_id=documento.id,
+            )
+        )
         nombre_archivo = f"demo-{documento.id}.pdf"
-        (carpeta / nombre_archivo).write_bytes(_pdf_de_prueba(nombre))
+        (carpeta / nombre_archivo).write_bytes(pdf_bytes)
         db.add(
             VersionDocumento(
                 documento_id=documento.id,
