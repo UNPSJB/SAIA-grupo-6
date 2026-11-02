@@ -37,9 +37,9 @@ for _stream in (sys.stdout, sys.stderr):
 from src.auth.services import hashear_password  # noqa: E402
 from src.common.fechas import hoy  # noqa: E402
 from src.config import CARPETA_UPLOADS, settings  # noqa: E402
-from src.database import SessionLocal, engine  # noqa: E402
-from src.models import ModeloBase  # noqa: E402
+from src.database import SessionLocal  # noqa: E402
 import src.all_models  # noqa: F401,E402  (registra los modelos)
+from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.aptitud.models import Aptitud  # noqa: E402
 from src.checklist.models import (  # noqa: E402
     Checklist,
@@ -59,8 +59,6 @@ from src.tareas.models import Tarea  # noqa: E402
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
 from src.vistaPublica import services as vista_publica_services  # noqa: E402
 from src.vistaPublica.models import ConfiguracionVistaPublica  # noqa: E402
-
-ModeloBase.metadata.create_all(bind=engine)
 
 HOY = hoy()
 CONTRASENA_DEMO = "12345678"
@@ -489,13 +487,15 @@ def sembrar_checklists(db, planes, autor: Personal) -> None:
 # ============================================================
 
 
-def main() -> None:
+def main(preparar_esquema: bool = True) -> None:
     db = SessionLocal()
     # El seed no audita: la bitácora registra operaciones de negocio, no la
     # construcción del escenario de prueba.
     db.info["sin_auditoria"] = True
 
     try:
+        if preparar_esquema:
+            crear_tablas_y_migrar()
         print("⏳ Preparando datos de prueba de la vista pública...")
 
         autor = asegurar_admin(db)

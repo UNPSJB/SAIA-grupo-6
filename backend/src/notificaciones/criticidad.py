@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from datetime import date, timedelta
+from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
 from src.common.fechas import hoy
 from typing import Any
 
@@ -41,7 +42,6 @@ ORDEN_CRITICIDAD = {"alta": 3, "media": 2, "baja": 1}
 
 DIAS_RECURRENCIA = 30
 UMBRAL_RECURRENCIA = 3
-DIAS_DOCUMENTO_PROXIMO = 15
 
 ICONOS = {
     "ELEMENTO_LIMPIEZA": "limpieza",
@@ -114,6 +114,13 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
 
     if tipo == "STOCK_BAJO":
         return "STOCK_BAJO"
+
+    if tipo == "DOCUMENTO":
+        return (
+            "DOCUMENTO_VENCIDO"
+            if nivel == "VENCIDO"
+            else "DOCUMENTO_PROXIMO"
+        )
 
     raise ValueError(f"Tipo de notificación no contemplado: {tipo}")
 
@@ -248,6 +255,12 @@ def obtener_criticidad_dashboard(
     # 1. VENCIMIENTOS EXISTENTES
     # --------------------------------------------------------
     for notificacion in notificacion_services.obtener_todas_notificaciones(db):
+        # Los documentos los gestiona la sección 2 de este mismo motor con
+        # la clasificación única (estado_documento). Se ignoran acá para no
+        # duplicar cada documento en el tablero de criticidad.
+        if notificacion.tipo == "DOCUMENTO":
+            continue
+
         grupo = notificacion.grupo_clave
 
         if grupo is None:
@@ -295,10 +308,18 @@ def obtener_criticidad_dashboard(
 
         dias = (version.fecha_vencimiento - hoy_dia).days
 
-        if dias < 0:
+        # Clasificación única con el margen configurable (no el fijo de 15
+        # días). Hoy es vigente ("vence hoy", no alerta); venció ayer o antes
+        # es VENCIDO; dentro del margen es PROXIMO.
+        estado = estado_documento(
+            version.fecha_vencimiento, hoy_dia,
+            notificacion_services.obtener_dias_alerta_vencimiento_personal(db),
+        )
+
+        if estado == VENCIDO:
             regla = "DOCUMENTO_VENCIDO"
             titulo = "Documento vencido"
-        elif dias <= DIAS_DOCUMENTO_PROXIMO:
+        elif estado == PROXIMO:
             regla = "DOCUMENTO_PROXIMO"
             titulo = "Documento próximo a vencer"
         else:
@@ -337,36 +358,40 @@ def obtener_criticidad_dashboard(
 
     # Para el panel actual mostramos únicamente las situaciones vigentes de
     # hoy, mientras que todos los días del período se utilizan para recurrencia.
+    # Una sola situación por equipo con tareas pendientes hoy (no una por
+    # tarea): varias tareas sin completar en la mañana no deben inflar el
+    # nivel de todas las alertas del equipo. Cada día histórico distinto aún
+    # cuenta como una ocurrencia para la recurrencia en _recurrencia_checklists.
+    # Mapa equipo_id -> nombre (ya cargado con selectinload en la consulta).
+    nombres_equipo: dict[int, str] = {}
+    for checklist in checklists_historicos:
+        if checklist.equipo is not None:
+            nombres_equipo[checklist.equipo_id] = checklist.equipo.nombre
+
+    equipos_con_pendientes_hoy: set[int] = set()
     for checklist in checklists_historicos:
         if checklist.fecha != hoy_dia:
             continue
 
-        for registro in checklist.registros:
-            if registro.completado:
-                continue
+        if any(not registro.completado for registro in checklist.registros):
+            equipos_con_pendientes_hoy.add(checklist.equipo_id)
 
-            if registro.elemento_limpieza_id is not None:
-                grupo = f"elemento:{registro.elemento_limpieza_id}"
-            else:
-                grupo = f"equipo:{checklist.equipo_id}"
+    for equipo_id in sorted(equipos_con_pendientes_hoy):
+        detalle = nombres_equipo.get(equipo_id, f"equipo {equipo_id}")
 
-            detalle = checklist.equipo.nombre
-            if registro.nombre_tarea_historico:
-                detalle = f"{detalle} · {registro.nombre_tarea_historico}"
-
-            alertas.append(
-                _crear_alerta(
-                    clave=f"checklist-registro-{registro.id}",
-                    origen="CHECKLIST",
-                    entidad_id=registro.id,
-                    grupo_clave=grupo,
-                    titulo="Tarea de checklist incumplida",
-                    detalle=detalle,
-                    regla="CHECKLIST_INCOMPLETO",
-                    fecha_referencia=checklist.fecha,
-                    destino="/checklist/historial",
-                )
+        alertas.append(
+            _crear_alerta(
+                clave=f"checklist-equipo-{equipo_id}-{hoy_dia.isoformat()}",
+                origen="CHECKLIST",
+                entidad_id=equipo_id,
+                grupo_clave=f"equipo:{equipo_id}",
+                titulo="Tarea de checklist incumplida",
+                detalle=detalle,
+                regla="CHECKLIST_INCOMPLETO",
+                fecha_referencia=hoy_dia,
+                destino="/checklist/historial",
             )
+        )
 
     # --------------------------------------------------------
     # 4. INCIDENTES

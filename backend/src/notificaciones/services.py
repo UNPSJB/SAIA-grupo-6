@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from src.common.fechas import hoy
+from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -8,6 +9,7 @@ from src.elementoLimpieza.models import ElementoLimpieza
 from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
+from src.documentos.models import Documento, VersionDocumento
 
 from src.aptitud.models import Aptitud
 from src.common.texto import coincide_terminos
@@ -253,6 +255,61 @@ def _filtrar_por_texto(
     ]
 
 
+def obtener_notificaciones_documentos(db: Session) -> List[NotificacionResponse]:
+    """Documentos con versión vigente y fecha de vencimiento, para la campana.
+
+    Se notifican sólo los vencidos o próximos a vencer (dentro del margen
+    configurable). Un documento que vence hoy es vigente, no alerta.
+    """
+    notificaciones: List[NotificacionResponse] = []
+    hoy_dia = hoy()
+    margen = obtener_dias_alerta_vencimiento_personal(db)
+
+    versiones = db.scalars(
+        select(VersionDocumento)
+        .options(selectinload(VersionDocumento.documento))
+        .where(
+            VersionDocumento.vigente.is_(True),
+            VersionDocumento.fecha_vencimiento.is_not(None),
+        )
+    ).all()
+
+    for version in versiones:
+        documento = version.documento
+        fecha = version.fecha_vencimiento
+        if isinstance(fecha, datetime):
+            fecha = fecha.date()
+
+        estado = estado_documento(fecha, hoy_dia, margen)
+
+        if estado == VENCIDO:
+            nivel = "VENCIDO"
+            titulo = "Documento vencido"
+            mensaje = f"'{documento.nombre}' venció el {fecha:%d/%m/%Y}."
+        elif estado == PROXIMO:
+            nivel = "PROXIMO_A_VENCER"
+            titulo = "Documento próximo a vencer"
+            mensaje = f"'{documento.nombre}' vence el {fecha:%d/%m/%Y}."
+        else:
+            continue
+
+        notificaciones.append(
+            NotificacionResponse(
+                id_notificacion=f"documento-{version.id}",
+                tipo="DOCUMENTO",
+                entidad_id=documento.id,
+                titulo=titulo,
+                mensaje=mensaje,
+                nivel=nivel,
+                link_destino=f"/documentos/{documento.id}/historial",
+                fecha_referencia=fecha,
+                grupo_clave=f"documento:{documento.id}",
+            )
+        )
+
+    return notificaciones
+
+
 def obtener_todas_notificaciones(
     db: Session, buscar: str | None = None
 ) -> List[NotificacionResponse]:
@@ -268,6 +325,7 @@ def obtener_todas_notificaciones(
     lista_total.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
     lista_total.extend(obtener_notificaciones_vencimientos_personal(db))
     lista_total.extend(obtener_notificaciones_stock_bajo(db))
+    lista_total.extend(obtener_notificaciones_documentos(db))
     lista_total.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
     return _filtrar_por_texto(lista_total, buscar)
 
@@ -297,6 +355,7 @@ _TIPOS_ORIGEN = (
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
+    "DOCUMENTO",
 )
 
 

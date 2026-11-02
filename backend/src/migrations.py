@@ -451,14 +451,20 @@ def run_migrations() -> None:
                 )
             )
 
-    if (
-        "calibraciones" in tablas
-        and "activo" in _columnas_de(inspector, "calibraciones")
+    # La baja de una intervención es lógica: el servicio y el router filtran
+    # por esta columna para no usarla al recalcular el plan. SQLite permite
+    # agregarla sin reconstruir la tabla si se fija el default para las filas
+    # históricas.
+    if "calibraciones" in tablas and "activo" not in _columnas_de(
+        inspector, "calibraciones"
     ):
-        logger.info("Migración: eliminando columna calibraciones.activo")
+        logger.info("Migración: agregando columna calibraciones.activo")
         with engine.begin() as conexion:
             conexion.execute(
-                text("ALTER TABLE calibraciones DROP COLUMN activo")
+                text(
+                    "ALTER TABLE calibraciones "
+                    "ADD COLUMN activo BOOLEAN NOT NULL DEFAULT 1"
+                )
             )
 
     # 6) Calibraciones: tipo de intervención.
@@ -515,6 +521,27 @@ def run_migrations() -> None:
                 conexion.execute(
                     text("ALTER TABLE tareas ADD COLUMN observaciones TEXT")
                 )
+
+        if "operador_id" not in columnas:
+            logger.info("Migración: agregando columna tareas.operador_id")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE tareas "
+                        "ADD COLUMN operador_id INTEGER "
+                        "REFERENCES personal(id) ON DELETE SET NULL"
+                    )
+                )
+
+        # Las bases nuevas lo crean desde el modelo; las antiguas necesitan el
+        # índice después de sumar la columna durante la migración.
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_tareas_operador_id "
+                    "ON tareas (operador_id)"
+                )
+            )
 
     # 8) Registro de tareas: congelado del tipo y las observaciones.
     #
@@ -714,6 +741,52 @@ def run_migrations() -> None:
             promovido,
             motivo,
         )
+
+    # 11) Tablas de seguridad (problema 11).
+    #    Se crean para soportar el rate limiting compartido por IP y DNI, y la
+    #    rotación atómica de refresh tokens. Se usa CREATE TABLE IF NOT EXISTS
+    #    para que sea idempotente y no falle si create_all ya las creó.
+    if "refresh_tokens" not in tablas:
+        logger.info("Migración: creando tabla refresh_tokens")
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS refresh_tokens ("
+                    "jti VARCHAR(64) NOT NULL PRIMARY KEY, "
+                    "usuario_id INTEGER NOT NULL REFERENCES personal(id) ON DELETE CASCADE, "
+                    "familia VARCHAR(64) NOT NULL, "
+                    "usado BOOLEAN NOT NULL DEFAULT 0, "
+                    "expira DATETIME NOT NULL, "
+                    "creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+                )
+            )
+            conexion.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_refresh_tokens_usuario_id "
+                    "ON refresh_tokens (usuario_id)"
+                )
+            )
+            conexion.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_refresh_tokens_familia "
+                    "ON refresh_tokens (familia)"
+                )
+            )
+
+    if "intentos_login" not in tablas:
+        logger.info("Migración: creando tabla intentos_login")
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS intentos_login ("
+                    "ip VARCHAR(45) NOT NULL, "
+                    "dni VARCHAR(8) NOT NULL, "
+                    "ultimo_intento DATETIME NOT NULL, "
+                    "contador INTEGER NOT NULL DEFAULT 0, "
+                    "bloqueado_hasta DATETIME, "
+                    "PRIMARY KEY (ip, dni))"
+                )
+            )
 
 
 def crear_tablas_y_migrar() -> None:

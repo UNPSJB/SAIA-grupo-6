@@ -1,4 +1,5 @@
 from typing import List, Optional
+import logging
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -6,6 +7,7 @@ from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
+    es_violacion_unica,
     guardar,
     mapa_por_campo,
     obtener,
@@ -17,12 +19,27 @@ from src.insumoQuimico.models import TipoQuimico
 from src.insumoQuimico import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
+logger = logging.getLogger(__name__)
+
 # `insumos_quimicos.nombre` es UNIQUE: sin este mapeo un PUT con nombre
 # repetido escapaba como 500 en vez de un 400 de negocio.
-_MAPEA_CONFLICTO = mapa_por_campo(
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     ("insumos_quimicos.nombre", exceptions.InsumoQuimicoYaExiste),
     por_defecto=exceptions.DatoDuplicado,
 )
+
+
+def _mapear_conflicto_insumo_quimico(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en insumo químico (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 _ORDENES = {
     "nombre_asc": ColumnaOrden((sin_tildes(InsumoQuimico.nombre),)),
@@ -72,7 +89,7 @@ def crear_insumo_quimico(db: Session, datos: schemas.InsumoQuimicoCreate) -> Ins
     # El catálogo no acepta cantidades: cada producto nace con su propio saldo
     # cero y solo los endpoints de stock pueden modificarlo.
     db.add(StockInsumoQuimico(insumo_quimico_id=nuevo_insumo.id))
-    return guardar(db, nuevo_insumo, _MAPEA_CONFLICTO)
+    return guardar(db, nuevo_insumo, _mapear_conflicto_insumo_quimico)
 
 
 def _consulta_insumos_quimicos(
@@ -195,7 +212,7 @@ def actualizar_insumo_quimico(db: Session, insumo_id: int, datos: schemas.Insumo
             if tiene_movimientos is not None:
                 raise exceptions.UnidadConMovimientos()
 
-    return aplicar_cambios(db, insumo, cambios, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, insumo, cambios, _mapear_conflicto_insumo_quimico)
 
 
 def eliminar_insumo_quimico(db: Session, insumo_id: int) -> InsumoQuimico:

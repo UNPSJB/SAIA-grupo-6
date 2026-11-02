@@ -18,11 +18,19 @@ base quedaría inservible para probar la aplicación.
 
 Por defecto reemplaza los datos (igual que `cargar_datos.py`); con `--agregar`
 conserva lo que hay y agrega nuevas filas sin chocar con los UNIQUE.
+
+Después de las altas, `simular_actividad` opera sobre lo cargado como lo haría
+la gente en la app (modificar, dar de baja, reactivar, eliminar, cerrar
+incidentes, versionar documentos, consumir stock...) para que la bitácora de
+auditoría traiga TODAS las acciones sobre TODAS las entidades. `--sin-actividad`
+lo saltea.
 """
 
 import argparse
+import os
 import random
 import re
+import secrets
 import sys
 import unicodedata
 import uuid
@@ -33,6 +41,7 @@ from typing import Optional
 
 from faker import Faker
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 
 # Permite correr el script desde cualquier directorio.
 RAIZ = Path(__file__).resolve().parent
@@ -48,9 +57,10 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError, OSError):
         pass  # salida redireccionada a un archivo: se deja como está
 
-from src.database import SessionLocal, engine  # noqa: E402
-from src.models import ModeloBase  # noqa: E402
+from src.config import settings
+from src.database import SessionLocal  # noqa: E402
 import src.all_models  # noqa: F401,E402  (registra los modelos)
+from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
 from src.auditoria.models import AuditLog  # noqa: E402
@@ -60,7 +70,14 @@ from src.aptitud.models import Aptitud  # noqa: E402
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
 from src.insumos.models import Insumo  # noqa: E402
-from src.insumoQuimico.models import InsumoQuimico, TipoQuimico  # noqa: E402
+from src.insumoQuimico.models import (  # noqa: E402
+    InsumoQuimico,
+    TipoQuimico,
+    StockInsumoQuimico,
+    LoteStock,
+    MovimientoStockInsumoQuimico,
+    TipoMovimientoStock,
+)
 from src.elementoLimpieza.models import ElementoLimpieza  # noqa: E402
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: E402
 from src.tareas.models import Tarea  # noqa: E402
@@ -78,12 +95,11 @@ from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
 )
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.documentos.constants import TipoDocumento  # noqa: E402
+from src.proveedores.models import Proveedor  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
 from src.notificaciones.models import ConfiguracionAlerta  # noqa: E402
 
-# Asegura que las tablas existan antes de insertar (idempotente).
-ModeloBase.metadata.create_all(bind=engine)
-
+# Contraseña de TODO el personal. Valor acordado con el grupo de desarrollo.
 CONTRASENA_POR_DEFECTO = "12345678"
 DOMINIO_EMAIL = "alimentosdelsur.com.ar"
 HOY = date.today()
@@ -349,6 +365,36 @@ OBSERVACIONES = [
 ]
 
 
+# Cierre de incidentes (se usa al sembrar y al simular el cierre posterior).
+OBSERVACIONES_CIERRE = [
+    "Se reparó la pieza y se verificó el funcionamiento normal.",
+    "Se sanitizó la zona y se reforzó el protocolo.",
+    "Se reemplazó el equipo por uno nuevo.",
+    "Se capacitó al personal involucrado.",
+]
+
+# Observaciones de un supervisor sobre un checklist.
+OBSERVACIONES_CHECKLIST = [
+    "Se detectó un desvío menor en la ejecución de la tarea.",
+    "El supervisor observó falta de evidencia fotográfica.",
+    "Se pidió reforzar la sanitización de una superficie.",
+]
+
+# Motivos de un egreso de stock de insumos químicos.
+MOTIVOS_EGRESO = [
+    "Consumo en limpieza de planta",
+    "Uso en sanitización de equipos",
+    "Reposición en el sector de elaboración",
+    "Ajuste por conteo de inventario",
+]
+
+# Corrección de un símbolo de unidad de medida ("kg" cargado como "Kg"...).
+SIMBOLOS_ALTERNATIVOS = {
+    "kg": "Kg", "L": "lt", "u": "un", "g": "gr", "mL": "ml", "t": "tn",
+    "mg": "mgr", "cm³": "cc", "m": "mt", "cm": "cms", "h": "hs", "doc": "dz",
+}
+
+
 def _descripcion_tarea(equipo_nombre: str) -> str:
     """Arma un procedimiento paso a paso creíble para la tarea."""
     pasos = [
@@ -439,14 +485,19 @@ def borrar_todo(db) -> None:
         # reutilizan: dejarla mezclaría historias de datos distintos.
         AuditLog,
         HistorialRegistroTarea,
+        HistorialIncidente,
+        # Los movimientos pueden referenciar registros y checklists. Los lotes
+        # a su vez referencian su movimiento de ingreso, por eso van primero.
+        LoteStock,
+        MovimientoStockInsumoQuimico,
         RegistroTarea,
         Checklist,
-        HistorialIncidente,
         Incidente,
         VersionDocumento,
         Documento,
         VencimientoPersonal,
         Calibracion,
+        StockInsumoQuimico,
         PlanCalibracionMantenimiento,
         Tarea,
         PlanLimpieza,
@@ -457,7 +508,8 @@ def borrar_todo(db) -> None:
         UnidadMedida,
         Equipo,
         Sector,
-        Personal,
+        Proveedor,
+        # Personal NO se borra por defecto (script peligroso en producción).
     ]
     for modelo in orden:
         # Borrado masivo a propósito: este seed SÍ audita lo que carga, pero el
@@ -544,6 +596,9 @@ def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: 
             # Se mantienen activos los que administran: un admin dado de baja
             # deja la base sin administración para probar.
             activo=bool(es_admin or not bernoulli(0.08)),
+            # Es data de prueba con contraseña conocida: no se fuerza el cambio
+            # en el primer login.
+            debe_cambiar_password=False,
             fecha_creacion=hora_aleatoria(hora_max=20),
         )
         db.add(persona)
@@ -717,7 +772,9 @@ def crear_insumos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
     return insumos
 
 
-def crear_planes_y_tareas(db, cantidad: int, equipos, admins, vistos: dict) -> list:
+def crear_planes_y_tareas(
+    db, cantidad: int, equipos, admins, vistos: dict, operadores: list
+) -> list:
     print(f"⏳ Cargando {cantidad} planes de limpieza con sus tareas...")
     planes = []
     autor = random.choice(admins)
@@ -749,6 +806,8 @@ def crear_planes_y_tareas(db, cantidad: int, equipos, admins, vistos: dict) -> l
                 nombres_usados,
                 largo=100,
             )
+            # Cada tarea se asigna a un operador responsable por defecto.
+            operador_default = random.choice(operadores) if operadores else None
             plan.tareas.append(
                 Tarea(
                     nombre=tarea_nombre,
@@ -757,6 +816,7 @@ def crear_planes_y_tareas(db, cantidad: int, equipos, admins, vistos: dict) -> l
                     tipo=random.choice(list(TipoTarea)).value,
                     descripcion=_descripcion_tarea(equipo.nombre),
                     observaciones=random.choice(OBSERVACIONES) if bernoulli(0.6) else None,
+                    operador_id=operador_default.id if operador_default else None,
                 )
             )
         planes.append(plan)
@@ -818,13 +878,7 @@ def crear_checklists(
                 observacion = None
             elif bernoulli(0.12):
                 estado = EstadoChecklist.OBSERVADO
-                observacion = random.choice(
-                    [
-                        "Se detectó un desvío menor en la ejecución de la tarea.",
-                        "El supervisor observó falta de evidencia fotográfica.",
-                        "Se pidió reforzar la sanitización de una superficie.",
-                    ]
-                )
+                observacion = random.choice(OBSERVACIONES_CHECKLIST)
             else:
                 estado = EstadoChecklist.CERRADO
                 observacion = None
@@ -846,8 +900,6 @@ def crear_checklists(
             # Se guardan los datos y se arman los objetos recien después del
             # flush: `HistorialRegistroTarea` expone `registro_tarea_id`, y ese
             # id solo existe una vez insertado el registro.
-            para_historial = []
-
             for tarea in plan.tareas:
                 if es_hoy:
                     # Hoy: la primera tarea queda hecha, el resto pendiente.
@@ -861,6 +913,33 @@ def crear_checklists(
                     insumo = cantidad = elemento = None
                 else:
                     insumo, cantidad, elemento = _consumo_para(tarea.nombre, quimicos, elementos)
+
+                # Operador asignado: hereda el de la plantilla de la tarea;
+                # si la tarea no tiene operador asignado, elige uno al azar.
+                operador_id_tarea = tarea.operador_id
+                if operador_id_tarea is not None:
+                    operador = next(
+                        (o for o in operadores if o.id == operador_id_tarea),
+                        random.choice(operadores),
+                    )
+                else:
+                    operador = random.choice(operadores)
+
+                # Con baja probabilidad, el operador asignado se ausentó y otro
+                # lo cubrió: se registra reemplazado_por_id (estrategia C de
+                # cobertura). Si hay cobertura, quien realmente completó la
+                # tarea fue quien la cubrió.
+                reemplazado_por = None
+                if bernoulli(0.10) and len(operadores) > 1:
+                    candidatos = [o for o in operadores if o.id != operador.id]
+                    if candidatos:
+                        reemplazado_por = random.choice(candidatos)
+
+                quien_hizo = (
+                    reemplazado_por.id
+                    if (completado and reemplazado_por)
+                    else (operador.id if completado else None)
+                )
 
                 registro = RegistroTarea(
                     checklist_id=cabecera.id,
@@ -877,30 +956,20 @@ def crear_checklists(
                         if completado
                         else None
                     ),
-                    usuario_id=random.choice(operadores).id if completado else None,
+                    operador_id=operador.id,
+                    reemplazado_por_id=reemplazado_por.id if reemplazado_por else None,
+                    usuario_id=quien_hizo,
                     insumo_quimico_id=insumo.id if insumo else None,
                     cantidad_consumida=cantidad,
                     elemento_limpieza_id=elemento.id if elemento else None,
                 )
                 registros.append(registro)
 
-                if completado:
-                    # Una fila de bitácora por tarea completada.
-                    para_historial.append((registro, registro.usuario_id, registro.fecha_completado))
-
-            # Un flush para los registros (hace falta su id) y otro para la
-            # bitácora, que los referencia.
+            # Un flush para los registros (hace falta su id). El historial
+            # de cada registro completado se crea después en
+            # crear_historial_registro_tarea, para no duplicar filas.
             db.add_all(registros)
             db.flush()
-            db.add_all(
-                HistorialRegistroTarea(
-                    registro_tarea_id=registro.id,
-                    completado=True,
-                    usuario_id=usuario_id,
-                    fecha_evento=fecha_evento,
-                )
-                for registro, usuario_id, fecha_evento in para_historial
-            )
             total_registros += len(registros)
 
             if es_hoy and pendientes == 0:
@@ -950,18 +1019,7 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
             if cerrado
             else None
         )
-        observacion_cierre = (
-            random.choice(
-                [
-                    "Se reparó la pieza y se verificó el funcionamiento normal.",
-                    "Se sanitizó la zona y se reinforced el protocolo.",
-                    "Se reemplazó el equipo por uno nuevo.",
-                    "Se capacitó al personal involucrado.",
-                ]
-            )
-            if cerrado
-            else None
-        )
+        observacion_cierre = random.choice(OBSERVACIONES_CIERRE) if cerrado else None
         responsable = random.choice(admins) if cerrado else None
 
         incidente = Incidente(
@@ -979,18 +1037,6 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
         db.add(incidente)
         db.flush()
         total += 1
-
-        if cerrado:
-            db.add(
-                HistorialIncidente(
-                    incidente_id=incidente.id,
-                    estado_anterior=EstadoIncidente.ABIERTO.value,
-                    estado_nuevo=EstadoIncidente.CERRADO.value,
-                    usuario_id=responsable.id,
-                    observacion=observacion_cierre,
-                    fecha_evento=fecha_cierre,
-                )
-            )
 
     db.flush()
     return total
@@ -1154,7 +1200,7 @@ def _guardar_version(
     )
 
 
-def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> int:
+def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> list:
     """Planes de calibración/mantenimiento: a lo sumo UNO por equipo y tipo.
 
     El backend lo exige al crear por la API (`_verificar_plan_activo_duplicado`):
@@ -1164,10 +1210,10 @@ def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> int:
 
     Se arman todos los pares (equipo, tipo) posibles y se toman `cantidad`
     sin repetir ninguno. Como los equipos también son `--cantidad`, siempre
-    hay pares de sobra (2 × cantidad).
+    hay pares de sobra (2 × cantidad). Devuelve los planes creados.
     """
     print(f"⏳ Cargando {cantidad} planes de calibración/mantenimiento...")
-    total = 0
+    planes = []
 
     pares = [
         (equipo, tipo)
@@ -1177,19 +1223,206 @@ def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> int:
     random.shuffle(pares)
 
     for equipo, tipo in pares[:cantidad]:
-        db.add(
-            PlanCalibracionMantenimiento(
-                equipo_id=equipo.id,
-                autor_id=random.choice(admins).id,
-                tipo=tipo,
-                fecha_ultima_intervencion=HOY - timedelta(days=random.randint(1, 200)),
-                periodicidad_dias=random.choice([5, 15, 30, 60, 90, 180, 365]),
+        plan = PlanCalibracionMantenimiento(
+            equipo_id=equipo.id,
+            autor_id=random.choice(admins).id,
+            tipo=tipo,
+            fecha_ultima_intervencion=HOY - timedelta(days=random.randint(1, 200)),
+            periodicidad_dias=random.choice([5, 15, 30, 60, 90, 180, 365]),
+            activo=not bernoulli(0.05),
+            fecha_creacion=hora_aleatoria(hora_max=18),
+        )
+        db.add(plan)
+        planes.append(plan)
+
+    db.flush()
+    return planes
+
+
+def crear_proveedores(db, cantidad: int, fake: Faker, vistos: dict) -> list:
+    """Proveedores: catálogo de proveedores de insumos y servicios."""
+    print(f"⏳ Cargando {cantidad} proveedores...")
+    proveedores = []
+    matriculas = vistos.setdefault("matricula", set())
+    for _ in range(cantidad):
+        nombre = unico(
+            lambda: recortar(solo_letras(fake.company()), 120),
+            vistos.setdefault("proveedor", set()),
+            largo=120,
+        )
+        matricula = unico(
+            lambda: f"MAT-{random.randint(1000, 99999)}",
+            matriculas,
+            largo=50,
+        )
+        matriculas.add(matricula)
+        proveedores.append(
+            Proveedor(
+                nombre=nombre,
+                matricula=matricula,
                 activo=not bernoulli(0.05),
-                fecha_creacion=hora_aleatoria(hora_max=18),
+            )
+        )
+    db.add_all(proveedores)
+    db.flush()
+    return proveedores
+
+
+def crear_stock_insumos(db, quimicos: list) -> list:
+    """Stock inicial: un saldo por insumo químico."""
+    print("⏳ Cargando stock de insumos químicos...")
+    stocks = []
+    for q in quimicos:
+        if not q.activo:
+            continue
+        stocks.append(
+            StockInsumoQuimico(
+                insumo_quimico_id=q.id,
+                cantidad_actual=round(random.uniform(0, 500), 3),
+                stock_minimo=round(random.uniform(5, 50), 3)
+                if random.random() < 0.7
+                else None,
+                actualizado_en=hora_aleatoria(hora_max=12),
+            )
+        )
+    db.add_all(stocks)
+    db.flush()
+    return stocks
+
+
+def crear_lotes_stock(
+    db, cantidad: int, proveedores: list, quimicos: list, vistos: dict
+) -> list:
+    """Lotes de stock: cada lote necesita un movimiento de ingreso asociado.
+
+    Devuelve los lotes creados. El lote y su movimiento de ingreso comparten la
+    cantidad: antes cada uno sorteaba la suya y el ingreso no coincidía con el
+    lote que lo originó.
+    """
+    print(f"⏳ Cargando {cantidad} lotes de stock...")
+    lotes = []
+    numeros_lote = vistos.setdefault("lote", set())
+    quimicos_activos = [q for q in quimicos if q.activo]
+    if not proveedores or not quimicos_activos:
+        print("   ⚠️  No hay proveedores o químicos activos para crear lotes.")
+        return lotes
+    for _ in range(min(cantidad, len(proveedores) * len(quimicos_activos))):
+        proveedor = random.choice(proveedores)
+        quimico = random.choice(quimicos_activos)
+        numero_lote = unico(
+            lambda: f"LOTE-{random.randint(10000, 999999)}",
+            numeros_lote,
+            largo=100,
+        )
+        cantidad_lote = round(random.uniform(10, 200), 3)
+        # Cada lote requiere un MovimientoStockInsumoQuimico (FK NOT NULL + UNIQUE).
+        movimiento = MovimientoStockInsumoQuimico(
+            insumo_quimico_id=quimico.id,
+            cantidad_variacion=cantidad_lote,
+            tipo=TipoMovimientoStock.INGRESO,
+            fecha=hora_aleatoria(hora_max=10),
+            motivo="Ingreso de lote de proveedor",
+            nombre_producto=quimico.nombre,
+            unidad_simbolo=quimico.unidad_medida.simbolo
+            if quimico.unidad_medida
+            else None,
+        )
+        db.add(movimiento)
+        db.flush()
+        lote = LoteStock(
+            proveedor_id=proveedor.id,
+            insumo_quimico_id=quimico.id,
+            numero_lote=numero_lote,
+            cantidad_producto=cantidad_lote,
+            fecha_ingreso=hora_aleatoria(hora_max=10),
+            creado_en=hora_aleatoria(hora_max=10),
+            movimiento_ingreso_id=movimiento.id,
+        )
+        db.add(lote)
+        lotes.append(lote)
+    db.flush()
+    return lotes
+
+
+def crear_calibraciones(db, equipos: list) -> list:
+    """Calibraciones: una por equipo de medición, con su certificado."""
+    print("⏳ Cargando calibraciones de equipos...")
+    calibraciones = []
+    equipos_medicion = [e for e in equipos if e.tipo == "Medición" and e.activo]
+    for equipo in equipos_medicion:
+        fecha_real = HOY - timedelta(days=random.randint(1, 180))
+        calibracion = Calibracion(
+            equipo_id=equipo.id,
+            fecha_realizacion=fecha_real,
+            proximo_vencimiento=fecha_real
+            + timedelta(days=equipo.frecuencia_calibracion_dias or 365),
+            certificado_url=f"uploads/certificados/cal_{equipo.id}_{uuid.uuid4().hex[:8]}.pdf",
+            tipo="calibracion",
+            activo=not bernoulli(0.05),
+        )
+        db.add(calibracion)
+        calibraciones.append(calibracion)
+    db.flush()
+    return calibraciones
+
+
+def _tipo_movimiento_salida():
+    """Un tipo de movimiento de stock que NO sea ingreso (consumo, egreso, ajuste).
+
+    Se busca por nombre y, si ninguno coincide, se toma el primero que no sea
+    INGRESO: así el seed no se rompe si el enum usa otro vocabulario. Devuelve
+    None si el enum solo tiene INGRESO (en ese caso no se simulan consumos).
+    """
+    miembros = list(TipoMovimientoStock)
+    for nombre in ("EGRESO", "CONSUMO", "SALIDA", "AJUSTE"):
+        for miembro in miembros:
+            if miembro.name == nombre:
+                return miembro
+    otros = [m for m in miembros if m is not TipoMovimientoStock.INGRESO]
+    return otros[0] if otros else None
+
+
+def crear_historial_registro_tarea(db) -> int:
+    """Historial de registros de tarea: uno por cada registro completado."""
+    print("⏳ Cargando historial de registros de tarea...")
+    total = 0
+    registros = db.scalars(
+        select(RegistroTarea).where(RegistroTarea.completado == True)
+    ).all()
+    for r in registros:
+        db.add(
+            HistorialRegistroTarea(
+                registro_tarea_id=r.id,
+                completado=True,
+                usuario_id=r.usuario_id,
+                evidencia_url=r.evidencia_url,
+                fecha_evento=r.fecha_completado or hora_aleatoria(hora_max=12),
             )
         )
         total += 1
+    db.flush()
+    return total
 
+
+def crear_historial_incidente(db, admins: list) -> int:
+    """Historial de incidentes: uno por cada incidente cerrado."""
+    print("⏳ Cargando historial de incidentes...")
+    total = 0
+    incidentes_cerrados = db.scalars(
+        select(Incidente).where(Incidente.estado == EstadoIncidente.CERRADO.value)
+    ).all()
+    for i in incidentes_cerrados:
+        db.add(
+            HistorialIncidente(
+                incidente_id=i.id,
+                estado_anterior=EstadoIncidente.ABIERTO.value,
+                estado_nuevo=EstadoIncidente.CERRADO.value,
+                usuario_id=i.responsable_cierre_id or random.choice(admins).id,
+                observacion=i.observacion_cierre,
+                fecha_evento=i.fecha_cierre or hora_aleatoria(hora_max=17),
+            )
+        )
+        total += 1
     db.flush()
     return total
 
@@ -1210,6 +1443,13 @@ def simular_actividad(
     quimicos: list,
     elementos: list,
     insumos: list,
+    proveedores: Optional[list] = None,
+    stocks: Optional[list] = None,
+    lotes: Optional[list] = None,
+    calibraciones: Optional[list] = None,
+    planes: Optional[list] = None,
+    planes_cal: Optional[list] = None,
+    unidades: Optional[dict] = None,
 ) -> dict:
     """Genera historia en la bitácora: modificaciones, bajas, reactivaciones y bajas físicas.
 
@@ -1219,16 +1459,61 @@ def simular_actividad(
     bitácora trae acciones MODIFICAR / BAJA / REACTIVAR / ELIMINAR con actores
     distintos. Se hace por el ORM (nunca con UPDATE/DELETE masivos) porque son
     los eventos del ORM los que alimentan la auditoría.
+
+    Cubre todas las entidades auditadas con operaciones propias de cada una:
+
+      * catálogos (equipos, aptitudes, insumos, elementos, químicos, sectores,
+        unidades de medida, proveedores, configuración de alertas);
+      * stock: consumos que bajan el saldo y dejan su movimiento de egreso,
+        cambios del stock mínimo, corrección y borrado de lotes;
+      * personal y vencimientos (renovación, baja, reactivación, borrado);
+      * calibraciones y planes de calibración/mantenimiento;
+      * planes de limpieza y sus tareas;
+      * incidentes (reclasificación, cierre con su historial, borrado de
+        cargas erróneas);
+      * documentos (renombrar, renovar vencimiento, nueva versión que archiva
+        la vigente, borrado de versiones archivadas y de documentos);
+      * checklists (observación del supervisor, cierre).
+
+    Solo se BORRA lo que nadie referencia: el resto se da de baja. Si aun así
+    una FK lo impide, el borrado se deshace y se cuenta como `omitidos`.
     """
     print("⏳ Simulando actividad (modificaciones, bajas, reactivaciones y eliminaciones)...")
-    cuenta = {"modificados": 0, "bajas": 0, "reactivados": 0, "eliminados": 0}
+    cuenta = {"modificados": 0, "bajas": 0, "reactivados": 0, "eliminados": 0, "omitidos": 0}
+    proveedores = list(proveedores or [])
+    stocks = list(stocks or [])
+    lotes = list(lotes or [])
+    calibraciones = list(calibraciones or [])
+    planes = list(planes or [])
+    planes_cal = list(planes_cal or [])
+    unidades = unidades or {}
     por_tipo = max(1, len(equipos) // 3)
+    tipo_salida = _tipo_movimiento_salida()
 
-    def como_admin_commit(clave: str) -> None:
-        """Un evento de negocio = un commit hecho por un administrador al azar."""
-        db.info["usuario_id"] = random.choice(admins).id
+    def como_admin_commit(clave: str, actor=None) -> None:
+        """Un evento de negocio = un commit hecho por un administrador (al azar o el dado)."""
+        db.info["usuario_id"] = (actor or random.choice(admins)).id
         db.commit()
         cuenta[clave] += 1
+
+    def eliminar(*objetos) -> bool:
+        """Borra los objetos en orden (hijos primero) y commitea como un solo evento.
+
+        Si una FK lo impide se deshace y se sigue: no es un error del seed, solo
+        una fila que la aplicación tampoco dejaría borrar.
+        """
+        db.info["usuario_id"] = random.choice(admins).id
+        try:
+            for objeto in objetos:
+                db.delete(objeto)
+                db.flush()
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            cuenta["omitidos"] += 1
+            return False
+        cuenta["eliminados"] += 1
+        return True
 
     def muestra(lista: list, n: int = por_tipo):
         """Elige `n` objetos y los entrega de a uno, recargados.
@@ -1243,6 +1528,24 @@ def simular_actividad(
             db.refresh(objeto)
             yield objeto
 
+    def muestra_por_id(modelo, condicion=None, n: int = por_tipo):
+        """Como `muestra`, pero para tablas grandes: se sortean ids y se cargan de a uno.
+
+        Sirve para checklists, incidentes o documentos, donde traer todas las
+        filas solo para elegir unas pocas sería caro (`--cantidad 200` x días).
+        """
+        consulta = select(modelo.id)
+        if condicion is not None:
+            consulta = consulta.where(condicion)
+        ids = list(db.scalars(consulta).all())
+        for id_ in random.sample(ids, min(n, len(ids))):
+            objeto = db.get(modelo, id_)
+            if objeto is not None:
+                db.refresh(objeto)
+                yield objeto
+
+    quimico_por_id = {q.id: q for q in quimicos}
+
     try:
         # ---------------- MODIFICAR ----------------
         for equipo in muestra(equipos):
@@ -1251,6 +1554,17 @@ def simular_actividad(
             )
             _, _, ubicacion = random.choice(VOCAB_EQUIPOS)
             equipo.sector_id = obtener_o_crear_sector(db, ubicacion).id
+            como_admin_commit("modificados")
+
+        # Sectores: se renombran DESPUÉS de reasignar equipos, que busca el
+        # sector por su nombre original.
+        for sector in muestra_por_id(Sector):
+            base = sector.nombre
+            sector.nombre = unico(
+                lambda: f"{base} {random.choice(['Norte', 'Sur', 'Principal', 'Auxiliar'])}",
+                vistos["sector"],
+                largo=40,
+            )
             como_admin_commit("modificados")
 
         for insumo in muestra(insumos):
@@ -1299,12 +1613,230 @@ def simular_actividad(
             persona.password = hash_nuevo
             como_admin_commit("modificados")
 
+        # Proveedores: cambia la razón social o se corrige la matrícula.
+        for proveedor in muestra(proveedores):
+            if bernoulli(0.5):
+                base = proveedor.nombre
+                proveedor.nombre = unico(
+                    lambda: recortar(
+                        solo_letras(f"{base} {random.choice(['SA', 'SRL', 'Hnos', 'y Cía'])}"), 120
+                    ),
+                    vistos["proveedor"],
+                    largo=120,
+                )
+            else:
+                proveedor.matricula = unico(
+                    lambda: f"MAT-{random.randint(1000, 99999)}", vistos["matricula"], largo=50
+                )
+            como_admin_commit("modificados")
+
+        # Stock de insumos químicos: la mayoría de las veces es un consumo, que
+        # baja el saldo y deja el movimiento de egreso que lo explica; el resto
+        # son ajustes del stock mínimo.
+        for stock in muestra(stocks):
+            actor = random.choice(admins)
+            actual = float(stock.cantidad_actual or 0)
+            quimico = quimico_por_id.get(stock.insumo_quimico_id)
+            if tipo_salida is not None and quimico is not None and actual > 0 and bernoulli(0.7):
+                consumo = round(min(actual, random.uniform(1, 30)), 3)
+                stock.cantidad_actual = round(actual - consumo, 3)
+                movimiento = MovimientoStockInsumoQuimico(
+                    insumo_quimico_id=quimico.id,
+                    cantidad_variacion=-consumo,
+                    tipo=tipo_salida,
+                    fecha=datetime.now(),
+                    motivo=random.choice(MOTIVOS_EGRESO),
+                    nombre_producto=quimico.nombre,
+                    unidad_simbolo=quimico.unidad_medida.simbolo
+                    if quimico.unidad_medida
+                    else None,
+                )
+                if hasattr(MovimientoStockInsumoQuimico, "responsable_id"):
+                    movimiento.responsable_id = actor.id
+                db.add(movimiento)
+            else:
+                stock.stock_minimo = round(random.uniform(5, 50), 3)
+            stock.actualizado_en = datetime.now()
+            como_admin_commit("modificados", actor)
+
+        # Lotes: se corrige un número de lote cargado a mano.
+        for lote in muestra(lotes):
+            lote.numero_lote = unico(
+                lambda: f"LOTE-{random.randint(10000, 999999)}", vistos["lote"], largo=100
+            )
+            como_admin_commit("modificados")
+
+        # Calibraciones: se corrige la fecha del próximo vencimiento.
+        for calibracion in muestra(calibraciones):
+            calibracion.proximo_vencimiento = calibracion.proximo_vencimiento + timedelta(
+                days=random.choice([30, 90, 180])
+            )
+            como_admin_commit("modificados")
+
+        # Planes de calibración/mantenimiento: se registra una intervención reciente.
+        for plan_cal in muestra(planes_cal):
+            plan_cal.fecha_ultima_intervencion = HOY - timedelta(days=random.randint(0, 30))
+            if bernoulli(0.4):
+                plan_cal.periodicidad_dias = random.choice(
+                    [d for d in (30, 60, 90, 180, 365) if d != plan_cal.periodicidad_dias]
+                )
+            como_admin_commit("modificados")
+
+        # Planes de limpieza: se renombran (solo letras, como exige el schema).
+        for plan in muestra(planes):
+            base = plan.nombre[:48].rstrip()
+            plan.nombre = unico(
+                lambda: recortar(
+                    solo_letras(f"{base} {random.choice(['revisado', 'ajustado', 'vigente'])}"), 60
+                ),
+                vistos["plan"],
+                largo=60,
+            )
+            como_admin_commit("modificados")
+
+        # Tareas de esos planes: cambia la frecuencia y la observación.
+        tareas = [t for p in planes for t in p.tareas]
+        for tarea in muestra(tareas):
+            tarea.frecuencia = random.choice([d for d in (1, 2, 3, 7, 15, 30) if d != tarea.frecuencia])
+            tarea.observaciones = random.choice(OBSERVACIONES)
+            como_admin_commit("modificados")
+
+        # Unidades de medida: se corrige el símbolo de alguna.
+        for unidad in muestra(list(unidades.values())):
+            nuevo = SIMBOLOS_ALTERNATIVOS.get(unidad.simbolo)
+            if nuevo and nuevo != unidad.simbolo:
+                unidad.simbolo = nuevo
+                como_admin_commit("modificados")
+
+        # Configuración de alertas: un administrador ajusta los umbrales.
+        for clave, opciones in (
+            ("vencimiento_proximo_dias", (3, 5, 10, 15)),
+            ("alerta_calibracion_dias", (15, 45, 60)),
+            ("alerta_insumo_bajo_stock", (5, 15, 20)),
+        ):
+            config = db.get(ConfiguracionAlerta, clave)
+            if config is not None:
+                db.refresh(config)
+                config.valor = random.choice([v for v in opciones if v != config.valor])
+                como_admin_commit("modificados")
+
+        # Documentos: se renombran y se renueva el vencimiento de la versión vigente.
+        for documento in muestra_por_id(Documento):
+            base = documento.nombre[:85].rstrip()
+            documento.nombre = unico(
+                lambda: recortar(f"{base} rev {random.randint(2, 9)}", 100),
+                vistos["documento"],
+                largo=100,
+            )
+            como_admin_commit("modificados")
+
+        for version in muestra_por_id(
+            VersionDocumento,
+            VersionDocumento.vigente.is_(True) & VersionDocumento.fecha_vencimiento.is_not(None),
+        ):
+            version.fecha_vencimiento = HOY + timedelta(days=random.choice([90, 180, 365]))
+            como_admin_commit("modificados")
+
+        # Nueva versión: la vigente pasa a archivada y se sube otra. Es un
+        # MODIFICAR (la archivada) más un CREAR (la nueva) en el mismo evento.
+        carpeta_docs = CARPETA_UPLOADS / "documentos"
+        carpeta_docs.mkdir(parents=True, exist_ok=True)
+        for documento in muestra_por_id(Documento):
+            vigente = db.scalar(
+                select(VersionDocumento).where(
+                    VersionDocumento.documento_id == documento.id,
+                    VersionDocumento.vigente.is_(True),
+                )
+            )
+            if vigente is None:
+                continue
+            ultimo = db.scalar(
+                select(func.max(VersionDocumento.numero_version)).where(
+                    VersionDocumento.documento_id == documento.id
+                )
+            )
+            actor = random.choice(admins)
+            ahora = datetime.now()
+            # El actor tiene que estar en la sesión antes del flush que audita el UPDATE.
+            db.info["usuario_id"] = actor.id
+            vigente.vigente = False
+            vigente.vigente_hasta = ahora
+            vigente.fecha_vencimiento = None  # una archivada ya no rige
+            db.flush()  # archivar antes de insertar la nueva (una sola vigente)
+            _guardar_version(
+                db,
+                carpeta_docs,
+                documento,
+                numero_version=(ultimo or 0) + 1,
+                nombre_documento=documento.nombre,
+                autor=actor,
+                vigente=True,
+                subida=ahora,
+                vencimiento=(
+                    HOY + timedelta(days=random.choice([90, 180, 365])) if bernoulli(0.6) else None
+                ),
+                vigente_hasta=None,
+            )
+            como_admin_commit("modificados", actor)
+
+        # Incidentes abiertos: se reclasifican y se cierran (con su historial).
+        for incidente in muestra_por_id(
+            Incidente, Incidente.estado == EstadoIncidente.ABIERTO.value
+        ):
+            opciones = [v for v in VOCAB_INCIDENTES if v[2] != incidente.descripcion]
+            tipo, _, descripcion = random.choice(opciones)
+            incidente.tipo = tipo.value
+            incidente.descripcion = descripcion
+            como_admin_commit("modificados")
+
+        for incidente in muestra_por_id(
+            Incidente, Incidente.estado == EstadoIncidente.ABIERTO.value
+        ):
+            responsable = random.choice(admins)
+            ahora = datetime.now()
+            observacion = random.choice(OBSERVACIONES_CIERRE)
+            incidente.estado = EstadoIncidente.CERRADO.value
+            incidente.fecha_cierre = ahora
+            incidente.observacion_cierre = observacion
+            incidente.responsable_cierre_id = responsable.id
+            db.add(
+                HistorialIncidente(
+                    incidente_id=incidente.id,
+                    estado_anterior=EstadoIncidente.ABIERTO.value,
+                    estado_nuevo=EstadoIncidente.CERRADO.value,
+                    usuario_id=responsable.id,
+                    observacion=observacion,
+                    fecha_evento=ahora,
+                )
+            )
+            como_admin_commit("modificados", responsable)
+
+        # Checklists: el supervisor observa uno cerrado, cierra uno observado
+        # y cierra uno completo.
+        for checklist in muestra_por_id(Checklist, Checklist.estado == EstadoChecklist.CERRADO):
+            checklist.estado = EstadoChecklist.OBSERVADO
+            checklist.observaciones = random.choice(OBSERVACIONES_CHECKLIST)
+            checklist.supervisor_id = random.choice(admins).id
+            como_admin_commit("modificados")
+
+        for checklist in muestra_por_id(Checklist, Checklist.estado == EstadoChecklist.OBSERVADO):
+            checklist.estado = EstadoChecklist.CERRADO
+            como_admin_commit("modificados")
+
+        for checklist in muestra_por_id(Checklist, Checklist.estado == EstadoChecklist.COMPLETO):
+            checklist.estado = EstadoChecklist.CERRADO
+            checklist.supervisor_id = random.choice(admins).id
+            como_admin_commit("modificados")
+
         # ---------------- BAJA ----------------
         # A los administradores no se los da de baja: son los actores del resto.
         candidatos_baja = [
             p for p in personal if not p.puede_administrar and not p.es_super_admin
         ]
-        grupos = [equipos, insumos, quimicos, elementos, aptitudes, vencimientos, candidatos_baja]
+        grupos = [
+            equipos, insumos, quimicos, elementos, aptitudes, vencimientos, candidatos_baja,
+            proveedores, calibraciones, planes, planes_cal,
+        ]
         for grupo in grupos:
             for objeto in muestra([o for o in grupo if o.activo]):
                 objeto.activo = False
@@ -1319,11 +1851,56 @@ def simular_actividad(
                 como_admin_commit("reactivados")
 
         # ---------------- ELIMINAR ----------------
-        # Solo entidades sin dependientes por FK (un insumo general y un
-        # vencimiento no los referencia nadie): el resto se da de baja, no se borra.
+        # Solo se borra lo que nadie referencia: el resto se da de baja. Un
+        # insumo general y un vencimiento no los referencia nadie.
         for objeto in chain(muestra(insumos), muestra(vencimientos)):
             db.delete(objeto)
             como_admin_commit("eliminados")
+
+        # Lotes cargados por error (el movimiento de ingreso queda como historia).
+        for lote in muestra(lotes, max(1, len(lotes) // 6)):
+            eliminar(lote)
+
+        # Proveedores que no tienen ningún lote.
+        con_lotes = set(db.scalars(select(LoteStock.proveedor_id)).all())
+        sin_lotes = [p for p in proveedores if p.id not in con_lotes]
+        for proveedor in random.sample(sin_lotes, min(por_tipo, len(sin_lotes))):
+            eliminar(proveedor)
+
+        for objeto in chain(muestra(calibraciones), muestra(planes_cal)):
+            eliminar(objeto)
+
+        # Incidentes abiertos cargados por error. Los del superadmin se conservan:
+        # son los que dan segunda página a "Mis reportes".
+        superadmin_id = personal[0].id if personal else None
+        for incidente in muestra_por_id(
+            Incidente,
+            (Incidente.estado == EstadoIncidente.ABIERTO.value)
+            & (Incidente.usuario_id != superadmin_id),
+        ):
+            eliminar(incidente)
+
+        # Versiones archivadas, y algún documento entero (sus versiones primero).
+        for version in muestra_por_id(VersionDocumento, VersionDocumento.vigente.is_(False)):
+            eliminar(version)
+        for documento in muestra_por_id(Documento, n=max(1, por_tipo // 3)):
+            versiones = list(
+                db.scalars(
+                    select(VersionDocumento).where(VersionDocumento.documento_id == documento.id)
+                ).all()
+            )
+            eliminar(*versiones, documento)
+
+        # Unidades sin uso. El catálogo tiene que seguir por encima de las 10
+        # filas de una página (ver `UNIDADES`), así que solo se borra el excedente.
+        usadas = set(db.scalars(select(Insumo.unidad_medida_id)).all()) | set(
+            db.scalars(select(InsumoQuimico.unidad_medida_id)).all()
+        )
+        sin_uso = [u for u in unidades.values() if u.id not in usadas]
+        total_unidades = db.scalar(select(func.count()).select_from(UnidadMedida)) or 0
+        borrables = min(por_tipo, len(sin_uso), max(0, total_unidades - 11))
+        for unidad in random.sample(sin_uso, borrables):
+            eliminar(unidad)
     finally:
         db.info.pop("usuario_id", None)
 
@@ -1367,7 +1944,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def main() -> int:
+def main(preparar_esquema: bool = True) -> int:
     args = parse_args()
 
     if args.cantidad < 1:
@@ -1385,6 +1962,20 @@ def main() -> int:
     # Auditar el seed para que la vista de auditoría muestre todas las entidades.
     # db.info["sin_auditoria"] = True
     try:
+        # Guarda por entorno: abortar en producción y mostrar la base objetivo.
+        entorno = settings.ENV.upper()
+        print(f"📦 Base de datos objetivo: {settings.DB_URL}")
+        print(f"   Entorno: {entorno}")
+        if entorno == "PRODUCTION":
+            print("❌ Abortando: no se puede cargar datos en entorno PRODUCTION.")
+            return 1
+        if entorno not in ("DEVELOPMENT", "TEST"):
+            print(f"❌ Abortando: entorno no soportado para carga de datos: {entorno}.")
+            return 1
+
+        if preparar_esquema:
+            crear_tablas_y_migrar()
+
         if not args.agregar:
             borrar_todo(db)
         else:
@@ -1404,6 +1995,10 @@ def main() -> int:
             "insumo": set(db.scalars(select(Insumo.nombre)).all()),
             "unidad": set(db.scalars(select(UnidadMedida.nombre)).all()),
             "documento": set(db.scalars(select(Documento.nombre)).all()),
+            "proveedor": set(db.scalars(select(Proveedor.nombre)).all()),
+            "matricula": set(db.scalars(select(Proveedor.matricula)).all()),
+            "lote": set(db.scalars(select(LoteStock.numero_lote)).all()),
+            "sector": set(db.scalars(select(Sector.nombre)).all()),
         }
 
         # Un solo hash para todo el personal: bcrypt es lento (~0,3 s por
@@ -1414,7 +2009,9 @@ def main() -> int:
         unidades = crear_unidades(db, vistos)
         crear_configuracion_alertas(db)
         personal = crear_personal(db, args.cantidad, fake, vistos, hash_password)
+        proveedores = crear_proveedores(db, args.cantidad, fake, vistos)
         equipos = crear_equipos(db, args.cantidad, vistos)
+        calibraciones = crear_calibraciones(db, equipos)
         aptitudes = crear_aptitudes(db, args.cantidad, vistos)
 
         admins = [p for p in personal if p.puede_administrar]
@@ -1427,11 +2024,15 @@ def main() -> int:
 
         vencimientos = crear_vencimientos(db, personal, aptitudes)
         quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
+        stocks = crear_stock_insumos(db, quimicos)
+        lotes = crear_lotes_stock(db, args.cantidad, proveedores, quimicos, vistos)
         elementos = crear_elementos(db, args.cantidad, vistos)
         insumos = crear_insumos(db, args.cantidad, unidades, vistos)
-        planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos)
+        planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
         registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
+        historial_registros = crear_historial_registro_tarea(db)
         incidentes = crear_incidentes(db, args.cantidad, equipos, personal, admins, operadores, vistos)
+        historial_incidentes = crear_historial_incidente(db, admins)
         documentos = crear_documentos(db, args.cantidad, admins, vistos)
         cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
 
@@ -1444,6 +2045,9 @@ def main() -> int:
             actividad = simular_actividad(
                 db, fake, vistos, args.password, admins, personal, equipos,
                 aptitudes, quimicos, elementos, insumos,
+                proveedores=proveedores, stocks=stocks, lotes=lotes,
+                calibraciones=calibraciones, planes=planes,
+                planes_cal=cal_mantenimiento, unidades=unidades,
             )
 
         # --------------------------------------------------------------
@@ -1453,16 +2057,21 @@ def main() -> int:
         print("✅ ¡Datos cargados con éxito!")
         print(f"   Semilla: {args.seed or 'aleatoria'} · Locale: {args.locale}")
         print(f"   Personal: {len(personal)} · Equipos: {len(equipos)} · Aptitudes: {len(aptitudes)}")
-        print(f"   Vencimientos: {vencimientos} · Planes de limpieza: {len(planes)}")
-        print(f"   Registros de tarea: {registros} · Incidentes: {incidentes}")
-        print(f"   Planes calibración/mantenimiento: {cal_mantenimiento}")
-        print(f"   Documentos (con su versión vigente): {documentos}")
+        print(f"   Proveedores: {len(proveedores)} · Vencimientos: {vencimientos} · Planes de limpieza: {len(planes)}")
+        print(f"   Stock insumos: {len(stocks)} · Lotes stock: {len(lotes)} · Calibraciones: {len(calibraciones)}")
+        print(f"   Registros de tarea: {registros} · Historial registros: {historial_registros} · Incidentes: {incidentes}")
+        print(f"   Historial incidentes: {historial_incidentes} · Documentos: {documentos}")
+        print(f"   Planes calibración/mantenimiento: {len(cal_mantenimiento)}")
         if actividad:
             print(
                 "   Actividad simulada: "
                 f"{actividad['modificados']} modificaciones · {actividad['bajas']} bajas · "
                 f"{actividad['reactivados']} reactivaciones · {actividad['eliminados']} eliminaciones"
             )
+            if actividad["omitidos"]:
+                print(
+                    f"   (se omitieron {actividad['omitidos']} borrados que una FK impedía)"
+                )
         por_accion = dict(
             db.execute(select(AuditLog.accion, func.count()).group_by(AuditLog.accion)).all()
         )

@@ -40,6 +40,15 @@ const ETIQUETA_ACCION: Record<AccionAuditoria, string> = {
 
 type ItemAuditoria = ReturnType<typeof useAuditoria>['items'][number];
 type Cambios = Record<string, [unknown, unknown]> | null;
+type CambiosDetalle = Record<string, { antes: unknown; despues: unknown; antes_nombre?: string | null; despues_nombre?: string | null }> | null;
+
+/** Etiqueta de campo sin sufijo "id" para campos FK (p. ej. "Persona" en vez de "Persona id"). */
+const SIGLAS: Record<string, string> = { dni: 'DNI', cuil: 'CUIL', cuit: 'CUIT' };
+
+function etiquetaCampo(campo: string): string {
+  const base = campo.replace(/_id$/, '');
+  return SIGLAS[base] ?? humanizar(base);
+}
 
 interface Filtros {
   accion: AccionAuditoria | '';
@@ -140,48 +149,79 @@ function plural(n: number, singular: string, pluralTexto: string): string {
 }
 
 /** Nombre del registro (p. ej. `nombre "Balanza 3"`) si algún campo lo permite. */
-function identificador(cambios: NonNullable<Cambios>, lado: 0 | 1): string | null {
+function identificador(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string | null {
+  const esEnriquecido = (c: Cambios | CambiosDetalle) =>
+    c && Object.values(c).some((v: any) => v && typeof v === 'object' && !Array.isArray(v) && 'antes' in v);
+  const det = esEnriquecido(cambios) ? (cambios as CambiosDetalle) : null;
   for (const clave of CAMPOS_IDENTIFICADORES) {
-    const valor = cambios[clave]?.[lado];
+    const campo = det?.[clave] ?? cambios?.[clave];
+    if (!campo) continue;
+    const valor = lado === 0 ? (Array.isArray(campo) ? campo[0] : campo.antes) : (Array.isArray(campo) ? campo[1] : campo.despues);
+    const nombre = lado === 0 ? (Array.isArray(campo) ? undefined : campo.antes_nombre) : (Array.isArray(campo) ? undefined : campo.despues_nombre);
     if (formatearValor(valor)) {
-      return `${humanizar(clave).toLowerCase()} "${valorCorto(valor, 30)}"`;
+      return nombre ? `${nombre} (#${valor})` : `${humanizar(clave).toLowerCase()} "${valorCorto(valor, 30)}"`;
     }
   }
   return null;
 }
 
-function resumenModificacion(campos: [string, [unknown, unknown]][]): string {
-  const visibles = campos.filter(([, [antes, despues]]) => antes !== despues);
+/** Nombres de las entidades relacionadas (FKs resueltas) de un evento, unidos con " · ". */
+function nombresRelacionados(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string | null {
+  if (!cambios) return null;
+  const nombres = Object.values(cambios)
+    .map((v: any) => (Array.isArray(v) ? null : lado === 0 ? v?.antes_nombre : v?.despues_nombre))
+    .filter(Boolean);
+  return nombres.length > 0 ? nombres.join(' · ') : null;
+}
+
+function resumenModificacion(campos: [string, [unknown, unknown]][] | [string, { antes: unknown; despues: unknown; antes_nombre?: string | null; despues_nombre?: string | null }][]): string {
+  const visibles = campos.filter(([, v]) => {
+    const a = Array.isArray(v) ? v[0] : v.antes;
+    const d = Array.isArray(v) ? v[1] : v.despues;
+    return a !== d;
+  });
   if (visibles.length === 0) return 'Sin cambios visibles';
-  const partes = visibles
-    .slice(0, 2)
-    .map(([campo, [antes, despues]]) => `${humanizar(campo)}: ${valorCorto(antes, 24)} → ${valorCorto(despues, 24)}`);
+  const partes = visibles.slice(0, 2).map(([campo, v]) => {
+    const antes = Array.isArray(v) ? v[0] : v.antes;
+    const despues = Array.isArray(v) ? v[1] : v.despues;
+    const antesNom = Array.isArray(v) ? undefined : v.antes_nombre;
+    const despuesNom = Array.isArray(v) ? undefined : v.despues_nombre;
+    const aTexto = antesNom ? `${antesNom} (#${antes})` : valorCorto(antes, 24);
+    const dTexto = despuesNom ? `${despuesNom} (#${despues})` : valorCorto(despues, 24);
+    return `${etiquetaCampo(campo)}: ${aTexto} → ${dTexto}`;
+  });
   const resto = visibles.length - partes.length;
   return partes.join(' · ') + (resto > 0 ? ` · +${resto} más` : '');
 }
 
 /** Resumen de UNA línea para la tabla; el detalle completo está en la fila expandida. */
-function resumenCambios(cambios: Cambios, accion: AccionAuditoria): string {
+function resumenCambios(
+  cambios: Cambios | CambiosDetalle,
+  accion: AccionAuditoria,
+  etiqueta?: string | null,
+): string {
   if (!cambios || Object.keys(cambios).length === 0) return 'Sin detalle';
   const campos = Object.entries(cambios);
 
   switch (accion) {
     case 'CREAR': {
-      const id = identificador(cambios, 1);
+      const id = etiqueta ?? identificador(cambios, 1) ?? nombresRelacionados(cambios, 1);
       return `Alta${id ? ` de ${id}` : ''} · ${plural(campos.length, 'campo', 'campos')}`;
     }
     case 'ELIMINAR': {
-      const id = identificador(cambios, 0);
+      const id = etiqueta ?? identificador(cambios, 0) ?? nombresRelacionados(cambios, 0);
       return `Eliminación${id ? ` de ${id}` : ''} · ${plural(campos.length, 'campo', 'campos')}`;
     }
     case 'BAJA':
     case 'REACTIVAR': {
-      const base = accion === 'BAJA' ? 'Baja lógica' : 'Reactivación';
+      const base = `${accion === 'BAJA' ? 'Baja lógica' : 'Reactivación'}${etiqueta ? ` de ${etiqueta}` : ''}`;
       const otros = campos.filter(([campo]) => campo !== 'activo');
       return otros.length === 0 ? base : `${base} · ${resumenModificacion(otros)}`;
     }
     default:
-      return resumenModificacion(campos);
+      return etiqueta
+        ? `${etiqueta} · ${resumenModificacion(campos)}`
+        : resumenModificacion(campos);
   }
 }
 
@@ -233,7 +273,12 @@ function DetalleEvento({
   onVerRegistro: () => void;
   onVerUsuario: () => void;
 }) {
-  const campos = item.cambios ? Object.entries(item.cambios) : [];
+  const cambiosDetalle = item.cambios_detalle;
+  const camposRaw = cambiosDetalle
+    ? Object.entries(cambiosDetalle)
+    : item.cambios
+      ? Object.entries(item.cambios)
+      : [];
   const mostrarAntes = item.accion !== 'CREAR';
   const mostrarDespues = item.accion !== 'ELIMINAR';
   const usuario = nombreUsuario(item);
@@ -259,6 +304,30 @@ function DetalleEvento({
         </Dato>
       </Flex>
 
+      {item.registro && (item.registro.etiqueta || item.registro.datos.length > 0) && (
+        <Box mb="4" p="3" bg="bg" borderWidth="1px" borderRadius="md">
+          <Text fontSize="xs" color="fg.muted" mb="1">
+            Registro afectado
+          </Text>
+          {item.registro.etiqueta && (
+            <Text fontSize="md" fontWeight="semibold" mb={item.registro.datos.length > 0 ? '2' : '0'}>
+              {item.registro.etiqueta}
+            </Text>
+          )}
+          {item.registro.datos.length > 0 && (
+            <Flex gap="6" flexWrap="wrap">
+              {item.registro.datos.map((d) => (
+                <Dato key={d.campo} etiqueta={etiquetaCampo(d.campo)}>
+                  {d.valor_nombre
+                    ? `${d.valor_nombre} (#${d.valor})`
+                    : (formatearValor(d.valor) ?? '—')}
+                </Dato>
+              ))}
+            </Flex>
+          )}
+        </Box>
+      )}
+
       <Flex gap="2" flexWrap="wrap" mb="4">
         <Button size="xs" variant="outline" onClick={onVerRegistro}>
           Ver historial de este registro
@@ -270,7 +339,7 @@ function DetalleEvento({
         ) : null}
       </Flex>
 
-      {campos.length === 0 ? (
+      {camposRaw.length === 0 ? (
         <Text fontSize="sm" color="fg.muted">
           Este evento no tiene campos registrados.
         </Text>
@@ -294,28 +363,54 @@ function DetalleEvento({
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {campos.map(([campo, [antes, despues]]) => (
-                <Table.Row key={campo}>
-                  <Table.Cell fontWeight="medium" verticalAlign="top">
-                    {humanizar(campo)}
-                  </Table.Cell>
-                  {mostrarAntes && (
-                    <Table.Cell verticalAlign="top">
-                      <Valor valor={antes} color={mostrarDespues ? 'red.fg' : undefined} />
+              {camposRaw.map(([campo, v]) => {
+                const esEnriquecido = !Array.isArray(v) && typeof v === 'object' && v !== null && 'antes' in v;
+                const antes = esEnriquecido ? (v as { antes: unknown }).antes : (v as [unknown, unknown])[0];
+                const despues = esEnriquecido ? (v as { despues: unknown }).despues : (v as [unknown, unknown])[1];
+                const antesNombre = esEnriquecido ? (v as { antes_nombre?: string }).antes_nombre : undefined;
+                const despuesNombre = esEnriquecido ? (v as { despues_nombre?: string }).despues_nombre : undefined;
+
+                return (
+                  <Table.Row key={campo}>
+                    <Table.Cell fontWeight="medium" verticalAlign="top">
+                      {etiquetaCampo(campo)}
                     </Table.Cell>
-                  )}
-                  {mostrarDespues && (
-                    <Table.Cell verticalAlign="top">
-                      <Valor valor={despues} color={mostrarAntes ? 'green.fg' : undefined} />
-                    </Table.Cell>
-                  )}
-                </Table.Row>
-              ))}
+                    {mostrarAntes && (
+                      <Table.Cell verticalAlign="top">
+                        <ValorConNombre valor={antes} nombre={antesNombre} color={mostrarDespues ? 'red.fg' : undefined} />
+                      </Table.Cell>
+                    )}
+                    {mostrarDespues && (
+                      <Table.Cell verticalAlign="top">
+                        <ValorConNombre valor={despues} nombre={despuesNombre} color={mostrarAntes ? 'green.fg' : undefined} />
+                      </Table.Cell>
+                    )}
+                  </Table.Row>
+                );
+              })}
             </Table.Body>
           </Table.Root>
         </Box>
       )}
     </Box>
+  );
+}
+
+/** Valor con nombre opcional: si hay nombre, muestra "Nombre (#id)"; si no, solo el valor. */
+function ValorConNombre({ valor, nombre, color }: { valor: unknown; nombre?: string | null; color?: string }) {
+  const base = formatearValor(valor);
+  if (base === null) {
+    return (
+      <Text as="span" fontSize="sm" color="fg.subtle" fontStyle="italic">
+        vacío
+      </Text>
+    );
+  }
+  const mostrarNombre = Boolean(nombre);
+  return (
+    <Text as="span" fontSize="xs" fontFamily="mono" whiteSpace="pre-wrap" wordBreak="break-word" color={color}>
+      {mostrarNombre ? `${nombre} (#${valor})` : base}
+    </Text>
   );
 }
 
@@ -328,7 +423,7 @@ interface FilaProps {
 }
 
 function FilaAuditoria({ item, abierto, onToggle, onVerRegistro, onVerUsuario }: FilaProps) {
-  const resumen = resumenCambios(item.cambios, item.accion);
+  const resumen = resumenCambios(item.cambios_detalle ?? item.cambios, item.accion, item.registro?.etiqueta);
   const usuario = nombreUsuario(item);
   const fecha = formatearSoloFecha(item.fecha);
   const hora = formatearSoloHora(item.fecha);

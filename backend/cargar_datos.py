@@ -13,12 +13,17 @@ final) para que sea fácil entrar como cualquiera.
 
 from datetime import date, datetime, timedelta
 
+import os
+import secrets
+import sys
+
 from sqlalchemy import delete
 
 # Importamos configuración y modelos
 import src.all_models  # noqa: F401  (registra todos los modelos, incluida la FK de equipos a sectores)
-from src.database import SessionLocal, engine
-from src.models import ModeloBase
+from src.config import settings
+from src.database import SessionLocal
+from src.migrations import crear_tablas_y_migrar
 from src.auth.services import hashear_password
 from src.personal.models import Personal
 from src.sector.models import Sector
@@ -43,10 +48,12 @@ from src.checklist.models import (
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 from src.documentos.models import Documento, VersionDocumento
 
-# Esto asegura que las tablas existan en la BD antes de insertar
-ModeloBase.metadata.create_all(bind=engine)
+# Crea tablas faltantes y actualiza las existentes antes de insertar.
+crear_tablas_y_migrar()
 
-CONTRASENA = "12345678"
+# Contraseña de TODO el personal. Se genera aleatoriamente una sola vez o se
+# lee de SEED_PASSWORD. Nunca un valor fijo conocido de antemano.
+CONTRASENA = os.environ.get("SEED_PASSWORD") or secrets.token_urlsafe(16)
 HOY = date.today()
 
 db = SessionLocal()
@@ -78,7 +85,8 @@ def _borrar_previamente() -> None:
         UnidadMedida,
         Equipo,
         Sector,
-        Personal,
+        # Personal NO se borra por defecto (script peligroso en producción).
+        # Para borrarla también, usar el modo explícito correspondiente.
     ]
     for modelo in orden:
         db.execute(delete(modelo))
@@ -86,6 +94,27 @@ def _borrar_previamente() -> None:
 
 
 try:
+    # Guarda por entorno: abortar en producción y mostrar la base objetivo.
+    entorno = settings.ENV.upper()
+    print(f"📦 Base de datos objetivo: {settings.DB_URL}")
+    print(f"   Entorno: {entorno}")
+    if entorno == "PRODUCTION":
+        print("❌ Abortando: no se puede cargar datos en entorno PRODUCTION.")
+        sys.exit(1)
+    if entorno not in ("DEVELOPMENT", "TEST"):
+        print(f"❌ Abortando: entorno no soportado para carga de datos: {entorno}.")
+        sys.exit(1)
+
+    # Confirmación interactiva (salteable con --yes-borrar-todo).
+    if "--yes-borrar-todo" not in sys.argv:
+        confirmar = input(
+            "¿Borrar los datos de la base objetivo? "
+            "Escriba 'SI BORRAR TODO' para confirmar: "
+        )
+        if confirmar.strip() != "SI BORRAR TODO":
+            print("Abortado por el usuario.")
+            sys.exit(1)
+
     _borrar_previamente()
 
     # ------------------------------------------------------------------
@@ -146,6 +175,7 @@ try:
             puede_administrar=puede_administrar,
             es_super_admin=es_super_admin,
             activo=True,
+            debe_cambiar_password=True,
         )
         db.add(persona)
         personas_obj.append(persona)

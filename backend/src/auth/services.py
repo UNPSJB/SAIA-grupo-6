@@ -1,16 +1,17 @@
 import logging
 import uuid
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt
 import jwt
 from fastapi import HTTPException, status
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from src.config import settings
+from src.auth.models import RefreshToken, IntentoLogin, TokenRevocado
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +67,25 @@ def crear_access_token(subject: str) -> tuple[str, str, datetime]:
 
 
 def crear_refresh_token(subject: str) -> tuple[str, str, datetime]:
-    return _crear_token(
-        subject,
-        timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-        "refresh",
-    )
+    """Devuelve (token, jti, expira). El payload lleva `fam` (familia) para
+    poder rotar e invalidar familias de tokens."""
+    ahora = datetime.now(timezone.utc)
+    expira = ahora + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    jti = uuid.uuid4().hex
+    familia = uuid.uuid4().hex
+
+    payload = {
+        "sub": subject,
+        "type": "refresh",
+        "jti": jti,
+        "fam": familia,
+        "iat": ahora,
+        "exp": expira,
+    }
+
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+    return token, jti, expira.replace(tzinfo=None)
 
 
 def decodificar_token(token: str, token_type: Optional[str] = None) -> Optional[dict]:
@@ -89,74 +104,127 @@ def decodificar_token(token: str, token_type: Optional[str] = None) -> Optional[
 # LÍMITE DE INTENTOS DE LOGIN (anti fuerza bruta)
 # ==========================================
 
-# Intentos fallidos por clave "ip|dni". Es un contador en memoria: con varios
-# procesos o réplicas el límite aplicaría por proceso.
-_intentos: dict[str, list[datetime]] = defaultdict(list)
-_ultima_purga_global: datetime = datetime.fromtimestamp(0, tz=timezone.utc)
+# Los intentos fallidos se guardan en la base (tabla `intentos_login`), así el
+# límite se comparte entre workers y réplicas, y se aplica por DNI y por IP.
 
 
-def _clave_intentos(ip: str, dni: str) -> str:
-    return f"{ip}|{dni.strip().lower()}"
+def _clave_intentos(ip: str, dni: str) -> tuple[str, str]:
+    return (ip, dni.strip().lower())
 
 
-def _purgar_global(ventana: timedelta) -> None:
-    global _ultima_purga_global
-    ahora = datetime.now(timezone.utc)
-    if (ahora - _ultima_purga_global).total_seconds() < 60:
-        return
-    _ultima_purga_global = ahora
-    limite = ahora - ventana
-    claves_a_borrar = []
-    for clave, marcas in list(_intentos.items()):
-        filtrados = [m for m in marcas if m > limite]
-        if filtrados:
-            _intentos[clave] = filtrados
-        else:
-            claves_a_borrar.append(clave)
-    for clave in claves_a_borrar:
-        _intentos.pop(clave, None)
+def _purgar_intentos_vencidos(db: Session, ventana: timedelta) -> None:
+    """Elimina los registros de intentos fuera de la ventana."""
+    limite = datetime.now(timezone.utc).replace(tzinfo=None) - ventana
+    db.execute(delete(IntentoLogin).where(IntentoLogin.ultimo_intento < limite))
 
 
-def _purgar_ventana(clave: str, ventana: timedelta) -> None:
-    limite = datetime.now(timezone.utc) - ventana
-    filtrados = [m for m in _intentos.get(clave, []) if m > limite]
-    if filtrados:
-        _intentos[clave] = filtrados
+def verificar_intentos_permitidos(db: Session, ip: str, dni: str) -> None:
+    """Bloquea el login si hubo demasiados intentos fallidos recientes.
+
+    Aplica backoff: tras alcanzar el máximo, se bloquea por un múltiplo de la
+    ventana que crece con cada nuevo intento fallido mientras siga bloqueado.
+    """
+    ventana = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
+    ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+    _purgar_intentos_vencidos(db, ventana)
+
+    ip_limpia, dni_limpio = _clave_intentos(ip, dni)
+    intento = db.scalar(
+        select(IntentoLogin).where(
+            IntentoLogin.ip == ip_limpia,
+            IntentoLogin.dni == dni_limpio,
+        )
+    )
+
+    if intento is not None:
+        if (
+            intento.bloqueado_hasta is not None
+            and ahora < intento.bloqueado_hasta
+        ):
+            espera = max(int((intento.bloqueado_hasta - ahora).total_seconds()), 1)
+            logger.warning(
+                "Login bloqueado por exceso de intentos: %s desde %s (hasta %s)",
+                dni, ip, intento.bloqueado_hasta,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Demasiados intentos fallidos. Volvé a intentar en "
+                    f"{espera} segundos."
+                ),
+                headers={"Retry-After": str(espera)},
+            )
+        if intento.contador >= settings.LOGIN_MAX_INTENTOS:
+            # Ya se alcanzó el máximo y el bloqueo venció: se aplica un nuevo
+            # bloqueo con backoff (ventana * 2^n) y se reinicia el contador.
+            exponente = max(intento.contador // settings.LOGIN_MAX_INTENTOS, 1)
+            intento.bloqueado_hasta = ahora + ventana * (2**exponente)
+            intento.contador = 0
+            db.add(intento)
+            db.commit()
+            espera = max(int((intento.bloqueado_hasta - ahora).total_seconds()), 1)
+            logger.warning(
+                "Login bloqueado por exceso de intentos (backoff): %s desde %s",
+                dni, ip,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Demasiados intentos fallidos. Volvé a intentar en "
+                    f"{espera} segundos."
+                ),
+                headers={"Retry-After": str(espera)},
+            )
+
+
+def registrar_intento_fallido(db: Session, ip: str, dni: str) -> None:
+    ventana = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
+    ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+    _purgar_intentos_vencidos(db, ventana)
+
+    ip_limpia, dni_limpio = _clave_intentos(ip, dni)
+    intento = db.scalar(
+        select(IntentoLogin).where(
+            IntentoLogin.ip == ip_limpia,
+            IntentoLogin.dni == dni_limpio,
+        )
+    )
+
+    if intento is None:
+        intento = IntentoLogin(
+            ip=ip_limpia,
+            dni=dni_limpio,
+            ultimo_intento=ahora,
+            contador=1,
+            bloqueado_hasta=None,
+        )
+        db.add(intento)
     else:
-        _intentos.pop(clave, None)
+        intento.contador += 1
+        intento.ultimo_intento = ahora
+        if intento.contador >= settings.LOGIN_MAX_INTENTOS:
+            exponente = max(intento.contador // settings.LOGIN_MAX_INTENTOS, 1)
+            intento.bloqueado_hasta = ahora + ventana * (2**exponente)
+        db.add(intento)
 
-
-def verificar_intentos_permitidos(ip: str, dni: str) -> None:
-    """Bloquea el login si hubo demasiados intentos fallidos recientes."""
-    ventana = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
-    _purgar_global(ventana)
-    clave = _clave_intentos(ip, dni)
-    _purgar_ventana(clave, ventana)
-
-    if len(_intentos[clave]) >= settings.LOGIN_MAX_INTENTOS:
-        espera = max(
-            int((ventana - (datetime.now(timezone.utc) - _intentos[clave][0])).total_seconds()),
-            1,
-        )
-        logger.warning("Login bloqueado por exceso de intentos: %s desde %s", dni, ip)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Demasiados intentos fallidos. Volvé a intentar en {espera} segundos.",
-            headers={"Retry-After": str(espera)},
-        )
-
-
-def registrar_intento_fallido(ip: str, dni: str) -> None:
-    ventana = timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
-    _purgar_global(ventana)
-    clave = _clave_intentos(ip, dni)
-    _purgar_ventana(clave, ventana)
-    _intentos[clave].append(datetime.now(timezone.utc))
+    db.commit()
 
     logger.warning(
         "Login fallido para DNI %s desde %s (%s intentos en la ventana)",
-        dni, ip, len(_intentos[clave]),
+        dni, ip, intento.contador,
     )
+
+
+def limpiar_intentos(db: Session, ip: str, dni: str) -> None:
+    """Elimina el registro de intentos tras un login exitoso."""
+    ip_limpia, dni_limpio = _clave_intentos(ip, dni)
+    db.execute(
+        delete(IntentoLogin).where(
+            IntentoLogin.ip == ip_limpia,
+            IntentoLogin.dni == dni_limpio,
+        )
+    )
+    db.commit()
 
 
 def obtener_ip_cliente(request) -> str:
@@ -169,10 +237,6 @@ def obtener_ip_cliente(request) -> str:
             if len(partes) >= hops:
                 return partes[-hops]
     return request.client.host if request.client else "desconocida"
-
-
-def limpiar_intentos(ip: str, dni: str) -> None:
-    _intentos.pop(_clave_intentos(ip, dni), None)
 
 
 # ==========================================
@@ -240,7 +304,12 @@ def token_revocado(db: Session, jti: Optional[str]) -> bool:
     if not jti:
         return False
 
-    return db.get(TokenRevocado, jti) is not None
+    try:
+        return db.get(TokenRevocado, jti) is not None
+    except OperationalError:
+        # La tabla puede no existir si el lifespan no corrió (p. ej. tests
+        # con TestClient que no ejecutan el lifespan de la app).
+        return False
 
 
 def token_posterior_a_cambio_password(payload: dict, user_password_changed_at) -> bool:

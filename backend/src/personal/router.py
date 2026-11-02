@@ -8,14 +8,16 @@ from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.personal import schemas, services
 from src.personal.models import Personal
-from src.auth.dependencies import get_current_user, require_admin, get_current_user_opcional
+from src.auth.dependencies import get_current_user_opcional, get_current_user_activo_completo, require_admin
 from src.auth.roles import (
     es_super_admin,
     exige_permiso_para_editar,
     puede_administrar,
+    puede_asignar_roles,
     puede_editar_a,
     puede_modificar_roles,
 )
+from src.config import settings
 from src.roles_service import contar_personas, hay_administradores
 
 logger = logging.getLogger(__name__)
@@ -59,13 +61,27 @@ def create_persona(
             "Se requiere permiso de administrar para dar de alta personal.",
         )
 
-    # Crear un super admin: solo otro super admin, salvo en el arranque.
-    if getattr(persona, "es_super_admin", False) and not es_arranque:
-        if not (current_user is not None and es_super_admin(current_user)):
+        exige_permiso_para_editar(
+            puede_asignar_roles(
+                current_user,
+                es_super_admin_flag=getattr(persona, "es_super_admin", False),
+                puede_administrar_flag=getattr(persona, "puede_administrar", False),
+            ),
+            "No tenés permiso para asignar esos roles al dar de alta una persona.",
+        )
+    else:
+        # Arranque: no hay administradores aún. La alta sin sesión solo se
+        # tolera para crear al primer usuario (fuera de producción).
+        if settings.ENV.upper() == "PRODUCTION" and current_user is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo un super administrador puede dar de alta a otro super administrador.",
+                detail="En producción se requiere sesión para dar de alta al primer usuario.",
             )
+
+        # El primer usuario creado sin sesión pasa a ser super admin y cierra
+        # la ventana de arranque inmediatamente, sin depender de un reinicio.
+        if current_user is None:
+            persona.es_super_admin = True
 
     if total_personas == 0:
         logger.warning(
@@ -113,13 +129,15 @@ def update_persona(
     persona_id: int,
     persona: schemas.PersonaUpdate,
     db: Session = Depends(get_db),
-    current_user: Personal = Depends(get_current_user),
+    current_user: Personal = Depends(get_current_user_activo_completo),
 ):
     """Modificación de una persona, respetando la jerarquía de roles:
 
     * super admin -> cualquiera
     * admin       -> operadores y sí mismo
     * operador    -> solo sí mismo
+
+    Requiere que el actor ya haya cambiado su contraseña.
     """
     objetivo = services.leer_persona(db, persona_id)
 

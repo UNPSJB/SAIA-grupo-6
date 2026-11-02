@@ -1,13 +1,16 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from src.common.fechas import hoy
 from typing import Optional
+import logging
 
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
     comparar_texto,
+    es_violacion_unica,
     guardar,
     mapa_por_campo,
     obtener,
@@ -18,13 +21,28 @@ from .exceptions import ElementoLimpiezaNoEncontrado, ElementoLimpiezaYaExiste
 from .models import ElementoLimpieza
 from .schemas import ElementoLimpiezaCreate, ElementoLimpiezaUpdate, ElementoLimpiezaOpcion
 
+logger = logging.getLogger(__name__)
+
 # `elementos_limpieza.nombre` es UNIQUE: la preconsulta con ilike no alcanza
 # (es insensible a mayúsculas y el índice no lo es), así que el commit
 # también necesita su traducción a 400.
-_MAPEA_CONFLICTO = mapa_por_campo(
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     ("elementos_limpieza.nombre", ElementoLimpiezaYaExiste),
     por_defecto=ElementoLimpiezaYaExiste,
 )
+
+
+def _mapear_conflicto_elemento(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en elemento de limpieza (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 # `fecha_ultimo_recambio` y `frecuencia_recambio_dias` son opcionales: sus
 # NULL van al final para no encabezar una lista ascendente.
@@ -78,7 +96,7 @@ def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> Eleme
   
   instancia = ElementoLimpieza(**nuevo_elementoLimpieza)
   db.add(instancia)
-  return guardar(db, instancia, _MAPEA_CONFLICTO)
+  return guardar(db, instancia, _mapear_conflicto_elemento)
 
 
 def _consulta_elementos_limpieza(
@@ -161,7 +179,7 @@ def actualizar_elemento_limpieza(db: Session, elemento_id: int, datos: ElementoL
       if existente:
         raise ElementoLimpiezaYaExiste()
 
-    return aplicar_cambios(db, elemento, cambios, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, elemento, cambios, _mapear_conflicto_elemento)
   
 
 

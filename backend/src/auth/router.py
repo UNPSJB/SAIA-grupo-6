@@ -1,11 +1,15 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from src.auth import schemas
 from src.auth.dependencies import get_current_user
+from src.auth.models import RefreshToken
 from src.auth.services import (
     crear_access_token,
     crear_refresh_token,
+    decodificar_token,
     limpiar_intentos,
     registrar_intento_fallido,
     revocar_tokens,
@@ -16,6 +20,8 @@ from src.personal import schemas as personal_schemas
 from src.personal.models import Personal
 from src.personal.services import autenticar_persona
 from src.roles_service import contar_personas, hay_administradores
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -49,24 +55,39 @@ def login(
     from src.auth.services import obtener_ip_cliente
     ip = obtener_ip_cliente(request)
 
-    verificar_intentos_permitidos(ip, credentials.dni)
+    verificar_intentos_permitidos(db, ip, credentials.dni)
 
     try:
         user = autenticar_persona(db, credentials.dni, credentials.password)
     except HTTPException as error:
         # Solo cuentan los intentos fallidos por credenciales incorrectas
         if error.status_code == 401:
-            registrar_intento_fallido(ip, credentials.dni)
+            registrar_intento_fallido(db, ip, credentials.dni)
         raise
 
-    limpiar_intentos(ip, credentials.dni)
+    limpiar_intentos(db, ip, credentials.dni)
 
     # La sesión queda asociada al usuario autenticado, para que cualquier
     # escritura de este request quede auditada con su actor.
     db.info["usuario_id"] = user.id
 
     access_token, _, _ = crear_access_token(str(user.id))
-    refresh_token, _, _ = crear_refresh_token(str(user.id))
+    refresh_token, jti_refresh, expira_refresh = crear_refresh_token(str(user.id))
+
+    # Familia del refresh token recién creado (para rotación e invalidación).
+    payload_refresh = decodificar_token(refresh_token, token_type="refresh")
+    familia_refresh = payload_refresh.get("fam")
+
+    # Registrar el refresh token en BD para la rotación atómica.
+    db.add(
+        RefreshToken(
+            jti=jti_refresh,
+            usuario_id=user.id,
+            familia=familia_refresh,
+            expira=expira_refresh,
+        )
+    )
+    db.commit()
 
     return schemas.TokenResponse(
         access_token=access_token,
@@ -77,8 +98,19 @@ def login(
 
 @router.post("/refresh", response_model=schemas.Token)
 def refresh(body: schemas.RefreshRequest, db: Session = Depends(get_db)):
-    """Renueva el access token a partir de un refresh token válido."""
-    from src.auth.services import decodificar_token, token_posterior_a_cambio_password, token_revocado, revocar_token
+    """Renueva el access token a partir de un refresh token válido.
+
+    La rotación es atómica: se marca el refresh token usado con
+    `UPDATE ... WHERE jti = :jti AND usado = 0` y solo se procede si
+    `rowcount == 1`. Si el token ya fue usado (reutilizado), se invalida toda
+    su familia y se rechaza con 401.
+    """
+    from src.auth.services import (
+        decodificar_token,
+        token_posterior_a_cambio_password,
+        token_revocado,
+        revocar_token,
+    )
     from datetime import datetime, timezone
 
     payload = decodificar_token(body.refresh_token, token_type="refresh")
@@ -110,17 +142,64 @@ def refresh(body: schemas.RefreshRequest, db: Session = Depends(get_db)):
     if not token_posterior_a_cambio_password(payload, user.password_changed_at):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido por cambio de contraseña.")
 
-    # Revocar el refresh usado
+    jti_usado = payload.get("jti")
+    familia = payload.get("fam")
+
+    # Rotación atómica: marcar el refresh usado solo si aún no lo está.
+    resultado = db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.jti == jti_usado, RefreshToken.usado == False)  # noqa: E712
+        .values(usado=True)
+    )
+    if resultado.rowcount != 1:
+        # Token reutilizado o inexistente: invalida la familia y rechaza.
+        if familia is not None:
+            db.execute(
+                update(RefreshToken)
+                .where(
+                    RefreshToken.familia == familia,
+                    RefreshToken.usado == False,  # noqa: E712
+                )
+                .values(usado=True)
+            )
+        db.commit()
+        logger.warning(
+            "Refresh token reutilizado o inválido: jti=%s familia=%s",
+            jti_usado,
+            familia,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token ya fue utilizado. Volvé a iniciar sesión.",
+        )
+
+    # Revocar el refresh token anterior (ya está marcado como usado).
     try:
-        exp_ts = payload.get("exp")
-        expira = datetime.fromtimestamp(float(exp_ts), tz=timezone.utc).replace(tzinfo=None)
+        expira_ts = payload.get("exp")
+        expira = (
+            datetime.fromtimestamp(float(expira_ts), tz=timezone.utc).replace(tzinfo=None)
+            if expira_ts
+            else datetime.now(timezone.utc).replace(tzinfo=None)
+        )
     except Exception:
         expira = datetime.now(timezone.utc).replace(tzinfo=None)
-    revocar_token(db, jti=payload.get("jti"), usuario_id=user.id, tipo="refresh", expira=expira)
-    db.commit()
+    revocar_token(db, jti=jti_usado, usuario_id=user.id, tipo="refresh", expira=expira)
 
+    # Crear nuevos tokens con una familia nueva.
     access_token, _, _ = crear_access_token(str(user.id))
-    refresh_token, _, _ = crear_refresh_token(str(user.id))
+    refresh_token, jti_nuevo, expira_nueva = crear_refresh_token(str(user.id))
+    payload_nuevo = decodificar_token(refresh_token, token_type="refresh")
+    familia_nueva = payload_nuevo.get("fam")
+
+    db.add(
+        RefreshToken(
+            jti=jti_nuevo,
+            usuario_id=user.id,
+            familia=familia_nueva,
+            expira=expira_nueva,
+        )
+    )
+    db.commit()
 
     return schemas.Token(access_token=access_token, refresh_token=refresh_token)
 

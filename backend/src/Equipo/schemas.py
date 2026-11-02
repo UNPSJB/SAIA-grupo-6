@@ -72,6 +72,13 @@ class EquipoOpcionesResponse(BaseModel):
 TipoIntervencion = Literal["calibracion", "mantenimiento"]
 
 
+class CalibracionUpdate(BaseModel):
+    """Campos editables de una intervención ya registrada."""
+
+    fecha_realizacion: date | None = None
+    tipo: TipoIntervencion | None = None
+
+
 class CalibracionResponse(BaseModel):
     """Una intervención registrada, para el historial del equipo."""
 
@@ -82,5 +89,6 @@ class CalibracionResponse(BaseModel):
     # exige sesión.
     certificado_url: str
     tipo: TipoIntervencion
+    activo: bool
 
     model_config = ConfigDict(from_attributes=True)
