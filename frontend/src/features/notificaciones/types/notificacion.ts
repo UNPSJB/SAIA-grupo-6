@@ -46,6 +46,7 @@ export interface AlertaCriticidad {
   clave: string;
   origen: string;
   entidad_id: number;
+  entidad_nombre?: string;
   grupo_clave: string;
   icono: IconoCriticidad;
   titulo: string;

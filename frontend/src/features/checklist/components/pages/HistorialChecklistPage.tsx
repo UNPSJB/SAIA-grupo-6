@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
+import { useSearchParams } from "react-router-dom";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
 import type { HistorialChecklistItem } from "../../types/checklist";
@@ -69,8 +70,23 @@ export function HistorialChecklistPage() {
   const [checklistSeleccionado, setChecklistSeleccionado] =
     useState<HistorialChecklistItem | null>(null);
 
+  // Parámetros de llegada desde el panel de notificaciones (click en una
+  // notificación de checklist): filtrar por ese equipo y abrir el detalle.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const equipoIdDesdeUrl = searchParams.get("equipoId");
+  const abrirDetalleDesdeUrl = searchParams.get("abrirDetalle") === "true";
+  const [detalleAutoProcesado, setDetalleAutoProcesado] = useState(false);
+
   const equipoIdFiltro =
     equipoSeleccionado !== "" ? Number(equipoSeleccionado) : undefined;
+
+  // Al llegar desde una notificación de checklist, pre-seleccionar el equipo
+  // de la alerta en el filtro del historial. Se hace durante el render (no en
+  // un efecto) para seguir el mismo patrón que el ajuste de página fuera de
+  // rango más abajo y evitar la regla set-state-in-effect.
+  if (equipoIdDesdeUrl && equipoSeleccionado !== equipoIdDesdeUrl) {
+    setEquipoSeleccionado(equipoIdDesdeUrl);
+  }
 
   const { equipos } = useEquipos();
 
@@ -110,6 +126,26 @@ export function HistorialChecklistPage() {
   // `items` es la página actual; el cumplimiento general y el total vienen
   // calculados sobre TODO el período en el backend.
   const checklists = useMemo(() => historial?.items ?? [], [historial]);
+
+  // Al llegar desde una notificación de checklist con `abrirDetalle`, abrir
+  // el detalle del primer checklist una vez cargados los datos. Se hace
+  // durante el render (patrón igual al ajuste de página fuera de rango más
+  // abajo) para evitar set-state-in-effect. La bandera `detalleAutoProcesado`
+  // evita volver a abrir si el usuario cierra el diálogo. Los parámetros de
+  // la URL se limpian para no reprocesar en recargas.
+  if (
+    abrirDetalleDesdeUrl &&
+    !detalleAutoProcesado &&
+    checklists.length > 0
+  ) {
+    setDetalleAutoProcesado(true);
+    setChecklistSeleccionado(checklists[0]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("equipoId");
+    params.delete("abrirDetalle");
+    setSearchParams(params.toString(), { replace: true });
+  }
+
   const total = historial?.total ?? 0;
   const totalPaginas = historial?.total_paginas ?? 1;
   const hayVariasPaginas = totalPaginas > 1;

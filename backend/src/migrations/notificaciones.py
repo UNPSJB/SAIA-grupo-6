@@ -11,3 +11,4 @@ def migrar_notificaciones() -> None:
     agregar_columna(tabla, "motivo", "VARCHAR(300) NOT NULL DEFAULT ''")
     agregar_columna(tabla, "plazo", "VARCHAR(60)")
     agregar_columna(tabla, "recambio_id", "INTEGER")
+    agregar_columna(tabla, "entidad_nombre", "VARCHAR(200)")
