@@ -17,7 +17,22 @@ import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { obtenerCriticidadDashboard } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import { LuArrowDown, LuArrowUp, LuArrowUpDown, LuBell, LuCircleCheck } from "react-icons/lu";
+import {
+  LuArrowDown,
+  LuArrowUp,
+  LuArrowUpDown,
+  LuBell,
+  LuBrush,
+  LuCircle,
+  LuCircleCheck,
+  LuFileText,
+  LuListChecks,
+  LuPackage,
+  LuTriangleAlert,
+  LuUsers,
+  LuWrench,
+} from "react-icons/lu";
+import type { IconType } from "react-icons/lib";
 import type {
   AlertaCriticidad,
   Criticidad,
@@ -67,20 +82,20 @@ const PALETA_CRITICIDAD: Record<Criticidad, string> = {
   baja: "green",
 };
 
-const ICONO_ORIGEN: Record<IconoCriticidad, string> = {
-  stock: "\u{1F4E6}",
-  limpieza: "­ƒº¢",
-  calibracion: "­ƒöº",
-  incidente: "ÔÜá´©Å",
-  personal: "­ƒæñ",
-  documento: "­ƒôä",
-  checklist: "Ôÿæ´©Å",
+const ICONO_ORIGEN: Record<IconoCriticidad, IconType> = {
+  limpieza: LuBrush,
+  calibracion: LuWrench,
+  incidente: LuTriangleAlert,
+  personal: LuUsers,
+  documento: LuFileText,
+  checklist: LuListChecks,
+  stock: LuPackage,
 };
 
 const ETIQUETA_ORIGEN: Record<string, string> = {
   ELEMENTO_LIMPIEZA: "Elemento de limpieza",
   VENCIMIENTO_PERSONAL: "Vencimiento de personal",
-  PLAN_CALIBRACION: "Calibraci├│n",
+  PLAN_CALIBRACION: "Calibración",
   PLAN_MANTENIMIENTO: "Mantenimiento",
   DOCUMENTO: "Documento",
   CHECKLIST: "Checklist",
@@ -90,7 +105,7 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
 const ETIQUETA_ACCION: Record<string, string> = {
   ELEMENTO_LIMPIEZA: "Registrar recambio",
   VENCIMIENTO_PERSONAL: "Cambiar fecha",
-  PLAN_CALIBRACION: "Gestionar calibraci├│n",
+  PLAN_CALIBRACION: "Gestionar calibración",
   PLAN_MANTENIMIENTO: "Gestionar mantenimiento",
   DOCUMENTO: "Ver documento",
   CHECKLIST: "Ver checklist",
@@ -124,6 +139,11 @@ function SortIcon({
 }) {
   if (sortColumn !== column) return <LuArrowUpDown size={14} opacity={0.4} />;
   return sortDirection === "asc" ? <LuArrowUp size={14} /> : <LuArrowDown size={14} />;
+}
+
+function OrigenIcono({ icono }: { icono: IconoCriticidad }) {
+  const Icono = ICONO_ORIGEN[icono];
+  return <Icono aria-hidden size={16} />;
 }
 
 function normalizar(texto: string) {
@@ -264,10 +284,10 @@ export function NotificacionesPage() {
   }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda, sortColumn, sortDirection]);
 
   const contadores = useMemo(() => {
-    // Los contadores de origen siempre representan el conjunto que se est├í
-    // visualizando, incluyendo los filtros de criticidad, b├║squeda y origen.
+    // Los contadores de origen siempre representan el conjunto que se está
+    // visualizando, incluyendo los filtros de criticidad, búsqueda y origen.
     // De esta forma, si se selecciona "Baja", "Elementos" muestra solamente
-    // cu├íntas situaciones BAJAS provienen de elementos de limpieza.
+    // cuántas situaciones BAJAS provienen de elementos de limpieza.
     let base = [...datos.alertas];
 
     if (criticidadesSeleccionadas.length > 0) {
@@ -286,9 +306,9 @@ export function NotificacionesPage() {
       );
     }
 
-    if (filtroOrigen !== "todas") {
-      base = base.filter((alerta) => alerta.origen === filtroOrigen);
-    }
+    // OJO: aca NO se aplica filtroOrigen. Estos contadores son los del propio
+    // dropdown de origen; filtrando por origen quedaban en 0 todas las demas
+    // opciones al elegir una.
 
     return {
       todas: base.length,
@@ -300,7 +320,7 @@ export function NotificacionesPage() {
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
     };
-  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda]);
+  }, [datos.alertas, criticidadesSeleccionadas, busqueda]);
 
   const {
     paginados: alertasPaginadas,
@@ -354,11 +374,11 @@ export function NotificacionesPage() {
             Centro de notificaciones
           </HStack>
         }
-        description="Situaciones de inocuidad detectadas y priorizadas autom├íticamente seg├║n su criticidad."
+        description="Situaciones de inocuidad detectadas y priorizadas automáticamente según su criticidad."
       />
 
       <ConfiguracionAlertasPanel
-        onGuardado={() => mostrarExito("Configuraci├│n guardada correctamente.")}
+        onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
 
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
@@ -447,7 +467,7 @@ export function NotificacionesPage() {
               aria-pressed={criticidadesSeleccionadas.includes("alta")}
               title="Filtrar situaciones de criticidad alta"
             >
-              ­ƒö┤ Alta
+              <LuCircle size={14} /> Alta
             </Button>
             <Button
               justifyContent="flex-start"
@@ -458,7 +478,7 @@ export function NotificacionesPage() {
               aria-pressed={criticidadesSeleccionadas.includes("media")}
               title="Filtrar situaciones de criticidad media"
             >
-              ­ƒƒá Media
+              <LuCircle size={14} /> Media
             </Button>
             <Button
               justifyContent="flex-start"
@@ -469,13 +489,13 @@ export function NotificacionesPage() {
               aria-pressed={criticidadesSeleccionadas.includes("baja")}
               title="Filtrar situaciones de criticidad baja"
             >
-              ­ƒƒó Baja
+              <LuCircle size={14} /> Baja
             </Button>
           </VStack>
         </Flex>
       </Tarjeta>
 
-      {/* Filtros de la gesti├│n de riesgos. */}
+      {/* Filtros de la gestión de riesgos. */}
       <Tarjeta p="4" mb="6">
         <HStack gap="4" flexWrap="wrap" align="flex-end">
           <Box minW="220px">
@@ -490,7 +510,7 @@ export function NotificacionesPage() {
                 <option value="todas">Todos ({contadores.todas})</option>
                 <option value="ELEMENTO_LIMPIEZA">Elementos ({contadores.elementos})</option>
                 <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
-                <option value="PLAN_CALIBRACION">Calibraci├│n ({contadores.calibracion})</option>
+                <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
                 <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
                 <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
                 <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
@@ -501,7 +521,7 @@ export function NotificacionesPage() {
 
           <Box minW="250px" flex="1">
             <Field.Root>
-              <LabelFiltro>B├║squeda</LabelFiltro>
+              <LabelFiltro>Búsqueda</LabelFiltro>
               <FormInput
                 type="text"
                 value={busqueda}
@@ -509,7 +529,7 @@ export function NotificacionesPage() {
                   setBusqueda(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Buscar situaci├│n, elemento o motivo..."
+                placeholder="Buscar situación, elemento o motivo..."
               />
             </Field.Root>
           </Box>
@@ -523,7 +543,7 @@ export function NotificacionesPage() {
           <HStack justify="center" gap="2" color="green.fg">
             <LuCircleCheck aria-hidden />
             <Text fontSize="lg" fontWeight="bold">
-              No hay situaciones que requieran atenci├│n
+              No hay situaciones que requieran atención
             </Text>
           </HStack>
           <Text color="fg.muted" fontSize="sm">
@@ -548,7 +568,7 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro>Situaci├│n</EncabezadoOscuro>
+                  <EncabezadoOscuro>Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo
@@ -556,7 +576,7 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="acciones">Acci├│n</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="acciones">Acción</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
 
@@ -582,7 +602,7 @@ export function NotificacionesPage() {
 
                     <Celda>
                       <HStack gap="2">
-                        <Text aria-hidden>{ICONO_ORIGEN[alerta.icono]}</Text>
+                        <OrigenIcono icono={alerta.icono} />
                         <Text fontSize="sm" fontWeight="medium">
                           {ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen}
                         </Text>
@@ -614,7 +634,7 @@ export function NotificacionesPage() {
                         loading={recambiando === alerta.clave}
                         onClick={() => handleResolver(alerta)}
                       >
-                        {ETIQUETA_ACCION[alerta.origen] ?? "Ver situaci├│n"}
+                        {ETIQUETA_ACCION[alerta.origen] ?? "Ver situación"}
                       </Button>
                     </Celda>
                   </Table.Row>

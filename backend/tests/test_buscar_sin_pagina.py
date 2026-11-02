@@ -14,6 +14,7 @@ Cómo correrlo (desde `backend/`):
 from datetime import date, timedelta
 
 import pytest
+from sqlalchemy import delete
 
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.incidente.models import Incidente
@@ -46,7 +47,7 @@ def incidentes(session_factory, usuarios):
 
 
 @pytest.fixture()
-def elementos_vencidos(session_factory):
+def elementos_vencidos(session_factory, client, H_ADMIN):
     """Dos elementos de limpieza vencidos: cada uno genera una notificación
     cuyo MENSAJE lo nombra (los títulos de ambas son iguales, así el filtro
     demuestra que también mira el mensaje)."""
@@ -66,9 +67,21 @@ def elementos_vencidos(session_factory):
         ]
         db.add_all(creados)
         db.commit()
-        yield
-        for elemento in creados:
-            db.delete(elemento)
+
+    # Invalidar la caché de notificaciones ANTES de que el test se ejecute,
+    # para que los elementos recién insertados aparezcan en el listado.
+    client.post("/notificaciones/recalcular", headers=H_ADMIN)
+
+    yield
+
+    with session_factory() as db:
+        db.execute(
+            delete(ElementoLimpieza)
+            .where(
+                ElementoLimpieza.nombre.in_(["Trapito de test", "Guante de test"])
+            )
+            .execution_options(auditoria_omitir=True)
+        )
         db.commit()
 
 

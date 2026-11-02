@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.auth.dependencies import require_admin
-from src.notificaciones import schemas, services
 from src.notificaciones.criticidad import obtener_criticidad_dashboard
+from src.notificaciones import schemas, services
 
 # Las alertas de recambio y vencimientos son parte de las historias de
 # administración ("Como: persona con permiso de administrar").
@@ -40,6 +40,9 @@ OrigenNotificacion = Literal[
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
+    "DOCUMENTO",
+    "CHECKLIST",
+    "INCIDENTE",
 ]
 
 
@@ -107,3 +110,17 @@ def actualizar_configuracion(
         db, datos.dias_alerta_vencimiento_personal
     )
     return schemas.ConfiguracionAlertasResponse(dias_alerta_vencimiento_personal=dias)
+
+
+@router.post("/recalcular", response_model=dict)
+def recalcular_notificaciones(db: Session = Depends(get_db)):
+    """Fuerza el recálculo completo de todas las notificaciones y lo persiste
+    en la tabla `notificaciones_persistidas`.
+
+    Llamar después de mutaciones que afecten las fuentes de origen
+    (recambios de elementos, vencimientos de personal, ajuste de stock,
+    versiones de documentos, planes de calibración/mantenimiento) para que
+    la tabla persistida no se quede desactualizada.
+    """
+    total = services.recalcular_notificaciones_persistidas(db, inmediato=True)
+    return {"recalculadas": total}

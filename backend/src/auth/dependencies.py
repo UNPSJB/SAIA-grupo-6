@@ -56,9 +56,9 @@ def get_current_user(
 def get_current_user_activo_completo(
     current_user: Personal = Depends(get_current_user),
 ) -> Personal:
-    if current_user.debe_cambiar_password:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Debés cambiar tu contraseña antes de continuar.")
+    # Ya no se bloquea el acceso cuando debe_cambiar_password es True:
+    # el usuario puede seguir operando. El frontend es el encargado de
+    # mostrar una notificación/banner recordándole que debe cambiarla.
     return current_user
 
 

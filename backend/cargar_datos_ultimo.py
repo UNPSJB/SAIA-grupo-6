@@ -3,7 +3,10 @@
 Orquesta los seeds mantenidos por cada dominio para no duplicar la logica ni
 desincronizar las relaciones entre modelos:
 
-* aplica las migraciones antes de insertar;
+* aplica las migraciones antes de insertar, incluidas las de
+  ``tareas.operador_id``, ``registro_tareas.operador_id``,
+  ``registro_tareas.reemplazado_por_id``, ``calibraciones.activo`` y el
+  bootstrap idempotente de ``configuracion_vista_publica``;
 * carga catalogos, personal, equipos, stock, planes, checklists, incidentes,
   documentos y auditoria mediante ``cargar_datos_faker``;
 * completa los universos necesarios para los indicadores de la vista publica;
@@ -42,7 +45,7 @@ from src.vistaPublica.models import (  # noqa: E402
     IndicadorVistaPublica,
 )
 
-import cargar_datos_faker as seed_faker  # noqa: E402
+from scripts import cargar_datos_faker as seed_faker
 import cargar_datos_vista_publica as seed_vista_publica  # noqa: E402
 
 
@@ -173,6 +176,9 @@ def main() -> int:
     try:
         print("Preparando esquema y migraciones...")
         crear_tablas_y_migrar()
+        print("Migraciones aplicadas: tareas.operador_id, registro_tareas.operador_id, "
+              "registro_tareas.reemplazado_por_id, calibraciones.activo, "
+              "bootstrap de configuracion_vista_publica.")
 
         print("Cargando datos Faker de todos los dominios...")
         with argumentos_temporales(argumentos_seed_faker(args)):

@@ -11,9 +11,11 @@ import { Login } from "./features/Login";
 // `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
 // las 35 páginas entraban al bundle inicial.
 
-import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar"; 
+import Navbar from "./common/components/Navbar";
+import { ANCHO_COLAPSADO } from "./common/components/menuEntradas"; 
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
 import { BarraSuperior } from "./common/components/BarraSuperior";
+import { useAuth } from "./common/context/useAuth";
 import { useLocation } from "react-router-dom";
 
 // 0. Panel principal
@@ -258,6 +260,7 @@ function ConSuspense({ children }: { children: ReactNode }) {
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [menuColapsado, setMenuColapsado] = useState(true);
 
   // El panel es overlay: al navegar vuelve a plegarse solo.
@@ -296,6 +299,26 @@ function LayoutPrincipal() {
 
       <Flex flex={1} ml={ANCHO_COLAPSADO} minW={0} direction="column" overflow="hidden">
         <BarraSuperior />
+        {/* Banner: recordar al usuario que debe cambiar su contraseña temporal */}
+        {user?.debe_cambiar_password && (
+          <Box
+            mb="4"
+            p="3"
+            bg="orange.50"
+            borderWidth="1px"
+            borderColor="orange.300"
+            rounded="md"
+            w="full"
+          >
+            <Text fontSize="sm" fontWeight="bold" color="orange.800">
+              ⚠️ Debés cambiar tu contraseña
+            </Text>
+            <Text fontSize="xs" color="orange.700" mt="1">
+              Iniciaste sesión con una contraseña temporal. Por seguridad, cambiála
+              desde "Mi perfil" antes de seguir usando el sistema.
+            </Text>
+          </Box>
+        )}
         <Flex flex={1} minH={0} p="15px 30px" overflowY="auto" direction="column">
           <Outlet />
         </Flex>

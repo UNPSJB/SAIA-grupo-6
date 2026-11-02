@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { obtenerTareasDelDia, marcarTarea } from "../services/checklistService";
+import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
 import type { TareaDelDia } from "../types/checklist";
 
 // Un solo fetch para todos los equipos: el backend ya arma la lista plana
@@ -19,6 +20,9 @@ export function useChecklist(fecha: string) {
 
       const datos = await obtenerTareasDelDia(fecha);
       setTareas(datos.tareas);
+      // El backend puede haber creado el checklist de hoy y recalculado
+      // notificaciones: avisamos a la campana para que refresque el contador.
+      notificarCambioNotificaciones();
     } catch (err) {
       setError(
         err instanceof Error

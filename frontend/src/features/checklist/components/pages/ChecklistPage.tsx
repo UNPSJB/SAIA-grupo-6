@@ -35,7 +35,6 @@ import {
 } from "../../services/checklistService";
 import { TIPOS_TAREA } from "../../../planLimpieza/types/planLimpieza";
 import { usePersonales } from "../../../personal/hooks/usePersonales";
-import type { Persona } from "../../../personal/types/personal";
 import { listarOpcionesInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQuimico";
 import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";

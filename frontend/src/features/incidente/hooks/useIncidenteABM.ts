@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { crearIncidente, cambiarEstadoIncidente } from "../services/incidenteService";
+import { useNotificacionesListener } from "../../notificaciones/hooks/useNotificacionesListener";
 import type { IncidenteFormValues } from "../types/incidente";
 
 export function useIncidenteABM() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Cualquier cambio en incidentes afecta las notificaciones (incidentes abiertos
+  // son alertas en el dashboard y la campana): refrescamos tras cada mutación.
+  const { notificarCambio } = useNotificacionesListener();
 
   const alta = async (
     datos: IncidenteFormValues,
@@ -13,7 +18,9 @@ export function useIncidenteABM() {
     try {
       setLoading(true);
       setError(null);
-      return await crearIncidente(datos, foto);
+      const resultado = await crearIncidente(datos, foto);
+      notificarCambio();
+      return resultado;
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear el incidente");
       throw err;
@@ -27,7 +34,9 @@ export function useIncidenteABM() {
     try {
       setLoading(true);
       setError(null);
-      return await cambiarEstadoIncidente(id, "cerrado", observacionCierre);
+      const resultado = await cambiarEstadoIncidente(id, "cerrado", observacionCierre);
+      notificarCambio();
+      return resultado;
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cerrar el incidente");
       throw err;
@@ -41,7 +50,9 @@ export function useIncidenteABM() {
     try {
       setLoading(true);
       setError(null);
-      return await cambiarEstadoIncidente(id, "abierto", motivo);
+      const resultado = await cambiarEstadoIncidente(id, "abierto", motivo);
+      notificarCambio();
+      return resultado;
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo reabrir el incidente");
       throw err;

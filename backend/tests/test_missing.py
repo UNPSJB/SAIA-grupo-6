@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from src.config import Settings
 from src.auth.services import es_hash_bcrypt, verificar_password, obtener_ip_cliente, token_posterior_a_cambio_password
 from src.personal.services import _DUMMY_PASSWORD_HASH
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def test_put_tareas_null_no_500_y_no_modifica(client, session_factory, usuarios):
@@ -123,7 +123,7 @@ def test_dummy_password_hash():
 
 
 def test_token_posterior_a_cambio_password():
-    now = datetime.utcnow().replace(microsecond=0)
+    now = datetime.now(timezone.utc).replace(tzinfo=None).replace(microsecond=0)
     # En esta versión del helper, un iat del mismo segundo sigue siendo válido
     payload = {"iat": now}
     assert token_posterior_a_cambio_password(payload, now) is True

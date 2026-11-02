@@ -45,6 +45,8 @@ from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
 from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 from src.vistaPublica.models import ConfiguracionVistaPublica, IndicadorVistaPublica  # noqa: F401
+from src.notificaciones.models import NotificacionPersistida  # noqa: F401
+from src.notificaciones.invalidacion import EstadoNotificaciones  # noqa: F401
 
 # Bitácora de auditoría: va al final a propósito. Los listeners se registran
 # sobre `ModeloBase` con `propagate=True` y el modelo ya tiene que estar
@@ -79,4 +81,6 @@ __all__ = [
     "UnidadMedida",
     "VencimientoPersonal",
     "VersionDocumento",
+    "NotificacionPersistida",
+    "EstadoNotificaciones",
 ]

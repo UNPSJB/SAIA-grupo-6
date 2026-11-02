@@ -151,7 +151,7 @@ function plural(n: number, singular: string, pluralTexto: string): string {
 /** Nombre del registro (p. ej. `nombre "Balanza 3"`) si algún campo lo permite. */
 function identificador(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string | null {
   const esEnriquecido = (c: Cambios | CambiosDetalle) =>
-    c && Object.values(c).some((v: any) => v && typeof v === 'object' && !Array.isArray(v) && 'antes' in v);
+    c && Object.values(c).some((v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v) && 'antes' in v);
   const det = esEnriquecido(cambios) ? (cambios as CambiosDetalle) : null;
   for (const clave of CAMPOS_IDENTIFICADORES) {
     const campo = det?.[clave] ?? cambios?.[clave];
@@ -169,7 +169,7 @@ function identificador(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string |
 function nombresRelacionados(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string | null {
   if (!cambios) return null;
   const nombres = Object.values(cambios)
-    .map((v: any) => (Array.isArray(v) ? null : lado === 0 ? v?.antes_nombre : v?.despues_nombre))
+    .map((v) => (Array.isArray(v) ? null : lado === 0 ? v?.antes_nombre : v?.despues_nombre))
     .filter(Boolean);
   return nombres.length > 0 ? nombres.join(' · ') : null;
 }
@@ -235,21 +235,6 @@ function nombreUsuario(item: ItemAuditoria): string | null {
 /* Piezas de la fila                                                   */
 /* ------------------------------------------------------------------ */
 
-function Valor({ valor, color }: { valor: unknown; color?: string }) {
-  const texto = formatearValor(valor);
-  if (texto === null) {
-    return (
-      <Text as="span" fontSize="sm" color="fg.subtle" fontStyle="italic">
-        vacío
-      </Text>
-    );
-  }
-  return (
-    <Text as="span" fontSize="xs" fontFamily="mono" whiteSpace="pre-wrap" wordBreak="break-word" color={color}>
-      {texto}
-    </Text>
-  );
-}
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -541,9 +526,11 @@ export function AuditoriaPage() {
   }, [page, pageSize, filtros, cargar]);
 
   // Al cambiar de página o de filtros se cierra el detalle abierto.
-  useEffect(() => {
+  const [itemsPrevios, setItemsPrevios] = useState(items);
+  if (items !== itemsPrevios) {
+    setItemsPrevios(items);
     setAbiertoId(null);
-  }, [items]);
+  }
 
   const actualizar = <K extends keyof Filtros>(campo: K, valor: Filtros[K]) =>
     setBorrador((prev) => ({ ...prev, [campo]: valor }));
