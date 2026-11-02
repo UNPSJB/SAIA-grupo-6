@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button, HStack, Input, Text } from "@chakra-ui/react";
+import { Box, Button, HStack, Input, Text } from "@chakra-ui/react";
 
 import {
   DialogContent,
@@ -22,16 +22,19 @@ const FORMATOS_ACEPTADOS = ".pdf,image/*";
 interface RegistrarCalibracionDialogProps {
   isOpen: boolean;
   equipo: Equipo | null;
+  /** Tipo de intervención determinado por el plan de origen (no se elige acá). */
+  tipo: TipoIntervencion;
   isLoading?: boolean;
   /** Error de la mutación, para poder reintentar sin perder los datos. */
   error?: string | null;
   onClose: () => void;
-  onConfirm: (fecha: string, archivo: File, tipo: TipoIntervencion) => void;
+  onConfirm: (fecha: string, archivo: File) => void;
 }
 
 export function RegistrarCalibracionDialog({
   isOpen,
   equipo,
+  tipo,
   isLoading,
   error,
   onClose,
@@ -39,7 +42,6 @@ export function RegistrarCalibracionDialog({
 }: RegistrarCalibracionDialogProps) {
   const [fecha, setFecha] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [tipo, setTipo] = useState<TipoIntervencion>("calibracion");
   const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,13 +87,12 @@ export function RegistrarCalibracionDialog({
     // falla, el operador necesita ver la fecha y el archivo que ya eligió
     // para poder reintentar sin repetirlos. El reset ocurre en
     // `handleCerrar`, que es la otra vía por la que se vacía el formulario.
-    onConfirm(fecha, archivo, tipo);
+    onConfirm(fecha, archivo);
   };
 
   const handleCerrar = () => {
     setFecha("");
     setArchivo(null);
-    setTipo("calibracion");
     setErrorValidacion(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     onClose();
@@ -134,32 +135,17 @@ export function RegistrarCalibracionDialog({
             <BannerError mb="4">{errorValidacion}</BannerError>
           )}
 
-          <FormField label="Tipo de intervención" required mb="4">
-            <HStack gap="0" w="100%" rounded="lg" overflow="hidden" borderWidth="1px" borderColor="border.subtle">
-              <Button
-                type="button"
-                flex="1"
-                rounded="0"
-                colorPalette="brand"
-                variant={tipo === "calibracion" ? "solid" : "ghost"}
-                aria-pressed={tipo === "calibracion"}
-                onClick={() => setTipo("calibracion")}
-              >
-                Calibración
-              </Button>
-              <Button
-                type="button"
-                flex="1"
-                rounded="0"
-                colorPalette="brand"
-                variant={tipo === "mantenimiento" ? "solid" : "ghost"}
-                aria-pressed={tipo === "mantenimiento"}
-                onClick={() => setTipo("mantenimiento")}
-              >
-                Mantenimiento
-              </Button>
-            </HStack>
-          </FormField>
+          <Box mb="4">
+            <Text fontSize="sm" color="fg.muted">
+              Tipo de intervención (definido por el plan):
+            </Text>
+            <Text fontSize="lg" fontWeight="bold" color="brand.600">
+              {"Estás seleccionando: "}
+              <Text as="span" textTransform="uppercase" letterSpacing="tight">
+                {tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
+              </Text>
+            </Text>
+          </Box>
 
           <FormField label="Fecha de realización" required mb="4">
             <FormInput
