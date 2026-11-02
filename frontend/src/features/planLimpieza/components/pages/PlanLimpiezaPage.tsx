@@ -27,7 +27,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -171,7 +171,6 @@ export function PlanLimpiezaPage() {
             <BotonAgregar onClick={() => navigate("/planes-limpieza/nuevo")}>
               Agregar
             </BotonAgregar>
-            <ExportarTablaButton nombreTabla="planes_limpieza" />
           </HStack>
         }
       />
@@ -183,27 +182,37 @@ export function PlanLimpiezaPage() {
       />
 
       <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por plan, equipo o tarea..."
-          />
-        }
-        filtros={
-          <FiltroSelect
-            label="Equipo"
-            valor={equipoId}
-            onCambio={setEquipoId}
-            opciones={equipos.map((equipo) => ({
-              valor: String(equipo.id),
-              etiqueta: equipo.nombre,
-            }))}
-          />
-        }
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por plan, equipo o tarea..."
       />
-
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      <BotonesExportar
+        nombreTabla="planes_limpieza"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+          equipo_id: equipoId || undefined,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={
+    <FiltroSelect
+      label="Equipo"
+      valor={equipoId}
+      onCambio={setEquipoId}
+      opciones={equipos.map((equipo) => ({
+        valor: String(equipo.id),
+        etiqueta: equipo.nombre,
+      }))}
+    />
+  }
+/>
 
       {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}

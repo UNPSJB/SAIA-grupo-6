@@ -222,7 +222,7 @@ export function InsumosQuimicosPage() {
       />
 
       <BotonesExportar
-        nombreTabla="productos_quimicos"
+        nombreTabla="insumos_quimicos"
         filtros={{
           incluirInactivos: String(verInactivos),
           buscar: busquedaAplicada,

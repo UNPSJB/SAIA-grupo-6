@@ -37,7 +37,7 @@ import {
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -215,64 +215,74 @@ export function HistorialChecklistPage() {
               <LuRefreshCw aria-hidden />
               Actualizar
             </BotonCancelar>
-            <ExportarTablaButton nombreTabla="historial_registros_tarea" />
           </HStack>
         }
       />
 
-      <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
-            placeholder="Buscar por equipo..."
-          />
-        }
-        filtros={
-          <>
-            <Box minW="170px">
-              <Field.Root>
-                <LabelFiltro>Desde</LabelFiltro>
-                <FormInput
-                  type="date"
-                  value={fechaDesde}
-                  onChange={(e) =>
-                    cambiarFiltro(() => setFechaDesde(e.target.value))
-                  }
-                  w="auto"
-                />
-              </Field.Root>
-            </Box>
-            <Box minW="170px">
-              <Field.Root>
-                <LabelFiltro>Hasta</LabelFiltro>
-                <FormInput
-                  type="date"
-                  value={fechaHasta}
-                  onChange={(e) =>
-                    cambiarFiltro(() => setFechaHasta(e.target.value))
-                  }
-                  w="auto"
-                />
-              </Field.Root>
-            </Box>
-            <FiltroSelect
-              label="Equipo"
-              valor={equipoSeleccionado}
-              onCambio={(valor) =>
-                cambiarFiltro(() => setEquipoSeleccionado(valor))
-              }
-              opciones={equipos.map((equipo) => ({
-                valor: String(equipo.id),
-                etiqueta: equipo.nombre,
-              }))}
-              todos="Todos los equipos"
-            />
-          </>
-        }
+     <BarraFiltros
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+        placeholder="Buscar por equipo..."
       />
-
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      <BotonesExportar
+        nombreTabla="checklists"
+        filtros={{
+          buscar: busqueda || undefined,
+          fechaDesde: fechaDesde || undefined,
+          fechaHasta: fechaHasta || undefined,
+          equipo_id: equipoSeleccionado || undefined,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={
+    <>
+      <Box minW="170px">
+        <Field.Root>
+          <LabelFiltro>Desde</LabelFiltro>
+          <FormInput
+            type="date"
+            value={fechaDesde}
+            onChange={(e) =>
+              cambiarFiltro(() => setFechaDesde(e.target.value))
+            }
+            w="auto"
+          />
+        </Field.Root>
+      </Box>
+      <Box minW="170px">
+        <Field.Root>
+          <LabelFiltro>Hasta</LabelFiltro>
+          <FormInput
+            type="date"
+            value={fechaHasta}
+            onChange={(e) =>
+              cambiarFiltro(() => setFechaHasta(e.target.value))
+            }
+            w="auto"
+          />
+        </Field.Root>
+      </Box>
+      <FiltroSelect
+        label="Equipo"
+        valor={equipoSeleccionado}
+        onCambio={(valor) =>
+          cambiarFiltro(() => setEquipoSeleccionado(valor))
+        }
+        opciones={equipos.map((equipo) => ({
+          valor: String(equipo.id),
+          etiqueta: equipo.nombre,
+        }))}
+        todos="Todos los equipos"
+      />
+    </>
+  }
+/>
 
       {error && <BannerError>{error}</BannerError>}
 
