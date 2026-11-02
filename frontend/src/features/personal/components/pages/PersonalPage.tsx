@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { PersonalTable } from "../PersonalTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePersonales } from "../../hooks/usePersonales";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
+import { ExportarTablaButton, BotonesExportar } from "../../../../features/exportacion";
 import {
   ROLES_PERSONAL,
   type Persona,
@@ -161,9 +162,12 @@ export function PersonalPage() {
         title={verInactivos ? "Personal dado de baja" : "Gestión de personal"}
         description="Alta, modificación y baja del personal del laboratorio."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/personal/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/personal/nuevo")}>
+              + Agregar
+            </Button>
+            <ExportarTablaButton nombreTabla="personal" />
+          </HStack>
         }
       />
 

@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Field, HStack, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
@@ -37,6 +37,7 @@ import {
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -209,10 +210,13 @@ export function HistorialChecklistPage() {
         title="Historial de checklists"
         description="Cumplimiento por período, filtrado por rango de fechas y equipo."
         actions={
-          <BotonCancelar onClick={recargar}>
-            <LuRefreshCw aria-hidden />
-            Actualizar
-          </BotonCancelar>
+          <HStack spacing="2">
+            <BotonCancelar onClick={recargar}>
+              <LuRefreshCw aria-hidden />
+              Actualizar
+            </BotonCancelar>
+            <ExportarTablaButton nombreTabla="historial_registros_tarea" />
+          </HStack>
         }
       />
 

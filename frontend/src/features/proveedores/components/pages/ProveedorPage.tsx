@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
@@ -22,6 +22,7 @@ import { useProveedorABM } from "../../hooks/useProveedorABM";
 import { useProveedores } from "../../hooks/useProveedores";
 import type { Proveedor } from "../../types/proveedor";
 import { ProveedorTable } from "../ProveedorTable";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -103,9 +104,12 @@ export function ProveedorPage() {
         title={verInactivos ? "Proveedores dados de baja" : "Gestión de proveedores"}
         description="Alta, modificación y baja de los proveedores de insumos químicos."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/proveedores/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/proveedores/nuevo")}>
+              + Agregar
+            </Button>
+            <ExportarTablaButton nombreTabla="proveedores" />
+          </HStack>
         }
       />
 

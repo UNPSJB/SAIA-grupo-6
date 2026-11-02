@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import { usePlanesCalibracionMantenimientoPaginados } from "../../hooks/usePlanesCalibracionMantenimientoPaginados";
@@ -29,6 +29,7 @@ import {
   PageHeader,
   Paginacion,
 } from "../../../../components/ui/patrones";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -169,11 +170,14 @@ export function PlanCalibracionMantenimientoPage() {
         title="Planes de calibración y mantenimiento"
         description="Periodicidad de calibración y de mantenimiento por equipo, con su próximo vencimiento."
         actions={
-          <BotonAgregar
-            onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
-          >
-            Agregar
-          </BotonAgregar>
+          <HStack spacing="2">
+            <BotonAgregar
+              onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
+            >
+              Agregar
+            </BotonAgregar>
+            <ExportarTablaButton nombreTabla="planes_calibracion_mantenimiento" />
+          </HStack>
         }
       />
 

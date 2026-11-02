@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -30,6 +30,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -179,9 +180,12 @@ export function EquiposPage() {
         }
         description="Alta, modificación y baja de los equipos del laboratorio, con su historial de intervenciones."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/equipos/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/equipos/nuevo")}>
+              + Agregar
+            </Button>
+            <ExportarTablaButton nombreTabla="equipos" />
+          </HStack>
         }
       />
 

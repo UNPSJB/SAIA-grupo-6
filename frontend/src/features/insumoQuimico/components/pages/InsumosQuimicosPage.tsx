@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { InsumoQuimicoTable } from "../InsumoQuimicoTable";
 import { notificarCambioNotificaciones } from "../../../notificaciones/eventoNotificaciones";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -31,6 +31,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -195,12 +196,15 @@ export function InsumosQuimicosPage() {
         }
         description="Alta, modificación y baja de los productos químicos del laboratorio."
         actions={
-          <Button
-            colorPalette="brand"
-            onClick={() => navigate("/insumos-quimicos/nuevo")}
-          >
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button
+              colorPalette="brand"
+              onClick={() => navigate("/insumos-quimicos/nuevo")}
+            >
+              + Agregar
+            </Button>
+            <ExportarTablaButton nombreTabla="insumos_quimicos" />
+          </HStack>
         }
       />
 

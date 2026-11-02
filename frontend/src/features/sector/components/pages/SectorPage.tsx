@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { SectorTable } from "../SectorTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -23,6 +23,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -128,9 +129,12 @@ export function SectorPage() {
         title={verInactivos ? "Sectores dados de baja" : "Gestión de sectores"}
         description="Alta, modificación y baja de los sectores de la planta."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/sectores/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/sectores/nuevo")}>
+              + Agregar
+            </Button>
+            <ExportarTablaButton nombreTabla="sectores" />
+          </HStack>
         }
       />
 
