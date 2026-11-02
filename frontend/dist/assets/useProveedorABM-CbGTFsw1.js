@@ -1,0 +1,1 @@
+import{vr as e}from"./lu-j8OWCWP_.js";import{t}from"./useABM-D_nGAVuB.js";import{i as n,n as r,o as i,t as a}from"./proveedorService-Cg3nhJ9s.js";var o=e();function s(){let e=(0,o.c)(1),s;return e[0]===Symbol.for(`react.memo_cache_sentinel`)?(s={crear:a,modificar:n,eliminar:r,reactivar:i,etiqueta:`el proveedor`},e[0]=s):s=e[0],t(s)}export{s as t};

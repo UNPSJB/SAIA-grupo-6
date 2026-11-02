@@ -24,6 +24,7 @@ import {
   LuClipboardCheck,
   LuClipboardList,
   LuDatabase,
+  LuFactory,
   LuFileText,
   LuFlaskConical,
   LuFolderSearch,
@@ -35,6 +36,7 @@ import {
   LuPanelLeftClose,
   LuPanelLeftOpen,
   LuPackage,
+  LuPackagePlus,
   LuRuler,
   LuShieldCheck,
   LuSparkles,
@@ -137,6 +139,18 @@ const GRUPOS: GrupoMenu[] = [
     icon: LuClipboardCheck,
     entradas: [
       { to: "/checklist", label: "Checklist Diario", rol: "operar", icon: LuListChecks },
+      {
+        to: "/lotes/nuevo",
+        label: "Registrar Lote",
+        rol: "operar",
+        icon: LuPackagePlus,
+      },
+      {
+        to: "/lotes",
+        label: "Historial de Lotes",
+        rol: "administrar",
+        icon: LuFactory,
+      },
       {
         to: "/incidentes/reportar",
         label: "Reportar Incidente",

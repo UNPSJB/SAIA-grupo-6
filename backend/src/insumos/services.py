@@ -5,7 +5,7 @@ from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.texto import sin_tildes
 from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.exceptions import ConflictoRegistroInactivo
-from src.insumos.models import Insumo
+from src.insumos.models import TIPO_INSUMO, Insumo
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -51,7 +51,9 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
 
     _verificar_unidad_medida(db, insumo.unidad_medida_id)
 
-    _insumo = Insumo(**insumo.model_dump())
+    datos = insumo.model_dump()
+    datos["tipo"] = TIPO_INSUMO
+    _insumo = Insumo(**datos)
     db.add(_insumo)
     try:
         db.commit()
@@ -66,13 +68,21 @@ def _consulta_insumos(
     incluir_inactivos: bool,
     buscar: Optional[str],
     unidad_medida_id: Optional[int],
+    tipo: Optional[str] = TIPO_INSUMO,
 ):
-    """Consulta base con el JOIN a la unidad, compartida por ambos caminos."""
+    """Consulta base con el JOIN a la unidad, compartida por ambos caminos.
+
+    `tipo=None` devuelve el maestro completo (insumos y productos), que es lo
+    que necesita la pantalla de E1. Los listados internos siguen usando el
+    default `insumo` para no mezclar productos donde se esperan insumos.
+    """
     consulta = (
         select(Insumo)
         .join(Insumo.unidad_medida)
         .options(selectinload(Insumo.unidad_medida))
     )
+    if tipo is not None:
+        consulta = consulta.where(Insumo.tipo == tipo)
 
     filtros = [
         filtro
@@ -101,9 +111,10 @@ def listar_insumos(
     incluir_inactivos: bool = False,
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
+    tipo: Optional[str] = TIPO_INSUMO,
 ) -> List[Insumo]:
     consulta = _consulta_insumos(
-        incluir_inactivos, buscar, unidad_medida_id
+        incluir_inactivos, buscar, unidad_medida_id, tipo
     ).order_by(Insumo.id)
     return list(db.scalars(consulta).all())
 
@@ -116,11 +127,12 @@ def listar_insumos_paginado(
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
     orden: str = "nombre_asc",
+    tipo: Optional[str] = TIPO_INSUMO,
 ) -> tuple[List[Insumo], int]:
     """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
     return paginar_consulta(
         db,
-        _consulta_insumos(incluir_inactivos, buscar, unidad_medida_id),
+        _consulta_insumos(incluir_inactivos, buscar, unidad_medida_id, tipo),
         modelo=Insumo,
         orden=orden,
         ordenes=_ORDENES,

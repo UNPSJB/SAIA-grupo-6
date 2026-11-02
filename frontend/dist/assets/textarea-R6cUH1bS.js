@@ -1,0 +1,1 @@
+import{tr as e,wt as t}from"./lu-j8OWCWP_.js";var{withContext:n,PropsProvider:r}=e({key:`textarea`}),i=n(t.Textarea);export{i as t};

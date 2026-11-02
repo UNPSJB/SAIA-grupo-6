@@ -17,7 +17,21 @@ import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { obtenerCriticidadDashboard } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import { LuArrowDown, LuArrowUp, LuArrowUpDown, LuBell, LuCircleCheck } from "react-icons/lu";
+import type { IconType } from "react-icons";
+import {
+  LuArrowDown,
+  LuArrowUp,
+  LuArrowUpDown,
+  LuBell,
+  LuCircleCheck,
+  LuClipboardCheck,
+  LuFileText,
+  LuPackage,
+  LuSprayCan,
+  LuTriangleAlert,
+  LuUser,
+  LuWrench,
+} from "react-icons/lu";
 import type {
   AlertaCriticidad,
   Criticidad,
@@ -67,19 +81,25 @@ const PALETA_CRITICIDAD: Record<Criticidad, string> = {
   baja: "green",
 };
 
-const ICONO_ORIGEN: Record<IconoCriticidad, string> = {
-  limpieza: "­ƒº¢",
-  calibracion: "­ƒöº",
-  incidente: "ÔÜá´©Å",
-  personal: "­ƒæñ",
-  documento: "­ƒôä",
-  checklist: "Ôÿæ´©Å",
+const ICONO_ORIGEN: Record<IconoCriticidad, IconType> = {
+  limpieza: LuSprayCan,
+  calibracion: LuWrench,
+  incidente: LuTriangleAlert,
+  personal: LuUser,
+  documento: LuFileText,
+  checklist: LuClipboardCheck,
+  stock: LuPackage,
 };
+
+function IconoOrigen({ icono }: { icono: IconoCriticidad }) {
+  const Icono = ICONO_ORIGEN[icono];
+  return <Icono size={16} aria-hidden />;
+}
 
 const ETIQUETA_ORIGEN: Record<string, string> = {
   ELEMENTO_LIMPIEZA: "Elemento de limpieza",
   VENCIMIENTO_PERSONAL: "Vencimiento de personal",
-  PLAN_CALIBRACION: "Calibraci├│n",
+  PLAN_CALIBRACION: "Calibración",
   PLAN_MANTENIMIENTO: "Mantenimiento",
   DOCUMENTO: "Documento",
   CHECKLIST: "Checklist",
@@ -581,7 +601,7 @@ export function NotificacionesPage() {
 
                     <Celda>
                       <HStack gap="2">
-                        <Text aria-hidden>{ICONO_ORIGEN[alerta.icono]}</Text>
+                        <IconoOrigen icono={alerta.icono} />
                         <Text fontSize="sm" fontWeight="medium">
                           {ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen}
                         </Text>

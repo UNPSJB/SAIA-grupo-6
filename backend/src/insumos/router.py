@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/insumos", tags=["insumos"], dependencies=[Depends(require_admin)])
 
 OrdenInsumo = Literal["nombre_asc", "nombre_desc", "unidad_asc", "unidad_desc"]
+TipoInsumo = Literal["insumo", "producto"]
 
 # Rutas para Insumos
 
@@ -33,6 +34,10 @@ def read_insumos(
         description="Busca en nombre, unidad y símbolo (sin distinguir mayúsculas ni tildes).",
     ),
     unidad_medida_id: Optional[int] = Query(None, ge=1),
+    tipo: Optional[TipoInsumo] = Query(
+        None,
+        description="Filtra por tipo. Sin este parametro se devuelven insumos y productos.",
+    ),
     orden: OrdenInsumo = "nombre_asc",
     page: Optional[int] = Query(
         None,
@@ -43,12 +48,13 @@ def read_insumos(
     db: Session = Depends(get_db),
 ):
     logger.info(
-        "Listando insumos desde router (incluir_inactivos=%s)",
+        "Listando insumos desde router (incluir_inactivos=%s, tipo=%s)",
         incluir_inactivos,
+        tipo,
     )
     if page is None:
         return services.listar_insumos(
-            db, incluir_inactivos, buscar, unidad_medida_id
+            db, incluir_inactivos, buscar, unidad_medida_id, tipo
         )
     items, total = services.listar_insumos_paginado(
         db,
@@ -58,6 +64,7 @@ def read_insumos(
         buscar=buscar,
         unidad_medida_id=unidad_medida_id,
         orden=orden,
+        tipo=tipo,
     )
     return schemas.InsumoPagina(items=items, total=total, page=page, page_size=page_size)
 

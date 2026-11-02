@@ -6,7 +6,7 @@ import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useInsumos } from "../../hooks/useInsumos";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
-import type { Insumo } from "../../types/insumo";
+import type { Insumo, TipoInsumo } from "../../types/insumo";
 import type { ColumnaOrdenInsumo } from "../../services/insumoService";
 import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
 import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
@@ -36,6 +36,7 @@ export function InsumosPage() {
   const [busqueda, setBusqueda] = useState("");
   const busquedaAplicada = useValorDebounced(busqueda);
   const [unidadId, setUnidadId] = useState("");
+  const [tipo, setTipo] = useState<TipoInsumo | "">("");
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const orden = useOrdenTabla<ColumnaOrdenInsumo, "nombre_asc">("nombre_asc");
 
@@ -53,6 +54,7 @@ export function InsumosPage() {
       incluirInactivos: verInactivos,
       buscar: busquedaAplicada,
       unidadMedidaId: unidadId ? Number(unidadId) : undefined,
+      tipo: tipo || undefined,
       orden: orden.orden,
     },
     PAGE_SIZE
@@ -83,10 +85,11 @@ export function InsumosPage() {
   const limpiarTodo = () => {
     setBusqueda("");
     setUnidadId("");
+    setTipo("");
     orden.reiniciar();
   };
 
-  const hayFiltros = busqueda.trim() !== "" || unidadId !== "";
+  const hayFiltros = busqueda.trim() !== "" || unidadId !== "" || tipo !== "";
 
   const ETIQUETAS_ORDEN: Record<ColumnaOrdenInsumo, string> = {
     nombre: "Nombre",
@@ -100,6 +103,12 @@ export function InsumosPage() {
       valor: busqueda,
       recortar: true,
       onQuitar: () => setBusqueda(""),
+    },
+    {
+      clave: "tipo",
+      etiqueta: "Tipo",
+      valor: tipo === "producto" ? "Productos" : tipo === "insumo" ? "Insumos" : "",
+      onQuitar: () => setTipo(""),
     },
     {
       clave: "unidad",
@@ -164,9 +173,11 @@ export function InsumosPage() {
     <Box p="5">
       <PageHeader
         title={
-          verInactivos ? "Insumos dados de baja" : "Gestión de insumos"
+          verInactivos
+            ? "Insumos y productos dados de baja"
+            : "Gestión de insumos y productos"
         }
-        description="Alta, modificación y baja de los insumos del laboratorio."
+        description="Alta, modificación y baja de insumos y productos del laboratorio."
         actions={
           <Button colorPalette="brand" onClick={() => navigate("/insumos/nuevo")}>
             + Agregar
@@ -189,16 +200,28 @@ export function InsumosPage() {
           />
         }
         filtros={
-          <FiltroSelect
-            label="Unidad de medida"
-            valor={unidadId}
-            onCambio={setUnidadId}
-            opciones={unidades.map((unidad) => ({
-              valor: String(unidad.id),
-              etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
-            }))}
-            todos="Todas"
-          />
+          <>
+            <FiltroSelect
+              label="Tipo"
+              valor={tipo}
+              onCambio={(valor) => setTipo(valor as TipoInsumo | "")}
+              opciones={[
+                { valor: "insumo", etiqueta: "Insumos" },
+                { valor: "producto", etiqueta: "Productos" },
+              ]}
+              todos="Todos los tipos"
+            />
+            <FiltroSelect
+              label="Unidad de medida"
+              valor={unidadId}
+              onCambio={setUnidadId}
+              opciones={unidades.map((unidad) => ({
+                valor: String(unidad.id),
+                etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
+              }))}
+              todos="Todas"
+            />
+          </>
         }
       />
 
@@ -211,7 +234,8 @@ export function InsumosPage() {
         <>
           {hayFiltros && insumos.length === 0 ? (
             <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
-              No hay insumos que coincidan con los filtros aplicados.
+              No hay insumos ni productos que coincidan con los filtros
+              aplicados.
             </EstadoVacioFiltrado>
           ) : (
             <InsumoTable

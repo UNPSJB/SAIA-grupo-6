@@ -437,6 +437,110 @@ def run_migrations() -> None:
             )
 
 
+    # E1 es el maestro de insumos y también de los productos elaborados. Los
+    # productos históricos se migran a `insumos` con tipo='producto' y los
+    # lotes quedan vinculados a ese registro por id.
+    if "insumos" in tablas:
+        if "tipo" not in _columnas_de(inspector, "insumos"):
+            logger.info("Migración: agregando columna insumos.tipo")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE insumos ADD COLUMN tipo VARCHAR(20) "
+                        "NOT NULL DEFAULT 'insumo'"
+                    )
+                )
+            inspector = inspect(engine)
+        with engine.begin() as conexion:
+            conexion.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_insumos_tipo ON insumos (tipo)")
+            )
+
+    if "insumos" in tablas and "lotes" in tablas:
+        if "producto_id" not in _columnas_de(inspector, "lotes"):
+            logger.info("Migración: agregando columna lotes.producto_id")
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "ALTER TABLE lotes ADD COLUMN producto_id INTEGER "
+                        "REFERENCES insumos(id)"
+                    )
+                )
+            inspector = inspect(engine)
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lotes_producto_id "
+                    "ON lotes (producto_id)"
+                )
+            )
+
+        if "unidades_medida" in tablas:
+            with engine.begin() as conexion:
+                conexion.execute(
+                    text(
+                        "INSERT OR IGNORE INTO unidades_medida "
+                        "(nombre, simbolo, activo) VALUES ('unidad', 'u', 1)"
+                    )
+                )
+                unidad_id = conexion.execute(
+                    text(
+                        "SELECT id FROM unidades_medida "
+                        "WHERE simbolo = 'u' OR nombre = 'unidad' "
+                        "ORDER BY id LIMIT 1"
+                    )
+                ).scalar_one_or_none()
+
+            if unidad_id is not None:
+                with engine.begin() as conexion:
+                    creados = 0
+                    if "productos" in tablas:
+                        creados += conexion.execute(
+                            text(
+                                "INSERT OR IGNORE INTO insumos "
+                                "(nombre, unidad_medida_id, activo, tipo) "
+                                "SELECT DISTINCT TRIM(nombre), :unidad_id, "
+                                "COALESCE(activo, 1), 'producto' FROM productos "
+                                "WHERE nombre IS NOT NULL "
+                                "AND TRIM(nombre) <> ''"
+                            ),
+                            {"unidad_id": unidad_id},
+                        ).rowcount
+                    creados += conexion.execute(
+                        text(
+                            "INSERT OR IGNORE INTO insumos "
+                            "(nombre, unidad_medida_id, activo, tipo) "
+                            "SELECT DISTINCT TRIM(producto_nombre), :unidad_id, "
+                            "1, 'producto' FROM lotes "
+                            "WHERE producto_nombre IS NOT NULL "
+                            "AND TRIM(producto_nombre) <> ''"
+                        ),
+                        {"unidad_id": unidad_id},
+                    ).rowcount
+                    actualizados = conexion.execute(
+                        text(
+                            "UPDATE lotes SET producto_id = ("
+                            "SELECT i.id FROM insumos i "
+                            "WHERE i.tipo = 'producto' "
+                            "AND lower(i.nombre) = lower(TRIM(lotes.producto_nombre)) "
+                            "ORDER BY i.id LIMIT 1"
+                            ") WHERE producto_id IS NULL "
+                            "AND producto_nombre IS NOT NULL "
+                            "AND TRIM(producto_nombre) <> ''"
+                        )
+                    ).rowcount
+
+                if creados:
+                    logger.info(
+                        "Migración: se cargaron %s productos en el maestro de insumos.",
+                        creados,
+                    )
+                if actualizados:
+                    logger.info(
+                        "Migración: se vincularon %s lotes con su producto de E1.",
+                        actualizados,
+                    )
+
     if "equipos" in tablas and "frecuencia_calibracion_dias" not in _columnas_de(
         inspector, "equipos"
     ):
@@ -646,6 +750,13 @@ def run_migrations() -> None:
                         "WHERE sector_id IS NULL"
                     )
                 )
+
+    if "equipos" in tablas:
+        columnas_equipos = _columnas_de(inspect(engine), "equipos")
+        if "sector_id" in columnas_equipos and "ubicacion" in columnas_equipos:
+            logger.info("Migración: eliminando columna heredada equipos.ubicacion")
+            with engine.begin() as conexion:
+                conexion.execute(text("ALTER TABLE equipos DROP COLUMN ubicacion"))
 
     # 10) Bootstrap del primer super admin.
     #

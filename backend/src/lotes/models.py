@@ -16,7 +16,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.models import ModeloBase
 
 ESTADO_PENDIENTE = "Pendiente"
-ESTADOS_LOTE = ("Pendiente", "En proceso", "Finalizado", "Cancelado")
+ESTADO_FINALIZADO = "Finalizado"
+ESTADO_CANCELADO = "Cancelado"
+ESTADOS_LOTE = (ESTADO_PENDIENTE, "En proceso", ESTADO_FINALIZADO, ESTADO_CANCELADO)
+ESTADOS_LOTE_CERRADOS = (ESTADO_FINALIZADO, ESTADO_CANCELADO)
 
 
 class LoteProduccion(ModeloBase):
@@ -38,6 +41,9 @@ class LoteProduccion(ModeloBase):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     codigo_lote: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    producto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("insumos.id"), nullable=True, index=True
+    )
     producto_nombre: Mapped[str] = mapped_column(String(120), index=True)
     cantidad_planificada: Mapped[int] = mapped_column(Integer)
     cantidad_producida: Mapped[int] = mapped_column(

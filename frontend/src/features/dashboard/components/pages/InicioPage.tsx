@@ -14,6 +14,7 @@ import { GraficoTorta } from "../GraficoTorta";
 import { TarjetaCumplimiento } from "../TarjetaCumplimiento";
 import { TarjetaEquiposCalibrados } from "../TarjetaEquiposCalibrados";
 import { TarjetaIniciadosResueltos } from "../TarjetaIniciadosResueltos";
+import { TarjetaProduccion } from "../../../lotes/components/TarjetaProduccion";
 
 /**
  * Panel principal.
@@ -116,6 +117,8 @@ export function InicioPage() {
               />
             )}
           </Grid>
+
+          {verIncidentes && <TarjetaProduccion />}
         </Flex>
 
         {verIncidentes && (

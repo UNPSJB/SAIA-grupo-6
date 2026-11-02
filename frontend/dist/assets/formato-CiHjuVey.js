@@ -1,0 +1,1 @@
+import{n as e}from"./documento-6oT1CC8O.js";var t=t=>e.find(e=>e.value===t)?.label??t,n=e=>e?new Date(e).toLocaleDateString(`es-AR`):`—`,r=e=>e?new Date(e).toLocaleString(`es-AR`,{dateStyle:`short`,timeStyle:`short`}):`—`;export{n,r,t};

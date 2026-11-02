@@ -69,7 +69,7 @@ def borrar_todo(db) -> None:
         base.Personal,
     ]
     for modelo in orden:
-        db.execute(delete(modelo))
+        db.execute(delete(modelo).execution_options(auditoria_omitir=True))
     db.flush()
 
 

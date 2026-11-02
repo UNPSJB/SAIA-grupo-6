@@ -1,4 +1,4 @@
-import { HStack, Table } from "@chakra-ui/react";
+import { Badge, HStack, Table } from "@chakra-ui/react";
 import type { Insumo } from "../types/insumo";
 import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
@@ -23,6 +23,14 @@ export function InsumoItem({
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={insumo.activo ? 1 : 0.65}>
       <Celda p="3">
         <TextoTruncado texto={insumo.nombre} />
+      </Celda>
+      <Celda p="3">
+        <Badge
+          colorPalette={insumo.tipo === "producto" ? "purple" : "gray"}
+          variant="subtle"
+        >
+          {insumo.tipo === "producto" ? "Producto" : "Insumo"}
+        </Badge>
       </Celda>
       <Celda p="3">
         <TextoTruncado texto={unidadLabel} />

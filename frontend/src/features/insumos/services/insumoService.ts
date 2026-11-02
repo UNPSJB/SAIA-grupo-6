@@ -1,4 +1,4 @@
-import type { Insumo, InsumoFormValues } from "../types/insumo";
+import type { Insumo, InsumoFormValues, TipoInsumo } from "../types/insumo";
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
@@ -12,6 +12,7 @@ export interface FiltrosInsumos {
     incluirInactivos?: boolean;
     buscar?: string;
     unidadMedidaId?: number;
+    tipo?: TipoInsumo;
     orden?: OrdenInsumo;
 }
 
@@ -24,6 +25,7 @@ export async function listarInsumos(
         incluir_inactivos: filtros.incluirInactivos || undefined,
         buscar: filtros.buscar?.trim() || undefined,
         unidad_medida_id: filtros.unidadMedidaId,
+        tipo: filtros.tipo,
         orden: filtros.orden,
     });
     const response = await apiFetch(`${API_URL}/insumos${query}`);
