@@ -1,12 +1,13 @@
-from datetime import date
-from typing import Optional
+from datetime import date, datetime
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin
-from src.auditoria import schemas, services
+from src.auditoria import exportar, schemas, services
 from src.auditoria.enriquecer import enriquecer_detalle_auditoria
 from src.common.paginacion import ParamsPaginacion
 from src.database import get_db
@@ -55,6 +56,43 @@ def listar_auditoria(
         total=total,
         page=paginacion.page,
         page_size=paginacion.page_size,
+    )
+
+
+@router.get("/exportar")
+def exportar_auditoria(
+    formato: Literal["csv", "pdf"] = Query("csv", description="csv | pdf."),
+    entidad: Optional[str] = Query(None, max_length=60),
+    entidad_id: Optional[str] = Query(None, max_length=40),
+    usuario_id: Optional[int] = Query(None, ge=1),
+    accion: Optional[schemas.AccionAuditoria] = Query(None),
+    desde: Optional[date] = Query(None),
+    hasta: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Descarga la bitácora completa (sin paginar) con los mismos filtros del listado."""
+    items = services.iterar_auditoria(
+        db,
+        entidad=entidad,
+        entidad_id=entidad_id,
+        usuario_id=usuario_id,
+        accion=accion,
+        desde=desde,
+        hasta=hasta,
+    )
+    nombre = f"auditoria_{datetime.now():%Y%m%d_%H%M%S}.{formato}"
+    cabeceras = {"Content-Disposition": f'attachment; filename="{nombre}"'}
+
+    if formato == "pdf":
+        return Response(
+            content=exportar.generar_pdf(items),
+            media_type="application/pdf",
+            headers=cabeceras,
+        )
+    return Response(
+        content="".join(exportar.generar_csv(items)).encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers=cabeceras,
     )
 
 
