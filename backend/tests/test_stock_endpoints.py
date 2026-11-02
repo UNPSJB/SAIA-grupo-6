@@ -209,6 +209,9 @@ def test_notificaciones_stock_bajo_paginadas_no_se_duplican_y_desaparecen(db):
 
         saldo.cantidad_actual = Decimal("2")
         db.commit()
+        # Invalidar la caché de notificaciones (tabla persistida) para que
+        # refleje el cambio de stock realizado directamente en la BD.
+        client.post("/notificaciones/recalcular", headers=headers)
         normalizado = client.get(
             "/notificaciones?page=1&page_size=10&urgencia=stock_bajo&origen=STOCK_BAJO",
             headers=headers,

@@ -623,6 +623,9 @@ def test_la_reactivacion_de_personal_muestra_nombre_y_dni(db_session, client_aud
     )
     persona.activo = False
     db_session.commit()
+    # El commit expira el objeto: sin recargarlo, SQLAlchemy no conoce el valor
+    # anterior de `activo` y el diff saldría [None, True].
+    db_session.refresh(persona)
     persona.activo = True
     db_session.commit()
 

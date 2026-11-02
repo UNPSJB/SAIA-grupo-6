@@ -2,8 +2,10 @@ import pytest
 from src.personal import schemas, services
 from src.personal.models import Personal
 from src.personal.exceptions import DniDuplicado
+from src.auth.services import verificar_password
 
-def test_crear_persona_sin_password_genera_temporal_y_flag(session_factory):
+
+def test_crear_persona_sin_password_usa_dni_y_flag(session_factory):
     with session_factory() as db:
         persona_in = schemas.PersonaCreate(
             nombre="Test",
@@ -14,12 +16,9 @@ def test_crear_persona_sin_password_genera_temporal_y_flag(session_factory):
         )
         persona = services.crear_persona(db, persona_in)
         assert persona.debe_cambiar_password is True
-        # password_temporal exposed as attribute
-        assert hasattr(persona, "password_temporal")
-        assert persona.password_temporal is not None
-        # password is hashed
-        from src.auth.services import verificar_password
-        assert verificar_password(persona.password_temporal, persona.password)
+        # La contraseña inicial es el DNI
+        assert verificar_password("12345678", persona.password)
+
 
 def test_crear_persona_con_password_flag(session_factory):
     with session_factory() as db:
@@ -32,4 +31,4 @@ def test_crear_persona_con_password_flag(session_factory):
         )
         persona = services.crear_persona(db, persona_in)
         assert persona.debe_cambiar_password is False
-        assert getattr(persona, "password_temporal", None) is None
+        assert verificar_password("secreta123", persona.password)

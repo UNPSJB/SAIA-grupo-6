@@ -15,8 +15,8 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 
-CONTENIDO_DATOS = (RAIZ / "cargar_datos.py").read_text(encoding="utf-8")
-CONTENIDO_FAKER = (RAIZ / "cargar_datos_faker.py").read_text(encoding="utf-8")
+CONTENIDO_DATOS = (RAIZ / "scripts" / "cargar_datos.py").read_text(encoding="utf-8")
+CONTENIDO_FAKER = (RAIZ / "scripts" / "cargar_datos_faker.py").read_text(encoding="utf-8")
 
 
 def _tiene_linea(contenido: str, linea: str) -> bool:
@@ -59,5 +59,8 @@ def test_cargar_datos_personal_debe_cambiar_password():
     assert "debe_cambiar_password=True" in CONTENIDO_DATOS
 
 
-def test_cargar_datos_faker_personal_debe_cambiar_password():
-    assert "debe_cambiar_password=True" in CONTENIDO_FAKER
+def test_cargar_datos_faker_personal_no_fuerza_cambio_de_password():
+    # Es data de prueba con contraseña conocida (CONTRASENA_POR_DEFECTO) y el
+    # script ya aborta en producción: se decidió no forzar el cambio en el
+    # primer login. La decisión tiene que ser explícita en el código.
+    assert "debe_cambiar_password=False" in CONTENIDO_FAKER

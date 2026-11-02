@@ -1,7 +1,8 @@
 """Tests de la exigencia de contraseña cambiada (problema 7).
 
-Un usuario con `debe_cambiar_password=True` recibe 403 en los endpoints de
-negocio (el PUT de personal ahora exige `get_current_user_activo_completo`).
+Un usuario con `debe_cambiar_password=True` YA NO recibe 403: se le permite
+seguir operando. El frontend es el encargado de mostrarle una notificación
+recordándole que debe cambiar su contraseña.
 """
 
 from fastapi import status
@@ -31,7 +32,7 @@ def _cerrar_cliente_db(cliente, anterior_get_db):
         app.dependency_overrides[get_db] = anterior_get_db
 
 
-def test_usuario_con_debe_cambiar_password_recibe_403(db_session):
+def test_usuario_con_debe_cambiar_password_ya_no_recibe_403(db_session):
     usuario = Personal(
         nombre="Bloqueado",
         apellido="Usuario",
@@ -64,8 +65,8 @@ def test_usuario_con_debe_cambiar_password_recibe_403(db_session):
                 "puede_operar": True,
             },
         )
-        assert resp.status_code == status.HTTP_403_FORBIDDEN, resp.text
-        assert "contraseña" in resp.json()["detail"].lower()
+        # Ya no se bloquea con 403: se permite operar.
+        assert resp.status_code == status.HTTP_200_OK, resp.text
     finally:
         _cerrar_cliente_db(client, anterior_get_db)
 

@@ -77,6 +77,12 @@ async def db_creation_lifespan(app: FastAPI):
     # Es DDL síncrono: en un hilo para no bloquear el event loop.
     await anyio.to_thread.run_sync(crear_tablas_y_migrar)
 
+    # Invalida la caché de notificaciones desde el ORM, en la misma
+    # transacción que cada mutación de sus fuentes.
+    from src.notificaciones.invalidacion import registrar_invalidacion_automatica
+
+    registrar_invalidacion_automatica()
+
     # La tabla de tokens revocados crece un registro por logout y solo se
     # purgaba al expirar el token... nunca: nadie llamaba a la función.
     def _purgar_revocados() -> None:

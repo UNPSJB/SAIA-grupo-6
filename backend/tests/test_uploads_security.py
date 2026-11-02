@@ -17,7 +17,7 @@ def test_uploads_header_nosniff(client, usuarios):
             test_path.unlink()
 
 def test_uploads_documentos_requires_operador(client, session_factory):
-    from datetime import datetime
+    from datetime import datetime, timezone
     from src.personal.models import Personal
     from src.auth.services import crear_access_token
     from src.documentos.constants import TipoDocumento
@@ -35,8 +35,8 @@ def test_uploads_documentos_requires_operador(client, session_factory):
             nombre_archivo="archivo.pdf",
             archivo_url="uploads/documentos/archivo.pdf",
             vigente=True,
-            vigente_desde=datetime.utcnow(),
-            fecha_subida=datetime.utcnow(),
+            vigente_desde=datetime.now(timezone.utc).replace(tzinfo=None),
+            fecha_subida=datetime.now(timezone.utc).replace(tzinfo=None),
             autor_id=user.id,
         ))
         db.add(documento)
