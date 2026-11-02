@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Box, Button, Flex, Input, Spinner, Table, Text } from '@chakra-ui/react';
 import { PageHeader, BannerError, Paginacion, Tarjeta, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
 import { useAuditoria } from '../../hooks/useAuditoria';
-import { listarEntidades } from '../../services/auditoriaService';
+import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
 import type { AccionAuditoria } from '../../types/auditoria';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -507,6 +507,30 @@ export function AuditoriaPage() {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [entidades, setEntidades] = useState<string[]>([]);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
+  const [exportando, setExportando] = useState<FormatoExportacion | null>(null);
+  const [errorExport, setErrorExport] = useState<string | null>(null);
+
+  const exportar = async (formato: FormatoExportacion) => {
+    setExportando(formato);
+    setErrorExport(null);
+    try {
+      await exportarAuditoria(
+        {
+          accion: filtros.accion || undefined,
+          entidad: filtros.entidad || undefined,
+          entidad_id: filtros.entidadId || undefined,
+          usuario_id: filtros.usuarioId ? Number(filtros.usuarioId) : undefined,
+          desde: filtros.desde || undefined,
+          hasta: filtros.hasta || undefined,
+        },
+        formato,
+      );
+    } catch (e) {
+      setErrorExport(e instanceof Error ? e.message : 'Error al exportar la auditoría');
+    } finally {
+      setExportando(null);
+    }
+  };
 
   useEffect(() => {
     listarEntidades().then(setEntidades).catch(() => setEntidades([]));
@@ -584,6 +608,7 @@ export function AuditoriaPage() {
       />
 
       {error && <BannerError mb="4">{error}</BannerError>}
+      {errorExport && <BannerError mb="4">{errorExport}</BannerError>}
 
       <Tarjeta p="4" mb="4">
         <Box
@@ -654,6 +679,18 @@ export function AuditoriaPage() {
               <Button type="button" variant="outline" onClick={limpiar} disabled={!hayFiltros}>
                 Limpiar
               </Button>
+              {(['csv', 'pdf'] as const).map((f) => (
+                <Button
+                  key={f}
+                  type="button"
+                  variant="outline"
+                  onClick={() => exportar(f)}
+                  loading={exportando === f}
+                  disabled={total === 0 || exportando !== null}
+                >
+                  Exportar {f === 'csv' ? 'CSV' : 'PDF'}
+                </Button>
+              ))}
             </Flex>
           </Flex>
           {rangoInvalido && (
