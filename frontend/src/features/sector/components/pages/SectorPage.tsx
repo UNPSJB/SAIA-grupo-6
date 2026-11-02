@@ -23,7 +23,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -133,7 +133,6 @@ export function SectorPage() {
             <Button colorPalette="brand" onClick={() => navigate("/sectores/nuevo")}>
               + Agregar
             </Button>
-            <ExportarTablaButton nombreTabla="sectores" />
           </HStack>
         }
       />
@@ -150,18 +149,27 @@ export function SectorPage() {
         children="Ver dados de baja"
       />
 
-      <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre o descripción..."
-          />
-        }
-        filtros={null}
+     <BarraFiltros
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre o descripción..."
       />
-
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      <BotonesExportar
+        nombreTabla="sectores"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={null}
+/>
 
       {loading && <Spinner color="brand.500" />}
 

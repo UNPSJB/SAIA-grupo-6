@@ -30,7 +30,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -180,11 +180,10 @@ export function EquiposPage() {
         }
         description="Alta, modificación y baja de los equipos del laboratorio, con su historial de intervenciones."
         actions={
-          <HStack spacing="2">
+          <HStack gap="2">
             <Button colorPalette="brand" onClick={() => navigate("/equipos/nuevo")}>
               + Agregar
             </Button>
-            <ExportarTablaButton nombreTabla="equipos" />
           </HStack>
         }
       />
@@ -200,11 +199,25 @@ export function EquiposPage() {
 
       <BarraFiltros
         busqueda={
+          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre, tipo o sector..."
           />
+
+          <BotonesExportar
+          nombreTabla="equipos"
+          filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+          tipo: tipo,
+          sector_id: sectorId || undefined,
+        }}
+         onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+         />
+        </Box>
         }
         filtros={
           <>
@@ -231,7 +244,7 @@ export function EquiposPage() {
         }
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}

@@ -187,7 +187,7 @@ export function UnidadMedidaPage() {
         filtros={null}
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+     
 
       {loading && <Spinner color="brand.500" />}
       {!loading && error && <BannerError>{error}</BannerError>}

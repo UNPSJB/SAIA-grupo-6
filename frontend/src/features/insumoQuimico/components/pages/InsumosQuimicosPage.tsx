@@ -31,7 +31,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -203,7 +203,6 @@ export function InsumosQuimicosPage() {
             >
               + Agregar
             </Button>
-            <ExportarTablaButton nombreTabla="insumos_quimicos" />
           </HStack>
         }
       />
@@ -213,42 +212,54 @@ export function InsumosQuimicosPage() {
         onChange={handleToggleInactivos}
         children="Ver dados de baja"
       />
-
       <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre, tipo o unidad..."
-          />
-        }
-        filtros={
-          <>
-            <FiltroSelect
-              label="Tipo"
-              valor={tipo}
-              onCambio={setTipo}
-              opciones={TIPOS_QUIMICOS.map((opcion) => ({
-                valor: opcion.value,
-                etiqueta: opcion.label,
-              }))}
-            />
-            <FiltroSelect
-              label="Unidad de medida"
-              valor={unidadId}
-              onCambio={setUnidadId}
-              opciones={unidades.map((unidad) => ({
-                valor: String(unidad.id),
-                etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
-              }))}
-              todos="Todas"
-            />
-          </>
-        }
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre, tipo o unidad..."
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      <BotonesExportar
+        nombreTabla="productos_quimicos"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+          tipo: tipo,
+          unidad_id: unidadId || undefined,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={
+    <>
+      <FiltroSelect
+        label="Tipo"
+        valor={tipo}
+        onCambio={setTipo}
+        opciones={TIPOS_QUIMICOS.map((opcion) => ({
+          valor: opcion.value,
+          etiqueta: opcion.label,
+        }))}
+      />
 
+      <FiltroSelect
+        label="Unidad de medida"
+        valor={unidadId}
+        onCambio={setUnidadId}
+        opciones={unidades.map((unidad) => ({
+          valor: String(unidad.id),
+          etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
+        }))}
+        todos="Todas"
+      />
+    </>
+  }
+/>
+      
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}
 

@@ -23,7 +23,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -133,7 +133,6 @@ export function AptitudPage() {
             <Button colorPalette="brand" onClick={() => navigate("/aptitudes/nuevo")}>
               + Agregar
             </Button>
-            <ExportarTablaButton nombreTabla="aptituds" />
           </HStack>
         }
       />
@@ -151,17 +150,28 @@ export function AptitudPage() {
       />
 
       <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre o descripción..."
-          />
-        }
-        filtros={null}
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre o descripción..."
       />
+      <BotonesExportar
+        nombreTabla="aptituds"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={null}
+/>
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      
 
       {loading && <Spinner color="brand.500" />}
 

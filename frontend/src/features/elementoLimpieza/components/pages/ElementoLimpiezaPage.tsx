@@ -25,7 +25,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -151,7 +151,7 @@ export function ElementosLimpiezaPage() {
             <BotonAgregar onClick={() => navigate("/elementos-limpieza/nuevo")}>
               Agregar
             </BotonAgregar>
-            <ExportarTablaButton nombreTabla="elementos_limpieza" />
+
           </HStack>
         }
       />
@@ -163,17 +163,27 @@ export function ElementosLimpiezaPage() {
       />
 
       <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre..."
-          />
-        }
-        filtros={null}
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre..."
       />
+      <BotonesExportar
+        nombreTabla="elementos_limpieza"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={null}
+/>
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando elementos...</EstadoCargando>}
