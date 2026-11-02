@@ -95,23 +95,6 @@ def obtener_criticidad(db: Session = Depends(get_db)):
     return obtener_criticidad_dashboard(db)
 
 
-@router.get("/configuracion", response_model=schemas.ConfiguracionAlertasResponse)
-def obtener_configuracion(db: Session = Depends(get_db)):
-    return schemas.ConfiguracionAlertasResponse(
-        dias_alerta_vencimiento_personal=services.obtener_dias_alerta_vencimiento_personal(db)
-    )
-
-
-@router.put("/configuracion", response_model=schemas.ConfiguracionAlertasResponse)
-def actualizar_configuracion(
-    datos: schemas.ConfiguracionAlertasUpdate, db: Session = Depends(get_db)
-):
-    dias = services.actualizar_dias_alerta_vencimiento_personal(
-        db, datos.dias_alerta_vencimiento_personal
-    )
-    return schemas.ConfiguracionAlertasResponse(dias_alerta_vencimiento_personal=dias)
-
-
 @router.post("/recalcular", response_model=dict)
 def recalcular_notificaciones(db: Session = Depends(get_db)):
     """Fuerza el recálculo completo de todas las notificaciones y lo persiste
