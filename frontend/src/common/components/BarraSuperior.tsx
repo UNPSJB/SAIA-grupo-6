@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { Box, Flex, Link } from "@chakra-ui/react";
 import { useAuth } from "../context/useAuth";
@@ -6,8 +7,6 @@ import { BotonNotificaciones } from "../../features/notificaciones/components/Bo
 import { Breadcrumbs } from "./Breadcrumbs";
 import { LogoSaia } from "./LogoSaia";
 import { MenuUsuario } from "./MenuUsuario";
-
-interface BarraSuperiorProps {}
 
 /**
  * Barra superior, organizada como la de GitHub:
@@ -20,7 +19,7 @@ interface BarraSuperiorProps {}
  * El nombre "SAIA" no va acá: aparece junto al logo en el encabezado del menú
  * lateral cuando se despliega.
  */
-export function BarraSuperior(): JSX.Element {
+export function BarraSuperior(): ReactElement | null {
   const { user } = useAuth();
   const { pathname } = useLocation();
 

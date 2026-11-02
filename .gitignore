@@ -4,5 +4,8 @@ __pycache__/
 .venv/
 .pytest_cache/
 *.sqlite3
-uploads/
+/uploads/
+/backend/uploads/
 node_modules/
+frontend/dist/
+repomix-output.xml

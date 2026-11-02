@@ -22,6 +22,7 @@ export interface User {
   puede_operar: boolean;
   puede_administrar: boolean;
   es_super_admin: boolean;
+  debe_cambiar_password?: boolean;
 }
 
 export interface AuthContextType {

@@ -15,8 +15,8 @@ export function useAuditoria() {
       const pagina: AuditLogPagina = await listarAuditoria(filtros);
       setItems(pagina.items);
       setTotal(pagina.total);
-    } catch (e: any) {
-      setError(e.message ?? 'Error al cargar auditoría');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error al cargar auditoría');
     } finally {
       setLoading(false);
     }

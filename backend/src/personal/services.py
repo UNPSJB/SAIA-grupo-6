@@ -1,6 +1,5 @@
 import hmac
 import logging
-import secrets
 from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -98,16 +97,16 @@ def crear_persona(
     datos_persona = persona.model_dump(exclude={"password"})
     password_temporal = None
     if not persona.password:
-        password_temporal = secrets.token_urlsafe(9)
-        password_plain = password_temporal
+        # La contraseña inicial es el DNI de la persona (como en SIU Guaraní).
+        password_plain = persona.dni
     else:
         password_plain = persona.password
 
     datos_persona["password"] = hashear_password(password_plain)
-    datos_persona["debe_cambiar_password"] = password_temporal is not None
+    datos_persona["debe_cambiar_password"] = not bool(persona.password)
     datos_persona["password_changed_at"] = now_utc_naive
     _persona = Personal(**datos_persona)
-    # Exponer la contraseña temporal una sola vez en la respuesta
+    # Exponer la contraseña inicial (el DNI) una sola vez en la respuesta
     _persona.password_temporal = password_temporal
     db.add(_persona)
 

@@ -3,7 +3,7 @@ import { Link as RouterLink, useLocation } from "react-router-dom";
 import { Breadcrumb, Text } from "@chakra-ui/react";
 import { LuChevronRight } from "react-icons/lu";
 import { useAuth } from "../context/useAuth";
-import { TODAS_LAS_ENTRADAS, esVisibleEntrada } from "./Navbar";
+import { TODAS_LAS_ENTRADAS, esVisibleEntrada } from "./menuEntradas";
 
 type Usuario = Parameters<typeof esVisibleEntrada>[1];
 
@@ -39,7 +39,7 @@ function legible(segmento: string): string {
  * (`TODAS_LAS_ENTRADAS`), así que si se renombra una sección en el menú, el
  * breadcrumb se actualiza solo.
  */
-export function construirMigas(pathname: string, user: Usuario): Miga[] {
+function construirMigas(pathname: string, user: Usuario): Miga[] {
   const segmentos = pathname.split("/").filter(Boolean);
   const migas: Miga[] = [{ to: "/", label: "Inicio", actual: false, enlace: true }];
 

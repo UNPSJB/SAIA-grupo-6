@@ -7,7 +7,7 @@ con los nombres legibles de las entidades relacionadas en vez de solo IDs.
 from fastapi import status
 
 from src.auditoria.models import AuditLog
-from src.auditoria.enriquecer import enriquecer_detalle_auditoria
+from src.auditoria.enriquecer import enriquecer_detalle_auditoria as _enriquecer
 from src.Equipo.models import Equipo
 from src.sector.models import Sector
 from src.personal.models import Personal
@@ -15,6 +15,15 @@ from src.aptitud.models import Aptitud
 from src.vencimientoPersonal.models import VencimientoPersonal
 from src.common.fechas import hoy
 from datetime import timedelta
+
+
+def enriquecer_detalle_auditoria(db, entidad, entidad_id, cambios):
+    """Devuelve el diff enriquecido de un evento (sin persistir) de auditoría."""
+    fila = AuditLog(
+        id=1, entidad=entidad, entidad_id=entidad_id,
+        accion="MODIFICAR", cambios=cambios,
+    )
+    return _enriquecer(db, fila)["cambios_detalle"]
 
 
 def test_detalle_auditoria_muestra_nombres_enriquecidos(client, session_factory, H_ADMIN):
