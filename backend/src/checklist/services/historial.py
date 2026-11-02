@@ -66,19 +66,17 @@ def _construir_item_historial(
     )
 
 
-def _porcentaje_cumplimiento_periodo(
+def conteo_cumplimiento_periodo(
     db: Session,
     fecha_desde: date_,
     fecha_hasta: date_,
     equipo_id: Optional[int],
     buscar: Optional[str] = None,
-) -> float:
-    """Cumplimiento de TODO el período, con un agregado en la base.
+) -> tuple[int, int]:
+    """Cuenta tareas totales y completadas de TODO el período.
 
-    COUNT de registros + SUM de completados unidos al checklist, con los
-    MISMOS filtros de fecha, equipo y búsqueda del listado. Sin cargar objetos
-    ORM: el porcentaje no depende de la página que se esté mirando, así que
-    calcularlo recorriendo todos los checklists anularía la paginación.
+    Es la base del porcentaje de cumplimiento y también la usa la vista
+    pública, que necesita distinguir "0 %" de "todavía no hay datos".
     """
     consulta = (
         select(
@@ -102,8 +100,26 @@ def _porcentaje_cumplimiento_periodo(
         consulta = consulta.where(filtro_texto)
 
     total, completadas = db.execute(consulta).one()
-    total = int(total or 0)
-    completadas = int(completadas or 0)
+    return int(total or 0), int(completadas or 0)
+
+
+def _porcentaje_cumplimiento_periodo(
+    db: Session,
+    fecha_desde: date_,
+    fecha_hasta: date_,
+    equipo_id: Optional[int],
+    buscar: Optional[str] = None,
+) -> float:
+    """Cumplimiento de TODO el período, con un agregado en la base.
+
+    Delegá en `conteo_cumplimiento_periodo` para evitar duplicar la consulta
+    SQL. Sin cargar objetos ORM: el porcentaje no depende de la página que se
+    esté mirando, así que calcularlo recorriendo todos los checklists
+    anularía la paginación.
+    """
+    total, completadas = conteo_cumplimiento_periodo(
+        db, fecha_desde, fecha_hasta, equipo_id, buscar
+    )
     return (completadas / total * 100) if total else 0.0
 
 

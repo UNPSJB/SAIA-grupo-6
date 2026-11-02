@@ -17,6 +17,7 @@ from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
+from .vista_publica import migrar_vista_publica
 
 
 def run_migrations() -> None:
@@ -31,6 +32,9 @@ def run_migrations() -> None:
     bootstrap_super_admin()
     migrar_seguridad()
     migrar_notificaciones()
+    # Vista pública: después de create_all (que ya creó la tabla) y de las
+    # migraciones de estructura.
+    migrar_vista_publica()
 
 
 def crear_tablas_y_migrar() -> None:

@@ -11,7 +11,11 @@ El router usa `services.<función>`; este módulo reexporta lo público.
 
 from .consumo import listar_consumo_insumos
 from .generacion import obtener_o_crear_checklists_del_dia
-from .historial import listar_historial_checklists, obtener_detalle_checklist
+from .historial import (
+    conteo_cumplimiento_periodo,
+    listar_historial_checklists,
+    obtener_detalle_checklist,
+)
 from .marcado import (
     asignar_cobertura_tarea,
     marcar_tarea,
@@ -21,6 +25,7 @@ from .tareas_del_dia import listar_tareas_del_dia
 
 __all__ = [
     "asignar_cobertura_tarea",
+    "conteo_cumplimiento_periodo",
     "listar_consumo_insumos",
     "listar_historial_checklists",
     "listar_tareas_del_dia",

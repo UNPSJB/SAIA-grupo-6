@@ -58,9 +58,9 @@ for _stream in (sys.stdout, sys.stderr):
         pass  # salida redireccionada a un archivo: se deja como está
 
 from src.config import settings
-from src.database import SessionLocal, engine  # noqa: E402
-from src.models import ModeloBase  # noqa: E402
+from src.database import SessionLocal  # noqa: E402
 import src.all_models  # noqa: F401,E402  (registra los modelos)
+from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
 from src.auditoria.models import AuditLog  # noqa: E402
@@ -98,9 +98,6 @@ from src.documentos.constants import TipoDocumento  # noqa: E402
 from src.proveedores.models import Proveedor  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
 from src.notificaciones.models import ConfiguracionAlerta  # noqa: E402
-
-# Asegura que las tablas existan antes de insertar (idempotente).
-ModeloBase.metadata.create_all(bind=engine)
 
 # Contraseña de TODO el personal. Valor acordado con el grupo de desarrollo.
 CONTRASENA_POR_DEFECTO = "12345678"
@@ -489,6 +486,10 @@ def borrar_todo(db) -> None:
         AuditLog,
         HistorialRegistroTarea,
         HistorialIncidente,
+        # Los movimientos pueden referenciar registros y checklists. Los lotes
+        # a su vez referencian su movimiento de ingreso, por eso van primero.
+        LoteStock,
+        MovimientoStockInsumoQuimico,
         RegistroTarea,
         Checklist,
         Incidente,
@@ -496,9 +497,6 @@ def borrar_todo(db) -> None:
         Documento,
         VencimientoPersonal,
         Calibracion,
-        LoteStock,
-        # El lote referencia a su movimiento de ingreso: primero el lote.
-        MovimientoStockInsumoQuimico,
         StockInsumoQuimico,
         PlanCalibracionMantenimiento,
         Tarea,
@@ -1039,18 +1037,6 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
         db.add(incidente)
         db.flush()
         total += 1
-
-        if cerrado:
-            db.add(
-                HistorialIncidente(
-                    incidente_id=incidente.id,
-                    estado_anterior=EstadoIncidente.ABIERTO.value,
-                    estado_nuevo=EstadoIncidente.CERRADO.value,
-                    usuario_id=responsable.id,
-                    observacion=observacion_cierre,
-                    fecha_evento=fecha_cierre,
-                )
-            )
 
     db.flush()
     return total
@@ -1958,7 +1944,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def main() -> int:
+def main(preparar_esquema: bool = True) -> int:
     args = parse_args()
 
     if args.cantidad < 1:
@@ -1986,6 +1972,9 @@ def main() -> int:
         if entorno not in ("DEVELOPMENT", "TEST"):
             print(f"❌ Abortando: entorno no soportado para carga de datos: {entorno}.")
             return 1
+
+        if preparar_esquema:
+            crear_tablas_y_migrar()
 
         if not args.agregar:
             borrar_todo(db)

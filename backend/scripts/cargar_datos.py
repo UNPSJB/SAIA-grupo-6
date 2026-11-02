@@ -25,8 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import src.all_models  # noqa: F401  (registra todos los modelos, incluida la FK de equipos a sectores)
 from src.config import settings
-from src.database import SessionLocal, engine
-from src.models import ModeloBase
+from src.database import SessionLocal
+from src.migrations import crear_tablas_y_migrar
 from src.auth.services import hashear_password
 from src.personal.models import Personal
 from src.sector.models import Sector
@@ -51,8 +51,8 @@ from src.checklist.models import (
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 from src.documentos.models import Documento, VersionDocumento
 
-# Esto asegura que las tablas existan en la BD antes de insertar
-ModeloBase.metadata.create_all(bind=engine)
+# Crea tablas faltantes y actualiza las existentes antes de insertar.
+crear_tablas_y_migrar()
 
 # Contraseña de TODO el personal. Se genera aleatoriamente una sola vez o se
 # lee de SEED_PASSWORD. Nunca un valor fijo conocido de antemano.

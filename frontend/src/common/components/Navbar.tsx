@@ -22,7 +22,6 @@ import {
   type GrupoMenu,
 } from "./menuEntradas";
 
-
 /** Ancho del sidebar según el estado. */
 const ANCHO_EXPANDIDO = `${ANCHO_EXPANDIDO_PX}px`;
 /*

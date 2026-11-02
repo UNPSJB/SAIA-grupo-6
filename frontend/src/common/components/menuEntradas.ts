@@ -23,6 +23,7 @@ import {
   LuTruck,
   LuUsers,
   LuWrench,
+  LuGlobe,
 } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
 
@@ -178,6 +179,7 @@ export const MENU: EntradaMenu[] = [
    */
  // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
+  { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
 ];
 
 export const TODAS_LAS_ENTRADAS: EntradaMenu[] = [

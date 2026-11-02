@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
@@ -67,6 +67,8 @@ class Calibracion(ModeloBase):
 
     # Borrado lógico: una intervención dada de baja ya no cuenta para el
     # recálculo de la última intervención del plan.
-    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    activo: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("1"), nullable=False
+    )
 
     equipo: Mapped["Equipo"] = relationship(back_populates="calibraciones")
