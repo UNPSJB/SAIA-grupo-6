@@ -40,7 +40,6 @@ import type {
   IconoCriticidad,
 } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
-import { ConfiguracionAlertasPanel } from "../ConfiguracionAlertasPanel";
 import {
   BannerError,
   Celda,
@@ -369,10 +368,6 @@ export function NotificacionesPage() {
           </HStack>
         }
         description="Situaciones de inocuidad detectadas y priorizadas automáticamente según su criticidad."
-      />
-
-      <ConfiguracionAlertasPanel
-        onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
 
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />

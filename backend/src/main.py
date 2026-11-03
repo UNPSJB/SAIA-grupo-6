@@ -42,6 +42,7 @@ from src.tareas.router import router as tareas_router
 from src.checklist.router import router as checklist_router
 from src.insumoQuimico.router import router as insumoQuimico_router
 from src.notificaciones.router import router as notificaciones_router
+from src.configuracion.router import router as configuracion_router
 from src.unidadMedida.router import router as unidad_medida_router
 from src.incidente.router import router as incidente_router
 from src.vencimientoPersonal.router import router as vencimiento_personal_router
@@ -151,6 +152,7 @@ app.include_router(tareas_router)
 app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)
 app.include_router(notificaciones_router)
+app.include_router(configuracion_router)
 app.include_router(unidad_medida_router)
 app.include_router(vencimiento_personal_router)
 app.include_router(aptitud_router)

@@ -25,6 +25,7 @@ const ETIQUETAS: Record<string, string> = {
   reportar: "Reportar",
   historial: "Historial",
   notificaciones: "Notificaciones",
+  configuracion: "Configuración",
   "sin-permisos": "Sin permisos",
 };
 
