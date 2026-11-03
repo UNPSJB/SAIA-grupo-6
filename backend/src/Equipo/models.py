@@ -12,7 +12,7 @@ class Equipo(ModeloBase):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
-    nombre: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    nombre: Mapped[str] = mapped_column(String(100), unique=True, index=True)
 
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
 
