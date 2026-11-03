@@ -1,0 +1,15 @@
+[project]
+name = "saia-backend-tests"
+version = "0.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+timeout = 60
+markers = [
+    "xfail: marca un comportamiento que se espera que falle (bug reportado).",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/migrations/*", "src/main.py"]

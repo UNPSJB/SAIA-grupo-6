@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { InsumoTable } from "../InsumoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -26,6 +26,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -168,9 +169,11 @@ export function InsumosPage() {
         }
         description="Alta, modificación y baja de los insumos del laboratorio."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/insumos/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack gap="2">
+            <Button colorPalette="brand" onClick={() => navigate("/insumos/nuevo")}>
+              + Agregar
+            </Button>
+          </HStack>
         }
       />
 
@@ -182,12 +185,24 @@ export function InsumosPage() {
 
       <BarraFiltros
         busqueda={
+          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre o unidad..."
           />
-        }
+          <BotonesExportar
+          nombreTabla="insumos"
+          filtros={{
+            incluirInactivos: String(verInactivos),
+            buscar: busquedaAplicada,
+            unidad_id: unidadId || undefined,
+          }}
+          onLimpiar={limpiarTodo}
+          hayFiltros={hayFiltros}
+        />
+      </Box>
+    }
         filtros={
           <FiltroSelect
             label="Unidad de medida"
@@ -202,7 +217,7 @@ export function InsumosPage() {
         }
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+     
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}

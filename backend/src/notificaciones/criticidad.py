@@ -12,6 +12,8 @@ from src.documentos.models import Documento
 from src.incidente.constants import EstadoIncidente
 from src.incidente.models import Incidente
 from src.notificaciones import services as notificacion_services
+from src.notificaciones.invalidacion import asegurar_notificaciones_al_dia
+from src.notificaciones.models import NotificacionPersistida
 from src.notificaciones.schemas import (
     AlertaCriticidadResponse,
     CriticidadDashboardResponse,
@@ -243,9 +245,92 @@ def _recurrencia_checklists(
 # MOTOR DE CRITICIDAD
 # ============================================================
 
+
+def _reconstruir_desde_persistida(
+    filas: list[NotificacionPersistida],
+) -> CriticidadDashboardResponse:
+    """Reconstruye el CriticidadDashboardResponse desde la tabla persistida."""
+    alertas_response: list[AlertaCriticidadResponse] = []
+    altas = medias = bajas = 0
+    valores = {"baja": 1, "media": 2, "alta": 3}
+    suma_criticidad = 0
+
+    for f in filas:
+        c = f.criticidad
+        suma_criticidad += valores.get(c, 1)
+        if c == "alta":
+            altas += 1
+        elif c == "media":
+            medias += 1
+        else:
+            bajas += 1
+
+        alertas_response.append(
+            AlertaCriticidadResponse(
+                clave=f.id_notificacion,
+                origen=f.tipo,
+                entidad_id=f.entidad_id,
+                grupo_clave=f.grupo_clave or "",
+                icono=ICONOS.get(f.tipo, "documento"),
+                titulo=f.titulo,
+                detalle=f.mensaje,
+                criticidad=c,
+                motivo=f.motivo,
+                plazo=f.plazo or "",
+                fecha_referencia=f.fecha_referencia,
+                destino=f.link_destino,
+                recambio_id=f.recambio_id,
+            )
+        )
+
+    total = len(alertas_response)
+    promedio = (suma_criticidad / total) if total else 1.0
+
+    if promedio >= 2.5:
+        nivel_riesgo = "alto"
+    elif promedio >= 1.5:
+        nivel_riesgo = "medio"
+    else:
+        nivel_riesgo = "bajo"
+
+    # Ordenar igual que el motor en vivo: criticidad desc, luego fecha.
+    alertas_response.sort(
+        key=lambda a: (
+            -valores.get(a.criticidad, 1),
+            a.fecha_referencia is None,
+            a.fecha_referencia or date.max,
+        )
+    )
+
+    return CriticidadDashboardResponse(
+        nivel_riesgo=nivel_riesgo,
+        total=total,
+        altas=altas,
+        medias=medias,
+        bajas=bajas,
+        alertas=alertas_response,
+    )
+
+
 def obtener_criticidad_dashboard(
     db: Session,
 ) -> CriticidadDashboardResponse:
+    """Lee el dashboard desde la tabla persistida, recalculándola antes solo si
+    está sucia (hubo cambios) o es de otro día. La campana y el panel muestran
+    el mismo número porque leen de la misma tabla."""
+    asegurar_notificaciones_al_dia(db)
+    filas = db.scalars(select(NotificacionPersistida)).all()
+    return _reconstruir_desde_persistida(filas)
+
+
+def calcular_criticidad_dashboard(
+    db: Session,
+) -> CriticidadDashboardResponse:
+    """Calcula el dashboard EN VIVO desde las fuentes de origen.
+
+    No lee ni escribe la tabla persistida: lo usa el recálculo
+    (`invalidacion._sincronizar_tabla`) para saber qué filas deben existir.
+    """
     hoy_dia = hoy()
     desde = hoy_dia - timedelta(days=DIAS_RECURRENCIA)
 
@@ -254,12 +339,18 @@ def obtener_criticidad_dashboard(
     # --------------------------------------------------------
     # 1. VENCIMIENTOS EXISTENTES
     # --------------------------------------------------------
-    for notificacion in notificacion_services.obtener_todas_notificaciones(db):
-        # Los documentos los gestiona la sección 2 de este mismo motor con
-        # la clasificación única (estado_documento). Se ignoran acá para no
-        # duplicar cada documento en el tablero de criticidad.
-        if notificacion.tipo == "DOCUMENTO":
-            continue
+    # Se obtienen las fuentes de origen directamente (sin pasar por
+    # `obtener_todas_notificaciones`, que lee de la tabla persistida) para
+    # evitar una dependencia circular cuando `recalcular_notificaciones_persistidas`
+    # llama a esta función con la tabla aún vacía.
+    notificaciones_vivas: list = []
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_elementos_limpieza(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_planes_calibracion_mantenimiento(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_vencimientos_personal(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_stock_bajo(db))
+    notificaciones_vivas.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
+
+    for notificacion in notificaciones_vivas:
 
         grupo = notificacion.grupo_clave
 
@@ -301,19 +392,18 @@ def obtener_criticidad_dashboard(
         select(Documento).options(selectinload(Documento.versiones))
     ).all()
 
+    margen_documentos = notificacion_services.obtener_dias_alerta_vencimiento_personal(db)
+
     for documento in documentos:
         version = documento.version_vigente
         if version is None or version.fecha_vencimiento is None:
             continue
 
-        dias = (version.fecha_vencimiento - hoy_dia).days
-
         # Clasificación única con el margen configurable (no el fijo de 15
         # días). Hoy es vigente ("vence hoy", no alerta); venció ayer o antes
         # es VENCIDO; dentro del margen es PROXIMO.
         estado = estado_documento(
-            version.fecha_vencimiento, hoy_dia,
-            notificacion_services.obtener_dias_alerta_vencimiento_personal(db),
+            version.fecha_vencimiento, hoy_dia, margen_documentos,
         )
 
         if estado == VENCIDO:

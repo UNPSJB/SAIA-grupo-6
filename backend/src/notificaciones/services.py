@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from src.common.fechas import hoy
 from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
 from typing import List
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 from src.Equipo.models import Equipo
 from src.elementoLimpieza.models import ElementoLimpieza
@@ -13,7 +13,12 @@ from src.documentos.models import Documento, VersionDocumento
 
 from src.aptitud.models import Aptitud
 from src.common.texto import coincide_terminos
-from src.notificaciones.models import ConfiguracionAlerta
+from src.notificaciones import criticidad as _criticidad_mod
+from src.notificaciones.invalidacion import (
+    asegurar_notificaciones_al_dia,
+    invalidar_notificaciones,
+)
+from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida
 from src.personal.models import Personal
 from src.unidadMedida.models import UnidadMedida
 from src.vencimientoPersonal.models import VencimientoPersonal
@@ -255,79 +260,119 @@ def _filtrar_por_texto(
     ]
 
 
-def obtener_notificaciones_documentos(db: Session) -> List[NotificacionResponse]:
-    """Documentos con versión vigente y fecha de vencimiento, para la campana.
+def _filas_a_respuestas(filas) -> List[NotificacionResponse]:
+    """Convierte filas de NotificacionPersistida en NotificacionResponse."""
+    return [
+        NotificacionResponse(
+            id_notificacion=f.id_notificacion,
+            tipo=f.tipo,
+            entidad_id=f.entidad_id,
+            titulo=f.titulo,
+            mensaje=f.mensaje,
+            nivel=f.nivel,
+            link_destino=f.link_destino,
+            fecha_referencia=f.fecha_referencia,
+            grupo_clave=f.grupo_clave,
+        )
+        for f in filas
+    ]
 
-    Se notifican sólo los vencidos o próximos a vencer (dentro del margen
-    configurable). Un documento que vence hoy es vigente, no alerta.
+
+def calcular_filas_notificaciones(db: Session) -> list[dict]:
+    """Calcula las filas que DEBEN existir en la tabla persistida.
+
+    Ejecuta el motor de criticidad completo (incluyendo incidentes abiertos y
+    checklists incumplidos) con las reglas de elevación aplicadas. NO lee ni
+    escribe la tabla persistida: aplicarla (como diff) es trabajo de
+    `invalidacion._sincronizar_tabla`.
+
+    Para las fuentes de notificación originales (elementos, planes,
+    vencimientos, stock) se preserva el `id_notificacion` y el `nivel`
+    originales (VENCIDO / PROXIMO_A_VENCER / STOCK_BAJO) porque el frontend
+    los usa para ordenar y pintar iconos. Para documentos, checklists e
+    incidentes (que sólo existen en el motor de criticidad) se usa `clave`
+    como `id_notificacion` y `criticidad.upper()` como `nivel`.
     """
-    notificaciones: List[NotificacionResponse] = []
-    hoy_dia = hoy()
-    margen = obtener_dias_alerta_vencimiento_personal(db)
+    dashboard = _criticidad_mod.calcular_criticidad_dashboard(db)
 
-    versiones = db.scalars(
-        select(VersionDocumento)
-        .options(selectinload(VersionDocumento.documento))
-        .where(
-            VersionDocumento.vigente.is_(True),
-            VersionDocumento.fecha_vencimiento.is_not(None),
-        )
-    ).all()
+    # Notificaciones originales (para preservar id_notificacion y nivel).
+    # Los documentos no entran acá: el motor los arma con su propia clave
+    # (`documento-{id}`, sin el prefijo `notificacion-`), así que nunca hacían
+    # match y solo costaban una consulta de más.
+    notificaciones_originales: List[NotificacionResponse] = []
+    notificaciones_originales.extend(obtener_notificaciones_elementos_limpieza(db))
+    notificaciones_originales.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
+    notificaciones_originales.extend(obtener_notificaciones_vencimientos_personal(db))
+    notificaciones_originales.extend(obtener_notificaciones_stock_bajo(db))
+    por_id = {n.id_notificacion: n for n in notificaciones_originales}
 
-    for version in versiones:
-        documento = version.documento
-        fecha = version.fecha_vencimiento
-        if isinstance(fecha, datetime):
-            fecha = fecha.date()
+    def _recortar(texto: str | None, largo: int) -> str | None:
+        if texto is not None and len(texto) > largo:
+            return texto[: largo - 1] + "…"
+        return texto
 
-        estado = estado_documento(fecha, hoy_dia, margen)
+    filas: list[dict] = []
+    for a in dashboard.alertas:
+        original: NotificacionResponse | None = None
+        if a.clave.startswith("notificacion-"):
+            id_orig = a.clave[len("notificacion-") :]
+            original = por_id.get(id_orig)
 
-        if estado == VENCIDO:
-            nivel = "VENCIDO"
-            titulo = "Documento vencido"
-            mensaje = f"'{documento.nombre}' venció el {fecha:%d/%m/%Y}."
-        elif estado == PROXIMO:
-            nivel = "PROXIMO_A_VENCER"
-            titulo = "Documento próximo a vencer"
-            mensaje = f"'{documento.nombre}' vence el {fecha:%d/%m/%Y}."
-        else:
-            continue
-
-        notificaciones.append(
-            NotificacionResponse(
-                id_notificacion=f"documento-{version.id}",
-                tipo="DOCUMENTO",
-                entidad_id=documento.id,
-                titulo=titulo,
-                mensaje=mensaje,
-                nivel=nivel,
-                link_destino=f"/documentos/{documento.id}/historial",
-                fecha_referencia=fecha,
-                grupo_clave=f"documento:{documento.id}",
-            )
+        filas.append(
+            {
+                "id_notificacion": original.id_notificacion if original else a.clave,
+                "tipo": original.tipo if original else a.origen,
+                "entidad_id": a.entidad_id,
+                "titulo": _recortar(a.titulo, 200),
+                "mensaje": _recortar(original.mensaje if original else a.detalle, 500),
+                "nivel": original.nivel if original else a.criticidad.upper(),
+                "link_destino": _recortar(original.link_destino if original else a.destino, 200),
+                "fecha_referencia": a.fecha_referencia,
+                "grupo_clave": _recortar(a.grupo_clave, 100),
+                "criticidad": a.criticidad,
+                "motivo": _recortar(a.motivo, 300),
+                "plazo": _recortar(a.plazo, 60),
+                "recambio_id": a.recambio_id,
+            }
         )
 
-    return notificaciones
+    return filas
+
+
+def recalcular_notificaciones_persistidas(db: Session, inmediato: bool = False) -> int:
+    """Invalida la tabla persistida de notificaciones.
+
+    Es barato: solo marca la tabla como "sucia". El recálculo real ocurre UNA
+    vez, en la primera lectura posterior (`asegurar_notificaciones_al_dia`), de
+    modo que una ráfaga de mutaciones (p. ej. marcar 10 tareas de un checklist)
+    ya no dispara 10 reconstrucciones completas. También se recalcula una vez
+    por día, porque VENCIDO / PRÓXIMO y los plazos dependen de `hoy()`.
+
+    Los puntos de llamada existentes siguen funcionando sin cambios. Con
+    `inmediato=True` recalcula en el acto (útil para `POST /recalcular`).
+
+    Devuelve la cantidad de notificaciones que hay ahora en la tabla (con
+    `inmediato=False` puede ser el valor previo al recálculo).
+    """
+    invalidar_notificaciones(db)
+    if inmediato:
+        asegurar_notificaciones_al_dia(db)
+    return db.scalar(select(func.count()).select_from(NotificacionPersistida)) or 0
 
 
 def obtener_todas_notificaciones(
     db: Session, buscar: str | None = None
 ) -> List[NotificacionResponse]:
-    """Consolidado completo: lo usa la campana del navbar y el camino sin
-    paginar del router.
+    """Lee las notificaciones de la tabla persistida.
 
-    `buscar` se aplica con la misma lógica que en el camino paginado: antes
-    el router lo descartaba en silencio cuando no venía `page`, y quien lo
-    mandaba recibía la lista completa sin filtrar.
+    Antes de leer se asegura de que la tabla esté al día (no sucia y del día
+    de hoy). Una tabla vacía es un estado válido ("sin alertas") y ya no
+    dispara un recálculo. `buscar` se aplica sobre el resultado ya persistido,
+    sin volver a consultar las fuentes de origen.
     """
-    lista_total: List[NotificacionResponse] = []
-    lista_total.extend(obtener_notificaciones_elementos_limpieza(db))
-    lista_total.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
-    lista_total.extend(obtener_notificaciones_vencimientos_personal(db))
-    lista_total.extend(obtener_notificaciones_stock_bajo(db))
-    lista_total.extend(obtener_notificaciones_documentos(db))
-    lista_total.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
-    return _filtrar_por_texto(lista_total, buscar)
+    asegurar_notificaciones_al_dia(db)
+    filas = db.scalars(select(NotificacionPersistida)).all()
+    return _filtrar_por_texto(_filas_a_respuestas(filas), buscar)
 
 
 # ────────────────────────── Listado paginado ──────────────────────────────
@@ -356,6 +401,8 @@ _TIPOS_ORIGEN = (
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
     "DOCUMENTO",
+    "CHECKLIST",
+    "INCIDENTE",
 )
 
 

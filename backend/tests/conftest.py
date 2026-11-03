@@ -31,6 +31,10 @@ from src.Equipo.models import Equipo  # noqa: E402
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: E402
 from src.sector.models import Sector  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
+from src.notificaciones.invalidacion import registrar_invalidacion_automatica  # noqa: E402
+
+# El lifespan no corre en los tests: se registra la invalidación a mano.
+registrar_invalidacion_automatica()
 
 
 @pytest.fixture(scope="session")

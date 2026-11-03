@@ -88,12 +88,9 @@ export function PersonalCreatePage() {
         onCancel={() => navigate("/personal")}
         extra={
           <>
-            {/*
-              Sin campo de contraseña a propósito: la cuenta arranca con el DNI
-              de la persona y cada quien la cambia desde "Mi perfil".
-            */}
             <Text fontSize="xs" color="fg.subtle" fontStyle="italic" mt="4" mb="4">
-              La contraseña inicial de la persona es su DNI. Puede cambiarla desde "Mi perfil".
+              La contraseña inicial de la persona es su DNI. Puede cambiarla desde
+              "Mi perfil" al iniciar sesión.
             </Text>
             <VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />
           </>
@@ -109,7 +106,7 @@ export function PersonalCreatePage() {
 
       <DialogoExito
         isOpen={exito}
-        mensaje="Personal agregado correctamente."
+        mensaje="Personal agregado correctamente. Su contraseña inicial es su DNI."
       />
     </Box>
   );

@@ -17,7 +17,22 @@ import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { obtenerCriticidadDashboard } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
-import { LuArrowDown, LuArrowUp, LuArrowUpDown, LuBell, LuCircleCheck } from "react-icons/lu";
+import {
+  LuArrowDown,
+  LuArrowUp,
+  LuArrowUpDown,
+  LuBell,
+  LuBrush,
+  LuCircle,
+  LuCircleCheck,
+  LuFileText,
+  LuListChecks,
+  LuPackage,
+  LuTriangleAlert,
+  LuUsers,
+  LuWrench,
+} from "react-icons/lu";
+import type { IconType } from "react-icons/lib";
 import type {
   AlertaCriticidad,
   Criticidad,
@@ -67,33 +82,24 @@ const PALETA_CRITICIDAD: Record<Criticidad, string> = {
   baja: "green",
 };
 
-const ICONO_ORIGEN: Record<IconoCriticidad, string> = {
-  limpieza: "­ƒº¢",
-  calibracion: "­ƒöº",
-  incidente: "ÔÜá´©Å",
-  personal: "­ƒæñ",
-  documento: "­ƒôä",
-  checklist: "Ôÿæ´©Å",
+const ICONO_ORIGEN: Record<IconoCriticidad, IconType> = {
+  limpieza: LuBrush,
+  calibracion: LuWrench,
+  incidente: LuTriangleAlert,
+  personal: LuUsers,
+  documento: LuFileText,
+  checklist: LuListChecks,
+  stock: LuPackage,
 };
 
 const ETIQUETA_ORIGEN: Record<string, string> = {
   ELEMENTO_LIMPIEZA: "Elemento de limpieza",
   VENCIMIENTO_PERSONAL: "Vencimiento de personal",
-  PLAN_CALIBRACION: "Calibraci├│n",
+  PLAN_CALIBRACION: "Calibración",
   PLAN_MANTENIMIENTO: "Mantenimiento",
   DOCUMENTO: "Documento",
   CHECKLIST: "Checklist",
   INCIDENTE: "Incidente",
-};
-
-const ETIQUETA_ACCION: Record<string, string> = {
-  ELEMENTO_LIMPIEZA: "Registrar recambio",
-  VENCIMIENTO_PERSONAL: "Cambiar fecha",
-  PLAN_CALIBRACION: "Gestionar calibraci├│n",
-  PLAN_MANTENIMIENTO: "Gestionar mantenimiento",
-  DOCUMENTO: "Ver documento",
-  CHECKLIST: "Ver checklist",
-  INCIDENTE: "Ver incidente",
 };
 
 function etiquetaCriticidad(criticidad: Criticidad) {
@@ -125,6 +131,11 @@ function SortIcon({
   return sortDirection === "asc" ? <LuArrowUp size={14} /> : <LuArrowDown size={14} />;
 }
 
+function OrigenIcono({ icono }: { icono: IconoCriticidad }) {
+  const Icono = ICONO_ORIGEN[icono];
+  return <Icono aria-hidden size={16} />;
+}
+
 function normalizar(texto: string) {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -145,7 +156,6 @@ export function NotificacionesPage() {
   const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [alertaEditando, setAlertaEditando] = useState<AlertaCriticidad | null>(null);
-  const [recambiando, setRecambiando] = useState<string | null>(null);
 
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<Criticidad[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
@@ -187,21 +197,26 @@ export function NotificacionesPage() {
   const handleResolver = async (alerta: AlertaCriticidad) => {
     if (alerta.origen === "ELEMENTO_LIMPIEZA" && alerta.recambio_id !== null) {
       try {
-        setRecambiando(alerta.clave);
         await registrarRecambioElemento(alerta.recambio_id);
         mostrarExito("Recambio registrado correctamente.");
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "No se pudo registrar el recambio",
         );
-      } finally {
-        setRecambiando(null);
       }
       return;
     }
 
     if (alerta.origen === "VENCIMIENTO_PERSONAL") {
       setAlertaEditando(alerta);
+      return;
+    }
+
+    // Las notificaciones de documento solían apuntar a /documentos/:id, que no
+    // existe y devolvía 404. El destino real es la pantalla de nueva versión,
+    // que recibe el id del documento (disponible en entidad_id).
+    if (alerta.origen === "DOCUMENTO") {
+      navigate(`/documentos/${alerta.entidad_id}/nueva-version`);
       return;
     }
 
@@ -263,10 +278,10 @@ export function NotificacionesPage() {
   }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda, sortColumn, sortDirection]);
 
   const contadores = useMemo(() => {
-    // Los contadores de origen siempre representan el conjunto que se est├í
-    // visualizando, incluyendo los filtros de criticidad, b├║squeda y origen.
+    // Los contadores de origen siempre representan el conjunto que se está
+    // visualizando, incluyendo los filtros de criticidad, búsqueda y origen.
     // De esta forma, si se selecciona "Baja", "Elementos" muestra solamente
-    // cu├íntas situaciones BAJAS provienen de elementos de limpieza.
+    // cuántas situaciones BAJAS provienen de elementos de limpieza.
     let base = [...datos.alertas];
 
     if (criticidadesSeleccionadas.length > 0) {
@@ -285,9 +300,9 @@ export function NotificacionesPage() {
       );
     }
 
-    if (filtroOrigen !== "todas") {
-      base = base.filter((alerta) => alerta.origen === filtroOrigen);
-    }
+    // OJO: aca NO se aplica filtroOrigen. Estos contadores son los del propio
+    // dropdown de origen; filtrando por origen quedaban en 0 todas las demas
+    // opciones al elegir una.
 
     return {
       todas: base.length,
@@ -299,7 +314,7 @@ export function NotificacionesPage() {
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
     };
-  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda]);
+  }, [datos.alertas, criticidadesSeleccionadas, busqueda]);
 
   const {
     paginados: alertasPaginadas,
@@ -353,11 +368,11 @@ export function NotificacionesPage() {
             Centro de notificaciones
           </HStack>
         }
-        description="Situaciones de inocuidad detectadas y priorizadas autom├íticamente seg├║n su criticidad."
+        description="Situaciones de inocuidad detectadas y priorizadas automáticamente según su criticidad."
       />
 
       <ConfiguracionAlertasPanel
-        onGuardado={() => mostrarExito("Configuraci├│n guardada correctamente.")}
+        onGuardado={() => mostrarExito("Configuración guardada correctamente.")}
       />
 
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
@@ -446,7 +461,7 @@ export function NotificacionesPage() {
               aria-pressed={criticidadesSeleccionadas.includes("alta")}
               title="Filtrar situaciones de criticidad alta"
             >
-              ­ƒö┤ Alta
+              <LuCircle size={14} /> Alta
             </Button>
             <Button
               justifyContent="flex-start"
@@ -457,7 +472,7 @@ export function NotificacionesPage() {
               aria-pressed={criticidadesSeleccionadas.includes("media")}
               title="Filtrar situaciones de criticidad media"
             >
-              ­ƒƒá Media
+              <LuCircle size={14} /> Media
             </Button>
             <Button
               justifyContent="flex-start"
@@ -468,13 +483,13 @@ export function NotificacionesPage() {
               aria-pressed={criticidadesSeleccionadas.includes("baja")}
               title="Filtrar situaciones de criticidad baja"
             >
-              ­ƒƒó Baja
+              <LuCircle size={14} /> Baja
             </Button>
           </VStack>
         </Flex>
       </Tarjeta>
 
-      {/* Filtros de la gesti├│n de riesgos. */}
+      {/* Filtros de la gestión de riesgos. */}
       <Tarjeta p="4" mb="6">
         <HStack gap="4" flexWrap="wrap" align="flex-end">
           <Box minW="220px">
@@ -489,7 +504,7 @@ export function NotificacionesPage() {
                 <option value="todas">Todos ({contadores.todas})</option>
                 <option value="ELEMENTO_LIMPIEZA">Elementos ({contadores.elementos})</option>
                 <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
-                <option value="PLAN_CALIBRACION">Calibraci├│n ({contadores.calibracion})</option>
+                <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
                 <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
                 <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
                 <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
@@ -500,7 +515,7 @@ export function NotificacionesPage() {
 
           <Box minW="250px" flex="1">
             <Field.Root>
-              <LabelFiltro>B├║squeda</LabelFiltro>
+              <LabelFiltro>Búsqueda</LabelFiltro>
               <FormInput
                 type="text"
                 value={busqueda}
@@ -508,7 +523,7 @@ export function NotificacionesPage() {
                   setBusqueda(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Buscar situaci├│n, elemento o motivo..."
+                placeholder="Buscar situación, elemento o motivo..."
               />
             </Field.Root>
           </Box>
@@ -522,7 +537,7 @@ export function NotificacionesPage() {
           <HStack justify="center" gap="2" color="green.fg">
             <LuCircleCheck aria-hidden />
             <Text fontSize="lg" fontWeight="bold">
-              No hay situaciones que requieran atenci├│n
+              No hay situaciones que requieran atención
             </Text>
           </HStack>
           <Text color="fg.muted" fontSize="sm">
@@ -547,7 +562,7 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro>Situaci├│n</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="media">Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo
@@ -555,69 +570,78 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="acciones">Acci├│n</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
 
               <Table.Body>
-                {alertasPaginadas.map((alerta) => (
-                  <Table.Row
-                    key={alerta.clave}
-                    _hover={{ bg: "brand.50" }}
-                    transition="background 0.2s"
-                  >
-                    <Celda>
-                      <Badge
-                        colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
-                        variant="subtle"
-                        px="2"
-                        py="1"
-                        borderRadius="md"
-                        fontWeight="bold"
-                      >
-                        {etiquetaCriticidad(alerta.criticidad)}
-                      </Badge>
-                    </Celda>
+                {alertasPaginadas.map((alerta) => {
+                  const accionable =
+                    alerta.origen === "ELEMENTO_LIMPIEZA" ||
+                    alerta.origen === "VENCIMIENTO_PERSONAL" ||
+                    Boolean(alerta.destino);
 
-                    <Celda>
-                      <HStack gap="2">
-                        <Text aria-hidden>{ICONO_ORIGEN[alerta.icono]}</Text>
-                        <Text fontSize="sm" fontWeight="medium">
-                          {ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen}
+                  return (
+                    <Table.Row
+                      key={alerta.clave}
+                      role={accionable ? "button" : undefined}
+                      tabIndex={accionable ? 0 : -1}
+                      aria-label={accionable ? `Notificación: ${alerta.titulo}` : undefined}
+                      onClick={() => accionable && handleResolver(alerta)}
+                      onKeyDown={(e) => {
+                        if (!accionable) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleResolver(alerta);
+                        }
+                      }}
+                      _hover={{
+                        bg: accionable ? "brand.50" : undefined,
+                        cursor: accionable ? "pointer" : "default",
+                      }}
+                      transition="background 0.2s"
+                      cursor={accionable ? "pointer" : "default"}
+                    >
+                      <Celda>
+                        <Badge
+                          colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
+                          variant="subtle"
+                          px="2"
+                          py="1"
+                          borderRadius="md"
+                          fontWeight="bold"
+                        >
+                          {etiquetaCriticidad(alerta.criticidad)}
+                        </Badge>
+                      </Celda>
+
+                      <Celda>
+                        <HStack gap="2">
+                          <OrigenIcono icono={alerta.icono} />
+                          <Text fontSize="sm" fontWeight="medium">
+                            {ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen}
+                          </Text>
+                        </HStack>
+                      </Celda>
+
+                      <Celda>
+                        <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
+                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
+                      </Celda>
+
+                      <Celda fontSize="sm">
+                        {alerta.fecha_referencia
+                          ? formatoFechaOCorta(alerta.fecha_referencia)
+                          : alerta.plazo}
+                      </Celda>
+
+                      <Celda>
+                        <Text fontSize="sm" color="fg.muted" title={alerta.motivo}>
+                          {alerta.motivo}
                         </Text>
-                      </HStack>
-                    </Celda>
-
-                    <Celda>
-                      <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
-                      <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
-                    </Celda>
-
-                    <Celda fontSize="sm">
-                      {alerta.fecha_referencia
-                        ? formatoFechaOCorta(alerta.fecha_referencia)
-                        : alerta.plazo}
-                    </Celda>
-
-                    <Celda>
-                      <Text fontSize="sm" color="fg.muted" title={alerta.motivo}>
-                        {alerta.motivo}
-                      </Text>
-                    </Celda>
-
-                    <Celda center>
-                      <Button
-                        size="sm"
-                        colorPalette="brand"
-                        fontWeight="bold"
-                        loading={recambiando === alerta.clave}
-                        onClick={() => handleResolver(alerta)}
-                      >
-                        {ETIQUETA_ACCION[alerta.origen] ?? "Ver situaci├│n"}
-                      </Button>
-                    </Celda>
-                  </Table.Row>
-                ))}
+                      </Celda>
+                    </Table.Row>
+                  );
+                })}
               </Table.Body>
             </Table.Root>
           </Tarjeta>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import { usePlanesCalibracionMantenimientoPaginados } from "../../hooks/usePlanesCalibracionMantenimientoPaginados";
@@ -29,6 +29,7 @@ import {
   PageHeader,
   Paginacion,
 } from "../../../../components/ui/patrones";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -169,51 +170,63 @@ export function PlanCalibracionMantenimientoPage() {
         title="Planes de calibración y mantenimiento"
         description="Periodicidad de calibración y de mantenimiento por equipo, con su próximo vencimiento."
         actions={
-          <BotonAgregar
-            onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
-          >
-            Agregar
-          </BotonAgregar>
+          <HStack spacing="2">
+            <BotonAgregar
+              onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
+            >
+              Agregar
+            </BotonAgregar>
+          </HStack>
         }
       />
 
-      <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por equipo o tipo..."
-          />
-        }
-        filtros={
-          <>
-            <FiltroSelect
-              label="Tipo"
-              valor={tipo}
-              onCambio={(valor) =>
-                setTipo(valor as TipoPlanCalibracionMantenimiento | "")
-              }
-              opciones={TIPOS_PLAN.map((t) => ({
-                valor: t.value,
-                etiqueta: t.label,
-              }))}
-              todos="Todos"
-              minW="170px"
-            />
-            <FiltroSelect
-              label="Equipo"
-              valor={equipoId}
-              onCambio={setEquipoId}
-              opciones={equipos.map((equipo) => ({
-                valor: String(equipo.id),
-                etiqueta: equipo.nombre,
-              }))}
-            />
-          </>
-        }
+     <BarraFiltros
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por equipo o tipo..."
       />
-
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      <BotonesExportar
+        nombreTabla="planes_calibracion_mantenimiento" // (o el nombre de tabla que use tu backend)
+        filtros={{
+          buscar: busquedaAplicada,
+          tipo: tipo || undefined,
+          equipo_id: equipoId || undefined,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={
+    <>
+      <FiltroSelect
+        label="Tipo"
+        valor={tipo}
+        onCambio={(valor) =>
+          setTipo(valor as TipoPlanCalibracionMantenimiento | "")
+        }
+        opciones={TIPOS_PLAN.map((t) => ({
+          valor: t.value,
+          etiqueta: t.label,
+        }))}
+        todos="Todos"
+        minW="170px"
+      />
+      <FiltroSelect
+        label="Equipo"
+        valor={equipoId}
+        onCambio={setEquipoId}
+        opciones={equipos.map((equipo) => ({
+          valor: String(equipo.id),
+          etiqueta: equipo.nombre,
+        }))}
+      />
+    </>
+  }
+/>
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}

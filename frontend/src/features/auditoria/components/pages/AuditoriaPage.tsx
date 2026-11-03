@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Box, Button, Flex, Input, Spinner, Table, Text } from '@chakra-ui/react';
 import { PageHeader, BannerError, Paginacion, Tarjeta, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
 import { useAuditoria } from '../../hooks/useAuditoria';
-import { listarEntidades } from '../../services/auditoriaService';
+import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
 import type { AccionAuditoria } from '../../types/auditoria';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -151,7 +151,7 @@ function plural(n: number, singular: string, pluralTexto: string): string {
 /** Nombre del registro (p. ej. `nombre "Balanza 3"`) si algún campo lo permite. */
 function identificador(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string | null {
   const esEnriquecido = (c: Cambios | CambiosDetalle) =>
-    c && Object.values(c).some((v: any) => v && typeof v === 'object' && !Array.isArray(v) && 'antes' in v);
+    c && Object.values(c).some((v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v) && 'antes' in v);
   const det = esEnriquecido(cambios) ? (cambios as CambiosDetalle) : null;
   for (const clave of CAMPOS_IDENTIFICADORES) {
     const campo = det?.[clave] ?? cambios?.[clave];
@@ -169,7 +169,7 @@ function identificador(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string |
 function nombresRelacionados(cambios: Cambios | CambiosDetalle, lado: 0 | 1): string | null {
   if (!cambios) return null;
   const nombres = Object.values(cambios)
-    .map((v: any) => (Array.isArray(v) ? null : lado === 0 ? v?.antes_nombre : v?.despues_nombre))
+    .map((v) => (Array.isArray(v) ? null : lado === 0 ? v?.antes_nombre : v?.despues_nombre))
     .filter(Boolean);
   return nombres.length > 0 ? nombres.join(' · ') : null;
 }
@@ -235,21 +235,6 @@ function nombreUsuario(item: ItemAuditoria): string | null {
 /* Piezas de la fila                                                   */
 /* ------------------------------------------------------------------ */
 
-function Valor({ valor, color }: { valor: unknown; color?: string }) {
-  const texto = formatearValor(valor);
-  if (texto === null) {
-    return (
-      <Text as="span" fontSize="sm" color="fg.subtle" fontStyle="italic">
-        vacío
-      </Text>
-    );
-  }
-  return (
-    <Text as="span" fontSize="xs" fontFamily="mono" whiteSpace="pre-wrap" wordBreak="break-word" color={color}>
-      {texto}
-    </Text>
-  );
-}
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -522,6 +507,30 @@ export function AuditoriaPage() {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [entidades, setEntidades] = useState<string[]>([]);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
+  const [exportando, setExportando] = useState<FormatoExportacion | null>(null);
+  const [errorExport, setErrorExport] = useState<string | null>(null);
+
+  const exportar = async (formato: FormatoExportacion) => {
+    setExportando(formato);
+    setErrorExport(null);
+    try {
+      await exportarAuditoria(
+        {
+          accion: filtros.accion || undefined,
+          entidad: filtros.entidad || undefined,
+          entidad_id: filtros.entidadId || undefined,
+          usuario_id: filtros.usuarioId ? Number(filtros.usuarioId) : undefined,
+          desde: filtros.desde || undefined,
+          hasta: filtros.hasta || undefined,
+        },
+        formato,
+      );
+    } catch (e) {
+      setErrorExport(e instanceof Error ? e.message : 'Error al exportar la auditoría');
+    } finally {
+      setExportando(null);
+    }
+  };
 
   useEffect(() => {
     listarEntidades().then(setEntidades).catch(() => setEntidades([]));
@@ -541,9 +550,11 @@ export function AuditoriaPage() {
   }, [page, pageSize, filtros, cargar]);
 
   // Al cambiar de página o de filtros se cierra el detalle abierto.
-  useEffect(() => {
+  const [itemsPrevios, setItemsPrevios] = useState(items);
+  if (items !== itemsPrevios) {
+    setItemsPrevios(items);
     setAbiertoId(null);
-  }, [items]);
+  }
 
   const actualizar = <K extends keyof Filtros>(campo: K, valor: Filtros[K]) =>
     setBorrador((prev) => ({ ...prev, [campo]: valor }));
@@ -597,6 +608,7 @@ export function AuditoriaPage() {
       />
 
       {error && <BannerError mb="4">{error}</BannerError>}
+      {errorExport && <BannerError mb="4">{errorExport}</BannerError>}
 
       <Tarjeta p="4" mb="4">
         <Box
@@ -667,6 +679,18 @@ export function AuditoriaPage() {
               <Button type="button" variant="outline" onClick={limpiar} disabled={!hayFiltros}>
                 Limpiar
               </Button>
+              {(['csv', 'pdf'] as const).map((f) => (
+                <Button
+                  key={f}
+                  type="button"
+                  variant="outline"
+                  onClick={() => exportar(f)}
+                  loading={exportando === f}
+                  disabled={total === 0 || exportando !== null}
+                >
+                  Exportar {f === 'csv' ? 'CSV' : 'PDF'}
+                </Button>
+              ))}
             </Flex>
           </Flex>
           {rangoInvalido && (

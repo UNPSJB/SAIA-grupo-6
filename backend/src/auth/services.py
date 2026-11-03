@@ -6,12 +6,12 @@ from typing import Optional
 import bcrypt
 import jwt
 from fastapi import HTTPException, status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from src.config import settings
-from src.auth.models import RefreshToken, IntentoLogin, TokenRevocado
+from src.auth.models import IntentoLogin, TokenRevocado
 
 logger = logging.getLogger(__name__)
 
@@ -244,8 +244,6 @@ def obtener_ip_cliente(request) -> str:
 # ==========================================
 
 def revocar_token(db: Session, jti: str, usuario_id: Optional[int], tipo: str, expira: datetime) -> None:
-    from src.auth.models import TokenRevocado
-
     if not jti or db.get(TokenRevocado, jti) is not None:
         return
 
@@ -299,8 +297,6 @@ def revocar_tokens(db: Session, tokens: dict[str, Optional[str]]) -> int:
 
 
 def token_revocado(db: Session, jti: Optional[str]) -> bool:
-    from src.auth.models import TokenRevocado
-
     if not jti:
         return False
 
@@ -347,8 +343,6 @@ def purgar_revocados_vencidos(db: Session) -> int:
     Se invoca desde el lifespan de `src.main` (por eso recibe la `Session` y
     no el engine). Devuelve cuantas filas borro, para poder loguearlo.
     """
-    from src.auth.models import TokenRevocado
-
     ahora = datetime.now(timezone.utc).replace(tzinfo=None)
     borrados = db.execute(
         delete(TokenRevocado).where(TokenRevocado.expira < ahora)

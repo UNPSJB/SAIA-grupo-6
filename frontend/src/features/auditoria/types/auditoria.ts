@@ -1,8 +1,8 @@
 export type AccionAuditoria = 'CREAR' | 'MODIFICAR' | 'BAJA' | 'REACTIVAR' | 'ELIMINAR';
 
 export interface CambioCampoEnriquecido {
-  antes: any;
-  despues: any;
+  antes: unknown;
+  despues: unknown;
   antes_nombre?: string | null;
   despues_nombre?: string | null;
 }
@@ -10,7 +10,7 @@ export interface CambioCampoEnriquecido {
 /** Un dato que describe al registro afectado (DNI, código, una relación...). */
 export interface DatoRegistro {
   campo: string;
-  valor: any;
+  valor: unknown;
   /** Si el campo es una FK: nombre legible del objeto relacionado. */
   valor_nombre?: string | null;
 }
@@ -29,7 +29,7 @@ export interface AuditLogItem {
   entidad: string;
   entidad_id: string;
   accion: AccionAuditoria;
-  cambios: Record<string, [any, any]> | null;
+  cambios: Record<string, [unknown, unknown]> | null;
   // Versión enriquecida: {"campo": {"antes": ..., "despues": ..., "antes_nombre": ..., "despues_nombre": ...}}
   // con nombres legibles de entidades relacionadas en vez de solo IDs.
   cambios_detalle?: Record<string, CambioCampoEnriquecido> | null;

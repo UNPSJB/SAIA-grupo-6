@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
-import { Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
+import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -11,11 +11,12 @@ import { Login } from "./features/Login";
 // `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
 // las 35 páginas entraban al bundle inicial.
 
-import Navbar, { ANCHO_COLAPSADO } from "./common/components/Navbar";
-import { RequireAuth, RequireRole } from "./common/components/RequireAuth";
-import { useState } from "react";            // sumalo si no está
-import { useLocation } from "react-router-dom"; // sumalo a los que ya importás de ahí
+import Navbar from "./common/components/Navbar";
+import { ANCHO_COLAPSADO } from "./common/components/menuEntradas"; 
+import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
 import { BarraSuperior } from "./common/components/BarraSuperior";
+import { useAuth } from "./common/context/useAuth";
+import { useLocation } from "react-router-dom";
 
 // 0. Panel principal
 const InicioPage = lazy(() =>
@@ -208,6 +209,18 @@ const AuditoriaPage = lazy(() =>
   import("./features/auditoria/components/pages/AuditoriaPage").then((mod) => ({ default: mod.AuditoriaPage })),
 );
 
+// Vista pública: configuración administrativa y página provisional anónima.
+const VistaPublicaSettingsPage = lazy(() =>
+  import("./features/vistaPublica/components/pages/VistaPublicaSettingsPage").then((mod) => ({
+    default: mod.VistaPublicaSettingsPage,
+  })),
+);
+const VistaPublicaPage = lazy(() =>
+  import("./features/vistaPublica/components/pages/VistaPublicaPage").then((mod) => ({
+    default: mod.VistaPublicaPage,
+  })),
+);
+
 // 9. Incidentes
 const IncidentesListPage = lazy(() =>
   import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
@@ -247,31 +260,65 @@ function ConSuspense({ children }: { children: ReactNode }) {
 // Layout principal que mantiene el menú a la izquierda
 function LayoutPrincipal() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [menuColapsado, setMenuColapsado] = useState(true);
 
-  // El panel es overlay: al navegar vuelve a plegarse solo, para no dejar
-  // media vista tapada. Se ajusta durante el render (sin useEffect).
+  // El panel es overlay: al navegar vuelve a plegarse solo.
   const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
   if (pathname !== pathnamePrevio) {
     setPathnamePrevio(pathname);
     setMenuColapsado(true);
   }
 
+  // Esc pliega el menú.
+  useEffect(() => {
+    if (menuColapsado) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuColapsado(true);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [menuColapsado]);
+
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
       {/* Overlay: no ocupa lugar en el flex (ver Navbar). */}
-      <Navbar/>
+      <Navbar colapsado={menuColapsado} onAlternarMenu={() => setMenuColapsado((prev) => !prev)} />
 
-      <Flex
-        flex={1}
-        ml={ANCHO_COLAPSADO}
-        minW={0}
-        direction="column"
-        overflow="hidden"
-      >
+      {/* Fondo oscuro: un clic afuera pliega el menú. Va debajo de la barra (zIndex 30). */}
+      {!menuColapsado && (
+        <Box
+          position="fixed"
+          inset={0}
+          zIndex={20}
+          bg="blackAlpha.400"
+          aria-hidden
+          onClick={() => setMenuColapsado(true)}
+        />
+      )}
+
+      <Flex flex={1} ml={ANCHO_COLAPSADO} minW={0} direction="column" overflow="hidden">
         <BarraSuperior />
-
-        {/* `minH={0}` deja que esta columna scrollee en vez de estirarse. */}
+        {/* Banner: recordar al usuario que debe cambiar su contraseña temporal */}
+        {user?.debe_cambiar_password && (
+          <Box
+            mb="4"
+            p="3"
+            bg="orange.50"
+            borderWidth="1px"
+            borderColor="orange.300"
+            rounded="md"
+            w="full"
+          >
+            <Text fontSize="sm" fontWeight="bold" color="orange.800">
+              ⚠️ Debés cambiar tu contraseña
+            </Text>
+            <Text fontSize="xs" color="orange.700" mt="1">
+              Iniciaste sesión con una contraseña temporal. Por seguridad, cambiála
+              desde "Mi perfil" antes de seguir usando el sistema.
+            </Text>
+          </Box>
+        )}
         <Flex flex={1} minH={0} p="15px 30px" overflowY="auto" direction="column">
           <Outlet />
         </Flex>
@@ -281,6 +328,14 @@ function LayoutPrincipal() {
 }
 
 export const router = createBrowserRouter([
+  {
+    path: "/publico/:codigo",
+    element: (
+      <ConSuspense>
+        <VistaPublicaPage />
+      </ConSuspense>
+    ),
+  },
   {
     path: "/login",
     element: (
@@ -750,6 +805,16 @@ export const router = createBrowserRouter([
                   <UnidadMedidaEditPage />
                 </ConSuspense>
               ),
+              },
+
+              // ---------------- VISTA PÚBLICA ----------------
+              {
+                path: "/vista-publica",
+                element: (
+                  <ConSuspense>
+                    <VistaPublicaSettingsPage />
+                  </ConSuspense>
+                ),
               },
 
               // ---------------- INCIDENTES ----------------

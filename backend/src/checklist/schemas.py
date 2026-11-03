@@ -24,6 +24,12 @@ class ChecklistTareaItem(BaseModel):
     cantidad_consumida: Optional[float] = None
     elemento_limpieza_id: Optional[int] = None
 
+    # Asignación de operador y cobertura
+    operador_id: Optional[int] = None
+    operador_nombre: Optional[str] = None
+    reemplazado_por_id: Optional[int] = None
+    reemplazado_por_nombre: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -94,6 +100,12 @@ class TareaDelDiaItem(BaseModel):
     insumo_quimico_id: Optional[int] = None
     cantidad_consumida: Optional[float] = None
     elemento_limpieza_id: Optional[int] = None
+
+    # Asignación de operador y cobertura
+    operador_id: Optional[int] = None
+    operador_nombre: Optional[str] = None
+    reemplazado_por_id: Optional[int] = None
+    reemplazado_por_nombre: Optional[str] = None
 
     checklist_estado: Optional[EstadoChecklist] = None
     descripcion: Optional[str] = None  # procedimiento vigente de la tarea
@@ -228,3 +240,14 @@ class ConsumoInsumosResponse(BaseModel):
     insumos: List[ConsumoInsumoItem]
     totales_por_unidad: List[ConsumoPorUnidadItem]
     por_producto_fecha: List[ConsumoPorFechaItem]
+
+
+class CoberturaTareaResponse(BaseModel):
+    """Respuesta al asignar o quitar cobertura de una tarea."""
+    registro_id: int
+    operador_id: Optional[int] = None
+    operador_nombre: Optional[str] = None
+    reemplazado_por_id: Optional[int] = None
+    reemplazado_por_nombre: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)

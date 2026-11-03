@@ -127,6 +127,21 @@ class RegistroTarea(ModeloBase):
         nullable=True
     )
 
+    # --- ASIGNACIÓN DE OPERADOR Y COBERTURA ---
+    # operador_id: quien está asignado para realizar esta tarea hoy.
+    # reemplazado_por_id: si el operador asignado se ausentó, quién la cubrió.
+    operador_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("personal.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reemplazado_por_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("personal.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # ------------------------------------------
+
     evidencia_url: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True
@@ -162,7 +177,15 @@ class RegistroTarea(ModeloBase):
     )
     tarea: Mapped[Optional["Tarea"]] = relationship()
 
-    usuario: Mapped[Optional["Personal"]] = relationship()
+    usuario: Mapped[Optional["Personal"]] = relationship(
+        foreign_keys=[usuario_id]
+    )
+    operador: Mapped[Optional["Personal"]] = relationship(
+        foreign_keys=[operador_id]
+    )
+    reemplazado_por: Mapped[Optional["Personal"]] = relationship(
+        foreign_keys=[reemplazado_por_id]
+    )
 
     insumo_quimico: Mapped[Optional["InsumoQuimico"]] = relationship()
     
