@@ -79,7 +79,7 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
           delete datosEnviar.es_super_admin;
       }
 
-      // Al editar tu perfil, la contraseña solo se manda si la cambiaste.
+      // Al editar tu propio perfil, la contraseña solo se manda si la cambiaste.
       if (esMiPerfil && nuevaPassword.trim() !== "") {
           datosEnviar.password = nuevaPassword;
       }

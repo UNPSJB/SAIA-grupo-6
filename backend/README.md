@@ -32,7 +32,7 @@ Resumen rápido:
    ```
 4. Abrir http://localhost:8000/docs para probar la API de manera interactiva.
 
-Opcionalmente, cargar datos de ejemplo: `.\.venv\Scripts\python.exe cargar_datos.py`
+Opcionalmente, cargar datos de ejemplo: `.\.venv\Scripts\python.exe scripts\cargar_datos.py`
 
 **Importante**:
 * Este proyecto sigue la estructura por módulos: `constants.py`, `exceptions.py`, `models.py`, `router.py`, `schemas.py` y `services.py`. Al crear un módulo nuevo, se recomienda mantener ese patrón.

@@ -3,18 +3,20 @@ from datetime import date
 from typing import Optional
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
+    es_violacion_unica,
     guardar,
     mapa_por_campo,
 )
 from src.common.texto import sin_tildes
 from src.auth.roles import puede_administrar
-from src.Equipo.models import Equipo
+from src.Equipo.models import Equipo, Calibracion
 from src.PlanCalibracionMantenimiento import exceptions, models, schemas
 from src.personal.models import Personal
 
@@ -79,9 +81,22 @@ _ORDENES = {
     "vencimiento_desc": ColumnaOrden((_PROXIMO_VENCIMIENTO,), descendente=True),
 }
 
-_MAPEA_CONFLICTO = mapa_por_campo(
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     por_defecto=exceptions.PlanActivoDuplicado,
 )
+
+
+def _mapear_conflicto_plan_limpieza(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en plan de limpieza (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 
 def _verificar_equipo_activo(db: Session, equipo_id: int) -> Equipo:
@@ -134,7 +149,7 @@ def crear_plan_calibracion_mantenimiento(
         **plan.model_dump(), autor_id=autor_id
     )
     db.add(nuevo_plan)
-    return guardar(db, nuevo_plan, _MAPEA_CONFLICTO)
+    return guardar(db, nuevo_plan, _mapear_conflicto_plan_limpieza)
 
 
 def dar_de_baja_plan_calibracion_mantenimiento(
@@ -260,7 +275,7 @@ def modificar_plan_calibracion_mantenimiento(
     if "equipo_id" in cambios or "tipo" in cambios or cambios.get("activo") is True:
         _verificar_plan_activo_duplicado(db, equipo_id, tipo, plan.id)
 
-    return aplicar_cambios(db, plan, cambios, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, plan, cambios, _mapear_conflicto_plan_limpieza)
 
 
 def asentar_ultima_intervencion(
@@ -292,3 +307,41 @@ def asentar_ultima_intervencion(
         if fecha_realizacion > plan.fecha_ultima_intervencion:
             plan.fecha_ultima_intervencion = fecha_realizacion
             db.add(plan)
+
+
+def recalcular_ultima_intervencion(
+    db: Session, equipo_id: int, tipo: str
+) -> None:
+    """Recalcula `fecha_ultima_intervencion` del plan activo como el máximo
+    `fecha_realizacion` entre las calibraciones activas del equipo/tipo.
+
+    Se invoca al editar o dar de baja una intervención, para que el plan
+    quede coherente con los registros que realmente quedan. A diferencia de
+    `asentar_ultima_intervencion` (que solo avanza), acá sí puede retroceder
+    al siguiente registro vigente cuando la intervención más reciente se
+    edita a una fecha anterior o se da de baja. Si no quedan registros
+    activos, se deja la fecha asentada (la columna es NOT NULL).
+    No hace commit: comparte la transacción del caller.
+    """
+    db.flush()
+    plan = db.scalar(
+        select(models.PlanCalibracionMantenimiento).where(
+            models.PlanCalibracionMantenimiento.equipo_id == equipo_id,
+            models.PlanCalibracionMantenimiento.tipo == tipo,
+            models.PlanCalibracionMantenimiento.activo.is_(True),
+        )
+    )
+    if plan is None:
+        return
+
+    ultima = db.scalar(
+        select(func.max(Calibracion.fecha_realizacion)).where(
+            Calibracion.equipo_id == equipo_id,
+            Calibracion.tipo == tipo,
+            Calibracion.activo.is_(True),
+        )
+    )
+
+    if ultima is not None:
+        plan.fecha_ultima_intervencion = ultima
+        db.add(plan)

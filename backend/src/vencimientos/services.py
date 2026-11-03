@@ -6,6 +6,7 @@ from datetime import datetime
 
 from src.aptitud.models import Aptitud
 from src.Equipo.models import Equipo
+from src.common.estado_documento import estado_documento
 from src.common.texto import coincide_terminos, normalizar_texto
 from src.common.fechas import hoy
 from src.notificaciones.services import (
@@ -31,15 +32,6 @@ _ETIQUETA_TIPO = {
     "MANTENIMIENTO": "Mantenimiento",
     "DOCUMENTO": "Documento",
 }
-
-
-def _estado(dias_restantes: int, margen: int) -> str:
-    # Mismo criterio que las notificaciones: hoy o antes ya cuenta como vencido.
-    if dias_restantes <= 0:
-        return "VENCIDO"
-    if dias_restantes <= margen:
-        return "PROXIMO"
-    return "VIGENTE"
 
 
 def _nombre_persona(persona: Personal) -> str:
@@ -78,7 +70,7 @@ def _vencimientos_personal(db: Session) -> List[VencimientoConsolidadoResponse]:
                 sujeto=_nombre_persona(venc.persona),
                 fecha_vencimiento=venc.fecha_vencimiento,
                 dias_restantes=dias,
-                estado=_estado(dias, margen),
+                estado=estado_documento(venc.fecha_vencimiento, hoy_dia, margen),
                 link_destino=f"/personal/detalle/{venc.persona_id}",
             )
         )
@@ -101,6 +93,7 @@ def _vencimientos_equipos(
     if tipo:
         consulta = consulta.where(PlanCalibracionMantenimiento.tipo == tipo.lower())
 
+    hoy_dia = hoy()
     resultado = []
     for plan in db.scalars(consulta).all():
         dias = plan.dias_restantes
@@ -115,7 +108,9 @@ def _vencimientos_equipos(
                 sujeto=plan.equipo.nombre,
                 fecha_vencimiento=plan.proxima_fecha_vencimiento,
                 dias_restantes=dias,
-                estado=_estado(dias, MARGEN_DIAS_ALERTA),
+                estado=estado_documento(
+                    plan.proxima_fecha_vencimiento, hoy_dia, MARGEN_DIAS_ALERTA
+                ),
                 link_destino=f"/equipos/detalle/{plan.equipo.id}",
             )
         )
@@ -163,7 +158,7 @@ def _vencimientos_documentos(db: Session) -> List[VencimientoConsolidadoResponse
                 sujeto=documento.nombre,
                 fecha_vencimiento=fecha,
                 dias_restantes=dias,
-                estado=_estado(dias, margen),
+                estado=estado_documento(fecha, hoy_dia, margen),
                 link_destino=f"/documentos/{documento.id}/historial",
             )
         )

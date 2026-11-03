@@ -1,4 +1,6 @@
 from datetime import datetime
+
+from src.common.fechas import ahora
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
@@ -29,5 +31,7 @@ class PlanLimpieza(ModeloBase):
     autor: Mapped["Personal"] = relationship(back_populates="planes")
 
     # - Opcional , esta bueno
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, onupdate=ahora
+    )

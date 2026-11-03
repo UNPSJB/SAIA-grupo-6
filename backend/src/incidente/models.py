@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from src.common.fechas import ahora
 from src.incidente.constants import EstadoIncidente
 from src.Equipo.models import Equipo
 from src.personal.models import Personal
@@ -18,7 +19,7 @@ class Incidente(ModeloBase):
     equipo_id: Mapped[Optional[int]] = mapped_column(ForeignKey("equipos.id"), nullable=True)
     foto_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("personal.id"), nullable=False)
-    fecha_reporte: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    fecha_reporte: Mapped[datetime] = mapped_column(DateTime, default=ahora, nullable=False)
 
     # Estado del incidente: se abre al reportarse y lo cierra el administrador
 
@@ -59,7 +60,7 @@ class HistorialIncidente(ModeloBase):
     )
     observacion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     fecha_evento: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, nullable=False
+        DateTime, default=ahora, nullable=False
     )
 
     incidente: Mapped["Incidente"] = relationship()

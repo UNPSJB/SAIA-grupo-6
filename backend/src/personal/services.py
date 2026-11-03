@@ -1,6 +1,5 @@
 import hmac
 import logging
-import secrets
 from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -11,7 +10,7 @@ from src.common.texto import sin_tildes
 from src.common.persistence import aplicar_cambios
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
-from src.common.persistence import es_violacion_nulo, es_violacion_unica
+from src.common.persistence import es_violacion_unica, mapa_por_campo
 from src.exceptions import ConflictoRegistroInactivo
 from src.auth.services import hashear_password, verificar_password, es_hash_bcrypt
 
@@ -98,16 +97,16 @@ def crear_persona(
     datos_persona = persona.model_dump(exclude={"password"})
     password_temporal = None
     if not persona.password:
-        password_temporal = secrets.token_urlsafe(9)
-        password_plain = password_temporal
+        # La contraseña inicial es el DNI de la persona (como en SIU Guaraní).
+        password_plain = persona.dni
     else:
         password_plain = persona.password
 
     datos_persona["password"] = hashear_password(password_plain)
-    datos_persona["debe_cambiar_password"] = password_temporal is not None
+    datos_persona["debe_cambiar_password"] = not bool(persona.password)
     datos_persona["password_changed_at"] = now_utc_naive
     _persona = Personal(**datos_persona)
-    # Exponer la contraseña temporal una sola vez en la respuesta
+    # Exponer la contraseña inicial (el DNI) una sola vez en la respuesta
     _persona.password_temporal = password_temporal
     db.add(_persona)
 
@@ -118,28 +117,7 @@ def crear_persona(
 
     except IntegrityError as e:
         db.rollback()
-
-        # Dejamos este manejo como respaldo por si la BD
-        # detecta una restricción de integridad que no verificamos antes.
-        # Ojo: el substring match anterior era tan laxo que un
-        # "NOT NULL constraint failed: personal.dni" se le reportaba al
-        # usuario como "ese DNI ya está registrado". Solo una violación
-        # UNIQUE es un duplicado; el resto se propaga como error real.
-        mensaje_error = str(e.orig).lower()
-
-        if es_violacion_nulo(mensaje_error):
-            raise exceptions.DatoInvalido()
-
-        if not es_violacion_unica(mensaje_error):
-            raise
-
-        if "dni" in mensaje_error:
-            raise exceptions.DniDuplicado()
-
-        if "email" in mensaje_error:
-            raise exceptions.EmailDuplicado()
-
-        raise exceptions.DatoDuplicado()
+        raise _mapear_conflicto_persona(str(e.orig).lower())
 
 
 def _consulta_personas(
@@ -240,17 +218,30 @@ def leer_persona(
     return db_persona
 
 
-def _mapear_conflicto_persona(mensaje: str) -> Exception:
-    """Traduce un IntegrityError del PUT a la excepción de negocio.
+# Mapeador de violaciones UNIQUE para personal. Solo se traduce a "duplicado"
+# cuando el driver reporta una restricción UNIQUE real: un NOT NULL o una
+# clave foránea rota no se informa como "ese valor ya está registrado".
+_mapear_conflicto_unico_persona = mapa_por_campo(
+    ("personal.dni", exceptions.DniDuplicado),
+    ("personal.email", exceptions.EmailDuplicado),
+    por_defecto=exceptions.DatoDuplicado,
+)
 
-    Mismas reglas que tenía el update() de Core: el mensaje del driver
-    distingue si el valor duplicado es el DNI o el email.
+
+def _mapear_conflicto_persona(mensaje: str) -> Exception:
+    """Traduce un IntegrityError del PUT/POST a la excepción de negocio.
+
+    Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico
+    (500) y queda logueado, en vez de informarse como "DNI duplicado".
     """
-    if "dni" in mensaje:
-        return exceptions.DniDuplicado()
-    if "email" in mensaje:
-        return exceptions.EmailDuplicado()
-    return exceptions.DatoDuplicado()
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en personal (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _mapear_conflicto_unico_persona(mensaje)
 
 
 def modificar_persona(

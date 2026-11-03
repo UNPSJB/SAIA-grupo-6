@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from datetime import date, timedelta
+from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
 from src.common.fechas import hoy
 from typing import Any
 
@@ -11,6 +12,8 @@ from src.documentos.models import Documento
 from src.incidente.constants import EstadoIncidente
 from src.incidente.models import Incidente
 from src.notificaciones import services as notificacion_services
+from src.notificaciones.invalidacion import asegurar_notificaciones_al_dia
+from src.notificaciones.models import NotificacionPersistida
 from src.notificaciones.schemas import (
     AlertaCriticidadResponse,
     CriticidadDashboardResponse,
@@ -41,7 +44,6 @@ ORDEN_CRITICIDAD = {"alta": 3, "media": 2, "baja": 1}
 
 DIAS_RECURRENCIA = 30
 UMBRAL_RECURRENCIA = 3
-DIAS_DOCUMENTO_PROXIMO = 15
 
 ICONOS = {
     "ELEMENTO_LIMPIEZA": "limpieza",
@@ -114,6 +116,13 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
 
     if tipo == "STOCK_BAJO":
         return "STOCK_BAJO"
+
+    if tipo == "DOCUMENTO":
+        return (
+            "DOCUMENTO_VENCIDO"
+            if nivel == "VENCIDO"
+            else "DOCUMENTO_PROXIMO"
+        )
 
     raise ValueError(f"Tipo de notificación no contemplado: {tipo}")
 
@@ -236,9 +245,92 @@ def _recurrencia_checklists(
 # MOTOR DE CRITICIDAD
 # ============================================================
 
+
+def _reconstruir_desde_persistida(
+    filas: list[NotificacionPersistida],
+) -> CriticidadDashboardResponse:
+    """Reconstruye el CriticidadDashboardResponse desde la tabla persistida."""
+    alertas_response: list[AlertaCriticidadResponse] = []
+    altas = medias = bajas = 0
+    valores = {"baja": 1, "media": 2, "alta": 3}
+    suma_criticidad = 0
+
+    for f in filas:
+        c = f.criticidad
+        suma_criticidad += valores.get(c, 1)
+        if c == "alta":
+            altas += 1
+        elif c == "media":
+            medias += 1
+        else:
+            bajas += 1
+
+        alertas_response.append(
+            AlertaCriticidadResponse(
+                clave=f.id_notificacion,
+                origen=f.tipo,
+                entidad_id=f.entidad_id,
+                grupo_clave=f.grupo_clave or "",
+                icono=ICONOS.get(f.tipo, "documento"),
+                titulo=f.titulo,
+                detalle=f.mensaje,
+                criticidad=c,
+                motivo=f.motivo,
+                plazo=f.plazo or "",
+                fecha_referencia=f.fecha_referencia,
+                destino=f.link_destino,
+                recambio_id=f.recambio_id,
+            )
+        )
+
+    total = len(alertas_response)
+    promedio = (suma_criticidad / total) if total else 1.0
+
+    if promedio >= 2.5:
+        nivel_riesgo = "alto"
+    elif promedio >= 1.5:
+        nivel_riesgo = "medio"
+    else:
+        nivel_riesgo = "bajo"
+
+    # Ordenar igual que el motor en vivo: criticidad desc, luego fecha.
+    alertas_response.sort(
+        key=lambda a: (
+            -valores.get(a.criticidad, 1),
+            a.fecha_referencia is None,
+            a.fecha_referencia or date.max,
+        )
+    )
+
+    return CriticidadDashboardResponse(
+        nivel_riesgo=nivel_riesgo,
+        total=total,
+        altas=altas,
+        medias=medias,
+        bajas=bajas,
+        alertas=alertas_response,
+    )
+
+
 def obtener_criticidad_dashboard(
     db: Session,
 ) -> CriticidadDashboardResponse:
+    """Lee el dashboard desde la tabla persistida, recalculándola antes solo si
+    está sucia (hubo cambios) o es de otro día. La campana y el panel muestran
+    el mismo número porque leen de la misma tabla."""
+    asegurar_notificaciones_al_dia(db)
+    filas = db.scalars(select(NotificacionPersistida)).all()
+    return _reconstruir_desde_persistida(filas)
+
+
+def calcular_criticidad_dashboard(
+    db: Session,
+) -> CriticidadDashboardResponse:
+    """Calcula el dashboard EN VIVO desde las fuentes de origen.
+
+    No lee ni escribe la tabla persistida: lo usa el recálculo
+    (`invalidacion._sincronizar_tabla`) para saber qué filas deben existir.
+    """
     hoy_dia = hoy()
     desde = hoy_dia - timedelta(days=DIAS_RECURRENCIA)
 
@@ -247,7 +339,19 @@ def obtener_criticidad_dashboard(
     # --------------------------------------------------------
     # 1. VENCIMIENTOS EXISTENTES
     # --------------------------------------------------------
-    for notificacion in notificacion_services.obtener_todas_notificaciones(db):
+    # Se obtienen las fuentes de origen directamente (sin pasar por
+    # `obtener_todas_notificaciones`, que lee de la tabla persistida) para
+    # evitar una dependencia circular cuando `recalcular_notificaciones_persistidas`
+    # llama a esta función con la tabla aún vacía.
+    notificaciones_vivas: list = []
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_elementos_limpieza(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_planes_calibracion_mantenimiento(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_vencimientos_personal(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_stock_bajo(db))
+    notificaciones_vivas.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
+
+    for notificacion in notificaciones_vivas:
+
         grupo = notificacion.grupo_clave
 
         if grupo is None:
@@ -288,17 +392,24 @@ def obtener_criticidad_dashboard(
         select(Documento).options(selectinload(Documento.versiones))
     ).all()
 
+    margen_documentos = notificacion_services.obtener_dias_alerta_vencimiento_personal(db)
+
     for documento in documentos:
         version = documento.version_vigente
         if version is None or version.fecha_vencimiento is None:
             continue
 
-        dias = (version.fecha_vencimiento - hoy_dia).days
+        # Clasificación única con el margen configurable (no el fijo de 15
+        # días). Hoy es vigente ("vence hoy", no alerta); venció ayer o antes
+        # es VENCIDO; dentro del margen es PROXIMO.
+        estado = estado_documento(
+            version.fecha_vencimiento, hoy_dia, margen_documentos,
+        )
 
-        if dias < 0:
+        if estado == VENCIDO:
             regla = "DOCUMENTO_VENCIDO"
             titulo = "Documento vencido"
-        elif dias <= DIAS_DOCUMENTO_PROXIMO:
+        elif estado == PROXIMO:
             regla = "DOCUMENTO_PROXIMO"
             titulo = "Documento próximo a vencer"
         else:
@@ -337,36 +448,40 @@ def obtener_criticidad_dashboard(
 
     # Para el panel actual mostramos únicamente las situaciones vigentes de
     # hoy, mientras que todos los días del período se utilizan para recurrencia.
+    # Una sola situación por equipo con tareas pendientes hoy (no una por
+    # tarea): varias tareas sin completar en la mañana no deben inflar el
+    # nivel de todas las alertas del equipo. Cada día histórico distinto aún
+    # cuenta como una ocurrencia para la recurrencia en _recurrencia_checklists.
+    # Mapa equipo_id -> nombre (ya cargado con selectinload en la consulta).
+    nombres_equipo: dict[int, str] = {}
+    for checklist in checklists_historicos:
+        if checklist.equipo is not None:
+            nombres_equipo[checklist.equipo_id] = checklist.equipo.nombre
+
+    equipos_con_pendientes_hoy: set[int] = set()
     for checklist in checklists_historicos:
         if checklist.fecha != hoy_dia:
             continue
 
-        for registro in checklist.registros:
-            if registro.completado:
-                continue
+        if any(not registro.completado for registro in checklist.registros):
+            equipos_con_pendientes_hoy.add(checklist.equipo_id)
 
-            if registro.elemento_limpieza_id is not None:
-                grupo = f"elemento:{registro.elemento_limpieza_id}"
-            else:
-                grupo = f"equipo:{checklist.equipo_id}"
+    for equipo_id in sorted(equipos_con_pendientes_hoy):
+        detalle = nombres_equipo.get(equipo_id, f"equipo {equipo_id}")
 
-            detalle = checklist.equipo.nombre
-            if registro.nombre_tarea_historico:
-                detalle = f"{detalle} · {registro.nombre_tarea_historico}"
-
-            alertas.append(
-                _crear_alerta(
-                    clave=f"checklist-registro-{registro.id}",
-                    origen="CHECKLIST",
-                    entidad_id=registro.id,
-                    grupo_clave=grupo,
-                    titulo="Tarea de checklist incumplida",
-                    detalle=detalle,
-                    regla="CHECKLIST_INCOMPLETO",
-                    fecha_referencia=checklist.fecha,
-                    destino="/checklist/historial",
-                )
+        alertas.append(
+            _crear_alerta(
+                clave=f"checklist-equipo-{equipo_id}-{hoy_dia.isoformat()}",
+                origen="CHECKLIST",
+                entidad_id=equipo_id,
+                grupo_clave=f"equipo:{equipo_id}",
+                titulo="Tarea de checklist incumplida",
+                detalle=detalle,
+                regla="CHECKLIST_INCOMPLETO",
+                fecha_referencia=hoy_dia,
+                destino="/checklist/historial",
             )
+        )
 
     # --------------------------------------------------------
     # 4. INCIDENTES

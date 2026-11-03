@@ -76,6 +76,7 @@ export function IntervencionEquipo({ equipo, onCerrar, onRegistrada }: Intervenc
 
   const [exito, setExito] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
+  const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoIntervencion | null>(null);
   const temporizador = useRef<number | undefined>(undefined);
 
   // Si la persona se va antes de que termine el cartel, no se dispara nada.
@@ -86,11 +87,35 @@ export function IntervencionEquipo({ equipo, onCerrar, onRegistrada }: Intervenc
     [planes, equipo.id]
   );
 
+  // Tipos de intervención disponibles según los planes del equipo. Se usan
+  // para determinar automáticamente el tipo; si hay varios, el usuario elige
+  // fuera del modal antes de registrar.
+  const tiposDisponibles = useMemo(() => {
+    const tipos = new Set<TipoIntervencion>();
+    for (const plan of planesDelEquipo) {
+      if (plan.tipo === "calibracion" || plan.tipo === "mantenimiento") {
+        tipos.add(plan.tipo);
+      }
+    }
+    return Array.from(tipos);
+  }, [planesDelEquipo]);
+
   const verificado = !cargandoPlanes;
   const puedeRegistrar = verificado && !errorPlanes && planesDelEquipo.length > 0;
   const hayAviso = verificado && (Boolean(errorPlanes) || planesDelEquipo.length === 0);
 
-  const handleConfirm = async (fecha: string, archivo: File, tipo: TipoIntervencion) => {
+  // Tipo determinado automáticamente: si hay un solo tipo de plan se usa;
+  // si hay varios, queda pendiente hasta que el usuario elija.
+  const tipoDefinido =
+    tipoSeleccionado ??
+    (tiposDisponibles.length === 1 ? tiposDisponibles[0] : null);
+
+  const handleConfirm = async (fecha: string, archivo: File) => {
+    const tipo = tipoDefinido;
+    if (!tipo) {
+      setErrorPlan("Seleccioná el tipo de intervención antes de registrar.");
+      return;
+    }
     // El equipo tiene que tener un plan del tipo que se está registrando.
     if (!planesDelEquipo.some((p) => mismoTipo(String(p.tipo), String(tipo)))) {
       setErrorPlan(
@@ -118,16 +143,67 @@ export function IntervencionEquipo({ equipo, onCerrar, onRegistrada }: Intervenc
 
   return (
     <>
-      <RegistrarCalibracionDialog
-        isOpen={puedeRegistrar && !exito}
-        equipo={equipo}
-        isLoading={registrandoIntervencion}
-        error={errorPlan ?? errorIntervencion}
-        onClose={() => {
-          if (!registrandoIntervencion) onCerrar();
-        }}
-        onConfirm={handleConfirm}
-      />
+      {/* Cuando hay varios tipos de plan, el usuario elige el tipo fuera del
+          modal antes de registrar la intervención. */}
+      {puedeRegistrar &&
+        !exito &&
+        tiposDisponibles.length > 1 &&
+        !tipoSeleccionado && (
+        <Box
+          position="fixed"
+          inset="0"
+          bg="blackAlpha.600"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={1000}
+        >
+          <Box bg="white" rounded="xl" p="6" maxW="420px" w="90vw" boxShadow="lg">
+            <Text fontSize="lg" fontWeight="bold" mb="2">
+              Seleccioná el tipo de intervención
+            </Text>
+            <Text color="fg.muted" mb="5">
+              El equipo «{equipo.nombre}» tiene planes de calibración y de
+              mantenimiento. Elegí cuál querés registrar.
+            </Text>
+            <Box display="flex" gap="3" justifyContent="center" flexWrap="wrap">
+              <Button
+                colorPalette="brand"
+                onClick={() => setTipoSeleccionado("calibracion")}
+              >
+                Calibración
+              </Button>
+              <Button
+                colorPalette="brand"
+                onClick={() => setTipoSeleccionado("mantenimiento")}
+              >
+                Mantenimiento
+              </Button>
+              <Button variant="outline" onClick={onCerrar}>
+                Cancelar
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
+      {/* El diálogo solo se abre cuando el tipo ya está definido. */}
+      {puedeRegistrar && !exito && !!tipoDefinido && (
+        <RegistrarCalibracionDialog
+          isOpen={true}
+          equipo={equipo}
+          tipo={tipoDefinido}
+          isLoading={registrandoIntervencion}
+          error={errorPlan ?? errorIntervencion}
+          onClose={() => {
+            if (!registrandoIntervencion) {
+              setTipoSeleccionado(null);
+              onCerrar();
+            }
+          }}
+          onConfirm={handleConfirm}
+        />
+      )}
 
       {hayAviso && (
         <AvisoSinPlan

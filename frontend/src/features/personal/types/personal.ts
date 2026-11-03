@@ -11,8 +11,11 @@ export interface Persona {
   puede_administrar: boolean;
   es_super_admin: boolean;
   activo: boolean;
+  debe_cambiar_password?: boolean;
   fecha_creacion: string;
   fecha_actualizacion?: string | null;
+  /** Contraseña temporal generada por el backend (solo se devuelve una vez, al crear). */
+  password_temporal?: string | null;
 }
 
 /**

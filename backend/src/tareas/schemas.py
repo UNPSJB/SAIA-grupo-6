@@ -16,6 +16,7 @@ class TareaBase(BaseModel):
     tipo: str
     descripcion: Optional[str] = None
     observaciones: Optional[str] = None
+    operador_id: Optional[int] = None
 
     @field_validator("nombre")
     @classmethod

@@ -3,6 +3,7 @@ import type {
   RegistroTareaResponse,
   TareasDelDiaResponse,
   HistorialRegistroTareaResponse,
+  CoberturaTareaResponse,
 } from "../types/checklist";
 
 import type { ConsumoInsumosResponse, HistorialChecklistPagina } from "../types/checklist";
@@ -196,5 +197,34 @@ export async function obtenerConsumoInsumos(
   return pedir<ConsumoInsumosResponse>(
     response,
     "Error al obtener el consumo"
+  );
+}
+
+// ---------------------------------------------------------
+// COBERTURA / REEMPLAZO DE OPERADOR
+// ---------------------------------------------------------
+export async function asignarCobertura(
+  registroId: number,
+  operadorId: number | null
+): Promise<CoberturaTareaResponse> {
+  const formData = new FormData();
+
+  if (operadorId !== null) {
+    formData.append("operador_id", String(operadorId));
+  } else {
+    formData.append("operador_id", "");
+  }
+
+  const response = await apiFetch(
+    `${API_URL}/checklist/registro/${registroId}/cobertura`,
+    {
+      method: "PATCH",
+      body: formData,
+    }
+  );
+
+  return pedir<CoberturaTareaResponse>(
+    response,
+    "Error al asignar cobertura de la tarea"
   );
 }

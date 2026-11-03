@@ -14,7 +14,9 @@ class PlanCalibracionMantenimientoBase(BaseModel):
     equipo_id: int
     tipo: TipoPlanCalibracionMantenimiento
     fecha_ultima_intervencion: date
-    periodicidad_dias: int = Field(ge=1)
+    # 3650 días = 10 años: suficiente para cualquier plan de calibración y
+    # evita OverflowError en date + timedelta / julianday con valores absurdos.
+    periodicidad_dias: int = Field(ge=1, le=3650)
 
     @field_validator("equipo_id")
     @classmethod

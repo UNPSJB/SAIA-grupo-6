@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from src.common.fechas import ahora
 from src.aptitud.models import Aptitud
 from src.personal.models import Personal
 from src.models import ModeloBase
@@ -19,9 +20,9 @@ class VencimientoPersonal(ModeloBase):
     fecha_vencimiento: Mapped[date] = mapped_column(Date)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True, onupdate=datetime.now
+        DateTime, nullable=True, onupdate=ahora
     )
 
     persona: Mapped["Personal"] = relationship()

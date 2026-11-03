@@ -1,12 +1,14 @@
 from typing import Optional
-
+import logging
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
+    es_violacion_unica,
     guardar,
     mapa_por_campo,
     obtener,
@@ -19,11 +21,26 @@ from .exceptions import EquipoNoEncontrado
 from .models import Equipo
 from .schemas import EquipoCreate, EquipoUpdate
 
+logger = logging.getLogger(__name__)
+
 # `equipos.nombre` es UNIQUE: antes un PUT con nombre repetido escapaba como 500.
-_MAPEA_CONFLICTO = mapa_por_campo(
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     ("equipos.nombre", exceptions.NombreDuplicado),
     por_defecto=exceptions.NombreDuplicado,
 )
+
+
+def _mapear_conflicto_equipo(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en Equipo (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 # Claves del query string -> expresión de orden. Las columnas de texto pasan
 # por `sin_tildes` para que "Ácido" quede junto a "Acido" y no después de "Z".
@@ -80,7 +97,7 @@ def crear_equipo(db: Session, datos: EquipoCreate) -> Equipo:
     _verificar_sector(db, datos.sector_id)
     nuevo_equipo = Equipo(**datos.model_dump())
     db.add(nuevo_equipo)
-    return guardar(db, nuevo_equipo, _MAPEA_CONFLICTO)
+    return guardar(db, nuevo_equipo, _mapear_conflicto_equipo)
 
 
 def listar_equipos(
@@ -163,7 +180,7 @@ def actualizar_equipo(
     if cambios.get("sector_id") is not None:
         _verificar_sector(db, cambios["sector_id"])
 
-    return aplicar_cambios(db, equipo, cambios, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, equipo, cambios, _mapear_conflicto_equipo)
 
 
 def dar_de_baja_equipo(db: Session, equipo_id: int) -> Equipo:

@@ -11,6 +11,7 @@ from src.migrations import crear_tablas_y_migrar
 from src.auth.services import purgar_revocados_vencidos
 from src.uploads.router import router as uploads_router
 from src.config import CARPETA_UPLOADS
+from src.common.archivos import LimiteTamanoSubidaMiddleware
 
 # Importamos la configuración validada por Pydantic
 from src.config import settings
@@ -50,6 +51,7 @@ from src.vencimientos.router import router as vencimientos_router
 from src.sector.router import router as sector_router
 
 from src.auditoria.router import router as auditoria_router
+from src.vistaPublica.router import router as vista_publica_router
 
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
@@ -76,6 +78,12 @@ async def db_creation_lifespan(app: FastAPI):
     # Crea las tablas faltantes y aplica las migraciones de columnas.
     # Es DDL síncrono: en un hilo para no bloquear el event loop.
     await anyio.to_thread.run_sync(crear_tablas_y_migrar)
+
+    # Invalida la caché de notificaciones desde el ORM, en la misma
+    # transacción que cada mutación de sus fuentes.
+    from src.notificaciones.invalidacion import registrar_invalidacion_automatica
+
+    registrar_invalidacion_automatica()
 
     # La tabla de tokens revocados crece un registro por logout y solo se
     # purgaba al expirar el token... nunca: nadie llamaba a la función.
@@ -114,6 +122,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Primera barrera contra subidas demasiado grandes: Content-Length y el
+# cuerpo real del stream. Conviene además limitar en el proxy (nginx
+# `client_max_body_size`, o equivalente) para rechazar antes de que el
+# cuerpo llegue a la aplicación.
+app.add_middleware(LimiteTamanoSubidaMiddleware)
+
 
 # Asociamos los routers a nuestra app
 app.include_router(auth_router)
@@ -141,3 +155,4 @@ app.include_router(incidente_router)
 app.include_router(documentos_router)
 app.include_router(vencimientos_router)
 app.include_router(auditoria_router)
+app.include_router(vista_publica_router)

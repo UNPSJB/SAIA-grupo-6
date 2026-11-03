@@ -4,6 +4,7 @@ from enum import Enum
 
 from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from src.common.fechas import ahora
 from src.models import ModeloBase
 from src.unidadMedida.models import UnidadMedida
 
@@ -55,7 +56,7 @@ class StockInsumoQuimico(ModeloBase):
     )
     stock_minimo: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
     actualizado_en: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
+        DateTime, default=ahora, onupdate=ahora, nullable=False
     )
 
     insumo_quimico: Mapped["InsumoQuimico"] = relationship()
@@ -72,7 +73,7 @@ class MovimientoStockInsumoQuimico(ModeloBase):
     )
     cantidad_variacion: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
     tipo: Mapped[TipoMovimientoStock] = mapped_column(SQLEnum(TipoMovimientoStock), nullable=False, index=True)
-    fecha: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False, index=True)
+    fecha: Mapped[datetime] = mapped_column(DateTime, default=ahora, nullable=False, index=True)
     motivo: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     responsable_id: Mapped[int | None] = mapped_column(ForeignKey("personal.id"), nullable=True)
@@ -107,8 +108,8 @@ class LoteStock(ModeloBase):
     )
     numero_lote: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     cantidad_producto: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
-    fecha_ingreso: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False, index=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    fecha_ingreso: Mapped[datetime] = mapped_column(DateTime, default=ahora, nullable=False, index=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, nullable=False)
     movimiento_ingreso_id: Mapped[int] = mapped_column(
         ForeignKey("movimientos_stock_insumos_quimicos.id"), nullable=False, unique=True, index=True
     )

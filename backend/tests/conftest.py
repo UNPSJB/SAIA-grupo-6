@@ -31,6 +31,10 @@ from src.Equipo.models import Equipo  # noqa: E402
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: E402
 from src.sector.models import Sector  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
+from src.notificaciones.invalidacion import registrar_invalidacion_automatica  # noqa: E402
+
+# El lifespan no corre en los tests: se registra la invalidación a mano.
+registrar_invalidacion_automatica()
 
 
 @pytest.fixture(scope="session")
@@ -55,10 +59,14 @@ def session_factory(engine):
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def client(session_factory):
-    """TestClient sin `with`: no corre el lifespan (que migraría la base real)."""
+    """TestClient por test: no corre el lifespan (que migraría la base real).
 
+    Cada test obtiene su propio override de `get_db` apuntando al motor de
+    test, así que un `clear()` ajeno (p. ej. en tests de stock) no puede
+    desactivar la conexión a la base de test para los tests siguientes.
+    """
     def _get_db_de_test():
         db = session_factory()
         try:
@@ -66,9 +74,15 @@ def client(session_factory):
         finally:
             db.close()
 
+    anterior_get_db = app.dependency_overrides.get(get_db)
     app.dependency_overrides[get_db] = _get_db_de_test
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+    try:
+        yield TestClient(app)
+    finally:
+        if anterior_get_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = anterior_get_db
 
 
 

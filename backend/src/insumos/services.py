@@ -1,13 +1,21 @@
 from typing import List, Optional
+import logging
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
+from src.common.persistence import (
+    aplicar_cambios,
+    es_violacion_unica,
+    mapa_por_campo,
+)
 from src.common.texto import sin_tildes
-from src.common.persistence import aplicar_cambios, mapa_por_campo
 from src.exceptions import ConflictoRegistroInactivo
 from src.insumos.models import TIPO_INSUMO, Insumo
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
+
+logger = logging.getLogger(__name__)
 
 _ORDENES = {
     "nombre_asc": ColumnaOrden((sin_tildes(Insumo.nombre),)),
@@ -20,9 +28,22 @@ _ORDENES = {
 
 # `insumos.nombre` es UNIQUE: cualquier violación de integridad del PUT se
 # traduce a "ya existe" (mismo criterio que tenía el update() de Core).
-_MAPEA_CONFLICTO = mapa_por_campo(
+_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
     por_defecto=exceptions.InsumoYaExiste,
 )
+
+
+def _mapear_conflicto_insumo(mensaje: str) -> Exception:
+    """Solo una violación UNIQUE es un duplicado. Cualquier otro
+    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
+    y queda logueado."""
+    if not es_violacion_unica(mensaje):
+        logger.error(
+            "IntegrityError no-UNIQUE en insumos (no es un duplicado): %s",
+            mensaje,
+        )
+        raise IntegrityError("sin mapear", {}, Exception(mensaje))
+    return _MAPEA_CONFLICTO_UNICO(mensaje)
 
 
 
@@ -171,7 +192,7 @@ def modificar_insumo(
 
     # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
     # disparan eventos del ORM, así que la auditoría no los vería.
-    return aplicar_cambios(db, db_insumo, datos_a_actualizar, _MAPEA_CONFLICTO)
+    return aplicar_cambios(db, db_insumo, datos_a_actualizar, _mapear_conflicto_insumo)
 
 
 def eliminar_insumo(db: Session, insumo_id: int) -> Insumo:

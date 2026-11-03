@@ -1,6 +1,7 @@
 import sqlalchemy as sa
 from datetime import datetime
 from typing import Optional
+from src.common.fechas import ahora
 from src.models import AUDITORIA_REDACTAR, ModeloBase
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, DateTime
@@ -42,8 +43,10 @@ class Personal(ModeloBase):
     )
 
     # - Opcional , esta bueno
-    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=datetime.now)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, onupdate=ahora
+    )
 
     # - A futuro la entidad tendria una conexion con documentos, los cuales seran otra tabla aparte
     # - Y seria una relacion de uno a muchos, la cual condicionaria si el personal puede operar y si puede administrar.

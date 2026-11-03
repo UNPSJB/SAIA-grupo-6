@@ -20,17 +20,28 @@ import {
   LuLock,
   LuPaperclip,
   LuRefreshCw,
+  LuUser,
+  LuShieldAlert,
   LuX,
 } from "react-icons/lu";
 import { useChecklist } from "../../hooks/useChecklist";
-import type { TareaDelDia, HistorialRegistroTareaItem } from "../../types/checklist";
-import { obtenerHistorialRegistro } from "../../services/checklistService";
+import type {
+  TareaDelDia,
+  HistorialRegistroTareaItem,
+} from "../../types/checklist";
+import {
+  obtenerHistorialRegistro,
+  asignarCobertura,
+} from "../../services/checklistService";
 import { TIPOS_TAREA } from "../../../planLimpieza/types/planLimpieza";
+import { usePersonales } from "../../../personal/hooks/usePersonales";
 import { listarOpcionesInsumosQuimicos } from "../../../insumoQuimico/services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../../../insumoQuimico/types/insumoQuimico";
 import { listarOpcionesElementosLimpieza } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import type { ElementoLimpiezaOpcion } from "../../../elementoLimpieza/types/elementoLimpieza";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
+import { useAuth } from "../../../../common/context/useAuth";
+import type { User } from "../../../../common/context/auth-context";
 import {
   DialogContent,
   DialogRoot,
@@ -58,7 +69,12 @@ import {
 
 // Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
 // src/checklist/router.py).
-const FORMATOS_PERMITIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const FORMATOS_PERMITIDOS = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
 
 // Etiqueta y color del badge del tipo de tarea. El label sale de la misma
 // lista que usa el formulario del plan (TIPOS_TAREA) para no duplicar textos.
@@ -112,13 +128,16 @@ interface FilaTareaProps {
   isLoading: boolean;
   insumosQuimicos: InsumoQuimicoOpcion[];
   elementosLimpieza: ElementoLimpiezaOpcion[];
+  usuarioActual: User | null;
+  puedeAsignarCobertura: boolean;
+  onAsignarCobertura: (registroId: number) => void;
   onToggle: (
     tareaId: number,
     estadoActual: boolean,
     evidencia?: File,
     insumoQuimicoId?: number,
     cantidadConsumida?: number,
-    elementoLimpiezaId?: number
+    elementoLimpiezaId?: number,
   ) => void;
 }
 
@@ -127,24 +146,29 @@ function FilaTarea({
   isLoading,
   insumosQuimicos,
   elementosLimpieza,
+  usuarioActual,
+  puedeAsignarCobertura,
+  onAsignarCobertura,
   onToggle,
 }: FilaTareaProps) {
   const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
   const [insumoSeleccionado, setInsumoSeleccionado] = useState<string>(
-    tarea.insumo_quimico_id ? String(tarea.insumo_quimico_id) : ""
+    tarea.insumo_quimico_id ? String(tarea.insumo_quimico_id) : "",
   );
   const [cantidadConsumida, setCantidadConsumida] = useState<string>(
-    tarea.cantidad_consumida ? String(tarea.cantidad_consumida) : ""
+    tarea.cantidad_consumida ? String(tarea.cantidad_consumida) : "",
   );
   const [elementoSeleccionado, setElementoSeleccionado] = useState<string>(
-    tarea.elemento_limpieza_id ? String(tarea.elemento_limpieza_id) : ""
+    tarea.elemento_limpieza_id ? String(tarea.elemento_limpieza_id) : "",
   );
   const [errorConsumo, setErrorConsumo] = useState<string | null>(null);
   const [mostrarProcedimiento, setMostrarProcedimiento] = useState(false);
   const [mostrarFoto, setMostrarFoto] = useState(false);
   const [previewEvidencia, setPreviewEvidencia] = useState<string | null>(null);
   const [errorEvidencia, setErrorEvidencia] = useState<string | null>(null);
-  const [historial, setHistorial] = useState<HistorialRegistroTareaItem[] | null>(null);
+  const [historial, setHistorial] = useState<
+    HistorialRegistroTareaItem[] | null
+  >(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   // La evidencia vive detrás de /uploads, que exige token: no se puede poner la
@@ -156,7 +180,7 @@ function FilaTarea({
   const imagen = useImagenAutenticada(mostrarFoto ? tarea.evidencia_url : null);
 
   const insumoActual = insumosQuimicos.find(
-    (insumo) => insumo.id === Number(insumoSeleccionado)
+    (insumo) => insumo.id === Number(insumoSeleccionado),
   );
 
   const verHistorial = async () => {
@@ -176,6 +200,23 @@ function FilaTarea({
   const esFuturo = tarea.registro_id === 0;
   const esCerrado = esHistorico || esFuturo;
 
+  const esAdmin =
+    usuarioActual?.puede_administrar || usuarioActual?.es_super_admin || false;
+
+  const esOperadorAsignado =
+    tarea.operador_id != null && tarea.operador_id === usuarioActual?.id;
+
+  const esReemplazado =
+    tarea.reemplazado_por_id != null &&
+    tarea.reemplazado_por_id === usuarioActual?.id;
+
+  const tareaSinAsignar = tarea.operador_id == null;
+
+  // Puede marcar si: es admin, es el operador asignado, es quien la cubrió,
+  // o la tarea no tiene asignado operador (cualquier operador la toma).
+  const puedeMarcar =
+    esAdmin || esOperadorAsignado || esReemplazado || tareaSinAsignar;
+
   const idInputEvidencia = `evidencia-${tarea.registro_id}-${tarea.id}`;
 
   /** Limpia el archivo seleccionado, el preview y el input oculto.
@@ -185,7 +226,9 @@ function FilaTarea({
     setArchivoEvidencia(null);
     setPreviewEvidencia(null);
     setErrorEvidencia(null);
-    const input = document.getElementById(idInputEvidencia) as HTMLInputElement | null;
+    const input = document.getElementById(
+      idInputEvidencia,
+    ) as HTMLInputElement | null;
     if (input) input.value = "";
   };
 
@@ -200,7 +243,7 @@ function FilaTarea({
 
     if (!FORMATOS_PERMITIDOS.includes(file.type)) {
       setErrorEvidencia(
-        "Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP)."
+        "Formato no permitido. Solo se aceptan imágenes (JPEG, PNG, GIF, WebP).",
       );
       limpiarEvidencia();
       return;
@@ -222,7 +265,7 @@ function FilaTarea({
         archivoEvidencia || undefined,
         undefined,
         undefined,
-        undefined
+        undefined,
       );
       limpiarEvidencia();
       setErrorConsumo(null);
@@ -234,7 +277,7 @@ function FilaTarea({
 
     if (hayProducto !== hayCantidad) {
       setErrorConsumo(
-        "Seleccioná el producto químico e indicá la cantidad consumida."
+        "Seleccioná el producto químico e indicá la cantidad consumida.",
       );
       return;
     }
@@ -251,7 +294,9 @@ function FilaTarea({
       }
     }
 
-    const elementoId = elementoSeleccionado ? Number(elementoSeleccionado) : undefined;
+    const elementoId = elementoSeleccionado
+      ? Number(elementoSeleccionado)
+      : undefined;
 
     setErrorConsumo(null);
     onToggle(
@@ -260,7 +305,7 @@ function FilaTarea({
       archivoEvidencia || undefined,
       insumoId,
       cantidad,
-      elementoId
+      elementoId,
     );
     limpiarEvidencia();
   };
@@ -291,13 +336,65 @@ function FilaTarea({
             )}
           </HStack>
 
-          {tarea.observaciones && (
+          {/* Asignación de operador y cobertura */}
+          {(!esCerrado || tarea.operador_id || tarea.reemplazado_por_id) && (
             <Box
               mt="1"
-              fontSize="sm"
-              color="fg.muted"
-              whiteSpace="pre-line"
+              display="flex"
+              alignItems="center"
+              gap="2"
+              flexWrap="wrap"
             >
+              {tarea.operador_id && tarea.operador_nombre && (
+                <Badge
+                  colorPalette="blue"
+                  borderRadius="md"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                  title={`Asignado a: ${tarea.operador_nombre}`}
+                >
+                  <LuUser size={14} />
+                  {tarea.operador_nombre}
+                </Badge>
+              )}
+              {tarea.reemplazado_por_id && tarea.reemplazado_por_nombre && (
+                <Badge
+                  colorPalette="orange"
+                  borderRadius="md"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                  title={`Cubierto por: ${tarea.reemplazado_por_nombre}`}
+                >
+                  <LuShieldAlert size={14} />
+                  {tarea.reemplazado_por_nombre}
+                </Badge>
+              )}
+              {!tarea.operador_id && !esCerrado && !tarea.completado && (
+                <Badge
+                  colorPalette="gray"
+                  borderRadius="md"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                >
+                  Sin asignar
+                </Badge>
+              )}
+              {puedeAsignarCobertura && !esCerrado && (
+                <BotonTexto
+                  onClick={() => onAsignarCobertura(tarea.registro_id)}
+                  size="sm"
+                >
+                  <LuShieldAlert size={14} /> Asignar cobertura
+                </BotonTexto>
+              )}
+            </Box>
+          )}
+
+          {tarea.observaciones && (
+            <Box mt="1" fontSize="sm" color="fg.muted" whiteSpace="pre-line">
               <Text as="span" fontWeight="bold">
                 Observaciones:{" "}
               </Text>
@@ -522,9 +619,9 @@ function FilaTarea({
               */}
               <Checkbox.Root
                 checked={tarea.completado}
-                onCheckedChange={handleCheckboxClick}
+                onCheckedChange={puedeMarcar ? handleCheckboxClick : undefined}
                 colorPalette="brand"
-                cursor="pointer"
+                cursor={puedeMarcar ? "pointer" : "not-allowed"}
               >
                 <Checkbox.HiddenInput
                   aria-label={`Marcar "${tarea.nombre}" como completada`}
@@ -541,7 +638,11 @@ function FilaTarea({
                 />
               )}
               {tarea.registro_id > 0 && (
-                <BotonAccion accion="historial" label="Ver historial" onClick={verHistorial} />
+                <BotonAccion
+                  accion="historial"
+                  label="Ver historial"
+                  onClick={verHistorial}
+                />
               )}
             </Box>
           )}
@@ -577,7 +678,9 @@ function FilaTarea({
             <DialogTitle fontSize="lg" fontWeight="bold" color="fg">
               Evidencia fotográfica
             </DialogTitle>
-            {imagen.loading && <EstadoCargando>Cargando imagen...</EstadoCargando>}
+            {imagen.loading && (
+              <EstadoCargando>Cargando imagen...</EstadoCargando>
+            )}
             {!imagen.loading && imagen.error && (
               <MensajeError>{imagen.error}</MensajeError>
             )}
@@ -617,7 +720,12 @@ function FilaTarea({
             overflowY="auto"
             textAlign="left"
           >
-            <DialogTitle fontSize="lg" fontWeight="bold" color="brand.fg" mb="4">
+            <DialogTitle
+              fontSize="lg"
+              fontWeight="bold"
+              color="brand.fg"
+              mb="4"
+            >
               Historial de cambios — {tarea.nombre}
             </DialogTitle>
             {cargandoHistorial ? (
@@ -634,14 +742,23 @@ function FilaTarea({
                   borderColor="border.subtle"
                   py="2"
                 >
-                  <HStack gap="2" align="center" fontSize="sm" fontWeight="bold">
+                  <HStack
+                    gap="2"
+                    align="center"
+                    fontSize="sm"
+                    fontWeight="bold"
+                  >
                     <Box
                       as="span"
                       display="inline-flex"
                       color={ev.completado ? "green.fg" : "red.fg"}
                       aria-hidden
                     >
-                      {ev.completado ? <LuCheck size={16} /> : <LuX size={16} />}
+                      {ev.completado ? (
+                        <LuCheck size={16} />
+                      ) : (
+                        <LuX size={16} />
+                      )}
                     </Box>
                     <Text as="span" color="fg">
                       {ev.completado ? "Marcada" : "Desmarcada"}
@@ -667,14 +784,114 @@ function FilaTarea({
   );
 }
 
+function CoberturaDialog({
+  registroId,
+  onClose,
+  onGuardado,
+}: {
+  registroId: number;
+  onClose: () => void;
+  onGuardado: () => Promise<void> | void;
+}) {
+  // El hook vive acá: solo se ejecuta cuando el admin abre el diálogo.
+  const { personales: operadoresDisponibles, loading: cargandoOperadores } =
+    usePersonales({ rol: "operador", incluirInactivos: false }, 50);
+
+  const [operadorId, setOperadorId] = useState<number | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  return (
+    <DialogRoot
+      open
+      placement="center"
+      motionPreset="none"
+      closeOnEscape={false}
+      closeOnInteractOutside={false}
+    >
+      <DialogContent
+        bg="bg.panel"
+        p="6"
+        rounded="lg"
+        boxShadow="dialog"
+        width="450px"
+        maxW="90vw"
+        maxH="80vh"
+      >
+        <DialogTitle fontSize="lg" fontWeight="bold" color="fg" mb="4">
+          Asignar cobertura de tarea
+        </DialogTitle>
+        <FormField label="Operador suplente" mb="4">
+          <FormNativeSelect
+            value={operadorId ?? ""}
+            onChange={(e) =>
+              setOperadorId(
+                e.target.value === "" ? null : Number(e.target.value),
+              )
+            }
+          >
+            <SelectPlaceholder value="">
+              Sin asignar (cualquier operador puede tomar)
+            </SelectPlaceholder>
+            {operadoresDisponibles.map((operador) => (
+              <option key={operador.id} value={operador.id}>
+                {operador.nombre} {operador.apellido || ""}
+              </option>
+            ))}
+          </FormNativeSelect>
+        </FormField>
+        {cargandoOperadores && (
+          <EstadoCargando>Cargando operadores...</EstadoCargando>
+        )}
+        <HStack justify="flex-end" mt="6" gap="3">
+          <BotonCancelar onClick={onClose}>Cancelar</BotonCancelar>
+          <Button
+            type="button"
+            colorPalette="brand"
+            onClick={async () => {
+              setGuardando(true);
+              try {
+                await asignarCobertura(registroId, operadorId);
+                onClose();
+                await onGuardado();
+              } catch {
+                // asignarCobertura ya comunica el error vía pedir
+              } finally {
+                setGuardando(false);
+              }
+            }}
+            disabled={guardando}
+            loading={guardando}
+          >
+            Guardar
+          </Button>
+        </HStack>
+      </DialogContent>
+    </DialogRoot>
+  );
+}
+
 export function ChecklistPage() {
   const hoyISO = fechaLocalISO(new Date());
+  const { user: usuarioActual } = useAuth();
+
+  const esAdmin =
+    usuarioActual?.puede_administrar || usuarioActual?.es_super_admin || false;
+
   const [selectedFecha, setSelectedFecha] = useState<string>(hoyISO);
-  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimicoOpcion[]>([]);
-  const [elementosLimpieza, setElementosLimpieza] = useState<ElementoLimpiezaOpcion[]>([]);
+  const [insumosQuimicos, setInsumosQuimicos] = useState<InsumoQuimicoOpcion[]>(
+    [],
+  );
+  const [elementosLimpieza, setElementosLimpieza] = useState<
+    ElementoLimpiezaOpcion[]
+  >([]);
 
   const { tareas, loading, error, actualizandoId, toggleTarea, recargar } =
     useChecklist(selectedFecha);
+
+  const [coberturaDialog, setCoberturaDialog] = useState(false);
+  const [coberturaRegistroId, setCoberturaRegistroId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     // Usamos los endpoints de "opciones": son los únicos de estos catálogos
@@ -698,7 +915,7 @@ export function ChecklistPage() {
   const totalTareas = tareas.length;
   const tareasCompletadas = tareas.filter((t) => t.completado).length;
   const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   const toggleGrupo = (key: string) => {
@@ -789,7 +1006,9 @@ export function ChecklistPage() {
                     <HStack align="center" gap="3">
                       <Box
                         color="white"
-                        transform={colapsado ? "rotate(-90deg)" : "rotate(0deg)"}
+                        transform={
+                          colapsado ? "rotate(-90deg)" : "rotate(0deg)"
+                        }
                         transition="transform 0.15s ease"
                         display="inline-flex"
                         aria-hidden
@@ -839,7 +1058,11 @@ export function ChecklistPage() {
                   <Box overflow="hidden">
                     <Table.Root w="100%">
                       <Table.Header>
-                        <Table.Row bg="brand.100" borderBottomWidth="2px" borderColor="brand.300">
+                        <Table.Row
+                          bg="brand.100"
+                          borderBottomWidth="2px"
+                          borderColor="brand.300"
+                        >
                           <ColumnaHeader>Tarea</ColumnaHeader>
                           <ColumnaHeader center width="140px">
                             Completada
@@ -858,6 +1081,12 @@ export function ChecklistPage() {
                             isLoading={actualizandoId === t.id}
                             insumosQuimicos={insumosQuimicos}
                             elementosLimpieza={elementosLimpieza}
+                            usuarioActual={usuarioActual}
+                            puedeAsignarCobertura={esAdmin}
+                            onAsignarCobertura={(registroId) => {
+                              setCoberturaRegistroId(registroId);
+                              setCoberturaDialog(true);
+                            }}
                             onToggle={toggleTarea}
                           />
                         ))}
@@ -869,6 +1098,15 @@ export function ChecklistPage() {
             );
           })}
         </>
+      )}
+
+      {/* Diálogo de asignación de cobertura / reemplazo de operador */}
+      {coberturaDialog && coberturaRegistroId !== null && (
+        <CoberturaDialog
+          registroId={coberturaRegistroId}
+          onClose={() => setCoberturaDialog(false)}
+          onGuardado={recargar}
+        />
       )}
     </Box>
   );
