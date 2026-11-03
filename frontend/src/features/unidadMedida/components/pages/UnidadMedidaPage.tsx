@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { UnidadMedidaTable } from "../UnidadMedidaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -23,6 +23,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -141,12 +142,14 @@ export function UnidadMedidaPage() {
         }
         description="Catálogo de unidades con las que se miden los insumos."
         actions={
-          <Button
-            colorPalette="brand"
-            onClick={() => navigate("/unidades-medida/nuevo")}
-          >
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button
+              colorPalette="brand"
+              onClick={() => navigate("/unidades-medida/nuevo")}
+            >
+              + Agregar
+            </Button>
+          </HStack>
         }
       />
 
@@ -160,16 +163,31 @@ export function UnidadMedidaPage() {
 
       <BarraFiltros
         busqueda={
+          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre o símbolo..."
           />
+        
+        
+    
+      <BotonesExportar
+        nombreTabla="unidades_medida"
+         filtros={{
+        incluirInactivos: verInactivos,
+         buscar: busquedaAplicada,
+        orden: orden.orden,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+        </Box>
         }
         filtros={null}
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+     
 
       {loading && <Spinner color="brand.500" />}
       {!loading && error && <BannerError>{error}</BannerError>}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import { IncidenteTable } from "../IncidenteTable";
 import { IncidentesPorTipoPanel } from "../IncidentesPorTipoPanel";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
@@ -43,6 +43,7 @@ import {
   PageHeader,
   Paginacion,
 } from "../../../../components/ui/patrones";
+import { ExportarTablaButton } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -253,9 +254,12 @@ export function IncidentesListPage() {
         title="Gestión de incidentes"
         description="Reportes, cierres y reaperturas del laboratorio."
         actions={
-          <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>
-            Registrar incidente
-          </BotonAgregar>
+          <HStack spacing="2">
+            <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>
+              Registrar incidente
+            </BotonAgregar>
+            <ExportarTablaButton nombreTabla="incidentes" />
+          </HStack>
         }
       />
 

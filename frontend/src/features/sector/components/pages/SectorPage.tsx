@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { SectorTable } from "../SectorTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -23,6 +23,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -128,9 +129,11 @@ export function SectorPage() {
         title={verInactivos ? "Sectores dados de baja" : "Gestión de sectores"}
         description="Alta, modificación y baja de los sectores de la planta."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/sectores/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/sectores/nuevo")}>
+              + Agregar
+            </Button>
+          </HStack>
         }
       />
 
@@ -146,18 +149,27 @@ export function SectorPage() {
         children="Ver dados de baja"
       />
 
-      <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre o descripción..."
-          />
-        }
-        filtros={null}
+     <BarraFiltros
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre o descripción..."
       />
-
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      <BotonesExportar
+        nombreTabla="sectores"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={null}
+/>
 
       {loading && <Spinner color="brand.500" />}
 
