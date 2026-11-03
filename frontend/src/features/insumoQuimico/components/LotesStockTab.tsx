@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table } from "@chakra-ui/react";
+import { Box, Table } from "@chakra-ui/react";
 
 import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
 import {
@@ -20,6 +20,7 @@ import {
   Paginacion,
   Tarjeta,
 } from "../../../components/ui/patrones";
+import { BotonesExportar } from "../../exportacion";
 import { useProveedores } from "../../proveedores/hooks/useProveedores";
 import { useLotesStock } from "../hooks/useLotesStock";
 import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
@@ -63,7 +64,7 @@ export function LotesStockTab() {
   return (
     <>
       <BarraFiltros
-        busqueda={<CampoBusqueda valor={numeroLote} onCambio={setNumeroLote} placeholder="Buscar número de lote..." />}
+        busqueda={<Box display="flex" flexDirection="column" gap="4"><CampoBusqueda valor={numeroLote} onCambio={setNumeroLote} placeholder="Buscar número de lote..." /><BotonesExportar nombreTabla="stock_lotes" vista="stock-lotes" filtros={{ proveedor_id: proveedor, insumo_quimico_id: producto, numero_lote: numeroLoteAplicado.trim() }} /></Box>}
         filtros={<>
           <FiltroSelect label="Proveedor" valor={proveedor} onCambio={setProveedor} opciones={proveedores.map((item) => ({ valor: String(item.id), etiqueta: `${item.nombre}${item.activo ? "" : " (dado de baja)"}` }))} todos="Todos los proveedores" />
           <FiltroSelect label="Producto" valor={producto} onCambio={setProducto} opciones={insumos.map((item) => ({ valor: String(item.id), etiqueta: `${item.nombre}${item.unidad_simbolo ? ` (${item.unidad_simbolo})` : ""}` }))} todos="Todos los productos" />

@@ -16,7 +16,7 @@ export type OrdenInsumoQuimico =
   | `${ColumnaOrdenInsumoQuimico}_desc`;
 
 export interface FiltrosInsumosQuimicos {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   tipo?: TipoQuimico;
   unidadMedidaId?: number;
@@ -29,7 +29,7 @@ export async function listarInsumosQuimicos(
   filtros: FiltrosInsumosQuimicos = {}
 ): Promise<Pagina<InsumoQuimico>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     tipo: filtros.tipo,
     unidad_medida_id: filtros.unidadMedidaId,

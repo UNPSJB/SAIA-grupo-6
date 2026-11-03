@@ -1,1 +1,0 @@
-function e(e,t,n){let r=new URLSearchParams;if(r.set(`page`,String(e)),r.set(`page_size`,String(t)),n)for(let[e,t]of Object.entries(n))t!=null&&t!==``&&r.set(e,String(t));let i=r.toString();return i?`?${i}`:``}export{e as t};

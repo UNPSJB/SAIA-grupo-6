@@ -46,7 +46,7 @@ export function AptitudPage() {
     cargarAptitudes,
   } = useAptitudesPaginadas(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       orden: orden.orden,
     },
@@ -160,11 +160,9 @@ export function AptitudPage() {
       <BotonesExportar
         nombreTabla="aptituds"
         filtros={{
-          incluirInactivos: String(verInactivos),
+          activo: String(!verInactivos),
           buscar: busquedaAplicada,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
@@ -172,6 +170,8 @@ export function AptitudPage() {
 />
 
       
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading && <Spinner color="brand.500" />}
 

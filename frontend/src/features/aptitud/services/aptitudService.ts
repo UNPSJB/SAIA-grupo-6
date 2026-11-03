@@ -22,7 +22,7 @@ export type OrdenAptitud =
   | `${ColumnaOrdenAptitud}_desc`;
 
 export interface FiltrosAptitudes {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   orden?: OrdenAptitud;
 }
@@ -33,7 +33,7 @@ export async function listarAptitudesPaginadas(
   filtros: FiltrosAptitudes = {}
 ): Promise<Pagina<Aptitud>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     orden: filtros.orden,
   });

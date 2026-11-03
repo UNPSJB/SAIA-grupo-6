@@ -24,6 +24,7 @@ import {
   Paginacion,
   Tarjeta,
 } from "../../../components/ui/patrones";
+import { BotonesExportar } from "../../exportacion";
 import { useMovimientosStock } from "../hooks/useMovimientosStock";
 import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
@@ -99,6 +100,7 @@ export function MovimientosStockTab() {
   return (
     <>
       <BarraFiltros
+        busqueda={<BotonesExportar nombreTabla="stock_movimientos" vista="stock-movimientos" filtros={{ insumo_quimico_id: filtros.producto, fecha_desde: filtros.fechaDesde, fecha_hasta: filtros.fechaHasta, tipo: filtros.tipo }} />}
         filtros={<>
           <FiltroSelect label="Producto" valor={producto} onCambio={setProducto} opciones={insumos.map((insumo) => ({ valor: String(insumo.id), etiqueta: `${insumo.nombre}${insumo.unidad_simbolo ? ` (${insumo.unidad_simbolo})` : ""}` }))} todos="Todos los productos" />
           <Box minW="150px"><LabelFiltro>Desde</LabelFiltro><FormInput type="date" value={fechaDesde} max={fechaHasta} onChange={(event) => setFechaDesde(event.target.value)} /></Box>

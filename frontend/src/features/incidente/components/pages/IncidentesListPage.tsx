@@ -43,7 +43,7 @@ import {
   PageHeader,
   Paginacion,
 } from "../../../../components/ui/patrones";
-import { ExportarTablaButton } from "../../../../features/exportacion";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -258,7 +258,6 @@ export function IncidentesListPage() {
             <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>
               Registrar incidente
             </BotonAgregar>
-            <ExportarTablaButton nombreTabla="incidentes" />
           </HStack>
         }
       />
@@ -282,11 +281,17 @@ export function IncidentesListPage() {
 
       <BarraFiltros
         busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por título, descripción o reportado por..."
-          />
+          <Box display="flex" flexDirection="column" gap="4">
+            <CampoBusqueda
+              valor={busqueda}
+              onCambio={setBusqueda}
+              placeholder="Buscar por título, descripción o reportado por..."
+            />
+            <BotonesExportar
+              nombreTabla="incidentes"
+              filtros={{ estado: filtroEstado, tipo: filtroTipo }}
+            />
+          </Box>
         }
         filtros={
           <>

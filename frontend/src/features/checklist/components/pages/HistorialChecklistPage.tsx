@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Badge, Box, Field, HStack, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
+import { useSearchParams } from "react-router-dom";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
 import { DetalleChecklistDialog } from "../DetalleChecklistDialog";
 import type { HistorialChecklistItem } from "../../types/checklist";
@@ -62,9 +63,24 @@ export function HistorialChecklistPage() {
     hasta: hoyISO(),
   }));
 
-  const [fechaDesde, setFechaDesde] = useState(rangoInicial.desde);
-  const [fechaHasta, setFechaHasta] = useState(rangoInicial.hasta);
-  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("");
+  // Una notificación enlaza con `?equipo_id=X&fecha=YYYY-MM-DD`: se filtra a
+  // ese equipo y día y se abre el detalle del checklist que coincida.
+  const [parametros] = useSearchParams();
+  const [pendienteAbrir, setPendienteAbrir] = useState(() => {
+    const equipoId = Number(parametros.get("equipo_id"));
+    const fecha = parametros.get("fecha");
+    return equipoId > 0 && fecha ? { equipoId, fecha } : null;
+  });
+
+  const [fechaDesde, setFechaDesde] = useState(
+    pendienteAbrir?.fecha ?? rangoInicial.desde
+  );
+  const [fechaHasta, setFechaHasta] = useState(
+    pendienteAbrir?.fecha ?? rangoInicial.hasta
+  );
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>(
+    pendienteAbrir ? String(pendienteAbrir.equipoId) : ""
+  );
   const [busqueda, setBusqueda] = useState("");
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
   const [checklistSeleccionado, setChecklistSeleccionado] =
@@ -129,6 +145,18 @@ export function HistorialChecklistPage() {
     page > totalPaginas
   ) {
     setPage(totalPaginas);
+  }
+
+  // Apertura automática del detalle al llegar desde una notificación. Se
+  // resuelve durante el render por la misma razón que el ajuste de página.
+  if (pendienteAbrir && historial && !loading) {
+    const coincidente = historial.items.find(
+      (cl) =>
+        cl.equipo_id === pendienteAbrir.equipoId &&
+        cl.fecha.slice(0, 10) === pendienteAbrir.fecha
+    );
+    if (coincidente) setChecklistSeleccionado(coincidente);
+    setPendienteAbrir(null);
   }
 
   /** Al cambiar cualquier filtro la página 1 siempre es válida. */
@@ -235,8 +263,6 @@ export function HistorialChecklistPage() {
           fechaHasta: fechaHasta || undefined,
           equipo_id: equipoSeleccionado || undefined,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
@@ -283,6 +309,8 @@ export function HistorialChecklistPage() {
     </>
   }
 />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
 

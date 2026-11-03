@@ -48,7 +48,7 @@ export function UnidadMedidaPage() {
     cargarUnidades,
   } = useUnidadesMedida(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       orden: orden.orden,
     },
@@ -175,12 +175,10 @@ export function UnidadMedidaPage() {
       <BotonesExportar
         nombreTabla="unidades_medida"
          filtros={{
-        incluirInactivos: verInactivos,
+        activo: String(!verInactivos),
          buscar: busquedaAplicada,
         orden: orden.orden,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
         </Box>
         }
@@ -188,6 +186,8 @@ export function UnidadMedidaPage() {
       />
 
      
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading && <Spinner color="brand.500" />}
       {!loading && error && <BannerError>{error}</BannerError>}

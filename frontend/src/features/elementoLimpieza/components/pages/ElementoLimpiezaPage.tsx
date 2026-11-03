@@ -48,7 +48,7 @@ export function ElementosLimpiezaPage() {
     cargarElementosLimpieza,
   } = useElementosLimpieza(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       orden: orden.orden,
     },
@@ -173,17 +173,17 @@ export function ElementosLimpiezaPage() {
       <BotonesExportar
         nombreTabla="elementos_limpieza"
         filtros={{
-          incluirInactivos: String(verInactivos),
+          activo: String(!verInactivos),
           buscar: busquedaAplicada,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
   filtros={null}
 />
 
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando elementos...</EstadoCargando>}

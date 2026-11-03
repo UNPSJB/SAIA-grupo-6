@@ -95,6 +95,7 @@ def create_persona(
 @router.get("", response_model=Union[List[schemas.Persona], schemas.PersonaPagina], dependencies=[Depends(require_admin)])
 def read_personas(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -114,7 +115,8 @@ def read_personas(
     if page is None:
         return services.listar_personas(db, incluir_inactivos, buscar, rol)
     items, total = services.listar_personas_paginado(
-        db, incluir_inactivos, page, page_size, buscar=buscar, rol=rol, orden=orden
+        db, incluir_inactivos, page, page_size, buscar=buscar, rol=rol, orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.PersonaPagina(items=items, total=total, page=page, page_size=page_size)
 

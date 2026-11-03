@@ -31,6 +31,7 @@ def crear_unidad_medida(datos: schemas.UnidadMedidaCreate, db: Session = Depends
 @router.get("", response_model=Union[List[schemas.UnidadMedidaResponse], schemas.UnidadMedidaPagina])
 def listar_unidades_medida(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -48,7 +49,8 @@ def listar_unidades_medida(
     if page is None:
         return services.listar_unidades_medida(db, incluir_inactivos, buscar)
     items, total = services.listar_unidades_medida_paginado(
-        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden
+        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.UnidadMedidaPagina(
         items=items, total=total, page=page, page_size=page_size

@@ -274,6 +274,20 @@ def test_listar_sectores_paginado_incluir_inactivos(db_session):
     assert total == 2
 
 
+def test_listar_sectores_paginado_solo_inactivos(db_session):
+    # Arrange
+    _sector_activo(db_session, nombre="Activo")
+    _sector_inactivo(db_session, nombre="Inactivo")
+
+    # Act
+    items, total = listar_sectores_paginado(
+        db_session, incluir_inactivos=False, page=1, page_size=10, solo_inactivos=True
+    )
+
+    # Assert: solo los dados de baja, sin mezclar los activos
+    assert total == 1
+    assert [s.nombre for s in items] == ["Inactivo"]
+
 # ---------------------------------------------------------------------------
 # obtener_sector
 # ---------------------------------------------------------------------------

@@ -41,6 +41,7 @@ import {
   TextoTruncado,
 } from "../../../../components/ui/patrones";
 import { Table } from "@chakra-ui/react";
+import { BotonesExportar } from "../../../exportacion";
 import { LuCalendarClock, LuCircleCheck } from "react-icons/lu";
 import { ERROR_TEXTO, GRIS_MEDIO, TEXTO_SUAVE } from "../../../../common/theme/tokens";
 
@@ -256,11 +257,25 @@ export function VencimientosPage() {
 
       <BarraFiltros
         busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
-            placeholder="Persona, equipo, detalle, fecha, estado..."
-          />
+          <Box display="flex" flexDirection="column" gap="4">
+            <CampoBusqueda
+              valor={busqueda}
+              onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+              placeholder="Persona, equipo, detalle, fecha, estado..."
+            />
+            <BotonesExportar
+              nombreTabla="vencimientos"
+              vista="vencimientos"
+              filtros={{
+                tipo,
+                estado,
+                persona_id: persona,
+                aptitud,
+                buscar: busquedaAplicada,
+                orden: orden.orden,
+              }}
+            />
+          </Box>
         }
         filtros={
           <>

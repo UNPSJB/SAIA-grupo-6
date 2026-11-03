@@ -23,7 +23,7 @@ export type OrdenPlanLimpieza =
   | `${ColumnaOrdenPlanLimpieza}_desc`;
 
 export interface FiltrosPlanesLimpieza {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   equipoId?: number;
   orden?: OrdenPlanLimpieza;
@@ -35,7 +35,7 @@ export async function listarPlanesLimpieza(
   filtros: FiltrosPlanesLimpieza = {}
 ): Promise<Pagina<PlanLimpieza>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     equipo_id: filtros.equipoId || undefined,
     orden: filtros.orden,

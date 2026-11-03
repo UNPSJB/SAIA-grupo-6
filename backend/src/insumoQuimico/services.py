@@ -97,6 +97,7 @@ def _consulta_insumos_quimicos(
     buscar: Optional[str],
     tipo: Optional[TipoQuimico],
     unidad_medida_id: Optional[int],
+    solo_inactivos: bool = False,
 ):
     """Consulta base con el JOIN a la unidad, compartida por ambos caminos."""
     consulta = (
@@ -127,7 +128,9 @@ def _consulta_insumos_quimicos(
     if filtros:
         consulta = consulta.where(*filtros)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(InsumoQuimico.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(InsumoQuimico.activo.is_(True))
 
     return consulta
@@ -155,12 +158,14 @@ def listar_insumos_quimicos_paginado(
     tipo: Optional[TipoQuimico] = None,
     unidad_medida_id: Optional[int] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[InsumoQuimico], int]:
     """Mismo filtro que `listar_insumos_quimicos`, recortado en la base."""
     return paginar_consulta(
         db,
         _consulta_insumos_quimicos(
-            incluir_inactivos, buscar, tipo, unidad_medida_id
+            incluir_inactivos, buscar, tipo, unidad_medida_id,
+            solo_inactivos=solo_inactivos,
         ),
         modelo=InsumoQuimico,
         orden=orden,

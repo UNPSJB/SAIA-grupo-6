@@ -16,7 +16,7 @@ export function useElementosLimpieza(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     orden = "nombre_asc",
   } = filtros;
@@ -24,11 +24,11 @@ export function useElementosLimpieza(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarElementosLimpieza(page, pageSize, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         orden,
       }),
-    [incluirInactivos, buscar, orden]
+    [soloInactivos, buscar, orden]
   );
 
   const {
@@ -42,7 +42,7 @@ export function useElementosLimpieza(
     recargar,
   } = useListaPaginada<ElementoLimpieza>({
     cargar,
-    dependencias: [incluirInactivos, buscar, orden],
+    dependencias: [soloInactivos, buscar, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los elementos de limpieza",
     pageSize,

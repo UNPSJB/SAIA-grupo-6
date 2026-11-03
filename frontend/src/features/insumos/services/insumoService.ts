@@ -9,7 +9,7 @@ export type ColumnaOrdenInsumo = "nombre" | "unidad";
 export type OrdenInsumo = `${ColumnaOrdenInsumo}_asc` | `${ColumnaOrdenInsumo}_desc`;
 
 export interface FiltrosInsumos {
-    incluirInactivos?: boolean;
+    soloInactivos?: boolean;
     buscar?: string;
     unidadMedidaId?: number;
     tipo?: TipoInsumo;
@@ -22,7 +22,7 @@ export async function listarInsumos(
     filtros: FiltrosInsumos = {}
 ): Promise<Pagina<Insumo>> {
     const query = queryPagina(page, pageSize, {
-        incluir_inactivos: filtros.incluirInactivos || undefined,
+        solo_inactivos: filtros.soloInactivos || undefined,
         buscar: filtros.buscar?.trim() || undefined,
         unidad_medida_id: filtros.unidadMedidaId,
         tipo: filtros.tipo,

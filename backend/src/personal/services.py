@@ -124,6 +124,7 @@ def _consulta_personas(
     incluir_inactivos: bool,
     buscar: Optional[str],
     rol: Optional[str],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado."""
     consulta = select(Personal)
@@ -147,7 +148,9 @@ def _consulta_personas(
     if filtros:
         consulta = consulta.where(*filtros)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Personal.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Personal.activo.is_(True))
 
     return consulta
@@ -179,6 +182,7 @@ def listar_personas_paginado(
     buscar: Optional[str] = None,
     rol: Optional[str] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[Personal], int]:
     """Mismo filtro que `listar_personas`, recortado en la base: página + total.
 
@@ -193,7 +197,7 @@ def listar_personas_paginado(
 
     return paginar_consulta(
         db,
-        _consulta_personas(incluir_inactivos, buscar, rol),
+        _consulta_personas(incluir_inactivos, buscar, rol, solo_inactivos=solo_inactivos),
         modelo=Personal,
         orden=orden,
         ordenes=_ORDENES,

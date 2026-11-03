@@ -23,6 +23,7 @@ import {
   Paginacion,
   Tarjeta,
 } from "../../../components/ui/patrones";
+import { BotonesExportar } from "../../exportacion";
 import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
 import { useProveedores } from "../../proveedores/hooks/useProveedores";
 import { useStockAcciones } from "../hooks/useStockAcciones";
@@ -109,11 +110,22 @@ export function StockActualTab() {
     <>
       <BarraFiltros
         busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por producto o unidad..."
-          />
+          <Box display="flex" flexDirection="column" gap="4">
+            <CampoBusqueda
+              valor={busqueda}
+              onCambio={setBusqueda}
+              placeholder="Buscar por producto o unidad..."
+            />
+            <BotonesExportar
+              nombreTabla="stock_actual"
+              vista="stock-actual"
+              filtros={{
+                buscar: busquedaAplicada,
+                stock_bajo: stockBajo === undefined ? undefined : String(stockBajo),
+                orden: orden.orden,
+              }}
+            />
+          </Box>
         }
         filtros={
           <FiltroSelect

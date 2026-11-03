@@ -55,6 +55,7 @@ def crear_equipo(
 )
 def listar_equipos(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -84,6 +85,7 @@ def listar_equipos(
         tipo=tipo,
         sector_id=sector_id,
         orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.EquipoPagina(items=items, total=total, page=page, page_size=page_size)
 

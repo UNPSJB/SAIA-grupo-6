@@ -53,6 +53,7 @@ def create_plan_calibracion_mantenimiento(
 )
 def read_planes_calibracion_mantenimiento(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -82,6 +83,7 @@ def read_planes_calibracion_mantenimiento(
         tipo=tipo,
         equipo_id=equipo_id,
         orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.PlanCalibracionMantenimientoPagina(
         items=items, total=total, page=page, page_size=page_size

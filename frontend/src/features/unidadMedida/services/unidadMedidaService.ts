@@ -24,7 +24,7 @@ export type OrdenUnidadMedida =
   | `${ColumnaOrdenUnidadMedida}_desc`;
 
 export interface FiltrosUnidadesMedida {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   orden?: OrdenUnidadMedida;
 }
@@ -35,7 +35,7 @@ export async function listarUnidadesMedidaPaginadas(
   filtros: FiltrosUnidadesMedida = {}
 ): Promise<Pagina<UnidadMedida>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     orden: filtros.orden,
   });

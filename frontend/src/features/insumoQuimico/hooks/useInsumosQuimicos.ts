@@ -16,7 +16,7 @@ export function useInsumosQuimicos(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     tipo,
     unidadMedidaId,
@@ -26,13 +26,13 @@ export function useInsumosQuimicos(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarInsumosQuimicos(page, pageSize, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         tipo,
         unidadMedidaId,
         orden,
       }),
-    [incluirInactivos, buscar, tipo, unidadMedidaId, orden]
+    [soloInactivos, buscar, tipo, unidadMedidaId, orden]
   );
 
   const {
@@ -46,7 +46,7 @@ export function useInsumosQuimicos(
     recargar,
   } = useListaPaginada<InsumoQuimico>({
     cargar,
-    dependencias: [incluirInactivos, buscar, tipo, unidadMedidaId, orden],
+    dependencias: [soloInactivos, buscar, tipo, unidadMedidaId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los insumos químicos",
     pageSize,

@@ -31,6 +31,7 @@ def create_plan_limpieza(
 @router.get("", response_model=Union[List[schemas.PlanLimpieza], schemas.PlanLimpiezaPagina])
 def read_planes_limpieza(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -62,6 +63,7 @@ def read_planes_limpieza(
         buscar=buscar,
         equipo_id=equipo_id,
         orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.PlanLimpiezaPagina(
         items=items, total=total, page=page, page_size=page_size

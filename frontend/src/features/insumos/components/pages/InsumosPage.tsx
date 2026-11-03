@@ -52,7 +52,7 @@ export function InsumosPage() {
     cargarInsumos,
   } = useInsumos(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       unidadMedidaId: unidadId ? Number(unidadId) : undefined,
       tipo: tipo || undefined,
@@ -205,12 +205,11 @@ export function InsumosPage() {
           <BotonesExportar
           nombreTabla="insumos"
           filtros={{
-            incluirInactivos: String(verInactivos),
+            activo: String(!verInactivos),
             buscar: busquedaAplicada,
+            tipo: tipo || undefined,
             unidad_id: unidadId || undefined,
           }}
-          onLimpiar={limpiarTodo}
-          hayFiltros={hayFiltros}
         />
       </Box>
     }
@@ -241,6 +240,8 @@ export function InsumosPage() {
       />
 
      
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}

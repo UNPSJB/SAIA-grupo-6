@@ -795,7 +795,7 @@ function CoberturaDialog({
 }) {
   // El hook vive acá: solo se ejecuta cuando el admin abre el diálogo.
   const { personales: operadoresDisponibles, loading: cargandoOperadores } =
-    usePersonales({ rol: "operador", incluirInactivos: false }, 50);
+    usePersonales({ rol: "operador" }, 50);
 
   const [operadorId, setOperadorId] = useState<number | null>(null);
   const [guardando, setGuardando] = useState(false);

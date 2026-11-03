@@ -19,7 +19,7 @@ export type ColumnaOrdenEquipo = "nombre" | "tipo" | "sector";
 export type OrdenEquipo = `${ColumnaOrdenEquipo}_asc` | `${ColumnaOrdenEquipo}_desc`;
 
 export interface FiltrosEquipos {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   tipo?: string;
   /** Id del sector, como string porque es el valor crudo del <select>. */
@@ -44,7 +44,7 @@ export async function listarEquiposPaginados(
   filtros: FiltrosEquipos = {}
 ): Promise<Pagina<Equipo>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     tipo: filtros.tipo || undefined,
     sector_id: filtros.sectorId || undefined,

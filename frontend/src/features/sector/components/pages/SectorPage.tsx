@@ -46,7 +46,7 @@ export function SectorPage() {
     cargarSectores,
   } = useSectoresPaginadas(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       orden: orden.orden,
     },
@@ -160,16 +160,16 @@ export function SectorPage() {
       <BotonesExportar
         nombreTabla="sectores"
         filtros={{
-          incluirInactivos: String(verInactivos),
+          activo: String(!verInactivos),
           buscar: busquedaAplicada,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
   filtros={null}
 />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading && <Spinner color="brand.500" />}
 

@@ -1,1 +1,0 @@
-import{Cr as e,_r as t,_t as n,br as r}from"./lu-j8OWCWP_.js";var i=t(),a=(0,e(r(),1).forwardRef)(function(e,t){return(0,i.jsx)(n,{align:`center`,...e,direction:`column`,ref:t})});a.displayName=`VStack`;export{a as t};
