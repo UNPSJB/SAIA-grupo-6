@@ -105,16 +105,6 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
   INCIDENTE: "Incidente",
 };
 
-const ETIQUETA_ACCION: Record<string, string> = {
-  ELEMENTO_LIMPIEZA: "Registrar recambio",
-  VENCIMIENTO_PERSONAL: "Cambiar fecha",
-  PLAN_CALIBRACION: "Gestionar calibración",
-  PLAN_MANTENIMIENTO: "Gestionar mantenimiento",
-  DOCUMENTO: "Ver documento",
-  CHECKLIST: "Ver checklist",
-  INCIDENTE: "Ver incidente",
-};
-
 function etiquetaCriticidad(criticidad: Criticidad) {
   return criticidad === "alta"
     ? "ALTA"
@@ -169,7 +159,6 @@ export function NotificacionesPage() {
   const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [alertaEditando, setAlertaEditando] = useState<AlertaCriticidad | null>(null);
-  const [recambiando, setRecambiando] = useState<string | null>(null);
 
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<Criticidad[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
@@ -211,15 +200,12 @@ export function NotificacionesPage() {
   const handleResolver = async (alerta: AlertaCriticidad) => {
     if (alerta.origen === "ELEMENTO_LIMPIEZA" && alerta.recambio_id !== null) {
       try {
-        setRecambiando(alerta.clave);
         await registrarRecambioElemento(alerta.recambio_id);
         mostrarExito("Recambio registrado correctamente.");
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "No se pudo registrar el recambio",
         );
-      } finally {
-        setRecambiando(null);
       }
       return;
     }
@@ -645,7 +631,6 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="acciones">Acción</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
 
@@ -714,21 +699,6 @@ export function NotificacionesPage() {
                         <Text fontSize="sm" color="fg.muted" title={alerta.motivo}>
                           {alerta.motivo}
                         </Text>
-                      </Celda>
-
-                      <Celda center>
-                        <Button
-                          size="sm"
-                          colorPalette="brand"
-                          fontWeight="bold"
-                          loading={recambiando === alerta.clave}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleResolver(alerta);
-                          }}
-                        >
-                          {ETIQUETA_ACCION[alerta.origen] ?? "Ver situación"}
-                        </Button>
                       </Celda>
                     </Table.Row>
                   );
