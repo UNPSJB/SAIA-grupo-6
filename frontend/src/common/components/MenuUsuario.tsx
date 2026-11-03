@@ -1,9 +1,10 @@
 import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Badge, Box, Menu, Portal, Text } from "@chakra-ui/react";
-import { LuLogOut, LuUserRound } from "react-icons/lu";
+import { LuLogOut, LuSettings, LuUserRound } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
 import { useAuth } from "../context/useAuth";
+import { puedeAdministrar } from "../api/permissions";
 import { Tooltip } from "../../components/ui/tooltip";
 
 interface OpcionMenuUsuario {
@@ -15,6 +16,8 @@ interface OpcionMenuUsuario {
   peligro?: boolean;
   /** Dibuja una línea separadora antes de esta opción. */
   separador?: boolean;
+  /** Solo se muestra a quien puede administrar. Por defecto la ven todos. */
+  soloAdministradores?: boolean;
 }
 
 export function MenuUsuario() {
@@ -35,12 +38,19 @@ export function MenuUsuario() {
         : "Usuario";
 
   // Para agregar una opción nueva, sumá una línea acá.
-  const opciones: OpcionMenuUsuario[] = [
+  const todasLasOpciones: OpcionMenuUsuario[] = [
     {
       valor: "perfil",
       label: "Mi perfil",
       icon: LuUserRound,
       accion: () => navigate("/mi-perfil"),
+    },
+    {
+      valor: "configuracion",
+      label: "Configuración",
+      icon: LuSettings,
+      accion: () => navigate("/configuracion"),
+      soloAdministradores: true,
     },
     {
       valor: "logout",
@@ -51,6 +61,10 @@ export function MenuUsuario() {
       separador: true,
     },
   ];
+
+  const opciones = todasLasOpciones.filter(
+    (opcion) => !opcion.soloAdministradores || puedeAdministrar(user),
+  );
 
   return (
     <Menu.Root

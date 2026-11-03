@@ -14,6 +14,7 @@ import {
   LuFlaskConical,
   LuFolderSearch,
   LuHistory,
+  LuDownload,
   LuHouse,
   LuListChecks,
   LuMicroscope,
@@ -111,6 +112,7 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
       { to: "/sectores", label: "Sectores", rol: "administrar", icon: LuMapPin },
       { to: "/auditoria", label: "Auditoría", rol: "administrar", icon: LuFileSearch },
+      
       { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
     ],
   },

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { Box, HStack } from "@chakra-ui/react";
 import { ElementoLimpiezaTable } from "../ElementoLimpiezaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -25,6 +25,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -146,9 +147,12 @@ export function ElementosLimpiezaPage() {
         }
         description="Productos de limpieza con su frecuencia de recambio."
         actions={
-          <BotonAgregar onClick={() => navigate("/elementos-limpieza/nuevo")}>
-            Agregar
-          </BotonAgregar>
+          <HStack spacing="2">
+            <BotonAgregar onClick={() => navigate("/elementos-limpieza/nuevo")}>
+              Agregar
+            </BotonAgregar>
+
+          </HStack>
         }
       />
 
@@ -159,17 +163,27 @@ export function ElementosLimpiezaPage() {
       />
 
       <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre..."
-          />
-        }
-        filtros={null}
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre..."
       />
+      <BotonesExportar
+        nombreTabla="elementos_limpieza"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={null}
+/>
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando elementos...</EstadoCargando>}

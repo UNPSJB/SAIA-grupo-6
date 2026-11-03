@@ -181,6 +181,11 @@ const NotificacionesPage = lazy(() =>
   import("./features/notificaciones/components/pages/NotificacionesPage").then((mod) => ({ default: mod.NotificacionesPage })),
 );
 
+// Configuración: ajustes del sistema, desde el menú de usuario (solo administradores)
+const ConfiguracionPage = lazy(() =>
+  import("./features/configuracion/components/pages/ConfiguracionPage").then((mod) => ({ default: mod.ConfiguracionPage })),
+);
+
 // 7. Unidad de Medida
 const UnidadMedidaPage = lazy(() =>
   import("./features/unidadMedida/components/pages/UnidadMedidaPage").then((mod) => ({ default: mod.UnidadMedidaPage })),
@@ -714,6 +719,16 @@ export const router = createBrowserRouter([
                 element: (
                 <ConSuspense>
                   <NotificacionesPage />
+                </ConSuspense>
+              ),
+              },
+
+              // ---------------- CONFIGURACIÓN ----------------
+              {
+                path: "/configuracion",
+                element: (
+                <ConSuspense>
+                  <ConfiguracionPage />
                 </ConSuspense>
               ),
               },

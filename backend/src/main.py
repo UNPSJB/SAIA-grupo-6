@@ -25,6 +25,10 @@ from src.logger import setup_logging
 # registro solo queda completo si alguien los importo a todos.
 import src.all_models  # noqa: F401
 
+# Importar las configuraciones de exportación de todas las tablas para llenar
+# el registro (`REGISTRO_TABLAS`) antes de montar los endpoints.
+import src.exportacion.tablas  # noqa: F401
+
 from src.personal.router import router as personal_router
 from src.auth.router import router as auth_router
 from src.Equipo.router import router as equipo_router
@@ -38,6 +42,7 @@ from src.tareas.router import router as tareas_router
 from src.checklist.router import router as checklist_router
 from src.insumoQuimico.router import router as insumoQuimico_router
 from src.notificaciones.router import router as notificaciones_router
+from src.configuracion.router import router as configuracion_router
 from src.unidadMedida.router import router as unidad_medida_router
 from src.incidente.router import router as incidente_router
 from src.vencimientoPersonal.router import router as vencimiento_personal_router
@@ -52,6 +57,8 @@ from src.sector.router import router as sector_router
 
 from src.auditoria.router import router as auditoria_router
 from src.vistaPublica.router import router as vista_publica_router
+
+from src.exportacion.router import router as exportacion_router
 
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
@@ -146,6 +153,7 @@ app.include_router(tareas_router)
 app.include_router(checklist_router)
 app.include_router(insumoQuimico_router)
 app.include_router(notificaciones_router)
+app.include_router(configuracion_router)
 app.include_router(unidad_medida_router)
 app.include_router(vencimiento_personal_router)
 app.include_router(aptitud_router)
@@ -155,4 +163,5 @@ app.include_router(incidente_router)
 app.include_router(documentos_router)
 app.include_router(vencimientos_router)
 app.include_router(auditoria_router)
+app.include_router(exportacion_router)
 app.include_router(vista_publica_router)

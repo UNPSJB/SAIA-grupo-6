@@ -30,6 +30,7 @@ import { abrirArchivo } from "../services/documentoService";
 import { ESTADOS_DOCUMENTO, TIPOS_DOCUMENTO } from "../types/documento";
 import type { EstadoDocumentoFiltro, TipoDocumento } from "../types/documento";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
+import { ExportarTablaButton } from "../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -121,9 +122,12 @@ export function DocumentosPage() {
         title="Documentos"
         description="Manuales, procedimientos y registros del sistema de calidad."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/documentos/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/documentos/nuevo")}>
+              + Agregar
+            </Button>
+            <ExportarTablaButton nombreTabla="documentos" />
+          </HStack>
         }
       />
 

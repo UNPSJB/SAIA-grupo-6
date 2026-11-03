@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
@@ -22,6 +22,7 @@ import { useProveedorABM } from "../../hooks/useProveedorABM";
 import { useProveedores } from "../../hooks/useProveedores";
 import type { Proveedor } from "../../types/proveedor";
 import { ProveedorTable } from "../ProveedorTable";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -30,11 +31,14 @@ export function ProveedorPage() {
   const [verInactivos, setVerInactivos] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const busquedaAplicada = useValorDebounced(busqueda);
+
   const { proveedores, loading, error, cargarProveedores } = useProveedores(
     verInactivos,
     busquedaAplicada,
   );
+  
   const { borrar, reactivar, loading: procesando, error: errorEliminar } = useProveedorABM();
+  
   const {
     paginados: proveedoresPaginados,
     totalFiltrados,
@@ -46,18 +50,20 @@ export function ProveedorPage() {
   const [proveedorAEliminar, setProveedorAEliminar] = useState<Proveedor | null>(null);
   const [proveedorAReactivar, setProveedorAReactivar] = useState<Proveedor | null>(null);
 
-  const limpiarFiltros = () => {
+  const limpiarTodo = () => {
     setBusqueda("");
     setPage(1);
   };
+
   const hayFiltros = busqueda.trim() !== "";
+
   const chips = chipsDeFiltros([
     {
       clave: "busqueda",
       etiqueta: "Búsqueda",
       valor: busqueda,
       recortar: true,
-      onQuitar: limpiarFiltros,
+      onQuitar: limpiarTodo,
     },
   ]);
 
@@ -103,9 +109,11 @@ export function ProveedorPage() {
         title={verInactivos ? "Proveedores dados de baja" : "Gestión de proveedores"}
         description="Alta, modificación y baja de los proveedores de insumos químicos."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/proveedores/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack gap="2">
+            <Button colorPalette="brand" onClick={() => navigate("/proveedores/nuevo")}>
+              + Agregar
+            </Button>
+          </HStack>
         }
       />
 
@@ -123,26 +131,37 @@ export function ProveedorPage() {
 
       <BarraFiltros
         busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={(valor) => {
-              setBusqueda(valor);
-              setPage(1);
-            }}
-            placeholder="Buscar por nombre o matrícula..."
-          />
+          <Box display="flex" flexDirection="column" gap="4">
+            <CampoBusqueda
+              valor={busqueda}
+              onCambio={(valor) => {
+                setBusqueda(valor);
+                setPage(1);
+              }}
+              placeholder="Buscar por nombre o matrícula..."
+            />
+            <BotonesExportar
+              nombreTabla="proveedores"
+              filtros={{
+                incluirInactivos: String(verInactivos),
+                buscar: busquedaAplicada,
+              }}
+              onLimpiar={limpiarTodo}
+              hayFiltros={hayFiltros}
+            />
+          </Box>
         }
         filtros={null}
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarFiltros} />
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading && <Spinner color="brand.500" />}
 
       {!loading && !error && (
         <>
           {hayFiltros && proveedores.length === 0 ? (
-            <EstadoVacioFiltrado onLimpiar={limpiarFiltros}>
+            <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
               No hay proveedores que coincidan con los filtros aplicados.
             </EstadoVacioFiltrado>
           ) : (

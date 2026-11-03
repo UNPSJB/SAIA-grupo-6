@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { AptitudTable } from "../AptitudTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -23,6 +23,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -128,9 +129,11 @@ export function AptitudPage() {
         title={verInactivos ? "Aptitudes dadas de baja" : "Gestión de aptitudes"}
         description="Alta, modificación y baja de las aptitudes del laboratorio."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/aptitudes/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/aptitudes/nuevo")}>
+              + Agregar
+            </Button>
+          </HStack>
         }
       />
 
@@ -147,17 +150,28 @@ export function AptitudPage() {
       />
 
       <BarraFiltros
-        busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre o descripción..."
-          />
-        }
-        filtros={null}
+  busqueda={
+    <Box display="flex" flexDirection="column" gap="4">
+      <CampoBusqueda
+        valor={busqueda}
+        onCambio={setBusqueda}
+        placeholder="Buscar por nombre o descripción..."
       />
+      <BotonesExportar
+        nombreTabla="aptituds"
+        filtros={{
+          incluirInactivos: String(verInactivos),
+          buscar: busquedaAplicada,
+        }}
+        onLimpiar={limpiarTodo}
+        hayFiltros={hayFiltros}
+      />
+    </Box>
+  }
+  filtros={null}
+/>
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      
 
       {loading && <Spinner color="brand.500" />}
 

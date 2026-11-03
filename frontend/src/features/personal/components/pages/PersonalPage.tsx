@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Spinner } from "@chakra-ui/react";
+import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { PersonalTable } from "../PersonalTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePersonales } from "../../hooks/usePersonales";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
+import { BotonesExportar } from "../../../../features/exportacion";
 import {
   ROLES_PERSONAL,
   type Persona,
@@ -28,6 +29,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+
 
 const PAGE_SIZE = 10;
 
@@ -161,9 +163,11 @@ export function PersonalPage() {
         title={verInactivos ? "Personal dado de baja" : "Gestión de personal"}
         description="Alta, modificación y baja del personal del laboratorio."
         actions={
-          <Button colorPalette="brand" onClick={() => navigate("/personal/nuevo")}>
-            + Agregar
-          </Button>
+          <HStack spacing="2">
+            <Button colorPalette="brand" onClick={() => navigate("/personal/nuevo")}>
+              + Agregar
+            </Button>
+          </HStack>
         }
       />
 
@@ -179,11 +183,24 @@ export function PersonalPage() {
 
       <BarraFiltros
         busqueda={
+          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre, apellido, DNI o email..."
           />
+        <BotonesExportar
+          nombreTabla="personal"
+          filtros={{
+             incluirInactivos: verInactivos,
+             buscar: busquedaAplicada,
+              rol: rol ? (rol as RolPersonal) : undefined,
+              orden: orden.orden,
+              }}
+            onLimpiar={limpiarTodo}
+            hayFiltros={hayFiltros}
+            />
+          </Box>
         }
         filtros={
           <FiltroSelect
@@ -198,7 +215,7 @@ export function PersonalPage() {
         }
       />
 
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+      
 
       {!loading && !error && (
         <>
