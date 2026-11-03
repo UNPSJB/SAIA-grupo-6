@@ -1,8 +1,9 @@
-import { Box, HStack, Text } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   ResponsiveContainer,
   Tooltip,
@@ -11,7 +12,7 @@ import {
 } from "recharts";
 import type { ProduccionPorProducto } from "../types/lote";
 
-const COLOR_BARRAS = "var(--chakra-colors-brand-500)";
+const COLORES_BARRAS = ["#2f7378", "#4a87af", "#7ba4cf", "#5bb0b0", "#9aa5b1"];
 const COLOR_TEXTO = "var(--chakra-colors-gray-600)";
 const ALTO = 240;
 
@@ -96,10 +97,15 @@ export function GraficoProduccion({ datos }: GraficoProduccionProps) {
           <Bar
             dataKey="cantidad_producida"
             name="Cantidad producida"
-            fill={COLOR_BARRAS}
             radius={[6, 6, 0, 0]}
             maxBarSize={48}
           >
+            {datos.map((punto, indice) => (
+              <Cell
+                key={punto.producto}
+                fill={COLORES_BARRAS[indice % COLORES_BARRAS.length]}
+              />
+            ))}
             <LabelList
               dataKey="cantidad_producida"
               position="top"
@@ -112,11 +118,6 @@ export function GraficoProduccion({ datos }: GraficoProduccionProps) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <HStack justify="center" mt="1">
-        <Text fontSize="xs" color="fg.muted">
-          Cantidad producida por producto en el período seleccionado
-        </Text>
-      </HStack>
     </Box>
   );
 }

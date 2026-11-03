@@ -23,6 +23,7 @@ export function TarjetaProduccion() {
   return (
     <TarjetaPanel
       titulo="Producción por producto"
+      descripcion="Cantidad producida por producto en el período seleccionado"
       h="auto"
       acciones={
         <HStack gap="3" flexWrap="wrap">
