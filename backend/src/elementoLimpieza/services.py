@@ -100,7 +100,8 @@ def crear_elemento_limpieza(db: Session, datos: ElementoLimpiezaCreate) -> Eleme
 
 
 def _consulta_elementos_limpieza(
-    incluir_inactivos: bool, buscar: Optional[str]
+    incluir_inactivos: bool, buscar: Optional[str],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado."""
     consulta = select(ElementoLimpieza)
@@ -109,7 +110,9 @@ def _consulta_elementos_limpieza(
     if filtro is not None:
         consulta = consulta.where(filtro)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(ElementoLimpieza.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(ElementoLimpieza.activo.is_(True))
 
     return consulta
@@ -133,11 +136,12 @@ def listar_elementos_limpieza_paginado(
   page_size: int,
   buscar: Optional[str] = None,
   orden: str = "nombre_asc",
+  solo_inactivos: bool = False,
 ) -> tuple[list[ElementoLimpieza], int]:
   """Mismo filtro que `listar_elementos_limpieza`, recortado en la base."""
   return paginar_consulta(
       db,
-      _consulta_elementos_limpieza(incluir_inactivos, buscar),
+      _consulta_elementos_limpieza(incluir_inactivos, buscar, solo_inactivos=solo_inactivos),
       modelo=ElementoLimpieza,
       orden=orden,
       ordenes=_ORDENES,

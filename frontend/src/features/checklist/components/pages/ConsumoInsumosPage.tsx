@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Box, Button, Field, HStack, SimpleGrid, Table, Text } from "@chakra-ui/react";
 import { LuSearch } from "react-icons/lu";
 import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
+import { BotonesExportar } from "../../../exportacion";
 import {
   BannerError,
   Celda,
@@ -64,6 +65,17 @@ export function ConsumoInsumosPage() {
             <LuSearch aria-hidden />
             Consultar
           </Button>
+
+          {consumo && (
+            <BotonesExportar
+              nombreTabla="stock_consumo"
+              vista="stock-consumo"
+              filtros={{
+                fecha_desde: consumo.fecha_desde,
+                fecha_hasta: consumo.fecha_hasta,
+              }}
+            />
+          )}
         </HStack>
       </Tarjeta>
 

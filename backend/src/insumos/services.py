@@ -87,6 +87,7 @@ def _consulta_insumos(
     incluir_inactivos: bool,
     buscar: Optional[str],
     unidad_medida_id: Optional[int],
+    solo_inactivos: bool = False,
 ):
     """Consulta base con el JOIN a la unidad, compartida por ambos caminos."""
     consulta = (
@@ -111,7 +112,9 @@ def _consulta_insumos(
     if filtros:
         consulta = consulta.where(*filtros)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Insumo.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Insumo.activo.is_(True))
 
     return consulta
@@ -137,11 +140,12 @@ def listar_insumos_paginado(
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[Insumo], int]:
     """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
     return paginar_consulta(
         db,
-        _consulta_insumos(incluir_inactivos, buscar, unidad_medida_id),
+        _consulta_insumos(incluir_inactivos, buscar, unidad_medida_id, solo_inactivos=solo_inactivos),
         modelo=Insumo,
         orden=orden,
         ordenes=_ORDENES,

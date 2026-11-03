@@ -165,6 +165,7 @@ def _consulta_planes(
     buscar: Optional[str],
     tipo: Optional[str],
     equipo_id: Optional[int],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado.
 
@@ -195,10 +196,10 @@ def _consulta_planes(
     if filtros:
         consulta = consulta.where(*filtros)
 
-    if not incluir_inactivos:
-        consulta = consulta.where(
-            models.PlanCalibracionMantenimiento.activo.is_(True)
-        )
+    if solo_inactivos:
+        consulta = consulta.where(models.PlanCalibracionMantenimiento.activo.is_(False))
+    elif not incluir_inactivos:
+        consulta = consulta.where(models.PlanCalibracionMantenimiento.activo.is_(True))
 
     return consulta
 
@@ -230,6 +231,7 @@ def listar_planes_calibracion_mantenimiento_paginado(
     tipo: Optional[str] = None,
     equipo_id: Optional[int] = None,
     orden: str = "vencimiento_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[list[models.PlanCalibracionMantenimiento], int]:
     """Mismo filtro que `listar_planes_calibracion_mantenimiento`, recortado en la base."""
     logger.info(
@@ -240,7 +242,7 @@ def listar_planes_calibracion_mantenimiento_paginado(
     )
     return paginar_consulta(
         db,
-        _consulta_planes(incluir_inactivos, buscar, tipo, equipo_id),
+        _consulta_planes(incluir_inactivos, buscar, tipo, equipo_id, solo_inactivos=solo_inactivos),
         modelo=models.PlanCalibracionMantenimiento,
         orden=orden,
         ordenes=_ORDENES,

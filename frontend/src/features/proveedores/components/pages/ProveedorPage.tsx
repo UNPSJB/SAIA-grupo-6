@@ -143,11 +143,9 @@ export function ProveedorPage() {
             <BotonesExportar
               nombreTabla="proveedores"
               filtros={{
-                incluirInactivos: String(verInactivos),
+                activo: String(!verInactivos),
                 buscar: busquedaAplicada,
               }}
-              onLimpiar={limpiarTodo}
-              hayFiltros={hayFiltros}
             />
           </Box>
         }

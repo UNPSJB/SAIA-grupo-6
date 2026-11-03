@@ -17,7 +17,7 @@ export function useAptitudesPaginadas(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     orden = "nombre_asc",
   } = filtros;
@@ -25,11 +25,11 @@ export function useAptitudesPaginadas(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarAptitudesPaginadas(page, pageSize, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         orden,
       }),
-    [incluirInactivos, buscar, orden]
+    [soloInactivos, buscar, orden]
   );
 
   const {
@@ -43,7 +43,7 @@ export function useAptitudesPaginadas(
     recargar,
   } = useListaPaginada<Aptitud>({
     cargar,
-    dependencias: [incluirInactivos, buscar, orden],
+    dependencias: [soloInactivos, buscar, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar las aptitudes",
     pageSize,

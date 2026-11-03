@@ -59,7 +59,7 @@ export function InsumosQuimicosPage() {
     cargarInsumos,
   } = useInsumosQuimicos(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       tipo: tipo ? (tipo as TipoQuimico) : undefined,
       unidadMedidaId: unidadId ? Number(unidadId) : undefined,
@@ -224,13 +224,11 @@ export function InsumosQuimicosPage() {
       <BotonesExportar
         nombreTabla="insumos_quimicos"
         filtros={{
-          incluirInactivos: String(verInactivos),
+          activo: String(!verInactivos),
           buscar: busquedaAplicada,
           tipo: tipo,
           unidad_id: unidadId || undefined,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
@@ -260,6 +258,8 @@ export function InsumosQuimicosPage() {
   }
 />
       
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
+
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}
 

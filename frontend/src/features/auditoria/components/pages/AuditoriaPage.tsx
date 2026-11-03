@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Box, Button, Flex, Input, Spinner, Table, Text } from '@chakra-ui/react';
 import { PageHeader, BannerError, Paginacion, Tarjeta, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
+import { ChipsFiltros, chipsDeFiltros } from '../../../../components/ui/filtros';
 import { useAuditoria } from '../../hooks/useAuditoria';
 import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
 import type { AccionAuditoria } from '../../types/auditoria';
@@ -560,7 +561,6 @@ export function AuditoriaPage() {
     setBorrador((prev) => ({ ...prev, [campo]: valor }));
 
   const rangoInvalido = !!borrador.desde && !!borrador.hasta && borrador.desde > borrador.hasta;
-  const hayFiltros = Object.values(borrador).some(Boolean) || Object.values(filtros).some(Boolean);
 
   // Aplicación automática de los filtros.
   useEffect(() => {
@@ -595,6 +595,54 @@ export function AuditoriaPage() {
     setFiltros(nuevos);
     setPage(1);
   };
+
+  const quitarFiltro = (campo: keyof Filtros) => {
+    setBorrador((prev) => ({ ...prev, [campo]: '' }));
+    setFiltros((prev) => ({ ...prev, [campo]: '' }));
+    setPage(1);
+  };
+
+  const fechaChip = (iso: string) => iso.split('-').reverse().join('/');
+
+  const chips = chipsDeFiltros([
+    {
+      clave: 'entidad',
+      etiqueta: 'Entidad',
+      valor: filtros.entidad ? humanizar(filtros.entidad) : '',
+      onQuitar: () => quitarFiltro('entidad'),
+    },
+    {
+      clave: 'entidadId',
+      etiqueta: 'ID Entidad',
+      valor: filtros.entidadId,
+      recortar: true,
+      onQuitar: () => quitarFiltro('entidadId'),
+    },
+    {
+      clave: 'usuarioId',
+      etiqueta: 'Usuario ID',
+      valor: filtros.usuarioId,
+      onQuitar: () => quitarFiltro('usuarioId'),
+    },
+    {
+      clave: 'accion',
+      etiqueta: 'Acción',
+      valor: filtros.accion ? ETIQUETA_ACCION[filtros.accion] : '',
+      onQuitar: () => quitarFiltro('accion'),
+    },
+    {
+      clave: 'desde',
+      etiqueta: 'Desde',
+      valor: filtros.desde ? fechaChip(filtros.desde) : '',
+      onQuitar: () => quitarFiltro('desde'),
+    },
+    {
+      clave: 'hasta',
+      etiqueta: 'Hasta',
+      valor: filtros.hasta ? fechaChip(filtros.hasta) : '',
+      onQuitar: () => quitarFiltro('hasta'),
+    },
+  ]);
 
   const primero = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const ultimo = Math.min(page * pageSize, total);
@@ -676,9 +724,6 @@ export function AuditoriaPage() {
               </FormField>
             </Box>
             <Flex gap="2" mb="4">
-              <Button type="button" variant="outline" onClick={limpiar} disabled={!hayFiltros}>
-                Limpiar
-              </Button>
               {(['csv', 'pdf'] as const).map((f) => (
                 <Button
                   key={f}
@@ -700,6 +745,8 @@ export function AuditoriaPage() {
           )}
         </Box>
       </Tarjeta>
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
       <Flex justify="space-between" align="center" mb="2" minH="6" gap="3">
         <Text fontSize="sm" color="fg.muted">

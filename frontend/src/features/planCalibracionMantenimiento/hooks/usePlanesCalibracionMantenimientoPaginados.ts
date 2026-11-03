@@ -17,7 +17,7 @@ export function usePlanesCalibracionMantenimientoPaginados(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     tipo,
     equipoId,
@@ -27,13 +27,13 @@ export function usePlanesCalibracionMantenimientoPaginados(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarPlanesCalibracionMantenimientoPaginados(page, pageSize, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         tipo,
         equipoId,
         orden,
       }),
-    [incluirInactivos, buscar, tipo, equipoId, orden]
+    [soloInactivos, buscar, tipo, equipoId, orden]
   );
 
   const {
@@ -47,7 +47,7 @@ export function usePlanesCalibracionMantenimientoPaginados(
     recargar,
   } = useListaPaginada<PlanCalibracionMantenimiento>({
     cargar,
-    dependencias: [incluirInactivos, buscar, tipo, equipoId, orden],
+    dependencias: [soloInactivos, buscar, tipo, equipoId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los planes de calibración y mantenimiento",
     pageSize,

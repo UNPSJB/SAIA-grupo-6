@@ -14,7 +14,7 @@ export function usePersonales(
     pageSize = 10
 ) {
     const {
-        incluirInactivos = false,
+        soloInactivos = false,
         buscar,
         rol,
         orden = "nombre_asc",
@@ -23,12 +23,12 @@ export function usePersonales(
     const cargar = useCallback(
         (page: number, pageSize: number) =>
             listarPersonal(page, pageSize, {
-                incluirInactivos,
+                soloInactivos,
                 buscar,
                 rol,
                 orden,
             }),
-        [incluirInactivos, buscar, rol, orden]
+        [soloInactivos, buscar, rol, orden]
     );
 
     const {
@@ -42,7 +42,7 @@ export function usePersonales(
         recargar,
     } = useListaPaginada<Persona>({
         cargar,
-        dependencias: [incluirInactivos, buscar, rol, orden],
+        dependencias: [soloInactivos, buscar, rol, orden],
         valorInicial: [],
         mensajeError: "No se pudo cargar el personal",
         pageSize,

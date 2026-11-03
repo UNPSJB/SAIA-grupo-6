@@ -59,6 +59,7 @@ def _consulta_equipos(
     buscar: Optional[str],
     tipo: Optional[str],
     sector_id: Optional[int],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado.
 
@@ -80,7 +81,9 @@ def _consulta_equipos(
     if filtros:
         consulta = consulta.where(*filtros)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Equipo.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Equipo.activo.is_(True))
 
     return consulta
@@ -122,11 +125,12 @@ def listar_equipos_paginado(
     tipo: Optional[str] = None,
     sector_id: Optional[int] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[list[Equipo], int]:
     """Mismo filtro que `listar_equipos`, recortado en la base: página + total."""
     return paginar_consulta(
         db,
-        _consulta_equipos(incluir_inactivos, buscar, tipo, sector_id),
+        _consulta_equipos(incluir_inactivos, buscar, tipo, sector_id, solo_inactivos=solo_inactivos),
         modelo=Equipo,
         orden=orden,
         ordenes=_ORDENES,

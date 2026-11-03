@@ -28,7 +28,7 @@ export type OrdenElemento =
   | `${ColumnaOrdenElemento}_desc`;
 
 export interface FiltrosElementosLimpieza {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   orden?: OrdenElemento;
 }
@@ -39,7 +39,7 @@ export async function listarElementosLimpieza(
   filtros: FiltrosElementosLimpieza = {}
 ): Promise<Pagina<ElementoLimpieza>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     orden: filtros.orden,
   });

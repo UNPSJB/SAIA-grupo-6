@@ -19,7 +19,7 @@ export type OrdenPlanCalibracion =
   | `${ColumnaOrdenPlanCalibracion}_desc`;
 
 export interface FiltrosPlanesCalibracion {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   tipo?: TipoPlanCalibracionMantenimiento | "";
   equipoId?: number;
@@ -51,7 +51,7 @@ export async function listarPlanesCalibracionMantenimientoPaginados(
   filtros: FiltrosPlanesCalibracion = {},
 ): Promise<Pagina<PlanCalibracionMantenimiento>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     tipo: filtros.tipo || undefined,
     equipo_id: filtros.equipoId || undefined,

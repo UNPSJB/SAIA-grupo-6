@@ -78,7 +78,8 @@ def crear_unidad_medida(db: Session, datos: schemas.UnidadMedidaCreate) -> Unida
 
 
 def _consulta_unidades_medida(
-    incluir_inactivos: bool, buscar: Optional[str]
+    incluir_inactivos: bool, buscar: Optional[str],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado."""
     consulta = select(UnidadMedida)
@@ -89,7 +90,9 @@ def _consulta_unidades_medida(
     if filtro is not None:
         consulta = consulta.where(filtro)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(UnidadMedida.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(UnidadMedida.activo.is_(True))
 
     return consulta
@@ -113,11 +116,12 @@ def listar_unidades_medida_paginado(
     page_size: int,
     buscar: Optional[str] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[UnidadMedida], int]:
     """Mismo filtro que `listar_unidades_medida`, recortado en la base."""
     return paginar_consulta(
         db,
-        _consulta_unidades_medida(incluir_inactivos, buscar),
+        _consulta_unidades_medida(incluir_inactivos, buscar, solo_inactivos=solo_inactivos),
         modelo=UnidadMedida,
         orden=orden,
         ordenes=_ORDENES,

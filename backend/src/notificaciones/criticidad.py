@@ -479,7 +479,10 @@ def calcular_criticidad_dashboard(
                 detalle=detalle,
                 regla="CHECKLIST_INCOMPLETO",
                 fecha_referencia=hoy_dia,
-                destino="/checklist/historial",
+                destino=(
+                    f"/checklist/historial?equipo_id={equipo_id}"
+                    f"&fecha={hoy_dia.isoformat()}"
+                ),
             )
         )
 

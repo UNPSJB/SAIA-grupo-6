@@ -58,7 +58,7 @@ export function EquiposPage() {
     cargarEquipos,
   } = useEquiposPaginados(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       tipo,
       sectorId,
@@ -209,13 +209,11 @@ export function EquiposPage() {
           <BotonesExportar
           nombreTabla="equipos"
           filtros={{
-          incluirInactivos: String(verInactivos),
+          activo: String(!verInactivos),
           buscar: busquedaAplicada,
           tipo: tipo,
           sector_id: sectorId || undefined,
         }}
-         onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
          />
         </Box>
         }
@@ -245,6 +243,8 @@ export function EquiposPage() {
       />
 
       
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <Spinner color="brand.500" />}

@@ -12,7 +12,7 @@ export type OrdenPersonal =
     | `${ColumnaOrdenPersonal}_desc`;
 
 export interface FiltrosPersonal {
-    incluirInactivos?: boolean;
+    soloInactivos?: boolean;
     buscar?: string;
     rol?: RolPersonal;
     orden?: OrdenPersonal;
@@ -24,7 +24,7 @@ export async function listarPersonal(
     filtros: FiltrosPersonal = {}
 ): Promise<Pagina<Persona>> {
     const query = queryPagina(page, pageSize, {
-        incluir_inactivos: filtros.incluirInactivos || undefined,
+        solo_inactivos: filtros.soloInactivos || undefined,
         buscar: filtros.buscar?.trim() || undefined,
         rol: filtros.rol,
         orden: filtros.orden,

@@ -13,8 +13,8 @@ de administrador, igual que la auditoría.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal
+from datetime import date, datetime
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import Response
@@ -26,7 +26,10 @@ from src.exportacion.configuracion import (
     obtener,
     listar_tablas,
 )
-from src.exportacion.motor import exportar_csv, exportar_pdf
+from src.exportacion import vistas
+from src.exportacion.formato import generar_csv
+from src.exportacion.motor import exportar_csv, exportar_pdf, pdf_desde_filas
+from src.insumoQuimico.models import TipoMovimientoStock
 
 router = APIRouter(
     prefix="/exportacion",
@@ -55,6 +58,90 @@ def columnas_tabla(
         for campo in config.campos
     ]
 
+
+def _descarga(vista: vistas.Vista, formato: str, nombre: str) -> Response:
+    """Respuesta de descarga (CSV o PDF) para una vista ya armada."""
+    titulo, encabezados, filas = vista
+    nombre_archivo = f"{nombre}_{datetime.now():%Y%m%d_%H%M%S}.{formato}"
+    cabeceras = {"Content-Disposition": f'attachment; filename="{nombre_archivo}"'}
+    if formato == "pdf":
+        return Response(
+            content=pdf_desde_filas(titulo, encabezados, filas),
+            media_type="application/pdf",
+            headers=cabeceras,
+        )
+    return Response(
+        content="".join(generar_csv(filas, encabezados)).encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers=cabeceras,
+    )
+
+
+FormatoExportacion = Literal["csv", "pdf"]
+
+
+@router.get("/vistas/vencimientos")
+def exportar_vista_vencimientos(
+    formato: FormatoExportacion = "csv",
+    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO", "DOCUMENTO"]] = None,
+    persona_id: Optional[int] = None,
+    aptitud: Optional[str] = None,
+    estado: Optional[Literal["VENCIDO", "PROXIMO", "VIGENTE"]] = None,
+    buscar: Optional[str] = Query(None, max_length=100),
+    orden: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Vencimientos consolidados, con los mismos filtros que la tabla."""
+    vista = vistas.vencimientos(db, tipo, persona_id, aptitud, estado, buscar, orden)
+    return _descarga(vista, formato, "vencimientos")
+
+
+@router.get("/vistas/stock-actual")
+def exportar_vista_stock_actual(
+    formato: FormatoExportacion = "csv",
+    buscar: Optional[str] = Query(None, max_length=100),
+    stock_bajo: Optional[bool] = None,
+    orden: str = "nombre_asc",
+    db: Session = Depends(get_db),
+):
+    vista = vistas.stock_actual(db, buscar, stock_bajo, orden)
+    return _descarga(vista, formato, "stock_actual")
+
+
+@router.get("/vistas/stock-movimientos")
+def exportar_vista_stock_movimientos(
+    formato: FormatoExportacion = "csv",
+    insumo_quimico_id: Optional[int] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
+    tipo: Optional[TipoMovimientoStock] = None,
+    db: Session = Depends(get_db),
+):
+    vista = vistas.stock_movimientos(db, insumo_quimico_id, fecha_desde, fecha_hasta, tipo)
+    return _descarga(vista, formato, "stock_movimientos")
+
+
+@router.get("/vistas/stock-lotes")
+def exportar_vista_stock_lotes(
+    formato: FormatoExportacion = "csv",
+    proveedor_id: Optional[int] = None,
+    insumo_quimico_id: Optional[int] = None,
+    numero_lote: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    vista = vistas.stock_lotes(db, proveedor_id, insumo_quimico_id, numero_lote)
+    return _descarga(vista, formato, "stock_lotes")
+
+
+@router.get("/vistas/stock-consumo")
+def exportar_vista_stock_consumo(
+    fecha_desde: date,
+    fecha_hasta: date,
+    formato: FormatoExportacion = "csv",
+    db: Session = Depends(get_db),
+):
+    vista = vistas.stock_consumo(db, fecha_desde, fecha_hasta)
+    return _descarga(vista, formato, "stock_consumo")
 
 @router.get("/{nombre_tabla}")
 def exportar_tabla(

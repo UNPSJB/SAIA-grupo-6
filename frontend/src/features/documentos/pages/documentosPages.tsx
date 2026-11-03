@@ -30,7 +30,7 @@ import { abrirArchivo } from "../services/documentoService";
 import { ESTADOS_DOCUMENTO, TIPOS_DOCUMENTO } from "../types/documento";
 import type { EstadoDocumentoFiltro, TipoDocumento } from "../types/documento";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
-import { ExportarTablaButton } from "../../../features/exportacion";
+import { BotonesExportar } from "../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -126,18 +126,23 @@ export function DocumentosPage() {
             <Button colorPalette="brand" onClick={() => navigate("/documentos/nuevo")}>
               + Agregar
             </Button>
-            <ExportarTablaButton nombreTabla="documentos" />
           </HStack>
         }
       />
 
       <BarraFiltros
         busqueda={
-          <CampoBusqueda
-            valor={busqueda}
-            onCambio={setBusqueda}
-            placeholder="Buscar por nombre o tipo..."
-          />
+          <Box display="flex" flexDirection="column" gap="4">
+            <CampoBusqueda
+              valor={busqueda}
+              onCambio={setBusqueda}
+              placeholder="Buscar por nombre o tipo..."
+            />
+            <BotonesExportar
+              nombreTabla="documentos"
+              filtros={{ buscar: busquedaAplicada, tipo }}
+            />
+          </Box>
         }
         filtros={
           <>

@@ -41,6 +41,10 @@ import type {
 } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import {
+  ChipsFiltros,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
+import {
   BannerError,
   Celda,
   DialogoExito,
@@ -354,6 +358,66 @@ export function NotificacionesPage() {
     setPage(1);
   };
 
+  const limpiarTodo = () => {
+    mostrarTodasLasSituaciones();
+    setSortColumn(null);
+    setSortDirection("asc");
+  };
+
+  const ETIQUETAS_ORDEN: Record<Exclude<SortColumn, null>, string> = {
+    criticidad: "Criticidad",
+    origen: "Origen",
+    plazo: "Plazo",
+  };
+
+  const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda,
+      recortar: true,
+      onQuitar: () => {
+        setBusqueda("");
+        setPage(1);
+      },
+    },
+    {
+      clave: "criticidad",
+      etiqueta: "Criticidad",
+      valor: criticidadesSeleccionadas
+        .map((criticidad) => etiquetaCriticidad(criticidad))
+        .join(", "),
+      onQuitar: () => {
+        setCriticidadesSeleccionadas([]);
+        setPage(1);
+      },
+    },
+    {
+      clave: "origen",
+      etiqueta: "Origen",
+      valor:
+        filtroOrigen !== "todas"
+          ? (ETIQUETA_ORIGEN[filtroOrigen] ?? filtroOrigen)
+          : "",
+      onQuitar: () => handleFiltroOrigen("todas"),
+    },
+    {
+      clave: "orden",
+      etiqueta: "Orden",
+      valor:
+        sortColumn !== null
+          ? `${ETIQUETAS_ORDEN[sortColumn]} ${
+              sortDirection === "asc" ? "↑" : "↓"
+            }`
+          : "",
+      visible: sortColumn !== null,
+      onQuitar: () => {
+        setSortColumn(null);
+        setSortDirection("asc");
+      },
+    },
+  ]);
+
   const nivel = datos.nivel_riesgo;
   const nivelTexto = etiquetaNivelRiesgo(nivel);
   const nivelPaleta = paletaNivelRiesgo(nivel);
@@ -524,6 +588,8 @@ export function NotificacionesPage() {
           </Box>
         </HStack>
       </Tarjeta>
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading ? (
         <Spinner color="brand.500" />

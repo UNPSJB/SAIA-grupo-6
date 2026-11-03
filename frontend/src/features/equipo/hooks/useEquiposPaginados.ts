@@ -17,7 +17,7 @@ export function useEquiposPaginados(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     tipo,
     sectorId,
@@ -27,13 +27,13 @@ export function useEquiposPaginados(
   const cargar = useCallback(
     (page: number, tamanoPagina: number) =>
       listarEquiposPaginados(page, tamanoPagina, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         tipo,
         sectorId,
         orden,
       }),
-    [incluirInactivos, buscar, tipo, sectorId, orden]
+    [soloInactivos, buscar, tipo, sectorId, orden]
   );
 
   const {
@@ -47,7 +47,7 @@ export function useEquiposPaginados(
     recargar,
   } = useListaPaginada<Equipo>({
     cargar,
-    dependencias: [incluirInactivos, buscar, tipo, sectorId, orden],
+    dependencias: [soloInactivos, buscar, tipo, sectorId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los equipos",
     pageSize,

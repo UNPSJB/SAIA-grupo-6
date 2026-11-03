@@ -31,6 +31,7 @@ def crear_aptitud(datos: schemas.AptitudCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=Union[List[schemas.AptitudResponse], schemas.AptitudPagina])
 def listar_aptitudes(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -48,7 +49,8 @@ def listar_aptitudes(
     if page is None:
         return services.listar_aptitudes(db, incluir_inactivos, buscar)
     items, total = services.listar_aptitudes_paginado(
-        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden
+        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.AptitudPagina(items=items, total=total, page=page, page_size=page_size)
 

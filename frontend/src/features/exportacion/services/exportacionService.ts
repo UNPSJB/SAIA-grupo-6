@@ -39,6 +39,28 @@ export async function exportarTabla(
   formato: FormatoExport,
   filtros: FiltrosExport = {}
 ): Promise<void> {
+  await descargar(`${API_URL}/exportacion/${nombreTabla}`, nombreTabla, formato, filtros);
+}
+
+/**
+ * Descarga una vista calculada (vencimientos, stock...) en CSV o PDF, con los
+ * mismos filtros que muestra la tabla. A diferencia de `exportarTabla`, las
+ * filas se arman en el servidor y los filtros son los de cada vista.
+ */
+export async function exportarVista(
+  vista: string,
+  formato: FormatoExport,
+  filtros: FiltrosExport = {}
+): Promise<void> {
+  await descargar(`${API_URL}/exportacion/vistas/${vista}`, vista, formato, filtros);
+}
+
+async function descargar(
+  url: string,
+  nombre: string,
+  formato: FormatoExport,
+  filtros: FiltrosExport
+): Promise<void> {
   const params = new URLSearchParams();
   params.set("formato", formato);
 
@@ -48,27 +70,25 @@ export async function exportarTabla(
     }
   }
 
-  const response = await apiFetch(
-    `${API_URL}/exportacion/${nombreTabla}?${params.toString()}`
-  );
+  const response = await apiFetch(`${url}?${params.toString()}`);
 
   if (!response.ok) {
     const detalle = await response.json().catch(() => null);
     throw new Error(
       (detalle as { detail?: string })?.detail ||
-      `Error al exportar ${nombreTabla}`
+      `Error al exportar ${nombre}`
     );
   }
 
   const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const nombreArchivo = `${nombreTabla}_${new Date().toISOString().slice(0, 10)}.${formato}`;
+  const enlace = URL.createObjectURL(blob);
+  const nombreArchivo = `${nombre}_${new Date().toISOString().slice(0, 10)}.${formato}`;
 
   const a = document.createElement("a");
-  a.href = url;
+  a.href = enlace;
   a.download = nombreArchivo;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(enlace);
 }

@@ -22,7 +22,7 @@ export type OrdenSector =
   | `${ColumnaOrdenSector}_desc`;
 
 export interface FiltrosSectores {
-  incluirInactivos?: boolean;
+  soloInactivos?: boolean;
   buscar?: string;
   orden?: OrdenSector;
 }
@@ -33,7 +33,7 @@ export async function listarSectoresPaginados(
   filtros: FiltrosSectores = {}
 ): Promise<Pagina<Sector>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: filtros.incluirInactivos || undefined,
+    solo_inactivos: filtros.soloInactivos || undefined,
     buscar: filtros.buscar?.trim() || undefined,
     orden: filtros.orden,
   });

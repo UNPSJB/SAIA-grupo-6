@@ -29,6 +29,7 @@ def crear_sector(datos: schemas.SectorCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=Union[List[schemas.SectorResponse], schemas.SectorPagina])
 def listar_sectores(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -46,7 +47,8 @@ def listar_sectores(
     if page is None:
         return services.listar_sectores(db, incluir_inactivos, buscar)
     items, total = services.listar_sectores_paginado(
-        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden
+        db, incluir_inactivos, page, page_size, buscar=buscar, orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.SectorPagina(items=items, total=total, page=page, page_size=page_size)
 

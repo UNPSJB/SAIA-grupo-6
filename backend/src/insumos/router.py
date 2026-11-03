@@ -27,6 +27,7 @@ def create_insumo(insumo: schemas.InsumoCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=Union[List[schemas.Insumo], schemas.InsumoPagina])
 def read_insumos(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -58,6 +59,7 @@ def read_insumos(
         buscar=buscar,
         unidad_medida_id=unidad_medida_id,
         orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.InsumoPagina(items=items, total=total, page=page, page_size=page_size)
 

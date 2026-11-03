@@ -11,7 +11,7 @@ import type { Insumo } from "../types/insumo";
  */
 export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
     const {
-        incluirInactivos = false,
+        soloInactivos = false,
         buscar,
         unidadMedidaId,
         orden = "nombre_asc",
@@ -20,12 +20,12 @@ export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
     const cargar = useCallback(
         (page: number, tamanoPagina: number) =>
             listarInsumos(page, tamanoPagina, {
-                incluirInactivos,
+                soloInactivos,
                 buscar,
                 unidadMedidaId,
                 orden,
             }),
-        [incluirInactivos, buscar, unidadMedidaId, orden]
+        [soloInactivos, buscar, unidadMedidaId, orden]
     );
 
     const {
@@ -39,7 +39,7 @@ export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
         recargar,
     } = useListaPaginada<Insumo>({
         cargar,
-        dependencias: [incluirInactivos, buscar, unidadMedidaId, orden],
+        dependencias: [soloInactivos, buscar, unidadMedidaId, orden],
         valorInicial: [],
         mensajeError: "No se pudieron cargar los insumos",
         pageSize,

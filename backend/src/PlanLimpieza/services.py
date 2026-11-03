@@ -153,6 +153,7 @@ def _consulta_planes(
     incluir_inactivos: bool,
     buscar: Optional[str],
     equipo_id: Optional[int],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado.
 
@@ -178,7 +179,9 @@ def _consulta_planes(
     if filtros:
         consulta = consulta.where(*filtros)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(models.PlanLimpieza.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(models.PlanLimpieza.activo.is_(True))
 
     return consulta
@@ -207,6 +210,7 @@ def listar_planes_limpieza_paginado(
     buscar: Optional[str] = None,
     equipo_id: Optional[int] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[models.PlanLimpieza], int]:
     """Mismo filtro que `listar_planes_limpieza`, recortado en la base."""
     logger.info(
@@ -216,7 +220,7 @@ def listar_planes_limpieza_paginado(
     )
     return paginar_consulta(
         db,
-        _consulta_planes(incluir_inactivos, buscar, equipo_id),
+        _consulta_planes(incluir_inactivos, buscar, equipo_id, solo_inactivos=solo_inactivos),
         modelo=models.PlanLimpieza,
         orden=orden,
         ordenes=_ORDENES,

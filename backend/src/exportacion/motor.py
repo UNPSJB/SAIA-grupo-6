@@ -21,7 +21,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from sqlalchemy import asc, select
+from sqlalchemy import Boolean, asc, select
 from sqlalchemy.orm import Session, load_only
 from xml.sax.saxutils import escape
 
@@ -44,6 +44,10 @@ def _consulta_base(db: Session, config: ConfigTabla, filtros: dict[str, Any]):
         columna = getattr(modelo, nombre, None)
         if columna is None:
             continue
+        if isinstance(valor, str) and isinstance(
+            getattr(columna, "type", None), Boolean
+        ):
+            valor = valor.strip().lower() in ("true", "1", "t", "si", "sí")
         consulta = consulta.where(columna == valor)
 
     pk_col = getattr(modelo, config.pk, None)
@@ -114,7 +118,20 @@ def exportar_pdf(
     filas_orm = list(_iterar_filas(db, config, filtros))
     encabezados = [campo.etiqueta for campo in config.campos]
     filas = [_formatear_fila(obj, config) for obj in filas_orm]
+    anchos = [campo.ancho_pdf or 22 for campo in config.campos]
+    return pdf_desde_filas(config.etiqueta, encabezados, filas, anchos)
 
+
+def pdf_desde_filas(
+    titulo: str,
+    encabezados: list[str],
+    filas: list[list[str]],
+    anchos_mm: list[float] | None = None,
+) -> bytes:
+    """PDF de una tabla ya armada (encabezados + filas de texto).
+
+    Sin `anchos_mm`, las columnas se reparten el ancho útil de la hoja.
+    """
     estilos = getSampleStyleSheet()
     celda = ParagraphStyle("celda", parent=estilos["BodyText"], fontSize=7, leading=8.5)
     cabecera = ParagraphStyle(
@@ -125,7 +142,9 @@ def exportar_pdf(
     for fila in filas:
         filas_pdf.append([parrafo(valor, celda) for valor in fila])
 
-    anchos = [(campo.ancho_pdf or 22) * mm for campo in config.campos]
+    if anchos_mm is None:
+        anchos_mm = [277 / max(len(encabezados), 1)] * len(encabezados)
+    anchos = [ancho * mm for ancho in anchos_mm]
 
     salida = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -135,7 +154,7 @@ def exportar_pdf(
         rightMargin=10 * mm,
         topMargin=10 * mm,
         bottomMargin=10 * mm,
-        title=f"{config.etiqueta} - Exportación",
+        title=f"{titulo} - Exportación",
     )
     tabla = Table(filas_pdf, colWidths=list(anchos), repeatRows=1)
     tabla.setStyle(
@@ -151,7 +170,7 @@ def exportar_pdf(
     generado = datetime.now(timezone.utc).astimezone().strftime("%d/%m/%Y %H:%M")
     doc.build(
         [
-            Paragraph(config.etiqueta, estilos["Title"]),
+            Paragraph(titulo, estilos["Title"]),
             Paragraph(
                 f"Generado el {generado} · {len(filas)} registros",
                 estilos["Normal"],
@@ -161,7 +180,6 @@ def exportar_pdf(
         ]
     )
     return salida.getvalue()
-
 
 def parrafo(texto_valor: str, estilo: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(texto_valor), estilo)

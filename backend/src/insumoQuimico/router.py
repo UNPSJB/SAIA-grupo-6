@@ -162,6 +162,7 @@ def crear_insumo_quimico(datos: schemas.InsumoQuimicoCreate, db: Session = Depen
 @router.get("", response_model=Union[List[schemas.InsumoQuimicoResponse], schemas.InsumoQuimicoPagina], dependencies=_DEP_ADMIN)
 def listar_insumos_quimicos(
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -191,6 +192,7 @@ def listar_insumos_quimicos(
         tipo=tipo,
         unidad_medida_id=unidad_medida_id,
         orden=orden,
+        solo_inactivos=solo_inactivos,
     )
     return schemas.InsumoQuimicoPagina(
         items=items, total=total, page=page, page_size=page_size

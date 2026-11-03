@@ -6,14 +6,14 @@ import {
   CartesianGrid,
   LabelList,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { EXITO, PELIGRO } from "../../../common/theme/tokens";
 import type { PuntoSerie } from "../types/dashboard";
 
-const COLOR_INICIADOS = "var(--chakra-colors-blue-500)";
-const COLOR_RESUELTOS = "var(--chakra-colors-green-500)";
+const COLOR_INICIADOS = PELIGRO;
+const COLOR_RESUELTOS = EXITO;
 const COLOR_TEXTO = "var(--chakra-colors-gray-600)";
 
 /** Alto del gráfico. El ancho lo toma de la tarjeta. */
@@ -23,48 +23,11 @@ interface GraficoBarrasProps {
   datos: PuntoSerie[];
 }
 
-/** Contenido del tooltip: el nombre de la semana y las dos cifras. */
-function TooltipSemana({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: ReadonlyArray<{ name?: string | number; value?: unknown; color?: string }>;
-  label?: string | number;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <Box
-      bg="bg.panel"
-      borderWidth="1px"
-      borderColor="border.subtle"
-      rounded="md"
-      boxShadow="card"
-      px="3"
-      py="2"
-    >
-      <Text fontSize="xs" fontWeight="semibold" color="fg" mb="1">
-        {label}
-      </Text>
-      {payload.map((item) => (
-        <HStack key={String(item.name)} gap="2" fontSize="xs" color="fg.muted">
-          <Box as="span" w="2.5" h="2.5" rounded="full" bg={item.color} flexShrink={0} />
-          <Text as="span">
-            {item.name}: <b>{String(item.value)}</b>
-          </Text>
-        </HStack>
-      ))}
-    </Box>
-  );
-}
-
 /**
  * Incidentes iniciados contra resueltos, por semana.
  *
  * Usa `recharts` en vez del SVG a mano que tenía antes: la librería resuelve
- * sola la escala del eje, las líneas de guía, el tooltip al pasar el cursor y la
+ * sola la escala del eje, las líneas de guía y la
  * animación de entrada, y escala con la tarjeta (`ResponsiveContainer`).
  *
  * Los colores van como variables CSS de Chakra: `fill` es un atributo SVG y
@@ -91,9 +54,9 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={datos}
-            margin={{ top: 18, right: 4, bottom: 0, left: -18 }}
-            barGap={4}
-            barCategoryGap="22%"
+            margin={{ top: 18, right: 8, bottom: 0, left: 0 }}
+            barGap={3}
+            barCategoryGap="28%"
           >
             <defs>
               <linearGradient id={idIniciados} x1="0" y1="0" x2="0" y2="1">
@@ -108,8 +71,9 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
 
             <CartesianGrid
               vertical={false}
-              stroke="var(--chakra-colors-gray-100)"
-              strokeDasharray="4 4"
+              stroke="var(--chakra-colors-gray-200)"
+              strokeOpacity={0.7}
+              strokeDasharray="3 5"
             />
 
             <XAxis
@@ -123,14 +87,11 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
               allowDecimals={false}
               tickLine={false}
               axisLine={false}
+              width={30}
+              tickMargin={4}
               tick={{ fontSize: 12, fill: COLOR_TEXTO }}
               tickCount={5}
               domain={[0, (max: number) => Math.max(4, Math.ceil(max / 4) * 4)]}
-            />
-
-            <Tooltip
-              content={<TooltipSemana />}
-              cursor={{ fill: "var(--chakra-colors-brand-50)" }}
             />
 
             <Bar
@@ -138,13 +99,16 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
               name="Iniciados"
               fill={`url(#${idIniciados})`}
               radius={[6, 6, 0, 0]}
-              maxBarSize={26}
+              maxBarSize={28}
+              animationDuration={600}
+              isAnimationActive
             >
               <LabelList
                 dataKey="iniciados"
                 position="top"
                 fontSize={12}
-                fill={COLOR_TEXTO}
+                fontWeight={600}
+                fill={COLOR_INICIADOS}
                 formatter={(valor: unknown) => (Number(valor) > 0 ? String(valor) : "")}
               />
             </Bar>
@@ -153,13 +117,15 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
               name="Resueltos"
               fill={`url(#${idResueltos})`}
               radius={[6, 6, 0, 0]}
-              maxBarSize={26}
+              maxBarSize={28}
+              animationDuration={600}
             >
               <LabelList
                 dataKey="resueltos"
                 position="top"
                 fontSize={12}
-                fill={COLOR_TEXTO}
+                fontWeight={600}
+                fill={COLOR_RESUELTOS}
                 formatter={(valor: unknown) => (Number(valor) > 0 ? String(valor) : "")}
               />
             </Bar>
@@ -178,7 +144,7 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
 function Leyenda({ color, texto }: { color: string; texto: string }) {
   return (
     <HStack gap="2">
-      <Box as="span" w="3" h="3" rounded="full" bg={color} flexShrink={0} aria-hidden />
+      <Box as="span" w="3" h="3" rounded="sm" bg={color} flexShrink={0} aria-hidden />
       <Text as="span" fontSize="xs" color="fg.muted" whiteSpace="nowrap">
         {texto}
       </Text>

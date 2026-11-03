@@ -12,7 +12,7 @@ export function usePlanesLimpieza(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     equipoId,
     orden = "nombre_asc",
@@ -21,12 +21,12 @@ export function usePlanesLimpieza(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarPlanesLimpieza(page, pageSize, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         equipoId,
         orden,
       }),
-    [incluirInactivos, buscar, equipoId, orden]
+    [soloInactivos, buscar, equipoId, orden]
   );
 
   const {
@@ -40,7 +40,7 @@ export function usePlanesLimpieza(
     recargar,
   } = useListaPaginada<PlanLimpieza>({
     cargar,
-    dependencias: [incluirInactivos, buscar, equipoId, orden],
+    dependencias: [soloInactivos, buscar, equipoId, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los planes de limpieza",
     pageSize,

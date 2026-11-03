@@ -69,7 +69,8 @@ def crear_sector(db: Session, datos: schemas.SectorCreate) -> Sector:
 
 
 def _consulta_sectores(
-    incluir_inactivos: bool, buscar: Optional[str]
+    incluir_inactivos: bool, buscar: Optional[str],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado."""
     consulta = select(Sector)
@@ -78,7 +79,9 @@ def _consulta_sectores(
     if filtro is not None:
         consulta = consulta.where(filtro)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Sector.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Sector.activo.is_(True))
 
     return consulta
@@ -100,11 +103,12 @@ def listar_sectores_paginado(
     page_size: int,
     buscar: Optional[str] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[Sector], int]:
     """Mismo filtro que `listar_sectores`, recortado en la base: página + total."""
     return paginar_consulta(
         db,
-        _consulta_sectores(incluir_inactivos, buscar),
+        _consulta_sectores(incluir_inactivos, buscar, solo_inactivos=solo_inactivos),
         modelo=Sector,
         orden=orden,
         ordenes=_ORDENES,

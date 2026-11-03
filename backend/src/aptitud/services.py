@@ -72,7 +72,8 @@ def crear_aptitud(db: Session, datos: schemas.AptitudCreate) -> Aptitud:
 
 
 def _consulta_aptitudes(
-    incluir_inactivos: bool, buscar: Optional[str]
+    incluir_inactivos: bool, buscar: Optional[str],
+    solo_inactivos: bool = False,
 ):
     """Consulta base compartida por el listado completo y el paginado."""
     consulta = select(Aptitud)
@@ -81,7 +82,9 @@ def _consulta_aptitudes(
     if filtro is not None:
         consulta = consulta.where(filtro)
 
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Aptitud.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Aptitud.activo.is_(True))
 
     return consulta
@@ -103,11 +106,12 @@ def listar_aptitudes_paginado(
     page_size: int,
     buscar: Optional[str] = None,
     orden: str = "nombre_asc",
+    solo_inactivos: bool = False,
 ) -> tuple[List[Aptitud], int]:
     """Mismo filtro que `listar_aptitudes`, recortado en la base: página + total."""
     return paginar_consulta(
         db,
-        _consulta_aptitudes(incluir_inactivos, buscar),
+        _consulta_aptitudes(incluir_inactivos, buscar, solo_inactivos=solo_inactivos),
         modelo=Aptitud,
         orden=orden,
         ordenes=_ORDENES,

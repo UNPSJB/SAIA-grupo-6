@@ -17,7 +17,7 @@ export function useSectoresPaginadas(
   pageSize = 10
 ) {
   const {
-    incluirInactivos = false,
+    soloInactivos = false,
     buscar,
     orden = "nombre_asc",
   } = filtros;
@@ -25,11 +25,11 @@ export function useSectoresPaginadas(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarSectoresPaginados(page, pageSize, {
-        incluirInactivos,
+        soloInactivos,
         buscar,
         orden,
       }),
-    [incluirInactivos, buscar, orden]
+    [soloInactivos, buscar, orden]
   );
 
   const {
@@ -43,7 +43,7 @@ export function useSectoresPaginadas(
     recargar,
   } = useListaPaginada<Sector>({
     cargar,
-    dependencias: [incluirInactivos, buscar, orden],
+    dependencias: [soloInactivos, buscar, orden],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los sectores",
     pageSize,

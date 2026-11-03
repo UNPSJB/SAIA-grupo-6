@@ -58,7 +58,7 @@ export function PlanLimpiezaPage() {
     cargarPlanes,
   } = usePlanesLimpieza(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       equipoId: equipoId ? Number(equipoId) : undefined,
       orden: orden.orden,
@@ -192,12 +192,10 @@ export function PlanLimpiezaPage() {
       <BotonesExportar
         nombreTabla="planes_limpieza"
         filtros={{
-          incluirInactivos: String(verInactivos),
+          activo: String(!verInactivos),
           buscar: busquedaAplicada,
           equipo_id: equipoId || undefined,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
@@ -213,6 +211,8 @@ export function PlanLimpiezaPage() {
     />
   }
 />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}

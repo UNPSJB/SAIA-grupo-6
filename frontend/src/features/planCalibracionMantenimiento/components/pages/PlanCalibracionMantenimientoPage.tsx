@@ -195,8 +195,6 @@ export function PlanCalibracionMantenimientoPage() {
           tipo: tipo || undefined,
           equipo_id: equipoId || undefined,
         }}
-        onLimpiar={limpiarTodo}
-        hayFiltros={hayFiltros}
       />
     </Box>
   }
@@ -227,6 +225,8 @@ export function PlanCalibracionMantenimientoPage() {
     </>
   }
 />
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}

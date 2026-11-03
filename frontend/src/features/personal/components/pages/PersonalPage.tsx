@@ -53,7 +53,7 @@ export function PersonalPage() {
     cargarPersonales,
   } = usePersonales(
     {
-      incluirInactivos: verInactivos,
+      soloInactivos: verInactivos,
       buscar: busquedaAplicada,
       rol: rol ? (rol as RolPersonal) : undefined,
       orden: orden.orden,
@@ -192,13 +192,11 @@ export function PersonalPage() {
         <BotonesExportar
           nombreTabla="personal"
           filtros={{
-             incluirInactivos: verInactivos,
+             activo: String(!verInactivos),
              buscar: busquedaAplicada,
               rol: rol ? (rol as RolPersonal) : undefined,
               orden: orden.orden,
               }}
-            onLimpiar={limpiarTodo}
-            hayFiltros={hayFiltros}
             />
           </Box>
         }
@@ -216,6 +214,8 @@ export function PersonalPage() {
       />
 
       
+
+      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {!loading && !error && (
         <>
