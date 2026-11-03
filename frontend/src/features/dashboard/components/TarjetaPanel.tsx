@@ -1,4 +1,4 @@
-import { Flex, Heading, HStack, type BoxProps } from "@chakra-ui/react";
+import { Flex, Heading, HStack, Text, type BoxProps } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 import { Tarjeta } from "../../../components/ui/patrones";
 
@@ -15,6 +15,8 @@ type TamanoTitulo = "sm" | "md" | "xl";
 interface TarjetaPanelProps extends BoxProps {
   titulo: string;
   tamanoTitulo?: TamanoTitulo;
+  /** Texto breve debajo del título. */
+  descripcion?: ReactNode;
   /** Controles a la derecha del título. */
   acciones?: ReactNode;
   children: ReactNode;
@@ -33,6 +35,7 @@ interface TarjetaPanelProps extends BoxProps {
 export function TarjetaPanel({
   titulo,
   tamanoTitulo = "md",
+  descripcion,
   acciones,
   children,
   ...rest
@@ -54,14 +57,21 @@ export function TarjetaPanel({
         mb={chico ? "2" : "4"}
         flexWrap="wrap"
       >
-        <Heading
-          as="h3"
-          fontSize={tamanoTitulo}
-          fontWeight={tamanoTitulo === "sm" ? "medium" : "semibold"}
-          color="fg"
-        >
-          {titulo}
-        </Heading>
+        <Flex direction="column" gap="4" flex="1" minW="0">
+          <Heading
+            as="h3"
+            fontSize={tamanoTitulo}
+            fontWeight={tamanoTitulo === "sm" ? "medium" : "semibold"}
+            color="fg"
+          >
+            {titulo}
+          </Heading>
+          {descripcion ? (
+            <Text fontSize="xs" color="fg.subtle">
+              {descripcion}
+            </Text>
+          ) : null}
+        </Flex>
         {acciones ? <HStack gap="2">{acciones}</HStack> : null}
       </Flex>
       {children}

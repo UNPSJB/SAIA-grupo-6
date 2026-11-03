@@ -12,6 +12,7 @@ from .base import crear_bitacora
 from .documentos import migrar_documentos
 from .equipos import migrar_equipos
 from .incidentes import migrar_incidentes
+from .lotes import migrar_lotes
 from .notificaciones import migrar_notificaciones
 from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .seguridad import migrar_seguridad
@@ -27,6 +28,7 @@ def run_migrations() -> None:
     migrar_incidentes()
     migrar_tareas()
     migrar_stock()
+    migrar_lotes()
     migrar_equipos()
     # Necesita personal.es_super_admin, por eso va después de migrar_columnas_personal.
     bootstrap_super_admin()

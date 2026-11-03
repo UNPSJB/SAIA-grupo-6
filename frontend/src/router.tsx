@@ -53,6 +53,17 @@ const InsumoEditPage = lazy(() =>
   import("./features/insumos/components/pages/InsumoEditPage").then((mod) => ({ default: mod.InsumoEditPage })),
 );
 
+// Lotes de producción
+const LotesPage = lazy(() =>
+  import("./features/lotes/components/pages/LotesPage").then((mod) => ({ default: mod.LotesPage })),
+);
+const LoteCreatePage = lazy(() =>
+  import("./features/lotes/components/pages/LoteCreatePage").then((mod) => ({ default: mod.LoteCreatePage })),
+);
+const LoteAsociarInsumosPage = lazy(() =>
+  import("./features/lotes/components/pages/LoteAsociarInsumosPage").then((mod) => ({ default: mod.LoteAsociarInsumosPage })),
+);
+
 // 3. Equipos
 const EquiposPage = lazy(() =>
   import("./features/equipo/components/pages/EquipoPage").then((mod) => ({ default: mod.EquiposPage })),
@@ -397,6 +408,22 @@ export const router = createBrowserRouter([
               ),
               },
               {
+                path: "/lotes/nuevo",
+                element: (
+                <ConSuspense>
+                  <LoteCreatePage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/lotes/:id/insumos",
+                element: (
+                <ConSuspense>
+                  <LoteAsociarInsumosPage />
+                </ConSuspense>
+              ),
+              },
+              {
                 path: "/incidentes/reportar",
                 element: (
                 <ConSuspense>
@@ -670,6 +697,14 @@ export const router = createBrowserRouter([
                 element: (
                 <ConSuspense>
                   <HistorialChecklistPage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/lotes",
+                element: (
+                <ConSuspense>
+                  <LotesPage />
                 </ConSuspense>
               ),
               },

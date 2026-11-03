@@ -72,6 +72,16 @@ def vincular_equipos_con_sectores() -> None:
         logger.info("Migración: vinculando equipos existentes con sectores")
         migrar_equipos_a_sectores()
 
+    # La columna legada quedó como NOT NULL en bases anteriores. El ORM ya no
+    # la incluye en los INSERT, así que cualquier alta de equipo fallaba con
+    # "NOT NULL constraint failed: equipos.ubicacion". Se elimina después de
+    # conservar su valor en sectores.
+    columnas = columnas_de("equipos")
+    if "sector_id" in columnas and "ubicacion" in columnas:
+        logger.info("Migración: eliminando columna legada equipos.ubicacion")
+        with engine.begin() as conexion:
+            conexion.execute(text("ALTER TABLE equipos DROP COLUMN ubicacion"))
+
     with engine.begin() as conexion:
         conexion.execute(
             text(

@@ -35,12 +35,13 @@ export function InsumoTable({
 
   return (
     <Tarjeta overflowX="auto">
-      <Table.Root variant="outline" w="100%" minW="760px">
+      <Table.Root variant="outline" w="100%" minW="860px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOrdenable columna="nombre" orden={orden}>
               Nombre
             </EncabezadoOrdenable>
+            <EncabezadoOscuro ancho="amplia">Tipo</EncabezadoOscuro>
             <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media">
               Unidad Medida
             </EncabezadoOrdenable>

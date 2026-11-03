@@ -38,6 +38,7 @@ class InsumoUpdate(BaseModel):
 class Insumo(InsumoBase):
     id: int
     activo: bool
+    tipo: str
     unidad_medida: "UnidadMedidaResponse"
 
     model_config = ConfigDict(from_attributes=True)

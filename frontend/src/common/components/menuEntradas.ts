@@ -9,6 +9,7 @@ import {
   LuClipboardCheck,
   LuClipboardList,
   LuDatabase,
+  LuFactory,
   LuFileText,
   LuFlaskConical,
   LuFolderSearch,
@@ -18,10 +19,12 @@ import {
   LuListChecks,
   LuMicroscope,
   LuPackage,
+  LuPackagePlus,
   LuRuler,
   LuSparkles,
   LuTriangleAlert,
   LuTruck,
+  LuUserRound,
   LuUsers,
   LuWrench,
   LuGlobe,
@@ -121,6 +124,18 @@ export const GRUPOS: GrupoMenu[] = [
     entradas: [
       { to: "/checklist", label: "Checklist Diario", rol: "operar", icon: LuListChecks },
       {
+        to: "/lotes/nuevo",
+        label: "Registrar Lote",
+        rol: "operar",
+        icon: LuPackagePlus,
+      },
+      {
+        to: "/lotes",
+        label: "Historial de Lotes",
+        rol: "administrar",
+        icon: LuFactory,
+      },
+      {
         to: "/incidentes/reportar",
         label: "Reportar Incidente",
         rol: "operar",
@@ -179,7 +194,7 @@ export const MENU: EntradaMenu[] = [
    * quede fijo arriba del todo: es la entrada más personal de la barra y no
    * debería scrollearse nunca.
    */
- // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
+  { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
   { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
 ];
