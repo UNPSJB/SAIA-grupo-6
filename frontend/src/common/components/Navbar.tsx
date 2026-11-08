@@ -360,6 +360,9 @@ interface NavbarProps {
   onAlternarMenu: () => void;
 }
 
+/** Hasta cuántas entradas visibles el menú arranca con todos los grupos abiertos. */
+const MAX_ENTRADAS_ABIERTO = 8;
+
 export default function Navbar({ colapsado, onAlternarMenu }: NavbarProps) {
   const { user } = useAuth();
   const { pathname } = useLocation();
@@ -368,10 +371,18 @@ export default function Navbar({ colapsado, onAlternarMenu }: NavbarProps) {
    * Grupos que el usuario cerró a mano.
    *
    * Un grupo está abierto si contiene la ruta activa o si nunca se lo cerró.
+   *
+   * Arrancan cerrados, salvo que el usuario vea pocas entradas: un operador
+   * tiene cinco, repartidas en tres grupos, y con todo cerrado necesitaba un
+   * clic extra para llegar a cualquiera. Con pocas entradas el menú entero
+   * entra en pantalla, así que se muestra abierto.
    */
-  const [cerrados, setCerrados] = useState<Set<string>>(
-    () => new Set(GRUPOS.map((g) => g.id))
-  );
+  const [cerrados, setCerrados] = useState<Set<string>>(() => {
+    const visibles = GRUPOS.flatMap((g) => g.entradas).filter((e) =>
+      esVisibleEntrada(e, user)
+    ).length;
+    return visibles <= MAX_ENTRADAS_ABIERTO ? new Set() : new Set(GRUPOS.map((g) => g.id));
+  });
 
   const entradas = useMemo(() => MENU.filter((e) => esVisibleEntrada(e, user)), [user]);
   const grupos = useMemo(
@@ -380,7 +391,7 @@ export default function Navbar({ colapsado, onAlternarMenu }: NavbarProps) {
         ...g,
         entradas: g.entradas.filter((e) => esVisibleEntrada(e, user)),
       }))
-        // Un operador no ve "Datos maestros": el grupo queda vacío y no se
+        // Un operador no ve, por ejemplo, "Personas": el grupo queda vacío y no se
         // renderiza, para no dejar un título sin nada debajo.
         .filter((g) => g.entradas.length > 0),
     [user]

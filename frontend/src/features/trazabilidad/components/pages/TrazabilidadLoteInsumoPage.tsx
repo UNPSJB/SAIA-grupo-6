@@ -30,7 +30,9 @@ export function TrazabilidadLoteInsumoPage() {
 
   return (
     <PaginaDetalle
-      volver={{ a: "/trazabilidad", etiqueta: "Trazabilidad" }}
+      // Se llega desde Stock de insumos o desde la ficha de un lote: "Volver"
+      // regresa a la pantalla de origen (Stock de insumos si se entró por URL).
+      volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos", historial: true }}
       titulo={traza ? `Lote de insumo ${traza.lote_insumo.numero_lote}` : "Lote de insumo"}
       descripcion="Lotes de producto que consumieron este lote de insumo."
     >
@@ -89,9 +91,9 @@ export function TrazabilidadLoteInsumoPage() {
                       <Celda>{formatoCantidad(l.desperdicio)}</Celda>
                       <Celda center>
                         <BotonAccion
-                          accion="historial"
-                          label="Ver trazabilidad hacia atrás del lote"
-                          onClick={() => navigate(`/trazabilidad/lotes-producto/${l.lote_producto_id}`)}
+                          accion="ver"
+                          label="Abrir el lote (incluye su trazabilidad)"
+                          onClick={() => navigate(`/lotes/${l.lote_producto_id}`)}
                         />
                       </Celda>
                     </Table.Row>

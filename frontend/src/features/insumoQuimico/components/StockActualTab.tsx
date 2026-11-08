@@ -30,16 +30,13 @@ import { useStockAcciones } from "../hooks/useStockAcciones";
 import { useStockActual } from "../hooks/useStockActual";
 import type { ColumnaOrdenStock, StockInsumoQuimico } from "../types/stock";
 import { StockOperacionDialog, type TipoDialogoStock } from "./StockOperacionDialog";
+import { formatoCantidad } from "../../../common/utils/numeros";
 
 const PAGE_SIZE = 10;
 
 interface DialogoAbierto {
   tipo: TipoDialogoStock;
   insumo: StockInsumoQuimico;
-}
-
-function valorDecimal(valor: number | string | null) {
-  return valor === null ? "Sin definir" : String(valor);
 }
 
 export function StockActualTab() {
@@ -110,22 +107,11 @@ export function StockActualTab() {
     <>
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
-            <CampoBusqueda
-              valor={busqueda}
-              onCambio={setBusqueda}
-              placeholder="Buscar por producto o unidad..."
-            />
-            <BotonesExportar
-              nombreTabla="stock_actual"
-              vista="stock-actual"
-              filtros={{
-                buscar: busquedaAplicada,
-                stock_bajo: stockBajo === undefined ? undefined : String(stockBajo),
-                orden: orden.orden,
-              }}
-            />
-          </Box>
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por producto o unidad..."
+          />
         }
         filtros={
           <FiltroSelect
@@ -136,6 +122,17 @@ export function StockActualTab() {
               { valor: "bajo", etiqueta: "Stock bajo" },
               { valor: "normal", etiqueta: "Disponible" },
             ]}
+          />
+        }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="stock_actual"
+            vista="stock-actual"
+            filtros={{
+              buscar: busquedaAplicada,
+              stock_bajo: stockBajo === undefined ? undefined : String(stockBajo),
+              orden: orden.orden,
+            }}
           />
         }
       />
@@ -170,9 +167,9 @@ export function StockActualTab() {
                 {stock.map((insumo) => (
                   <Table.Row key={insumo.insumo_quimico_id}>
                     <Celda fontWeight="medium">{insumo.nombre}</Celda>
-                    <Celda>{valorDecimal(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Celda>
+                    <Celda>{formatoCantidad(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Celda>
                     <Celda>
-                      {valorDecimal(insumo.stock_minimo)}
+                      {formatoCantidad(insumo.stock_minimo, "Sin definir")}
                       {insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}
                     </Celda>
                     <Celda>
@@ -199,11 +196,11 @@ export function StockActualTab() {
                 <HStack justify="space-between" align="flex-start" gap="3" mb="3">
                   <Box>
                     <Text fontWeight="bold">{insumo.nombre}</Text>
-                    <Text color="fg.muted" fontSize="sm">Actual: {valorDecimal(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Text>
+                    <Text color="fg.muted" fontSize="sm">Actual: {formatoCantidad(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Text>
                   </Box>
                   <Badge colorPalette={insumo.stock_bajo ? "red" : "green"}>{insumo.stock_bajo ? "Stock bajo" : "Disponible"}</Badge>
                 </HStack>
-                <Text color="fg.muted" fontSize="sm" mb="3">Mínimo: {valorDecimal(insumo.stock_minimo)}{insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}</Text>
+                <Text color="fg.muted" fontSize="sm" mb="3">Mínimo: {formatoCantidad(insumo.stock_minimo, "Sin definir")}{insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}</Text>
                 <Stack direction="row" gap="2" flexWrap="wrap">
                   <Button size="sm" colorPalette="brand" onClick={() => setDialogo({ tipo: "ingreso", insumo })}>Ingreso</Button>
                   <Button size="sm" variant="outline" colorPalette="neutral" onClick={() => setDialogo({ tipo: "ajuste", insumo })}>Ajuste</Button>

@@ -43,18 +43,19 @@ import { Pagina } from "../../../../components/ui/plantillas";
 import { Table } from "@chakra-ui/react";
 import { BotonesExportar } from "../../../exportacion";
 import { LuCircleCheck } from "react-icons/lu";
-import { ERROR_TEXTO, GRIS_MEDIO, TEXTO_SUAVE } from "../../../../common/theme/tokens";
 
 /** Tamaño de página de todos los listados de la app. */
 const PAGE_SIZE = 10;
 
-const ESTILO_ESTADO: Record<
-  EstadoVencimiento,
-  { etiqueta: string; fondo: string; texto: string }
-> = {
-  VENCIDO: { etiqueta: "VENCIDO", fondo: "#fed7d7", texto: "#c53030" },
-  PROXIMO: { etiqueta: "PRÓXIMO A VENCER", fondo: "#feebc8", texto: "#c05621" },
-  VIGENTE: { etiqueta: "VIGENTE", fondo: "#c6f6d5", texto: "#276749" },
+/*
+ * Mismo código de estado que el resto de la app (planes, aptitudes): paleta
+ * del tema en variante `subtle` y texto en caja normal. Antes eran hex sueltos
+ * y etiquetas en mayúsculas ("PRÓXIMO A VENCER"), lo único así en la app.
+ */
+const ESTILO_ESTADO: Record<EstadoVencimiento, { etiqueta: string; paleta: string }> = {
+  VENCIDO: { etiqueta: "Vencido", paleta: "red" },
+  PROXIMO: { etiqueta: "Próximo a vencer", paleta: "orange" },
+  VIGENTE: { etiqueta: "Vigente", paleta: "green" },
 };
 
 const ETIQUETAS_ORDEN: Record<ColumnaOrdenVencimiento, string> = {
@@ -364,7 +365,7 @@ export function VencimientosPage() {
 
       {!loading && !error && items.length > 0 && (
         <>
-          <Text color={GRIS_MEDIO} fontSize="sm" mb="2">
+          <Text color="fg.muted" fontSize="sm" mb="2">
             Mostrando {items.length} de {total}
           </Text>
           <Tarjeta overflowX="auto">
@@ -398,12 +399,8 @@ export function VencimientosPage() {
                     <Table.Row key={v.id_vencimiento} _hover={{ bg: "brand.50" }}>
                       <Celda>
                         <Badge
-                          bg="#e9d8fd"
-                          color="#553c9a"
-                          px="2"
-                          py="1"
-                          borderRadius="md"
-                          fontWeight="bold"
+                          colorPalette="purple"
+                          variant="subtle"
                           maxW="100%"
                           overflow="hidden"
                           textOverflow="ellipsis"
@@ -425,7 +422,7 @@ export function VencimientosPage() {
                       <Celda>
                         <Text
                           fontSize="sm"
-                          color={v.estado === "VENCIDO" ? ERROR_TEXTO : TEXTO_SUAVE}
+                          color={v.estado === "VENCIDO" ? "red.fg" : "fg"}
                           fontWeight={v.estado === "VENCIDO" ? "bold" : "normal"}
                         >
                           {formatoFechaOCorta(v.fecha_vencimiento)}
@@ -436,12 +433,8 @@ export function VencimientosPage() {
                       </Celda>
                       <Celda>
                         <Badge
-                          bg={estilo.fondo}
-                          color={estilo.texto}
-                          px="2"
-                          py="1"
-                          borderRadius="md"
-                          fontWeight="bold"
+                          colorPalette={estilo.paleta}
+                          variant="subtle"
                           maxW="100%"
                           overflow="hidden"
                           textOverflow="ellipsis"

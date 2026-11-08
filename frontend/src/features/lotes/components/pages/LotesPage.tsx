@@ -3,13 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Box, Table, Text } from "@chakra-ui/react";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { LuRefreshCw } from "react-icons/lu";
-import { useAuth } from "../../../../common/context/useAuth";
-import { puedeAdministrar } from "../../../../common/api/permissions";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
   BarraFiltros,
+  CampoBusqueda,
   ChipsFiltros,
   EstadoVacioFiltrado,
   FiltroSelect,
@@ -38,9 +37,8 @@ const PAGE_SIZE = 10;
 
 export function LotesPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const esAdmin = puedeAdministrar(user);
 
+  const [busqueda, setBusqueda] = useState("");
   const [producto, setProducto] = useState("");
   const [estado, setEstado] = useState<EstadoLote | "">("");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -58,18 +56,32 @@ export function LotesPage() {
       .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta));
   }, [lotes]);
 
-  const filtrados = useMemo(
-    () => (producto ? lotes.filter((l) => String(l.producto_id) === producto) : lotes),
-    [lotes, producto],
-  );
+  /*
+   * Búsqueda por número de lote o producto. Es lo que se usa ante un reclamo o
+   * un retiro: se tiene el número impreso en el envase y hay que llegar a la
+   * ficha (que incluye la trazabilidad). Antes eso se hacía desde la pantalla
+   * "Trazabilidad", con un desplegable de todos los lotes.
+   */
+  const filtrados = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    return lotes.filter(
+      (l) =>
+        (!producto || String(l.producto_id) === producto) &&
+        (!texto ||
+          l.numero_lote.toLowerCase().includes(texto) ||
+          l.producto_nombre.toLowerCase().includes(texto)),
+    );
+  }, [lotes, producto, busqueda]);
   const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
     filtrados,
     PAGE_SIZE,
-    `${producto}|${estado}|${fechaDesde}|${fechaHasta}`,
+    `${busqueda}|${producto}|${estado}|${fechaDesde}|${fechaHasta}`,
   );
 
-  const hayFiltros = producto !== "" || estado !== "" || fechaDesde !== "" || fechaHasta !== "";
+  const hayFiltros =
+    busqueda.trim() !== "" || producto !== "" || estado !== "" || fechaDesde !== "" || fechaHasta !== "";
   const limpiarTodo = () => {
+    setBusqueda("");
     setProducto("");
     setEstado("");
     setFechaDesde("");
@@ -77,6 +89,12 @@ export function LotesPage() {
   };
 
   const chips = chipsDeFiltros([
+    {
+      clave: "busqueda",
+      etiqueta: "Búsqueda",
+      valor: busqueda.trim(),
+      onQuitar: () => setBusqueda(""),
+    },
     {
       clave: "producto",
       etiqueta: "Producto",
@@ -107,13 +125,19 @@ export function LotesPage() {
     <Pagina
       titulo="Lotes de producción"
       descripcion="Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos."
-      acciones={
-        esAdmin ? (
-          <BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>
-        ) : undefined
-      }
+      // Quien opera también inicia lotes (la ruta es de "operar"). Antes el
+      // botón era solo de administración y el operador llegaba por la entrada
+      // "Registrar Lote" del menú, que ya no existe.
+      acciones={<BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>}
     >
       <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Número de lote o producto..."
+          />
+        }
         filtros={
           <>
             <FiltroSelect

@@ -16,7 +16,7 @@ export function GestionStockPage() {
 
   return (
     <Pagina
-      titulo="Gestión de Stock"
+      titulo="Stock de químicos"
       descripcion="Controlá existencias, movimientos y consumos de productos químicos."
     >
       <Tabs.Root

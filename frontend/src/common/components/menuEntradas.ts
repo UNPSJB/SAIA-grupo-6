@@ -1,36 +1,39 @@
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
+  LuArchive,
   LuBadgeCheck,
   LuBeaker,
-  LuFileSearch,
-  LuMapPin,
+  LuBoxes,
   LuBrush,
   LuCalendarClock,
   LuChartPie,
-  LuClipboardCheck,
+  LuChefHat,
   LuClipboardList,
-  LuDatabase,
+  LuCog,
+  LuContact,
+  LuCookingPot,
   LuFactory,
+  LuFileSearch,
   LuFileText,
   LuFlaskConical,
   LuFolderSearch,
+  LuGlobe,
   LuHistory,
-  LuBoxes,
-  LuCookingPot,
-  LuRoute,
-  LuWarehouse,
   LuHouse,
   LuListChecks,
+  LuMapPin,
   LuMicroscope,
   LuPackage,
-  LuPackagePlus,
   LuRuler,
+  LuSettings,
+  LuShieldCheck,
   LuSparkles,
+  LuSprayCan,
   LuTriangleAlert,
   LuTruck,
   LuUsers,
+  LuWarehouse,
   LuWrench,
-  LuGlobe,
 } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
 
@@ -69,139 +72,148 @@ export interface GrupoMenu {
 }
 
 /**
- * Secciones del sidebar.
+ * Secciones del sidebar, agrupadas por área de trabajo.
  *
- * Antes eran 17 enlaces en una sola lista plana. Con el panel completo no
- * entraban todos sin zoom out y, peor, no había forma de hacer scroll: los
- * últimos (Gestión de Incidentes, Documentos) quedaban inalcanzables en
- * pantallas de notebook.
+ * Antes eran dos grupos ("Datos maestros" con 13 entradas y "Operaciones" con
+ * 14), divididos por naturaleza del dato. Para encontrar algo había que saber
+ * si era un catálogo o una operación: los planes de limpieza estaban en
+ * Operaciones y los elementos de limpieza en Datos maestros, y el stock
+ * aparecía en tres lugares con nombres parecidos ("Stock de Insumos",
+ * "Gestión de Stock", "Insumos Químicos").
  *
- * La división es por naturaleza del dato, no por módulo:
+ * Ahora cada grupo es un área, y dentro de cada una van primero las entradas
+ * del día a día y después los catálogos. Los dos stocks quedan cada uno en su
+ * área y con nombre propio: "Stock de insumos" (materia prima, Inventario) y
+ * "Stock de químicos" (productos de limpieza, Limpieza).
  *
- *   - Datos maestros: el catálogo que se carga una vez y cambia poco
- *     (equipos, personal, unidades, insumos, aptitudes, documentos).
- *   - Operaciones: lo que se consulta todos los días (checklists,
- *     incidentes, planes, calibraciones, historial, consumo).
+ * Tampoco hay entrada "Trazabilidad": la trazabilidad hacia atrás está en la
+ * ficha de cada lote, y la hacia adelante se abre desde Stock de insumos →
+ * Lotes recibidos. Las dos listas buscan por número de lote.
+ *
+ * Las acciones no son entradas: "Registrar lote" es el botón "Nuevo lote" del
+ * listado de lotes. "Reportar incidente" sí queda, porque para quien opera es
+ * la pantalla de sus reportes, no solo el formulario.
+ *
+ * Los grupos arrancan cerrados y se abre solo el de la pantalla actual
+ * (`Navbar`), así que siete grupos no alargan el menú.
  */
 export const GRUPOS: GrupoMenu[] = [
   {
-    id: "maestros",
-    label: "Datos maestros",
-    ayuda: "Catálogos y configuración",
-    icon: LuDatabase,
+    id: "produccion",
+    label: "Producción",
+    ayuda: "Lotes, recetas y productos",
+    icon: LuChefHat,
     entradas: [
-      { to: "/equipos", label: "Equipos", rol: "administrar", icon: LuMicroscope },
-      { to: "/personal", label: "Personal", rol: "administrar", icon: LuUsers },
-      {
-        to: "/unidades-medida",
-        label: "Unidades de Medida",
-        rol: "administrar",
-        icon: LuRuler,
-      },
-      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
+      { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
+      // E9: la receta vigente se consulta como el checklist diario.
+      { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
-      { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
-      {
-        to: "/insumos-quimicos",
-        label: "Insumos Químicos",
-        rol: "administrar",
-        icon: LuFlaskConical,
-      },
-      { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
-      {
-        to: "/elementos-limpieza",
-        label: "Elementos de Limpieza",
-        rol: "administrar",
-        icon: LuBrush,
-      },
-      { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
-      { to: "/sectores", label: "Sectores", rol: "administrar", icon: LuMapPin },
-      { to: "/auditoria", label: "Auditoría", rol: "administrar", icon: LuFileSearch },
-      
-      { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
     ],
   },
   {
-    id: "operaciones",
-    label: "Operaciones",
-    ayuda: "Trabajo diario",
-    icon: LuClipboardCheck,
+    id: "inventario",
+    label: "Inventario",
+    ayuda: "Materia prima y proveedores",
+    icon: LuArchive,
     entradas: [
-      { to: "/checklist", label: "Checklist Diario", rol: "operar", icon: LuListChecks },
-      // E9: la receta vigente se consulta como el checklist diario.
-      { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
+      { to: "/stock-insumos", label: "Stock de insumos", rol: "administrar", icon: LuWarehouse },
+      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
+      { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
+      { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
+    ],
+  },
+  {
+    id: "limpieza",
+    label: "Limpieza",
+    ayuda: "Checklist, planes y químicos",
+    icon: LuSprayCan,
+    entradas: [
+      { to: "/checklist", label: "Checklist diario", rol: "operar", icon: LuListChecks },
       {
-        to: "/lotes/nuevo",
-        label: "Registrar Lote",
-        rol: "operar",
-        icon: LuPackagePlus,
+        to: "/checklist/historial",
+        label: "Historial de checklists",
+        rol: "administrar",
+        icon: LuHistory,
+      },
+      { to: "/planes-limpieza", label: "Planes de limpieza", rol: "administrar", icon: LuSparkles },
+      { to: "/gestion-stock", label: "Stock de químicos", rol: "administrar", icon: LuChartPie },
+      {
+        to: "/insumos-quimicos",
+        label: "Insumos químicos",
+        rol: "administrar",
+        icon: LuFlaskConical,
       },
       {
-        to: "/lotes",
-        label: "Lotes de Producción",
-        rol: "operar",
-        icon: LuFactory,
+        to: "/elementos-limpieza",
+        label: "Elementos de limpieza",
+        rol: "administrar",
+        icon: LuBrush,
       },
+    ],
+  },
+  {
+    id: "equipos",
+    label: "Equipos",
+    ayuda: "Equipos y su mantenimiento",
+    icon: LuCog,
+    entradas: [
+      { to: "/equipos", label: "Equipos", rol: "administrar", icon: LuMicroscope },
+      {
+        to: "/planes-calibracion-mantenimiento",
+        label: "Calibración y mantenimiento",
+        rol: "administrar",
+        icon: LuWrench,
+      },
+    ],
+  },
+  {
+    id: "calidad",
+    label: "Calidad",
+    ayuda: "Incidentes, documentos y vencimientos",
+    icon: LuShieldCheck,
+    entradas: [
       {
         to: "/incidentes/reportar",
-        label: "Reportar Incidente",
+        label: "Reportar incidente",
         rol: "operar",
         icon: LuTriangleAlert,
       },
       {
         to: "/incidentes",
-        label: "Gestión de Incidentes",
+        label: "Gestión de incidentes",
         rol: "administrar",
         icon: LuClipboardList,
       },
-      {
-        to: "/planes-limpieza",
-        label: "Planes de Limpieza",
-        rol: "administrar",
-        icon: LuSparkles,
-      },
-      {
-        to: "/planes-calibracion-mantenimiento",
-        label: "Calibración/Mantenimiento",
-        rol: "administrar",
-        icon: LuWrench,
-      },
-      {
-        to: "/checklist/historial",
-        label: "Historial de Checklists",
-        rol: "administrar",
-        icon: LuHistory,
-      },
-      {
-        to: "/vencimientos",
-        label: "Vencimientos",
-        rol: "administrar",
-        icon: LuCalendarClock,
-      },
-      {
-        to: "/stock-insumos",
-        label: "Stock de Insumos",
-        rol: "administrar",
-        icon: LuWarehouse,
-      },
-      {
-        to: "/trazabilidad",
-        label: "Trazabilidad",
-        rol: "administrar",
-        icon: LuRoute,
-      },
-      {
-        to: "/gestion-stock",
-        label: "Gestión de Stock",
-        rol: "administrar",
-        icon: LuChartPie,
-      },
+      { to: "/vencimientos", label: "Vencimientos", rol: "administrar", icon: LuCalendarClock },
       {
         to: "/consulta-documentos",
-        label: "Consultar Documentos",
+        label: "Consultar documentos",
         rol: "operar",
         icon: LuFolderSearch,
       },
+      { to: "/documentos", label: "Documentos", rol: "administrar", icon: LuFileText },
+      { to: "/auditoria", label: "Auditoría", rol: "administrar", icon: LuFileSearch },
+    ],
+  },
+  {
+    id: "personas",
+    label: "Personas",
+    ayuda: "Personal y aptitudes",
+    icon: LuContact,
+    entradas: [
+      { to: "/personal", label: "Personal", rol: "administrar", icon: LuUsers },
+      { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
+    ],
+  },
+  {
+    id: "configuracion",
+    label: "Configuración",
+    ayuda: "Catálogos generales y vista pública",
+    icon: LuSettings,
+    entradas: [
+      { to: "/sectores", label: "Sectores", rol: "administrar", icon: LuMapPin },
+      { to: "/unidades-medida", label: "Unidades de medida", rol: "administrar", icon: LuRuler },
+      { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
     ],
   },
 ];
@@ -213,9 +225,8 @@ export const MENU: EntradaMenu[] = [
    * quede fijo arriba del todo: es la entrada más personal de la barra y no
    * debería scrollearse nunca.
    */
- // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
+  // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
-  { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
 ];
 
 export const TODAS_LAS_ENTRADAS: EntradaMenu[] = [

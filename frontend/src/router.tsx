@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, useParams } from "react-router-dom";
 import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
@@ -83,9 +83,6 @@ const RecetaCreatePage = lazy(() =>
 const RecetaDetallePage = lazy(() =>
   import("./features/recetas/components/pages/RecetaDetallePage").then((mod) => ({ default: mod.RecetaDetallePage })),
 );
-const RecetaEscaladoPage = lazy(() =>
-  import("./features/recetas/components/pages/RecetaEscaladoPage").then((mod) => ({ default: mod.RecetaEscaladoPage })),
-);
 const AditivosPage = lazy(() =>
   import("./features/aditivos/components/pages/AditivosPage").then((mod) => ({ default: mod.AditivosPage })),
 );
@@ -97,12 +94,6 @@ const StockInsumosPage = lazy(() =>
 );
 const LoteInsumoCreatePage = lazy(() =>
   import("./features/lotesInsumo/components/pages/LoteInsumoCreatePage").then((mod) => ({ default: mod.LoteInsumoCreatePage })),
-);
-const TrazabilidadPage = lazy(() =>
-  import("./features/trazabilidad/components/pages/TrazabilidadPage").then((mod) => ({ default: mod.TrazabilidadPage })),
-);
-const TrazabilidadLoteProductoPage = lazy(() =>
-  import("./features/trazabilidad/components/pages/TrazabilidadLoteProductoPage").then((mod) => ({ default: mod.TrazabilidadLoteProductoPage })),
 );
 const TrazabilidadLoteInsumoPage = lazy(() =>
   import("./features/trazabilidad/components/pages/TrazabilidadLoteInsumoPage").then((mod) => ({ default: mod.TrazabilidadLoteInsumoPage })),
@@ -387,6 +378,15 @@ function LayoutPrincipal() {
   );
 }
 
+/**
+ * Redirección de una ruta vieja con `:id` a la pantalla que la reemplazó, para
+ * no romper enlaces guardados ni los de notificaciones ya enviadas.
+ */
+function RedirigirConId({ a }: { a: (id: string) => string }) {
+  const { id = "" } = useParams<{ id: string }>();
+  return <Navigate to={a(id)} replace />;
+}
+
 export const router = createBrowserRouter([
   {
     path: "/publico/:codigo",
@@ -470,13 +470,11 @@ export const router = createBrowserRouter([
                   </ConSuspense>
                 ),
               },
+              // Escalar una receta era la misma calculadora que "Nuevo lote" y
+              // terminaba en "Iniciar lote con estas cantidades": se unificó.
               {
                 path: "/recetas/:id/escalar",
-                element: (
-                  <ConSuspense>
-                    <RecetaEscaladoPage />
-                  </ConSuspense>
-                ),
+                element: <RedirigirConId a={(id) => `/lotes/nuevo?receta=${id}`} />,
               },
               {
                 path: "/lotes/nuevo",
@@ -847,21 +845,16 @@ export const router = createBrowserRouter([
                   </ConSuspense>
                 ),
               },
+              // La pantalla de inicio de Trazabilidad era un selector de lotes:
+              // hoy se busca el lote en su lista y la trazabilidad está en la ficha.
               {
                 path: "/trazabilidad",
-                element: (
-                  <ConSuspense>
-                    <TrazabilidadPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/lotes" replace />,
               },
+              // La trazabilidad hacia atrás vive ahora en la ficha del lote.
               {
                 path: "/trazabilidad/lotes-producto/:id",
-                element: (
-                  <ConSuspense>
-                    <TrazabilidadLoteProductoPage />
-                  </ConSuspense>
-                ),
+                element: <RedirigirConId a={(id) => `/lotes/${id}`} />,
               },
               {
                 path: "/trazabilidad/lotes-insumo/:id",

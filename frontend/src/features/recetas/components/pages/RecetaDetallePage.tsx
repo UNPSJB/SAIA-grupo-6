@@ -40,9 +40,25 @@ export function RecetaDetallePage() {
     id: Number.isFinite(recetaId) ? recetaId : null,
     etiqueta: "la receta",
   });
-  const { versiones } = useVersiones(recetaId);
+  // Mientras se cargan las versiones de otra receta, `versiones` todavía
+  // tiene las de la anterior: no se ofrece el historial hasta que lleguen.
+  const { versiones, loading: cargandoVersiones } = useVersiones(recetaId);
   const [verHistorial, setVerHistorial] = useState(false);
   const [elegida, setElegida] = useState<number | null>(null);
+
+  /*
+   * Al pasar de una receta a otra (enlace "Receta usada" de un lote, atrás /
+   * adelante del navegador) React reusa este componente: sin esto, el
+   * historial abierto y la versión elegida de la receta anterior seguían
+   * aplicándose a la nueva. Se ajusta el estado durante el render, el patrón
+   * que React documenta para "resetear al cambiar una prop".
+   */
+  const [recetaMostrada, setRecetaMostrada] = useState(recetaId);
+  if (recetaMostrada !== recetaId) {
+    setRecetaMostrada(recetaId);
+    setVerHistorial(false);
+    setElegida(null);
+  }
 
   const vigenteId = receta?.version_vigente?.id ?? null;
   const versionId = elegida ?? vigenteId;
@@ -71,9 +87,9 @@ export function RecetaDetallePage() {
       acciones={
           <>
             {receta?.version_vigente && (
-              <BotonCancelar onClick={() => navigate(`/recetas/${receta.id}/escalar`)}>
+              <BotonCancelar onClick={() => navigate(`/lotes/nuevo?receta=${receta.id}`)}>
                 <LuCalculator aria-hidden />
-                Escalar a mi lote
+                Escalar e iniciar lote
               </BotonCancelar>
             )}
             {esAdmin && receta && (
@@ -103,17 +119,26 @@ export function RecetaDetallePage() {
               )}
             </HStack>
           }
+          /*
+           * Con una sola versión no hay historial que ver: antes el botón
+           * abría una tabla con una única fila (la vigente) y parecía que las
+           * versiones anteriores no se estaban mostrando.
+           */
           acciones={
             verHistorial ? (
               <BotonCancelar size="sm" onClick={cerrarHistorial}>
                 Volver a la versión vigente
               </BotonCancelar>
-            ) : (
+            ) : cargandoVersiones ? undefined : versiones.length > 1 ? (
               <BotonCancelar size="sm" onClick={() => setVerHistorial(true)}>
                 <LuHistory aria-hidden />
-                Ver historial
+                Ver historial ({versiones.length} versiones)
               </BotonCancelar>
-            )
+            ) : versiones.length === 1 ? (
+              <Text fontSize="sm" color="fg.muted">
+                Única versión: todavía no se modificó
+              </Text>
+            ) : undefined
           }
         >
 

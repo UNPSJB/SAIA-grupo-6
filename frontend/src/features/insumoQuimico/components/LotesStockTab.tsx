@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Table } from "@chakra-ui/react";
+import { Table } from "@chakra-ui/react";
 
 import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
 import {
@@ -25,12 +25,10 @@ import { useProveedores } from "../../proveedores/hooks/useProveedores";
 import { useLotesStock } from "../hooks/useLotesStock";
 import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
+import { cantidadConUnidad } from "../../../common/utils/numeros";
+import { formatoFecha } from "../../../common/utils/fechas";
 
 const PAGE_SIZE = 10;
-
-function fechaCorta(fecha: string) {
-  return fecha.includes("T") ? fecha.replace("T", " ").slice(0, 16) : fecha;
-}
 
 export function LotesStockTab() {
   const { proveedores } = useProveedores(true);
@@ -64,11 +62,16 @@ export function LotesStockTab() {
   return (
     <>
       <BarraFiltros
-        busqueda={<Box display="flex" flexDirection="column" gap="4"><CampoBusqueda valor={numeroLote} onCambio={setNumeroLote} placeholder="Buscar número de lote..." /><BotonesExportar nombreTabla="stock_lotes" vista="stock-lotes" filtros={{ proveedor_id: proveedor, insumo_quimico_id: producto, numero_lote: numeroLoteAplicado.trim() }} /></Box>}
+        busqueda={
+          <CampoBusqueda valor={numeroLote} onCambio={setNumeroLote} placeholder="Buscar número de lote..." />
+        }
         filtros={<>
           <FiltroSelect label="Proveedor" valor={proveedor} onCambio={setProveedor} opciones={proveedores.map((item) => ({ valor: String(item.id), etiqueta: `${item.nombre}${item.activo ? "" : " (dado de baja)"}` }))} todos="Todos los proveedores" />
           <FiltroSelect label="Producto" valor={producto} onCambio={setProducto} opciones={insumos.map((item) => ({ valor: String(item.id), etiqueta: `${item.nombre}${item.unidad_simbolo ? ` (${item.unidad_simbolo})` : ""}` }))} todos="Todos los productos" />
         </>}
+        herramientas={
+          <BotonesExportar nombreTabla="stock_lotes" vista="stock-lotes" filtros={{ proveedor_id: proveedor, insumo_quimico_id: producto, numero_lote: numeroLoteAplicado.trim() }} />
+        }
       />
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
       {error ? <BannerError>{error}</BannerError> : null}
@@ -77,7 +80,7 @@ export function LotesStockTab() {
         hayFiltros ? <EstadoVacioFiltrado onLimpiar={limpiarTodo}>No hay lotes que coincidan con los filtros aplicados.</EstadoVacioFiltrado> : <EstadoVacio>No hay lotes registrados.</EstadoVacio>
       ) : null}
       {!loading && !error && lotes.length > 0 ? <>
-        <Tarjeta overflowX="auto"><Table.Root variant="outline" size="sm" minW="750px"><Table.Header><FilaEncabezado><EncabezadoOscuro>Proveedor</EncabezadoOscuro><EncabezadoOscuro>Lote</EncabezadoOscuro><EncabezadoOscuro>Producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Cantidad producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Fecha ingreso</EncabezadoOscuro></FilaEncabezado></Table.Header><Table.Body>{lotes.map((lote) => <Table.Row key={lote.id}><Celda>{lote.proveedor_nombre}</Celda><Celda fontWeight="medium">{lote.numero_lote}</Celda><Celda>{lote.nombre_producto}</Celda><Celda>{lote.cantidad_producto} {lote.unidad_simbolo ?? ""}</Celda><Celda>{fechaCorta(lote.fecha_ingreso)}</Celda></Table.Row>)}</Table.Body></Table.Root></Tarjeta>
+        <Tarjeta overflowX="auto"><Table.Root variant="outline" size="sm" minW="750px"><Table.Header><FilaEncabezado><EncabezadoOscuro>Proveedor</EncabezadoOscuro><EncabezadoOscuro>Lote</EncabezadoOscuro><EncabezadoOscuro>Producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Cantidad producto</EncabezadoOscuro><EncabezadoOscuro ancho="media">Fecha ingreso</EncabezadoOscuro></FilaEncabezado></Table.Header><Table.Body>{lotes.map((lote) => <Table.Row key={lote.id}><Celda>{lote.proveedor_nombre}</Celda><Celda fontWeight="medium">{lote.numero_lote}</Celda><Celda>{lote.nombre_producto}</Celda><Celda>{cantidadConUnidad(lote.cantidad_producto, lote.unidad_simbolo)}</Celda><Celda>{formatoFecha(lote.fecha_ingreso)}</Celda></Table.Row>)}</Table.Body></Table.Root></Tarjeta>
         {hayVariasPaginas ? <Paginacion count={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} /> : null}
       </> : null}
     </>

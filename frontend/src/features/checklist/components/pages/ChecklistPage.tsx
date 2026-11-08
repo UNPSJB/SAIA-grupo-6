@@ -66,6 +66,7 @@ import {
   Tarjeta,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { formatoFechaHora } from "../../../../common/utils/fechas";
 
 // Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
 // src/checklist/router.py).
@@ -765,7 +766,7 @@ function FilaTarea({
                     </Text>
                   </HStack>
                   <Text fontSize="xs" color="fg.muted" mt="1">
-                    {new Date(ev.fecha_evento).toLocaleString()}
+                    {formatoFechaHora(ev.fecha_evento)}
                     {ev.usuario_nombre ? ` · por ${ev.usuario_nombre}` : ""}
                     {ev.evidencia_url ? " · con foto adjunta" : ""}
                   </Text>

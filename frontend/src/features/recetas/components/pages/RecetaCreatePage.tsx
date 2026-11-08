@@ -87,7 +87,7 @@ export function RecetaCreatePage() {
               required
               helper={
                 disponibles.length === 0
-                  ? "No hay productos sin receta. Creá primero el producto en Datos maestros."
+                  ? "No hay productos sin receta. Creá primero el producto en Producción → Productos."
                   : undefined
               }
             >

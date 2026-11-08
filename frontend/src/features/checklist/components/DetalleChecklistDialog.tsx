@@ -20,6 +20,8 @@ import type {
   DetalleChecklistResponse,
   HistorialChecklistItem,
 } from "../types/checklist";
+import { formatoCantidad, formatoPorcentaje } from "../../../common/utils/numeros";
+import { formatoFechaHora } from "../../../common/utils/fechas";
 
 interface DetalleChecklistDialogProps {
   isOpen: boolean;
@@ -42,9 +44,9 @@ function valorRegistrado(valor: string | number | null | undefined): string | nu
   return valor ?? "No registrado";
 }
 
-function formatoFechaHora(fecha: string | null | undefined): string {
-  if (!fecha) return "No registrado";
-  return new Date(fecha).toLocaleString();
+/** Fecha y hora es-AR; "No registrado" cuando falta. */
+function fechaHoraRegistro(fecha: string | null | undefined): string {
+  return fecha ? formatoFechaHora(fecha) : "No registrado";
 }
 
 /** Vista de solo lectura para la fotografía histórica de un checklist. */
@@ -158,7 +160,7 @@ export function DetalleChecklistDialog({
                   <Box>
                     <Text fontSize="xs" color="fg.muted">Cumplimiento</Text>
                     <Text fontWeight="bold">
-                      {detalle.porcentaje_cumplimiento.toFixed(0)}% ({detalle.tareas_completadas}/
+                      {formatoPorcentaje(detalle.porcentaje_cumplimiento)} ({detalle.tareas_completadas}/
                       {detalle.total_tareas})
                     </Text>
                   </Box>
@@ -203,7 +205,7 @@ export function DetalleChecklistDialog({
                       <SimpleGrid columns={{ base: 1, md: 2 }} gapX="6" gapY="3" fontSize="sm">
                         <Box>
                           <Text color="fg.muted">Fecha y hora de realización</Text>
-                          <Text>{formatoFechaHora(tarea.fecha_completado)}</Text>
+                          <Text>{fechaHoraRegistro(tarea.fecha_completado)}</Text>
                         </Box>
                         <Box>
                           <Text color="fg.muted">Responsable registrado</Text>
@@ -215,7 +217,7 @@ export function DetalleChecklistDialog({
                         </Box>
                         <Box>
                           <Text color="fg.muted">Cantidad consumida</Text>
-                          <Text>{valorRegistrado(tarea.cantidad_consumida)}</Text>
+                          <Text>{formatoCantidad(tarea.cantidad_consumida, "No registrado")}</Text>
                         </Box>
                         <Box>
                           <Text color="fg.muted">Unidad de medida</Text>

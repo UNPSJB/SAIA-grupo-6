@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, HStack, Table, Text } from "@chakra-ui/react";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
-import { BarraFiltros, FiltroSelect } from "../../../../components/ui/filtros";
+import { BarraFiltros, CampoBusqueda, FiltroSelect } from "../../../../components/ui/filtros";
 import {
   BadgeEstado,
   BannerError,
@@ -77,10 +77,29 @@ function TabLotes() {
     verBajas,
   );
   const [aBaja, setABaja] = useState<StockLoteInsumo | null>(null);
+  // Búsqueda por número de lote o proveedor: el punto de partida de la
+  // trazabilidad hacia adelante (en qué lotes de producto se usó).
+  const [busqueda, setBusqueda] = useState("");
+  const visibles = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    if (!texto) return lotes;
+    return lotes.filter(
+      (l) =>
+        l.numero_lote.toLowerCase().includes(texto) ||
+        l.proveedor_nombre.toLowerCase().includes(texto),
+    );
+  }, [lotes, busqueda]);
 
   return (
     <>
       <BarraFiltros
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Número de lote o proveedor..."
+          />
+        }
         filtros={
           <FiltroSelect
             label="Insumo"
@@ -99,11 +118,15 @@ function TabLotes() {
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando lotes...</EstadoCargando>}
-      {!loading && !error && lotes.length === 0 && (
-        <EstadoVacio>No hay lotes de insumo registrados.</EstadoVacio>
+      {!loading && !error && visibles.length === 0 && (
+        <EstadoVacio>
+          {busqueda.trim()
+            ? "No hay lotes de insumo que coincidan con la búsqueda."
+            : "No hay lotes de insumo registrados."}
+        </EstadoVacio>
       )}
 
-      {!loading && !error && lotes.length > 0 && (
+      {!loading && !error && visibles.length > 0 && (
         <Tarjeta overflowX="auto">
           <Table.Root variant="outline" w="100%" minW="1000px">
             <Table.Header>
@@ -118,7 +141,7 @@ function TabLotes() {
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
-              {lotes.map((l) => (
+              {visibles.map((l) => (
                 <Table.Row key={l.lote_insumo_id} opacity={l.activo ? 1 : 0.65}>
                   <Celda>{l.insumo_nombre}</Celda>
                   <Celda>{l.proveedor_nombre}</Celda>

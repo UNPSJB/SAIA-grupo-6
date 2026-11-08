@@ -39,6 +39,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
+import { formatoPorcentaje } from "../../../../common/utils/numeros";
 
 const PAGE_SIZE = 10;
 
@@ -331,7 +332,7 @@ export function HistorialChecklistPage() {
               fontWeight="bold"
               color={colorPorcentaje(historial.porcentaje_cumplimiento_general)}
             >
-              {historial.porcentaje_cumplimiento_general.toFixed(0)}%
+              {formatoPorcentaje(historial.porcentaje_cumplimiento_general)}
             </Text>
           </Text>
 
@@ -386,7 +387,7 @@ export function HistorialChecklistPage() {
                       </Celda>
                       <Celda center>
                         <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
-                          {cl.porcentaje_cumplimiento.toFixed(0)}%
+                          {formatoPorcentaje(cl.porcentaje_cumplimiento)}
                         </Text>
                         <Text fontSize="xs" color="fg.muted">
                           {cl.tareas_completadas}/{cl.total_tareas}

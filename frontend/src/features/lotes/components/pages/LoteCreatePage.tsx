@@ -22,8 +22,13 @@ import { TablaEscalado } from "../../../recetas/components/TablaEscalado";
 import { crearLote } from "../../services/loteService";
 
 /**
- * Nuevo lote de producción. Se puede llegar desde la vista escalada de una
- * receta (E9): `?receta=ID&cantidad=N` precarga el producto y la cantidad.
+ * Nuevo lote de producción, que también es la calculadora de escalado (E9).
+ *
+ * Antes había una pantalla aparte "Escalar receta" con la misma calculadora
+ * (producto, cantidad o factor y tabla escalada) que terminaba en "Iniciar
+ * lote con estas cantidades" y traía de vuelta acá. Desde una receta se llega
+ * con `?receta=ID` (y opcionalmente `&cantidad=N` o `&factor=N`); calcular no
+ * crea nada hasta tocar "Crear lote".
  */
 export function LoteCreatePage() {
   const navigate = useNavigate();
@@ -75,9 +80,10 @@ export function LoteCreatePage() {
   return (
     <PaginaFormulario
       ancho="ancho"
-      volver={{ a: "/lotes", etiqueta: "Lotes" }}
+      // Se llega desde la lista de lotes o desde una receta.
+      volver={{ a: "/lotes", etiqueta: "Lotes", historial: true }}
       titulo="Nuevo lote de producción"
-      descripcion="El lote usa la versión vigente de la receta y genera su checklist con las tareas de esa versión."
+      descripcion="Calculá las cantidades de cada insumo para lo que vas a elaborar. El lote se crea recién al confirmar, con la versión vigente de la receta y su checklist."
       error={error}
     >
       {errorRecetas && <BannerError>{errorRecetas}</BannerError>}
@@ -152,7 +158,7 @@ export function LoteCreatePage() {
               {cantidadConUnidad(escalado.cantidad_objetivo, simbolo)}). Estas son las cantidades
               planificadas:
             </Text>
-            <TablaEscalado escalado={escalado} conTareas={false} />
+            <TablaEscalado escalado={escalado} />
           </Box>
         )}
 

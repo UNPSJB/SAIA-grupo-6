@@ -10,6 +10,7 @@ import { haceDiasISO, hoyISO } from "../../../common/utils/fechas";
 import { useDashboardLotes } from "../hooks/useLotes";
 import { GraficoProduccion } from "./GraficoProduccion";
 import { TarjetaPanel } from "../../dashboard/components/TarjetaPanel";
+import { formatoCantidad } from "../../../common/utils/numeros";
 
 export function TarjetaProduccion() {
   const [fechaDesde, setFechaDesde] = useState(() => haceDiasISO(30));
@@ -25,6 +26,7 @@ export function TarjetaProduccion() {
       titulo="Producción por producto"
       descripcion="Cantidad producida por producto en el período seleccionado"
       h="auto"
+      flex="1"
       acciones={
         <HStack gap="3" flexWrap="wrap">
           <Box minW="150px">
@@ -62,13 +64,13 @@ export function TarjetaProduccion() {
             <Text fontSize="sm" color="fg.muted">
               Total producido:{" "}
               <Text as="span" fontWeight="bold" color="fg">
-                {dashboard.total_cantidad_producida}
+                {formatoCantidad(dashboard.total_cantidad_producida)}
               </Text>
             </Text>
             <Text fontSize="sm" color="fg.muted">
               Lotes registrados:{" "}
               <Text as="span" fontWeight="bold" color="fg">
-                {dashboard.total_lotes}
+                {formatoCantidad(dashboard.total_lotes)}
               </Text>
             </Text>
           </HStack>

@@ -9,11 +9,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { EXITO, PELIGRO } from "../../../common/theme/tokens";
 import type { PuntoSerie } from "../types/dashboard";
 
-const COLOR_INICIADOS = PELIGRO;
-const COLOR_RESUELTOS = EXITO;
+// Rojo = abierto, verde = resuelto: el mismo código que los badges de estado.
+// Tokens del tema: el gráfico sigue a la paleta igual que el resto de la app.
+const COLOR_INICIADOS = "var(--chakra-colors-red-500)";
+const COLOR_RESUELTOS = "var(--chakra-colors-green-600)";
 const COLOR_TEXTO = "var(--chakra-colors-gray-600)";
 
 /** Alto del gráfico. El ancho lo toma de la tarjeta. */

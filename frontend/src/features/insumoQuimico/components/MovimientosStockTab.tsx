@@ -29,6 +29,8 @@ import { useMovimientosStock } from "../hooks/useMovimientosStock";
 import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
 import type { TipoMovimientoStock } from "../types/stock";
+import { formatoConSigno } from "../../../common/utils/numeros";
+import { formatoFechaHora } from "../../../common/utils/fechas";
 
 const PAGE_SIZE = 10;
 
@@ -39,15 +41,6 @@ const ETIQUETAS_TIPO: Record<TipoMovimientoStock, string> = {
   consumo_automatico: "Consumo automático",
   reverso_consumo: "Reverso de consumo",
 };
-
-function fechaCorta(fecha: string | null) {
-  return fecha ? (fecha.includes("T") ? fecha.replace("T", " ").slice(0, 16) : fecha) : "-";
-}
-
-function cantidadConSigno(cantidad: number | string) {
-  const numero = Number(cantidad);
-  return `${Number.isFinite(numero) && numero > 0 ? "+" : ""}${cantidad}`;
-}
 
 function checklistDesdeMovimiento(checklistId: number, fecha: string | null): HistorialChecklistItem {
   return { checklist_id: checklistId, fecha: fecha ?? "", equipo_id: 0, equipo_nombre: "", estado: "abierto", total_tareas: 0, tareas_completadas: 0, porcentaje_cumplimiento: 0, tareas_incumplidas: [] };
@@ -100,7 +93,7 @@ export function MovimientosStockTab() {
   return (
     <>
       <BarraFiltros
-        busqueda={<BotonesExportar nombreTabla="stock_movimientos" vista="stock-movimientos" filtros={{ insumo_quimico_id: filtros.producto, fecha_desde: filtros.fechaDesde, fecha_hasta: filtros.fechaHasta, tipo: filtros.tipo }} />}
+        herramientas={<BotonesExportar nombreTabla="stock_movimientos" vista="stock-movimientos" filtros={{ insumo_quimico_id: filtros.producto, fecha_desde: filtros.fechaDesde, fecha_hasta: filtros.fechaHasta, tipo: filtros.tipo }} />}
         filtros={<>
           <FiltroSelect label="Producto" valor={producto} onCambio={setProducto} opciones={insumos.map((insumo) => ({ valor: String(insumo.id), etiqueta: `${insumo.nombre}${insumo.unidad_simbolo ? ` (${insumo.unidad_simbolo})` : ""}` }))} todos="Todos los productos" />
           <Box minW="150px"><LabelFiltro>Desde</LabelFiltro><FormInput type="date" value={fechaDesde} max={fechaHasta} onChange={(event) => setFechaDesde(event.target.value)} /></Box>
@@ -118,9 +111,9 @@ export function MovimientosStockTab() {
       ) : null}
       {!loading && !error && movimientos.length > 0 ? <>
         <Tarjeta display={{ base: "none", md: "block" }}>
-          <Table.Root variant="outline" size="sm"><Table.Header><FilaEncabezado><EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro><EncabezadoOscuro>Producto</EncabezadoOscuro><EncabezadoOscuro ancho="amplia">Tipo</EncabezadoOscuro><EncabezadoOscuro ancho="angosta">Variación</EncabezadoOscuro><EncabezadoOscuro ancho="amplia">Responsable</EncabezadoOscuro><EncabezadoOscuro ancho="amplia">Detalle</EncabezadoOscuro></FilaEncabezado></Table.Header><Table.Body>{movimientos.map((movimiento) => <Table.Row key={movimiento.id}><Celda>{fechaCorta(movimiento.fecha)}</Celda><Celda fontWeight="medium">{movimiento.nombre_producto} {movimiento.unidad_simbolo ? `(${movimiento.unidad_simbolo})` : ""}</Celda><Celda>{ETIQUETAS_TIPO[movimiento.tipo]}</Celda><Celda color={Number(movimiento.cantidad_variacion) < 0 ? "red.fg" : "green.fg"} fontWeight="bold">{cantidadConSigno(movimiento.cantidad_variacion)}</Celda><Celda>{movimiento.responsable_nombre ?? "Sistema"}</Celda><Celda>{movimiento.checklist_id !== null ? <BotonTexto onClick={() => setChecklistSeleccionado(checklistDesdeMovimiento(movimiento.checklist_id!, movimiento.checklist_fecha))}>{movimiento.tarea_nombre ?? `Checklist #${movimiento.checklist_id}`}</BotonTexto> : movimiento.motivo ?? "-"}</Celda></Table.Row>)}</Table.Body></Table.Root>
+          <Table.Root variant="outline" size="sm"><Table.Header><FilaEncabezado><EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro><EncabezadoOscuro>Producto</EncabezadoOscuro><EncabezadoOscuro ancho="amplia">Tipo</EncabezadoOscuro><EncabezadoOscuro ancho="angosta">Variación</EncabezadoOscuro><EncabezadoOscuro ancho="amplia">Responsable</EncabezadoOscuro><EncabezadoOscuro ancho="amplia">Detalle</EncabezadoOscuro></FilaEncabezado></Table.Header><Table.Body>{movimientos.map((movimiento) => <Table.Row key={movimiento.id}><Celda>{formatoFechaHora(movimiento.fecha)}</Celda><Celda fontWeight="medium">{movimiento.nombre_producto} {movimiento.unidad_simbolo ? `(${movimiento.unidad_simbolo})` : ""}</Celda><Celda>{ETIQUETAS_TIPO[movimiento.tipo]}</Celda><Celda color={Number(movimiento.cantidad_variacion) < 0 ? "red.fg" : "green.fg"} fontWeight="bold">{formatoConSigno(movimiento.cantidad_variacion)}</Celda><Celda>{movimiento.responsable_nombre ?? "Sistema"}</Celda><Celda>{movimiento.checklist_id !== null ? <BotonTexto onClick={() => setChecklistSeleccionado(checklistDesdeMovimiento(movimiento.checklist_id!, movimiento.checklist_fecha))}>{movimiento.tarea_nombre ?? `Checklist #${movimiento.checklist_id}`}</BotonTexto> : movimiento.motivo ?? "-"}</Celda></Table.Row>)}</Table.Body></Table.Root>
         </Tarjeta>
-        <Stack display={{ base: "flex", md: "none" }} gap="3">{movimientos.map((movimiento) => <Tarjeta key={movimiento.id} p="4"><HStack justify="space-between" align="flex-start" gap="3"><Box><Text fontWeight="bold">{movimiento.nombre_producto}</Text><Text color="fg.muted" fontSize="sm">{fechaCorta(movimiento.fecha)}</Text></Box><Text color={Number(movimiento.cantidad_variacion) < 0 ? "red.fg" : "green.fg"} fontWeight="bold">{cantidadConSigno(movimiento.cantidad_variacion)} {movimiento.unidad_simbolo ?? ""}</Text></HStack><Text mt="3" fontSize="sm">{ETIQUETAS_TIPO[movimiento.tipo]}</Text><Box color="fg.muted" fontSize="sm" mt="1">{movimiento.checklist_id !== null ? <BotonTexto onClick={() => setChecklistSeleccionado(checklistDesdeMovimiento(movimiento.checklist_id!, movimiento.checklist_fecha))}>{movimiento.tarea_nombre ?? `Checklist #${movimiento.checklist_id}`}</BotonTexto> : movimiento.motivo ?? movimiento.responsable_nombre ?? "Sin detalle"}</Box></Tarjeta>)}</Stack>
+        <Stack display={{ base: "flex", md: "none" }} gap="3">{movimientos.map((movimiento) => <Tarjeta key={movimiento.id} p="4"><HStack justify="space-between" align="flex-start" gap="3"><Box><Text fontWeight="bold">{movimiento.nombre_producto}</Text><Text color="fg.muted" fontSize="sm">{formatoFechaHora(movimiento.fecha)}</Text></Box><Text color={Number(movimiento.cantidad_variacion) < 0 ? "red.fg" : "green.fg"} fontWeight="bold">{formatoConSigno(movimiento.cantidad_variacion)} {movimiento.unidad_simbolo ?? ""}</Text></HStack><Text mt="3" fontSize="sm">{ETIQUETAS_TIPO[movimiento.tipo]}</Text><Box color="fg.muted" fontSize="sm" mt="1">{movimiento.checklist_id !== null ? <BotonTexto onClick={() => setChecklistSeleccionado(checklistDesdeMovimiento(movimiento.checklist_id!, movimiento.checklist_fecha))}>{movimiento.tarea_nombre ?? `Checklist #${movimiento.checklist_id}`}</BotonTexto> : movimiento.motivo ?? movimiento.responsable_nombre ?? "Sin detalle"}</Box></Tarjeta>)}</Stack>
         {hayVariasPaginas ? <Paginacion count={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} /> : null}
       </> : null}
       {checklistSeleccionado ? <DetalleChecklistDialog isOpen checklist={checklistSeleccionado} onClose={() => setChecklistSeleccionado(null)} /> : null}

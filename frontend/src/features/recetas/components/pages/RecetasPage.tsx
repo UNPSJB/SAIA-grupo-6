@@ -88,8 +88,8 @@ export function RecetasPage() {
                       {receta.version_vigente && (
                         <BotonAccion
                           accion="escalar"
-                          label="Escalar a mi lote"
-                          onClick={() => navigate(`/recetas/${receta.id}/escalar`)}
+                          label="Escalar e iniciar lote"
+                          onClick={() => navigate(`/lotes/nuevo?receta=${receta.id}`)}
                         />
                       )}
                     </HStack>

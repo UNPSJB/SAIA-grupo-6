@@ -142,7 +142,7 @@ export function InsumoForm({
           label="Aditivo de la lista de referencia"
           required
           mb="0"
-          helper="Clase funcional, nombre completo y número INS. Si no está, agregalo en Datos maestros → Aditivos."
+          helper="Clase funcional, nombre completo y número INS. Si no está, agregalo en Inventario → Aditivos."
         >
           <FormNativeSelect
             value={values.aditivo_id ?? 0}

@@ -13,6 +13,7 @@ import {
   LabelFiltro,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { cantidadConUnidad } from "../../../../common/utils/numeros";
 
 export function ConsumoInsumosPage() {
   const {
@@ -95,7 +96,7 @@ export function ConsumoInsumosPage() {
                   <Box key={total.unidad_medida_id} bg="bg.muted" rounded="md" px="3" py="2">
                     <Text fontSize="xs" color="fg.muted">Unidad {total.unidad_simbolo ?? "sin símbolo"}</Text>
                     <Text fontSize="lg" fontWeight="bold">
-                      {total.cantidad_total} {total.unidad_simbolo ?? ""}
+                      {cantidadConUnidad(total.cantidad_total, total.unidad_simbolo)}
                     </Text>
                   </Box>
                 ))}
@@ -125,7 +126,7 @@ export function ConsumoInsumosPage() {
                     <Table.Row key={insumo.insumo_quimico_id}>
                       <Celda>{insumo.nombre}</Celda>
                       <Celda>
-                        {insumo.cantidad_total} {insumo.unidad_simbolo ?? ""}
+                        {cantidadConUnidad(insumo.cantidad_total, insumo.unidad_simbolo)}
                       </Celda>
                       <Celda>{insumo.cantidad_registros}</Celda>
                     </Table.Row>
@@ -155,7 +156,7 @@ export function ConsumoInsumosPage() {
                     <Table.Row key={`${item.fecha}-${item.insumo_quimico_id}`}>
                       <Celda>{item.fecha}</Celda>
                       <Celda>{item.nombre}</Celda>
-                      <Celda>{item.cantidad_total} {item.unidad_simbolo ?? ""}</Celda>
+                      <Celda>{cantidadConUnidad(item.cantidad_total, item.unidad_simbolo)}</Celda>
                     </Table.Row>
                   ))}
                 </Table.Body>

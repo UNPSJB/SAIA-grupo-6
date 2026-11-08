@@ -23,7 +23,7 @@ import {
 } from "@chakra-ui/react";
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
-  LuArrowUp,
+  LuArrowUpDown,
   LuCalculator,
   LuChevronLeft,
   LuChevronRight,
@@ -31,10 +31,12 @@ import {
   LuChevronsRight,
   LuCircleCheck,
   LuExternalLink,
+  LuGauge,
   LuEye,
   LuHistory,
   LuImage,
   LuLink,
+  LuPackagePlus,
   LuPencil,
   LuPlus,
   LuRefreshCw,
@@ -451,9 +453,14 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   cerrar: LuCircleCheck,
   reabrir: LuRotateCcw,
   intervenir: LuWrench,
-  ingreso: LuArrowUp,
-  ajuste: LuPencil,
-  minimo: LuPencil,
+  /*
+   * Ingreso, ajuste y mínimo conviven en la misma fila de Gestión de stock.
+   * Antes ajuste y mínimo usaban el mismo lápiz que "editar": dos botones
+   * idénticos uno al lado del otro, distinguibles solo por el tooltip.
+   */
+  ingreso: LuPackagePlus,
+  ajuste: LuArrowUpDown,
+  minimo: LuGauge,
   asociar: LuLink,
   escalar: LuCalculator,
 };

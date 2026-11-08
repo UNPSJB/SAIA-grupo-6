@@ -6,13 +6,18 @@ import { puedeAdministrar } from "../../../../common/api/permissions";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { useAuth } from "../../../../common/context/useAuth";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
-import { formatoFechaHora } from "../../../../common/utils/fechas";
-import { cantidadConUnidad } from "../../../../common/utils/numeros";
+import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
+import { cantidadConUnidad, formatoFactor } from "../../../../common/utils/numeros";
 import {
   BannerError,
+  BotonAccion,
   BotonCancelar,
+  BotonTexto,
   Celda,
+  EncabezadoOscuro,
   EstadoCargando,
+  EstadoVacio,
+  FilaEncabezado,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 import {
@@ -22,6 +27,8 @@ import {
   PaginaDetalle,
   SeccionDetalle,
 } from "../../../../components/ui/plantillas";
+import { trazarLoteProducto } from "../../../trazabilidad/services/trazabilidadService";
+import type { TrazabilidadLoteProducto } from "../../../trazabilidad/types/trazabilidad";
 import { cancelarLote, completarItem, obtenerLote } from "../../services/loteService";
 import { esLoteCerrado, type ItemChecklist, type LoteDetalle } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
@@ -152,6 +159,72 @@ function ItemCard({
   );
 }
 
+/**
+ * Lotes de insumo usados y sus proveedores: lo que antes era la pantalla
+ * aparte "Trazabilidad del lote". Esa pantalla repetía los datos del lote y
+ * las tareas con sus consumos, y las dos se enlazaban entre sí ("Ver
+ * trazabilidad" ↔ "Abrir lote"): un ida y vuelta para ver la misma ficha.
+ * Ahora lo único que aportaba —vencimiento, proveedor y matrícula de cada
+ * lote de insumo— vive acá. Solo para administración: el endpoint lo es.
+ */
+function SeccionTrazabilidad({ traza }: { traza: TrazabilidadLoteProducto }) {
+  const navigate = useNavigate();
+  return (
+    <SeccionDetalle
+      sinMarco
+      titulo="Lotes de insumo y proveedores"
+      descripcion="Trazabilidad hacia atrás: de qué lote de insumo y de qué proveedor salió cada consumo."
+      mb="0"
+    >
+      {traza.lotes_insumo.length === 0 ? (
+        <EstadoVacio>Todavía no hay consumos registrados.</EstadoVacio>
+      ) : (
+        <Tarjeta overflowX="auto">
+          <Table.Root variant="outline" w="100%" minW="720px">
+            <Table.Header>
+              <FilaEncabezado>
+                <EncabezadoOscuro>Insumo</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="amplia">Lote de insumo</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Vence</EncabezadoOscuro>
+                <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
+                <EncabezadoOscuro center width="10%">
+                  Usos
+                </EncabezadoOscuro>
+              </FilaEncabezado>
+            </Table.Header>
+            <Table.Body>
+              {traza.lotes_insumo.map((l) => (
+                <Table.Row key={l.id}>
+                  <Celda>{l.insumo_nombre}</Celda>
+                  <Celda>
+                    <Text fontFamily="mono" fontSize="sm">
+                      {l.numero_lote}
+                    </Text>
+                  </Celda>
+                  <Celda>{formatoFecha(l.fecha_vencimiento)}</Celda>
+                  <Celda>
+                    {l.proveedor.nombre}
+                    <Text fontSize="xs" color="fg.muted">
+                      Matrícula {l.proveedor.matricula}
+                    </Text>
+                  </Celda>
+                  <Celda center>
+                    <BotonAccion
+                      accion="historial"
+                      label="Ver en qué otros lotes de producto se usó"
+                      onClick={() => navigate(`/trazabilidad/lotes-insumo/${l.id}`)}
+                    />
+                  </Celda>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </Tarjeta>
+      )}
+    </SeccionDetalle>
+  );
+}
+
 export function LoteDetallePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -159,11 +232,22 @@ export function LoteDetallePage() {
   const { id } = useParams<{ id: string }>();
   const loteId = Number(id);
 
-  const { registro: lote, loading, error, recargar } = useRegistro({
+  const idValido = Number.isFinite(loteId) ? loteId : null;
+  const { registro: lote, loading, error, recargar: recargarLote } = useRegistro({
     cargar: obtenerLote,
-    id: Number.isFinite(loteId) ? loteId : null,
+    id: idValido,
     etiqueta: "el lote",
   });
+  // Trazabilidad: solo administración (el endpoint lo exige).
+  const { registro: traza, recargar: recargarTraza } = useRegistro({
+    cargar: trazarLoteProducto,
+    id: esAdmin ? idValido : null,
+    etiqueta: "la trazabilidad del lote",
+  });
+  // Un consumo nuevo cambia también la trazabilidad: se recargan juntas.
+  const recargar = async () => {
+    await Promise.all([recargarLote(), esAdmin ? recargarTraza() : Promise.resolve()]);
+  };
 
   const [consumiendo, setConsumiendo] = useState<ItemChecklist | null>(null);
   const [cerrando, setCerrando] = useState(false);
@@ -192,20 +276,15 @@ export function LoteDetallePage() {
 
   return (
     <PaginaDetalle
-      volver={{ a: "/lotes", etiqueta: "Lotes" }}
+      // Se llega desde la lista, desde un lote de insumo o desde Trazabilidad:
+      // "Volver" regresa a la pantalla de origen.
+      volver={{ a: "/lotes", etiqueta: "Lotes", historial: true }}
       titulo={lote ? `Lote ${lote.numero_lote}` : "Lote"}
       estado={lote ? <BadgeEstadoLote estado={lote.estado} /> : undefined}
       descripcion={
         lote
           ? `${lote.producto_nombre} · receta ${lote.version_numero ? `v${lote.version_numero}` : "sin versión (lote histórico)"}`
           : undefined
-      }
-      acciones={
-        esAdmin && lote ? (
-          <BotonCancelar onClick={() => navigate(`/trazabilidad/lotes-producto/${lote.id}`)}>
-            Ver trazabilidad
-          </BotonCancelar>
-        ) : undefined
       }
     >
       {loading && !lote && <EstadoCargando>Cargando lote...</EstadoCargando>}
@@ -220,11 +299,22 @@ export function LoteDetallePage() {
                 {cantidadConUnidad(lote.cantidad_objetivo, lote.unidad)}
               </DatoDetalle>
               <DatoDetalle etiqueta="Escala de la receta">
-                {lote.factor_escala ? `×${Number(lote.factor_escala).toLocaleString("es-AR", { maximumFractionDigits: 3 })}` : "-"}
+                {formatoFactor(lote.factor_escala)}
               </DatoDetalle>
               <DatoDetalle etiqueta="Cantidad producida">
                 {lote.cantidad_producida ? cantidadConUnidad(lote.cantidad_producida, lote.unidad) : "-"}
               </DatoDetalle>
+              {traza?.receta && (
+                <DatoDetalle etiqueta="Receta usada">
+                  <BotonTexto onClick={() => navigate(`/recetas/${traza.receta!.receta_id}`)}>
+                    Versión {traza.receta.version_numero}
+                  </BotonTexto>
+                  <Text fontSize="xs" color="fg.muted" fontWeight="normal">
+                    Creada el {formatoFecha(traza.receta.creada_en)}
+                    {traza.receta.creada_por ? ` por ${traza.receta.creada_por.nombre}` : ""}
+                  </Text>
+                </DatoDetalle>
+              )}
               <DatoDetalle etiqueta="Creado por">{lote.creado_por_nombre ?? "-"}</DatoDetalle>
               <DatoDetalle etiqueta="Inicio">{formatoFechaHora(lote.fecha_inicio)}</DatoDetalle>
               {lote.fecha_cierre && <DatoDetalle etiqueta="Cierre">{formatoFechaHora(lote.fecha_cierre)}</DatoDetalle>}
@@ -291,6 +381,8 @@ export function LoteDetallePage() {
               )}
             </HStack>
           )}
+
+          {esAdmin && traza && <SeccionTrazabilidad traza={traza} />}
         </Stack>
       )}
 
