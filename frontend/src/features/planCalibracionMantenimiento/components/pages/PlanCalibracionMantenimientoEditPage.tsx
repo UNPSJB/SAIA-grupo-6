@@ -2,7 +2,7 @@ import { formatoFecha } from "../../../../common/utils/fechas";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box, Text } from "@chakra-ui/react";
+import { Text } from "@chakra-ui/react";
 
 import { usePlanCalibracionMantenimiento } from "../../hooks/usePlanCalibracionMantenimiento";
 import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibracionMantenimientoABM";
@@ -16,8 +16,8 @@ import {
   BannerError,
   BannerExito,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function PlanCalibracionMantenimientoEditPage() {
   const navigate = useNavigate();
@@ -66,18 +66,17 @@ export function PlanCalibracionMantenimientoEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar plan de calibración/mantenimiento"
-        description={
-          plan
-            ? `Plan #${plan.id} · ${
-                plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"
-              }`
-            : undefined
-        }
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/planes-calibracion-mantenimiento", etiqueta: "Calibración y mantenimiento" }}
+      titulo="Editar plan de calibración/mantenimiento"
+      descripcion={
+        plan
+          ? `Plan #${plan.id} · ${
+              plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"
+            }`
+          : undefined
+      }
+    >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && <EstadoCargando>Cargando datos del plan...</EstadoCargando>}
 
@@ -112,6 +111,6 @@ export function PlanCalibracionMantenimientoEditPage() {
           />
         </>
       )}
-    </Box>
+    </PaginaFormulario>
   );
 }

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box } from "@chakra-ui/react";
 
 import { usePlanCalibracionMantenimientoABM } from "../../hooks/usePlanCalibracionMantenimientoABM";
 import { PlanCalibracionMantenimientoForm } from "../PlanCalibracionMantenimientoForm";
@@ -9,8 +8,8 @@ import type { PlanCalibracionMantenimientoFormValues } from "../../types/planCal
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function PlanCalibracionMantenimientoCreatePage() {
   const navigate = useNavigate();
@@ -29,12 +28,11 @@ export function PlanCalibracionMantenimientoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo plan de calibración/mantenimiento"
-        description="Asociá un plan de calibración o de mantenimiento a un equipo."
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/planes-calibracion-mantenimiento", etiqueta: "Calibración y mantenimiento" }}
+      titulo="Nuevo plan de calibración/mantenimiento"
+      descripcion="Asociá un plan de calibración o de mantenimiento a un equipo."
+    >
       {error && <BannerError>{error}</BannerError>}
 
       <DialogoExito
@@ -49,6 +47,6 @@ export function PlanCalibracionMantenimientoCreatePage() {
         submitLabel="Crear plan"
         onCancel={() => navigate("/planes-calibracion-mantenimiento")}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

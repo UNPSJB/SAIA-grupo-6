@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
@@ -13,11 +13,12 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
+  BotonAgregar,
   BannerError,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
 import { useProveedores } from "../../hooks/useProveedores";
 import type { Proveedor } from "../../types/proveedor";
@@ -104,41 +105,37 @@ export function ProveedorPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={verInactivos ? "Proveedores dados de baja" : "Gestión de proveedores"}
-        description="Alta, modificación y baja de los proveedores de insumos químicos."
-        actions={
-          <HStack gap="2">
-            <Button colorPalette="brand" onClick={() => navigate("/proveedores/nuevo")}>
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo={verInactivos ? "Proveedores dados de baja" : "Gestión de proveedores"}
+      descripcion="Alta, modificación y baja de los proveedores de insumos químicos."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/proveedores/nuevo")}>Nuevo proveedor</BotonAgregar>
+      }
+    >
       {errorEliminar && <BannerError>{errorEliminar}</BannerError>}
       {error && <BannerError>{error}</BannerError>}
 
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={(checked: boolean) => {
-          setVerInactivos(checked);
-          setPage(1);
-        }}
-        children="Ver dados de baja"
-      />
-
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
-            <CampoBusqueda
-              valor={busqueda}
-              onCambio={(valor) => {
-                setBusqueda(valor);
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={(valor) => {
+              setBusqueda(valor);
+              setPage(1);
+            }}
+            placeholder="Buscar por nombre o matrícula..."
+          />
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={(checked: boolean) => {
+                setVerInactivos(checked);
                 setPage(1);
               }}
-              placeholder="Buscar por nombre o matrícula..."
+              children="Ver dados de baja"
             />
             <BotonesExportar
               nombreTabla="proveedores"
@@ -147,9 +144,8 @@ export function ProveedorPage() {
                 buscar: busquedaAplicada,
               }}
             />
-          </Box>
+          </>
         }
-        filtros={null}
       />
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
@@ -202,6 +198,6 @@ export function ProveedorPage() {
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

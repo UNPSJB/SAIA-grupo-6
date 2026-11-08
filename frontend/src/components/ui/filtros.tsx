@@ -17,29 +17,44 @@ import {
   type AnchoColumna,
 } from "./patrones";
 
+/**
+ * Barra de un listado. Mismo orden en todas las pantallas:
+ *
+ *   [búsqueda] [filtro] [filtro] ...            [herramientas]
+ *
+ * Búsqueda y filtros van juntos a la izquierda (se leen como una sola
+ * consulta). A la derecha, lo que actúa sobre el listado entero: exportar,
+ * "Ver dados de baja", "Actualizar" y, dentro de una pestaña, el alta.
+ *
+ * Antes la búsqueda quedaba a la izquierda y los filtros empujados a la
+ * derecha, con un hueco en el medio, y cada página ubicaba exportar y el
+ * interruptor de bajas en un lugar distinto.
+ */
 export function BarraFiltros({
   busqueda,
   filtros,
+  herramientas,
 }: {
   busqueda?: ReactNode;
-  filtros: ReactNode;
+  filtros?: ReactNode;
+  herramientas?: ReactNode;
 }) {
   return (
-    <Tarjeta p="4" mb="4">
-      <HStack
-        gap="4"
-        flexWrap="wrap"
-        align="flex-end"
-        justify={busqueda ? "space-between" : "flex-start"}
-      >
-        {busqueda ? (
-          <Box flex="1" minW="250px" maxW="420px">
-            {busqueda}
-          </Box>
-        ) : null}
-        <HStack gap="4" flexWrap="wrap" align="flex-end">
+    <Tarjeta p="4" mb="4" overflow="visible">
+      <HStack gap="4" flexWrap="wrap" align="flex-end" justify="space-between">
+        <HStack gap="4" flexWrap="wrap" align="flex-end" flex="1" minW="0">
+          {busqueda ? (
+            <Box flex="1" minW="250px" maxW="420px">
+              {busqueda}
+            </Box>
+          ) : null}
           {filtros}
         </HStack>
+        {herramientas ? (
+          <HStack gap="3" flexWrap="wrap" align="center" minH="10">
+            {herramientas}
+          </HStack>
+        ) : null}
       </HStack>
     </Tarjeta>
   );

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, HStack, Table, Tabs, Text } from "@chakra-ui/react";
+import { Box, HStack, Table, Text } from "@chakra-ui/react";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
-import { FiltroSelect } from "../../../../components/ui/filtros";
+import { BarraFiltros, FiltroSelect } from "../../../../components/ui/filtros";
 import {
   BadgeEstado,
   BannerError,
@@ -15,7 +16,6 @@ import {
   EstadoCargando,
   EstadoVacio,
   FilaEncabezado,
-  PageHeader,
   Tarjeta,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
@@ -80,18 +80,22 @@ function TabLotes() {
 
   return (
     <>
-      <HStack justify="space-between" align="flex-end" flexWrap="wrap" mb="4" gap="4">
-        <FiltroSelect
-          label="Insumo"
-          valor={insumo}
-          onCambio={setInsumo}
-          opciones={insumos.map((i) => ({ valor: String(i.id), etiqueta: i.nombre }))}
-          todos="Todos los insumos"
-        />
-        <ToggleInactivos checked={verBajas} onChange={setVerBajas}>
-          Ver dados de baja
-        </ToggleInactivos>
-      </HStack>
+      <BarraFiltros
+        filtros={
+          <FiltroSelect
+            label="Insumo"
+            valor={insumo}
+            onCambio={setInsumo}
+            opciones={insumos.map((i) => ({ valor: String(i.id), etiqueta: i.nombre }))}
+            todos="Todos los insumos"
+          />
+        }
+        herramientas={
+          <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
+            Ver dados de baja
+          </ToggleInactivos>
+        }
+      />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando lotes...</EstadoCargando>}
@@ -187,32 +191,19 @@ export function StockInsumosPage() {
   const navigate = useNavigate();
 
   return (
-    <Box p={{ base: "3", md: "5" }}>
-      <PageHeader
-        title="Stock de insumos"
-        description="Stock calculado: lo recibido en cada lote menos los consumos y desperdicios registrados en producción."
-        actions={
-          <BotonAgregar onClick={() => navigate("/lotes-insumo/nuevo")}>Recibir lote</BotonAgregar>
-        }
+    <Pagina
+      titulo="Stock de insumos"
+      descripcion="Stock calculado: lo recibido en cada lote menos los consumos y desperdicios registrados en producción."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/lotes-insumo/nuevo")}>Recibir lote</BotonAgregar>
+      }
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "insumos", etiqueta: "Stock por insumo", contenido: <TabStockPorInsumo /> },
+          { valor: "lotes", etiqueta: "Lotes recibidos", contenido: <TabLotes /> },
+        ]}
       />
-
-      <Tabs.Root defaultValue="insumos" variant="line" colorPalette="brand" lazyMount>
-        <Tabs.List overflowX="auto" overflowY="hidden" mb="6">
-          <Tabs.Trigger value="insumos" flexShrink={0}>
-            Stock por insumo
-          </Tabs.Trigger>
-          <Tabs.Trigger value="lotes" flexShrink={0}>
-            Lotes recibidos
-          </Tabs.Trigger>
-          <Tabs.Indicator />
-        </Tabs.List>
-        <Tabs.Content value="insumos" p="0">
-          <TabStockPorInsumo />
-        </Tabs.Content>
-        <Tabs.Content value="lotes" p="0">
-          <TabLotes />
-        </Tabs.Content>
-      </Tabs.Root>
-    </Box>
+    </Pagina>
   );
 }

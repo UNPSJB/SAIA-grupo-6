@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { Badge, Box, Image, Portal, Text, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuHistory } from "react-icons/lu";
 import { useIncidente } from "../../hooks/useIncidente";
@@ -14,17 +14,14 @@ import {
   formatoFechaCierre,
 } from "../../types/incidente";
 import {
-  AccionesDetalle,
   BannerError,
   BotonCancelar,
-  BotonVolver,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const location = useLocation();
   const { incidente, loading, error } = useIncidente(Number(id));
   const { historial, loading: loadingHistorial, cargarHistorial, limpiarHistorial } = useHistorialIncidente();
@@ -34,6 +31,10 @@ export function IncidenteDetailPage() {
   // Si el usuario viene de "Mis Reportes" (operador), vuelve ahí. Si viene de
   // la gestión (admin), vuelve a la lista de gestión.
   const backUrl = location.state?.from === "mis-reportes" ? "/incidentes/reportar" : "/incidentes";
+  const volver = {
+    a: backUrl,
+    etiqueta: backUrl === "/incidentes" ? "Incidentes" : "Mis reportes",
+  };
 
   // El hook de imagen debe ir ANTES de los early returns: si no, cuando loading
   // es true o hay error, el componente retorna antes de llegar al hook y React
@@ -42,20 +43,17 @@ export function IncidenteDetailPage() {
 
   if (loading) {
     return (
-      <Box p="5">
+      <PaginaDetalle volver={volver} titulo="Incidente">
         <EstadoCargando>Cargando incidente...</EstadoCargando>
-      </Box>
+      </PaginaDetalle>
     );
   }
 
   if (error || !incidente) {
     return (
-      <Box p="5" maxW="720px" mx="auto">
+      <PaginaDetalle volver={volver} titulo="Incidente">
         <BannerError>{error || "No se encontró el incidente"}</BannerError>
-        <BotonVolver mt="4" onClick={() => navigate(backUrl)}>
-          Volver a la lista
-        </BotonVolver>
-      </Box>
+      </PaginaDetalle>
     );
   }
 
@@ -73,28 +71,23 @@ export function IncidenteDetailPage() {
 
   return (
     <>
-      <Box p="5" maxW={incidente.foto_url ? "720px" : "600px"} mx="auto">
-        <PageHeader
-          title={`${incidente.titulo} #${incidente.id}`}
-          description={`Reportado el ${formatoFecha(incidente.fecha_reporte)}`}
-        />
-
-        {/* Estado */}
-        <Box mb="4">
-          <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="1">
-            Estado
-          </Text>
-          <Badge
-            colorPalette={cerrado ? "green" : "red"}
-            variant="subtle"
-            borderRadius="md"
-            px="2"
-            py="1"
-            fontWeight="bold"
-          >
+      <PaginaDetalle
+        volver={volver}
+        titulo={`${incidente.titulo} #${incidente.id}`}
+        descripcion={`Reportado el ${formatoFecha(incidente.fecha_reporte)}`}
+        estado={
+          <Badge colorPalette={cerrado ? "green" : "red"} variant="subtle">
             {estadoLabel(incidente.estado)}
           </Badge>
-        </Box>
+        }
+        acciones={
+          <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
+            <LuHistory aria-hidden />
+            Ver historial
+          </BotonCancelar>
+        }
+      >
+        <SeccionDetalle>
 
         {/* Tipo */}
         <Box mb="4">
@@ -237,17 +230,8 @@ export function IncidenteDetailPage() {
           </Box>
         )}
 
-        {/* Acciones al pie de la ficha */}
-        <AccionesDetalle>
-          <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
-            <LuHistory aria-hidden />
-            Ver historial
-          </BotonCancelar>
-          <BotonVolver onClick={() => navigate(backUrl)}>
-            Volver a la lista
-          </BotonVolver>
-        </AccionesDetalle>
-      </Box>
+        </SeccionDetalle>
+      </PaginaDetalle>
 
       {/* Imagen ampliada */}
       {imagenAmpliada && imagen.src && (

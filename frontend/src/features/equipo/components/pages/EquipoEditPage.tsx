@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { EquipoForm } from "../../components/EquipoForm";
 import { useEquipo } from "../../hooks/useEquipo";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
@@ -9,8 +9,8 @@ import type { EquipoInput } from "../../types/equipo";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function EquipoEditPage() {
   const navigate = useNavigate();
@@ -43,12 +43,11 @@ export function EquipoEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar Equipo"
-        description="Modificá los datos del equipo. La baja lo saca de los listados y por eso pide confirmación."
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/equipos", etiqueta: "Equipos" }}
+      titulo="Editar Equipo"
+      descripcion="Modificá los datos del equipo. La baja lo saca de los listados y por eso pide confirmación."
+    >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
@@ -84,6 +83,6 @@ export function EquipoEditPage() {
         isOpen={exito}
         mensaje="Equipo modificado correctamente."
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

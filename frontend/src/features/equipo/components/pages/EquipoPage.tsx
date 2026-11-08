@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
 import { EquipoTable } from "../EquipoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -26,11 +25,13 @@ import {
 } from "../../../../components/ui/filtros";
 import {
   BannerError,
-  PageHeader,
+  BotonAgregar,
+  EstadoCargando,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { BotonesExportar } from "../../../../features/exportacion";
+import { Pagina } from "../../../../components/ui/plantillas";
 
 const PAGE_SIZE = 10;
 
@@ -173,49 +174,41 @@ export function EquiposPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          verInactivos ? "Equipos dados de baja" : "Gestión de equipos"
-        }
-        description="Alta, modificación y baja de los equipos del laboratorio, con su historial de intervenciones."
-        actions={
-          <HStack gap="2">
-            <Button colorPalette="brand" onClick={() => navigate("/equipos/nuevo")}>
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={(checked: boolean) => {
-          // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
-          setVerInactivos(checked);
-        }}
-        children="Ver dadas de baja"
-      />
-
+    <Pagina
+      titulo={verInactivos ? "Equipos dados de baja" : "Gestión de equipos"}
+      descripcion="Alta, modificación y baja de los equipos del laboratorio, con su historial de intervenciones."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/equipos/nuevo")}>Nuevo equipo</BotonAgregar>
+      }
+    >
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre, tipo o sector..."
           />
-
-          <BotonesExportar
-          nombreTabla="equipos"
-          filtros={{
-          activo: String(!verInactivos),
-          buscar: busquedaAplicada,
-          tipo: tipo,
-          sector_id: sectorId || undefined,
-        }}
-         />
-        </Box>
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
+              onChange={setVerInactivos}
+            >
+              Ver dadas de baja
+            </ToggleInactivos>
+            <BotonesExportar
+              nombreTabla="equipos"
+              filtros={{
+                activo: String(!verInactivos),
+                buscar: busquedaAplicada,
+                tipo: tipo,
+                sector_id: sectorId || undefined,
+              }}
+            />
+          </>
         }
         filtros={
           <>
@@ -247,7 +240,7 @@ export function EquiposPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <Spinner color="brand.500" />}
+      {loading && <EstadoCargando>Cargando equipos...</EstadoCargando>}
 
       {!loading && !error && (
         <>
@@ -315,6 +308,6 @@ export function EquiposPage() {
         equipo={equipoVerHistorial}
         onClose={() => setEquipoVerHistorial(null)}
       />
-    </Box>
+    </Pagina>
   );
 }

@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Box, Button, Flex, Input, Spinner, Table, Text } from '@chakra-ui/react';
-import { PageHeader, BannerError, Paginacion, Tarjeta, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
+import { BannerError, Paginacion, Tarjeta, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
 import { ChipsFiltros, chipsDeFiltros } from '../../../../components/ui/filtros';
 import { useAuditoria } from '../../hooks/useAuditoria';
 import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
 import type { AccionAuditoria } from '../../types/auditoria';
+import { Pagina } from "../../../../components/ui/plantillas";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -649,12 +650,10 @@ export function AuditoriaPage() {
   const hayFiltrosAplicados = Object.values(filtros).some(Boolean);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Auditoría"
-        description="Bitácora de cambios de todas las entidades del sistema. Requiere rol de administrador."
-      />
-
+    <Pagina
+      titulo="Auditoría"
+      descripcion="Bitácora de cambios de todas las entidades del sistema. Requiere rol de administrador."
+    >
       {error && <BannerError mb="4">{error}</BannerError>}
       {errorExport && <BannerError mb="4">{errorExport}</BannerError>}
 
@@ -834,6 +833,6 @@ export function AuditoriaPage() {
           </Flex>
         </Box>
       )}
-    </Box>
+    </Pagina>
   );
 }

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../../components/ElementoLimpiezaForm";
 import { useElementoLimpieza } from "../../hooks/useElementoLimpieza";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
@@ -10,8 +9,8 @@ import {
   BannerError,
   DialogoExito,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function ElementoLimpiezaEditPage() {
   const navigate = useNavigate();
@@ -45,11 +44,10 @@ export function ElementoLimpiezaEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar elemento de limpieza"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/elementos-limpieza", etiqueta: "Elementos de limpieza" }}
+      titulo="Editar elemento de limpieza"
+    >
       {cargando && (
         <EstadoCargando>
           Cargando datos del elemento de limpieza...
@@ -83,6 +81,6 @@ export function ElementoLimpiezaEditPage() {
         isOpen={exito}
         mensaje="Elemento modificado correctamente."
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

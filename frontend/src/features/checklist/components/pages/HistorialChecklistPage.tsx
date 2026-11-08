@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { Badge, Box, Field, HStack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
 import { useSearchParams } from "react-router-dom";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
@@ -33,11 +33,11 @@ import {
   FilaEncabezado,
   FormInput,
   LabelFiltro,
-  PageHeader,
   Paginacion,
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -233,82 +233,76 @@ export function HistorialChecklistPage() {
   );
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Historial de checklists"
-        description="Cumplimiento por período, filtrado por rango de fechas y equipo."
-        actions={
-          <HStack spacing="2">
-            <BotonCancelar onClick={recargar}>
-              <LuRefreshCw aria-hidden />
-              Actualizar
-            </BotonCancelar>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo="Historial de checklists"
+      descripcion="Cumplimiento por período, filtrado por rango de fechas y equipo."
+      acciones={<BotonCancelar onClick={recargar}>
+        <LuRefreshCw aria-hidden />
+        Actualizar
+      </BotonCancelar>}
+    >
      <BarraFiltros
-  busqueda={
-    <Box display="flex" flexDirection="column" gap="4">
-      <CampoBusqueda
-        valor={busqueda}
-        onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
-        placeholder="Buscar por equipo..."
-      />
-      <BotonesExportar
-        nombreTabla="checklists"
-        filtros={{
-          buscar: busqueda || undefined,
-          fechaDesde: fechaDesde || undefined,
-          fechaHasta: fechaHasta || undefined,
-          equipo_id: equipoSeleccionado || undefined,
-        }}
-      />
-    </Box>
-  }
-  filtros={
-    <>
-      <Box minW="170px">
-        <Field.Root>
-          <LabelFiltro>Desde</LabelFiltro>
-          <FormInput
-            type="date"
-            value={fechaDesde}
-            onChange={(e) =>
-              cambiarFiltro(() => setFechaDesde(e.target.value))
-            }
-            w="auto"
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+            placeholder="Buscar por equipo..."
           />
-        </Field.Root>
-      </Box>
-      <Box minW="170px">
-        <Field.Root>
-          <LabelFiltro>Hasta</LabelFiltro>
-          <FormInput
-            type="date"
-            value={fechaHasta}
-            onChange={(e) =>
-              cambiarFiltro(() => setFechaHasta(e.target.value))
-            }
-            w="auto"
-          />
-        </Field.Root>
-      </Box>
-      <FiltroSelect
-        label="Equipo"
-        valor={equipoSeleccionado}
-        onCambio={(valor) =>
-          cambiarFiltro(() => setEquipoSeleccionado(valor))
         }
-        opciones={equipos.map((equipo) => ({
-          valor: String(equipo.id),
-          etiqueta: equipo.nombre,
-        }))}
-        todos="Todos los equipos"
+        filtros={
+          <>
+            <Box minW="170px">
+              <Field.Root>
+                <LabelFiltro>Desde</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) =>
+                    cambiarFiltro(() => setFechaDesde(e.target.value))
+                  }
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <Box minW="170px">
+              <Field.Root>
+                <LabelFiltro>Hasta</LabelFiltro>
+                <FormInput
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) =>
+                    cambiarFiltro(() => setFechaHasta(e.target.value))
+                  }
+                  w="auto"
+                />
+              </Field.Root>
+            </Box>
+            <FiltroSelect
+              label="Equipo"
+              valor={equipoSeleccionado}
+              onCambio={(valor) =>
+                cambiarFiltro(() => setEquipoSeleccionado(valor))
+              }
+              opciones={equipos.map((equipo) => ({
+                valor: String(equipo.id),
+                etiqueta: equipo.nombre,
+              }))}
+              todos="Todos los equipos"
+            />
+          </>
+        }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="checklists"
+            filtros={{
+              buscar: busqueda || undefined,
+              fechaDesde: fechaDesde || undefined,
+              fechaHasta: fechaHasta || undefined,
+              equipo_id: equipoSeleccionado || undefined,
+            }}
+          />
+        }
       />
-    </>
-  }
-/>
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
@@ -462,6 +456,6 @@ export function HistorialChecklistPage() {
           )}
         </>
       )}
-    </Box>
+    </Pagina>
   );
 }

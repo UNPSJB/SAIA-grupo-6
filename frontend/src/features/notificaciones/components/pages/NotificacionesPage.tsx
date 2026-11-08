@@ -53,11 +53,11 @@ import {
   FormInput,
   FormNativeSelect,
   LabelFiltro,
-  PageHeader,
   Paginacion,
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 
 const PAGE_SIZE = 10;
 
@@ -423,17 +423,15 @@ export function NotificacionesPage() {
   const nivelPaleta = paletaNivelRiesgo(nivel);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          <HStack gap="2" flexWrap="wrap" rowGap="2">
-            <LuBell aria-hidden />
-            Centro de notificaciones
-          </HStack>
-        }
-        description="Situaciones de inocuidad detectadas y priorizadas automáticamente según su criticidad."
-      />
-
+    <Pagina
+      titulo={
+        <HStack gap="2" flexWrap="wrap" rowGap="2">
+          <LuBell aria-hidden />
+          Centro de notificaciones
+        </HStack>
+      }
+      descripcion="Situaciones de inocuidad detectadas y priorizadas automáticamente según su criticidad."
+    >
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
 
       {alertaEditando && (
@@ -717,6 +715,6 @@ export function NotificacionesPage() {
           )}
         </>
       )}
-    </Box>
+    </Pagina>
   );
 }

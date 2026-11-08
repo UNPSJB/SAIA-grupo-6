@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, Text } from "@chakra-ui/react";
+import { Badge, Text } from "@chakra-ui/react";
 import {
   obtenerOpcionesVencimientos,
   obtenerVencimientosPaginados,
@@ -35,14 +35,14 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   FilaEncabezado,
-  PageHeader,
   Paginacion,
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { Table } from "@chakra-ui/react";
 import { BotonesExportar } from "../../../exportacion";
-import { LuCalendarClock, LuCircleCheck } from "react-icons/lu";
+import { LuCircleCheck } from "react-icons/lu";
 import { ERROR_TEXTO, GRIS_MEDIO, TEXTO_SUAVE } from "../../../../common/theme/tokens";
 
 /** Tamaño de página de todos los listados de la app. */
@@ -244,38 +244,17 @@ export function VencimientosPage() {
   ]);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          <Box display="flex" alignItems="center" gap="2">
-            <LuCalendarClock aria-hidden />
-            Vencimientos
-          </Box>
-        }
-        description="Vencimientos de personal, calibración/mantenimiento y documentos."
-      />
-
+    <Pagina
+      titulo="Vencimientos"
+      descripcion="Vencimientos de personal, calibración/mantenimiento y documentos."
+    >
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
-            <CampoBusqueda
-              valor={busqueda}
-              onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
-              placeholder="Persona, equipo, detalle, fecha, estado..."
-            />
-            <BotonesExportar
-              nombreTabla="vencimientos"
-              vista="vencimientos"
-              filtros={{
-                tipo,
-                estado,
-                persona_id: persona,
-                aptitud,
-                buscar: busquedaAplicada,
-                orden: orden.orden,
-              }}
-            />
-          </Box>
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={(valor) => cambiarFiltro(() => setBusqueda(valor))}
+            placeholder="Persona, equipo, detalle, fecha, estado..."
+          />
         }
         filtros={
           <>
@@ -334,6 +313,20 @@ export function VencimientosPage() {
               </>
             )}
           </>
+        }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="vencimientos"
+            vista="vencimientos"
+            filtros={{
+              tipo,
+              estado,
+              persona_id: persona,
+              aptitud,
+              buscar: busquedaAplicada,
+              orden: orden.orden,
+            }}
+          />
         }
       />
 
@@ -480,6 +473,6 @@ export function VencimientosPage() {
           )}
         </>
       )}
-    </Box>
+    </Pagina>
   );
 }

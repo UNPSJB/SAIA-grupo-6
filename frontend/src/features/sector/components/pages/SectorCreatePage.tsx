@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box } from "@chakra-ui/react";
 import { SectorForm } from "../SectorForm";
 import { useSectorABM } from "../../hooks/useSectorABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import type { Sector } from "../../types/sector";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function SectorCreatePage() {
   const navigate = useNavigate();
@@ -47,16 +45,10 @@ export function SectorCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo sector"
-        actions={
-          <BotonVolver onClick={() => navigate("/sectores")}>
-            Volver a la lista
-          </BotonVolver>
-        }
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/sectores", etiqueta: "Sectores" }}
+      titulo="Nuevo sector"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <SectorForm
@@ -64,6 +56,7 @@ export function SectorCreatePage() {
         isLoading={loading}
         title="Alta de sector"
         submitLabel="Crear sector"
+        onCancel={() => navigate("/sectores")}
       />
 
       <DialogoExito isOpen={exito} mensaje="Sector agregado correctamente." />
@@ -75,6 +68,6 @@ export function SectorCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

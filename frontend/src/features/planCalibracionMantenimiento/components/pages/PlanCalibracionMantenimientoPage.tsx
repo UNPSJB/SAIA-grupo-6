@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, HStack } from "@chakra-ui/react";
 
 import { useEquipos } from "../../../equipo/hooks/useEquipos";
 import { usePlanesCalibracionMantenimientoPaginados } from "../../hooks/usePlanesCalibracionMantenimientoPaginados";
@@ -26,9 +25,9 @@ import {
   BannerError,
   BotonAgregar,
   EstadoCargando,
-  PageHeader,
   Paginacion,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -165,66 +164,58 @@ export function PlanCalibracionMantenimientoPage() {
   const error = errorPlanes || errorEquipos;
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Planes de calibración y mantenimiento"
-        description="Periodicidad de calibración y de mantenimiento por equipo, con su próximo vencimiento."
-        actions={
-          <HStack spacing="2">
-            <BotonAgregar
-              onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}
-            >
-              Agregar
-            </BotonAgregar>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo="Planes de calibración y mantenimiento"
+      descripcion="Periodicidad de calibración y de mantenimiento por equipo, con su próximo vencimiento."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/planes-calibracion-mantenimiento/nuevo")}>Nuevo plan</BotonAgregar>
+      }
+    >
      <BarraFiltros
-  busqueda={
-    <Box display="flex" flexDirection="column" gap="4">
-      <CampoBusqueda
-        valor={busqueda}
-        onCambio={setBusqueda}
-        placeholder="Buscar por equipo o tipo..."
-      />
-      <BotonesExportar
-        nombreTabla="planes_calibracion_mantenimiento" // (o el nombre de tabla que use tu backend)
-        filtros={{
-          buscar: busquedaAplicada,
-          tipo: tipo || undefined,
-          equipo_id: equipoId || undefined,
-        }}
-      />
-    </Box>
-  }
-  filtros={
-    <>
-      <FiltroSelect
-        label="Tipo"
-        valor={tipo}
-        onCambio={(valor) =>
-          setTipo(valor as TipoPlanCalibracionMantenimiento | "")
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por equipo o tipo..."
+          />
         }
-        opciones={TIPOS_PLAN.map((t) => ({
-          valor: t.value,
-          etiqueta: t.label,
-        }))}
-        todos="Todos"
-        minW="170px"
+        filtros={
+          <>
+            <FiltroSelect
+              label="Tipo"
+              valor={tipo}
+              onCambio={(valor) =>
+                setTipo(valor as TipoPlanCalibracionMantenimiento | "")
+              }
+              opciones={TIPOS_PLAN.map((t) => ({
+                valor: t.value,
+                etiqueta: t.label,
+              }))}
+              todos="Todos"
+              minW="170px"
+            />
+            <FiltroSelect
+              label="Equipo"
+              valor={equipoId}
+              onCambio={setEquipoId}
+              opciones={equipos.map((equipo) => ({
+                valor: String(equipo.id),
+                etiqueta: equipo.nombre,
+              }))}
+            />
+          </>
+        }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="planes_calibracion_mantenimiento" // (o el nombre de tabla que use tu backend)
+            filtros={{
+              buscar: busquedaAplicada,
+              tipo: tipo || undefined,
+              equipo_id: equipoId || undefined,
+            }}
+          />
+        }
       />
-      <FiltroSelect
-        label="Equipo"
-        valor={equipoId}
-        onCambio={setEquipoId}
-        opciones={equipos.map((equipo) => ({
-          valor: String(equipo.id),
-          etiqueta: equipo.nombre,
-        }))}
-      />
-    </>
-  }
-/>
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
@@ -270,6 +261,6 @@ export function PlanCalibracionMantenimientoPage() {
         onCancel={handleCloseDialog}
         onConfirm={handleConfirmDelete}
       />
-    </Box>
+    </Pagina>
   );
 }

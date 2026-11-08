@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { AptitudForm } from "../AptitudForm";
 import { useAptitud } from "../../hooks/useAptitud";
 import { useAptitudABM } from "../../hooks/useAptitudABM";
@@ -9,8 +9,8 @@ import type { Aptitud } from "../../types/aptitud";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function AptitudEditPage() {
   const navigate = useNavigate();
@@ -33,11 +33,10 @@ export function AptitudEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar aptitud"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/aptitudes", etiqueta: "Aptitudes" }}
+      titulo="Editar aptitud"
+    >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
@@ -63,6 +62,6 @@ export function AptitudEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Aptitud modificada correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

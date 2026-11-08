@@ -1,41 +1,21 @@
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  Badge,
-  Box,
-  Heading,
-  SimpleGrid,
-  Spinner,
-  Stack,
-  Table,
-  Text,
-} from "@chakra-ui/react";
+import { useParams } from "react-router-dom";
+import { Badge, Table, Text } from "@chakra-ui/react";
 import { useEquipo } from "../../hooks/useEquipo";
 import { usePlanesCalibracionMantenimiento } from "../../../planCalibracionMantenimiento/hooks/usePlanesCalibracionMantenimiento";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
-  AccionesDetalle,
   BannerError,
-  BotonVolver,
   Celda,
   ColumnaHeader,
-  PageHeader,
-  Tarjeta,
+  EstadoCargando,
 } from "../../../../components/ui/patrones";
-
-/** Par etiqueta/valor de la ficha. */
-function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
-  return (
-    <Box>
-      <Text fontSize="sm" fontWeight="medium" color="fg.muted">
-        {etiqueta}
-      </Text>
-      <Text fontSize="md" color="fg">
-        {valor}
-      </Text>
-    </Box>
-  );
-}
+import {
+  DatoDetalle,
+  GrillaDatos,
+  PaginaDetalle,
+  SeccionDetalle,
+} from "../../../../components/ui/plantillas";
 
 // Mismo criterio que la tabla de planes y las notificaciones: 3 días de margen.
 function estadoPlan(diasRestantes: number) {
@@ -52,7 +32,6 @@ function textoDias(diasRestantes: number) {
 
 export function EquipoDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const equipoId = Number(id);
 
   const { equipo, loading, error } = useEquipo(
@@ -73,62 +52,48 @@ export function EquipoDetailPage() {
     [planes, equipoId]
   );
 
-  // Vuelve a la pantalla de donde vino (vencimientos, notificaciones o lista de equipos).
-  const volver = () => (window.history.length > 1 ? navigate(-1) : navigate("/equipos"));
-
   if (loading) {
     return (
-      <Box p="5">
-        <Stack direction="row" gap="3" align="center" color="fg.muted">
-          <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">Cargando información...</Text>
-        </Stack>
-      </Box>
+      <PaginaDetalle volver={{ a: "/equipos", etiqueta: "Equipos", historial: true }} titulo="Ficha de equipo">
+        <EstadoCargando>Cargando información...</EstadoCargando>
+      </PaginaDetalle>
     );
   }
 
   if (error || !equipo) {
     return (
-      <Box p="5">
+      <PaginaDetalle volver={{ a: "/equipos", etiqueta: "Equipos", historial: true }} titulo="Ficha de equipo">
         <BannerError mb="0">{error || "No se encontró el equipo"}</BannerError>
-      </Box>
+      </PaginaDetalle>
     );
   }
 
+  // "Volver" regresa a la pantalla de origen: vencimientos, notificaciones o la lista.
   return (
-    <Box p="5" maxW="900px" mx="auto">
-      <PageHeader
-        title={`Ficha de equipo #${equipo.id}`}
-      />
-
-      <Tarjeta p="5">
-        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
-          <Campo etiqueta="Nombre" valor={equipo.nombre} />
-          <Campo etiqueta="Tipo" valor={equipo.tipo} />
-          <Campo etiqueta="Sector" valor={equipo.sector.nombre} />
-          <Box>
-            <Text fontSize="sm" fontWeight="medium" color="fg.muted">
-              Estado
-            </Text>
-            <Badge colorPalette={equipo.activo ? "green" : "gray"} mt="1">
-              {equipo.activo ? "Activo" : "Dado de baja"}
-            </Badge>
-          </Box>
-          <Campo
-            etiqueta="Frecuencia de calibración"
-            valor={
+    <PaginaDetalle
+      volver={{ a: "/equipos", etiqueta: "Equipos", historial: true }}
+      titulo={equipo.nombre}
+      descripcion={`Ficha de equipo #${equipo.id}`}
+      estado={
+        <Badge colorPalette={equipo.activo ? "green" : "gray"}>
+          {equipo.activo ? "Activo" : "Dado de baja"}
+        </Badge>
+      }
+    >
+      <SeccionDetalle titulo="Datos del equipo">
+        <GrillaDatos>
+          <DatoDetalle etiqueta="Nombre">{equipo.nombre}</DatoDetalle>
+          <DatoDetalle etiqueta="Tipo">{equipo.tipo}</DatoDetalle>
+          <DatoDetalle etiqueta="Sector">{equipo.sector.nombre}</DatoDetalle>
+          <DatoDetalle etiqueta="Frecuencia de calibración">{
               equipo.frecuencia_calibracion_dias
                 ? `Cada ${equipo.frecuencia_calibracion_dias} días`
                 : "Cada 365 días (por defecto)"
-            }
-          />
-        </SimpleGrid>
+            }</DatoDetalle>
+        </GrillaDatos>
+      </SeccionDetalle>
 
-        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
-          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
-            Planes de calibración y mantenimiento
-          </Heading>
-
+      <SeccionDetalle titulo="Planes de calibración y mantenimiento">
           {cargandoPlanes && (
             <Text fontSize="sm" color="fg.muted" fontStyle="italic">
               Cargando...
@@ -201,12 +166,7 @@ export function EquipoDetailPage() {
               </Table.Body>
             </Table.Root>
           )}
-        </Box>
-      </Tarjeta>
-
-      <AccionesDetalle>
-        <BotonVolver onClick={volver}>Volver</BotonVolver>
-      </AccionesDetalle>
-    </Box>
+      </SeccionDetalle>
+    </PaginaDetalle>
   );
 }

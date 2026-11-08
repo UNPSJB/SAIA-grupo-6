@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, Button, HStack, Spinner, Table, Text } from "@chakra-ui/react";
+import { Badge, HStack, Spinner, Table, Text } from "@chakra-ui/react";
 import {
+  BotonAgregar,
   BannerError,
   BotonAccion,
   BotonTexto,
   Celda,
   EncabezadoOscuro,
   FilaEncabezado,
-  PageHeader,
   Paginacion,
   Tarjeta,
   TextoTruncado,
 } from "../../../components/ui/patrones";
+import { Pagina } from "../../../components/ui/plantillas";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -117,32 +118,20 @@ export function DocumentosPage() {
   ]);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Documentos"
-        description="Manuales, procedimientos y registros del sistema de calidad."
-        actions={
-          <HStack spacing="2">
-            <Button colorPalette="brand" onClick={() => navigate("/documentos/nuevo")}>
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo="Documentos"
+      descripcion="Manuales, procedimientos y registros del sistema de calidad."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/documentos/nuevo")}>Nuevo documento</BotonAgregar>
+      }
+    >
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
-            <CampoBusqueda
-              valor={busqueda}
-              onCambio={setBusqueda}
-              placeholder="Buscar por nombre o tipo..."
-            />
-            <BotonesExportar
-              nombreTabla="documentos"
-              filtros={{ buscar: busquedaAplicada, tipo }}
-            />
-          </Box>
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre o tipo..."
+          />
         }
         filtros={
           <>
@@ -171,6 +160,12 @@ export function DocumentosPage() {
               minW="190px"
             />
           </>
+        }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="documentos"
+            filtros={{ buscar: busquedaAplicada, tipo }}
+          />
         }
       />
 
@@ -315,6 +310,6 @@ export function DocumentosPage() {
           )}
         </>
       )}
-    </Box>
+    </Pagina>
   );
 }

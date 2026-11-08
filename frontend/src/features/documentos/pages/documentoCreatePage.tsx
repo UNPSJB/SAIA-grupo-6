@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { DocumentoForm } from "../components/documentoForm";
 import { useDocumentoABM } from "../hooks/useDocumentoABM";
 import type { DocumentoFormValues } from "../types/documento";
@@ -8,8 +7,8 @@ import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
   BannerExito,
-  PageHeader,
 } from "../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../components/ui/plantillas";
 
 export function DocumentoCreatePage() {
   const navigate = useNavigate();
@@ -28,12 +27,11 @@ export function DocumentoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo documento"
-        description="Cargá un documento con su nombre y tipo; queda como versión 1 vigente."
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/documentos", etiqueta: "Documentos" }}
+      titulo="Nuevo documento"
+      descripcion="Cargá un documento con su nombre y tipo; queda como versión 1 vigente."
+    >
       {error && <BannerError>{error}</BannerError>}
 
       {exito && (
@@ -48,6 +46,6 @@ export function DocumentoCreatePage() {
         submitLabel="Subir documento"
         onCancel={() => navigate("/documentos")}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Table, Text } from "@chakra-ui/react";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { LuRefreshCw } from "react-icons/lu";
 import { useAuth } from "../../../../common/context/useAuth";
 import { puedeAdministrar } from "../../../../common/api/permissions";
@@ -26,7 +27,6 @@ import {
   FilaEncabezado,
   FormInput,
   LabelFiltro,
-  PageHeader,
   Paginacion,
   Tarjeta,
 } from "../../../../components/ui/patrones";
@@ -104,17 +104,15 @@ export function LotesPage() {
   ]);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Lotes de producción"
-        description="Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos."
-        actions={
-          esAdmin ? (
-            <BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>
-          ) : undefined
-        }
-      />
-
+    <Pagina
+      titulo="Lotes de producción"
+      descripcion="Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos."
+      acciones={
+        esAdmin ? (
+          <BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>
+        ) : undefined
+      }
+    >
       <BarraFiltros
         filtros={
           <>
@@ -151,11 +149,13 @@ export function LotesPage() {
                 aria-label="Fecha hasta"
               />
             </Box>
-            <BotonCancelar onClick={recargar} mb="0">
-              <LuRefreshCw aria-hidden />
-              Actualizar
-            </BotonCancelar>
           </>
+        }
+        herramientas={
+          <BotonCancelar onClick={recargar}>
+            <LuRefreshCw aria-hidden />
+            Actualizar
+          </BotonCancelar>
         }
       />
 
@@ -182,11 +182,11 @@ export function LotesPage() {
                   <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
                   <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="angosta">Receta</EncabezadoOscuro>
+                  <EncabezadoOscuro width="8%">Receta</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media">Objetivo</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Tareas</EncabezadoOscuro>
+                  <EncabezadoOscuro width="8%">Tareas</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="angosta">Acciones</EncabezadoOscuro>
+                  <EncabezadoOscuro center width="9%">Acciones</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
@@ -230,6 +230,6 @@ export function LotesPage() {
           )}
         </>
       )}
-    </Box>
+    </Pagina>
   );
 }

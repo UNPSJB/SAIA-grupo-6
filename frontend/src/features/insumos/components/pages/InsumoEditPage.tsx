@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { InsumoForm } from "../../components/InsumoForm";
 import { useInsumo } from "../../hooks/useInsumo";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
@@ -9,8 +9,8 @@ import type { InsumoFormValues } from "../../types/insumo";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function InsumoEditPage() {
   const navigate = useNavigate();
@@ -43,11 +43,10 @@ export function InsumoEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar insumo"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/insumos", etiqueta: "Insumos" }}
+      titulo="Editar insumo"
+    >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
@@ -84,6 +83,6 @@ export function InsumoEditPage() {
         isOpen={exito}
         mensaje="Insumo modificado correctamente."
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

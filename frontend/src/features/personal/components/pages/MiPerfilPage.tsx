@@ -23,9 +23,9 @@ import {
   Celda,
   ColumnaHeader,
   EstadoCargando,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { Pagina, SeccionDetalle } from "../../../../components/ui/plantillas";
 
 /**
  * Ficha de la persona logueada. A diferencia de `PersonalDetailPage` (que
@@ -139,17 +139,17 @@ export function MiPerfilPage() {
 
   if (loading) {
     return (
-      <Box p="5">
+      <Pagina titulo="Mi perfil">
         <EstadoCargando>Cargando tu perfil...</EstadoCargando>
-      </Box>
+      </Pagina>
     );
   }
 
   if (error || !persona) {
     return (
-      <Box p="5">
+      <Pagina titulo="Mi perfil">
         <BannerError mb="0">{error || "No se encontró tu perfil"}</BannerError>
-      </Box>
+      </Pagina>
     );
   }
 
@@ -186,12 +186,10 @@ export function MiPerfilPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Mi perfil"
-        description="Tus datos personales y permisos en el sistema."
-      />
-
+    <Pagina
+      titulo="Mi perfil"
+      descripcion="Tus datos personales y permisos en el sistema."
+    >
       {exito && <BannerExito>Datos actualizados correctamente.</BannerExito>}
       {errorGuardado && <BannerError>{errorGuardado}</BannerError>}
 
@@ -219,10 +217,7 @@ export function MiPerfilPage() {
         esMiPerfil
       />
 
-      <Tarjeta p="5">
-        <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
-          Permisos en el sistema
-        </Heading>
+      <SeccionDetalle titulo="Permisos en el sistema">
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="2">
           <Permiso concedido={persona.puede_operar}>Puede Operar</Permiso>
           <Permiso concedido={persona.puede_administrar}>Puede Administrar</Permiso>
@@ -232,7 +227,7 @@ export function MiPerfilPage() {
           Los permisos no se cambian desde acá: los modifica un administrador
           desde la gestión de personal.
         </Text>
-      </Tarjeta>
+      </SeccionDetalle>
 
       {/* Sección de administradores: los endpoints de vencimientos y
           aptitudes le devolverían 403 a un operador. */}
@@ -241,6 +236,6 @@ export function MiPerfilPage() {
           <VencimientosPerfil personaId={persona.id} />
         </Tarjeta>
       )}
-    </Box>
+    </Pagina>
   );
 }

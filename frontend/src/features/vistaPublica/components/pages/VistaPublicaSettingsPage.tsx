@@ -8,9 +8,9 @@ import {
   BannerError,
   BannerExito,
   EstadoCargando,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { ElegirIndicadoresPanel } from "../ElegirIndicadoresPanel";
 import {
   actualizarConfiguracionVistaPublica,
@@ -82,12 +82,11 @@ export function VistaPublicaSettingsPage() {
   };
 
   return (
-    <Box p="5" maxW="4xl">
-      <PageHeader
-        title="Vista pública"
-        description="Controlá si se puede compartir el enlace público del establecimiento."
-      />
-
+    <Pagina
+      ancho="ancho"
+      titulo="Vista pública"
+      descripcion="Controlá si se puede compartir el enlace público del establecimiento."
+    >
       {cargando ? <EstadoCargando>Cargando configuración...</EstadoCargando> : null}
       {!cargando && error ? <BannerError>{error}</BannerError> : null}
       {!cargando && exito ? <BannerExito>{exito}</BannerExito> : null}
@@ -180,6 +179,6 @@ export function VistaPublicaSettingsPage() {
           if (!guardando) setConfirmandoDesactivacion(false);
         }}
       />
-    </Box>
+    </Pagina>
   );
 }

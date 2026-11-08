@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
-  BannerError,
-  BotonVolver,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
 import { useProductoABM } from "../../hooks/useProductoABM";
 import type { ProductoFormValues, ProductoInput } from "../../types/producto";
@@ -52,15 +49,17 @@ export function ProductoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo producto"
-        actions={<BotonVolver onClick={() => navigate("/productos")}>Volver a la lista</BotonVolver>}
+    <PaginaFormulario
+      volver={{ a: "/productos", etiqueta: "Productos" }}
+      titulo="Nuevo producto"
+      error={!conflicto ? error : null}
+    >
+      <ProductoForm
+        onSubmit={handleSubmit}
+        isLoading={loading}
+        submitLabel="Crear producto"
+        onCancel={() => navigate("/productos")}
       />
-
-      {error && !conflicto && <BannerError>{error}</BannerError>}
-
-      <ProductoForm onSubmit={handleSubmit} isLoading={loading} submitLabel="Crear producto" />
 
       <DialogoExito isOpen={exito} mensaje="Producto agregado correctamente." />
 
@@ -74,6 +73,6 @@ export function ProductoCreatePage() {
         }}
         onConfirm={confirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

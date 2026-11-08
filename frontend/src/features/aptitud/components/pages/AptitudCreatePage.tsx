@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box } from "@chakra-ui/react";
 import { AptitudForm } from "../AptitudForm";
 import { useAptitudABM } from "../../hooks/useAptitudABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -9,8 +8,8 @@ import type { Aptitud } from "../../types/aptitud";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function AptitudCreatePage() {
   const navigate = useNavigate();
@@ -46,11 +45,10 @@ export function AptitudCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nueva aptitud"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/aptitudes", etiqueta: "Aptitudes" }}
+      titulo="Nueva aptitud"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <AptitudForm
@@ -70,6 +68,6 @@ export function AptitudCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

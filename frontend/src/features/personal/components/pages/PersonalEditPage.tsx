@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 
 import { PersonalForm } from "../PersonalForm";
 import { usePersonal } from "../../hooks/usePersonal";
@@ -23,8 +23,8 @@ import { VencimientosPersonalForm } from "../../../vencimientoPersonal/component
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
@@ -121,11 +121,10 @@ export function PersonalEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar personal"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/personal", etiqueta: "Personal" }}
+      titulo="Editar personal"
+    >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
@@ -180,6 +179,6 @@ export function PersonalEditPage() {
         isOpen={exito}
         mensaje="Personal modificado correctamente."
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

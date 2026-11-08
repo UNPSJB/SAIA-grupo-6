@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Text } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
 import {
   AccionesFormulario,
@@ -10,7 +11,6 @@ import {
   FormField,
   FormInput,
   FormNativeSelect,
-  PageHeader,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
@@ -73,13 +73,13 @@ export function LoteCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="960px" mx="auto">
-      <PageHeader
-        title="Nuevo lote de producción"
-        description="El lote usa la versión vigente de la receta y genera su checklist con las tareas de esa versión."
-      />
-
-      {error && <BannerError>{error}</BannerError>}
+    <PaginaFormulario
+      ancho="ancho"
+      volver={{ a: "/lotes", etiqueta: "Lotes" }}
+      titulo="Nuevo lote de producción"
+      descripcion="El lote usa la versión vigente de la receta y genera su checklist con las tareas de esa versión."
+      error={error}
+    >
       {errorRecetas && <BannerError>{errorRecetas}</BannerError>}
 
       <TarjetaFormulario as="form" onSubmit={handleSubmit}>
@@ -165,6 +165,6 @@ export function LoteCreatePage() {
           </BotonCancelar>
         </AccionesFormulario>
       </TarjetaFormulario>
-    </Box>
+    </PaginaFormulario>
   );
 }

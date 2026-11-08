@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../InsumoQuimicoForm";
 import { useInsumoQuimico } from "../../hooks/useInsumoQuimico";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
@@ -9,8 +9,8 @@ import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function InsumoQuimicoEditPage() {
   const navigate = useNavigate();
@@ -44,11 +44,10 @@ export function InsumoQuimicoEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar insumo químico"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/insumos-quimicos", etiqueta: "Insumos químicos" }}
+      titulo="Editar insumo químico"
+    >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
           <Spinner size="sm" color="brand.500" />
@@ -84,6 +83,6 @@ export function InsumoQuimicoEditPage() {
         isOpen={exito}
         mensaje="Insumo químico modificado correctamente."
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

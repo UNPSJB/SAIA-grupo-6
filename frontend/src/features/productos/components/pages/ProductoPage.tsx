@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Spinner } from "@chakra-ui/react";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePaginacion } from "../../../../common/hooks/usePaginacion";
@@ -15,7 +15,7 @@ import {
 import {
   BannerError,
   BotonAgregar,
-  PageHeader,
+  EstadoCargando,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
@@ -80,27 +80,15 @@ export function ProductoPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={verInactivos ? "Productos dados de baja" : "Gestión de productos"}
-        description="Productos que se elaboran. Cada uno tiene una receta con versiones."
-        actions={
-          <BotonAgregar onClick={() => navigate("/productos/nuevo")}>Agregar</BotonAgregar>
-        }
-      />
-
+    <Pagina
+      titulo={verInactivos ? "Productos dados de baja" : "Gestión de productos"}
+      descripcion="Productos que se elaboran. Cada uno tiene una receta con versiones."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/productos/nuevo")}>Nuevo producto</BotonAgregar>
+      }
+    >
       {errorABM && <BannerError>{errorABM}</BannerError>}
       {error && <BannerError>{error}</BannerError>}
-
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={(checked: boolean) => {
-          setVerInactivos(checked);
-          setPage(1);
-        }}
-      >
-        Ver dados de baja
-      </ToggleInactivos>
 
       <BarraFiltros
         busqueda={
@@ -113,12 +101,23 @@ export function ProductoPage() {
             placeholder="Buscar por nombre..."
           />
         }
-        filtros={null}
+        herramientas={
+          <ToggleInactivos
+            enBarra
+            checked={verInactivos}
+            onChange={(checked: boolean) => {
+              setVerInactivos(checked);
+              setPage(1);
+            }}
+          >
+            Ver dados de baja
+          </ToggleInactivos>
+        }
       />
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-      {loading && <Spinner color="brand.500" />}
+      {loading && <EstadoCargando>Cargando productos...</EstadoCargando>}
 
       {!loading && !error && (
         <>
@@ -161,6 +160,6 @@ export function ProductoPage() {
         onCancel={() => !procesando && setAReactivar(null)}
         onConfirm={confirmarReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

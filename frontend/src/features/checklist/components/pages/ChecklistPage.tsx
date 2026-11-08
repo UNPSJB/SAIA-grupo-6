@@ -62,10 +62,10 @@ import {
   FormNativeSelect,
   LabelFiltro,
   MensajeError,
-  PageHeader,
   SelectPlaceholder,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 
 // Mismos formatos que acepta el backend (ver EXTENSIONES_EVIDENCIA en
 // src/checklist/router.py).
@@ -931,18 +931,16 @@ export function ChecklistPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Checklist diario de limpieza"
-        description="Control, persistencia e historial auditable por fecha, para todos los equipos."
-        actions={
-          <BotonCancelar onClick={recargar}>
-            <LuRefreshCw aria-hidden />
-            Actualizar
-          </BotonCancelar>
-        }
-      />
-
+    <Pagina
+      titulo="Checklist diario de limpieza"
+      descripcion="Control, persistencia e historial auditable por fecha, para todos los equipos."
+      acciones={
+        <BotonCancelar onClick={recargar}>
+          <LuRefreshCw aria-hidden />
+          Actualizar
+        </BotonCancelar>
+      }
+    >
       <Tarjeta p="4" mb="6">
         <Box minW="180px">
           <Field.Root>
@@ -1108,6 +1106,6 @@ export function ChecklistPage() {
           onGuardado={recargar}
         />
       )}
-    </Box>
+    </Pagina>
   );
 }

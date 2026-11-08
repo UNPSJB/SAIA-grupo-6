@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { InsumoQuimicoTable } from "../InsumoQuimicoTable";
 import { notificarCambioNotificaciones } from "../../../notificaciones/eventoNotificaciones";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
@@ -26,11 +26,12 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
+  BotonAgregar,
   BannerError,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -187,76 +188,69 @@ export function InsumosQuimicosPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          verInactivos
-            ? "Insumos químicos dados de baja"
-            : "Gestión de insumos químicos"
-        }
-        description="Alta, modificación y baja de los productos químicos del laboratorio."
-        actions={
-          <HStack spacing="2">
-            <Button
-              colorPalette="brand"
-              onClick={() => navigate("/insumos-quimicos/nuevo")}
-            >
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={handleToggleInactivos}
-        children="Ver dados de baja"
-      />
+    <Pagina
+      titulo={
+        verInactivos
+          ? "Insumos químicos dados de baja"
+          : "Gestión de insumos químicos"
+      }
+      descripcion="Alta, modificación y baja de los productos químicos del laboratorio."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/insumos-quimicos/nuevo")}>Nuevo insumo químico</BotonAgregar>
+      }
+    >
       <BarraFiltros
-  busqueda={
-    <Box display="flex" flexDirection="column" gap="4">
-      <CampoBusqueda
-        valor={busqueda}
-        onCambio={setBusqueda}
-        placeholder="Buscar por nombre, tipo o unidad..."
-      />
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre, tipo o unidad..."
+          />
+        }
+        filtros={
+          <>
+            <FiltroSelect
+              label="Tipo"
+              valor={tipo}
+              onCambio={setTipo}
+              opciones={TIPOS_QUIMICOS.map((opcion) => ({
+                valor: opcion.value,
+                etiqueta: opcion.label,
+              }))}
+            />
 
-      <BotonesExportar
-        nombreTabla="insumos_quimicos"
-        filtros={{
-          activo: String(!verInactivos),
-          buscar: busquedaAplicada,
-          tipo: tipo,
-          unidad_id: unidadId || undefined,
-        }}
+            <FiltroSelect
+              label="Unidad de medida"
+              valor={unidadId}
+              onCambio={setUnidadId}
+              opciones={unidades.map((unidad) => ({
+                valor: String(unidad.id),
+                etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
+              }))}
+              todos="Todas"
+            />
+          </>
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={handleToggleInactivos}
+              children="Ver dados de baja"
+            />
+            <BotonesExportar
+              nombreTabla="insumos_quimicos"
+              filtros={{
+                activo: String(!verInactivos),
+                buscar: busquedaAplicada,
+                tipo: tipo,
+                unidad_id: unidadId || undefined,
+              }}
+            />
+          </>
+        }
       />
-    </Box>
-  }
-  filtros={
-    <>
-      <FiltroSelect
-        label="Tipo"
-        valor={tipo}
-        onCambio={setTipo}
-        opciones={TIPOS_QUIMICOS.map((opcion) => ({
-          valor: opcion.value,
-          etiqueta: opcion.label,
-        }))}
-      />
-
-      <FiltroSelect
-        label="Unidad de medida"
-        valor={unidadId}
-        onCambio={setUnidadId}
-        opciones={unidades.map((unidad) => ({
-          valor: String(unidad.id),
-          etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
-        }))}
-        todos="Todas"
-      />
-    </>
-  }
-/>
       
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
@@ -311,6 +305,6 @@ export function InsumosQuimicosPage() {
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

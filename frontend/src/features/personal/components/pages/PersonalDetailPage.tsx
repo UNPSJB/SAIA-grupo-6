@@ -1,14 +1,5 @@
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  Badge,
-  Box,
-  Heading,
-  SimpleGrid,
-  Spinner,
-  Stack,
-  Table,
-  Text,
-} from "@chakra-ui/react";
+import { useParams } from "react-router-dom";
+import { Badge, Box, SimpleGrid, Table, Text } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 import { LuCircleCheck, LuCircleX } from "react-icons/lu";
 import { usePersonal } from "../../hooks/usePersonal";
@@ -16,28 +7,17 @@ import { useVencimientosPersonal } from "../../../vencimientoPersonal/hooks/useV
 import { useAptitudes } from "../../../aptitud/hooks/useAptitudes";
 import { hoyISO } from "../../../../common/utils/fechas";
 import {
-  AccionesDetalle,
   BannerError,
-  BotonVolver,
   Celda,
   ColumnaHeader,
-  PageHeader,
-  Tarjeta,
+  EstadoCargando,
 } from "../../../../components/ui/patrones";
-
-/** Par etiqueta/valor de la ficha. */
-function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
-  return (
-    <Box>
-      <Text fontSize="sm" fontWeight="medium" color="fg.muted">
-        {etiqueta}
-      </Text>
-      <Text fontSize="md" color="fg">
-        {valor}
-      </Text>
-    </Box>
-  );
-}
+import {
+  DatoDetalle,
+  GrillaDatos,
+  PaginaDetalle,
+  SeccionDetalle,
+} from "../../../../components/ui/plantillas";
 
 /**
  * Ítem del listado de permisos: ícono de estado + nombre.
@@ -60,9 +40,7 @@ function Permiso({ concedido, children }: { concedido: boolean; children: ReactN
 
 export function PersonalDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const personaId = Number(id);
-   const volver = () => (window.history.length > 1 ? navigate(-1) : navigate("/personal"));
 
   const { persona, loading, error } = usePersonal(personaId);
   const { vencimientos, loading: cargandoVencimientos } = useVencimientosPersonal(
@@ -75,20 +53,17 @@ export function PersonalDetailPage() {
 
   if (loading) {
     return (
-      <Box p="5">
-        <Stack direction="row" gap="3" align="center" color="fg.muted">
-          <Spinner size="sm" color="brand.500" />
-          <Text fontStyle="italic">Cargando información...</Text>
-        </Stack>
-      </Box>
+      <PaginaDetalle volver={{ a: "/personal", etiqueta: "Personal", historial: true }} titulo="Ficha de personal">
+        <EstadoCargando>Cargando información...</EstadoCargando>
+      </PaginaDetalle>
     );
   }
 
   if (error || !persona) {
     return (
-      <Box p="5">
+      <PaginaDetalle volver={{ a: "/personal", etiqueta: "Personal", historial: true }} titulo="Ficha de personal">
         <BannerError mb="0">{error || "No se encontró el empleado"}</BannerError>
-      </Box>
+      </PaginaDetalle>
     );
   }
 
@@ -97,37 +72,28 @@ export function PersonalDetailPage() {
   const hoy = hoyISO();
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title={`Ficha de personal #${persona.id}`}
-      />
+    <PaginaDetalle
+      volver={{ a: "/personal", etiqueta: "Personal", historial: true }}
+      titulo={`${persona.nombre} ${persona.apellido || ""}`.trim()}
+      descripcion={`Ficha de personal #${persona.id}`}
+    >
+      <SeccionDetalle titulo="Datos personales">
+        <GrillaDatos>
+          <DatoDetalle etiqueta="Nombre completo">{`${persona.nombre} ${persona.apellido || ""}`}</DatoDetalle>
+          <DatoDetalle etiqueta="DNI">{persona.dni}</DatoDetalle>
+          <DatoDetalle etiqueta="Email">{persona.email}</DatoDetalle>
+          <DatoDetalle etiqueta="Teléfono">{persona.telefono || "No registrado"}</DatoDetalle>
+        </GrillaDatos>
+      </SeccionDetalle>
 
-      <Tarjeta p="5">
-        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
-          <Campo
-            etiqueta="Nombre completo"
-            valor={`${persona.nombre} ${persona.apellido || ""}`}
-          />
-          <Campo etiqueta="DNI" valor={persona.dni} />
-          <Campo etiqueta="Email" valor={persona.email} />
-          <Campo etiqueta="Teléfono" valor={persona.telefono || "No registrado"} />
-        </SimpleGrid>
-
-        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
-          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
-            Permisos en el sistema
-          </Heading>
+      <SeccionDetalle titulo="Permisos en el sistema">
           <SimpleGrid columns={{ base: 1, sm: 2 }} gap="2">
             <Permiso concedido={persona.puede_operar}>Puede Operar</Permiso>
             <Permiso concedido={persona.puede_administrar}>Puede Administrar</Permiso>
           </SimpleGrid>
-        </Box>
+      </SeccionDetalle>
 
-        <Box mt="6" pt="6" borderTopWidth="1px" borderColor="border.subtle">
-          <Heading as="h4" size="lg" fontWeight="bold" color="fg" mb="3">
-            Vencimientos de aptitud
-          </Heading>
-
+      <SeccionDetalle titulo="Vencimientos de aptitud">
           {cargandoVencimientos && (
             <Text fontSize="sm" color="fg.muted" fontStyle="italic">
               Cargando...
@@ -171,12 +137,7 @@ export function PersonalDetailPage() {
               </Table.Body>
             </Table.Root>
           )}
-        </Box>
-      </Tarjeta>
-
-      <AccionesDetalle>
-        <BotonVolver onClick={volver}>Volver</BotonVolver>
-      </AccionesDetalle>
-    </Box>
+      </SeccionDetalle>
+    </PaginaDetalle>
   );
 }

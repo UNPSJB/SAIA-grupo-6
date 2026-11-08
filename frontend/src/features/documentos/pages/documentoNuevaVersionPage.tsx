@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Text } from "@chakra-ui/react";
+import { Spinner, Text } from "@chakra-ui/react";
 import { DocumentoForm } from "../components/documentoForm";
 import { useDocumento } from "../hooks/useDocumento";
 import { useDocumentoABM } from "../hooks/useDocumentoABM";
@@ -9,8 +9,8 @@ import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
   BannerExito,
-  PageHeader,
 } from "../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../components/ui/plantillas";
 
 export function DocumentoNuevaVersionPage() {
   const { id } = useParams();
@@ -35,12 +35,11 @@ export function DocumentoNuevaVersionPage() {
   const vigente = documento?.version_vigente;
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title={`Nueva versión${documento ? `: ${documento.nombre}` : ""}`}
-        description="La versión anterior queda archivada: no se borra ni se sobrescribe."
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/documentos", etiqueta: "Documentos" }}
+      titulo={`Nueva versión${documento ? `: ${documento.nombre}` : ""}`}
+      descripcion="La versión anterior queda archivada: no se borra ni se sobrescribe."
+    >
       {cargando && <Spinner color="brand.500" />}
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
@@ -77,6 +76,6 @@ export function DocumentoNuevaVersionPage() {
           />
         </>
       )}
-    </Box>
+    </PaginaFormulario>
   );
 }

@@ -1,20 +1,19 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, HStack, Text } from "@chakra-ui/react";
+import { Button, HStack, Text } from "@chakra-ui/react";
 import { LuFactory, LuInfo } from "react-icons/lu";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
 import {
   BannerError,
   BotonCancelar,
-  BotonVolver,
   EstadoCargando,
   FormField,
   FormInput,
   FormNativeSelect,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { PaginaDetalle } from "../../../../components/ui/plantillas";
 import { useEscalado } from "../../hooks/useEscalado";
 import { obtenerReceta } from "../../services/recetaService";
 import type { ModoEscalado } from "../../types/receta";
@@ -51,17 +50,11 @@ export function RecetaEscaladoPage() {
   const simbolo = vigente?.unidad_medida.simbolo ?? "";
 
   return (
-    <Box p="5" maxW="960px" mx="auto">
-      <PageHeader
-        title={receta ? `Escalar ${receta.producto_nombre}` : "Escalar receta"}
-        description="Calculá las cantidades exactas de cada ingrediente para lo que vas a elaborar hoy."
-        actions={
-          <BotonVolver onClick={() => navigate(receta ? `/recetas/${receta.id}` : "/recetas")}>
-            Volver a la receta
-          </BotonVolver>
-        }
-      />
-
+    <PaginaDetalle
+      volver={receta ? { a: `/recetas/${receta.id}`, etiqueta: "la receta" } : { a: "/recetas", etiqueta: "Recetas" }}
+      titulo={receta ? `Escalar ${receta.producto_nombre}` : "Escalar receta"}
+      descripcion="Calculá las cantidades exactas de cada ingrediente para lo que vas a elaborar hoy."
+    >
       {loading && <EstadoCargando>Cargando receta...</EstadoCargando>}
       {error && <BannerError>{error}</BannerError>}
 
@@ -167,6 +160,6 @@ export function RecetaEscaladoPage() {
           )}
         </>
       )}
-    </Box>
+    </PaginaDetalle>
   );
 }

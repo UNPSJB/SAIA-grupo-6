@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge, Box, Heading, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Stack, Table, Text } from "@chakra-ui/react";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
@@ -7,29 +7,15 @@ import {
   BannerError,
   BotonAccion,
   BotonCancelar,
-  BotonVolver,
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
   FilaEncabezado,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { DatoDetalle, GrillaDatos, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { BadgeEstadoLote } from "../../../lotes/components/BadgeEstadoLote";
 import { trazarLoteProducto } from "../../services/trazabilidadService";
-
-function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <Box>
-      <Text fontSize="xs" color="fg.muted">
-        {etiqueta}
-      </Text>
-      <Text fontSize="sm" fontWeight="medium" color="fg">
-        {children}
-      </Text>
-    </Box>
-  );
-}
 
 export function TrazabilidadLoteProductoPage() {
   const navigate = useNavigate();
@@ -43,71 +29,56 @@ export function TrazabilidadLoteProductoPage() {
   });
 
   return (
-    <Box p="5" maxW="1100px" mx="auto">
-      <PageHeader
-        title={traza ? `Trazabilidad del lote ${traza.lote.numero_lote}` : "Trazabilidad del lote"}
-        description="Del lote producido hasta el proveedor de cada insumo."
-        actions={
-          <>
-            <BotonVolver onClick={() => navigate("/trazabilidad")}>Volver</BotonVolver>
-            {traza && (
-              <BotonCancelar onClick={() => navigate(`/lotes/${traza.lote.id}`)}>Abrir lote</BotonCancelar>
-            )}
-          </>
-        }
-      />
-
+    <PaginaDetalle
+      volver={{ a: "/trazabilidad", etiqueta: "Trazabilidad" }}
+      titulo={traza ? `Trazabilidad del lote ${traza.lote.numero_lote}` : "Trazabilidad del lote"}
+      estado={traza ? <BadgeEstadoLote estado={traza.lote.estado} /> : undefined}
+      descripcion="Del lote producido hasta el proveedor de cada insumo."
+      acciones={
+        traza ? (
+          <BotonCancelar onClick={() => navigate(`/lotes/${traza.lote.id}`)}>Abrir lote</BotonCancelar>
+        ) : undefined
+      }
+    >
       {loading && <EstadoCargando>Cargando trazabilidad...</EstadoCargando>}
       {error && <BannerError>{error}</BannerError>}
 
       {traza && (
         <Stack gap="6">
-          <Tarjeta p="5">
-            <Heading as="h3" size="md" mb="4" color="brand.fg">
-              Lote y receta
-            </Heading>
-            <HStack gap="8" flexWrap="wrap" align="flex-start">
-              <Dato etiqueta="Producto">{traza.lote.producto_nombre}</Dato>
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Estado
-                </Text>
-                <BadgeEstadoLote estado={traza.lote.estado} />
-              </Box>
-              <Dato etiqueta="Receta usada">
+          <SeccionDetalle titulo="Lote y receta" mb="0">
+            <GrillaDatos>
+              <DatoDetalle etiqueta="Producto">{traza.lote.producto_nombre}</DatoDetalle>
+              <DatoDetalle etiqueta="Receta usada">
                 {traza.receta
                   ? `Versión ${traza.receta.version_numero} (rinde ${cantidadConUnidad(traza.receta.rendimiento, traza.receta.unidad)})`
                   : "Sin receta (lote histórico)"}
-              </Dato>
+              </DatoDetalle>
               {traza.receta && (
-                <Dato etiqueta="Versión creada">
+                <DatoDetalle etiqueta="Versión creada">
                   {formatoFecha(traza.receta.creada_en)}
                   {traza.receta.creada_por ? ` por ${traza.receta.creada_por.nombre}` : ""}
-                </Dato>
+                </DatoDetalle>
               )}
-              <Dato etiqueta="Elaborado por">{traza.elaborado_por?.nombre ?? "-"}</Dato>
-              <Dato etiqueta="Inicio">{formatoFechaHora(traza.lote.fecha_inicio)}</Dato>
+              <DatoDetalle etiqueta="Elaborado por">{traza.elaborado_por?.nombre ?? "-"}</DatoDetalle>
+              <DatoDetalle etiqueta="Inicio">{formatoFechaHora(traza.lote.fecha_inicio)}</DatoDetalle>
               {traza.lote.fecha_cierre && (
-                <Dato etiqueta="Cierre">{formatoFechaHora(traza.lote.fecha_cierre)}</Dato>
+                <DatoDetalle etiqueta="Cierre">{formatoFechaHora(traza.lote.fecha_cierre)}</DatoDetalle>
               )}
-              <Dato etiqueta="Objetivo / producido">
+              <DatoDetalle etiqueta="Objetivo / producido">
                 {cantidadConUnidad(traza.lote.cantidad_objetivo, traza.lote.unidad)} /{" "}
                 {traza.lote.cantidad_producida
                   ? cantidadConUnidad(traza.lote.cantidad_producida, traza.lote.unidad)
                   : "-"}
-              </Dato>
-            </HStack>
+              </DatoDetalle>
+            </GrillaDatos>
             {traza.lote.motivo_cancelacion && (
               <Text fontSize="sm" color="red.fg" mt="4">
                 Motivo de cancelación: {traza.lote.motivo_cancelacion}
               </Text>
             )}
-          </Tarjeta>
+          </SeccionDetalle>
 
-          <Box>
-            <Heading as="h3" size="md" mb="3" color="brand.fg">
-              Tareas y consumos
-            </Heading>
+          <SeccionDetalle sinMarco titulo="Tareas y consumos" mb="0">
             <Stack gap="4">
               {traza.tareas.length === 0 && (
                 <Tarjeta p="6" textAlign="center">
@@ -207,12 +178,9 @@ export function TrazabilidadLoteProductoPage() {
                 </Tarjeta>
               ))}
             </Stack>
-          </Box>
+          </SeccionDetalle>
 
-          <Box>
-            <Heading as="h3" size="md" mb="3" color="brand.fg">
-              Proveedores involucrados
-            </Heading>
+          <SeccionDetalle sinMarco titulo="Proveedores involucrados" mb="0">
             {traza.proveedores.length === 0 ? (
               <Tarjeta p="6" textAlign="center">
                 <Text color="fg.muted">No hay consumos registrados todavía.</Text>
@@ -244,9 +212,9 @@ export function TrazabilidadLoteProductoPage() {
                 </Table.Root>
               </Tarjeta>
             )}
-          </Box>
+          </SeccionDetalle>
         </Stack>
       )}
-    </Box>
+    </PaginaDetalle>
   );
 }

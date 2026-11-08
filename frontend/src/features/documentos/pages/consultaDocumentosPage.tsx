@@ -7,11 +7,11 @@ import {
   BannerError,
   EstadoCargando,
   EstadoVacio,
-  PageHeader,
   Paginacion,
   Tarjeta,
   TextoTruncado,
 } from "../../../components/ui/patrones";
+import { Pagina } from "../../../components/ui/plantillas";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -145,12 +145,10 @@ export function ConsultaDocumentosPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Consultar documentos"
-        description="Documentos vigentes del sistema de calidad, con su versión al día."
-      />
-
+    <Pagina
+      titulo="Consultar documentos"
+      descripcion="Documentos vigentes del sistema de calidad, con su versión al día."
+    >
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -321,6 +319,6 @@ export function ConsultaDocumentosPage() {
           )}
         </>
       )}
-    </Box>
+    </Pagina>
   );
 }

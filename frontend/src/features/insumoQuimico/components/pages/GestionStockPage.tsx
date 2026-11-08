@@ -1,6 +1,6 @@
-import { Box, Tabs } from "@chakra-ui/react";
+import { Tabs } from "@chakra-ui/react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { PageHeader } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 
 const TABS = [
   { value: "stock", label: "Stock actual" },
@@ -15,12 +15,10 @@ export function GestionStockPage() {
   const tabActual = TABS.find((tab) => pathname.endsWith(`/${tab.value}`))?.value ?? "stock";
 
   return (
-    <Box p={{ base: "3", md: "5" }}>
-      <PageHeader
-        title="Gestión de Stock"
-        description="Controlá existencias, movimientos y consumos de productos químicos."
-      />
-
+    <Pagina
+      titulo="Gestión de Stock"
+      descripcion="Controlá existencias, movimientos y consumos de productos químicos."
+    >
       <Tabs.Root
         value={tabActual}
         onValueChange={(detalle) => navigate(`/gestion-stock/${detalle.value}`)}
@@ -38,6 +36,6 @@ export function GestionStockPage() {
       </Tabs.Root>
 
       <Outlet />
-    </Box>
+    </Pagina>
   );
 }

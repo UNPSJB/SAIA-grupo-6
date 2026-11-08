@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpieza } from "../../hooks/usePlanLimpieza";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
@@ -10,8 +9,8 @@ import {
   BannerError,
   BannerExito,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function PlanLimpiezaEditPage() {
   const navigate = useNavigate();
@@ -46,12 +45,11 @@ export function PlanLimpiezaEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar Plan de Limpieza"
-        description="Los cambios rigen para los checklists que se generen desde mañana."
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/planes-limpieza", etiqueta: "Planes de limpieza" }}
+      titulo="Editar Plan de Limpieza"
+      descripcion="Los cambios rigen para los checklists que se generen desde mañana."
+    >
       {mostrarAviso && (
         <BannerExito>
           Plan actualizado. Tené en cuenta que el checklist de hoy es una foto
@@ -93,6 +91,6 @@ export function PlanLimpiezaEditPage() {
           />
         </>
       )}
-    </Box>
+    </PaginaFormulario>
   );
 }

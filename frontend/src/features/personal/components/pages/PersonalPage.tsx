@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { PersonalTable } from "../PersonalTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -24,11 +24,12 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
+  BotonAgregar,
   BannerError,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 
 
 const PAGE_SIZE = 10;
@@ -158,47 +159,24 @@ export function PersonalPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={verInactivos ? "Personal dado de baja" : "Gestión de personal"}
-        description="Alta, modificación y baja del personal del laboratorio."
-        actions={
-          <HStack spacing="2">
-            <Button colorPalette="brand" onClick={() => navigate("/personal/nuevo")}>
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo={verInactivos ? "Personal dado de baja" : "Gestión de personal"}
+      descripcion="Alta, modificación y baja del personal del laboratorio."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/personal/nuevo")}>Nueva persona</BotonAgregar>
+      }
+    >
       {loading && <Spinner color="brand.500" />}
       {error && <BannerError>{error}</BannerError>}
       {errorReactivar && <BannerError>{errorReactivar}</BannerError>}
 
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={handleToggleInactivos}
-        children="Ver dados de baja"
-      />
-
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre, apellido, DNI o email..."
           />
-        <BotonesExportar
-          nombreTabla="personal"
-          filtros={{
-             activo: String(!verInactivos),
-             buscar: busquedaAplicada,
-              rol: rol ? (rol as RolPersonal) : undefined,
-              orden: orden.orden,
-              }}
-            />
-          </Box>
         }
         filtros={
           <FiltroSelect
@@ -210,6 +188,25 @@ export function PersonalPage() {
               etiqueta: opcion.label,
             }))}
           />
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={handleToggleInactivos}
+              children="Ver dados de baja"
+            />
+            <BotonesExportar
+            nombreTabla="personal"
+            filtros={{
+               activo: String(!verInactivos),
+               buscar: busquedaAplicada,
+                rol: rol ? (rol as RolPersonal) : undefined,
+                orden: orden.orden,
+                }}
+              />
+          </>
         }
       />
 
@@ -265,6 +262,6 @@ export function PersonalPage() {
         onCancel={handleCloseReactivarDialog} 
         onConfirm={handleConfirmReactivar} 
       />
-    </Box>
+    </Pagina>
   );
 }

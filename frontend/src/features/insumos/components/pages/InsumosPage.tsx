@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { InsumoTable } from "../InsumoTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -21,11 +21,12 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
+  BotonAgregar,
   BannerError,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -171,48 +172,25 @@ export function InsumosPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          verInactivos
-            ? "Insumos y productos dados de baja"
-            : "Gestión de insumos y productos"
-        }
-        description="Alta, modificación y baja de insumos y productos del laboratorio."
-        actions={
-          <HStack gap="2">
-            <Button colorPalette="brand" onClick={() => navigate("/insumos/nuevo")}>
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={handleToggleInactivos}
-        children="Ver dados de baja"
-      />
-
+    <Pagina
+      titulo={
+        verInactivos
+          ? "Insumos y productos dados de baja"
+          : "Gestión de insumos y productos"
+      }
+      descripcion="Alta, modificación y baja de insumos y productos del laboratorio."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/insumos/nuevo")}>Nuevo insumo</BotonAgregar>
+      }
+    >
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre o unidad..."
           />
-          <BotonesExportar
-          nombreTabla="insumos"
-          filtros={{
-            activo: String(!verInactivos),
-            buscar: busquedaAplicada,
-            tipo: tipo || undefined,
-            unidad_id: unidadId || undefined,
-          }}
-        />
-      </Box>
-    }
+        }
         filtros={
           <>
             <FiltroSelect
@@ -234,6 +212,25 @@ export function InsumosPage() {
                 etiqueta: `${unidad.nombre} (${unidad.simbolo})`,
               }))}
               todos="Todas"
+            />
+          </>
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={handleToggleInactivos}
+              children="Ver dados de baja"
+            />
+            <BotonesExportar
+              nombreTabla="insumos"
+              filtros={{
+                activo: String(!verInactivos),
+                buscar: busquedaAplicada,
+                tipo: tipo || undefined,
+                unidad_id: unidadId || undefined,
+              }}
             />
           </>
         }
@@ -295,6 +292,6 @@ export function InsumosPage() {
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

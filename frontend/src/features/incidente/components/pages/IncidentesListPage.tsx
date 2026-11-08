@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, HStack } from "@chakra-ui/react";
 import { IncidenteTable } from "../IncidenteTable";
 import { IncidentesPorTipoPanel } from "../IncidentesPorTipoPanel";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
@@ -40,9 +39,9 @@ import {
   BannerExito,
   BotonAgregar,
   EstadoCargando,
-  PageHeader,
   Paginacion,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -249,19 +248,13 @@ export function IncidentesListPage() {
   ]);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Gestión de incidentes"
-        description="Reportes, cierres y reaperturas del laboratorio."
-        actions={
-          <HStack spacing="2">
-            <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>
-              Registrar incidente
-            </BotonAgregar>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo="Gestión de incidentes"
+      descripcion="Reportes, cierres y reaperturas del laboratorio."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>Registrar incidente</BotonAgregar>
+      }
+    >
       {/* Indicador E7: incidentes por tipo — conectado al filtro de la tabla */}
       <IncidentesPorTipoPanel
         filtroTipo={filtroTipo}
@@ -281,17 +274,11 @@ export function IncidentesListPage() {
 
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
-            <CampoBusqueda
-              valor={busqueda}
-              onCambio={setBusqueda}
-              placeholder="Buscar por título, descripción o reportado por..."
-            />
-            <BotonesExportar
-              nombreTabla="incidentes"
-              filtros={{ estado: filtroEstado, tipo: filtroTipo }}
-            />
-          </Box>
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por título, descripción o reportado por..."
+          />
         }
         filtros={
           <>
@@ -316,6 +303,12 @@ export function IncidentesListPage() {
               todos="Todos los tipos"
             />
           </>
+        }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="incidentes"
+            filtros={{ estado: filtroEstado, tipo: filtroTipo }}
+          />
         }
       />
 
@@ -374,6 +367,6 @@ export function IncidentesListPage() {
         onClose={handleReabrirDialogClose}
         onConfirm={handleReabrir}
       />
-    </Box>
+    </Pagina>
   );
 }

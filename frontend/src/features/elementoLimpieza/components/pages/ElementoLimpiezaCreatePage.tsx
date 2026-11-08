@@ -1,7 +1,6 @@
 import type { ElementoLimpiezaFormValues } from "../../types/elementoLimpieza";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { ElementoLimpiezaForm } from "../ElementoLimpiezaForm";
 import { useElementoLimpiezaABM } from "../../hooks/useElementoLimpiezaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -9,8 +8,8 @@ import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate"
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function ElementoLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -50,11 +49,10 @@ export function ElementoLimpiezaCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo elemento de limpieza"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/elementos-limpieza", etiqueta: "Elementos de limpieza" }}
+      titulo="Nuevo elemento de limpieza"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <ElementoLimpiezaForm
@@ -78,6 +76,6 @@ export function ElementoLimpiezaCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

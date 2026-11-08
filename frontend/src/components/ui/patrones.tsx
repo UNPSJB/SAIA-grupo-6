@@ -678,15 +678,24 @@ export function FormNativeSelect({
   mb,
   ...rest
 }: FormNativeSelectProps) {
+  /*
+   * El ancho va en el Root y no en el Field: la flechita (`Indicator`) se
+   * posiciona contra el Root. Con `maxW` en el Field, el select se achicaba
+   * pero la flecha quedaba en el borde del Root, afuera del control (se veía
+   * en "Nuevo lote", con selects de 500px en una tarjeta más ancha).
+   */
   return (
-    <NativeSelect.Root disabled={disabled}>
+    <NativeSelect.Root
+      disabled={disabled}
+      w={w ?? "100%"}
+      maxW={maxW}
+      minW={minW}
+      mt={mt}
+      mb={mb}
+    >
       <NativeSelect.Field
         {...rest}
-        w={w ?? "100%"}
-        maxW={maxW}
-        minW={minW}
-        mt={mt}
-        mb={mb}
+        w="100%"
         bg="bg.panel"
         color="fg"
         borderWidth="2px"
@@ -991,17 +1000,23 @@ export function Paginacion({
   );
 }
 
+/**
+ * Interruptor "Ver dados de baja". Su lugar es `BarraFiltros` →
+ * `herramientas`; ahí va con `enBarra` para que no sume margen propio.
+ */
 export function ToggleInactivos({
   checked,
   onChange,
   children = "Ver dadas de baja",
+  enBarra = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   children?: ReactNode;
+  enBarra?: boolean;
 }) {
   return (
-    <HStack justify="flex-end" mb="6">
+    <HStack justify="flex-end" mb={enBarra ? "0" : "6"}>
       <Switch.Root
         checked={checked}
         onCheckedChange={(e) => onChange(e.checked)}

@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
 import { listarUnidadesMedida } from "../../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../../unidadMedida/types/unidadMedida";
@@ -63,14 +61,13 @@ export function RecetaNuevaVersionPage() {
   const fallo = errorReceta ?? errorVersion ?? errorInsumos;
 
   return (
-    <Box p="5" maxW="960px" mx="auto">
-      <PageHeader
-        title={receta ? `Nueva versión de ${receta.producto_nombre}` : "Nueva versión"}
-        description="Parte de la versión vigente. Al guardar se crea la versión siguiente; la actual queda de solo lectura."
-        actions={<BotonVolver onClick={() => navigate(volver)}>Volver a la receta</BotonVolver>}
-      />
-
-      {error && <BannerError>{error}</BannerError>}
+    <PaginaFormulario
+      ancho="ancho"
+      volver={{ a: volver, etiqueta: "la receta" }}
+      titulo={receta ? `Nueva versión de ${receta.producto_nombre}` : "Nueva versión"}
+      descripcion="Parte de la versión vigente. Al guardar se crea la versión siguiente; la actual queda de solo lectura."
+      error={error}
+    >
       {fallo && <BannerError>{fallo}</BannerError>}
       {cargando && <EstadoCargando>Cargando receta...</EstadoCargando>}
 
@@ -89,6 +86,6 @@ export function RecetaNuevaVersionPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Nueva versión guardada correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

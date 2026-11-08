@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Box, HStack, Table } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
@@ -13,7 +14,6 @@ import {
   EstadoCargando,
   EstadoVacio,
   FilaEncabezado,
-  PageHeader,
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
@@ -26,21 +26,19 @@ export function RecetasPage() {
   const { recetas, loading, error } = useRecetas();
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Recetas"
-        description={
+    <Pagina
+      titulo="Recetas"
+      descripcion={
           esAdmin
             ? "Cada producto tiene una receta. Al modificarla se crea una versión nueva y las anteriores quedan de solo lectura."
             : "Consultá la versión vigente antes de elaborar y escalala a la cantidad que vas a producir."
         }
-        actions={
-          esAdmin ? (
-            <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
-          ) : undefined
-        }
-      />
-
+      acciones={
+        esAdmin ? (
+          <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
+        ) : undefined
+      }
+    >
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando>Cargando recetas...</EstadoCargando>}
 
@@ -102,6 +100,6 @@ export function RecetasPage() {
           </Table.Root>
         </Tarjeta>
       )}
-    </Box>
+    </Pagina>
   );
 }

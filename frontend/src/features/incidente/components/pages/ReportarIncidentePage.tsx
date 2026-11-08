@@ -18,11 +18,11 @@ import {
   BannerError,
   BannerExito,
   EstadoCargando,
-  PageHeader,
   Paginacion,
   Tarjeta,
   TextoTruncado,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 
 /** Tamaño de página de todos los listados de la app. */
 const PAGE_SIZE = 10;
@@ -280,12 +280,10 @@ export function ReportarIncidentePage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title="Reportar incidente"
-        description="Registrá un incidente nuevo o seguí el estado de los que ya reportaste."
-      />
-
+    <Pagina
+      titulo="Reportar incidente"
+      descripcion="Registrá un incidente nuevo o seguí el estado de los que ya reportaste."
+    >
       {exito && <BannerExito>Incidente registrado correctamente</BannerExito>}
 
       {errorAlta && <BannerError>{errorAlta}</BannerError>}
@@ -388,6 +386,6 @@ export function ReportarIncidentePage() {
           </Tarjeta>
         </Box>
       )}
-    </Box>
+    </Pagina>
   );
 }

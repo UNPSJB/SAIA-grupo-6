@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { UnidadMedidaForm } from "../UnidadMedidaForm";
 import { useUnidadMedida } from "../../hooks/useUnidadMedida";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
@@ -9,8 +9,8 @@ import type { UnidadMedida } from "../../types/unidadMedida";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function UnidadMedidaEditPage() {
   const navigate = useNavigate();
@@ -46,11 +46,10 @@ export function UnidadMedidaEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar unidad de medida"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/unidades-medida", etiqueta: "Unidades de medida" }}
+      titulo="Editar unidad de medida"
+    >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
       {cargando && (
@@ -85,6 +84,6 @@ export function UnidadMedidaEditPage() {
           />
         </>
       )}
-    </Box>
+    </PaginaFormulario>
   );
 }

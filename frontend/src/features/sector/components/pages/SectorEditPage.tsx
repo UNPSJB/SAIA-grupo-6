@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { SectorForm } from "../SectorForm";
 import { useSector } from "../../hooks/useSector";
 import { useSectorABM } from "../../hooks/useSectorABM";
 import type { Sector } from "../../types/sector";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function SectorEditPage() {
   const navigate = useNavigate();
@@ -34,16 +33,10 @@ export function SectorEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar sector"
-        actions={
-          <BotonVolver onClick={() => navigate("/sectores")}>
-            Volver a la lista
-          </BotonVolver>
-        }
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/sectores", etiqueta: "Sectores" }}
+      titulo="Editar sector"
+    >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
@@ -69,6 +62,6 @@ export function SectorEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Sector modificado correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

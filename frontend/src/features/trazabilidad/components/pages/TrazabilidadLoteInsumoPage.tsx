@@ -1,35 +1,21 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, HStack, Heading, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { formatoCantidad } from "../../../../common/utils/numeros";
 import {
   BannerError,
   BotonAccion,
-  BotonVolver,
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
   FilaEncabezado,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { DatoDetalle, GrillaDatos, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { BadgeEstadoLote } from "../../../lotes/components/BadgeEstadoLote";
 import { trazarLoteInsumo } from "../../services/trazabilidadService";
-
-function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <Box>
-      <Text fontSize="xs" color="fg.muted">
-        {etiqueta}
-      </Text>
-      <Text fontSize="sm" fontWeight="medium" color="fg">
-        {children}
-      </Text>
-    </Box>
-  );
-}
 
 export function TrazabilidadLoteInsumoPage() {
   const navigate = useNavigate();
@@ -43,36 +29,31 @@ export function TrazabilidadLoteInsumoPage() {
   });
 
   return (
-    <Box p="5" maxW="1000px" mx="auto">
-      <PageHeader
-        title={traza ? `Lote de insumo ${traza.lote_insumo.numero_lote}` : "Lote de insumo"}
-        description="Lotes de producto que consumieron este lote de insumo."
-        actions={<BotonVolver onClick={() => navigate("/trazabilidad")}>Volver</BotonVolver>}
-      />
-
+    <PaginaDetalle
+      volver={{ a: "/trazabilidad", etiqueta: "Trazabilidad" }}
+      titulo={traza ? `Lote de insumo ${traza.lote_insumo.numero_lote}` : "Lote de insumo"}
+      descripcion="Lotes de producto que consumieron este lote de insumo."
+    >
       {loading && <EstadoCargando>Cargando trazabilidad...</EstadoCargando>}
       {error && <BannerError>{error}</BannerError>}
 
       {traza && (
         <>
-          <Tarjeta p="5" mb="6">
-            <HStack gap="8" flexWrap="wrap" align="flex-start">
-              <Dato etiqueta="Insumo">{traza.lote_insumo.insumo_nombre}</Dato>
-              <Dato etiqueta="Proveedor">
+          <SeccionDetalle titulo="Datos del lote">
+            <GrillaDatos>
+              <DatoDetalle etiqueta="Insumo">{traza.lote_insumo.insumo_nombre}</DatoDetalle>
+              <DatoDetalle etiqueta="Proveedor">
                 {traza.lote_insumo.proveedor.nombre} (matrícula {traza.lote_insumo.proveedor.matricula})
-              </Dato>
-              <Dato etiqueta="Ingreso">{formatoFecha(traza.lote_insumo.fecha_ingreso)}</Dato>
-              <Dato etiqueta="Vencimiento">{formatoFecha(traza.lote_insumo.fecha_vencimiento)}</Dato>
-              <Dato etiqueta="Recibido">{formatoCantidad(traza.cantidad_recibida)}</Dato>
-              <Dato etiqueta="Saldo">{formatoCantidad(traza.saldo)}</Dato>
-              <Dato etiqueta="Estado">{traza.lote_insumo.activo ? "Activo" : "Dado de baja"}</Dato>
-            </HStack>
-          </Tarjeta>
+              </DatoDetalle>
+              <DatoDetalle etiqueta="Ingreso">{formatoFecha(traza.lote_insumo.fecha_ingreso)}</DatoDetalle>
+              <DatoDetalle etiqueta="Vencimiento">{formatoFecha(traza.lote_insumo.fecha_vencimiento)}</DatoDetalle>
+              <DatoDetalle etiqueta="Recibido">{formatoCantidad(traza.cantidad_recibida)}</DatoDetalle>
+              <DatoDetalle etiqueta="Saldo">{formatoCantidad(traza.saldo)}</DatoDetalle>
+              <DatoDetalle etiqueta="Estado">{traza.lote_insumo.activo ? "Activo" : "Dado de baja"}</DatoDetalle>
+            </GrillaDatos>
+          </SeccionDetalle>
 
-          <Heading as="h3" size="md" mb="3" color="brand.fg">
-            Lotes de producto que lo usaron
-          </Heading>
-
+          <SeccionDetalle sinMarco titulo="Lotes de producto que lo usaron">
           {traza.lotes_producto.length === 0 ? (
             <EstadoVacio>Este lote de insumo todavía no se usó en ningún lote de producto.</EstadoVacio>
           ) : (
@@ -119,8 +100,9 @@ export function TrazabilidadLoteInsumoPage() {
               </Table.Root>
             </Tarjeta>
           )}
+          </SeccionDetalle>
         </>
       )}
-    </Box>
+    </PaginaDetalle>
   );
 }

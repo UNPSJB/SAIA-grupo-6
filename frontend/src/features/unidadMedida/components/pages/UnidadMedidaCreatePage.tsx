@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { UnidadMedidaForm } from "../UnidadMedidaForm";
 import { useUnidadMedidaABM } from "../../hooks/useUnidadMedidaABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -9,8 +8,8 @@ import type { UnidadMedida } from "../../types/unidadMedida";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function UnidadMedidaCreatePage() {
   const navigate = useNavigate();
@@ -47,11 +46,10 @@ export function UnidadMedidaCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nueva unidad de medida"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/unidades-medida", etiqueta: "Unidades de medida" }}
+      titulo="Nueva unidad de medida"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <DialogoExito
@@ -74,6 +72,6 @@ export function UnidadMedidaCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

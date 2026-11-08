@@ -1,17 +1,16 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { Box, Badge, Spinner, Table } from "@chakra-ui/react";
+import { useParams } from "react-router-dom";
+import { Badge, Table } from "@chakra-ui/react";
 import {
-  AccionesDetalle,
   BannerError,
   BotonTexto,
-  BotonVolver,
   Celda,
   EncabezadoOscuro,
+  EstadoCargando,
   FilaEncabezado,
-  PageHeader,
   Tarjeta,
   TextoTruncado,
 } from "../../../components/ui/patrones";
+import { PaginaDetalle } from "../../../components/ui/plantillas";
 import { useHistorialDocumento } from "../hooks/useHistorialDocumento";
 import { abrirArchivo } from "../services/documentoService";
 import type { EstadoVersion } from "../types/documento";
@@ -35,14 +34,13 @@ const ETIQUETA_ESTADO: Record<EstadoVersion, string> = {
 export function DocumentoHistorialPage() {
   const { id } = useParams();
   const documentoId = Number(id);
-  const navigate = useNavigate();
 
   const { historial, loading, error } = useHistorialDocumento(documentoId);
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
+    <PaginaDetalle
+      volver={{ a: "/documentos", etiqueta: "Documentos", historial: true }}
+      titulo={
           historial ? (
             <>
               {/*
@@ -64,14 +62,13 @@ export function DocumentoHistorialPage() {
             "Historial"
           )
         }
-        description={
-          historial
-            ? `${etiquetaTipo(historial.tipo)} · Solo lectura: las versiones anteriores no pueden editarse ni eliminarse.`
-            : undefined
-        }
-      />
-
-      {loading && <Spinner color="brand.500" />}
+      descripcion={
+        historial
+          ? `${etiquetaTipo(historial.tipo)} · Solo lectura: las versiones anteriores no pueden editarse ni eliminarse.`
+          : undefined
+      }
+    >
+      {loading && <EstadoCargando>Cargando historial...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {historial && (
@@ -135,10 +132,6 @@ export function DocumentoHistorialPage() {
           </Table.Root>
         </Tarjeta>
       )}
-
-      <AccionesDetalle>
-        <BotonVolver onClick={() => navigate(-1)}>Volver</BotonVolver>
-      </AccionesDetalle>
-    </Box>
+    </PaginaDetalle>
   );
 }

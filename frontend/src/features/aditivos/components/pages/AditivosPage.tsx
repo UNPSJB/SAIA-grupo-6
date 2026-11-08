@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { Badge, Box, HStack, Table, Tabs, Text } from "@chakra-ui/react";
+import { Badge, HStack, Table, Text } from "@chakra-ui/react";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { useLista } from "../../../../common/hooks/useLista";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
   BarraFiltros,
+  CampoBusqueda,
   ChipsFiltros,
   EstadoVacioFiltrado,
   FiltroSelect,
@@ -18,9 +20,6 @@ import {
   EstadoCargando,
   EstadoVacio,
   FilaEncabezado,
-  FormInput,
-  LabelFiltro,
-  PageHeader,
   Paginacion,
   Tarjeta,
   ToggleInactivos,
@@ -110,40 +109,34 @@ function TabAditivos() {
 
   return (
     <>
-      <HStack justify="space-between" mb="2" flexWrap="wrap" gap="3">
-        <Text fontSize="sm" color="fg.muted" maxW="640px">
-          Cada aditivo se identifica por su clase funcional, su nombre completo y su número INS. Los
-          insumos de tipo aditivo se eligen de esta lista.
-        </Text>
-        <BotonAgregar onClick={() => setEditando("nuevo")}>Nuevo aditivo</BotonAgregar>
-      </HStack>
+      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
+        Cada aditivo se identifica por su clase funcional, su nombre completo y su número INS. Los
+        insumos de tipo aditivo se eligen de esta lista.
+      </Text>
 
       <BarraFiltros
+        busqueda={
+          <CampoBusqueda valor={buscar} onCambio={setBuscar} placeholder="Nombre o INS..." />
+        }
         filtros={
+          <FiltroSelect
+            label="Clase funcional"
+            valor={claseId}
+            onCambio={setClaseId}
+            opciones={clases.map((c) => ({ valor: String(c.id), etiqueta: c.nombre }))}
+            todos="Todas las clases"
+          />
+        }
+        herramientas={
           <>
-            <FiltroSelect
-              label="Clase funcional"
-              valor={claseId}
-              onCambio={setClaseId}
-              opciones={clases.map((c) => ({ valor: String(c.id), etiqueta: c.nombre }))}
-              todos="Todas las clases"
-            />
-            <Box minW="220px">
-              <LabelFiltro>Buscar</LabelFiltro>
-              <FormInput
-                value={buscar}
-                onChange={(e) => setBuscar(e.target.value)}
-                placeholder="Nombre o INS"
-                aria-label="Buscar aditivo"
-              />
-            </Box>
+            <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
+              Ver dados de baja
+            </ToggleInactivos>
+            <BotonAgregar onClick={() => setEditando("nuevo")}>Nuevo aditivo</BotonAgregar>
           </>
         }
       />
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
-      <ToggleInactivos checked={verBajas} onChange={setVerBajas}>
-        Ver dados de baja
-      </ToggleInactivos>
 
       {error && <BannerError>{error}</BannerError>}
       {errorAccion && <BannerError>{errorAccion}</BannerError>}
@@ -252,16 +245,21 @@ function TabClases() {
 
   return (
     <>
-      <HStack justify="space-between" mb="2" flexWrap="wrap" gap="3">
-        <Text fontSize="sm" color="fg.muted" maxW="640px">
-          Funciones tecnológicas de los aditivos. En las marcadas como "solo por su función" el número
-          INS es opcional.
-        </Text>
-        <BotonAgregar onClick={() => setEditando("nueva")}>Nueva clase</BotonAgregar>
-      </HStack>
-      <ToggleInactivos checked={verBajas} onChange={setVerBajas}>
-        Ver dadas de baja
-      </ToggleInactivos>
+      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
+        Funciones tecnológicas de los aditivos. En las marcadas como "solo por su función" el número
+        INS es opcional.
+      </Text>
+
+      <BarraFiltros
+        herramientas={
+          <>
+            <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
+              Ver dadas de baja
+            </ToggleInactivos>
+            <BotonAgregar onClick={() => setEditando("nueva")}>Nueva clase</BotonAgregar>
+          </>
+        }
+      />
 
       {error && <BannerError>{error}</BannerError>}
       {errorAccion && <BannerError>{errorAccion}</BannerError>}
@@ -333,28 +331,16 @@ function TabClases() {
 
 export function AditivosPage() {
   return (
-    <Box p="5">
-      <PageHeader
-        title="Aditivos"
-        description="Lista de referencia de aditivos alimentarios. Se actualiza desde acá, sin reprogramar."
+    <Pagina
+      titulo="Aditivos"
+      descripcion="Lista de referencia de aditivos alimentarios. Se actualiza desde acá, sin reprogramar."
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "aditivos", etiqueta: "Aditivos", contenido: <TabAditivos /> },
+          { valor: "clases", etiqueta: "Clases funcionales", contenido: <TabClases /> },
+        ]}
       />
-      <Tabs.Root defaultValue="aditivos" variant="line" colorPalette="brand" lazyMount>
-        <Tabs.List overflowX="auto" overflowY="hidden" mb="6">
-          <Tabs.Trigger value="aditivos" flexShrink={0}>
-            Aditivos
-          </Tabs.Trigger>
-          <Tabs.Trigger value="clases" flexShrink={0}>
-            Clases funcionales
-          </Tabs.Trigger>
-          <Tabs.Indicator />
-        </Tabs.List>
-        <Tabs.Content value="aditivos" p="0">
-          <TabAditivos />
-        </Tabs.Content>
-        <Tabs.Content value="clases" p="0">
-          <TabClases />
-        </Tabs.Content>
-      </Tabs.Root>
-    </Box>
+    </Pagina>
   );
 }

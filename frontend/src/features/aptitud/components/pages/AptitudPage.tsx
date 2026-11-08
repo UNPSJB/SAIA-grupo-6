@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { AptitudTable } from "../AptitudTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -18,11 +18,12 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
+  BotonAgregar,
   BannerError,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -124,50 +125,45 @@ export function AptitudPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={verInactivos ? "Aptitudes dadas de baja" : "Gestión de aptitudes"}
-        description="Alta, modificación y baja de las aptitudes del laboratorio."
-        actions={
-          <HStack spacing="2">
-            <Button colorPalette="brand" onClick={() => navigate("/aptitudes/nuevo")}>
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo={verInactivos ? "Aptitudes dadas de baja" : "Gestión de aptitudes"}
+      descripcion="Alta, modificación y baja de las aptitudes del laboratorio."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/aptitudes/nuevo")}>Nueva aptitud</BotonAgregar>
+      }
+    >
       {errorEliminar && <BannerError>{errorEliminar}</BannerError>}
       {error && <BannerError>{error}</BannerError>}
 
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={(checked: boolean) => {
-          // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
-          setVerInactivos(checked);
-        }}
-        children="Ver dadas de baja"
-      />
-
       <BarraFiltros
-  busqueda={
-    <Box display="flex" flexDirection="column" gap="4">
-      <CampoBusqueda
-        valor={busqueda}
-        onCambio={setBusqueda}
-        placeholder="Buscar por nombre o descripción..."
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre o descripción..."
+          />
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={(checked: boolean) => {
+                // El hook de listado vuelve solo a la página 1 cuando cambia el filtro.
+                setVerInactivos(checked);
+              }}
+              children="Ver dadas de baja"
+            />
+            <BotonesExportar
+              nombreTabla="aptituds"
+              filtros={{
+                activo: String(!verInactivos),
+                buscar: busquedaAplicada,
+              }}
+            />
+          </>
+        }
       />
-      <BotonesExportar
-        nombreTabla="aptituds"
-        filtros={{
-          activo: String(!verInactivos),
-          buscar: busquedaAplicada,
-        }}
-      />
-    </Box>
-  }
-  filtros={null}
-/>
 
       
 
@@ -223,6 +219,6 @@ export function AptitudPage() {
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

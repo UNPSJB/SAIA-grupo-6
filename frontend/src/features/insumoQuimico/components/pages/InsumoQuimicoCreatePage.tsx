@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { InsumoQuimicoForm } from "../InsumoQuimicoForm";
 import { useInsumoQuimicoABM } from "../../hooks/useInsumoQuimicoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -9,8 +8,8 @@ import type { InsumoQuimicoFormValues } from "../../types/insumoQuimico";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function InsumoQuimicoCreatePage() {
   const navigate = useNavigate();
@@ -55,11 +54,10 @@ export function InsumoQuimicoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo insumo químico"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/insumos-quimicos", etiqueta: "Insumos químicos" }}
+      titulo="Nuevo insumo químico"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <InsumoQuimicoForm
@@ -82,6 +80,6 @@ export function InsumoQuimicoCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

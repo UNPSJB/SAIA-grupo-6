@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { InsumoForm } from "../InsumoForm";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -9,8 +8,8 @@ import type { InsumoFormValues } from "../../types/insumo";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function InsumoCreatePage() {
   const navigate = useNavigate();
@@ -55,11 +54,10 @@ export function InsumoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo insumo"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/insumos", etiqueta: "Insumos" }}
+      titulo="Nuevo insumo"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <InsumoForm
@@ -82,6 +80,6 @@ export function InsumoCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import {
   BannerError,
   DialogoExito,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
 import { useProductoABM } from "../../hooks/useProductoABM";
 import { obtenerProducto } from "../../services/productoService";
@@ -43,9 +42,7 @@ export function ProductoEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader title="Editar producto" />
-
+    <PaginaFormulario volver={{ a: "/productos", etiqueta: "Productos" }} titulo="Editar producto">
       {cargando && <EstadoCargando>Cargando datos del producto...</EstadoCargando>}
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
@@ -69,6 +66,6 @@ export function ProductoEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Producto modificado correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, HStack } from "@chakra-ui/react";
 import { ElementoLimpiezaTable } from "../ElementoLimpiezaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -21,10 +20,10 @@ import {
   BannerError,
   BotonAgregar,
   EstadoCargando,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -138,49 +137,43 @@ export function ElementosLimpiezaPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          verInactivos
-            ? "Elementos de limpieza dados de baja"
-            : "Gestión de elementos de limpieza"
-        }
-        description="Productos de limpieza con su frecuencia de recambio."
-        actions={
-          <HStack spacing="2">
-            <BotonAgregar onClick={() => navigate("/elementos-limpieza/nuevo")}>
-              Agregar
-            </BotonAgregar>
-
-          </HStack>
-        }
-      />
-
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={handleToggleInactivos}
-        children="Ver dados de baja"
-      />
-
+    <Pagina
+      titulo={
+        verInactivos
+          ? "Elementos de limpieza dados de baja"
+          : "Gestión de elementos de limpieza"
+      }
+      descripcion="Productos de limpieza con su frecuencia de recambio."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/elementos-limpieza/nuevo")}>Nuevo elemento</BotonAgregar>
+      }
+    >
       <BarraFiltros
-  busqueda={
-    <Box display="flex" flexDirection="column" gap="4">
-      <CampoBusqueda
-        valor={busqueda}
-        onCambio={setBusqueda}
-        placeholder="Buscar por nombre..."
+        busqueda={
+          <CampoBusqueda
+            valor={busqueda}
+            onCambio={setBusqueda}
+            placeholder="Buscar por nombre..."
+          />
+        }
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={handleToggleInactivos}
+              children="Ver dados de baja"
+            />
+            <BotonesExportar
+              nombreTabla="elementos_limpieza"
+              filtros={{
+                activo: String(!verInactivos),
+                buscar: busquedaAplicada,
+              }}
+            />
+          </>
+        }
       />
-      <BotonesExportar
-        nombreTabla="elementos_limpieza"
-        filtros={{
-          activo: String(!verInactivos),
-          buscar: busquedaAplicada,
-        }}
-      />
-    </Box>
-  }
-  filtros={null}
-/>
 
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
@@ -239,6 +232,6 @@ export function ElementosLimpiezaPage() {
         }}
         onConfirm={handleConfirmReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

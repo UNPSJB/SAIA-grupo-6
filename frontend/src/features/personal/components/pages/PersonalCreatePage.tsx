@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Text } from "@chakra-ui/react";
+import { Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -14,8 +14,8 @@ import { ConflictoInactivoError } from "../../../../common/api/errors";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 
 
@@ -68,11 +68,10 @@ export function PersonalCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo personal"
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/personal", etiqueta: "Personal" }}
+      titulo="Nuevo personal"
+    >
       {/* El conflicto de "inactivo" no se muestra acá como cartel de error:
           se resuelve con el diálogo de reactivación de abajo */}
       {error && !conflicto && <BannerError>{error}</BannerError>}
@@ -108,6 +107,6 @@ export function PersonalCreatePage() {
         isOpen={exito}
         mensaje="Personal agregado correctamente. Su contraseña inicial es su DNI."
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { EquipoForm } from "../EquipoForm";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import type { EquipoInput } from "../../types/equipo";
-import {
-  BannerError,
-  DialogoExito,
-  PageHeader,
-} from "../../../../components/ui/patrones";
+import { DialogoExito } from "../../../../components/ui/patrones";
 
 export function EquipoCreatePage() {
   const navigate = useNavigate();
@@ -29,13 +25,12 @@ export function EquipoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo equipo"
-        description="Cargá el equipo con su tipo y sector para poder Planes de Limpieza y calibraciones."
-      />
-
-      {error && <BannerError>{error}</BannerError>}
+    <PaginaFormulario
+      volver={{ a: "/equipos", etiqueta: "Equipos" }}
+      titulo="Nuevo equipo"
+      descripcion="Cargá el equipo con su tipo y sector para poder asignarle planes de limpieza y calibraciones."
+      error={error}
+    >
 
       <EquipoForm
         onSubmit={handleSubmit}
@@ -46,6 +41,6 @@ export function EquipoCreatePage() {
       />
 
       <DialogoExito isOpen={exito} mensaje="Equipo agregado correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

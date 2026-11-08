@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, SimpleGrid, Text } from "@chakra-ui/react";
+import { SimpleGrid } from "@chakra-ui/react";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
   BannerError,
@@ -8,10 +8,9 @@ import {
   EstadoCargando,
   FormField,
   FormNativeSelect,
-  PageHeader,
   SelectPlaceholder,
-  Tarjeta,
 } from "../../../../components/ui/patrones";
+import { Pagina, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { useLotes } from "../../../lotes/hooks/useLotes";
 import { useStockLotes } from "../../../lotesInsumo/hooks/useStockInsumos";
 
@@ -26,25 +25,20 @@ export function TrazabilidadPage() {
   const [loteInsumo, setLoteInsumo] = useState(0);
 
   return (
-    <Box p="5" maxW="1000px" mx="auto">
-      <PageHeader
-        title="Trazabilidad"
-        description="Seguí un lote de producto hacia atrás hasta el proveedor de cada insumo, o un lote de insumo hacia adelante hasta los productos que lo usaron."
-      />
-
+    <Pagina
+      titulo="Trazabilidad"
+      descripcion="Seguí un lote de producto hacia atrás hasta el proveedor de cada insumo, o un lote de insumo hacia adelante hasta los productos que lo usaron."
+    >
       {errorLotes && <BannerError>{errorLotes}</BannerError>}
       {errorInsumo && <BannerError>{errorInsumo}</BannerError>}
       {(cargandoLotes || cargandoInsumo) && <EstadoCargando>Cargando lotes...</EstadoCargando>}
 
       <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
-        <Tarjeta p="6">
-          <Heading as="h3" size="lg" color="brand.fg" mb="2">
-            Hacia atrás
-          </Heading>
-          <Text fontSize="sm" color="fg.muted" mb="5">
-            Dado un lote de producto: receta y versión, quién lo elaboró, tareas, consumos, lotes de
-            insumo y proveedores.
-          </Text>
+        <SeccionDetalle
+          mb="0"
+          titulo="Hacia atrás"
+          descripcion="Dado un lote de producto: receta y versión, quién lo elaboró, tareas, consumos, lotes de insumo y proveedores."
+        >
           <FormField label="Lote de producto">
             <FormNativeSelect value={loteProducto} onChange={(e) => setLoteProducto(Number(e.target.value))}>
               <SelectPlaceholder>Seleccioná un lote</SelectPlaceholder>
@@ -62,15 +56,13 @@ export function TrazabilidadPage() {
           >
             Ver trazabilidad
           </BotonGuardar>
-        </Tarjeta>
+        </SeccionDetalle>
 
-        <Tarjeta p="6">
-          <Heading as="h3" size="lg" color="brand.fg" mb="2">
-            Hacia adelante
-          </Heading>
-          <Text fontSize="sm" color="fg.muted" mb="5">
-            Dado un lote de insumo: los lotes de producto que lo consumieron y cuánto usó cada uno.
-          </Text>
+        <SeccionDetalle
+          mb="0"
+          titulo="Hacia adelante"
+          descripcion="Dado un lote de insumo: los lotes de producto que lo consumieron y cuánto usó cada uno."
+        >
           <FormField label="Lote de insumo">
             <FormNativeSelect value={loteInsumo} onChange={(e) => setLoteInsumo(Number(e.target.value))}>
               <SelectPlaceholder>Seleccioná un lote</SelectPlaceholder>
@@ -89,8 +81,8 @@ export function TrazabilidadPage() {
           >
             Ver trazabilidad
           </BotonGuardar>
-        </Tarjeta>
+        </SeccionDetalle>
       </SimpleGrid>
-    </Box>
+    </Pagina>
   );
 }

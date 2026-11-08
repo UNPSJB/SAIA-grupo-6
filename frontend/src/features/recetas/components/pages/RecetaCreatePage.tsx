@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
   EstadoCargando,
   FormField,
   FormNativeSelect,
-  PageHeader,
   SelectPlaceholder,
 } from "../../../../components/ui/patrones";
 import { listarProductos } from "../../../productos/services/productoService";
@@ -63,13 +61,12 @@ export function RecetaCreatePage() {
   const cargando = cargandoInsumos || cargandoRecetas;
 
   return (
-    <Box p="5" maxW="960px" mx="auto">
-      <PageHeader
-        title="Nueva receta"
-        actions={<BotonVolver onClick={() => navigate("/recetas")}>Volver a la lista</BotonVolver>}
-      />
-
-      {error && <BannerError>{error}</BannerError>}
+    <PaginaFormulario
+      ancho="ancho"
+      volver={{ a: "/recetas", etiqueta: "Recetas" }}
+      titulo="Nueva receta"
+      error={error}
+    >
       {errorInsumos && <BannerError>{errorInsumos}</BannerError>}
       {cargando && <EstadoCargando>Cargando datos...</EstadoCargando>}
 
@@ -112,6 +109,6 @@ export function RecetaCreatePage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Receta creada correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

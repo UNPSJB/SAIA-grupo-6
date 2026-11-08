@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Spinner, Stack, Text } from "@chakra-ui/react";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useProveedor } from "../../hooks/useProveedor";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
 import type { Proveedor } from "../../types/proveedor";
@@ -36,14 +35,10 @@ export function ProveedorEditPage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Editar proveedor"
-        actions={
-          <BotonVolver onClick={() => navigate("/proveedores")}>Volver a la lista</BotonVolver>
-        }
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/proveedores", etiqueta: "Proveedores" }}
+      titulo="Editar proveedor"
+    >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
@@ -69,6 +64,6 @@ export function ProveedorEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Proveedor modificado correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

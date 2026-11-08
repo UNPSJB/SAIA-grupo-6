@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { LuCircleCheck, LuLock } from "react-icons/lu";
+import { LuCircleCheck } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -11,30 +11,22 @@ import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
   BannerError,
   BotonCancelar,
-  BotonVolver,
   Celda,
   EstadoCargando,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import {
+  AvisoSoloLectura,
+  DatoDetalle,
+  GrillaDatos,
+  PaginaDetalle,
+  SeccionDetalle,
+} from "../../../../components/ui/plantillas";
 import { cancelarLote, completarItem, obtenerLote } from "../../services/loteService";
 import { esLoteCerrado, type ItemChecklist, type LoteDetalle } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
 import { CierreLoteDialog } from "../CierreLoteDialog";
 import { ConsumoDialog } from "../ConsumoDialog";
-
-function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <Box>
-      <Text fontSize="xs" color="fg.muted">
-        {etiqueta}
-      </Text>
-      <Text fontSize="sm" fontWeight="medium" color="fg">
-        {children}
-      </Text>
-    </Box>
-  );
-}
 
 function ItemCard({
   lote,
@@ -199,80 +191,59 @@ export function LoteDetallePage() {
   };
 
   return (
-    <Box p="5" maxW="1000px" mx="auto">
-      <PageHeader
-        title={lote ? `Lote ${lote.numero_lote}` : "Lote"}
-        description={
-          lote
-            ? `${lote.producto_nombre} · receta ${lote.version_numero ? `v${lote.version_numero}` : "sin versión (lote histórico)"}`
-            : undefined
-        }
-        actions={
-          <>
-            <BotonVolver onClick={() => navigate("/lotes")}>Volver a la lista</BotonVolver>
-            {esAdmin && lote && (
-              <BotonCancelar onClick={() => navigate(`/trazabilidad/lotes-producto/${lote.id}`)}>
-                Ver trazabilidad
-              </BotonCancelar>
-            )}
-          </>
-        }
-      />
-
+    <PaginaDetalle
+      volver={{ a: "/lotes", etiqueta: "Lotes" }}
+      titulo={lote ? `Lote ${lote.numero_lote}` : "Lote"}
+      estado={lote ? <BadgeEstadoLote estado={lote.estado} /> : undefined}
+      descripcion={
+        lote
+          ? `${lote.producto_nombre} · receta ${lote.version_numero ? `v${lote.version_numero}` : "sin versión (lote histórico)"}`
+          : undefined
+      }
+      acciones={
+        esAdmin && lote ? (
+          <BotonCancelar onClick={() => navigate(`/trazabilidad/lotes-producto/${lote.id}`)}>
+            Ver trazabilidad
+          </BotonCancelar>
+        ) : undefined
+      }
+    >
       {loading && !lote && <EstadoCargando>Cargando lote...</EstadoCargando>}
       {error && <BannerError>{error}</BannerError>}
       {errorAccion && <BannerError>{errorAccion}</BannerError>}
 
       {lote && (
         <Stack gap="6">
-          <Tarjeta p="5">
-            <HStack gap="8" flexWrap="wrap" align="flex-start">
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Estado
-                </Text>
-                <BadgeEstadoLote estado={lote.estado} />
-              </Box>
-              <Dato etiqueta="Cantidad objetivo">
+          <SeccionDetalle titulo="Datos del lote" mb="0">
+            <GrillaDatos>
+              <DatoDetalle etiqueta="Cantidad objetivo">
                 {cantidadConUnidad(lote.cantidad_objetivo, lote.unidad)}
-              </Dato>
-              <Dato etiqueta="Escala de la receta">
+              </DatoDetalle>
+              <DatoDetalle etiqueta="Escala de la receta">
                 {lote.factor_escala ? `×${Number(lote.factor_escala).toLocaleString("es-AR", { maximumFractionDigits: 3 })}` : "-"}
-              </Dato>
-              <Dato etiqueta="Cantidad producida">
+              </DatoDetalle>
+              <DatoDetalle etiqueta="Cantidad producida">
                 {lote.cantidad_producida ? cantidadConUnidad(lote.cantidad_producida, lote.unidad) : "-"}
-              </Dato>
-              <Dato etiqueta="Creado por">{lote.creado_por_nombre ?? "-"}</Dato>
-              <Dato etiqueta="Inicio">{formatoFechaHora(lote.fecha_inicio)}</Dato>
-              {lote.fecha_cierre && <Dato etiqueta="Cierre">{formatoFechaHora(lote.fecha_cierre)}</Dato>}
-              <Dato etiqueta="Tareas hechas">
+              </DatoDetalle>
+              <DatoDetalle etiqueta="Creado por">{lote.creado_por_nombre ?? "-"}</DatoDetalle>
+              <DatoDetalle etiqueta="Inicio">{formatoFechaHora(lote.fecha_inicio)}</DatoDetalle>
+              {lote.fecha_cierre && <DatoDetalle etiqueta="Cierre">{formatoFechaHora(lote.fecha_cierre)}</DatoDetalle>}
+              <DatoDetalle etiqueta="Tareas hechas">
                 {lote.items_completados} de {lote.items_total}
-              </Dato>
-            </HStack>
+              </DatoDetalle>
+            </GrillaDatos>
             {lote.motivo_cancelacion && (
               <Text fontSize="sm" color="red.fg" mt="4">
                 Motivo de cancelación: {lote.motivo_cancelacion}
               </Text>
             )}
-          </Tarjeta>
+          </SeccionDetalle>
 
           {cerrado && (
-            <HStack
-              gap="2"
-              bg="bg.subtle"
-              borderWidth="1px"
-              borderColor="border.subtle"
-              rounded="md"
-              px="4"
-              py="3"
-              fontSize="sm"
-              color="fg.muted"
-            >
-              <LuLock aria-hidden />
-              <Text as="span">Lote {lote.estado}: es de solo lectura.</Text>
-            </HStack>
+            <AvisoSoloLectura mb="0">Lote {lote.estado}: es de solo lectura.</AvisoSoloLectura>
           )}
 
+          <SeccionDetalle sinMarco titulo="Tareas" mb="0">
           <Stack gap="4">
             {lote.checklist.length === 0 && (
               <Tarjeta p="6" textAlign="center">
@@ -291,6 +262,7 @@ export function LoteDetallePage() {
               />
             ))}
           </Stack>
+          </SeccionDetalle>
 
           {!cerrado && (
             <HStack gap="3" flexWrap="wrap" pt="2">
@@ -349,6 +321,6 @@ export function LoteDetallePage() {
           }}
         />
       )}
-    </Box>
+    </PaginaDetalle>
   );
 }

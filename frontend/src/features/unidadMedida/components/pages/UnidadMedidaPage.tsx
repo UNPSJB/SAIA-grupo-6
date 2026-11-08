@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Spinner } from "@chakra-ui/react";
+import { Spinner } from "@chakra-ui/react";
 import { UnidadMedidaTable } from "../UnidadMedidaTable";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -18,11 +18,12 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
+  BotonAgregar,
   BannerError,
-  PageHeader,
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -133,56 +134,45 @@ export function UnidadMedidaPage() {
   };
 
   return (
-    <Box p="5">
-      <PageHeader
-        title={
-          verInactivos
-            ? "Unidades de medida dadas de baja"
-            : "Gestión de unidades de medida"
-        }
-        description="Catálogo de unidades con las que se miden los insumos."
-        actions={
-          <HStack spacing="2">
-            <Button
-              colorPalette="brand"
-              onClick={() => navigate("/unidades-medida/nuevo")}
-            >
-              + Agregar
-            </Button>
-          </HStack>
-        }
-      />
-
+    <Pagina
+      titulo={
+        verInactivos
+          ? "Unidades de medida dadas de baja"
+          : "Gestión de unidades de medida"
+      }
+      descripcion="Catálogo de unidades con las que se miden los insumos."
+      acciones={
+        <BotonAgregar onClick={() => navigate("/unidades-medida/nuevo")}>Nueva unidad</BotonAgregar>
+      }
+    >
       {/* Cartel rojo de error (cuando se intenta eliminar una unidad en uso) */}
       {errorEliminar && <BannerError>{errorEliminar}</BannerError>}
 
-      <ToggleInactivos
-        checked={verInactivos}
-        onChange={handleToggleInactivos}
-      />
-
       <BarraFiltros
         busqueda={
-          <Box display="flex" flexDirection="column" gap="4">
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar por nombre o símbolo..."
           />
-        
-        
-    
-      <BotonesExportar
-        nombreTabla="unidades_medida"
-         filtros={{
-        activo: String(!verInactivos),
-         buscar: busquedaAplicada,
-        orden: orden.orden,
-        }}
-      />
-        </Box>
         }
-        filtros={null}
+        herramientas={
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={handleToggleInactivos}
+            />
+            <BotonesExportar
+              nombreTabla="unidades_medida"
+               filtros={{
+              activo: String(!verInactivos),
+               buscar: busquedaAplicada,
+              orden: orden.orden,
+              }}
+            />
+          </>
+        }
       />
 
      
@@ -241,6 +231,6 @@ export function UnidadMedidaPage() {
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
       />
-    </Box>
+    </Pagina>
   );
 }

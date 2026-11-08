@@ -1,23 +1,22 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
-import { LuCalculator, LuHistory, LuLock } from "react-icons/lu";
+import { LuCalculator, LuHistory } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { formatoFechaHora } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
+import { AvisoSoloLectura, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BannerError,
   BotonAccion,
   BotonAgregar,
   BotonCancelar,
-  BotonVolver,
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
   FilaEncabezado,
-  PageHeader,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 import { useVersiones } from "../../hooks/useRecetas";
@@ -61,17 +60,16 @@ export function RecetaDetallePage() {
   };
 
   return (
-    <Box p="5" maxW="960px" mx="auto">
-      <PageHeader
-        title={receta ? `Receta de ${receta.producto_nombre}` : "Receta"}
-        description={
-          esAdmin
-            ? "Cada modificación crea una versión nueva. Las anteriores quedan en solo lectura y los lotes ya producidos siguen apuntando a la versión con la que se elaboraron."
-            : "Versión vigente de la receta, para elaborar siempre con la fórmula correcta."
-        }
-        actions={
+    <PaginaDetalle
+      volver={{ a: "/recetas", etiqueta: "Recetas" }}
+      titulo={receta ? `Receta de ${receta.producto_nombre}` : "Receta"}
+      descripcion={
+        esAdmin
+          ? "Cada modificación crea una versión nueva. Las anteriores quedan en solo lectura y los lotes ya producidos siguen apuntando a la versión con la que se elaboraron."
+          : "Versión vigente de la receta, para elaborar siempre con la fórmula correcta."
+      }
+      acciones={
           <>
-            <BotonVolver onClick={() => navigate("/recetas")}>Volver a la lista</BotonVolver>
             {receta?.version_vigente && (
               <BotonCancelar onClick={() => navigate(`/recetas/${receta.id}/escalar`)}>
                 <LuCalculator aria-hidden />
@@ -84,19 +82,16 @@ export function RecetaDetallePage() {
               </BotonAgregar>
             )}
           </>
-        }
-      />
-
+      }
+    >
       {loading && <EstadoCargando>Cargando receta...</EstadoCargando>}
       {error && <BannerError>{error}</BannerError>}
 
       {receta && (
-        <Tarjeta p="6">
-          <HStack justify="space-between" mb="6" flexWrap="wrap" gap="3">
-            <HStack gap="3">
-              <Text fontSize="lg" fontWeight="bold" color="fg">
-                Versión {numeroMostrado ?? "-"}
-              </Text>
+        <SeccionDetalle
+          titulo={
+            <HStack as="span" gap="3">
+              Versión {numeroMostrado ?? "-"}
               {esVigente ? (
                 <Badge colorPalette="green" variant="subtle">
                   Vigente
@@ -107,7 +102,9 @@ export function RecetaDetallePage() {
                 </Badge>
               )}
             </HStack>
-            {verHistorial ? (
+          }
+          acciones={
+            verHistorial ? (
               <BotonCancelar size="sm" onClick={cerrarHistorial}>
                 Volver a la versión vigente
               </BotonCancelar>
@@ -116,8 +113,9 @@ export function RecetaDetallePage() {
                 <LuHistory aria-hidden />
                 Ver historial
               </BotonCancelar>
-            )}
-          </HStack>
+            )
+          }
+        >
 
           {verHistorial && (
             <Box mb="6">
@@ -156,21 +154,7 @@ export function RecetaDetallePage() {
           )}
 
           {!esVigente && versionId !== null && (
-            <HStack
-              gap="2"
-              bg="bg.subtle"
-              borderWidth="1px"
-              borderColor="border.subtle"
-              rounded="md"
-              px="4"
-              py="3"
-              mb="6"
-              fontSize="sm"
-              color="fg.muted"
-            >
-              <LuLock aria-hidden />
-              <Text as="span">Versión anterior: solo lectura. No se usa para lotes nuevos.</Text>
-            </HStack>
+            <AvisoSoloLectura>Versión anterior: solo lectura. No se usa para lotes nuevos.</AvisoSoloLectura>
           )}
 
           {!receta.version_vigente && (
@@ -179,8 +163,8 @@ export function RecetaDetallePage() {
           {cargandoVersion && <EstadoCargando>Cargando versión...</EstadoCargando>}
           {errorVersion && <BannerError>{errorVersion}</BannerError>}
           {version && !cargandoVersion && <VersionDetalleView version={version} />}
-        </Tarjeta>
+        </SeccionDetalle>
       )}
-    </Box>
+    </PaginaDetalle>
   );
 }

@@ -1,10 +1,10 @@
-import { Box, Button, Stack } from "@chakra-ui/react";
+import { Button, Stack } from "@chakra-ui/react";
 import {
   BannerError,
   BannerExito,
   EstadoCargando,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { useConfiguracionAlertas } from "../../hooks/useConfiguracionAlertas";
 import { AlertasVencimientoPersonalCard } from "../AlertasVencimientoPersonalCard";
 
@@ -28,12 +28,11 @@ export function ConfiguracionPage() {
   } = useConfiguracionAlertas();
 
   return (
-    <Box p="5" maxW="4xl">
-      <PageHeader
-        title="Configuración"
-        description="Ajustes generales del sistema."
-      />
-
+    <Pagina
+      ancho="ancho"
+      titulo="Configuración"
+      descripcion="Ajustes generales del sistema."
+    >
       {cargando && !configuracion ? (
         <EstadoCargando>Cargando configuración...</EstadoCargando>
       ) : null}
@@ -65,6 +64,6 @@ export function ConfiguracionPage() {
           />
         </Stack>
       ) : null}
-    </Box>
+    </Pagina>
   );
 }

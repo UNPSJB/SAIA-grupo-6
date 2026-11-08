@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
-  BotonVolver,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
 import type { Proveedor } from "../../types/proveedor";
 import { ProveedorForm } from "../ProveedorForm";
@@ -48,14 +46,10 @@ export function ProveedorCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo proveedor"
-        actions={
-          <BotonVolver onClick={() => navigate("/proveedores")}>Volver a la lista</BotonVolver>
-        }
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/proveedores", etiqueta: "Proveedores" }}
+      titulo="Nuevo proveedor"
+    >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <ProveedorForm
@@ -63,6 +57,7 @@ export function ProveedorCreatePage() {
         isLoading={loading}
         title="Alta de proveedor"
         submitLabel="Crear proveedor"
+        onCancel={() => navigate("/proveedores")}
       />
 
       <DialogoExito isOpen={exito} mensaje="Proveedor agregado correctamente." />
@@ -74,6 +69,6 @@ export function ProveedorCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }

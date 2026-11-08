@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HStack, Box } from "@chakra-ui/react";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { hoyISO } from "../../../../common/utils/fechas";
 import {
   AccionesFormulario,
-  BannerError,
   BotonCancelar,
   BotonGuardar,
-  BotonVolver,
   DialogoExito,
   FormField,
   FormInput,
   FormNativeSelect,
-  PageHeader,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
@@ -80,13 +78,11 @@ export function LoteInsumoCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="700px" mx="auto">
-      <PageHeader
-        title="Recibir lote de insumo"
-        actions={<BotonVolver onClick={() => navigate("/stock-insumos")}>Volver al stock</BotonVolver>}
-      />
-
-      {error && <BannerError>{error}</BannerError>}
+    <PaginaFormulario
+      volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos" }}
+      titulo="Recibir lote de insumo"
+      error={error}
+    >
 
       <Box as="form" onSubmit={handleSubmit}>
         <TarjetaFormulario>
@@ -172,6 +168,6 @@ export function LoteInsumoCreatePage() {
       </Box>
 
       <DialogoExito isOpen={exito} mensaje="Lote de insumo registrado correctamente." />
-    </Box>
+    </PaginaFormulario>
   );
 }

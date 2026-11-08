@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@chakra-ui/react";
 import { PlanLimpiezaForm } from "../PlanLimpiezaForm";
 import { usePlanLimpiezaABM } from "../../hooks/usePlanLimpiezaABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
@@ -8,8 +7,8 @@ import type { PlanLimpiezaInput } from "../../services/planLimpiezaService";
 import {
   BannerError,
   DialogoExito,
-  PageHeader,
 } from "../../../../components/ui/patrones";
+import { PaginaFormulario } from "../../../../components/ui/plantillas";
 
 export function PlanLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -28,12 +27,11 @@ export function PlanLimpiezaCreatePage() {
   };
 
   return (
-    <Box p="5" maxW="600px" mx="auto">
-      <PageHeader
-        title="Nuevo Plan de Limpieza"
-        description="Definí las tareas, con qué frecuencia se repiten y a qué equipo aplican."
-      />
-
+    <PaginaFormulario
+      volver={{ a: "/planes-limpieza", etiqueta: "Planes de limpieza" }}
+      titulo="Nuevo Plan de Limpieza"
+      descripcion="Definí las tareas, con qué frecuencia se repiten y a qué equipo aplican."
+    >
       {error && <BannerError>{error}</BannerError>}
 
       <DialogoExito
@@ -48,6 +46,6 @@ export function PlanLimpiezaCreatePage() {
         submitLabel="Crear plan"
         onCancel={() => navigate("/planes-limpieza")}
       />
-    </Box>
+    </PaginaFormulario>
   );
 }
