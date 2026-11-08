@@ -33,9 +33,19 @@ from src.aptitud.models import Aptitud  # noqa: F401
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: F401
 from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
+from src.aditivos.models import Aditivo, ClaseFuncional  # noqa: F401
 from src.insumos.models import Insumo  # noqa: F401
 from src.proveedores.models import Proveedor  # noqa: F401
-from src.lotes.models import InsumoLote, LoteProduccion  # noqa: F401
+from src.productos.models import Producto  # noqa: F401
+from src.recetas.models import (  # noqa: F401
+    Receta,
+    RecetaInsumo,
+    TareaReceta,
+    TareaRecetaInsumo,
+    VersionReceta,
+)
+from src.lotesInsumo.models import LoteInsumo  # noqa: F401
+from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: F401
 from src.insumoQuimico.models import InsumoQuimico, LoteStock  # noqa: F401
 from src.elementoLimpieza.models import ElementoLimpieza  # noqa: F401
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: F401
@@ -56,6 +66,7 @@ from src.auditoria.models import AuditLog  # noqa: F401
 import src.auditoria.listeners  # noqa: F401
 
 __all__ = [
+    "Aditivo",
     "Aptitud",
     "AuditLog",
     "Calibracion",
@@ -70,10 +81,19 @@ __all__ = [
     "HistorialIncidente",
     "IndicadorVistaPublica",
     "Insumo",
-    "InsumoLote",
     "InsumoQuimico",
-    "LoteProduccion",
+    "ChecklistProduccion",
+    "ClaseFuncional",
+    "ConsumoInsumo",
+    "LoteInsumo",
+    "LoteProducto",
     "LoteStock",
+    "Producto",
+    "Receta",
+    "RecetaInsumo",
+    "TareaReceta",
+    "TareaRecetaInsumo",
+    "VersionReceta",
     "Personal",
     "PlanCalibracionMantenimiento",
     "PlanLimpieza",

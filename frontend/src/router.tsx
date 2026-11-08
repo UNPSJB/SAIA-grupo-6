@@ -60,8 +60,52 @@ const LotesPage = lazy(() =>
 const LoteCreatePage = lazy(() =>
   import("./features/lotes/components/pages/LoteCreatePage").then((mod) => ({ default: mod.LoteCreatePage })),
 );
-const LoteAsociarInsumosPage = lazy(() =>
-  import("./features/lotes/components/pages/LoteAsociarInsumosPage").then((mod) => ({ default: mod.LoteAsociarInsumosPage })),
+const LoteDetallePage = lazy(() =>
+  import("./features/lotes/components/pages/LoteDetallePage").then((mod) => ({ default: mod.LoteDetallePage })),
+);
+
+// Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
+const ProductoPage = lazy(() =>
+  import("./features/productos/components/pages/ProductoPage").then((mod) => ({ default: mod.ProductoPage })),
+);
+const ProductoCreatePage = lazy(() =>
+  import("./features/productos/components/pages/ProductoCreatePage").then((mod) => ({ default: mod.ProductoCreatePage })),
+);
+const ProductoEditPage = lazy(() =>
+  import("./features/productos/components/pages/ProductoEditPage").then((mod) => ({ default: mod.ProductoEditPage })),
+);
+const RecetasPage = lazy(() =>
+  import("./features/recetas/components/pages/RecetasPage").then((mod) => ({ default: mod.RecetasPage })),
+);
+const RecetaCreatePage = lazy(() =>
+  import("./features/recetas/components/pages/RecetaCreatePage").then((mod) => ({ default: mod.RecetaCreatePage })),
+);
+const RecetaDetallePage = lazy(() =>
+  import("./features/recetas/components/pages/RecetaDetallePage").then((mod) => ({ default: mod.RecetaDetallePage })),
+);
+const RecetaEscaladoPage = lazy(() =>
+  import("./features/recetas/components/pages/RecetaEscaladoPage").then((mod) => ({ default: mod.RecetaEscaladoPage })),
+);
+const AditivosPage = lazy(() =>
+  import("./features/aditivos/components/pages/AditivosPage").then((mod) => ({ default: mod.AditivosPage })),
+);
+const RecetaNuevaVersionPage = lazy(() =>
+  import("./features/recetas/components/pages/RecetaNuevaVersionPage").then((mod) => ({ default: mod.RecetaNuevaVersionPage })),
+);
+const StockInsumosPage = lazy(() =>
+  import("./features/lotesInsumo/components/pages/StockInsumosPage").then((mod) => ({ default: mod.StockInsumosPage })),
+);
+const LoteInsumoCreatePage = lazy(() =>
+  import("./features/lotesInsumo/components/pages/LoteInsumoCreatePage").then((mod) => ({ default: mod.LoteInsumoCreatePage })),
+);
+const TrazabilidadPage = lazy(() =>
+  import("./features/trazabilidad/components/pages/TrazabilidadPage").then((mod) => ({ default: mod.TrazabilidadPage })),
+);
+const TrazabilidadLoteProductoPage = lazy(() =>
+  import("./features/trazabilidad/components/pages/TrazabilidadLoteProductoPage").then((mod) => ({ default: mod.TrazabilidadLoteProductoPage })),
+);
+const TrazabilidadLoteInsumoPage = lazy(() =>
+  import("./features/trazabilidad/components/pages/TrazabilidadLoteInsumoPage").then((mod) => ({ default: mod.TrazabilidadLoteInsumoPage })),
 );
 
 // 3. Equipos
@@ -407,21 +451,56 @@ export const router = createBrowserRouter([
                 </ConSuspense>
               ),
               },
+              // E9: quien opera consulta la receta vigente (solo lectura), la
+              // escala a su lote e inicia el lote; también completa el
+              // checklist y registra consumos. Cancelar queda para administración.
+              {
+                path: "/recetas",
+                element: (
+                  <ConSuspense>
+                    <RecetasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/recetas/:id",
+                element: (
+                  <ConSuspense>
+                    <RecetaDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/recetas/:id/escalar",
+                element: (
+                  <ConSuspense>
+                    <RecetaEscaladoPage />
+                  </ConSuspense>
+                ),
+              },
               {
                 path: "/lotes/nuevo",
                 element: (
-                <ConSuspense>
-                  <LoteCreatePage />
-                </ConSuspense>
-              ),
+                  <ConSuspense>
+                    <LoteCreatePage />
+                  </ConSuspense>
+                ),
               },
               {
-                path: "/lotes/:id/insumos",
+                path: "/lotes",
                 element: (
-                <ConSuspense>
-                  <LoteAsociarInsumosPage />
-                </ConSuspense>
-              ),
+                  <ConSuspense>
+                    <LotesPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/lotes/:id",
+                element: (
+                  <ConSuspense>
+                    <LoteDetallePage />
+                  </ConSuspense>
+                ),
               },
               {
                 path: "/incidentes/reportar",
@@ -700,13 +779,97 @@ export const router = createBrowserRouter([
                 </ConSuspense>
               ),
               },
+
+              // ---------------- PRODUCTOS Y RECETAS ----------------
               {
-                path: "/lotes",
+                path: "/aditivos",
                 element: (
-                <ConSuspense>
-                  <LotesPage />
-                </ConSuspense>
-              ),
+                  <ConSuspense>
+                    <AditivosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/productos",
+                element: (
+                  <ConSuspense>
+                    <ProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/productos/nuevo",
+                element: (
+                  <ConSuspense>
+                    <ProductoCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/productos/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <ProductoEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/recetas/nueva",
+                element: (
+                  <ConSuspense>
+                    <RecetaCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/recetas/:id/nueva-version",
+                element: (
+                  <ConSuspense>
+                    <RecetaNuevaVersionPage />
+                  </ConSuspense>
+                ),
+              },
+
+              // ---------------- LOTES DE INSUMO Y TRAZABILIDAD ----------------
+              {
+                path: "/stock-insumos",
+                element: (
+                  <ConSuspense>
+                    <StockInsumosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/lotes-insumo/nuevo",
+                element: (
+                  <ConSuspense>
+                    <LoteInsumoCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/trazabilidad",
+                element: (
+                  <ConSuspense>
+                    <TrazabilidadPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/trazabilidad/lotes-producto/:id",
+                element: (
+                  <ConSuspense>
+                    <TrazabilidadLoteProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/trazabilidad/lotes-insumo/:id",
+                element: (
+                  <ConSuspense>
+                    <TrazabilidadLoteInsumoPage />
+                  </ConSuspense>
+                ),
               },
               {
                 path: "/consumo-productos",

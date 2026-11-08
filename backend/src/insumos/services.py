@@ -11,7 +11,8 @@ from src.common.persistence import (
 )
 from src.common.texto import sin_tildes
 from src.exceptions import ConflictoRegistroInactivo
-from src.insumos.models import TIPO_INSUMO, Insumo
+from src.aditivos.models import Aditivo
+from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -56,6 +57,23 @@ def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
         raise exceptions.UnidadMedidaInactiva()
 
 
+def _normalizar_tipo(db: Session, tipo: str, aditivo_id: Optional[int]) -> Optional[int]:
+    """Devuelve el `aditivo_id` que corresponde al tipo.
+
+    Un aditivo exige un aditivo activo de la lista de referencia (clase
+    funcional, nombre completo e INS). Un ingrediente no lleva aditivo: si
+    viene uno se descarta, así cambiar de aditivo a ingrediente lo limpia.
+    """
+    if tipo != TIPO_ADITIVO:
+        return None
+    if aditivo_id is None:
+        raise exceptions.AditivoSinReferencia()
+    aditivo = db.get(Aditivo, aditivo_id)
+    if aditivo is None or not aditivo.activo or not aditivo.clase_funcional.activo:
+        raise exceptions.AditivoNoValido()
+    return aditivo.id
+
+
 def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
     existente = db.scalar(
         select(Insumo).where(Insumo.nombre == insumo.nombre)
@@ -73,7 +91,7 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
     _verificar_unidad_medida(db, insumo.unidad_medida_id)
 
     datos = insumo.model_dump()
-    datos["tipo"] = TIPO_INSUMO
+    datos["aditivo_id"] = _normalizar_tipo(db, insumo.tipo, insumo.aditivo_id)
     _insumo = Insumo(**datos)
     db.add(_insumo)
     try:
@@ -89,19 +107,20 @@ def _consulta_insumos(
     incluir_inactivos: bool,
     buscar: Optional[str],
     unidad_medida_id: Optional[int],
-    tipo: Optional[str] = TIPO_INSUMO,
+    tipo: Optional[str] = None,
     solo_inactivos: bool = False,
 ):
     """Consulta base con el JOIN a la unidad, compartida por ambos caminos.
 
-    `tipo=None` devuelve el maestro completo (insumos y productos), que es lo
-    que necesita la pantalla de E1. Los listados internos siguen usando el
-    default `insumo` para no mezclar productos donde se esperan insumos.
+    `tipo=None` devuelve el maestro completo (ingredientes y aditivos).
     """
     consulta = (
         select(Insumo)
         .join(Insumo.unidad_medida)
-        .options(selectinload(Insumo.unidad_medida))
+        .options(
+            selectinload(Insumo.unidad_medida),
+            selectinload(Insumo.aditivo).selectinload(Aditivo.clase_funcional),
+        )
     )
     if tipo is not None:
         consulta = consulta.where(Insumo.tipo == tipo)
@@ -135,7 +154,7 @@ def listar_insumos(
     incluir_inactivos: bool = False,
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
-    tipo: Optional[str] = TIPO_INSUMO,
+    tipo: Optional[str] = None,
 ) -> List[Insumo]:
     consulta = _consulta_insumos(
         incluir_inactivos, buscar, unidad_medida_id, tipo
@@ -151,7 +170,7 @@ def listar_insumos_paginado(
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
     orden: str = "nombre_asc",
-    tipo: Optional[str] = TIPO_INSUMO,
+    tipo: Optional[str] = None,
     solo_inactivos: bool = False,
 ) -> tuple[List[Insumo], int]:
     """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
@@ -199,6 +218,14 @@ def modificar_insumo(
 
     if "unidad_medida_id" in datos_a_actualizar:
         _verificar_unidad_medida(db, datos_a_actualizar["unidad_medida_id"])
+
+    # Tipo y aditivo se validan juntos, sobre el estado final.
+    if "tipo" in datos_a_actualizar or "aditivo_id" in datos_a_actualizar:
+        tipo_final = datos_a_actualizar.get("tipo", db_insumo.tipo)
+        datos_a_actualizar["tipo"] = tipo_final
+        datos_a_actualizar["aditivo_id"] = _normalizar_tipo(
+            db, tipo_final, datos_a_actualizar.get("aditivo_id", db_insumo.aditivo_id)
+        )
 
     # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
     # disparan eventos del ORM, así que la auditoría no los vería.

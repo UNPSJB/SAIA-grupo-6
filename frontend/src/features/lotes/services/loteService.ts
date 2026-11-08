@@ -1,20 +1,19 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import type {
+  Consumo,
+  ConsumoInput,
   DashboardLotes,
   FiltrosLotes,
-  InsumoLote,
-  InsumoLoteInput,
-  InsumoResumen,
-  Lote,
   LoteCreateValues,
-  Producto,
+  LoteDetalle,
+  LoteResumen,
 } from "../types/lote";
 
 function queryFiltros(filtros: FiltrosLotes = {}): string {
   const params = new URLSearchParams();
 
-  if (filtros.producto?.trim()) params.set("producto", filtros.producto.trim());
+  if (filtros.estado) params.set("estado", filtros.estado);
   if (filtros.fechaDesde) params.set("fecha_desde", filtros.fechaDesde);
   if (filtros.fechaHasta) params.set("fecha_hasta", filtros.fechaHasta);
 
@@ -22,65 +21,87 @@ function queryFiltros(filtros: FiltrosLotes = {}): string {
   return query ? `?${query}` : "";
 }
 
-export async function listarLotes(filtros: FiltrosLotes = {}): Promise<Lote[]> {
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+export async function listarLotes(filtros: FiltrosLotes = {}): Promise<LoteResumen[]> {
   const response = await apiFetch(`${API_URL}/lotes${queryFiltros(filtros)}`);
-
-  return pedir<Lote[]>(response, "Error al obtener el historial de lotes");
+  return pedir<LoteResumen[]>(response, "Error al obtener los lotes de producción");
 }
 
-export async function obtenerLote(loteId: number): Promise<Lote> {
+export async function obtenerLote(loteId: number): Promise<LoteDetalle> {
   const response = await apiFetch(`${API_URL}/lotes/${loteId}`);
-
-  return pedir<Lote>(response, "Error al obtener el lote");
+  return pedir<LoteDetalle>(response, "Error al obtener el lote");
 }
 
-export async function listarProductos(): Promise<Producto[]> {
-  const response = await apiFetch(`${API_URL}/lotes/productos`);
-
-  return pedir<Producto[]>(response, "Error al obtener los productos");
-}
-
-export async function listarInsumosDisponibles(): Promise<InsumoResumen[]> {
-  const response = await apiFetch(`${API_URL}/lotes/insumos-disponibles`);
-
-  return pedir<InsumoResumen[]>(
-    response,
-    "Error al obtener los insumos disponibles"
-  );
-}
-
-export async function crearLote(datos: LoteCreateValues): Promise<Lote> {
+export async function crearLote(datos: LoteCreateValues): Promise<LoteDetalle> {
   const response = await apiFetch(`${API_URL}/lotes`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: JSON_HEADERS,
     body: JSON.stringify(datos),
   });
-
-  return pedir<Lote>(response, "Error al registrar el lote");
+  return pedir<LoteDetalle>(response, "Error al crear el lote");
 }
 
-export async function asociarInsumos(
-  loteId: number,
-  insumos: InsumoLoteInput[]
-): Promise<InsumoLote[]> {
-  const response = await apiFetch(`${API_URL}/lotes/${loteId}/insumos/bulk`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ insumos }),
-  });
+export async function completarItem(loteId: number, itemId: number): Promise<LoteDetalle> {
+  const response = await apiFetch(
+    `${API_URL}/lotes/${loteId}/checklist/${itemId}/completar`,
+    { method: "POST" },
+  );
+  return pedir<LoteDetalle>(response, "Error al completar la tarea");
+}
 
-  return pedir<InsumoLote[]>(response, "Error al asociar los insumos al lote");
+/** Devuelve el consumo con sus `advertencias` (por ejemplo, stock insuficiente). */
+export async function registrarConsumo(
+  loteId: number,
+  itemId: number,
+  datos: ConsumoInput,
+): Promise<Consumo> {
+  const response = await apiFetch(
+    `${API_URL}/lotes/${loteId}/checklist/${itemId}/consumos`,
+    { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(datos) },
+  );
+  return pedir<Consumo>(response, "Error al registrar el consumo");
+}
+
+export async function cerrarLote(
+  loteId: number,
+  cantidadProducida: string,
+): Promise<LoteDetalle> {
+  const response = await apiFetch(`${API_URL}/lotes/${loteId}/cerrar`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ cantidad_producida: cantidadProducida }),
+  });
+  return pedir<LoteDetalle>(response, "Error al cerrar el lote");
+}
+
+export async function cancelarLote(loteId: number, motivo: string): Promise<LoteDetalle> {
+  const response = await apiFetch(`${API_URL}/lotes/${loteId}/cancelar`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ motivo }),
+  });
+  return pedir<LoteDetalle>(response, "Error al cancelar el lote");
 }
 
 export async function obtenerDashboardLotes(
-  filtros: FiltrosLotes = {}
+  filtros: FiltrosLotes = {},
 ): Promise<DashboardLotes> {
-  const response = await apiFetch(
-    `${API_URL}/lotes/dashboard${queryFiltros(filtros)}`
-  );
+  const response = await apiFetch(`${API_URL}/lotes/dashboard${queryFiltros(filtros)}`);
+  const datos = await pedir<
+    Omit<DashboardLotes, "total_cantidad_producida" | "por_producto"> & {
+      total_cantidad_producida: string | number;
+      por_producto: { producto: string; cantidad_producida: string | number; cantidad_lotes: number }[];
+    }
+  >(response, "Error al obtener las estadísticas de producción");
 
-  return pedir<DashboardLotes>(
-    response,
-    "Error al obtener las estadísticas de producción"
-  );
+  // El backend manda las cantidades como texto decimal; el gráfico necesita números.
+  return {
+    ...datos,
+    total_cantidad_producida: Number(datos.total_cantidad_producida),
+    por_producto: datos.por_producto.map((p) => ({
+      ...p,
+      cantidad_producida: Number(p.cantidad_producida),
+    })),
+  };
 }

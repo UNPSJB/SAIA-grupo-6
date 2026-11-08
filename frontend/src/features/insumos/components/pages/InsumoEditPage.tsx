@@ -68,6 +68,8 @@ export function InsumoEditPage() {
             initialValues={{
               nombre: insumo.nombre,
               unidad_medida_id: insumo.unidad_medida_id,
+              tipo: insumo.tipo,
+              aditivo_id: insumo.aditivo_id,
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}

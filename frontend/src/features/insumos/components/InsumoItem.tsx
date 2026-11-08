@@ -1,5 +1,6 @@
-import { Badge, HStack, Table } from "@chakra-ui/react";
+import { Badge, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import type { Insumo } from "../types/insumo";
+import { etiquetaAditivo } from "../../aditivos/types/aditivo";
 import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
 interface InsumoItemProps {
@@ -25,12 +26,19 @@ export function InsumoItem({
         <TextoTruncado texto={insumo.nombre} />
       </Celda>
       <Celda p="3">
-        <Badge
-          colorPalette={insumo.tipo === "producto" ? "purple" : "gray"}
-          variant="subtle"
-        >
-          {insumo.tipo === "producto" ? "Producto" : "Insumo"}
-        </Badge>
+        <Stack gap="1" align="flex-start">
+          <Badge
+            colorPalette={insumo.tipo === "aditivo" ? "purple" : "gray"}
+            variant="subtle"
+          >
+            {insumo.tipo === "aditivo" ? "Aditivo" : "Ingrediente"}
+          </Badge>
+          {insumo.aditivo && (
+            <Text fontSize="xs" color="fg.muted">
+              {etiquetaAditivo(insumo.aditivo)}
+            </Text>
+          )}
+        </Stack>
       </Celda>
       <Celda p="3">
         <TextoTruncado texto={unidadLabel} />

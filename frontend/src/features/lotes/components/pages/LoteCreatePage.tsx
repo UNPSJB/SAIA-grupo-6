@@ -1,178 +1,170 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Box, HStack, Text } from "@chakra-ui/react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Box, Text } from "@chakra-ui/react";
+import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
 import {
   AccionesFormulario,
   BannerError,
-  BannerExito,
   BotonCancelar,
   BotonGuardar,
-  EstadoCargando,
   FormField,
   FormInput,
+  FormNativeSelect,
   PageHeader,
+  SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
 } from "../../../../components/ui/patrones";
-import { hoyISO } from "../../../../common/utils/fechas";
-import { useInsumosDisponibles, useProductos } from "../../hooks/useLotes";
+import { useEscalado } from "../../../recetas/hooks/useEscalado";
+import { useRecetas } from "../../../recetas/hooks/useRecetas";
+import type { ModoEscalado } from "../../../recetas/types/receta";
+import { TablaEscalado } from "../../../recetas/components/TablaEscalado";
 import { crearLote } from "../../services/loteService";
-import type { Lote } from "../../types/lote";
-import { AsociarInsumos } from "../AsociarInsumos";
 
+/**
+ * Nuevo lote de producción. Se puede llegar desde la vista escalada de una
+ * receta (E9): `?receta=ID&cantidad=N` precarga el producto y la cantidad.
+ */
 export function LoteCreatePage() {
   const navigate = useNavigate();
-  const { productos, error: errorProductos } = useProductos();
-  const {
-    insumos,
-    loading: cargandoInsumos,
-    error: errorInsumos,
-  } = useInsumosDisponibles();
+  const [params] = useSearchParams();
+  // Las recetas las puede leer quien opera; el listado de productos no.
+  const { recetas, loading: cargando, error: errorRecetas } = useRecetas();
 
-  const [producto, setProducto] = useState("");
-  const [fecha, setFecha] = useState(() => hoyISO());
-  const [cantidad, setCantidad] = useState("");
-  const [loteCreado, setLoteCreado] = useState<Lote | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [recetaId, setRecetaId] = useState(Number(params.get("receta")) || 0);
+  const [modo, setModo] = useState<ModoEscalado>(params.get("factor") ? "factor" : "cantidad");
+  const [valor, setValor] = useState(params.get("cantidad") ?? params.get("factor") ?? "");
+  const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const disponibles = recetas.filter((r) => r.version_vigente);
+  const receta = disponibles.find((r) => r.id === recetaId);
+  const vigente = receta?.version_vigente;
+  const simbolo = vigente?.unidad_medida.simbolo ?? "";
+  const { escalado } = useEscalado(receta ? receta.id : null, modo, valor);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-
-    const cantidadNumero = Number(cantidad);
-    if (!producto.trim()) {
-      setError("Indicá el producto que se elaboró.");
+    if (!receta) {
+      setError("Elegí el producto que se va a elaborar.");
       return;
     }
-    if (!fecha) {
-      setError("Indicá la fecha de producción.");
-      return;
-    }
-    if (!Number.isInteger(cantidadNumero) || cantidadNumero <= 0) {
-      setError("La cantidad producida debe ser un número entero mayor a cero.");
+    if (!(Number(valor) > 0)) {
+      setError(
+        modo === "cantidad"
+          ? "La cantidad objetivo debe ser mayor a cero."
+          : "El factor debe ser mayor a cero.",
+      );
       return;
     }
 
-    setLoading(true);
+    setGuardando(true);
     try {
       const lote = await crearLote({
-        producto_nombre: producto.trim(),
-        cantidad_producida: cantidadNumero,
-        fecha_inicio: fecha,
+        producto_id: receta.producto_id,
+        ...(modo === "cantidad" ? { cantidad_objetivo: valor } : { factor: valor }),
       });
-      setLoteCreado(lote);
-      setCantidad("");
+      navigate(`/lotes/${lote.id}`);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "No se pudo registrar el lote."
-      );
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : "No se pudo crear el lote.");
+      setGuardando(false);
     }
-  };
-
-  const registrarOtro = () => {
-    setLoteCreado(null);
-    setProducto("");
-    setFecha(hoyISO());
-    setCantidad("");
-    setError(null);
   };
 
   return (
-    <Box p="5" maxW="760px" mx="auto">
+    <Box p="5" maxW="960px" mx="auto">
       <PageHeader
-        title="Registrar lote de producción"
-        description="Cargá el producto, la fecha y la cantidad producida. Después podés asociar los insumos utilizados."
+        title="Nuevo lote de producción"
+        description="El lote usa la versión vigente de la receta y genera su checklist con las tareas de esa versión."
       />
 
       {error && <BannerError>{error}</BannerError>}
+      {errorRecetas && <BannerError>{errorRecetas}</BannerError>}
 
-      {loteCreado ? (
-        <>
-          <BannerExito>
-            Lote {loteCreado.codigo_lote} de {loteCreado.producto_nombre}{" "}
-            registrado correctamente.
-          </BannerExito>
+      <TarjetaFormulario as="form" onSubmit={handleSubmit}>
+        <TituloFormulario>Datos del lote</TituloFormulario>
 
-          {cargandoInsumos && <EstadoCargando>Cargando insumos...</EstadoCargando>}
-
-          {!cargandoInsumos && errorInsumos && (
-            <BannerError>{errorInsumos}</BannerError>
-          )}
-
-          {!cargandoInsumos && !errorInsumos && (
-            <AsociarInsumos
-              lote={loteCreado}
-              insumos={insumos}
-              onNuevoLote={registrarOtro}
-            />
-          )}
-        </>
-      ) : (
-        <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-          <TituloFormulario>Datos de producción</TituloFormulario>
-
-          {errorProductos && <BannerError>{errorProductos}</BannerError>}
-
-          <FormField
-            label="Producto"
-            required
-            helper="Elegí un producto existente o escribí uno nuevo para crearlo."
+        <FormField
+          label="Producto"
+          required
+          helper={
+            !cargando && disponibles.length === 0
+              ? "No hay productos con receta. La receta se crea desde el menú Recetas."
+              : undefined
+          }
+        >
+          <FormNativeSelect
+            value={recetaId}
+            onChange={(e) => setRecetaId(Number(e.target.value))}
+            disabled={cargando}
+            maxW="500px"
           >
-            <FormInput
-              list="productos-disponibles"
-              value={producto}
-              onChange={(event) => setProducto(event.target.value)}
-              placeholder="Ej: Mermelada de frutilla"
-              maxW="500px"
-            />
-            <datalist id="productos-disponibles">
-              {productos.map((item) => (
-                <option key={item.id} value={item.nombre} />
-              ))}
-            </datalist>
-          </FormField>
+            <SelectPlaceholder>{cargando ? "Cargando..." : "Seleccioná un producto"}</SelectPlaceholder>
+            {disponibles.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.producto_nombre}
+              </option>
+            ))}
+          </FormNativeSelect>
+        </FormField>
 
-          <HStack gap="5" align="flex-start" flexWrap="wrap">
-            <FormField label="Fecha de producción" required mb="0">
-              <FormInput
-                type="date"
-                value={fecha}
-                onChange={(event) => setFecha(event.target.value)}
-                maxW="220px"
-              />
-            </FormField>
+        <FormField label="Indicar por" required>
+          <FormNativeSelect
+            value={modo}
+            onChange={(e) => {
+              setModo(e.target.value as ModoEscalado);
+              setValor("");
+            }}
+            maxW="500px"
+          >
+            <option value="cantidad">Cantidad objetivo de producto terminado</option>
+            <option value="factor">Factor multiplicador de la receta</option>
+          </FormNativeSelect>
+        </FormField>
 
-            <FormField label="Cantidad producida" required mb="0">
-              <FormInput
-                type="number"
-                min="1"
-                step="1"
-                value={cantidad}
-                onChange={(event) => setCantidad(event.target.value)}
-                placeholder="Ej: 100"
-                maxW="220px"
-              />
-            </FormField>
-          </HStack>
+        <FormField
+          label={modo === "cantidad" ? `Cantidad objetivo${simbolo ? ` (${simbolo})` : ""}` : "Factor (×)"}
+          required
+          mb="0"
+          helper={
+            vigente
+              ? `La receta v${vigente.numero} rinde ${cantidadConUnidad(vigente.rendimiento, simbolo)}.`
+              : undefined
+          }
+        >
+          <FormInput
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            placeholder={modo === "cantidad" ? "Ej: 40" : "Ej: 2"}
+            maxW="220px"
+          />
+        </FormField>
 
-          <Text fontSize="xs" color="fg.subtle" mt="4">
-            No se solicitan puntos críticos ni curvas de temperatura para este
-            registro.
-          </Text>
+        {escalado && (
+          <Box mt="6">
+            <Text fontSize="sm" color="fg.muted" mb="4">
+              Se elaborará a escala ×{formatoCantidad(escalado.factor)} de la receta (
+              {cantidadConUnidad(escalado.cantidad_objetivo, simbolo)}). Estas son las cantidades
+              planificadas:
+            </Text>
+            <TablaEscalado escalado={escalado} conTareas={false} />
+          </Box>
+        )}
 
-          <AccionesFormulario>
-            <BotonGuardar loading={loading} disabled={loading}>
-              Registrar lote
-            </BotonGuardar>
-            <BotonCancelar onClick={() => navigate("/")} disabled={loading}>
-              Cancelar
-            </BotonCancelar>
-          </AccionesFormulario>
-        </TarjetaFormulario>
-      )}
+        <AccionesFormulario>
+          <BotonGuardar loading={guardando} disabled={guardando}>
+            Crear lote
+          </BotonGuardar>
+          <BotonCancelar onClick={() => navigate(-1)} disabled={guardando}>
+            Cancelar
+          </BotonCancelar>
+        </AccionesFormulario>
+      </TarjetaFormulario>
     </Box>
   );
 }

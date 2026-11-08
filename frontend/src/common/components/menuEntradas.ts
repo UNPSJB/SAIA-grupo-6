@@ -1,6 +1,7 @@
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
   LuBadgeCheck,
+  LuBeaker,
   LuFileSearch,
   LuMapPin,
   LuBrush,
@@ -14,7 +15,10 @@ import {
   LuFlaskConical,
   LuFolderSearch,
   LuHistory,
-  LuDownload,
+  LuBoxes,
+  LuCookingPot,
+  LuRoute,
+  LuWarehouse,
   LuHouse,
   LuListChecks,
   LuMicroscope,
@@ -95,6 +99,8 @@ export const GRUPOS: GrupoMenu[] = [
         icon: LuRuler,
       },
       { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
+      { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
+      { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
       {
         to: "/insumos-quimicos",
         label: "Insumos Químicos",
@@ -122,6 +128,8 @@ export const GRUPOS: GrupoMenu[] = [
     icon: LuClipboardCheck,
     entradas: [
       { to: "/checklist", label: "Checklist Diario", rol: "operar", icon: LuListChecks },
+      // E9: la receta vigente se consulta como el checklist diario.
+      { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       {
         to: "/lotes/nuevo",
         label: "Registrar Lote",
@@ -130,8 +138,8 @@ export const GRUPOS: GrupoMenu[] = [
       },
       {
         to: "/lotes",
-        label: "Historial de Lotes",
-        rol: "administrar",
+        label: "Lotes de Producción",
+        rol: "operar",
         icon: LuFactory,
       },
       {
@@ -169,6 +177,18 @@ export const GRUPOS: GrupoMenu[] = [
         label: "Vencimientos",
         rol: "administrar",
         icon: LuCalendarClock,
+      },
+      {
+        to: "/stock-insumos",
+        label: "Stock de Insumos",
+        rol: "administrar",
+        icon: LuWarehouse,
+      },
+      {
+        to: "/trazabilidad",
+        label: "Trazabilidad",
+        rol: "administrar",
+        icon: LuRoute,
       },
       {
         to: "/gestion-stock",

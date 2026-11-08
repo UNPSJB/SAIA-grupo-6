@@ -1,0 +1,75 @@
+"""Carga inicial de la lista de referencia de aditivos.
+
+Son las clases funcionales y los aditivos más usados en la elaboración de
+alimentos (Codex Alimentarius / CAA). Es solo el punto de partida: la lista
+se mantiene desde la app, sin reprogramar. A verificar con el/la profesional.
+"""
+
+# (clase funcional, INS opcional)
+CLASES = [
+    ("Acidulante", False),
+    ("Antiaglutinante", False),
+    ("Antioxidante", False),
+    ("Aromatizante", True),
+    ("Colorante", False),
+    ("Conservante", False),
+    ("Edulcorante", False),
+    ("Emulsionante", False),
+    ("Espesante", False),
+    ("Estabilizante", False),
+    ("Gelificante", False),
+    ("Humectante", False),
+    ("Leudante químico", False),
+    ("Regulador de acidez", False),
+    ("Resaltador del sabor", False),
+]
+
+# (clase funcional, nombre completo, INS)
+ADITIVOS = [
+    ("Acidulante", "Ácido cítrico", "330"),
+    ("Acidulante", "Ácido láctico", "270"),
+    ("Acidulante", "Ácido acético", "260"),
+    ("Antiaglutinante", "Dióxido de silicio", "551"),
+    ("Antioxidante", "Ácido ascórbico", "300"),
+    ("Antioxidante", "Ascorbato de sodio", "301"),
+    ("Antioxidante", "Tocoferoles", "307"),
+    ("Antioxidante", "Butilhidroxianisol (BHA)", "320"),
+    ("Antioxidante", "Butilhidroxitolueno (BHT)", "321"),
+    ("Aromatizante", "Aroma de vainilla", None),
+    ("Aromatizante", "Aroma de frutilla", None),
+    ("Aromatizante", "Aroma de limón", None),
+    ("Colorante", "Curcumina", "100"),
+    ("Colorante", "Tartrazina", "102"),
+    ("Colorante", "Amarillo ocaso FCF", "110"),
+    ("Colorante", "Carmín", "120"),
+    ("Colorante", "Caramelo IV (caramelo al sulfito amónico)", "150d"),
+    ("Colorante", "Beta-caroteno", "160a"),
+    ("Conservante", "Ácido sórbico", "200"),
+    ("Conservante", "Sorbato de potasio", "202"),
+    ("Conservante", "Benzoato de sodio", "211"),
+    ("Conservante", "Nitrito de sodio", "250"),
+    ("Conservante", "Propionato de calcio", "282"),
+    ("Edulcorante", "Sorbitol", "420"),
+    ("Edulcorante", "Acesulfame de potasio", "950"),
+    ("Edulcorante", "Aspartamo", "951"),
+    ("Edulcorante", "Ciclamato de sodio", "952"),
+    ("Edulcorante", "Sacarina sódica", "954"),
+    ("Edulcorante", "Sucralosa", "955"),
+    ("Edulcorante", "Glucósidos de esteviol", "960"),
+    ("Emulsionante", "Lecitina de soja", "322"),
+    ("Emulsionante", "Mono y diglicéridos de ácidos grasos", "471"),
+    ("Espesante", "Goma guar", "412"),
+    ("Espesante", "Goma xántica", "415"),
+    ("Espesante", "Carboximetilcelulosa sódica", "466"),
+    ("Espesante", "Fosfato de dialmidón acetilado", "1414"),
+    ("Estabilizante", "Goma garrofín", "410"),
+    ("Gelificante", "Agar", "406"),
+    ("Gelificante", "Carragenina", "407"),
+    ("Gelificante", "Pectina", "440"),
+    ("Humectante", "Glicerol", "422"),
+    ("Leudante químico", "Pirofosfato ácido de sodio", "450(i)"),
+    ("Leudante químico", "Bicarbonato de sodio", "500(ii)"),
+    ("Leudante químico", "Bicarbonato de amonio", "503(ii)"),
+    ("Regulador de acidez", "Citrato de sodio", "331"),
+    ("Resaltador del sabor", "Glutamato monosódico", "621"),
+]

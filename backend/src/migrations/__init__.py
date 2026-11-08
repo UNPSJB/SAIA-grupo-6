@@ -12,12 +12,18 @@ from .base import crear_bitacora
 from .documentos import migrar_documentos
 from .equipos import migrar_equipos
 from .incidentes import migrar_incidentes
+from .insumos_tipo import (
+    migrar_aditivos_referencia,
+    migrar_insumos_tipo,
+    migrar_porcion_receta,
+)
 from .lotes import migrar_lotes
 from .notificaciones import migrar_notificaciones
 from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
+from .trazabilidad import migrar_trazabilidad
 from .vista_publica import migrar_vista_publica
 
 
@@ -29,6 +35,11 @@ def run_migrations() -> None:
     migrar_tareas()
     migrar_stock()
     migrar_lotes()
+    migrar_trazabilidad()
+    # E9: después de copiar los productos viejos (trazabilidad lee tipo='producto').
+    migrar_aditivos_referencia()
+    migrar_insumos_tipo()
+    migrar_porcion_receta()
     migrar_equipos()
     # Necesita personal.es_super_admin, por eso va después de migrar_columnas_personal.
     bootstrap_super_admin()

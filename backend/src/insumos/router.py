@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/insumos", tags=["insumos"], dependencies=[Depends(require_admin)])
 
 OrdenInsumo = Literal["nombre_asc", "nombre_desc", "unidad_asc", "unidad_desc"]
-TipoInsumo = Literal["insumo", "producto"]
+TipoInsumo = Literal["ingrediente", "aditivo"]
 
 # Rutas para Insumos
 
@@ -37,7 +37,7 @@ def read_insumos(
     unidad_medida_id: Optional[int] = Query(None, ge=1),
     tipo: Optional[TipoInsumo] = Query(
         None,
-        description="Filtra por tipo. Sin este parametro se devuelven insumos y productos.",
+        description="Filtra por tipo. Sin este parámetro se devuelven ingredientes y aditivos.",
     ),
     orden: OrdenInsumo = "nombre_asc",
     page: Optional[int] = Query(

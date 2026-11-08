@@ -27,6 +27,10 @@ const ETIQUETAS: Record<string, string> = {
   notificaciones: "Notificaciones",
   configuracion: "Configuración",
   "sin-permisos": "Sin permisos",
+  "nueva-version": "Nueva versión",
+  "lotes-producto": "Lote de producto",
+  "lotes-insumo": "Lote de insumo",
+  escalar: "Escalar",
 };
 
 /** "planes-limpieza" -> "Planes limpieza" (último recurso). */

@@ -16,6 +16,12 @@ productos químicos, tareas, incidentes) se usan vocabularios del rubro
 combinados al azar: `fake.word()` devolvería cosas como "Cocina warned" y la
 base quedaría inservible para probar la aplicación.
 
+También carga la trazabilidad de producción (materias primas, productos con
+recetas versionadas, lotes de insumo por proveedor y lotes de producción con
+checklist, consumos reales y desperdicios en los tres estados), la vista
+pública, sesiones de ejemplo (refresh tokens, revocaciones, intentos de
+login) y, al final, recalcula la caché de notificaciones.
+
 Por defecto reemplaza los datos (igual que `cargar_datos.py`); con `--agregar`
 conserva lo que hay y agrega nuevas filas sin chocar con los UNIQUE.
 
@@ -34,7 +40,8 @@ import secrets
 import sys
 import unicodedata
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from itertools import chain
 from pathlib import Path
 from typing import Optional
@@ -69,7 +76,8 @@ from src.Equipo.models import Equipo, Calibracion  # noqa: E402
 from src.aptitud.models import Aptitud  # noqa: E402
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
-from src.insumos.models import Insumo  # noqa: E402
+from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo  # noqa: E402
+from src.aditivos.models import Aditivo  # noqa: E402
 from src.insumoQuimico.models import (  # noqa: E402
     InsumoQuimico,
     TipoQuimico,
@@ -98,7 +106,35 @@ from src.documentos.constants import TipoDocumento  # noqa: E402
 from src.documentos.pdf_generator import ContextoDocumento, generar_pdf_documento  # noqa: E402
 from src.proveedores.models import Proveedor  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
-from src.notificaciones.models import ConfiguracionAlerta  # noqa: E402
+from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida  # noqa: E402
+from src.notificaciones.invalidacion import (  # noqa: E402
+    EstadoNotificaciones,
+    asegurar_notificaciones_al_dia,
+)
+from src.productos.models import Producto  # noqa: E402
+from src.recetas.models import (  # noqa: E402
+    Receta,
+    RecetaInsumo,
+    TareaReceta,
+    TareaRecetaInsumo,
+    VersionReceta,
+)
+from src.lotesInsumo.models import LoteInsumo  # noqa: E402
+from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: E402
+from src.lotes.constants import (  # noqa: E402
+    ESTADO_CANCELADO,
+    ESTADO_EN_PROCESO,
+    ESTADO_TERMINADO,
+    PREFIJO_NUMERO_LOTE,
+    TIPO_CONSUMO_DESPERDICIO,
+    TIPO_CONSUMO_REAL,
+)
+from src.vistaPublica.models import (  # noqa: E402
+    ConfiguracionVistaPublica,
+    IndicadorVistaPublica,
+)
+from src.vistaPublica.constants import CATALOGO as CATALOGO_VISTA_PUBLICA  # noqa: E402
+from src.auth.models import IntentoLogin, RefreshToken, TokenRevocado  # noqa: E402
 
 # Contraseña de TODO el personal. Valor acordado con el grupo de desarrollo.
 CONTRASENA_POR_DEFECTO = "12345678"
@@ -395,6 +431,239 @@ SIMBOLOS_ALTERNATIVOS = {
     "mg": "mgr", "cm³": "cc", "m": "mt", "cm": "cms", "h": "hs", "doc": "dz",
 }
 
+# ------------------------------------------------------------
+# Trazabilidad de producción
+# ------------------------------------------------------------
+
+# Materias primas alimentarias (insumos de tipo "insumo"): (nombre, clave de unidad).
+# Las de limpieza de `crear_insumos` no sirven para una receta.
+VOCAB_INGREDIENTES = [
+    ("Harina 000", "kilogramo"),
+    ("Azúcar común", "kilogramo"),
+    ("Manteca", "kilogramo"),
+    ("Huevo fresco", "unidad"),
+    ("Leche entera", "litro"),
+    ("Sal fina", "kilogramo"),
+    ("Levadura fresca", "gramo"),
+    ("Pectina cítrica", "gramo"),
+    ("Ácido cítrico", "gramo"),
+    ("Sorbato de potasio", "gramo"),
+    ("Frutilla fresca", "kilogramo"),
+    ("Durazno amarillo", "kilogramo"),
+    ("Cacao amargo", "kilogramo"),
+    ("Esencia de vainilla", "mililitro"),
+    ("Aceite de girasol", "litro"),
+    ("Dulce de leche repostero", "kilogramo"),
+    ("Tomate triturado", "kilogramo"),
+    ("Orégano seco", "gramo"),
+    ("Almidón de maíz", "kilogramo"),
+    ("Polvo de hornear", "gramo"),
+    ("Bicarbonato de sodio", "gramo"),
+    ("Coco rallado", "gramo"),
+]
+
+# Materias primas que son aditivos (E9): nombre del aditivo en la lista de
+# referencia que carga la migración (clase funcional, nombre completo, INS).
+ADITIVO_DE_INGREDIENTE = {
+    "Pectina cítrica": "Pectina",
+    "Ácido cítrico": "Ácido cítrico",
+    "Sorbato de potasio": "Sorbato de potasio",
+    "Esencia de vainilla": "Aroma de vainilla",
+    "Polvo de hornear": "Pirofosfato ácido de sodio",
+    "Bicarbonato de sodio": "Bicarbonato de sodio",
+}
+
+# Porción o unidad de venta por producto: (descripción, cantidad, clave de unidad).
+PORCION_POR_PRODUCTO = {
+    "Mermelada de frutilla": ("Frasco", "0.454", "kilogramo"),
+    "Mermelada de durazno": ("Frasco", "0.454", "kilogramo"),
+    "Pan de molde blanco": ("Unidad", "1", "unidad"),
+    "Budín de vainilla": ("Unidad", "1", "unidad"),
+    "Dulce de leche familiar": ("Pote", "1", "kilogramo"),
+    "Salsa de tomate": ("Frasco", "0.34", "kilogramo"),
+    "Alfajor de maicena": ("Caja", "12", "unidad"),
+    "Galletitas de cacao": ("Paquete", "0.25", "kilogramo"),
+}
+
+# Recetas base. Cada insumo es (nombre, cantidad para el rendimiento,
+# clasificación, índice de la tarea donde se usa). La cantidad está en la
+# unidad del insumo, que es la que exige `receta_insumo`.
+VOCAB_RECETAS = [
+    {
+        "producto": "Mermelada de frutilla",
+        "unidad": "kilogramo",
+        "rendimiento": "10",
+        "tareas": [
+            "Lavar, despalillar y trozar la fruta",
+            "Cocinar la fruta con el azúcar y la pectina",
+            "Corregir la acidez, conservar y envasar en caliente",
+        ],
+        "insumos": [
+            ("Frutilla fresca", "7", "ingrediente", 0),
+            ("Azúcar común", "4", "ingrediente", 1),
+            ("Pectina cítrica", "50", "aditivo", 1),
+            ("Ácido cítrico", "20", "aditivo", 2),
+            ("Sorbato de potasio", "10", "aditivo", 2),
+        ],
+    },
+    {
+        "producto": "Mermelada de durazno",
+        "unidad": "kilogramo",
+        "rendimiento": "12",
+        "tareas": [
+            "Pelar, descarozar y trozar los duraznos",
+            "Cocinar con el azúcar hasta punto de gelificación",
+            "Envasar en caliente y cerrar al vacío",
+        ],
+        "insumos": [
+            ("Durazno amarillo", "8.5", "ingrediente", 0),
+            ("Azúcar común", "4.8", "ingrediente", 1),
+            ("Pectina cítrica", "60", "aditivo", 1),
+            ("Ácido cítrico", "25", "aditivo", 2),
+        ],
+    },
+    {
+        "producto": "Pan de molde blanco",
+        "unidad": "unidad",
+        "rendimiento": "20",
+        "tareas": [
+            "Amasar la harina con la levadura y la sal",
+            "Incorporar la manteca y dejar levar en moldes",
+            "Hornear, desmoldar y enfriar",
+        ],
+        "insumos": [
+            ("Harina 000", "10", "ingrediente", 0),
+            ("Levadura fresca", "300", "ingrediente", 0),
+            ("Sal fina", "0.2", "ingrediente", 0),
+            ("Manteca", "0.5", "ingrediente", 1),
+            ("Leche entera", "1.5", "ingrediente", 1),
+        ],
+    },
+    {
+        "producto": "Budín de vainilla",
+        "unidad": "unidad",
+        "rendimiento": "12",
+        "tareas": [
+            "Batir la manteca con el azúcar",
+            "Agregar los huevos y la esencia",
+            "Incorporar los secos tamizados",
+            "Hornear en moldes enmantecados",
+        ],
+        "insumos": [
+            ("Manteca", "1", "ingrediente", 0),
+            ("Azúcar común", "1.5", "ingrediente", 0),
+            ("Huevo fresco", "24", "ingrediente", 1),
+            ("Esencia de vainilla", "30", "aditivo", 1),
+            ("Harina 000", "2", "ingrediente", 2),
+            ("Polvo de hornear", "60", "aditivo", 2),
+        ],
+    },
+    {
+        "producto": "Dulce de leche familiar",
+        "unidad": "kilogramo",
+        "rendimiento": "8",
+        "tareas": [
+            "Calentar la leche con el bicarbonato",
+            "Agregar el azúcar y reducir revolviendo",
+            "Aromatizar, enfriar y envasar",
+        ],
+        "insumos": [
+            ("Leche entera", "20", "ingrediente", 0),
+            ("Bicarbonato de sodio", "10", "aditivo", 0),
+            ("Azúcar común", "4", "ingrediente", 1),
+            ("Esencia de vainilla", "20", "aditivo", 2),
+        ],
+    },
+    {
+        "producto": "Salsa de tomate",
+        "unidad": "kilogramo",
+        "rendimiento": "15",
+        "tareas": [
+            "Calentar el aceite y sofreír los condimentos",
+            "Cocinar el tomate a fuego lento",
+            "Ajustar la acidez y envasar",
+        ],
+        "insumos": [
+            ("Aceite de girasol", "0.5", "ingrediente", 0),
+            ("Orégano seco", "50", "ingrediente", 0),
+            ("Tomate triturado", "14", "ingrediente", 1),
+            ("Sal fina", "0.15", "ingrediente", 1),
+            ("Ácido cítrico", "15", "aditivo", 2),
+        ],
+    },
+    {
+        "producto": "Alfajor de maicena",
+        "unidad": "unidad",
+        "rendimiento": "60",
+        "tareas": [
+            "Preparar la masa y dejar reposar en frío",
+            "Estirar, cortar y hornear las tapas",
+            "Rellenar con dulce de leche y pasar por coco",
+        ],
+        "insumos": [
+            ("Almidón de maíz", "2", "ingrediente", 0),
+            ("Harina 000", "1", "ingrediente", 0),
+            ("Manteca", "1", "ingrediente", 0),
+            ("Azúcar común", "0.8", "ingrediente", 0),
+            ("Huevo fresco", "12", "ingrediente", 0),
+            ("Polvo de hornear", "30", "aditivo", 1),
+            ("Dulce de leche repostero", "2", "ingrediente", 2),
+            ("Coco rallado", "200", "ingrediente", 2),
+        ],
+    },
+    {
+        "producto": "Galletitas de cacao",
+        "unidad": "kilogramo",
+        "rendimiento": "6",
+        "tareas": [
+            "Cremar la manteca con el azúcar",
+            "Incorporar huevos, cacao y harina",
+            "Formar, hornear y enfriar",
+        ],
+        "insumos": [
+            ("Manteca", "1.2", "ingrediente", 0),
+            ("Azúcar común", "1.5", "ingrediente", 0),
+            ("Huevo fresco", "10", "ingrediente", 1),
+            ("Cacao amargo", "0.5", "ingrediente", 1),
+            ("Harina 000", "3", "ingrediente", 1),
+            ("Polvo de hornear", "40", "aditivo", 2),
+        ],
+    },
+]
+
+# Sufijos para tener más productos que recetas base con nombres únicos.
+VARIANTES_PRODUCTO = [
+    "Clásica", "Familiar", "Artesanal", "Premium", "Reducida en azúcar",
+    "Sin TACC", "Casera", "Especial", "Línea escolar", "Gastronómica",
+]
+
+MOTIVOS_DESPERDICIO = [
+    "Derrame durante el pesaje",
+    "Producto quemado en la cocción",
+    "Envase dañado al abrir",
+    "Contaminación por contacto con el piso",
+    "Error de dosificación descartado",
+]
+
+MOTIVOS_CANCELACION_LOTE = [
+    "Corte de energía durante la cocción",
+    "Falla del horno: temperatura fuera de rango",
+    "Materia prima no conforme detectada en proceso",
+    "Pedido cancelado por el cliente",
+    "Contaminación cruzada sospechada",
+]
+
+MOTIVOS_BAJA_LOTE_INSUMO = [
+    "Vencido sin consumir",
+    "Descarte por rotura de envase",
+    "Descarte por cadena de frío interrumpida",
+    "Ajuste de inventario",
+]
+
+# IPs de documentación (RFC 5737): nunca coinciden con quien prueba en local,
+# así los intentos de login sembrados no bloquean a nadie de verdad.
+IPS_INTENTOS_LOGIN = ["203.0.113.10", "203.0.113.25", "198.51.100.7", "198.51.100.42"]
+
 
 def _descripcion_tarea(equipo_nombre: str) -> str:
     """Arma un procedimiento paso a paso creíble para la tarea."""
@@ -485,6 +754,21 @@ def borrar_todo(db) -> None:
         # La bitácora describe filas que se van a borrar y cuyos ids se
         # reutilizan: dejarla mezclaría historias de datos distintos.
         AuditLog,
+        # Caché derivada: se recalcula al final con lo recién cargado.
+        NotificacionPersistida,
+        EstadoNotificaciones,
+        # Trazabilidad (hijos primero). El borrado masivo no dispara los
+        # eventos del ORM que protegen versiones de receta y lotes cerrados.
+        ConsumoInsumo,
+        ChecklistProduccion,
+        LoteProducto,
+        LoteInsumo,
+        TareaRecetaInsumo,
+        RecetaInsumo,
+        TareaReceta,
+        VersionReceta,
+        Receta,
+        Producto,
         HistorialRegistroTarea,
         HistorialIncidente,
         # Los movimientos pueden referenciar registros y checklists. Los lotes
@@ -1409,6 +1693,504 @@ def crear_historial_incidente(db, admins: list) -> int:
 # MAIN
 # ============================================================
 
+# ============================================================
+# TRAZABILIDAD DE PRODUCCIÓN
+# ============================================================
+
+_MILESIMA = Decimal("0.001")
+
+
+def _q(valor) -> Decimal:
+    """Cantidad con tres decimales, como `Numeric(14, 3)`."""
+    return Decimal(valor).quantize(_MILESIMA)
+
+
+def _variar(valor: Decimal, minimo: float, maximo: float) -> Decimal:
+    """Multiplica por un factor al azar en [minimo, maximo]."""
+    return _q(Decimal(valor) * Decimal(str(round(random.uniform(minimo, maximo), 4))))
+
+
+def _momento(dias_atras: int, hora_min: int = 6, hora_max: int = 18) -> datetime:
+    """Fecha y hora de jornada laboral `dias_atras` días antes de hoy."""
+    base = datetime.combine(HOY - timedelta(days=dias_atras), datetime.min.time())
+    return base + timedelta(hours=random.randint(hora_min, hora_max), minutes=random.randint(0, 59))
+
+
+def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
+    """Materias primas alimentarias que usan las recetas.
+
+    En modo `--agregar` reutiliza las que ya existen con el mismo nombre.
+    Devuelve {nombre: Insumo}.
+    """
+    print("⏳ Cargando materias primas para recetas...")
+    existentes = {
+        i.nombre: i
+        for i in db.scalars(
+            select(Insumo).where(Insumo.nombre.in_([n for n, _ in VOCAB_INGREDIENTES]))
+        ).all()
+    }
+    aditivos = {a.nombre: a for a in db.scalars(select(Aditivo)).all()}
+    for nombre, clave_unidad in VOCAB_INGREDIENTES:
+        if nombre in existentes:
+            continue
+        referencia = aditivos.get(ADITIVO_DE_INGREDIENTE.get(nombre, ""))
+        insumo = Insumo(
+            nombre=nombre,
+            unidad_medida_id=unidades[clave_unidad].id,
+            # Sin la referencia cargada (base sin migrar) queda como ingrediente.
+            tipo=TIPO_ADITIVO if referencia else TIPO_INGREDIENTE,
+            aditivo=referencia,
+        )
+        db.add(insumo)
+        existentes[nombre] = insumo
+        vistos["insumo"].add(nombre)
+    db.flush()
+    return existentes
+
+
+def _agregar_version(
+    db, receta: Receta, numero: int, plantilla: dict, ingredientes: dict,
+    unidades: dict, autor: Personal, creada_en: datetime, ajuste: Optional[tuple] = None,
+) -> VersionReceta:
+    """Crea una versión completa (insumos, tareas y reparto) a partir de la plantilla.
+
+    `ajuste` = (mínimo, máximo) varía las cantidades: así la versión 2 difiere
+    de la 1 como pasaría al corregir una receta.
+    """
+    porcion = PORCION_POR_PRODUCTO.get(plantilla["producto"])
+    version = VersionReceta(
+        receta=receta,
+        numero=numero,
+        rendimiento=_q(plantilla["rendimiento"]),
+        unidad_medida_id=unidades[plantilla["unidad"]].id,
+        porcion_descripcion=porcion[0] if porcion else None,
+        porcion_cantidad=_q(porcion[1]) if porcion else None,
+        porcion_unidad_medida_id=unidades[porcion[2]].id if porcion else None,
+        creado_por_id=autor.id,
+        creado_en=creada_en,
+    )
+    tareas = [
+        TareaReceta(version=version, orden=i, descripcion=descripcion)
+        for i, descripcion in enumerate(plantilla["tareas"], start=1)
+    ]
+    for nombre, cantidad, _clasificacion, indice_tarea in plantilla["insumos"]:
+        insumo = ingredientes[nombre]
+        total = _q(cantidad) if ajuste is None else _variar(Decimal(cantidad), *ajuste)
+        receta_insumo = RecetaInsumo(
+            version=version,
+            insumo=insumo,
+            cantidad=total,
+            unidad_medida_id=insumo.unidad_medida_id,
+            # Como el service: la clasificación sale del maestro de insumos.
+            clasificacion=insumo.tipo,
+        )
+        # Todo el insumo va a la tarea indicada: el reparto suma el total,
+        # que es lo que valida el service al crear la versión.
+        TareaRecetaInsumo(tarea=tareas[indice_tarea], receta_insumo=receta_insumo, cantidad=total)
+    db.add(version)
+    return version
+
+
+def crear_productos_y_recetas(
+    db, cantidad: int, ingredientes: dict, unidades: dict, admins: list, vistos: dict
+) -> tuple[list, dict]:
+    """Productos con su receta: v1 para todos, v2 para ~40% (la v1 queda de solo lectura).
+
+    Devuelve (productos, {producto_id: [versiones ordenadas]}).
+    """
+    print(f"⏳ Cargando {cantidad} productos con sus recetas versionadas...")
+    productos = []
+    versiones: dict = {}
+    for i in range(cantidad):
+        plantilla = VOCAB_RECETAS[i % len(VOCAB_RECETAS)]
+        base = plantilla["producto"]
+        nombre = (
+            base
+            if base not in vistos["producto"]
+            else unico(lambda: f"{base} {random.choice(VARIANTES_PRODUCTO)}", vistos["producto"], largo=120)
+        )
+        vistos["producto"].add(nombre)
+        producto = Producto(
+            nombre=nombre,
+            descripcion=f"Elaborado según la receta de {base.lower()}.",
+            unidad_medida_id=unidades[plantilla["unidad"]].id,
+            activo=not bernoulli(0.07),
+        )
+        receta = Receta(producto=producto, activo=True, creado_en=_momento(random.randint(200, 240)))
+        lista = [
+            _agregar_version(
+                db, receta, 1, plantilla, ingredientes, unidades,
+                random.choice(admins), receta.creado_en,
+            )
+        ]
+        if bernoulli(0.4):
+            lista.append(
+                _agregar_version(
+                    db, receta, 2, plantilla, ingredientes, unidades,
+                    random.choice(admins), _momento(random.randint(30, 90)), ajuste=(0.85, 1.15),
+                )
+            )
+        db.add_all([producto, receta])
+        productos.append(producto)
+        versiones[producto] = lista
+    db.flush()
+    return productos, {p.id: versiones[p] for p in productos}
+
+
+def crear_lotes_insumo(db, ingredientes: dict, proveedores: list, admins: list, vistos: dict) -> list:
+    """Entre 2 y 4 lotes recibidos por materia prima, de proveedores activos.
+
+    Las cantidades son holgadas; si la producción simulada agota un lote, se
+    registra una reposición (ver `_lote_para_consumir`).
+    """
+    print("⏳ Cargando lotes de insumo recibidos...")
+    activos = [p for p in proveedores if p.activo] or proveedores
+    lotes = []
+    for nombre, insumo in ingredientes.items():
+        clave_unidad = next(c for n, c in VOCAB_INGREDIENTES if n == nombre)
+        # Cantidad recibida típica según la unidad (g y mL vienen en bolsas grandes).
+        escala = {"gramo": (2000, 10000), "mililitro": (500, 3000), "unidad": (180, 720)}.get(
+            clave_unidad, (25, 120)
+        )
+        for _ in range(random.randint(2, 4)):
+            ingreso = HOY - timedelta(days=random.randint(5, 230))
+            lotes.append(
+                _nuevo_lote_insumo(
+                    insumo, random.choice(activos), ingreso,
+                    _q(random.randint(*escala)), random.choice(admins), vistos,
+                )
+            )
+    db.add_all(lotes)
+    db.flush()
+    return lotes
+
+
+def _nuevo_lote_insumo(insumo, proveedor, ingreso: date, cantidad: Decimal, autor, vistos: dict) -> LoteInsumo:
+    numero = unico(
+        lambda: f"{slug(proveedor.nombre)[:3].upper()}-{ingreso:%y%m}-{random.randint(100, 9999)}",
+        vistos["lote_insumo"],
+        largo=100,
+    )
+    return LoteInsumo(
+        insumo=insumo,
+        proveedor=proveedor,
+        numero_lote=numero,
+        cantidad_recibida=cantidad,
+        fecha_ingreso=ingreso,
+        # Unos pocos sin vencimiento (insumos no perecederos).
+        fecha_vencimiento=None if bernoulli(0.1) else ingreso + timedelta(days=random.randint(45, 365)),
+        creado_por_id=autor.id,
+        creado_en=datetime.combine(ingreso, datetime.min.time()) + timedelta(hours=9),
+    )
+
+
+def _lote_para_consumir(
+    db, insumo, cuando: date, necesario: Decimal, saldos: dict, lotes: list,
+    proveedores: list, admins: list, vistos: dict,
+) -> list[tuple]:
+    """Elige de qué lotes sale `necesario`, por FEFO (primero el que vence antes).
+
+    Solo considera lotes ya recibidos en esa fecha y no vencidos. Si el saldo
+    no alcanza, el resto sale de una reposición recibida días antes, como
+    pasaría en la planta. Devuelve [(lote, cantidad)].
+    """
+    candidatos = sorted(
+        (
+            l for l in lotes
+            if l.insumo is insumo
+            and l.fecha_ingreso <= cuando
+            and (l.fecha_vencimiento is None or l.fecha_vencimiento >= cuando)
+            and saldos[l] > 0
+        ),
+        key=lambda l: (l.fecha_vencimiento or date.max, l.fecha_ingreso),
+    )
+    partes = []
+    pendiente = necesario
+    for lote in candidatos:
+        if pendiente <= 0:
+            break
+        toma = min(pendiente, saldos[lote])
+        partes.append((lote, toma))
+        saldos[lote] -= toma
+        pendiente -= toma
+    if pendiente > 0:
+        activos = [p for p in proveedores if p.activo] or proveedores
+        reposicion = _nuevo_lote_insumo(
+            insumo, random.choice(activos), cuando - timedelta(days=random.randint(1, 6)),
+            _q(pendiente * random.randint(4, 10)), random.choice(admins), vistos,
+        )
+        db.add(reposicion)
+        lotes.append(reposicion)
+        saldos[reposicion] = reposicion.cantidad_recibida - pendiente
+        partes.append((reposicion, pendiente))
+    return partes
+
+
+def crear_lotes_produccion(
+    db, cantidad: int, productos: list, versiones: dict, lotes_insumo: list,
+    proveedores: list, admins: list, operadores: list, vistos: dict,
+) -> dict:
+    """Lotes de producto con checklist y consumos, en los tres estados.
+
+    Sigue las reglas del service: el lote fija la versión vigente a su fecha,
+    el checklist tiene una fila por tarea, los consumos salen de lotes de
+    insumo por FEFO y los lotes terminados/cancelados quedan de solo lectura.
+    Se inserta `en_proceso` y se cierra después, porque los eventos del ORM
+    rechazan checklist o consumos sobre un lote ya cerrado.
+    """
+    print(f"⏳ Cargando {cantidad} lotes de producción con checklist y consumos...")
+    cuenta = {"lotes": 0, "items": 0, "consumos": 0, "desperdicios": 0}
+    saldos: dict = {}
+    for lote in lotes_insumo:
+        consumido = db.scalar(
+            select(func.coalesce(func.sum(ConsumoInsumo.cantidad), 0)).where(
+                ConsumoInsumo.lote_insumo_id == lote.id
+            )
+        )
+        saldos[lote] = _q(lote.cantidad_recibida) - _q(consumido)
+
+    con_receta = [p for p in productos if versiones.get(p.id)]
+    if not con_receta:
+        return cuenta
+
+    # Fechas de más vieja a más nueva, así el FEFO consume en orden.
+    # Los más recientes (últimos 3 días) quedan en proceso: siempre hay
+    # algunos para probar el checklist y el registro de consumos.
+    recientes = min(cantidad, max(2, cantidad // 8))
+    dias = sorted(
+        [random.randint(4, 180) for _ in range(cantidad - recientes)]
+        + [random.randint(0, 3) for _ in range(recientes)],
+        reverse=True,
+    )
+    for dias_atras in dias:
+        producto = random.choice(con_receta)
+        inicio = _momento(dias_atras, 6, 12)
+        vigentes = [v for v in versiones[producto.id] if v.creado_en <= inicio]
+        version = (vigentes or versiones[producto.id][:1])[-1]
+
+        if dias_atras <= 3:
+            estado = ESTADO_EN_PROCESO
+        else:
+            estado = ESTADO_CANCELADO if bernoulli(0.1) else ESTADO_TERMINADO
+
+        objetivo = _q(Decimal(version.rendimiento) * Decimal(random.choice(["0.5", "1", "1.5", "2", "3"])))
+        factor = (objetivo / Decimal(version.rendimiento)).quantize(Decimal("0.000001"))
+        # `LP-AAAAMMDD-NNN` con contador diario, como `generar_numero_lote`.
+        correlativo = 1
+        while (numero := f"{PREFIJO_NUMERO_LOTE}-{inicio:%Y%m%d}-{correlativo:03d}") in vistos["lote_producto"]:
+            correlativo += 1
+        vistos["lote_producto"].add(numero)
+        lote = LoteProducto(
+            numero_lote=numero,
+            producto=producto,
+            version_receta=version,
+            estado=ESTADO_EN_PROCESO,
+            cantidad_objetivo=objetivo,
+            factor_escala=factor,
+            creado_por_id=random.choice(admins).id,
+            fecha_inicio=inicio,
+        )
+        db.add(lote)
+
+        tareas = sorted(version.tareas, key=lambda t: t.orden)
+        if estado == ESTADO_TERMINADO:
+            hechas = len(tareas)
+        elif estado == ESTADO_CANCELADO:
+            hechas = random.randint(0, max(0, len(tareas) - 1))
+        else:
+            hechas = random.randint(0, len(tareas))
+
+        momento = inicio
+        for indice, tarea in enumerate(tareas):
+            # `db.add` explícito: en SQLAlchemy 2.0 asignar `lote=` no mete el
+            # objeto en la sesión (el lote ya estaba agregado).
+            item = ChecklistProduccion(lote=lote, tarea=tarea)
+            db.add(item)
+            cuenta["items"] += 1
+            if indice >= hechas:
+                continue
+            momento += timedelta(minutes=random.randint(25, 150))
+            operador = random.choice(operadores)
+            item.completado_por_id = operador.id
+            item.completado_en = momento
+            for reparto in tarea.insumos:
+                insumo = reparto.receta_insumo.insumo
+                planificado = _q(Decimal(reparto.cantidad) * factor)
+                real = _variar(planificado, 0.95, 1.08)
+                for lote_insumo, parte in _lote_para_consumir(
+                    db, insumo, momento.date(), real, saldos, lotes_insumo,
+                    proveedores, admins, vistos,
+                ):
+                    db.add(ConsumoInsumo(
+                        checklist=item, lote_insumo=lote_insumo, cantidad=parte,
+                        tipo=TIPO_CONSUMO_REAL, registrado_por_id=operador.id,
+                        registrado_en=momento,
+                    ))
+                    cuenta["consumos"] += 1
+                if bernoulli(0.12):
+                    perdida = max(_variar(planificado, 0.02, 0.05), _MILESIMA)
+                    for lote_insumo, parte in _lote_para_consumir(
+                        db, insumo, momento.date(), perdida, saldos, lotes_insumo,
+                        proveedores, admins, vistos,
+                    ):
+                        db.add(ConsumoInsumo(
+                            checklist=item, lote_insumo=lote_insumo, cantidad=parte,
+                            tipo=TIPO_CONSUMO_DESPERDICIO, motivo=random.choice(MOTIVOS_DESPERDICIO),
+                            registrado_por_id=operador.id, registrado_en=momento,
+                        ))
+                        cuenta["desperdicios"] += 1
+        db.flush()
+
+        # Cierre: recién ahora, con el checklist y los consumos ya en la base.
+        if estado == ESTADO_TERMINADO:
+            lote.estado = ESTADO_TERMINADO
+            lote.cantidad_producida = _variar(objetivo, 0.9, 1.02)
+            lote.fecha_cierre = momento + timedelta(minutes=random.randint(10, 60))
+        elif estado == ESTADO_CANCELADO:
+            lote.estado = ESTADO_CANCELADO
+            lote.motivo_cancelacion = random.choice(MOTIVOS_CANCELACION_LOTE)
+            lote.fecha_cierre = momento + timedelta(minutes=random.randint(10, 60))
+        db.flush()
+        cuenta["lotes"] += 1
+
+    # Ajustes de stock: algunos lotes viejos se dan de baja (vencidos o
+    # descartados). La baja es lógica: los consumos ya registrados se conservan.
+    for lote in lotes_insumo:
+        vencido = lote.fecha_vencimiento is not None and lote.fecha_vencimiento < HOY
+        if (vencido and bernoulli(0.6)) or bernoulli(0.04):
+            lote.activo = False
+            lote.motivo_baja = "Vencido sin consumir" if vencido else random.choice(MOTIVOS_BAJA_LOTE_INSUMO)
+            lote.fecha_baja = datetime.combine(
+                max(lote.fecha_vencimiento or lote.fecha_ingreso, lote.fecha_ingreso), datetime.min.time()
+            ) + timedelta(days=1, hours=10)
+    db.flush()
+    cuenta["lotes_insumo"] = len(lotes_insumo)
+    return cuenta
+
+
+def simular_actividad_trazabilidad(db, admins: list, productos: list, lotes_insumo: list) -> dict:
+    """Historia en la bitácora para productos y lotes de insumo.
+
+    Las versiones de receta y los lotes cerrados son inmutables, así que su
+    "modificación" ya quedó registrada como alta de una versión nueva o como
+    cierre/cancelación. Acá se cubre lo editable: producto (modificar, baja y
+    reactivación) y la baja lógica de lotes de insumo.
+    """
+    cuenta = {"modificados": 0, "bajas": 0, "reactivados": 0}
+
+    def commit(clave: str) -> None:
+        db.info["usuario_id"] = random.choice(admins).id
+        db.commit()
+        cuenta[clave] += 1
+
+    for producto in random.sample(productos, min(3, len(productos))):
+        db.refresh(producto)
+        producto.descripcion = recortar(f"{producto.descripcion or ''} Presentación revisada.", 500)
+        commit("modificados")
+    activos = [p for p in productos if p.activo]
+    for producto in random.sample(activos, min(2, len(activos))):
+        db.refresh(producto)
+        producto.activo = False
+        commit("bajas")
+        db.refresh(producto)
+        producto.activo = True
+        commit("reactivados")
+    disponibles = [l for l in lotes_insumo if l.activo]
+    for lote in random.sample(disponibles, min(2, len(disponibles))):
+        db.refresh(lote)
+        lote.activo = False
+        lote.motivo_baja = random.choice(MOTIVOS_BAJA_LOTE_INSUMO)
+        lote.fecha_baja = datetime.now().replace(microsecond=0)
+        commit("bajas")
+    return cuenta
+
+
+# ============================================================
+# VISTA PÚBLICA, NOTIFICACIONES Y SESIONES
+# ============================================================
+
+def crear_vista_publica(db) -> int:
+    """Habilita la vista pública con un código y elige qué indicadores publicar.
+
+    Respeta lo que ya exista (no pisa un código vigente ni preferencias).
+    Devuelve la cantidad de indicadores agregados.
+    """
+    print("⏳ Cargando configuración de la vista pública...")
+    if db.get(ConfiguracionVistaPublica, 1) is None:
+        db.add(
+            ConfiguracionVistaPublica(
+                id=1, habilitada=True, codigo_publico=secrets.token_urlsafe(32)
+            )
+        )
+    agregados = 0
+    for definicion in CATALOGO_VISTA_PUBLICA:
+        if db.get(IndicadorVistaPublica, definicion.clave) is not None:
+            continue
+        db.add(IndicadorVistaPublica(clave=definicion.clave, habilitado=bernoulli(0.75)))
+        agregados += 1
+    db.flush()
+    return agregados
+
+
+def crear_sesiones_auth(db, personal: list) -> dict:
+    """Refresh tokens, tokens revocados e intentos de login de ejemplo.
+
+    Son filas de bookkeeping: los `jti` son aleatorios y no corresponden a
+    ningún JWT firmado, así que no abren sesión. Los intentos de login usan IPs
+    de documentación para no bloquear a nadie que pruebe en local.
+    """
+    print("⏳ Cargando sesiones, revocaciones e intentos de login...")
+    ahora_utc = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+    cuenta = {"refresh": 0, "revocados": 0, "intentos": 0}
+    activos = [p for p in personal if p.activo] or personal
+    for persona in random.sample(activos, max(1, len(activos) // 3)):
+        familia = uuid.uuid4().hex
+        # Una familia rotada: tokens viejos usados y el último vigente.
+        for paso in range(random.randint(1, 3)):
+            creado = ahora_utc - timedelta(days=random.randint(0, 6), hours=paso)
+            db.add(
+                RefreshToken(
+                    jti=uuid.uuid4().hex,
+                    usuario_id=persona.id,
+                    familia=familia,
+                    usado=paso > 0,
+                    expira=creado + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+                    creado_en=creado,
+                )
+            )
+            cuenta["refresh"] += 1
+        if bernoulli(0.5):
+            db.add(
+                TokenRevocado(
+                    jti=uuid.uuid4().hex,
+                    usuario_id=persona.id,
+                    tipo=random.choice(["access", "refresh"]),
+                    expira=ahora_utc + timedelta(minutes=random.randint(5, 30)),
+                    revocado_en=ahora_utc - timedelta(minutes=random.randint(1, 120)),
+                )
+            )
+            cuenta["revocados"] += 1
+    for persona in random.sample(activos, min(4, len(activos))):
+        ip = random.choice(IPS_INTENTOS_LOGIN)
+        contador = random.randint(1, settings.LOGIN_MAX_INTENTOS)
+        db.merge(
+            IntentoLogin(
+                ip=ip,
+                dni=persona.dni,
+                ultimo_intento=ahora_utc - timedelta(minutes=random.randint(1, 30)),
+                contador=contador,
+                bloqueado_hasta=(
+                    ahora_utc + timedelta(minutes=settings.LOGIN_VENTANA_MINUTOS)
+                    if contador >= settings.LOGIN_MAX_INTENTOS
+                    else None
+                ),
+            )
+        )
+        cuenta["intentos"] += 1
+    db.flush()
+    return cuenta
+
+
 def simular_actividad(
     db,
     fake: Faker,
@@ -1839,13 +2621,19 @@ def simular_actividad(
         for lote in muestra(lotes, max(1, len(lotes) // 6)):
             eliminar(lote)
 
-        # Proveedores que no tienen ningún lote.
-        con_lotes = set(db.scalars(select(LoteStock.proveedor_id)).all())
+        # Proveedores que no tienen ningún lote (ni de químicos ni de insumos).
+        con_lotes = set(db.scalars(select(LoteStock.proveedor_id)).all()) | set(
+            db.scalars(select(LoteInsumo.proveedor_id)).all()
+        )
         sin_lotes = [p for p in proveedores if p.id not in con_lotes]
         for proveedor in random.sample(sin_lotes, min(por_tipo, len(sin_lotes))):
             eliminar(proveedor)
 
-        for objeto in chain(muestra(calibraciones), muestra(planes_cal)):
+        # Se borra a lo sumo la mitad: con pocas calibraciones (una por equipo
+        # de medición) borrar `por_tipo` dejaba la tabla vacía.
+        for objeto in chain(
+            muestra(calibraciones, len(calibraciones) // 2), muestra(planes_cal)
+        ):
             eliminar(objeto)
 
         # Incidentes abiertos cargados por error. Los del superadmin se conservan:
@@ -1977,6 +2765,9 @@ def main(preparar_esquema: bool = True) -> int:
             "matricula": set(db.scalars(select(Proveedor.matricula)).all()),
             "lote": set(db.scalars(select(LoteStock.numero_lote)).all()),
             "sector": set(db.scalars(select(Sector.nombre)).all()),
+            "producto": set(db.scalars(select(Producto.nombre)).all()),
+            "lote_insumo": set(db.scalars(select(LoteInsumo.numero_lote)).all()),
+            "lote_producto": set(db.scalars(select(LoteProducto.numero_lote)).all()),
         }
 
         # Un solo hash para todo el personal: bcrypt es lento (~0,3 s por
@@ -2014,6 +2805,19 @@ def main(preparar_esquema: bool = True) -> int:
         documentos = crear_documentos(db, args.cantidad, admins, vistos)
         cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
 
+        # Trazabilidad: productos -> recetas versionadas -> lotes de insumo ->
+        # lotes de producción con checklist y consumos.
+        ingredientes = crear_ingredientes(db, unidades, vistos)
+        productos, versiones = crear_productos_y_recetas(
+            db, args.cantidad, ingredientes, unidades, admins, vistos
+        )
+        lotes_insumo = crear_lotes_insumo(db, ingredientes, proveedores, admins, vistos)
+        produccion = crear_lotes_produccion(
+            db, args.cantidad * 2, productos, versiones, lotes_insumo,
+            proveedores, admins, operadores, vistos,
+        )
+        indicadores_vp = crear_vista_publica(db)
+
         db.commit()
 
         # Las altas ya están commiteadas (como "sistema"). Sobre ellas se simula
@@ -2027,6 +2831,20 @@ def main(preparar_esquema: bool = True) -> int:
                 calibraciones=calibraciones, planes=planes,
                 planes_cal=cal_mantenimiento, unidades=unidades,
             )
+            for clave, n in simular_actividad_trazabilidad(
+                db, admins, productos, lotes_insumo
+            ).items():
+                actividad[clave] += n
+
+        # Sesiones de ejemplo, después de la actividad (que puede borrar personas).
+        sesiones = crear_sesiones_auth(db, list(db.scalars(select(Personal)).all()))
+        db.commit()
+
+        # La caché de notificaciones se recalcula sobre los datos finales, igual
+        # que en la primera lectura de la app.
+        print("⏳ Calculando notificaciones...")
+        asegurar_notificaciones_al_dia(db)
+        notificaciones = db.scalar(select(func.count()).select_from(NotificacionPersistida))
 
         # --------------------------------------------------------------
         # Resumen
@@ -2040,6 +2858,24 @@ def main(preparar_esquema: bool = True) -> int:
         print(f"   Registros de tarea: {registros} · Historial registros: {historial_registros} · Incidentes: {incidentes}")
         print(f"   Historial incidentes: {historial_incidentes} · Documentos: {documentos}")
         print(f"   Planes calibración/mantenimiento: {len(cal_mantenimiento)}")
+        print(
+            f"   Productos: {len(productos)} · Versiones de receta: "
+            f"{sum(len(v) for v in versiones.values())} · Materias primas: {len(ingredientes)}"
+        )
+        print(
+            f"   Lotes de insumo: {produccion.get('lotes_insumo', len(lotes_insumo))} · "
+            f"Lotes de producción: {produccion['lotes']} · Ítems de checklist: {produccion['items']}"
+        )
+        print(
+            f"   Consumos reales: {produccion['consumos']} · Desperdicios: {produccion['desperdicios']}"
+        )
+        print(
+            f"   Vista pública: {indicadores_vp} indicadores · Notificaciones: {notificaciones}"
+        )
+        print(
+            f"   Sesiones: {sesiones['refresh']} refresh tokens · {sesiones['revocados']} revocados · "
+            f"{sesiones['intentos']} intentos de login"
+        )
         if actividad:
             print(
                 "   Actividad simulada: "

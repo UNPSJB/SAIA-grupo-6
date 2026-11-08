@@ -49,6 +49,12 @@ from src.vencimientoPersonal.router import router as vencimiento_personal_router
 from src.aptitud.router import router as aptitud_router
 from src.proveedores.router import router as proveedores_router
 from src.lotes.router import router as lotes_router
+from src.productos.router import router as productos_router
+from src.aditivos.router import router as aditivos_router
+from src.recetas.router import router as recetas_router
+from src.lotesInsumo.router import router as lotes_insumo_router
+from src.lotesInsumo.router import stock_router as stock_insumos_router
+from src.trazabilidad.router import router as trazabilidad_router
 
 from src.documentos.router import router as documentos_router
 from src.vencimientos.router import router as vencimientos_router
@@ -159,6 +165,12 @@ app.include_router(vencimiento_personal_router)
 app.include_router(aptitud_router)
 app.include_router(proveedores_router)
 app.include_router(lotes_router)
+app.include_router(productos_router)
+app.include_router(aditivos_router)
+app.include_router(recetas_router)
+app.include_router(lotes_insumo_router)
+app.include_router(stock_insumos_router)
+app.include_router(trazabilidad_router)
 app.include_router(incidente_router)
 app.include_router(documentos_router)
 app.include_router(vencimientos_router)

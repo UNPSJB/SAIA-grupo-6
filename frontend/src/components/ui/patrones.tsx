@@ -24,6 +24,7 @@ import {
 import type { ReactNode, SelectHTMLAttributes } from "react";
 import {
   LuArrowUp,
+  LuCalculator,
   LuChevronLeft,
   LuChevronRight,
   LuChevronsLeft,
@@ -398,7 +399,8 @@ export type AccionTabla =
   | "ingreso"
   | "ajuste"
   | "minimo"
-  | "asociar";
+  | "asociar"
+  | "escalar";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -432,6 +434,7 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   ajuste: "blue",
   minimo: "blue",
   asociar: "blue",
+  escalar: "blue",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -452,6 +455,7 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   ajuste: LuPencil,
   minimo: LuPencil,
   asociar: LuLink,
+  escalar: LuCalculator,
 };
 
 /**

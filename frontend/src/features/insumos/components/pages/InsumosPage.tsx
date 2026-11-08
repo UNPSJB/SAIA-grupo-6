@@ -108,7 +108,7 @@ export function InsumosPage() {
     {
       clave: "tipo",
       etiqueta: "Tipo",
-      valor: tipo === "producto" ? "Productos" : tipo === "insumo" ? "Insumos" : "",
+      valor: tipo === "aditivo" ? "Aditivos" : tipo === "ingrediente" ? "Ingredientes" : "",
       onQuitar: () => setTipo(""),
     },
     {
@@ -220,8 +220,8 @@ export function InsumosPage() {
               valor={tipo}
               onCambio={(valor) => setTipo(valor as TipoInsumo | "")}
               opciones={[
-                { valor: "insumo", etiqueta: "Insumos" },
-                { valor: "producto", etiqueta: "Productos" },
+                { valor: "ingrediente", etiqueta: "Ingredientes" },
+                { valor: "aditivo", etiqueta: "Aditivos" },
               ]}
               todos="Todos los tipos"
             />

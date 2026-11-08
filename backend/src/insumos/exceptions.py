@@ -16,3 +16,12 @@ class UnidadMedidaNoExiste(BadRequest):
 
 class UnidadMedidaInactiva(BadRequest):
     DETAIL = "La unidad de medida seleccionada está inactiva."
+
+class AditivoSinReferencia(BadRequest):
+    DETAIL = (
+        "Un aditivo debe elegirse de la lista de referencia "
+        "(clase funcional, nombre completo e INS)."
+    )
+
+class AditivoNoValido(BadRequest):
+    DETAIL = "El aditivo elegido no existe o está dado de baja en la lista de referencia."

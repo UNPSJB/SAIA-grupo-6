@@ -1,118 +1,111 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
-class ProductoResponse(BaseModel):
-    id: int
-    nombre: str
-
-    model_config = ConfigDict(from_attributes=True)
+from src.common.validators import texto_no_vacio, texto_opcional
+from src.lotes import exceptions
 
 
 class LoteCreate(BaseModel):
-    """Alta de un lote de producción.
+    """Se indica la cantidad objetivo de producto terminado o un factor
+    multiplicador de la receta (E9: duplicarla = factor 2). Uno de los dos."""
 
-    El producto se toma del maestro de insumos de E1 (`Insumo` con
-    `tipo="producto"`), por id o por nombre. Si se envía un nombre nuevo, se
-    crea en ese mismo maestro. Se mantiene compatibilidad con el formato
-    anterior que usaba `cantidad_planificada`.
-    """
+    producto_id: int = Field(gt=0)
+    cantidad_objetivo: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=3)
+    factor: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=6)
 
-    codigo_lote: str | None = Field(default=None, max_length=50)
-    producto_id: int | None = Field(default=None, gt=0)
-    producto_nombre: str | None = Field(default=None, max_length=120)
-    cantidad_planificada: int | None = Field(default=None, gt=0)
-    cantidad_producida: int | None = Field(default=None, gt=0)
-    fecha_inicio: datetime | None = None
 
-    @field_validator("codigo_lote")
+class LoteCierre(BaseModel):
+    cantidad_producida: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+
+
+class LoteCancelacion(BaseModel):
+    motivo: str = Field(max_length=300)
+
+    @field_validator("motivo")
     @classmethod
-    def validar_codigo_lote(cls, valor: str | None) -> str | None:
-        if valor is None:
-            return None
-        texto = valor.strip()
-        if not texto:
-            raise ValueError("El código de lote no puede estar vacío.")
-        return texto
-
-    @field_validator("producto_nombre")
-    @classmethod
-    def validar_producto_nombre(cls, valor: str | None) -> str | None:
-        if valor is None:
-            return None
-        texto = valor.strip()
-        if not texto:
-            raise ValueError("El nombre del producto no puede estar vacío.")
-        return texto
-
-    @model_validator(mode="after")
-    def validar_campos_requeridos(self):
-        if self.producto_id is None and self.producto_nombre is None:
-            raise ValueError("Indicá un producto o el nombre de un producto nuevo.")
-        if self.cantidad_planificada is None and self.cantidad_producida is None:
-            raise ValueError("Indicá la cantidad producida.")
-        if self.cantidad_planificada is None:
-            self.cantidad_planificada = self.cantidad_producida
-        return self
+    def validar_motivo(cls, valor: str) -> str:
+        return texto_no_vacio(valor, vacio=exceptions.MotivoVacio)
 
 
-class InsumoLoteCreate(BaseModel):
-    insumo_id: int = Field(gt=0)
+class ConsumoCreate(BaseModel):
+    lote_insumo_id: int = Field(gt=0)
     cantidad: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+    tipo: Literal["real", "desperdicio"] = "real"
+    motivo: str | None = Field(default=None, max_length=300)
+
+    @field_validator("motivo")
+    @classmethod
+    def validar_motivo(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor, largo_maximo=300)
 
 
-class InsumosLoteCreate(BaseModel):
-    insumos: list[InsumoLoteCreate] = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def validar_insumos_unicos(self):
-        ids = [insumo.insumo_id for insumo in self.insumos]
-        if len(ids) != len(set(ids)):
-            raise ValueError("No se puede repetir un insumo en la misma asociación.")
-        return self
-
-
-class UnidadMedidaResumen(BaseModel):
+class ConsumoResponse(BaseModel):
     id: int
-    nombre: str
-    simbolo: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class InsumoResumen(BaseModel):
-    id: int
-    nombre: str
-    unidad_medida: UnidadMedidaResumen
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class InsumoLoteResponse(BaseModel):
-    id: int
-    lote_id: int
+    checklist_produccion_id: int
+    lote_insumo_id: int
     insumo_id: int
+    insumo_nombre: str
+    numero_lote_insumo: str
+    proveedor_nombre: str
     cantidad: Decimal
-    fecha_registro: datetime
-    insumo: InsumoResumen
+    tipo: str
+    motivo: str | None
+    registrado_por_id: int | None
+    registrado_por_nombre: str | None = None
+    registrado_en: datetime
+    advertencias: list[str] = Field(default_factory=list)
 
-    model_config = ConfigDict(from_attributes=True)
+
+class InsumoPlanificado(BaseModel):
+    insumo_id: int
+    insumo_nombre: str
+    unidad: str
+    cantidad_planificada: Decimal
+    consumo_real: Decimal
+    desperdicio: Decimal
 
 
-class LoteResponse(BaseModel):
+class ItemChecklist(BaseModel):
     id: int
-    codigo_lote: str
-    producto_id: int | None = None
+    tarea_receta_id: int
+    orden: int
+    descripcion: str
+    completado: bool
+    completado_por_id: int | None
+    completado_por_nombre: str | None = None
+    completado_en: datetime | None
+    insumos: list[InsumoPlanificado]
+    consumos: list[ConsumoResponse]
+
+
+class LoteResumen(BaseModel):
+    id: int
+    numero_lote: str
+    producto_id: int
     producto_nombre: str
-    cantidad_planificada: int
-    cantidad_producida: int
+    unidad: str
+    version_receta_id: int | None
+    version_numero: int | None
     estado: str
+    cantidad_objetivo: Decimal
+    factor_escala: Decimal | None
+    cantidad_producida: Decimal | None
+    motivo_cancelacion: str | None
+    creado_por_id: int | None
+    creado_por_nombre: str | None = None
     fecha_inicio: datetime
-    insumos: list[InsumoLoteResponse] = Field(default_factory=list)
+    fecha_cierre: datetime | None
+    items_total: int
+    items_completados: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LoteDetalle(LoteResumen):
+    checklist: list[ItemChecklist]
 
 
 class LoteResumenEstado(BaseModel):
@@ -122,14 +115,12 @@ class LoteResumenEstado(BaseModel):
 
 class ProduccionPorProducto(BaseModel):
     producto: str
-    cantidad_producida: int
+    cantidad_producida: Decimal
     cantidad_lotes: int
 
 
 class DashboardLotesResponse(BaseModel):
     total_lotes: int
-    total_cantidad_planificada: int
-    total_cantidad_producida: int
-    porcentaje_cumplimiento: float
+    total_cantidad_producida: Decimal
     por_estado: list[LoteResumenEstado]
     por_producto: list[ProduccionPorProducto]
