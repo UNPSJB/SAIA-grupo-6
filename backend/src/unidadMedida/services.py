@@ -50,6 +50,12 @@ _ORDENES = {
     "simbolo_desc": ColumnaOrden(
         (sin_tildes(UnidadMedida.simbolo),), descendente=True
     ),
+    "tipo_asc": ColumnaOrden((UnidadMedida.tipo,)),
+    "tipo_desc": ColumnaOrden((UnidadMedida.tipo,), descendente=True),
+    "factor_a_base_asc": ColumnaOrden((UnidadMedida.factor_a_base,)),
+    "factor_a_base_desc": ColumnaOrden(
+        (UnidadMedida.factor_a_base,), descendente=True
+    ),
 }
 
 

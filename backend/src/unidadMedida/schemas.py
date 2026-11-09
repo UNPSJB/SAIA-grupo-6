@@ -1,12 +1,18 @@
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.common.paginacion import Pagina
 from src.common.validators import texto_obligatorio, texto_no_vacio
 from src.unidadMedida import exceptions
 
 
+TipoUnidadMedida = Literal["masa", "volumen", "unidad"]
+
+
 class UnidadMedidaBase(BaseModel):
     nombre: str
     simbolo: str
+    tipo: TipoUnidadMedida = "unidad"
+    factor_a_base: float = 1.0
 
     @field_validator("nombre")
     @classmethod
@@ -25,6 +31,15 @@ class UnidadMedidaBase(BaseModel):
             return None
         return texto_no_vacio(v, vacio=exceptions.SimboloVacio).upper()
 
+    @field_validator("factor_a_base")
+    @classmethod
+    def validar_factor_a_base(cls, v: float | None) -> float | None:
+        if v is None:
+            return None
+        if v <= 0:
+            raise exceptions.FactorInvalido()
+        return v
+
 
 class UnidadMedidaCreate(UnidadMedidaBase):
     pass
@@ -35,6 +50,8 @@ class UnidadMedidaUpdate(UnidadMedidaBase):
 
     nombre: str | None = None
     simbolo: str | None = None
+    tipo: TipoUnidadMedida | None = None
+    factor_a_base: float | None = None
     activo: bool | None = None
 
 
