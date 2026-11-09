@@ -217,6 +217,17 @@ const NotificacionesPage = lazy(() =>
   import("./features/notificaciones/components/pages/NotificacionesPage").then((mod) => ({ default: mod.NotificacionesPage })),
 );
 
+// E11: tabla de información nutricional
+const DatosNutricionalesInsumoPage = lazy(() =>
+  import("./features/nutricion/components/pages/DatosNutricionalesInsumoPage").then((mod) => ({ default: mod.DatosNutricionalesInsumoPage })),
+);
+const InfoNutricionalProductoPage = lazy(() =>
+  import("./features/nutricion/components/pages/InfoNutricionalProductoPage").then((mod) => ({ default: mod.InfoNutricionalProductoPage })),
+);
+const ParametrosNutricionPage = lazy(() =>
+  import("./features/nutricion/components/pages/ParametrosNutricionPage").then((mod) => ({ default: mod.ParametrosNutricionPage })),
+);
+
 // Configuración: ajustes del sistema, desde el menú de usuario (solo administradores)
 const ConfiguracionPage = lazy(() =>
   import("./features/configuracion/components/pages/ConfiguracionPage").then((mod) => ({ default: mod.ConfiguracionPage })),
@@ -826,6 +837,30 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <ProductoEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/productos/:id/informacion-nutricional",
+                element: (
+                  <ConSuspense>
+                    <InfoNutricionalProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/insumos/:id/nutricion",
+                element: (
+                  <ConSuspense>
+                    <DatosNutricionalesInsumoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/nutricion",
+                element: (
+                  <ConSuspense>
+                    <ParametrosNutricionPage />
                   </ConSuspense>
                 ),
               },

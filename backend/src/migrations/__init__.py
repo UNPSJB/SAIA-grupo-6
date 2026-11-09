@@ -19,6 +19,7 @@ from .insumos_tipo import (
 )
 from .lotes import migrar_lotes
 from .notificaciones import migrar_notificaciones
+from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
@@ -40,6 +41,8 @@ def run_migrations() -> None:
     migrar_aditivos_referencia()
     migrar_insumos_tipo()
     migrar_porcion_receta()
+    # E11: parámetros de la tabla nutricional y base de composición de ejemplo.
+    migrar_nutricion()
     migrar_equipos()
     # Necesita personal.es_super_admin, por eso va después de migrar_columnas_personal.
     bootstrap_super_admin()

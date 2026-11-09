@@ -18,8 +18,10 @@ base quedaría inservible para probar la aplicación.
 
 También carga la trazabilidad de producción (materias primas, productos con
 recetas versionadas, lotes de insumo por proveedor y lotes de producción con
-checklist, consumos reales y desperdicios en los tres estados), la vista
-pública, sesiones de ejemplo (refresh tokens, revocaciones, intentos de
+checklist, consumos reales y desperdicios en los tres estados), la
+información nutricional (E11: datos por 100 g de cada materia prima con su
+fuente, porción y medida casera de cada producto y un análisis de
+laboratorio), la vista pública, sesiones de ejemplo (refresh tokens, revocaciones, intentos de
 login) y, al final, recalcula la caché de notificaciones.
 
 Por defecto reemplaza los datos (igual que `cargar_datos.py`); con `--agregar`
@@ -120,6 +122,19 @@ from src.recetas.models import (  # noqa: E402
     VersionReceta,
 )
 from src.lotesInsumo.models import LoteInsumo  # noqa: E402
+from src.nutricion.models import (  # noqa: E402
+    AlimentoReferencia,
+    InfoNutricionalProducto,
+    PerfilNutricionalInsumo,
+    ValorLaboratorioProducto,
+    ValorNutricionalInsumo,
+)
+from src.nutricion.constants import (  # noqa: E402
+    CLAVES_NUTRIENTES,
+    FUENTE_BASE,
+    FUENTE_BIBLIOGRAFIA,
+    FUENTE_PROVEEDOR,
+)
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: E402
 from src.lotes.constants import (  # noqa: E402
     ESTADO_CANCELADO,
@@ -485,6 +500,95 @@ PORCION_POR_PRODUCTO = {
     "Galletitas de cacao": ("Paquete", "0.25", "kilogramo"),
 }
 
+# E11: datos nutricionales por 100 g de cada materia prima. Valores
+# APROXIMADOS para probar la pantalla, no para rotular.
+#
+#   base          alimento de la base de composición de ejemplo (se toman sus
+#                 valores; si la base no lo tiene, se cargan como bibliografía)
+#   valores       (energía, carbohidratos, azúcares totales, azúcares añadidos,
+#                 proteínas, grasas totales, saturadas, trans, fibra, sodio);
+#                 None = sin dato
+#   fuente        rótulo del proveedor o bibliografía, con su detalle
+#   corregir      {nutriente: valor} cambiado a mano respecto de la fuente
+#                 (queda "Modificado" con quién lo hizo)
+#   densidad / peso_unidad / anadidos / aporta   ver PerfilNutricionalInsumo
+#
+# Quedan incompletos a propósito el orégano (sin datos) y el coco rallado
+# (sin fibra): la salsa de tomate y los alfajores muestran la advertencia.
+NUTRICION_INGREDIENTES = {
+    "Harina 000": {"base": "Harina de trigo 000", "corregir": {"fibra": "3.1"}},
+    "Azúcar común": {"base": "Azúcar blanca", "anadidos": True},
+    "Manteca": {"base": "Manteca"},
+    "Huevo fresco": {"base": "Huevo entero crudo", "peso_unidad": "50"},
+    "Leche entera": {"base": "Leche entera", "densidad": "1.03"},
+    "Sal fina": {"base": "Sal fina"},
+    "Levadura fresca": {"base": "Levadura fresca"},
+    "Aceite de girasol": {"base": "Aceite de girasol", "densidad": "0.92"},
+    "Dulce de leche repostero": {"base": "Dulce de leche"},
+    "Frutilla fresca": {
+        "valores": (32, 7.7, 4.9, 0, 0.7, 0.3, 0, 0, 2.0, 1),
+        "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
+    },
+    "Durazno amarillo": {
+        "valores": (39, 9.5, 8.4, 0, 0.9, 0.3, 0, 0, 1.5, 0),
+        "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
+    },
+    "Cacao amargo": {
+        "valores": (228, 58, 1.8, 0, 19.6, 13.7, 8.1, 0, 33, 21),
+        "fuente": (FUENTE_PROVEEDOR, "Rótulo del proveedor, cacao amargo en polvo"),
+    },
+    "Tomate triturado": {
+        "valores": (24, 4, 3.5, 0, 1.3, 0.2, 0, 0, 1.2, 180),
+        "fuente": (FUENTE_PROVEEDOR, "Rótulo del proveedor, tomate triturado"),
+        "corregir": {"sodio": "150"},
+    },
+    "Almidón de maíz": {
+        "valores": (381, 91, 0, 0, 0.3, 0.1, 0, 0, 0.9, 9),
+        "fuente": (FUENTE_PROVEEDOR, "Rótulo del proveedor, almidón de maíz"),
+    },
+    "Coco rallado": {
+        "valores": (660, 24, 7.4, 0, 6.9, 64.5, 57, 0, None, 37),
+        "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
+    },
+    # Aditivos que aportan sodio de forma relevante: solo energía y sodio.
+    "Bicarbonato de sodio": {
+        "aporta": True,
+        "valores": (0, None, None, None, None, None, None, None, None, 27400),
+        "fuente": (FUENTE_BIBLIOGRAFIA, "Ficha técnica del bicarbonato de sodio"),
+    },
+    "Polvo de hornear": {
+        "aporta": True,
+        "valores": (53, None, None, None, None, None, None, None, None, 10600),
+        "fuente": (FUENTE_PROVEEDOR, "Rótulo del proveedor, polvo de hornear"),
+    },
+    # Esencia de vainilla, pectina, ácido cítrico y sorbato: aditivos sin
+    # datos (no son incompletos) y el orégano, sin cargar.
+    "Esencia de vainilla": {"densidad": "0.88"},
+}
+
+# Porción y medida casera por producto base (aprox. Anexo I de la Guía de
+# Rotulado). `peso_unidad` convierte el rendimiento de las recetas por unidad.
+NUTRICION_PRODUCTOS = {
+    "Mermelada de frutilla": {"porcion": "20", "medida": "1 cucharada de sopa"},
+    "Mermelada de durazno": {"porcion": "20", "medida": "1 cucharada de sopa"},
+    "Pan de molde blanco": {"porcion": "50", "medida": "2 rebanadas", "peso_unidad": "600"},
+    "Budín de vainilla": {"porcion": "60", "medida": "1 rodaja", "peso_unidad": "450"},
+    "Dulce de leche familiar": {"porcion": "20", "medida": "1 cucharada de sopa"},
+    "Salsa de tomate": {"porcion": "60", "medida": "1/4 taza"},
+    # La receta rinde ~120 g por alfajor (tapas + relleno + coco).
+    "Alfajor de maicena": {"porcion": "60", "medida": "1/2 unidad", "peso_unidad": "120"},
+    "Galletitas de cacao": {"porcion": "30", "medida": "5 unidades"},
+}
+
+# Un análisis de laboratorio, como el sodio de la milanesa de referencia de la
+# cátedra: reemplaza al valor calculado y se marca ** en la tabla.
+NUTRICION_LABORATORIO = {
+    "Dulce de leche familiar": {
+        "referencia": "Laboratorio de ejemplo, informe 2026-0412",
+        "valores": {"sodio": "95"},
+    },
+}
+
 # Recetas base. Cada insumo es (nombre, cantidad para el rendimiento,
 # clasificación, índice de la tarea donde se usa). La cantidad está en la
 # unidad del insumo, que es la que exige `receta_insumo`.
@@ -759,6 +863,12 @@ def borrar_todo(db) -> None:
         EstadoNotificaciones,
         # Trazabilidad (hijos primero). El borrado masivo no dispara los
         # eventos del ORM que protegen versiones de receta y lotes cerrados.
+        # Información nutricional (E11). La base de composición y los
+        # parámetros son de la migración y no se tocan.
+        ValorLaboratorioProducto,
+        InfoNutricionalProducto,
+        ValorNutricionalInsumo,
+        PerfilNutricionalInsumo,
         ConsumoInsumo,
         ChecklistProduccion,
         LoteProducto,
@@ -1837,6 +1947,118 @@ def crear_productos_y_recetas(
     return productos, {p.id: versiones[p] for p in productos}
 
 
+def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: list) -> dict:
+    """E11: datos por 100 g de las materias primas, porción de cada producto y
+    un análisis de laboratorio.
+
+    Escribe las mismas filas que la pantalla de datos nutricionales: cada valor
+    con su fuente, fecha y autor; los corregidos a mano quedan "Modificado".
+    En modo `--agregar` no pisa lo que ya estaba cargado.
+    """
+    print("⏳ Cargando información nutricional...")
+    alimentos = {a.nombre: a for a in db.scalars(select(AlimentoReferencia)).all()}
+    con_datos = set(db.scalars(select(ValorNutricionalInsumo.insumo_id).distinct()).all())
+    con_perfil = set(db.scalars(select(PerfilNutricionalInsumo.insumo_id)).all())
+    resumen = {"insumos": 0, "valores": 0, "modificados": 0, "productos": 0, "laboratorio": 0}
+
+    for nombre, datos in NUTRICION_INGREDIENTES.items():
+        insumo = ingredientes.get(nombre)
+        if insumo is None:
+            continue
+        autor = random.choice(admins)
+        cargado_en = _momento(random.randint(20, 120))
+        if insumo.id not in con_perfil:
+            db.add(PerfilNutricionalInsumo(
+                insumo_id=insumo.id,
+                densidad_g_ml=Decimal(datos["densidad"]) if "densidad" in datos else None,
+                peso_unidad_g=Decimal(datos["peso_unidad"]) if "peso_unidad" in datos else None,
+                aporta_energia_sodio=bool(datos.get("aporta")),
+                azucares_son_anadidos=bool(datos.get("anadidos")),
+            ))
+        if insumo.id in con_datos:
+            continue
+
+        alimento = alimentos.get(datos.get("base", ""))
+        if alimento is not None:
+            valores = {clave: getattr(alimento, clave) for clave in CLAVES_NUTRIENTES}
+            fuente, referencia = FUENTE_BASE, f"{alimento.base}: {alimento.nombre}"[:300]
+        elif "valores" in datos or "base" in datos:
+            # Sin la base de ejemplo (se reemplazó por otra): bibliografía.
+            crudos = datos.get("valores") or ()
+            valores = dict(zip(CLAVES_NUTRIENTES, crudos))
+            fuente, referencia = datos.get(
+                "fuente", (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados")
+            )
+        else:
+            continue
+        if insumo.tipo == TIPO_ADITIVO:
+            valores = {k: v for k, v in valores.items() if k in ("energia", "sodio")}
+        if datos.get("anadidos"):
+            # Se calculan desde sus azúcares totales: no se cargan aparte.
+            valores.pop("azucares_anadidos", None)
+
+        cargados = 0
+        for clave, valor in valores.items():
+            if valor is None:
+                continue
+            valor_fuente = Decimal(str(valor))
+            corregido = datos.get("corregir", {}).get(clave)
+            valor_final = Decimal(corregido) if corregido is not None else valor_fuente
+            modificado = valor_final != valor_fuente
+            db.add(ValorNutricionalInsumo(
+                insumo_id=insumo.id,
+                nutriente=clave,
+                valor=valor_final,
+                fuente=fuente,
+                referencia=referencia,
+                alimento_referencia_id=alimento.id if alimento is not None else None,
+                valor_fuente=valor_fuente,
+                cargado_en=cargado_en,
+                cargado_por_id=autor.id,
+                modificado=modificado,
+                modificado_en=cargado_en + timedelta(days=random.randint(1, 10)) if modificado else None,
+                modificado_por_id=random.choice(admins).id if modificado else None,
+            ))
+            cargados += 1
+            resumen["modificados"] += int(modificado)
+        resumen["valores"] += cargados
+        resumen["insumos"] += int(cargados > 0)
+
+    # Porción declarada: casi todos los productos; ~10 % queda sin declarar
+    # para que se vea el aviso de "falta la porción".
+    for producto in productos:
+        base = next((b for b in NUTRICION_PRODUCTOS if producto.nombre.startswith(b)), None)
+        if base is None or db.get(InfoNutricionalProducto, producto.id) is not None:
+            continue
+        if producto.nombre != base and bernoulli(0.1):
+            continue
+        datos = NUTRICION_PRODUCTOS[base]
+        db.add(InfoNutricionalProducto(
+            producto_id=producto.id,
+            expresar_en="g",
+            porcion=Decimal(datos["porcion"]),
+            medida_casera=datos["medida"],
+            peso_unidad_g=Decimal(datos["peso_unidad"]) if "peso_unidad" in datos else None,
+        ))
+        resumen["productos"] += 1
+
+        analisis = NUTRICION_LABORATORIO.get(producto.nombre)
+        if analisis:
+            for clave, valor in analisis["valores"].items():
+                db.add(ValorLaboratorioProducto(
+                    producto_id=producto.id,
+                    nutriente=clave,
+                    valor_100=Decimal(valor),
+                    referencia=analisis["referencia"],
+                    fecha_analisis=HOY - timedelta(days=random.randint(10, 60)),
+                    cargado_en=_momento(random.randint(1, 9)),
+                    cargado_por_id=random.choice(admins).id,
+                ))
+                resumen["laboratorio"] += 1
+    db.flush()
+    return resumen
+
+
 def crear_lotes_insumo(db, ingredientes: dict, proveedores: list, admins: list, vistos: dict) -> list:
     """Entre 2 y 4 lotes recibidos por materia prima, de proveedores activos.
 
@@ -2811,6 +3033,7 @@ def main(preparar_esquema: bool = True) -> int:
         productos, versiones = crear_productos_y_recetas(
             db, args.cantidad, ingredientes, unidades, admins, vistos
         )
+        nutricion = crear_datos_nutricionales(db, ingredientes, productos, admins)
         lotes_insumo = crear_lotes_insumo(db, ingredientes, proveedores, admins, vistos)
         produccion = crear_lotes_produccion(
             db, args.cantidad * 2, productos, versiones, lotes_insumo,
@@ -2868,6 +3091,12 @@ def main(preparar_esquema: bool = True) -> int:
         )
         print(
             f"   Consumos reales: {produccion['consumos']} · Desperdicios: {produccion['desperdicios']}"
+        )
+        print(
+            f"   Información nutricional: {nutricion['insumos']} materias primas con "
+            f"{nutricion['valores']} valores ({nutricion['modificados']} corregidos a mano) · "
+            f"{nutricion['productos']} productos con porción · "
+            f"{nutricion['laboratorio']} valores de laboratorio"
         )
         print(
             f"   Vista pública: {indicadores_vp} indicadores · Notificaciones: {notificaciones}"

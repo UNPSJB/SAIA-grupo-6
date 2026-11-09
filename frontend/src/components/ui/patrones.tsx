@@ -26,6 +26,7 @@ import {
 import { useCallback, useEffect, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import {
   LuArrowUpDown,
+  LuApple,
   LuCalculator,
   LuChevronLeft,
   LuClock,
@@ -494,7 +495,8 @@ export type AccionTabla =
   | "ajuste"
   | "minimo"
   | "asociar"
-  | "escalar";
+  | "escalar"
+  | "nutricion";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -529,6 +531,7 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   minimo: "blue",
   asociar: "blue",
   escalar: "blue",
+  nutricion: "blue",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -555,6 +558,8 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   minimo: LuGauge,
   asociar: LuLink,
   escalar: LuCalculator,
+  // E11: datos e información nutricional (insumos y productos).
+  nutricion: LuApple,
 };
 
 /**

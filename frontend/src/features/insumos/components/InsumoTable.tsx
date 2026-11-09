@@ -16,6 +16,7 @@ interface InsumoTableProps {
   onEdit: (insumo: Insumo) => void;
   onDelete: (insumo: Insumo) => void;
   onReactivar: (insumo: Insumo) => void;
+  onNutricion: (insumo: Insumo) => void;
 }
 
 export function InsumoTable({
@@ -24,6 +25,7 @@ export function InsumoTable({
   onEdit,
   onDelete,
   onReactivar,
+  onNutricion,
 }: InsumoTableProps) {
   if (insumos.length === 0) {
     return (
@@ -58,6 +60,7 @@ export function InsumoTable({
               onEdit={onEdit}
               onDelete={onDelete}
               onReactivar={onReactivar}
+              onNutricion={onNutricion}
             />
           ))}
         </Table.Body>

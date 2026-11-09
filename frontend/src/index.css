@@ -124,3 +124,21 @@
     max-width: none !important;
   }
 }
+
+/* E11: imprimir la tabla nutricional deja solo la tabla y sus leyendas. */
+@media print {
+  body:has(#zona-impresion) * {
+    visibility: hidden;
+  }
+  #zona-impresion,
+  #zona-impresion * {
+    visibility: visible;
+  }
+  #zona-impresion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 640px;
+  }
+}
