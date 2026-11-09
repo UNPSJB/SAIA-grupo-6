@@ -2,14 +2,18 @@ import { useEffect, useState } from "react";
 import { Box } from "@chakra-ui/react";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
+  SIN_VALIDACION_NATIVA,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
@@ -35,6 +39,11 @@ export function ProductoForm({
   onCancel,
 }: ProductoFormProps) {
   const [values, setValues] = useState<ProductoFormValues>(initialValues);
+  const faltan = faltantes({
+    nombre: [!values.nombre.trim(), "el nombre"],
+    unidad: [!values.unidad_medida_id, "la unidad de medida"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const [cargandoUnidades, setCargandoUnidades] = useState(true);
 
@@ -47,15 +56,16 @@ export function ProductoForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit(values);
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
+    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
       <TarjetaFormulario>
         <TituloFormulario>{title}</TituloFormulario>
 
-        <FormField label="Nombre" required mb="4">
+        <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
           <FormInput
             value={values.nombre}
             onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
@@ -73,13 +83,14 @@ export function ProductoForm({
           />
         </FormField>
 
-        <FormField
+        <FormField invalid={intentado && faltan.tiene("unidad")}
           label="Unidad de medida"
           required
           mb="0"
           helper="Unidad en la que se mide lo que se produce (por ejemplo kg o litros)."
         >
           <FormNativeSelect
+            invalid={intentado && faltan.tiene("unidad")}
             value={values.unidad_medida_id}
             onChange={(e) =>
               setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }))
@@ -98,10 +109,10 @@ export function ProductoForm({
           </FormNativeSelect>
         </FormField>
 
+        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
         <AccionesFormulario>
           <BotonGuardar
             loading={isLoading}
-            disabled={!values.nombre.trim() || !values.unidad_medida_id}
           >
             {submitLabel}
           </BotonGuardar>

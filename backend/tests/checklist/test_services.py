@@ -264,6 +264,43 @@ def test_marcar_tarea_checklist_pasado_es_inmutable(db_session, monkeypatch):
         raise AssertionError("Se esperaba ChecklistInmutable")
 
 
+def test_tareas_del_dia_pasado_abierto_se_informa_cerrado(db_session, monkeypatch):
+    """Un día pasado guardado como ABIERTO (nadie lo volvió a tocar) se informa
+    CERRADO: si no, el frontend habilitaba la casilla y el backend rechazaba
+    el cambio. La lectura no escribe: el estado guardado no cambia."""
+    # Arrange
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=7, fecha_creacion=date(2025, 6, 3),
+    )
+    checklist = Checklist(
+        equipo_id=equipo.id, plan_id=plan.id, fecha=date(2025, 6, 5),
+        estado=EstadoChecklist.ABIERTO,
+    )
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(checklist)
+        db_session.commit()
+        db_session.refresh(checklist)
+        db_session.add(RegistroTarea(
+            checklist_id=checklist.id, tarea_id=tarea.id,
+            nombre_tarea_historico="Tarea", completado=False,
+        ))
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+
+    # Act
+    resultado = listar_tareas_del_dia(db_session, date(2025, 6, 5))
+
+    # Assert
+    tareas_equipo = [t for t in resultado.tareas if t.equipo_id == equipo.id]
+    assert len(tareas_equipo) == 1
+    assert tareas_equipo[0].checklist_estado == EstadoChecklist.CERRADO
+    db_session.refresh(checklist)
+    assert checklist.estado == EstadoChecklist.ABIERTO
+
+
 def test_marcar_tarea_checklist_futuro(db_session, monkeypatch):
     # Arrange
     _mock_hoy(monkeypatch, date(2025, 6, 10))

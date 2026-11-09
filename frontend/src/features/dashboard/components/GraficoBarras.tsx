@@ -1,153 +1,192 @@
 import { Box, HStack, Text } from "@chakra-ui/react";
-import { useId } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  LabelList,
   ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import type { PuntoSerie } from "../types/dashboard";
 
-// Rojo = abierto, verde = resuelto: el mismo código que los badges de estado.
-// Tokens del tema: el gráfico sigue a la paleta igual que el resto de la app.
-const COLOR_INICIADOS = "var(--chakra-colors-red-500)";
-const COLOR_RESUELTOS = "var(--chakra-colors-green-600)";
-const COLOR_TEXTO = "var(--chakra-colors-gray-600)";
+/*
+ * Colores de serie validados (contraste, saturación y separación para
+ * daltonismo) con el script del skill de visualización:
+ *   naranja #eb6834 (iniciados) · teal #009b8f (resueltos), ΔE CVD 11,9.
+ *
+ * Antes eran rojo y verde: esos son colores de ESTADO (peligro / ok) y acá
+ * "iniciados" y "resueltos" son dos categorías, no un semáforo. El teal es
+ * el de la marca un poco más saturado: el brand.600 no llega al mínimo de
+ * saturación y como color de serie se lee gris.
+ */
+const COLOR_INICIADOS = "#eb6834";
+const COLOR_RESUELTOS = "#009b8f";
+const COLOR_EJE = "var(--chakra-colors-gray-500)";
+const COLOR_GRILLA = "var(--chakra-colors-gray-100)";
 
-/** Alto del gráfico. El ancho lo toma de la tarjeta. */
-const ALTO = 210;
+/** Alto mínimo: el gráfico se estira para llenar la tarjeta. */
+const ALTO_MINIMO = 200;
 
 interface GraficoBarrasProps {
   datos: PuntoSerie[];
 }
 
+function TooltipSemana({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload?: PuntoSerie }>;
+  label?: string | number;
+}) {
+  const punto = payload?.[0]?.payload;
+  if (!active || !punto) return null;
+  return (
+    <Box
+      bg="bg.panel"
+      borderWidth="1px"
+      borderColor="border.subtle"
+      rounded="md"
+      boxShadow="card"
+      px="3"
+      py="2"
+      minW="140px"
+    >
+      <Text fontSize="xs" fontWeight="semibold" color="fg" mb="1.5">
+        {punto.rotulo ?? label}
+      </Text>
+      <FilaTooltip color={COLOR_INICIADOS} texto="Iniciados" valor={punto.iniciados} />
+      <FilaTooltip color={COLOR_RESUELTOS} texto="Resueltos" valor={punto.resueltos} />
+    </Box>
+  );
+}
+
+function FilaTooltip({ color, texto, valor }: { color: string; texto: string; valor: number }) {
+  return (
+    <HStack justify="space-between" gap="4" fontSize="xs">
+      <HStack gap="1.5">
+        <Box w="2" h="2" rounded="full" bg={color} aria-hidden />
+        <Text as="span" color="fg.muted">
+          {texto}
+        </Text>
+      </HStack>
+      <Text as="span" fontWeight="semibold" color="fg" fontVariantNumeric="tabular-nums">
+        {valor}
+      </Text>
+    </HStack>
+  );
+}
+
 /**
  * Incidentes iniciados contra resueltos, por semana.
  *
- * Usa `recharts` en vez del SVG a mano que tenía antes: la librería resuelve
- * sola la escala del eje, las líneas de guía y la
- * animación de entrada, y escala con la tarjeta (`ResponsiveContainer`).
- *
- * Los colores van como variables CSS de Chakra: `fill` es un atributo SVG y
- * acepta `var(...)`, así el gráfico sigue al tema. Las barras llevan un
- * degradado suave (más claro arriba) y esquinas superiores redondeadas, y el
- * valor va escrito arriba de cada una porque con cifras chicas (1, 0, 2) la
- * altura sola no se distingue.
- *
- * Los `id` de los degradados salen de `useId`: si hubiera dos gráficos en la
- * misma página, con un `id` fijo el segundo tomaría el degradado del primero.
+ * Diseño (pautas del skill de visualización):
+ *   - barras finas (hasta 20px), extremo redondeado de 4px y base recta;
+ *   - 2px de aire entre las dos barras de cada semana, sin bordes;
+ *   - grilla horizontal de 1px, sólida y apenas visible; sin línea de eje;
+ *   - sin números sobre cada barra: los totales van en la leyenda y el
+ *     detalle de cada semana en el tooltip;
+ *   - tabla oculta para lectores de pantalla con los mismos datos.
  */
 export function GraficoBarras({ datos }: GraficoBarrasProps) {
-  const base = useId().replace(/:/g, "");
-  const idIniciados = `${base}-iniciados`;
-  const idResueltos = `${base}-resueltos`;
+  const totalIniciados = datos.reduce((s, p) => s + p.iniciados, 0);
+  const totalResueltos = datos.reduce((s, p) => s + p.resueltos, 0);
 
   const resumen = `Incidentes del mes por semana: ${datos
     .map((p) => `${p.etiqueta} ${p.iniciados} iniciados y ${p.resueltos} resueltos`)
     .join(", ")}.`;
 
   return (
-    <Box>
-      <Box w="full" h={`${ALTO}px`} role="img" aria-label={resumen}>
-        <ResponsiveContainer width="100%" height="100%">
+    <Box display="flex" flexDirection="column" flex="1" minH="0">
+      {/* Leyenda arriba, con los totales del mes: es lo primero que se lee. */}
+      <HStack gap="5" mb="3" flexWrap="wrap">
+        <Leyenda color={COLOR_INICIADOS} texto="Iniciados" total={totalIniciados} />
+        <Leyenda color={COLOR_RESUELTOS} texto="Resueltos" total={totalResueltos} />
+      </HStack>
+
+      <Box w="full" flex="1" minH={`${ALTO_MINIMO}px`} role="img" aria-label={resumen}>
+        <ResponsiveContainer width="100%" height="100%" minHeight={ALTO_MINIMO}>
           <BarChart
             data={datos}
-            margin={{ top: 18, right: 8, bottom: 0, left: 0 }}
-            barGap={3}
-            barCategoryGap="28%"
+            margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+            barGap={2}
+            barCategoryGap="30%"
           >
-            <defs>
-              <linearGradient id={idIniciados} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={COLOR_INICIADOS} stopOpacity={0.75} />
-                <stop offset="100%" stopColor={COLOR_INICIADOS} stopOpacity={1} />
-              </linearGradient>
-              <linearGradient id={idResueltos} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={COLOR_RESUELTOS} stopOpacity={0.75} />
-                <stop offset="100%" stopColor={COLOR_RESUELTOS} stopOpacity={1} />
-              </linearGradient>
-            </defs>
-
-            <CartesianGrid
-              vertical={false}
-              stroke="var(--chakra-colors-gray-200)"
-              strokeOpacity={0.7}
-              strokeDasharray="3 5"
-            />
-
+            <CartesianGrid vertical={false} stroke={COLOR_GRILLA} strokeWidth={1} />
             <XAxis
               dataKey="etiqueta"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 12, fill: COLOR_TEXTO }}
-              dy={4}
+              tick={{ fontSize: 12, fill: COLOR_EJE }}
+              dy={6}
             />
             <YAxis
               allowDecimals={false}
               tickLine={false}
               axisLine={false}
-              width={30}
-              tickMargin={4}
-              tick={{ fontSize: 12, fill: COLOR_TEXTO }}
+              width={28}
+              tick={{ fontSize: 12, fill: COLOR_EJE }}
               tickCount={5}
               domain={[0, (max: number) => Math.max(4, Math.ceil(max / 4) * 4)]}
             />
-
+            <Tooltip
+              content={<TooltipSemana />}
+              cursor={{ fill: "var(--chakra-colors-gray-50)" }}
+            />
             <Bar
               dataKey="iniciados"
               name="Iniciados"
-              fill={`url(#${idIniciados})`}
-              radius={[6, 6, 0, 0]}
-              maxBarSize={28}
-              animationDuration={600}
-              isAnimationActive
-            >
-              <LabelList
-                dataKey="iniciados"
-                position="top"
-                fontSize={12}
-                fontWeight={600}
-                fill={COLOR_INICIADOS}
-                formatter={(valor: unknown) => (Number(valor) > 0 ? String(valor) : "")}
-              />
-            </Bar>
+              fill={COLOR_INICIADOS}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={20}
+              animationDuration={500}
+            />
             <Bar
               dataKey="resueltos"
               name="Resueltos"
-              fill={`url(#${idResueltos})`}
-              radius={[6, 6, 0, 0]}
-              maxBarSize={28}
-              animationDuration={600}
-            >
-              <LabelList
-                dataKey="resueltos"
-                position="top"
-                fontSize={12}
-                fontWeight={600}
-                fill={COLOR_RESUELTOS}
-                formatter={(valor: unknown) => (Number(valor) > 0 ? String(valor) : "")}
-              />
-            </Bar>
+              fill={COLOR_RESUELTOS}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={20}
+              animationDuration={500}
+            />
           </BarChart>
         </ResponsiveContainer>
       </Box>
 
-      <HStack justify="center" gap="5" mt="2" flexWrap="wrap">
-        <Leyenda color={COLOR_INICIADOS} texto="Iniciados" />
-        <Leyenda color={COLOR_RESUELTOS} texto="Resueltos" />
-      </HStack>
+      <Box as="table" srOnly>
+        <caption>Incidentes iniciados y resueltos por semana</caption>
+        <thead>
+          <tr>
+            <th>Semana</th>
+            <th>Iniciados</th>
+            <th>Resueltos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {datos.map((p) => (
+            <tr key={p.clave}>
+              <td>{p.etiqueta}</td>
+              <td>{p.iniciados}</td>
+              <td>{p.resueltos}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Box>
     </Box>
   );
 }
 
-function Leyenda({ color, texto }: { color: string; texto: string }) {
+function Leyenda({ color, texto, total }: { color: string; texto: string; total: number }) {
   return (
     <HStack gap="2">
-      <Box as="span" w="3" h="3" rounded="sm" bg={color} flexShrink={0} aria-hidden />
-      <Text as="span" fontSize="xs" color="fg.muted" whiteSpace="nowrap">
-        {texto}
+      <Box as="span" w="2.5" h="2.5" rounded="full" bg={color} flexShrink={0} aria-hidden />
+      <Text as="span" fontSize="sm" color="fg.muted" whiteSpace="nowrap">
+        {texto}{" "}
+        <Text as="span" fontWeight="semibold" color="fg" fontVariantNumeric="tabular-nums">
+          {total}
+        </Text>
       </Text>
     </HStack>
   );

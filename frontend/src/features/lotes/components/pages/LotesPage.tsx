@@ -23,6 +23,7 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  FilaClickeable,
   FilaEncabezado,
   FormInput,
   LabelFiltro,
@@ -207,7 +208,7 @@ export function LotesPage() {
                   <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
                   <EncabezadoOscuro>Producto</EncabezadoOscuro>
                   <EncabezadoOscuro width="8%">Receta</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Objetivo</EncabezadoOscuro>
+                  <EncabezadoOscuro numero ancho="media">Objetivo</EncabezadoOscuro>
                   <EncabezadoOscuro width="8%">Tareas</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
                   <EncabezadoOscuro center width="9%">Acciones</EncabezadoOscuro>
@@ -215,7 +216,7 @@ export function LotesPage() {
               </Table.Header>
               <Table.Body>
                 {paginados.map((lote) => (
-                  <Table.Row key={lote.id}>
+                  <FilaClickeable onAbrir={() => navigate(`/lotes/${lote.id}`)} key={lote.id}>
                     <Celda>{formatoFecha(lote.fecha_inicio)}</Celda>
                     <Celda>
                       <Text fontFamily="mono" fontSize="sm">
@@ -224,7 +225,7 @@ export function LotesPage() {
                     </Celda>
                     <Celda>{lote.producto_nombre}</Celda>
                     <Celda>{lote.version_numero ? `v${lote.version_numero}` : "Sin receta"}</Celda>
-                    <Celda>{cantidadConUnidad(lote.cantidad_objetivo, lote.unidad)}</Celda>
+                    <Celda numero>{cantidadConUnidad(lote.cantidad_objetivo, lote.unidad)}</Celda>
                     <Celda>
                       {lote.items_completados} de {lote.items_total}
                     </Celda>
@@ -238,7 +239,7 @@ export function LotesPage() {
                         onClick={() => navigate(`/lotes/${lote.id}`)}
                       />
                     </Celda>
-                  </Table.Row>
+                  </FilaClickeable>
                 ))}
               </Table.Body>
             </Table.Root>

@@ -30,6 +30,7 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  FilaClickeable,
   FilaEncabezado,
   FormInput,
   LabelFiltro,
@@ -354,7 +355,7 @@ export function HistorialChecklistPage() {
                     Equipo
                   </EncabezadoOrdenable>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="media">Cumplimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro numero center ancho="media">Cumplimiento</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="media">
                     Incumplidas
                   </EncabezadoOscuro>
@@ -366,7 +367,7 @@ export function HistorialChecklistPage() {
               <Table.Body>
                 {checklists.map((cl) => (
                   <Fragment key={cl.checklist_id}>
-                    <Table.Row>
+                    <FilaClickeable onAbrir={() => setChecklistSeleccionado(cl)}>
                       <Celda>{formatoFecha(cl.fecha)}</Celda>
                       <Celda>
                         <TextoTruncado texto={cl.equipo_nombre} />
@@ -385,7 +386,7 @@ export function HistorialChecklistPage() {
                           {cl.estado}
                         </Badge>
                       </Celda>
-                      <Celda center>
+                      <Celda numero center>
                         <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
                           {formatoPorcentaje(cl.porcentaje_cumplimiento)}
                         </Text>
@@ -409,7 +410,7 @@ export function HistorialChecklistPage() {
                           onClick={() => setChecklistSeleccionado(cl)}
                         />
                       </Celda>
-                    </Table.Row>
+                    </FilaClickeable>
                     {expandidos.has(cl.checklist_id) && (
                       <Table.Row>
                         <Table.Cell

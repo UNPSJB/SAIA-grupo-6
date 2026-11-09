@@ -57,6 +57,7 @@ import {
   ColumnaHeader,
   EstadoCargando,
   EstadoVacio,
+  EtiquetaEstado,
   FormField,
   FormInput,
   FormNativeSelect,
@@ -64,6 +65,7 @@ import {
   MensajeError,
   SelectPlaceholder,
   Tarjeta,
+  type TonoEstado,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { formatoFechaHora } from "../../../../common/utils/fechas";
@@ -111,6 +113,49 @@ function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
     grupos.get(key)!.tareas.push(tarea);
   }
   return Array.from(grupos.values());
+}
+
+/**
+ * Estado de un plan del día, para la franja de color de su tarjeta:
+ *   completo   todas las tareas hechas                     verde
+ *   demorado   quedan tareas y la fecha ya pasó            naranja
+ *   pendiente  quedan tareas y es hoy (o una vista previa) gris
+ */
+type EstadoGrupo = "completo" | "demorado" | "pendiente";
+
+const ESTILO_GRUPO: Record<
+  EstadoGrupo,
+  { franja: string; barra: string; tono: TonoEstado; texto: string }
+> = {
+  completo: { franja: "green.500", barra: "green.500", tono: "ok", texto: "Completo" },
+  demorado: { franja: "orange.400", barra: "orange.400", tono: "alerta", texto: "Con demora" },
+  pendiente: { franja: "gray.300", barra: "brand.500", tono: "neutro", texto: "Pendiente" },
+};
+
+function estadoGrupo(grupo: GrupoPlan, fecha: string, hoy: string): EstadoGrupo {
+  if (grupo.tareas.every((t) => t.completado)) return "completo";
+  return fecha < hoy ? "demorado" : "pendiente";
+}
+
+/** Barra de avance horizontal (tareas hechas sobre total). */
+function BarraAvance({ hechas, total, color }: { hechas: number; total: number; color: string }) {
+  const porcentaje = total > 0 ? Math.round((hechas / total) * 100) : 0;
+  return (
+    <Box
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={hechas}
+      aria-label={`${hechas} de ${total} tareas`}
+      h="2"
+      w="100%"
+      bg="gray.100"
+      rounded="full"
+      overflow="hidden"
+    >
+      <Box h="100%" w={`${porcentaje}%`} bg={color} rounded="full" transition="width 0.3s ease" />
+    </Box>
+  );
 }
 
 function fechaLocalISO(fecha: Date): string {
@@ -968,15 +1013,43 @@ export function ChecklistPage() {
 
       {!loading && grupos.length > 0 && (
         <>
-          <Text fontSize="sm" color="fg.muted" mb="4">
-            Progreso general: <strong>{tareasCompletadas}</strong> de{" "}
-            <strong>{totalTareas}</strong> tareas completadas.
-          </Text>
+          <Tarjeta p="4" mb="6">
+            <HStack justify="space-between" mb="2" flexWrap="wrap" gap="2">
+              <Text fontSize="sm" fontWeight="semibold" color="fg">
+                Avance del día
+              </Text>
+              <Text fontSize="sm" color="fg.muted" fontVariantNumeric="tabular-nums">
+                <Text as="span" fontWeight="bold" color="fg">
+                  {tareasCompletadas} de {totalTareas}
+                </Text>{" "}
+                tareas · {totalTareas > 0 ? Math.round((tareasCompletadas / totalTareas) * 100) : 0}%
+              </Text>
+            </HStack>
+            <BarraAvance
+              hechas={tareasCompletadas}
+              total={totalTareas}
+              color={tareasCompletadas === totalTareas ? "green.500" : "brand.500"}
+            />
+          </Tarjeta>
 
           {grupos.map((grupo) => {
             const colapsado = !gruposExpandidos.has(grupo.key);
+            const hechas = grupo.tareas.filter((t) => t.completado).length;
+            const estado = estadoGrupo(grupo, selectedFecha, fechaLocalISO(new Date()));
+            const estilo = ESTILO_GRUPO[estado];
             return (
-              <Tarjeta key={grupo.key} mb="6">
+              /*
+               * Antes cada plan era una franja teal maciza, todas iguales: no
+               * se distinguía cuál estaba hecho y cuál no. Ahora la tarjeta es
+               * blanca y una franja a la izquierda dice el estado; el avance
+               * del plan ("3/5") se ve sin desplegarlo.
+               */
+              <Tarjeta
+                key={grupo.key}
+                mb="4"
+                borderLeftWidth="6px"
+                borderLeftColor={estilo.franja}
+              >
                 {/*
                   Era un `div` con `role="button"`: no respondía al teclado y no
                   se podía enfocar con Tab. Ahora es un `<button>` real, que
@@ -988,23 +1061,23 @@ export function ChecklistPage() {
                   onClick={() => toggleGrupo(grupo.key)}
                   aria-expanded={!colapsado}
                   variant="ghost"
-                  bg="brand.600"
-                  color="white"
-                  _hover={{ bg: "brand.700" }}
+                  bg="bg.panel"
+                  color="fg"
+                  _hover={{ bg: "bg.subtle" }}
                   w="100%"
                   h="auto"
                   px="4"
-                  py="3"
+                  py="4"
                   rounded="none"
                   justifyContent="space-between"
                   textAlign="left"
                   cursor="pointer"
                   userSelect="none"
                 >
-                  <HStack justify="space-between" align="center" w="100%">
-                    <HStack align="center" gap="3">
+                  <HStack justify="space-between" align="center" w="100%" gap="4" flexWrap="wrap">
+                    <HStack align="center" gap="3" minW="0" flex="1">
                       <Box
-                        color="white"
+                        color="fg.muted"
                         transform={
                           colapsado ? "rotate(-90deg)" : "rotate(0deg)"
                         }
@@ -1014,14 +1087,30 @@ export function ChecklistPage() {
                       >
                         <LuChevronDown size={18} />
                       </Box>
-                      <Box>
-                        <Text fontSize="md" fontWeight="bold" color="white">
+                      <Box minW="0">
+                        <Text fontSize="md" fontWeight="bold" color="fg" whiteSpace="normal">
                           {grupo.planNombre}
                         </Text>
-                        <Text fontSize="xs" color="brand.50" mt="1">
+                        <Text fontSize="sm" color="fg.muted" mt="0.5" whiteSpace="normal">
                           Equipo: {grupo.equipoNombre}
                         </Text>
                       </Box>
+                    </HStack>
+
+                    <HStack gap="3" flexShrink={0}>
+                      <Box w="120px" display={{ base: "none", sm: "block" }}>
+                        <BarraAvance hechas={hechas} total={grupo.tareas.length} color={estilo.barra} />
+                      </Box>
+                      <Text
+                        fontSize="sm"
+                        fontWeight="bold"
+                        color="fg"
+                        fontVariantNumeric="tabular-nums"
+                        aria-label={`${hechas} de ${grupo.tareas.length} tareas hechas`}
+                      >
+                        {hechas}/{grupo.tareas.length}
+                      </Text>
+                      <EtiquetaEstado tono={estilo.tono}>{estilo.texto}</EtiquetaEstado>
                     </HStack>
 
                     {grupo.tareas[0]?.checklist_estado === "cerrado" && (
@@ -1058,9 +1147,9 @@ export function ChecklistPage() {
                     <Table.Root w="100%">
                       <Table.Header>
                         <Table.Row
-                          bg="brand.100"
-                          borderBottomWidth="2px"
-                          borderColor="brand.300"
+                          bg="gray.50"
+                          borderBottomWidth="1px"
+                          borderColor="border.subtle"
                         >
                           <ColumnaHeader>Tarea</ColumnaHeader>
                           <ColumnaHeader center width="140px">

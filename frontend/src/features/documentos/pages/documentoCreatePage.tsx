@@ -6,7 +6,7 @@ import type { DocumentoFormValues } from "../types/documento";
 import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
-  BannerExito,
+  DialogoExito,
 } from "../../../components/ui/patrones";
 import { PaginaFormulario } from "../../../components/ui/plantillas";
 
@@ -20,7 +20,7 @@ export function DocumentoCreatePage() {
     try {
       await alta(values);
       setExito(true);
-      delayedNavigate("/documentos", 1500);
+      delayedNavigate("/documentos");
     } catch {
       // el error ya queda guardado en `error` y se muestra abajo
     }
@@ -34,9 +34,7 @@ export function DocumentoCreatePage() {
     >
       {error && <BannerError>{error}</BannerError>}
 
-      {exito && (
-        <BannerExito>Documento subido correctamente (versión 1, vigente).</BannerExito>
-      )}
+      <DialogoExito isOpen={exito} mensaje="Documento subido correctamente (versión 1, vigente)." />
 
       <DocumentoForm
         conDatosDelDocumento

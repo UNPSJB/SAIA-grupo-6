@@ -117,10 +117,22 @@ class ProduccionPorProducto(BaseModel):
     producto: str
     cantidad_producida: Decimal
     cantidad_lotes: int
+    # Símbolo de la unidad del producto ("Kg", "un"): sin ella el gráfico
+    # mostraba "210,066" sin decir de qué.
+    unidad: str
+
+
+class TotalPorUnidad(BaseModel):
+    unidad: str
+    cantidad: Decimal
 
 
 class DashboardLotesResponse(BaseModel):
     total_lotes: int
+    # Suma de todos los productos sin importar su unidad (kilos + unidades):
+    # se mantiene por compatibilidad, pero no tiene sentido mostrarla.
+    # Usar `total_por_unidad`.
     total_cantidad_producida: Decimal
+    total_por_unidad: list[TotalPorUnidad]
     por_estado: list[LoteResumenEstado]
     por_producto: list[ProduccionPorProducto]

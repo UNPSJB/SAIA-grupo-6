@@ -152,6 +152,20 @@ const config = defineConfig({
      * Uso: `<Box variant="card">`.
      */
     recipes: {
+      /*
+       * Badges más legibles. El tamaño por defecto de Chakra (`sm`) usa texto
+       * de 12px y 20px de alto: en las tablas, "Ingrediente", "Aditivo" o el
+       * tipo de vencimiento quedaban muy chicos. Se agranda el `sm` (el que
+       * usan todos los `<Badge>` sin `size`) a texto de 14px, sin tocar `xs`.
+       */
+      badge: defineRecipe({
+        variants: {
+          size: {
+            sm: { textStyle: "sm", px: "2", minH: "6" },
+          },
+        },
+      }),
+
       card: defineRecipe({
         base: {
           bg: "white",

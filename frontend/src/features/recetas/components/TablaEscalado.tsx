@@ -33,8 +33,8 @@ export function TablaEscalado({
               <FilaEncabezado>
                 <EncabezadoOscuro>Insumo</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Clasificación</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Receta (v{escalado.version.numero})</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Para tu lote</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="media">Receta (v{escalado.version.numero})</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="media">Para tu lote</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
@@ -53,8 +53,8 @@ export function TablaEscalado({
                       {ETIQUETA_CLASIFICACION[i.clasificacion]}
                     </Badge>
                   </Celda>
-                  <Celda color="fg.muted">{cantidadConUnidad(i.cantidad_receta, i.unidad_medida.simbolo)}</Celda>
-                  <Celda fontWeight="bold">
+                  <Celda numero color="fg.muted">{cantidadConUnidad(i.cantidad_receta, i.unidad_medida.simbolo)}</Celda>
+                  <Celda numero fontWeight="bold">
                     {cantidadConUnidad(i.cantidad_escalada, i.unidad_medida.simbolo)}
                   </Celda>
                 </Table.Row>

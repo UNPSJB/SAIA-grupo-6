@@ -46,3 +46,81 @@
   height: 0;
   display: none;
 }
+
+/*
+ * TABLAS EN TARJETAS (pantallas de menos de 768px)
+ *
+ * En un celular o una tablet chica una tabla de 6 columnas obliga a
+ * desplazarse de costado, y con las barras de scroll ocultas (arriba) ni se
+ * nota que hay más columnas. Debajo de 768px cada fila pasa a ser una
+ * tarjeta y cada celda un renglón "Columna: valor". La etiqueta la pone
+ * `useTablasResponsivas` en `data-label`; acá solo se cambia la disposición.
+ *
+ * Alcanza a todas las tablas dentro del contenido (`[data-contenido]`). Una
+ * tabla puede quedar afuera con `data-sin-tarjetas`.
+ */
+@media (max-width: 767px) {
+  [data-contenido] table:not([data-sin-tarjetas]) {
+    min-width: 0 !important;
+    width: 100% !important;
+    border: 0;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]),
+  [data-contenido] table:not([data-sin-tarjetas]) tbody,
+  [data-contenido] table:not([data-sin-tarjetas]) tr,
+  [data-contenido] table:not([data-sin-tarjetas]) td {
+    display: block;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody tr {
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--chakra-colors-border-subtle);
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px !important;
+    border: 0 !important;
+    text-align: right !important;
+    width: auto !important;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--chakra-colors-fg-muted);
+  }
+
+  /* Celdas sin encabezado (acciones sin título) o que ocupan todo el ancho. */
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-label=""]::before,
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[colspan]::before {
+    content: none;
+  }
+
+  /* Filtros: un campo por renglón, a todo el ancho (y las herramientas, debajo). */
+  .barra-filtros > div > div {
+    flex: 1 1 100% !important;
+  }
+
+  .barra-filtros > div > div > * {
+    flex: 1 1 100%;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}

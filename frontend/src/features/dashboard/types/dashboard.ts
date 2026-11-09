@@ -8,7 +8,7 @@ import {
 import type { Equipo } from "../../equipo/types/equipo";
 import type { PlanCalibracionMantenimiento } from "../../planCalibracionMantenimiento/types/planCalibracionMantenimiento";
 import type { Notificacion } from "../../notificaciones/types/notificacion";
-import { hoyISO } from "../../../common/utils/fechas";
+import { fechaLocalISO, hoyISO } from "../../../common/utils/fechas";
 
 /**
  * Cálculos del panel de inicio.
@@ -61,23 +61,26 @@ export function calcularCumplimiento(
 }
 
 /**
- * Color de cada porción.
+ * Color de cada porción: paleta categórica de referencia, en el orden del
+ * anillo (plagas, falla, devolución, higiene, otro).
  *
- * Son tonos de una misma gama azul-verdosa, como en el panel de referencia, y
- * no los colores semánticos del `Badge` de tipo (`tipoColor`): la torta se lee
- * por la etiqueta que lleva cada porción, no por el color, así que no hace
- * falta que coincida con el listado de incidentes. Si se prefiere que coincida,
- * se vuelve a mapear con `tipoColor` como estaba antes.
+ * Antes eran cinco tonos de la misma gama azul-verdosa y no pasaban ninguna
+ * verificación: con visión normal dos porciones vecinas apenas se
+ * distinguían (ΔE 7,4, el mínimo es 15). Esta paleta pasa la separación
+ * entre porciones contiguas, incluida la vuelta del anillo, para visión
+ * normal (ΔE ≥ 16) y con daltonismo (ΔE ≥ 9), validada con el script del
+ * skill de visualización. "Otro" va en gris a propósito: es el resto.
  *
- * Van como hexadecimal y no como variable de Chakra porque `blue` y `teal`
- * intermedios no están en el tema.
+ * El color sigue al tipo y no a su posición en el ranking: filtrar no
+ * repinta las porciones. La leyenda con nombre, ícono y número acompaña
+ * siempre, así el color nunca es la única forma de identificar el tipo.
  */
 const COLOR_TORTA: Record<TipoIncidente, string> = {
-  falla_equipo: "#2f7378",
-  higiene_contaminacion: "#4a87af",
-  devolucion_cliente: "#7ba4cf",
-  plagas: "#5bb0b0",
-  otro: "#9aa5b1",
+  plagas: "#2a78d6",
+  falla_equipo: "#eb6834",
+  devolucion_cliente: "#1baf7a",
+  higiene_contaminacion: "#eda100",
+  otro: "#8a94a3",
 };
 
 /** Nombre corto de cada tipo: las etiquetas del gráfico van al costado del anillo. */
@@ -101,10 +104,14 @@ const ETIQUETA_CORTA: Record<TipoIncidente, string> = {
  */
 export function partesPorTipo(
   incidentes: Incidente[],
-  filtro: FiltroEstado = "todos"
+  filtro: FiltroEstado = "todos",
+  rango?: RangoFechas,
 ): ParteTorta[] {
-  const considerados =
-    filtro === "todos" ? incidentes : incidentes.filter((i) => i.estado === filtro);
+  const considerados = incidentes.filter(
+    (i) =>
+      (filtro === "todos" || i.estado === filtro) &&
+      (!rango || dentroDelRango(i.fecha_reporte, rango)),
+  );
 
   const total = considerados.length;
   if (total === 0) return [];
@@ -375,12 +382,134 @@ export function calcularEquiposCalibrados(
 /* ────────────────── Incidentes iniciados vs resueltos ────────────────── */
 
 export interface PuntoSerie {
-  /** Etiqueta corta del eje: "Ene", "Feb"... */
+  /** Etiqueta corta del eje: "Ene", "7/11", "Sem. 3/11"... */
   etiqueta: string;
-  /** `YYYY-MM`, para la clave del tooltip. */
+  /** Clave única del tramo. */
   clave: string;
+  /** Texto completo del tramo para el tooltip ("Semana del 3/11 al 9/11"). */
+  rotulo?: string;
   iniciados: number;
   resueltos: number;
+}
+
+/** Rango de fechas `YYYY-MM-DD`, ambos extremos incluidos. */
+export interface RangoFechas {
+  desde: string;
+  hasta: string;
+}
+
+/** Día calendario local (`YYYY-MM-DD`) de una fecha del backend. */
+function diaLocal(iso: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const fecha = new Date(iso);
+  return Number.isNaN(fecha.getTime()) ? null : fechaLocalISO(fecha);
+}
+
+export function dentroDelRango(iso: string | null | undefined, rango: RangoFechas): boolean {
+  if (!iso) return false;
+  const dia = diaLocal(iso);
+  return dia !== null && dia >= rango.desde && dia <= rango.hasta;
+}
+
+/** "Desde" posterior a "Hasta": el rango no sirve. */
+export function errorDeRangoFechas(rango: RangoFechas): string | null {
+  if (!rango.desde || !rango.hasta) return "Elegí las dos fechas del período.";
+  if (rango.desde > rango.hasta) return "La fecha \"desde\" no puede ser posterior a \"hasta\".";
+  return null;
+}
+
+export type Agrupacion = "dia" | "semana" | "mes";
+
+/**
+ * Cómo se agrupa un período para que el gráfico tenga una cantidad de barras
+ * legible: por día hasta 2 semanas, por semana hasta 3 meses, por mes desde
+ * ahí. Así un rango de 7 días no queda en una sola barra y uno de un año no
+ * queda en 365.
+ */
+export function agrupacionPara(rango: RangoFechas): Agrupacion {
+  const dias =
+    (new Date(`${rango.hasta}T00:00:00`).getTime() -
+      new Date(`${rango.desde}T00:00:00`).getTime()) /
+      86_400_000 +
+    1;
+  if (dias <= 14) return "dia";
+  if (dias <= 92) return "semana";
+  return "mes";
+}
+
+const corto = (fecha: Date) => `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+
+/**
+ * Incidentes iniciados (por `fecha_reporte`) y resueltos (por `fecha_cierre`)
+ * dentro de un rango, agrupados según `agrupacionPara`.
+ *
+ * Reemplaza a la serie semanal anterior, que estaba fija en las cuatro semanas
+ * del mes en curso: ahora el período lo elige quien mira, igual que en
+ * Producción.
+ */
+export function incidentesPorPeriodo(incidentes: Incidente[], rango: RangoFechas): PuntoSerie[] {
+  const agrupacion = agrupacionPara(rango);
+  const inicio = new Date(`${rango.desde}T00:00:00`);
+  const fin = new Date(`${rango.hasta}T00:00:00`);
+  const variosAnios = inicio.getFullYear() !== fin.getFullYear();
+
+  // Tramos: [desde, hasta] en YYYY-MM-DD, consecutivos y sin huecos.
+  const tramos: { desde: string; hasta: string; punto: PuntoSerie }[] = [];
+  const cursor = new Date(inicio);
+  while (cursor <= fin) {
+    const desdeTramo = new Date(cursor);
+    let hastaTramo: Date;
+    if (agrupacion === "dia") {
+      hastaTramo = new Date(cursor);
+      cursor.setDate(cursor.getDate() + 1);
+    } else if (agrupacion === "semana") {
+      hastaTramo = new Date(cursor);
+      hastaTramo.setDate(hastaTramo.getDate() + 6);
+      cursor.setDate(cursor.getDate() + 7);
+    } else {
+      hastaTramo = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      cursor.setTime(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1).getTime());
+    }
+    if (hastaTramo > fin) hastaTramo = new Date(fin);
+
+    const mes = MESES_CORTOS[desdeTramo.getMonth()];
+    const etiqueta =
+      agrupacion === "dia"
+        ? corto(desdeTramo)
+        : agrupacion === "semana"
+          ? corto(desdeTramo)
+          : variosAnios
+            ? `${mes} ${String(desdeTramo.getFullYear()).slice(2)}`
+            : mes;
+    const rotulo =
+      agrupacion === "dia"
+        ? desdeTramo.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "numeric" })
+        : agrupacion === "semana"
+          ? `Semana del ${corto(desdeTramo)} al ${corto(hastaTramo)}`
+          : `${mes} ${desdeTramo.getFullYear()}`;
+
+    tramos.push({
+      desde: fechaLocalISO(desdeTramo),
+      hasta: fechaLocalISO(hastaTramo),
+      punto: { clave: fechaLocalISO(desdeTramo), etiqueta, rotulo, iniciados: 0, resueltos: 0 },
+    });
+  }
+
+  const tramoDe = (iso: string | null | undefined) => {
+    if (!iso) return null;
+    const dia = diaLocal(iso);
+    if (dia === null) return null;
+    return tramos.find((t) => dia >= t.desde && dia <= t.hasta) ?? null;
+  };
+
+  for (const incidente of incidentes) {
+    const abierto = tramoDe(incidente.fecha_reporte);
+    if (abierto) abierto.punto.iniciados += 1;
+    const cerrado = tramoDe(incidente.fecha_cierre);
+    if (cerrado) cerrado.punto.resueltos += 1;
+  }
+
+  return tramos.map((t) => t.punto);
 }
 
 const MESES_CORTOS = [
@@ -449,48 +578,3 @@ export function incidentesPorMes(incidentes: Incidente[], meses = 6): PuntoSerie
   }));
 }
 
-/**
- * Serie semanal de incidentes iniciados contra resueltos del **mes en curso**.
- *
- * Son cuatro tramos fijos: del 1 al 7, del 8 al 14, del 15 al 21 y del 22 al
- * fin de mes (los días 29, 30 y 31 caen en la semana 4). Así el eje es siempre
- * el mismo y no depende de en qué día de la semana arranca el mes.
- *
- * Igual que `incidentesPorMes`, se cuenta por `fecha_reporte` y por
- * `fecha_cierre`. Lo que cae fuera del mes en curso no entra.
- */
-export function incidentesPorSemana(
-  incidentes: Incidente[],
-  hoy: Date = new Date()
-): PuntoSerie[] {
-  const anio = hoy.getFullYear();
-  const mes = hoy.getMonth();
-  const prefijo = `${anio}-${String(mes + 1).padStart(2, "0")}`;
-
-  const puntos: PuntoSerie[] = [1, 2, 3, 4].map((n) => ({
-    clave: `${prefijo}-S${n}`,
-    etiqueta: `Semana ${n}`,
-    iniciados: 0,
-    resueltos: 0,
-  }));
-
-  /** Índice (0 a 3) de la semana del mes en curso, o `null` si cae afuera. */
-  const semanaDe = (iso: string): number | null => {
-    const fecha = new Date(`${iso.slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(fecha.getTime())) return null;
-    if (fecha.getFullYear() !== anio || fecha.getMonth() !== mes) return null;
-
-    return Math.min(Math.floor((fecha.getDate() - 1) / 7), 3);
-  };
-
-  for (const incidente of incidentes) {
-    const abierta = semanaDe(incidente.fecha_reporte);
-    if (abierta !== null) puntos[abierta].iniciados += 1;
-
-    if (!incidente.fecha_cierre) continue;
-    const cerrada = semanaDe(incidente.fecha_cierre);
-    if (cerrada !== null) puntos[cerrada].resueltos += 1;
-  }
-
-  return puntos;
-}

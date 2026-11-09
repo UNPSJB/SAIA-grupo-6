@@ -16,6 +16,7 @@ import {
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
+  FilaClickeable,
   FilaEncabezado,
   Tarjeta,
 } from "../../../../components/ui/patrones";
@@ -150,19 +151,19 @@ export function RecetaDetallePage() {
                     <FilaEncabezado>
                       <EncabezadoOscuro ancho="angosta">Versión</EncabezadoOscuro>
                       <EncabezadoOscuro>Creada el</EncabezadoOscuro>
-                      <EncabezadoOscuro ancho="media">Rendimiento</EncabezadoOscuro>
+                      <EncabezadoOscuro numero ancho="media">Rendimiento</EncabezadoOscuro>
                       <EncabezadoOscuro center ancho="angosta">Ver</EncabezadoOscuro>
                     </FilaEncabezado>
                   </Table.Header>
                   <Table.Body>
                     {[...versiones].reverse().map((v) => (
-                      <Table.Row key={v.id} bg={v.id === versionId ? "bg.muted" : undefined}>
+                      <FilaClickeable onAbrir={() => setElegida(v.id)} key={v.id} bg={v.id === versionId ? "bg.muted" : undefined}>
                         <Celda>
                           v{v.numero}
                           {v.id === vigenteId ? " (vigente)" : ""}
                         </Celda>
                         <Celda>{formatoFechaHora(v.creado_en)}</Celda>
-                        <Celda>{cantidadConUnidad(v.rendimiento, v.unidad_medida.simbolo)}</Celda>
+                        <Celda numero>{cantidadConUnidad(v.rendimiento, v.unidad_medida.simbolo)}</Celda>
                         <Celda center>
                           <BotonAccion
                             accion="ver"
@@ -170,7 +171,7 @@ export function RecetaDetallePage() {
                             onClick={() => setElegida(v.id)}
                           />
                         </Celda>
-                      </Table.Row>
+                      </FilaClickeable>
                     ))}
                   </Table.Body>
                 </Table.Root>

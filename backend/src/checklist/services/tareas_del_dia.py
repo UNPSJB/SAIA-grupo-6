@@ -8,6 +8,7 @@ from src.checklist import models, schemas
 from src.common.fechas import hoy
 from src.Equipo.models import Equipo
 from src.personal.models import Personal
+from src.checklist.services.historial import _estado_a_mostrar
 from src.checklist.services.generacion import (
     _obtener_o_crear_checklist_de_plan,
     _planes_activos_por_equipo,
@@ -152,7 +153,13 @@ def listar_tareas_del_dia(
                     insumo_quimico_id=reg.insumo_quimico_id,
                     cantidad_consumida=reg.cantidad_consumida,
                     elemento_limpieza_id=reg.elemento_limpieza_id,
-                    checklist_estado=checklist.estado,
+                    # Un día pasado que nadie volvió a tocar sigue guardado
+                    # como ABIERTO (el cierre se aplica recién al intentar
+                    # escribir). Si se mandaba tal cual, el frontend dejaba
+                    # marcar la tarea, el backend lo rechazaba y la barra de
+                    # avance subía y bajaba. Se muestra CERRADO, igual que en
+                    # el historial.
+                    checklist_estado=_estado_a_mostrar(checklist, hoy_val),
                     descripcion=reg.descripcion_tarea_historico,
                     tipo=reg.tipo_tarea_historico,
                     observaciones=reg.observaciones_tarea_historico,

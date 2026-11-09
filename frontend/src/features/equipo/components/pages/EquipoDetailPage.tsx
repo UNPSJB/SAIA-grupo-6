@@ -1,15 +1,10 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Badge, Table, Text } from "@chakra-ui/react";
+import { Table, Text } from "@chakra-ui/react";
 import { useEquipo } from "../../hooks/useEquipo";
 import { usePlanesCalibracionMantenimiento } from "../../../planCalibracionMantenimiento/hooks/usePlanesCalibracionMantenimiento";
 import { formatoFecha } from "../../../../common/utils/fechas";
-import {
-  BannerError,
-  Celda,
-  ColumnaHeader,
-  EstadoCargando,
-} from "../../../../components/ui/patrones";
+import { BannerError, Celda, ColumnaHeader, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
 import {
   DatoDetalle,
   GrillaDatos,
@@ -19,9 +14,9 @@ import {
 
 // Mismo criterio que la tabla de planes y las notificaciones: 3 días de margen.
 function estadoPlan(diasRestantes: number) {
-  if (diasRestantes <= 0) return { etiqueta: "Vencido", paleta: "red" };
-  if (diasRestantes <= 3) return { etiqueta: "Próximo a vencer", paleta: "orange" };
-  return { etiqueta: "Vigente", paleta: "green" };
+  if (diasRestantes <= 0) return { etiqueta: "Vencido", tono: "peligro" as const };
+  if (diasRestantes <= 3) return { etiqueta: "Próximo a vencer", tono: "alerta" as const };
+  return { etiqueta: "Vigente", tono: "ok" as const };
 }
 
 function textoDias(diasRestantes: number) {
@@ -75,9 +70,9 @@ export function EquipoDetailPage() {
       titulo={equipo.nombre}
       descripcion={`Ficha de equipo #${equipo.id}`}
       estado={
-        <Badge colorPalette={equipo.activo ? "green" : "gray"}>
+        <EtiquetaEstado tono={equipo.activo ? "ok" : "neutro"}>
           {equipo.activo ? "Activo" : "Dado de baja"}
-        </Badge>
+        </EtiquetaEstado>
       }
     >
       <SeccionDetalle titulo="Datos del equipo">
@@ -149,7 +144,7 @@ export function EquipoDetailPage() {
                         </Text>
                       </Celda>
                       <Celda p="3" center>
-                        <Badge colorPalette={estado.paleta}>{estado.etiqueta}</Badge>
+                        <EtiquetaEstado tono={estado.tono}>{estado.etiqueta}</EtiquetaEstado>
                       </Celda>
                       {/*<Celda p="3" center>
                         <BotonAccion

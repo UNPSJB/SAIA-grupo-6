@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet, useParams } from "react-router-dom";
 import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
@@ -16,6 +16,7 @@ import { ANCHO_COLAPSADO } from "./common/components/menuEntradas";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
 import { BarraSuperior } from "./common/components/BarraSuperior";
 import { useAuth } from "./common/context/useAuth";
+import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
 import { useLocation } from "react-router-dom";
 
 // 0. Panel principal
@@ -313,6 +314,8 @@ function LayoutPrincipal() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const [menuColapsado, setMenuColapsado] = useState(true);
+  const contenidoRef = useRef<HTMLDivElement>(null);
+  useTablasResponsivas(contenidoRef);
 
   // El panel es overlay: al navegar vuelve a plegarse solo.
   const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
@@ -370,7 +373,22 @@ function LayoutPrincipal() {
             </Text>
           </Box>
         )}
-        <Flex flex={1} minH={0} p="15px 30px" overflowY="auto" direction="column">
+        {/*
+          `main`: el contenido de cada pantalla. En celular el margen lateral
+          baja de 30px a 8px (las páginas ya suman el suyo), y las tablas de
+          adentro se muestran como tarjetas (ver `useTablasResponsivas`).
+        */}
+        <Flex
+          as="main"
+          ref={contenidoRef}
+          data-contenido=""
+          flex={1}
+          minH={0}
+          px={{ base: "2", md: "30px" }}
+          py={{ base: "2", md: "15px" }}
+          overflowY="auto"
+          direction="column"
+        >
           <Outlet />
         </Flex>
       </Flex>

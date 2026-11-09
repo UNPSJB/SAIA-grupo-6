@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Navigate, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { Tooltip } from "../../components/ui/tooltip";
 import {
   Box,
   Collapsible,
@@ -114,17 +115,24 @@ interface NavItemProps {
 function NavItem({ entrada, activa, colapsado = false }: NavItemProps) {
   const Icono = entrada.icon;
   return (
-    // `Link asChild` en vez de `Box as={NavLink}`: el tipado polimórfico de Box
-    // no conoce las props del NavLink de react-router y el `to` no compila.
+    /*
+     * Con la barra plegada solo se ve el ícono: el nombre aparece al instante
+     * a la derecha (antes era el `title` nativo, que tarda un segundo en
+     * salir y a veces ni aparece). Desplegada, el texto ya está a la vista.
+     */
+    <Tooltip
+      content={entrada.label}
+      disabled={!colapsado}
+      positioning={{ placement: "right" }}
+      openDelay={100}
+      closeDelay={0}
+      showArrow
+    >
+    {/* `Link asChild` en vez de `Box as={NavLink}`: el tipado polimórfico de Box
+        no conoce las props del NavLink de react-router y el `to` no compila. */}
     <Link
       asChild
       aria-current={activa ? "page" : undefined}
-      /*
-       * El texto ya no se desmonta al plegar, así que el nombre accesible sale
-       * del propio contenido y no hace falta `aria-label`. El `title` queda
-       * para el tooltip cuando solo se ve el ícono.
-       */
-      title={colapsado ? entrada.label : undefined}
       display="flex"
       alignItems="center"
       gap="3"
@@ -182,6 +190,7 @@ function NavItem({ entrada, activa, colapsado = false }: NavItemProps) {
         {entrada.label}
       </NavLink>
     </Link>
+    </Tooltip>
   );
 }
 
@@ -233,6 +242,14 @@ function NavGroup({
         props de layout directamente. Envolverlo en un `Flex as="button"` con
         `asChild` rompe el tipado (`type` no existe en FlexProps).
       */}
+      <Tooltip
+        content={`${grupo.label} (${abierto ? "ocultar" : "mostrar"})`}
+        disabled={!colapsado}
+        positioning={{ placement: "right" }}
+        openDelay={100}
+        closeDelay={0}
+        showArrow
+      >
       <Collapsible.Trigger
         /*
          * `aria-expanded` explícito: en modo controlado el `aria-expanded` de
@@ -241,11 +258,6 @@ function NavGroup({
          * cerrada. Como el estado lo tenemos arriba, se lo pasamos nosotros.
          */
         aria-expanded={abierto}
-        title={
-          colapsado
-            ? `${grupo.label} (${abierto ? "ocultar" : "mostrar"})`
-            : undefined
-        }
         width="100%"
         display="flex"
         alignItems="center"
@@ -309,6 +321,7 @@ function NavGroup({
           <LuChevronDown size={14} aria-hidden />
         </Box>
       </Collapsible.Trigger>
+      </Tooltip>
 
       {/*
         Despliegue animado con `grid-template-rows: 0fr → 1fr`.

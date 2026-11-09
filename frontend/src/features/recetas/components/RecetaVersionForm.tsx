@@ -4,6 +4,7 @@ import { LuCircleCheck, LuTriangleAlert } from "react-icons/lu";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BannerError,
   BotonAccion,
   BotonAgregar,
@@ -13,9 +14,11 @@ import {
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
+  SIN_VALIDACION_NATIVA,
   Tarjeta,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
@@ -134,8 +137,14 @@ export function RecetaVersionForm({
       ),
     }));
 
+  const { intentado, puedeEnviar } = useIntentoEnvio();
+  // El producto se elige en el encabezado (lo pone la página): si falta, no
+  // se envía y se avisa, en vez de dejar "Crear receta" deshabilitado.
+  const faltaProducto = bloqueado ? ["el producto"] : [];
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!puedeEnviar(faltaProducto)) return;
     const problema = validar(estado, insumos);
     setError(problema);
     if (problema) return;
@@ -143,7 +152,7 @@ export function RecetaVersionForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
+    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
       <TarjetaFormulario>
         <TituloFormulario>{titulo}</TituloFormulario>
 
@@ -440,8 +449,9 @@ export function RecetaVersionForm({
           </Box>
         )}
 
+        <AvisoFaltantes visible={intentado} faltantes={faltaProducto} />
         <AccionesFormulario>
-          <BotonGuardar loading={isLoading} disabled={bloqueado}>
+          <BotonGuardar loading={isLoading}>
             {submitLabel}
           </BotonGuardar>
           <BotonCancelar onClick={onCancel} disabled={isLoading}>

@@ -13,6 +13,7 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  FilaClickeable,
   FilaEncabezado,
   Tarjeta,
   TextoTruncado,
@@ -51,25 +52,25 @@ export function RecetasPage() {
       )}
 
       {!loading && !error && recetas.length > 0 && (
-        <Tarjeta overflowX="auto">
+        <Tarjeta desplazable>
           <Table.Root variant="outline" w="100%" minW="720px">
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Producto</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="angosta">Versión vigente</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="amplia">Rendimiento</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="amplia">Rendimiento</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Vigente desde</EncabezadoOscuro>
                 <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
               {recetas.map((receta) => (
-                <Table.Row key={receta.id}>
+                <FilaClickeable onAbrir={() => navigate(`/recetas/${receta.id}`)} key={receta.id}>
                   <Celda>
                     <TextoTruncado texto={receta.producto_nombre} />
                   </Celda>
                   <Celda>{receta.version_vigente ? `v${receta.version_vigente.numero}` : "-"}</Celda>
-                  <Celda>
+                  <Celda numero>
                     {receta.version_vigente
                       ? cantidadConUnidad(
                           receta.version_vigente.rendimiento,
@@ -94,7 +95,7 @@ export function RecetasPage() {
                       )}
                     </HStack>
                   </Celda>
-                </Table.Row>
+                </FilaClickeable>
               ))}
             </Table.Body>
           </Table.Root>

@@ -91,7 +91,12 @@ export async function obtenerDashboardLotes(
   const datos = await pedir<
     Omit<DashboardLotes, "total_cantidad_producida" | "por_producto"> & {
       total_cantidad_producida: string | number;
-      por_producto: { producto: string; cantidad_producida: string | number; cantidad_lotes: number }[];
+      por_producto: {
+        producto: string;
+        cantidad_producida: string | number;
+        cantidad_lotes: number;
+        unidad: string;
+      }[];
     }
   >(response, "Error al obtener las estadísticas de producción");
 

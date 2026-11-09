@@ -10,6 +10,7 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  FilaClickeable,
   FilaEncabezado,
   Tarjeta,
 } from "../../../../components/ui/patrones";
@@ -67,8 +68,8 @@ export function TrazabilidadLoteInsumoPage() {
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
                     <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
                     <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="media">Consumo real</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="media">Desperdicio</EncabezadoOscuro>
+                    <EncabezadoOscuro numero ancho="media">Consumo real</EncabezadoOscuro>
+                    <EncabezadoOscuro numero ancho="media">Desperdicio</EncabezadoOscuro>
                     <EncabezadoOscuro center ancho="angosta">
                       Ver
                     </EncabezadoOscuro>
@@ -76,7 +77,7 @@ export function TrazabilidadLoteInsumoPage() {
                 </Table.Header>
                 <Table.Body>
                   {traza.lotes_producto.map((l) => (
-                    <Table.Row key={l.lote_producto_id}>
+                    <FilaClickeable onAbrir={() => navigate(`/lotes/${l.lote_producto_id}`)} key={l.lote_producto_id}>
                       <Celda>
                         <Text fontFamily="mono" fontSize="sm">
                           {l.numero_lote}
@@ -87,8 +88,8 @@ export function TrazabilidadLoteInsumoPage() {
                       <Celda>
                         <BadgeEstadoLote estado={l.estado} />
                       </Celda>
-                      <Celda>{formatoCantidad(l.consumo_real)}</Celda>
-                      <Celda>{formatoCantidad(l.desperdicio)}</Celda>
+                      <Celda numero>{formatoCantidad(l.consumo_real)}</Celda>
+                      <Celda numero>{formatoCantidad(l.desperdicio)}</Celda>
                       <Celda center>
                         <BotonAccion
                           accion="ver"
@@ -96,7 +97,7 @@ export function TrazabilidadLoteInsumoPage() {
                           onClick={() => navigate(`/lotes/${l.lote_producto_id}`)}
                         />
                       </Celda>
-                    </Table.Row>
+                    </FilaClickeable>
                   ))}
                 </Table.Body>
               </Table.Root>

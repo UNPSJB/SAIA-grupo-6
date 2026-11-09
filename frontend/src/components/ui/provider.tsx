@@ -2,6 +2,7 @@
 
 import { ChakraProvider } from "@chakra-ui/react"
 import { system } from "../../theme"
+import { Toaster } from "./toaster"
 import {
   ColorModeProvider,
   type ColorModeProviderProps,
@@ -25,6 +26,9 @@ export function Provider(props: ColorModeProviderProps) {
   return (
     <ChakraProvider value={system}>
       <ColorModeProvider defaultTheme="light" enableSystem={false} {...props} />
+      {/* Avisos breves (éxito al guardar): fuera del router para que sigan
+          visibles al navegar a otra pantalla. */}
+      <Toaster />
     </ChakraProvider>
   )
 }

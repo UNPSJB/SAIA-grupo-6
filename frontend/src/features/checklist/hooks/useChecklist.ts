@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { obtenerTareasDelDia, marcarTarea } from "../services/checklistService";
 import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
 import type { TareaDelDia } from "../types/checklist";
+import { hoyISO } from "../../../common/utils/fechas";
 
 // Un solo fetch para todos los equipos: el backend ya arma la lista plana
 // de tareas del día con el nombre del plan al que pertenece cada una.
@@ -19,7 +20,20 @@ export function useChecklist(fecha: string) {
       setError(null);
 
       const datos = await obtenerTareasDelDia(fecha);
-      setTareas(datos.tareas);
+      /*
+       * Un día anterior a hoy es de solo lectura, diga lo que diga el estado
+       * guardado. El backend ya lo informa como "cerrado", pero se refuerza
+       * acá por la fecha: antes un día pasado llegaba "abierto", la casilla
+       * quedaba habilitada, la barra subía y bajaba al rechazarse el cambio.
+       */
+      const diaPasado = fecha < hoyISO();
+      setTareas(
+        diaPasado
+          ? datos.tareas.map((t) =>
+              t.registro_id > 0 ? { ...t, checklist_estado: "cerrado" as const } : t,
+            )
+          : datos.tareas,
+      );
       // El backend puede haber creado el checklist de hoy y recalculado
       // notificaciones: avisamos a la campana para que refresque el contador.
       notificarCambioNotificaciones();
@@ -50,7 +64,9 @@ export function useChecklist(fecha: string) {
   ) => {
     const tarea = tareas.find((t) => t.id === tareaId);
 
-    if (tarea?.checklist_estado === "cerrado") {
+    // Se valida ANTES de tocar el estado local: el cambio optimista de abajo
+    // es el que hacía subir la barra de avance aunque después se rechazara.
+    if (tarea?.checklist_estado === "cerrado" || fecha < hoyISO()) {
       setError(
         "Este checklist corresponde a un día anterior y ya no se puede modificar."
       );

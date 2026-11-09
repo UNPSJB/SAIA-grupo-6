@@ -8,7 +8,7 @@ import type { DocumentoFormValues } from "../types/documento";
 import { useDelayedNavigate } from "../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
-  BannerExito,
+  DialogoExito,
 } from "../../../components/ui/patrones";
 import { PaginaFormulario } from "../../../components/ui/plantillas";
 
@@ -26,7 +26,7 @@ export function DocumentoNuevaVersionPage() {
     try {
       await subirVersion(documentoId, values);
       setExito(true);
-      delayedNavigate("/documentos", 1500);
+      delayedNavigate("/documentos");
     } catch {
       // el error ya queda guardado en `error`
     }
@@ -62,9 +62,7 @@ export function DocumentoNuevaVersionPage() {
 
           {error && <BannerError>{error}</BannerError>}
 
-          {exito && (
-            <BannerExito>Nueva versión subida: ahora es la vigente.</BannerExito>
-          )}
+          <DialogoExito isOpen={exito} mensaje="Nueva versión subida: ahora es la vigente." />
 
           <DocumentoForm
             conDatosDelDocumento={false}

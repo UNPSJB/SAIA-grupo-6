@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, Text } from "@chakra-ui/react";
 import { LuCamera, LuTriangleAlert } from "react-icons/lu";
 import {
   estadoLabel,
@@ -8,7 +8,7 @@ import {
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
 import { formatoFecha as formatoFechaDia } from "../../../common/utils/fechas";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, EtiquetaEstado, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
 import { Tooltip } from "../../../components/ui/tooltip";
 
 interface IncidenteItemProps {
@@ -50,7 +50,7 @@ export function IncidenteItem({
   const esViejo = !cerrado && llevaMuchoTiempoAbierto(incidente.fecha_reporte);
 
   return (
-    <Table.Row
+    <FilaClickeable onAbrir={handleVer}
       borderBottomWidth="1px"
       borderColor="border.subtle"
       opacity={cerrado ? 0.7 : 1}
@@ -144,17 +144,10 @@ export function IncidenteItem({
       </Celda>
 
       <Celda p="3">
-        <Badge
-          colorPalette={cerrado ? "green" : "red"}
-          borderRadius="md"
-          px="3"
-          py="1"
-          maxW="100%"
-          overflow="hidden"
-          textOverflow="ellipsis"
-        >
+        {/* Abierto en naranja (pendiente), no en rojo: el rojo es "vencido". */}
+        <EtiquetaEstado tono={cerrado ? "ok" : "alerta"}>
           {estadoLabel(incidente.estado)}
-        </Badge>
+        </EtiquetaEstado>
       </Celda>
 
       <Celda p="3">
@@ -185,6 +178,6 @@ export function IncidenteItem({
           </HStack>
         </Celda>
       )}
-    </Table.Row>
+    </FilaClickeable>
   );
 }

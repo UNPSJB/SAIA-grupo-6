@@ -13,11 +13,7 @@ import {
   formatoFecha,
   formatoFechaCierre,
 } from "../../types/incidente";
-import {
-  BannerError,
-  BotonCancelar,
-  EstadoCargando,
-} from "../../../../components/ui/patrones";
+import { BannerError, BotonCancelar, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
 import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 
 export function IncidenteDetailPage() {
@@ -76,9 +72,9 @@ export function IncidenteDetailPage() {
         titulo={`${incidente.titulo} #${incidente.id}`}
         descripcion={`Reportado el ${formatoFecha(incidente.fecha_reporte)}`}
         estado={
-          <Badge colorPalette={cerrado ? "green" : "red"} variant="subtle">
+          <EtiquetaEstado tono={cerrado ? "ok" : "alerta"}>
             {estadoLabel(incidente.estado)}
-          </Badge>
+          </EtiquetaEstado>
         }
         acciones={
           <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>

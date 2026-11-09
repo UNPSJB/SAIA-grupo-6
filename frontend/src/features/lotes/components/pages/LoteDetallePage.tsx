@@ -100,9 +100,9 @@ function ItemCard({
             <Table.Header>
               <Table.Row bg="bg.muted">
                 <Table.ColumnHeader fontSize="sm">Insumo</Table.ColumnHeader>
-                <Table.ColumnHeader fontSize="sm">Planificado</Table.ColumnHeader>
-                <Table.ColumnHeader fontSize="sm">Consumo real</Table.ColumnHeader>
-                <Table.ColumnHeader fontSize="sm">Desperdicio</Table.ColumnHeader>
+                <Table.ColumnHeader fontSize="sm" textAlign="right">Planificado</Table.ColumnHeader>
+                <Table.ColumnHeader fontSize="sm" textAlign="right">Consumo real</Table.ColumnHeader>
+                <Table.ColumnHeader fontSize="sm" textAlign="right">Desperdicio</Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -111,11 +111,11 @@ function ItemCard({
                 return (
                   <Table.Row key={i.insumo_id}>
                     <Celda>{i.insumo_nombre}</Celda>
-                    <Celda>{cantidadConUnidad(i.cantidad_planificada, i.unidad)}</Celda>
-                    <Celda color={excede ? "orange.fg" : undefined} fontWeight={excede ? "bold" : undefined}>
+                    <Celda numero>{cantidadConUnidad(i.cantidad_planificada, i.unidad)}</Celda>
+                    <Celda numero color={excede ? "orange.fg" : undefined} fontWeight={excede ? "bold" : undefined}>
                       {cantidadConUnidad(i.consumo_real, i.unidad)}
                     </Celda>
-                    <Celda>{cantidadConUnidad(i.desperdicio, i.unidad)}</Celda>
+                    <Celda numero>{cantidadConUnidad(i.desperdicio, i.unidad)}</Celda>
                   </Table.Row>
                 );
               })}
@@ -187,7 +187,7 @@ function SeccionTrazabilidad({ traza }: { traza: TrazabilidadLoteProducto }) {
                 <EncabezadoOscuro ancho="amplia">Lote de insumo</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Vence</EncabezadoOscuro>
                 <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
-                <EncabezadoOscuro center width="10%">
+                <EncabezadoOscuro numero center width="10%">
                   Usos
                 </EncabezadoOscuro>
               </FilaEncabezado>
@@ -208,7 +208,7 @@ function SeccionTrazabilidad({ traza }: { traza: TrazabilidadLoteProducto }) {
                       Matrícula {l.proveedor.matricula}
                     </Text>
                   </Celda>
-                  <Celda center>
+                  <Celda numero center>
                     <BotonAccion
                       accion="historial"
                       label="Ver en qué otros lotes de producto se usó"

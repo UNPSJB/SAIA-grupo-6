@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Text } from "@chakra-ui/react";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 import { TIPOS_INSUMO, type InsumoFormValues, type TipoInsumo } from "../types/insumo";
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
@@ -77,9 +80,16 @@ export function InsumoForm({
 
   const esAditivo = values.tipo === "aditivo";
   const faltaAditivo = esAditivo && !values.aditivo_id;
+  const faltan = faltantes({
+    nombre: [!values.nombre.trim(), "el nombre"],
+    unidad: [!values.unidad_medida_id, "la unidad de medida"],
+    aditivo: [faltaAditivo, "el aditivo de la lista de referencia"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit({ ...values, aditivo_id: esAditivo ? values.aditivo_id : null });
   };
 
@@ -87,7 +97,7 @@ export function InsumoForm({
     <TarjetaFormulario as="form" onSubmit={handleSubmit}>
       <TituloFormulario>{title}</TituloFormulario>
 
-      <FormField label="Nombre" required>
+      <FormField label="Nombre" required invalid={intentado && faltan.tiene("nombre")}>
         <FormInput
           value={values.nombre}
           onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
@@ -96,8 +106,9 @@ export function InsumoForm({
         />
       </FormField>
 
-      <FormField label="Unidad de medida" required>
+      <FormField label="Unidad de medida" required invalid={intentado && faltan.tiene("unidad")}>
         <FormNativeSelect
+          invalid={intentado && faltan.tiene("unidad")}
           value={values.unidad_medida_id}
           onChange={(e) =>
             setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }))
@@ -141,6 +152,7 @@ export function InsumoForm({
         <FormField
           label="Aditivo de la lista de referencia"
           required
+          invalid={intentado && faltan.tiene("aditivo")}
           mb="0"
           helper="Clase funcional, nombre completo y número INS. Si no está, agregalo en Inventario → Aditivos."
         >
@@ -173,11 +185,9 @@ export function InsumoForm({
         </Text>
       )}
 
+      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
       <AccionesFormulario>
-        <BotonGuardar
-          loading={isLoading}
-          disabled={!values.unidad_medida_id || faltaAditivo}
-        >
+        <BotonGuardar loading={isLoading}>
           {submitLabel}
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}

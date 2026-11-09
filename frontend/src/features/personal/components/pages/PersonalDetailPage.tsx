@@ -1,17 +1,12 @@
 import { useParams } from "react-router-dom";
-import { Badge, Box, SimpleGrid, Table, Text } from "@chakra-ui/react";
+import { Box, SimpleGrid, Table, Text } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 import { LuCircleCheck, LuCircleX } from "react-icons/lu";
 import { usePersonal } from "../../hooks/usePersonal";
 import { useVencimientosPersonal } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
 import { useAptitudes } from "../../../aptitud/hooks/useAptitudes";
 import { hoyISO } from "../../../../common/utils/fechas";
-import {
-  BannerError,
-  Celda,
-  ColumnaHeader,
-  EstadoCargando,
-} from "../../../../components/ui/patrones";
+import { BannerError, Celda, ColumnaHeader, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
 import {
   DatoDetalle,
   GrillaDatos,
@@ -127,9 +122,9 @@ export function PersonalDetailPage() {
                       </Celda>
                       <Celda p="3">{v.fecha_vencimiento}</Celda>
                       <Celda p="3" center>
-                        <Badge colorPalette={vencido ? "red" : "green"}>
+                        <EtiquetaEstado tono={vencido ? "peligro" : "ok"}>
                           {vencido ? "Vencido" : "Vigente"}
-                        </Badge>
+                        </EtiquetaEstado>
                       </Celda>
                     </Table.Row>
                   );

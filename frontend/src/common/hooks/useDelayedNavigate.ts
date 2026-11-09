@@ -49,7 +49,9 @@ export function useDelayedNavigate() {
   const delayed = useSafeTimeout();
 
   return useCallback(
-    (path: string, delayMs = 2000) => {
+    // 300 ms y no 2 s: el aviso de éxito ya no es un diálogo que haya que
+    // dejar leer antes de irse, sino un toast que sigue visible al navegar.
+    (path: string, delayMs = 300) => {
       delayed(() => navigate(path), delayMs);
     },
     [delayed, navigate],

@@ -5,14 +5,17 @@ import type { SectorResumen } from "../../sector/types/sector";
 import { useSectores } from "../../sector/hooks/useSectores";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 
 type EquipoFormValues = EquipoInput;
@@ -58,6 +61,12 @@ export function EquipoForm({
   sectorActual,
 }: EquipoFormProps) {
   const [values, setValues] = useState<EquipoFormValues>(initialValues);
+  const faltan = faltantes({
+    nombre: [!values.nombre.trim(), "el nombre"],
+    tipo: [!values.tipo.trim(), "el tipo"],
+    sector: [!values.sector_id, "el sector"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
   const { sectores, loading: cargandoSectores } = useSectores();
 
   // Si el sector del equipo se dio de baja, igual tiene que aparecer en la lista.
@@ -99,6 +108,7 @@ export function EquipoForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     // Se aplica la baja acá y no en un efecto: si la página ya la confirmó,
     // el `activo: false` viaja en este submit sin un render de más.
     onSubmit(bajaConfirmada ? { ...values, activo: false } : values);
@@ -109,7 +119,7 @@ export function EquipoForm({
       <TituloFormulario>{title}</TituloFormulario>
 
       {/* Nombre */}
-      <FormField label="Nombre" required mb="4">
+      <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
         <FormInput
           value={values.nombre}
           onChange={handleNombreChange}
@@ -119,7 +129,7 @@ export function EquipoForm({
       </FormField>
 
       {/* Tipo */}
-      <FormField label="Tipo" required mb="4">
+      <FormField invalid={intentado && faltan.tiene("tipo")} label="Tipo" required mb="4">
         <FormInput
           value={values.tipo}
           onChange={handleTipoChange}
@@ -129,8 +139,9 @@ export function EquipoForm({
       </FormField>
 
       {/* Sector */}
-      <FormField label="Sector" required mb={mostrarBaja ? "4" : "0"}>
+      <FormField invalid={intentado && faltan.tiene("sector")} label="Sector" required mb={mostrarBaja ? "4" : "0"}>
         <FormNativeSelect
+          invalid={intentado && faltan.tiene("sector")}
           value={values.sector_id}
           onChange={handleSectorChange}
           disabled={cargandoSectores}
@@ -165,8 +176,9 @@ export function EquipoForm({
       )}
 
       {/* Botones */}
+      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
       <AccionesFormulario>
-        <BotonGuardar loading={isLoading} disabled={!values.sector_id}>
+        <BotonGuardar loading={isLoading}>
           {submitLabel}
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}

@@ -5,13 +5,14 @@ import { useAuth } from "../context/useAuth";
 import { puedeAdministrar } from "../api/permissions";
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 import { Breadcrumbs } from "./Breadcrumbs";
+import { BuscadorGlobal } from "./BuscadorGlobal";
 import { LogoSaia } from "./LogoSaia";
 import { MenuUsuario } from "./MenuUsuario";
 
 /**
  * Barra superior, organizada como la de GitHub:
  *
- *   [ logo SAIA ] [ migas de pan ] ............ [ 🔔 ] [ avatar ]
+ *   [ logo SAIA ] [ migas de pan ] .... [ buscar ] [ 🔔 ] [ avatar ]
  *
  * El logo va a la izquierda, al lado del breadcrumb. El botón hamburguesa ya
  * no va acá: vive en el encabezado de la barra lateral (ver `Navbar.tsx`).
@@ -61,13 +62,16 @@ export function BarraSuperior(): ReactElement | null {
           </RouterLink>
         </Link>
 
-        <Box minW={0}>
+        {/* En celular no entran junto al buscador y quedaban una letra por
+            renglón: ahí se ocultan (el título de la página ya dice dónde se está). */}
+        <Box minW={0} display={{ base: "none", md: "block" }}>
           <Breadcrumbs />
         </Box>
       </Flex>
 
       {/* Derecha: notificaciones y usuario. Los dos miden 40px. */}
       <Flex align="center" gap="2" flexShrink={0}>
+        <BuscadorGlobal />
         {puedeAdministrar(user) && (
           <BotonNotificaciones activa={pathname.startsWith("/notificaciones")} />
         )}

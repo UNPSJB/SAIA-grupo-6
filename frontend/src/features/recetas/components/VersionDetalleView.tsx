@@ -50,7 +50,7 @@ export function VersionDetalleView({ version }: { version: VersionDetalle }) {
                 <EncabezadoOscuro>Insumo</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Clasificación</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="amplia">Clase funcional e INS</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Cantidad</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="media">Cantidad</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
@@ -79,7 +79,7 @@ export function VersionDetalleView({ version }: { version: VersionDetalle }) {
                       </Text>
                     )}
                   </Celda>
-                  <Celda>{cantidadConUnidad(i.cantidad, i.unidad_medida.simbolo)}</Celda>
+                  <Celda numero>{cantidadConUnidad(i.cantidad, i.unidad_medida.simbolo)}</Celda>
                 </Table.Row>
               ))}
             </Table.Body>

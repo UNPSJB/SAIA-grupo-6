@@ -140,7 +140,7 @@ export function Pagina({
 }: PaginaProps) {
   const maxW = ANCHO_PAGINA[ancho];
   return (
-    <Box p="5" w="100%" maxW={maxW} mx={maxW ? "auto" : undefined}>
+    <Box p={{ base: "3", md: "5" }} w="100%" maxW={maxW} mx={maxW ? "auto" : undefined}>
       {volver ? <EnlaceVolver {...volver} /> : null}
       <PageHeader
         title={

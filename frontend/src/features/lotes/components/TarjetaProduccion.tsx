@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { Box, Field, HStack, Text } from "@chakra-ui/react";
+import { HStack, Text } from "@chakra-ui/react";
 import {
   BannerError,
   EstadoCargando,
-  FormInput,
-  LabelFiltro,
 } from "../../../components/ui/patrones";
 import { haceDiasISO, hoyISO } from "../../../common/utils/fechas";
 import { useDashboardLotes } from "../hooks/useLotes";
 import { GraficoProduccion } from "./GraficoProduccion";
 import { TarjetaPanel } from "../../dashboard/components/TarjetaPanel";
-import { formatoCantidad } from "../../../common/utils/numeros";
+import { SelectorRango } from "../../dashboard/components/SelectorRango";
+import { cantidadConUnidad, formatoCantidad } from "../../../common/utils/numeros";
 
 export function TarjetaProduccion() {
   const [fechaDesde, setFechaDesde] = useState(() => haceDiasISO(30));
@@ -28,30 +27,14 @@ export function TarjetaProduccion() {
       h="auto"
       flex="1"
       acciones={
-        <HStack gap="3" flexWrap="wrap">
-          <Box minW="150px">
-            <Field.Root>
-              <LabelFiltro>Desde</LabelFiltro>
-              <FormInput
-                type="date"
-                value={fechaDesde}
-                onChange={(event) => setFechaDesde(event.target.value)}
-                w="auto"
-              />
-            </Field.Root>
-          </Box>
-          <Box minW="150px">
-            <Field.Root>
-              <LabelFiltro>Hasta</LabelFiltro>
-              <FormInput
-                type="date"
-                value={fechaHasta}
-                onChange={(event) => setFechaHasta(event.target.value)}
-                w="auto"
-              />
-            </Field.Root>
-          </Box>
-        </HStack>
+        <SelectorRango
+          desde={fechaDesde}
+          hasta={fechaHasta}
+          onCambio={(desde, hasta) => {
+            setFechaDesde(desde);
+            setFechaHasta(hasta);
+          }}
+        />
       }
     >
       {loading && <EstadoCargando>Cargando producción...</EstadoCargando>}
@@ -63,8 +46,13 @@ export function TarjetaProduccion() {
           <HStack gap="6" mb="3" flexWrap="wrap">
             <Text fontSize="sm" color="fg.muted">
               Total producido:{" "}
+              {/* Por unidad: antes se sumaban kilos con unidades en un solo número. */}
               <Text as="span" fontWeight="bold" color="fg">
-                {formatoCantidad(dashboard.total_cantidad_producida)}
+                {dashboard.total_por_unidad.length === 0
+                  ? "-"
+                  : dashboard.total_por_unidad
+                      .map((t) => cantidadConUnidad(t.cantidad, t.unidad))
+                      .join(" · ")}
               </Text>
             </Text>
             <Text fontSize="sm" color="fg.muted">

@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import {
-  Badge,
   Box,
   Heading,
   SimpleGrid,
@@ -23,6 +22,7 @@ import {
   Celda,
   ColumnaHeader,
   EstadoCargando,
+  EtiquetaEstado,
   Tarjeta,
 } from "../../../../components/ui/patrones";
 import { Pagina, SeccionDetalle } from "../../../../components/ui/plantillas";
@@ -116,9 +116,9 @@ function VencimientosPerfil({ personaId }: { personaId: number }) {
                   </Celda>
                   <Celda p="3">{v.fecha_vencimiento}</Celda>
                   <Celda p="3" center>
-                    <Badge colorPalette={vencido ? "red" : "green"}>
+                    <EtiquetaEstado tono={vencido ? "peligro" : "ok"}>
                       {vencido ? "Vencido" : "Vigente"}
-                    </Badge>
+                    </EtiquetaEstado>
                   </Celda>
                 </Table.Row>
               );

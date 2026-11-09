@@ -8,14 +8,17 @@ import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaSe
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 
 interface InsumoQuimicoFormProps {
@@ -42,6 +45,11 @@ export function InsumoQuimicoForm({
   onCancel,
 }: InsumoQuimicoFormProps) {
   const [values, setValues] = useState<InsumoQuimicoFormValues>(initialValues);
+  const faltan = faltantes({
+    nombre: [!values.nombre.trim(), "el nombre"],
+    unidad: [!values.unidad_medida_id, "la unidad de medida"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const [cargandoUnidades, setCargandoUnidades] = useState(true);
 
@@ -79,6 +87,7 @@ export function InsumoQuimicoForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit(values);
   };
 
@@ -86,7 +95,7 @@ export function InsumoQuimicoForm({
     <TarjetaFormulario as="form" onSubmit={handleSubmit}>
       <TituloFormulario>{title}</TituloFormulario>
 
-      <FormField label="Nombre" required>
+      <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required>
         <FormInput
           value={values.nombre}
           onChange={handleNombreChange}
@@ -109,8 +118,9 @@ export function InsumoQuimicoForm({
         </FormNativeSelect>
       </FormField>
 
-      <FormField label="Unidad de medida" required mb="0">
+      <FormField invalid={intentado && faltan.tiene("unidad")} label="Unidad de medida" required mb="0">
         <FormNativeSelect
+          invalid={intentado && faltan.tiene("unidad")}
           value={values.unidad_medida_id}
           onChange={handleUnidadChange}
           disabled={cargandoUnidades}
@@ -127,8 +137,9 @@ export function InsumoQuimicoForm({
         </FormNativeSelect>
       </FormField>
 
+      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
       <AccionesFormulario>
-        <BotonGuardar loading={isLoading} disabled={!values.unidad_medida_id}>
+        <BotonGuardar loading={isLoading}>
           {submitLabel}
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}

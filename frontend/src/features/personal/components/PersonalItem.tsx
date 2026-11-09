@@ -1,9 +1,9 @@
-import { HStack, Table, Text } from "@chakra-ui/react";
+import { HStack, Text } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../common/context/useAuth";
 import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -33,7 +33,7 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
   const puedeBorrar = puedeDarDeBajaA(user, persona);
 
   return (
-    <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={persona.activo ? 1 : 0.65}>
+    <FilaClickeable onAbrir={() => navigate(`/personal/detalle/${persona.id}`)} borderBottomWidth="1px" borderColor="border.subtle" opacity={persona.activo ? 1 : 0.65}>
       <Celda p="3">
         <TextoTruncado texto={`${persona.nombre} ${persona.apellido || ""}`.trim()} />
       </Celda>
@@ -66,6 +66,6 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
           )}
         </HStack>
       </Celda>
-    </Table.Row>
+    </FilaClickeable>
   );
 }

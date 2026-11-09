@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
 
 import { useOrdenTabla } from "../../../common/hooks/useOrdenTabla";
 import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
@@ -19,6 +19,7 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  EtiquetaEstado,
   FilaEncabezado,
   Paginacion,
   Tarjeta,
@@ -157,8 +158,8 @@ export function StockActualTab() {
               <Table.Header>
                 <FilaEncabezado>
                   <EncabezadoOrdenable columna="nombre" orden={orden}>Producto</EncabezadoOrdenable>
-                  <EncabezadoOrdenable columna="cantidad" orden={orden} ancho="angosta">Actual</EncabezadoOrdenable>
-                  <EncabezadoOrdenable columna="minimo" orden={orden} ancho="angosta">Mínimo</EncabezadoOrdenable>
+                  <EncabezadoOrdenable numero columna="cantidad" orden={orden} ancho="angosta">Actual</EncabezadoOrdenable>
+                  <EncabezadoOrdenable numero columna="minimo" orden={orden} ancho="angosta">Mínimo</EncabezadoOrdenable>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
                 </FilaEncabezado>
@@ -167,15 +168,15 @@ export function StockActualTab() {
                 {stock.map((insumo) => (
                   <Table.Row key={insumo.insumo_quimico_id}>
                     <Celda fontWeight="medium">{insumo.nombre}</Celda>
-                    <Celda>{formatoCantidad(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Celda>
-                    <Celda>
+                    <Celda numero>{formatoCantidad(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Celda>
+                    <Celda numero>
                       {formatoCantidad(insumo.stock_minimo, "Sin definir")}
                       {insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}
                     </Celda>
                     <Celda>
-                      <Badge colorPalette={insumo.stock_bajo ? "red" : "green"}>
+                      <EtiquetaEstado tono={insumo.stock_bajo ? "peligro" : "ok"}>
                         {insumo.stock_bajo ? "Stock bajo" : "Disponible"}
-                      </Badge>
+                      </EtiquetaEstado>
                     </Celda>
                     <Celda center>
                       <HStack gap="2" justify="center">
@@ -198,7 +199,7 @@ export function StockActualTab() {
                     <Text fontWeight="bold">{insumo.nombre}</Text>
                     <Text color="fg.muted" fontSize="sm">Actual: {formatoCantidad(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Text>
                   </Box>
-                  <Badge colorPalette={insumo.stock_bajo ? "red" : "green"}>{insumo.stock_bajo ? "Stock bajo" : "Disponible"}</Badge>
+                  <EtiquetaEstado tono={insumo.stock_bajo ? "peligro" : "ok"}>{insumo.stock_bajo ? "Stock bajo" : "Disponible"}</EtiquetaEstado>
                 </HStack>
                 <Text color="fg.muted" fontSize="sm" mb="3">Mínimo: {formatoCantidad(insumo.stock_minimo, "Sin definir")}{insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}</Text>
                 <Stack direction="row" gap="2" flexWrap="wrap">

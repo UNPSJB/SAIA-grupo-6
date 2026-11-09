@@ -414,3 +414,26 @@ def test_api_listado_y_dashboard(client, escenario):
         "cancelado": 0,
     }
     assert client.get("/lotes/dashboard", headers=escenario.h_operador).status_code == 403
+
+
+def test_api_dashboard_informa_la_unidad_de_cada_producto(client, escenario):
+    """El gráfico de producción necesita la unidad de cada producto, y el
+    total se da por unidad (no se suman kilos con unidades)."""
+    lote = client.post(
+        "/lotes", json={"producto_id": escenario.pan.id, "cantidad_objetivo": "40"},
+        headers=escenario.h_admin,
+    ).json()
+    for item in lote["checklist"]:
+        client.post(
+            f"/lotes/{lote['id']}/checklist/{item['id']}/completar", headers=escenario.h_operador
+        )
+    client.post(
+        f"/lotes/{lote['id']}/cerrar", json={"cantidad_producida": "39"}, headers=escenario.h_operador
+    )
+
+    dashboard = client.get("/lotes/dashboard", headers=escenario.h_admin).json()
+
+    assert dashboard["por_producto"] == [
+        {"producto": "Pan casero", "cantidad_producida": "39.000", "cantidad_lotes": 1, "unidad": "kg"}
+    ]
+    assert dashboard["total_por_unidad"] == [{"unidad": "kg", "cantidad": "39.000"}]

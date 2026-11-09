@@ -3,12 +3,16 @@ import { Box, Textarea } from "@chakra-ui/react";
 import type { SectorFormValues } from "../types/sector";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
+  SIN_VALIDACION_NATIVA,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 
 interface SectorFormProps {
@@ -31,18 +35,23 @@ export function SectorForm({
   onCancel,
 }: SectorFormProps) {
   const [values, setValues] = useState<SectorFormValues>(initialValues);
+  const faltan = faltantes({
+    nombre: [!values.nombre.trim(), "el nombre"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit(values);
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
+    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
       <TarjetaFormulario>
         <TituloFormulario>{title}</TituloFormulario>
 
-        <FormField label="Nombre" required mb="4">
+        <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
           <FormInput
             value={values.nombre}
             onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
@@ -65,8 +74,9 @@ export function SectorForm({
           />
         </FormField>
 
+        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
         <AccionesFormulario>
-          <BotonGuardar loading={isLoading} disabled={!values.nombre.trim()}>
+          <BotonGuardar loading={isLoading}>
             {submitLabel}
           </BotonGuardar>
           {onCancel && (

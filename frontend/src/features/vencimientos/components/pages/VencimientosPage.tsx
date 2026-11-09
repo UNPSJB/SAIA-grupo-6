@@ -34,10 +34,13 @@ import {
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
+  EtiquetaEstado,
+  FilaClickeable,
   FilaEncabezado,
   Paginacion,
   Tarjeta,
   TextoTruncado,
+  type TonoEstado,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { Table } from "@chakra-ui/react";
@@ -52,10 +55,10 @@ const PAGE_SIZE = 10;
  * del tema en variante `subtle` y texto en caja normal. Antes eran hex sueltos
  * y etiquetas en mayúsculas ("PRÓXIMO A VENCER"), lo único así en la app.
  */
-const ESTILO_ESTADO: Record<EstadoVencimiento, { etiqueta: string; paleta: string }> = {
-  VENCIDO: { etiqueta: "Vencido", paleta: "red" },
-  PROXIMO: { etiqueta: "Próximo a vencer", paleta: "orange" },
-  VIGENTE: { etiqueta: "Vigente", paleta: "green" },
+const ESTILO_ESTADO: Record<EstadoVencimiento, { etiqueta: string; tono: TonoEstado }> = {
+  VENCIDO: { etiqueta: "Vencido", tono: "peligro" },
+  PROXIMO: { etiqueta: "Próximo a vencer", tono: "alerta" },
+  VIGENTE: { etiqueta: "Vigente", tono: "ok" },
 };
 
 const ETIQUETAS_ORDEN: Record<ColumnaOrdenVencimiento, string> = {
@@ -396,7 +399,7 @@ export function VencimientosPage() {
                 {items.map((v) => {
                   const estilo = ESTILO_ESTADO[v.estado];
                   return (
-                    <Table.Row key={v.id_vencimiento} _hover={{ bg: "brand.50" }}>
+                    <FilaClickeable onAbrir={() => navigate(v.link_destino)} key={v.id_vencimiento} _hover={{ bg: "brand.50" }}>
                       <Celda>
                         <Badge
                           colorPalette="purple"
@@ -432,15 +435,7 @@ export function VencimientosPage() {
                         </Text>
                       </Celda>
                       <Celda>
-                        <Badge
-                          colorPalette={estilo.paleta}
-                          variant="subtle"
-                          maxW="100%"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                        >
-                          {estilo.etiqueta}
-                        </Badge>
+                        <EtiquetaEstado tono={estilo.tono}>{estilo.etiqueta}</EtiquetaEstado>
                       </Celda>
                       <Celda center>
                         <BotonAccion
@@ -449,7 +444,7 @@ export function VencimientosPage() {
                           onClick={() => navigate(v.link_destino)}
                         />
                       </Celda>
-                    </Table.Row>
+                    </FilaClickeable>
                   );
                 })}
               </Table.Body>

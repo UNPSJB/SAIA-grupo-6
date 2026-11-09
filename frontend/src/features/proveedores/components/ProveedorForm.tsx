@@ -3,12 +3,16 @@ import { Box } from "@chakra-ui/react";
 import type { ProveedorFormValues } from "../types/proveedor";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
+  SIN_VALIDACION_NATIVA,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 
 interface ProveedorFormProps {
@@ -31,18 +35,24 @@ export function ProveedorForm({
   onCancel,
 }: ProveedorFormProps) {
   const [values, setValues] = useState<ProveedorFormValues>(initialValues);
+  const faltan = faltantes({
+    nombre: [!values.nombre.trim(), "el nombre"],
+    matricula: [!values.matricula.trim(), "la matrícula"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit(values);
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
+    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
       <TarjetaFormulario>
         <TituloFormulario>{title}</TituloFormulario>
 
-        <FormField label="Nombre" required mb="4">
+        <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
           <FormInput
             value={values.nombre}
             onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
@@ -51,7 +61,7 @@ export function ProveedorForm({
           />
         </FormField>
 
-        <FormField label="Matrícula" required mb="0">
+        <FormField invalid={intentado && faltan.tiene("matricula")} label="Matrícula" required mb="0">
           <FormInput
             value={values.matricula}
             onChange={(e) => setValues((prev) => ({ ...prev, matricula: e.target.value }))}
@@ -60,10 +70,10 @@ export function ProveedorForm({
           />
         </FormField>
 
+        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
         <AccionesFormulario>
           <BotonGuardar
             loading={isLoading}
-            disabled={!values.nombre.trim() || !values.matricula.trim()}
           >
             {submitLabel}
           </BotonGuardar>

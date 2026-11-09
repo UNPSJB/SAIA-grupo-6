@@ -1,7 +1,7 @@
 import { formatoFecha } from "../../../common/utils/fechas";
-import { Badge, HStack, Table } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, EtiquetaEstado, TextoTruncado } from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoItemProps {
   plan: PlanCalibracionMantenimiento;
@@ -12,12 +12,12 @@ interface PlanCalibracionMantenimientoItemProps {
 
 function obtenerEstado(diasRestantes: number) {
   if (diasRestantes <= 0) {
-    return { etiqueta: "Vencido", color: "red" };
+    return { etiqueta: "Vencido", tono: "peligro" as const };
   }
   if (diasRestantes <= 3) {
-    return { etiqueta: "Próximo a vencer", color: "orange" };
+    return { etiqueta: "Próximo a vencer", tono: "alerta" as const };
   }
-  return { etiqueta: "Vigente", color: "green" };
+  return { etiqueta: "Vigente", tono: "ok" as const };
 }
 
 export function PlanCalibracionMantenimientoItem({
@@ -46,9 +46,7 @@ export function PlanCalibracionMantenimientoItem({
         {plan.dias_restantes}
       </Celda>
       <Celda p="3" center>
-        <Badge colorPalette={estado.color} rounded="md" px="2" py="1">
-          {estado.etiqueta}
-        </Badge>
+        <EtiquetaEstado tono={estado.tono}>{estado.etiqueta}</EtiquetaEstado>
       </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">

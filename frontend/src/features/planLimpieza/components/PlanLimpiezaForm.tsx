@@ -8,16 +8,17 @@ import { useOpcionesPlanLimpieza } from "../hooks/useOpcionesPlanLimpieza";
 import { useAuth } from "../../../common/context/useAuth";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BannerError,
   BotonCancelar,
   BotonGuardar,
   FormField,
   FormInput,
   FormNativeSelect,
-  MensajeError,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 import type { SectorResumen } from "../../sector/types/sector";
 interface PlanLimpiezaFormProps {
@@ -167,8 +168,11 @@ export function PlanLimpiezaForm({
           : prev.tareas,
     }));
 
+  const { intentado, puedeEnviar } = useIntentoEnvio();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltantes)) return;
     onSubmit(values);
   };
 
@@ -424,17 +428,12 @@ export function PlanLimpiezaForm({
        * El aviso de qué falta va pegado a los botones: es lo que explica
        * un "Guardar" deshabilitado, que por sí solo no dice nada.
        */}
-      {faltantes.length > 0 && (
-        <MensajeError mb="4">
-          Para guardar falta completar: {faltantes.join(", ")}.
-        </MensajeError>
-      )}
+      {/* Recién después de intentar guardar: antes aparecía apenas se abría
+          el formulario vacío, como si ya hubiera un error. */}
+      <AvisoFaltantes visible={intentado} faltantes={faltantes} />
 
       <AccionesFormulario>
-        <BotonGuardar
-          loading={isLoading}
-          disabled={faltantes.length > 0}
-        >
+        <BotonGuardar loading={isLoading}>
           {submitLabel}
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}

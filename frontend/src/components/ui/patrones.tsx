@@ -1,4 +1,5 @@
 import {
+  Badge,
   Box,
   Button,
   ButtonGroup,
@@ -19,13 +20,15 @@ import {
   type HeadingProps,
   type IconButtonProps,
   type InputProps,
+  type TableRowProps,
   type TextProps,
 } from "@chakra-ui/react";
-import type { ReactNode, SelectHTMLAttributes } from "react";
+import { useCallback, useEffect, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import {
   LuArrowUpDown,
   LuCalculator,
   LuChevronLeft,
+  LuClock,
   LuChevronRight,
   LuChevronsLeft,
   LuChevronsRight,
@@ -36,6 +39,8 @@ import {
   LuHistory,
   LuImage,
   LuLink,
+  LuLoader,
+  LuMinus,
   LuPackagePlus,
   LuPencil,
   LuPlus,
@@ -48,7 +53,7 @@ import {
   LuWrench,
 } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
-import { DialogContent, DialogRoot, DialogTitle } from "./dialog";
+import { toaster } from "./toaster";
 import { Tooltip } from "./tooltip";
 
 /**
@@ -120,8 +125,17 @@ export function PageHeader({
  */
 export function Tarjeta({
   children,
+  desplazable = false,
   ...rest
-}: { children: ReactNode } & BoxProps) {
+}: {
+  children: ReactNode;
+  /**
+   * Para tablas largas sin paginación (stock, lotes recibidos): la tarjeta
+   * tiene alto máximo y scrollea por dentro, así el encabezado de la tabla
+   * queda fijo arriba y no se pierde qué es cada columna.
+   */
+  desplazable?: boolean;
+} & BoxProps) {
   return (
     <Box
       bg="bg.panel"
@@ -129,6 +143,7 @@ export function Tarjeta({
       borderWidth="1px"
       borderColor="border.subtle"
       overflow="hidden"
+      {...(desplazable ? { overflow: "auto", maxH: "calc(100vh - 260px)", minH: "240px" } : {})}
       {...rest}
     >
       {children}
@@ -198,12 +213,20 @@ export function MensajeError({
   );
 }
 
-/** Fila de cuerpo de tabla. Padding y borde ya resueltos. */
+/**
+ * Celda de cuerpo de tabla. Padding y borde ya resueltos.
+ *
+ * `numero`: cantidades, stock, porcentajes. Van a la derecha y con dígitos de
+ * ancho fijo (`tabular-nums`), para que las cifras queden encolumnadas y se
+ * comparen de un vistazo: "1.632,851 g" debajo de "16,243 Kg" con la coma en
+ * el mismo lugar. Va con `numero` también en el encabezado de la columna.
+ */
 export function Celda({
   children,
   center = false,
+  numero = false,
   ...rest
-}: { children?: ReactNode; center?: boolean } & BoxProps) {
+}: { children?: ReactNode; center?: boolean; numero?: boolean } & BoxProps) {
   return (
     <Table.Cell
       px="4"
@@ -212,7 +235,9 @@ export function Celda({
       fontSize="sm"
       borderBottomWidth="1px"
       borderColor="border.subtle"
-      textAlign={center ? "center" : undefined}
+      textAlign={numero ? "right" : center ? "center" : undefined}
+      fontVariantNumeric={numero ? "tabular-nums" : undefined}
+      whiteSpace={numero ? "nowrap" : undefined}
       {...rest}
     >
       {children}
@@ -235,7 +260,7 @@ export function Celda({
  */
 export function TextoTruncado({
   texto,
-  max = 40,
+  max = 120,
   ...rest
 }: {
   /** Texto a mostrar (se tolera `undefined`/`null`). */
@@ -243,14 +268,19 @@ export function TextoTruncado({
   /** Máximo de caracteres visibles, elipsis incluida. */
   max?: number;
 } & Omit<TextProps, "children">) {
+  /*
+   * Hasta dos renglones, no uno. Con un solo renglón "Zona de elaboración
+   * Principal" quedaba en "Zona de elaboración Prin…" y había que pasar el
+   * mouse para leer el sector. Dos renglones alcanzan para casi todo; lo que
+   * no entra se corta con elipsis y queda completo en el `title`.
+   */
   const valor = texto ?? "";
   const excede = valor.length > max;
   return (
     <Text
-      title={excede ? valor : undefined}
-      whiteSpace="nowrap"
-      overflowX="hidden"
-      textOverflow="ellipsis"
+      title={valor.length > 30 ? valor : undefined}
+      lineClamp={2}
+      wordBreak="break-word"
       maxW="100%"
       {...rest}
     >
@@ -347,22 +377,34 @@ export function ColumnaHeader({
   );
 }
 
-/** Franja de encabezado oscura: es el patrón de TODOS los listados. */
+/**
+ * Encabezado de TODOS los listados.
+ *
+ * Antes era una franja teal oscura con texto blanco: pesaba más que los datos
+ * y le sacaba protagonismo al color de los estados (vencido, stock bajo).
+ * Ahora es gris claro con texto oscuro y un borde inferior marcado: se lee
+ * como encabezado sin competir con el contenido, y el color queda para lo que
+ * tiene que llamar la atención.
+ *
+ * El nombre `EncabezadoOscuro` se conserva para no tocar las ~100 tablas que
+ * lo usan; `EncabezadoTabla` es el alias con el nombre que corresponde.
+ */
 export function FilaEncabezado({ children }: { children: ReactNode }) {
-  // `brand.600` y no `brand.500`: con el 500 el blanco quedaba en 4.4:1, por
-  // debajo del 4.5:1 que pide WCAG AA para texto de 14px.
-  return <Table.Row bg="brand.600">{children}</Table.Row>;
+  return <Table.Row bg="gray.100">{children}</Table.Row>;
 }
 
 export function EncabezadoOscuro({
   children,
   center = false,
+  numero = false,
   ancho,
   width,
   ...rest
 }: {
   children: ReactNode;
   center?: boolean;
+  /** Columna de cantidades: alineada a la derecha, igual que sus `Celda numero`. */
+  numero?: boolean;
   /** Ancho por tipo de columna. Si se pasa `width`, gana sobre `ancho`. */
   ancho?: AnchoColumna;
 } & BoxProps) {
@@ -370,17 +412,67 @@ export function EncabezadoOscuro({
     <Table.ColumnHeader
       px="4"
       py="3"
-      color="white"
-      fontWeight="bold"
+      color="gray.700"
+      bg="gray.100"
+      fontWeight="semibold"
       fontSize="sm"
-      borderBottomWidth="none"
-      borderColor="transparent"
-      textAlign={center ? "center" : undefined}
+      borderBottomWidth="2px"
+      borderColor="gray.300"
+      textAlign={numero ? "right" : center ? "center" : undefined}
       width={width ?? (ancho ? ANCHO_COLUMNA[ancho] : undefined)}
+      /*
+       * Fijo arriba al desplazarse. Solo tiene efecto en tablas cuyo
+       * contenedor scrollea en vertical (`Tarjeta desplazable`): en el resto
+       * no molesta. El fondo va en la celda porque el `sticky` no arrastra el
+       * fondo de la fila.
+       */
+      position="sticky"
+      top="0"
+      zIndex="1"
       {...rest}
     >
       {children}
     </Table.ColumnHeader>
+  );
+}
+
+export const EncabezadoTabla = EncabezadoOscuro;
+
+/**
+ * Fila de listado que abre su ficha al hacer clic en cualquier parte.
+ *
+ * Antes había que apuntar al ícono del ojo, al final de la fila; lo primero
+ * que intenta cualquiera es tocar el nombre. Los botones y enlaces de la
+ * fila siguen funcionando solos (el clic sobre ellos no abre la ficha), y
+ * con teclado la fila se enfoca con Tab y se abre con Enter. El botón "ver"
+ * explícito se mantiene para lectores de pantalla.
+ */
+export function FilaClickeable({
+  onAbrir,
+  children,
+  ...rest
+}: { onAbrir: () => void; children: ReactNode } & TableRowProps) {
+  return (
+    <Table.Row
+      cursor="pointer"
+      tabIndex={0}
+      onClick={(e) => {
+        const destino = e.target as HTMLElement;
+        if (destino.closest("button, a, input, select, textarea, label")) return;
+        onAbrir();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target === e.currentTarget) {
+          e.preventDefault();
+          onAbrir();
+        }
+      }}
+      _hover={{ bg: "brand.50" }}
+      _focusVisible={{ outline: "2px solid", outlineColor: "brand.400", outlineOffset: "-2px" }}
+      {...rest}
+    >
+      {children}
+    </Table.Row>
   );
 }
 
@@ -508,6 +600,12 @@ export function BotonAccion({
         colorPalette={paleta}
         variant="outline"
         size="sm"
+        /*
+         * 44px de lado en pantallas chicas (el mínimo recomendado para tocar
+         * con el dedo); 32px desde `md`, donde se usa mouse.
+         */
+        minW={{ base: "11", md: "8" }}
+        h={{ base: "11", md: "8" }}
         borderWidth="2px"
         bg={esGris ? "gray.100" : `${paleta}.50`}
         borderColor={esGris ? "gray.400" : `${paleta}.400`}
@@ -570,6 +668,57 @@ export function BotonTexto({
  * y se distingue tanto sobre una superficie clara como sobre la franja
  * `brand.600` de los grupos del checklist.
  */
+/**
+ * Estado de un registro, con el mismo código en toda la app:
+ *
+ *   ok       verde    ✓  vigente, disponible, terminado, cerrado
+ *   alerta   naranja  ◷  próximo a vencer, pendiente, abierto, con demora
+ *   peligro  rojo     ⚠  vencido, stock bajo, cancelado
+ *   info     azul     ●  en proceso
+ *   neutro   gris     –  dado de baja, sin datos
+ *
+ * Lleva ícono además del color: quien no distingue bien rojo de verde lee el
+ * estado igual. Antes cada pantalla armaba su `Badge` con su propio color (un
+ * incidente abierto se veía en el mismo rojo que un vencimiento) y algunos
+ * en mayúsculas.
+ */
+export type TonoEstado = "ok" | "alerta" | "peligro" | "info" | "neutro";
+
+const ESTILO_TONO: Record<TonoEstado, { paleta: string; icono: IconType }> = {
+  ok: { paleta: "green", icono: LuCircleCheck },
+  alerta: { paleta: "orange", icono: LuClock },
+  peligro: { paleta: "red", icono: LuTriangleAlert },
+  info: { paleta: "blue", icono: LuLoader },
+  neutro: { paleta: "gray", icono: LuMinus },
+};
+
+export function EtiquetaEstado({
+  tono,
+  children,
+}: {
+  tono: TonoEstado;
+  children: ReactNode;
+}) {
+  const { paleta, icono: Icono } = ESTILO_TONO[tono];
+  return (
+    <Badge
+      colorPalette={paleta}
+      variant="subtle"
+      size="md"
+      gap="1.5"
+      px="2.5"
+      py="1"
+      rounded="full"
+      fontWeight="medium"
+      whiteSpace="nowrap"
+      maxW="100%"
+    >
+      <Icono size={14} aria-hidden />
+      {children}
+    </Badge>
+  );
+}
+
 export function BadgeEstado({
   children,
   icono,
@@ -642,6 +791,8 @@ export function FormField({
     <Field.Root required={required} invalid={invalid} mb={mb}>
       <Field.Label color="fg.muted" fontWeight="medium">
         {label}
+        {/* Asterisco en todos los campos obligatorios: antes no lo tenía ninguno. */}
+        <Field.RequiredIndicator color="red.fg" />
       </Field.Label>
       {children}
       {helper ? (
@@ -650,6 +801,53 @@ export function FormField({
         </Field.HelperText>
       ) : null}
     </Field.Root>
+  );
+}
+
+/**
+ * Validación al guardar.
+ *
+ * Antes los formularios deshabilitaban "Guardar" mientras faltaba algo, sin
+ * decir qué: el botón gris no explicaba nada y había que adivinar. Ahora el
+ * botón queda siempre habilitado; al tocarlo con campos vacíos no se envía,
+ * aparece "Para guardar falta completar: el nombre, el sector" y esos campos
+ * se marcan en rojo.
+ *
+ *   const faltan = faltantes({ nombre: [!values.nombre.trim(), "el nombre"] });
+ *   const { intentado, puedeEnviar } = useIntentoEnvio();
+ *   // submit:  if (!puedeEnviar(faltan.lista)) return;
+ *   // campo:   <FormField invalid={intentado && faltan.tiene("nombre")}>
+ *   // aviso:   <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
+ */
+export function faltantes(reglas: Record<string, [falta: boolean, etiqueta: string]>) {
+  const claves = Object.keys(reglas).filter((clave) => reglas[clave][0]);
+  return {
+    lista: claves.map((clave) => reglas[clave][1]),
+    tiene: (clave: string) => claves.includes(clave),
+  };
+}
+
+export function useIntentoEnvio() {
+  const [intentado, setIntentado] = useState(false);
+  const puedeEnviar = useCallback((lista: string[]) => {
+    setIntentado(true);
+    return lista.length === 0;
+  }, []);
+  return { intentado, puedeEnviar };
+}
+
+export function AvisoFaltantes({
+  visible,
+  faltantes: lista,
+}: {
+  visible: boolean;
+  faltantes: string[];
+}) {
+  if (!visible || lista.length === 0) return null;
+  return (
+    <MensajeError mt="0" mb="4">
+      Para guardar falta completar: {lista.join(", ")}.
+    </MensajeError>
   );
 }
 
@@ -744,10 +942,20 @@ export function SelectPlaceholder({
   );
 }
 
+/**
+ * Sin validación nativa del navegador. Los campos llevan `required` (por el
+ * asterisco de `FormField`), y con eso el navegador frenaba el envío con su
+ * globito antes de que corriera `useIntentoEnvio`, que es el que dice qué
+ * falta y marca los campos. Va como objeto porque el tipado polimórfico de
+ * `Box as="form"` no conoce `noValidate`.
+ */
+export const SIN_VALIDACION_NATIVA = { noValidate: true } as BoxProps;
+
 /** Superficie de un formulario de alta/edición. */
 export function TarjetaFormulario({ children, ...rest }: BoxProps) {
   return (
     <Box
+      {...(rest.as === "form" ? SIN_VALIDACION_NATIVA : {})}
       bg="bg.panel"
       rounded="lg"
       borderWidth="1px"
@@ -1044,9 +1252,14 @@ export function ToggleInactivos({
 }
 
 /**
- * Aviso de operación exitosa antes de volver al listado.
- * Usa `Dialog` para que traiga foco atrapado y roles ARIA; no tiene acción
- * de cierre, conserva el comportamiento de "mostrar y redirigir".
+ * Aviso de operación exitosa.
+ *
+ * Antes era un diálogo centrado que tapaba la pantalla 2 segundos y después
+ * redirigía solo: no se podía hacer nada mientras tanto. Ahora es un aviso
+ * breve en la esquina (`toaster`) que no bloquea, y la navegación de vuelta
+ * es inmediata (`useDelayedNavigate`); el aviso sigue visible en la pantalla
+ * de destino. Se mantiene la misma API (`isOpen`, `mensaje`) para no tocar
+ * las páginas que lo usan.
  */
 export function DialogoExito({
   isOpen,
@@ -1055,35 +1268,10 @@ export function DialogoExito({
   isOpen: boolean;
   mensaje: string;
 }) {
-  if (!isOpen) return null;
-
-  return (
-    <DialogRoot
-      open
-      placement="center"
-      motionPreset="none"
-      closeOnEscape={false}
-      closeOnInteractOutside={false}
-    >
-      <DialogContent
-        width="400px"
-        maxWidth="400px"
-        p="8"
-        rounded="lg"
-        bg="bg.panel"
-        textAlign="center"
-        boxShadow="dialog"
-      >
-        <Box color="green.fg" display="flex" justifyContent="center" mb="2" aria-hidden>
-          <LuCircleCheck size={32} />
-        </Box>
-        <DialogTitle fontSize="lg" fontWeight="bold" color="green.fg">
-          Éxito
-        </DialogTitle>
-        <Text mt="3" color="fg.muted" fontSize="sm">
-          {mensaje}
-        </Text>
-      </DialogContent>
-    </DialogRoot>
-  );
+  useEffect(() => {
+    if (isOpen) {
+      toaster.create({ type: "success", title: mensaje, duration: 4000 });
+    }
+  }, [isOpen, mensaje]);
+  return null;
 }

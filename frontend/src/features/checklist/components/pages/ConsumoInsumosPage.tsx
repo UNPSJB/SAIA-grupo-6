@@ -118,7 +118,7 @@ export function ConsumoInsumosPage() {
                   <FilaEncabezado>
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
                     <EncabezadoOscuro ancho="amplia">Cantidad acumulada</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="media">Registros</EncabezadoOscuro>
+                    <EncabezadoOscuro numero ancho="media">Registros</EncabezadoOscuro>
                   </FilaEncabezado>
                 </Table.Header>
                 <Table.Body>
@@ -128,7 +128,7 @@ export function ConsumoInsumosPage() {
                       <Celda>
                         {cantidadConUnidad(insumo.cantidad_total, insumo.unidad_simbolo)}
                       </Celda>
-                      <Celda>{insumo.cantidad_registros}</Celda>
+                      <Celda numero>{insumo.cantidad_registros}</Celda>
                     </Table.Row>
                   ))}
                 </Table.Body>
@@ -148,7 +148,7 @@ export function ConsumoInsumosPage() {
                   <FilaEncabezado>
                     <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="amplia">Cantidad</EncabezadoOscuro>
+                    <EncabezadoOscuro numero ancho="amplia">Cantidad</EncabezadoOscuro>
                   </FilaEncabezado>
                 </Table.Header>
                 <Table.Body>
@@ -156,7 +156,7 @@ export function ConsumoInsumosPage() {
                     <Table.Row key={`${item.fecha}-${item.insumo_quimico_id}`}>
                       <Celda>{item.fecha}</Celda>
                       <Celda>{item.nombre}</Celda>
-                      <Celda>{cantidadConUnidad(item.cantidad_total, item.unidad_simbolo)}</Celda>
+                      <Celda numero>{cantidadConUnidad(item.cantidad_total, item.unidad_simbolo)}</Celda>
                     </Table.Row>
                   ))}
                 </Table.Body>

@@ -22,6 +22,7 @@ from src.lotesInsumo.models import LoteInsumo
 from src.lotesInsumo.services import saldo_lote_insumo
 from src.personal.models import Personal
 from src.productos.models import Producto
+from src.unidadMedida.models import UnidadMedida
 from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo
 from src.recetas.services import calcular_factor, version_vigente
 
@@ -455,22 +456,32 @@ def dashboard(
             producto=nombre,
             cantidad_producida=_q(total),
             cantidad_lotes=cantidad,
+            unidad=unidad,
         )
-        for nombre, total, cantidad in db.execute(
+        for nombre, unidad, total, cantidad in db.execute(
             select(
                 Producto.nombre,
+                UnidadMedida.simbolo,
                 func.coalesce(func.sum(sub.c.cantidad_producida), 0),
                 func.count(sub.c.id),
             )
             .join(Producto, Producto.id == sub.c.producto_id)
+            .join(UnidadMedida, UnidadMedida.id == Producto.unidad_medida_id)
             .where(sub.c.estado == ESTADO_TERMINADO)
-            .group_by(Producto.nombre)
+            .group_by(Producto.nombre, UnidadMedida.simbolo)
             .order_by(Producto.nombre)
         ).all()
     ]
+    # Totales separados por unidad: kilos con kilos, unidades con unidades.
+    totales: dict[str, Decimal] = {}
+    for p in por_producto:
+        totales[p.unidad] = totales.get(p.unidad, CERO) + p.cantidad_producida
     return schemas.DashboardLotesResponse(
         total_lotes=sum(conteos.values()),
         total_cantidad_producida=sum((p.cantidad_producida for p in por_producto), CERO),
+        total_por_unidad=[
+            schemas.TotalPorUnidad(unidad=u, cantidad=c) for u, c in sorted(totales.items())
+        ],
         por_estado=[
             schemas.LoteResumenEstado(estado=e, cantidad=conteos[e]) for e in ESTADOS_LOTE
         ],

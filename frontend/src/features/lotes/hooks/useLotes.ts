@@ -6,6 +6,7 @@ import type { DashboardLotes, FiltrosLotes, LoteResumen } from "../types/lote";
 const DASHBOARD_VACIO: DashboardLotes = {
   total_lotes: 0,
   total_cantidad_producida: 0,
+  total_por_unidad: [],
   por_estado: [],
   por_producto: [],
 };

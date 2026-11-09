@@ -40,7 +40,7 @@ export function BarraFiltros({
   herramientas?: ReactNode;
 }) {
   return (
-    <Tarjeta p="4" mb="4" overflow="visible">
+    <Tarjeta p="4" mb="4" overflow="visible" className="barra-filtros">
       <HStack gap="4" flexWrap="wrap" align="flex-end" justify="space-between">
         <HStack gap="4" flexWrap="wrap" align="flex-end" flex="1" minW="0">
           {busqueda ? (
@@ -260,12 +260,15 @@ export function EncabezadoOrdenable<C extends string>({
   orden,
   ancho,
   center = false,
+  numero = false,
 }: {
   children: string;
   columna: C;
   orden: OrdenTabla<C, string>;
   ancho?: AnchoColumna;
   center?: boolean;
+  /** Columna de cantidades: a la derecha, como sus celdas. */
+  numero?: boolean;
 }) {
   const activa = orden.columna === columna;
   const Icono = !activa
@@ -278,6 +281,7 @@ export function EncabezadoOrdenable<C extends string>({
     <EncabezadoOscuro
       ancho={ancho}
       center={center}
+      numero={numero}
       title={`Ordenar por ${children}`}
       aria-sort={
         activa

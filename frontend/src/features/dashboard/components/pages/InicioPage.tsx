@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex, Grid, Heading } from "@chakra-ui/react";
 import {
   EstadoVacio,
@@ -7,9 +7,11 @@ import { useDashboard } from "../../hooks/useDashboard";
 import {
   calcularCumplimiento,
   calcularEquiposCalibrados,
-  incidentesPorSemana,
+  incidentesPorPeriodo,
   partesPorTipo,
+  type RangoFechas,
 } from "../../types/dashboard";
+import { haceDiasISO, hoyISO } from "../../../../common/utils/fechas";
 import { GraficoTorta } from "../GraficoTorta";
 import { TarjetaCumplimiento } from "../TarjetaCumplimiento";
 import { TarjetaEquiposCalibrados } from "../TarjetaEquiposCalibrados";
@@ -37,9 +39,20 @@ export function InicioPage() {
     [cumplimiento.datos],
   );
 
+  // Cada tarjeta de incidentes tiene su propio período, como Producción.
+  // Por defecto, los últimos 30 días.
+  const [rangoTorta, setRangoTorta] = useState<RangoFechas>(() => ({
+    desde: haceDiasISO(30),
+    hasta: hoyISO(),
+  }));
+  const [rangoSerie, setRangoSerie] = useState<RangoFechas>(() => ({
+    desde: haceDiasISO(30),
+    hasta: hoyISO(),
+  }));
+
   const partes = useMemo(
-    () => partesPorTipo(incidentes.datos),
-    [incidentes.datos],
+    () => partesPorTipo(incidentes.datos, "todos", rangoTorta),
+    [incidentes.datos, rangoTorta],
   );
 
   const estadoCalibracion = useMemo(
@@ -52,8 +65,11 @@ export function InicioPage() {
   );
 
   const serie = useMemo(
-    () => incidentesPorSemana(incidentes.datos),
-    [incidentes.datos],
+    () =>
+      rangoSerie.desde && rangoSerie.hasta && rangoSerie.desde <= rangoSerie.hasta
+        ? incidentesPorPeriodo(incidentes.datos, rangoSerie)
+        : [],
+    [incidentes.datos, rangoSerie],
   );
 
   if (!verOperacion && !verIncidentes) {
@@ -129,6 +145,8 @@ export function InicioPage() {
               partes={partes}
               loading={incidentes.loading}
               error={incidentes.error}
+              rango={rangoTorta}
+              onCambiarRango={setRangoTorta}
               h="auto"
               flexShrink={0}
             />
@@ -137,6 +155,8 @@ export function InicioPage() {
               datos={serie}
               loading={incidentes.loading}
               error={incidentes.error}
+              rango={rangoSerie}
+              onCambiarRango={setRangoSerie}
               flex="1"
               h="auto"
             />

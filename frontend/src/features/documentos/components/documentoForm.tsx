@@ -1,13 +1,16 @@
 import { useState } from "react";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 import { TIPOS_DOCUMENTO } from "../types/documento";
 import type { DocumentoFormValues, TipoDocumento } from "../types/documento";
@@ -39,12 +42,17 @@ export function DocumentoForm({
 }: DocumentoFormProps) {
   const [values, setValues] = useState<DocumentoFormValues>(emptyValues);
 
+  const faltan = faltantes({
+    nombre: [conDatosDelDocumento && !values.nombre.trim(), "el nombre del documento"],
+    archivo: [!values.archivo, "el archivo"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit(values);
   };
-
-  const incompleto = !values.archivo || (conDatosDelDocumento && !values.nombre.trim());
 
   return (
     <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
@@ -52,7 +60,7 @@ export function DocumentoForm({
 
       {conDatosDelDocumento && (
         <>
-          <FormField label="Nombre del documento" required>
+          <FormField label="Nombre del documento" required invalid={intentado && faltan.tiene("nombre")}>
             <FormInput
               value={values.nombre}
               onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
@@ -98,6 +106,7 @@ export function DocumentoForm({
       <FormField
         label="Archivo"
         required
+        invalid={intentado && faltan.tiene("archivo")}
         helper="Formatos admitidos: PDF, Word, Excel, PNG y JPG."
         mb="0"
       >
@@ -112,8 +121,9 @@ export function DocumentoForm({
         />
       </FormField>
 
+      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
       <AccionesFormulario>
-        <BotonGuardar loading={isLoading} disabled={incompleto}>
+        <BotonGuardar loading={isLoading}>
           {submitLabel}
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}

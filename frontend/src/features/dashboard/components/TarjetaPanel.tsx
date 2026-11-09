@@ -57,7 +57,10 @@ export function TarjetaPanel({
         mb={chico ? "2" : "4"}
         flexWrap="wrap"
       >
-        <Flex direction="column" gap="4" flex="1" minW="0">
+        {/* Ancho mínimo del título: si no entra junto a las acciones (p. ej.
+            el Desde/Hasta en la columna angosta), las acciones bajan a otro
+            renglón en vez de partir el título en dos. */}
+        <Flex direction="column" gap="4" flex="1" minW="0" flexBasis="220px">
           <Heading
             as="h3"
             fontSize={tamanoTitulo}

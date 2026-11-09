@@ -7,7 +7,6 @@ import { formatoFecha } from "../../../../common/utils/fechas";
 import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
 import { BarraFiltros, CampoBusqueda, FiltroSelect } from "../../../../components/ui/filtros";
 import {
-  BadgeEstado,
   BannerError,
   BotonAccion,
   BotonAgregar,
@@ -15,6 +14,8 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  EtiquetaEstado,
+  FilaClickeable,
   FilaEncabezado,
   Tarjeta,
   ToggleInactivos,
@@ -31,25 +32,25 @@ function TabStockPorInsumo() {
   if (stock.length === 0) return <EstadoVacio>No hay insumos registrados.</EstadoVacio>;
 
   return (
-    <Tarjeta overflowX="auto">
+    <Tarjeta desplazable>
       <Table.Root variant="outline" w="100%" minW="760px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Recibido</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Consumo real</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Desperdicio</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Stock actual</EncabezadoOscuro>
+            <EncabezadoOscuro numero ancho="amplia">Recibido</EncabezadoOscuro>
+            <EncabezadoOscuro numero ancho="amplia">Consumo real</EncabezadoOscuro>
+            <EncabezadoOscuro numero ancho="amplia">Desperdicio</EncabezadoOscuro>
+            <EncabezadoOscuro numero ancho="amplia">Stock actual</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {stock.map((s) => (
             <Table.Row key={s.insumo_id}>
               <Celda>{s.insumo_nombre}</Celda>
-              <Celda>{cantidadConUnidad(s.cantidad_recibida, s.unidad)}</Celda>
-              <Celda>{cantidadConUnidad(s.consumo_real, s.unidad)}</Celda>
-              <Celda>{cantidadConUnidad(s.desperdicio, s.unidad)}</Celda>
-              <Celda>
+              <Celda numero>{cantidadConUnidad(s.cantidad_recibida, s.unidad)}</Celda>
+              <Celda numero>{cantidadConUnidad(s.consumo_real, s.unidad)}</Celda>
+              <Celda numero>{cantidadConUnidad(s.desperdicio, s.unidad)}</Celda>
+              <Celda numero>
                 <Text as="span" fontWeight="bold">
                   {cantidadConUnidad(s.stock, s.unidad)}
                 </Text>
@@ -127,7 +128,7 @@ function TabLotes() {
       )}
 
       {!loading && !error && visibles.length > 0 && (
-        <Tarjeta overflowX="auto">
+        <Tarjeta desplazable>
           <Table.Root variant="outline" w="100%" minW="1000px">
             <Table.Header>
               <FilaEncabezado>
@@ -135,14 +136,14 @@ function TabLotes() {
                 <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Lote</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Recibido</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Saldo</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="media">Recibido</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="media">Saldo</EncabezadoOscuro>
                 <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
               {visibles.map((l) => (
-                <Table.Row key={l.lote_insumo_id} opacity={l.activo ? 1 : 0.65}>
+                <FilaClickeable onAbrir={() => navigate(`/trazabilidad/lotes-insumo/${l.lote_insumo_id}`)} key={l.lote_insumo_id} opacity={l.activo ? 1 : 0.65}>
                   <Celda>{l.insumo_nombre}</Celda>
                   <Celda>{l.proveedor_nombre}</Celda>
                   <Celda>
@@ -154,12 +155,12 @@ function TabLotes() {
                     {formatoFecha(l.fecha_vencimiento)}
                     {l.vencido && (
                       <Box mt="1">
-                        <BadgeEstado>Vencido</BadgeEstado>
+                        <EtiquetaEstado tono="peligro">Vencido</EtiquetaEstado>
                       </Box>
                     )}
                   </Celda>
-                  <Celda>{formatoCantidad(l.cantidad_recibida)}</Celda>
-                  <Celda>
+                  <Celda numero>{formatoCantidad(l.cantidad_recibida)}</Celda>
+                  <Celda numero>
                     <Text as="span" fontWeight="bold">
                       {formatoCantidad(l.saldo)}
                     </Text>
@@ -185,7 +186,7 @@ function TabLotes() {
                       )}
                     </HStack>
                   </Celda>
-                </Table.Row>
+                </FilaClickeable>
               ))}
             </Table.Body>
           </Table.Root>

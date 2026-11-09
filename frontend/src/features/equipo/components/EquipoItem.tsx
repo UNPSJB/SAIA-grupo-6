@@ -1,6 +1,7 @@
-import { HStack, Table } from "@chakra-ui/react";
+import { HStack } from "@chakra-ui/react";
+import { useNavigate } from "react-router-dom";
 import type { Equipo } from "../types/equipo";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import { BotonAccion, Celda, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
 
 interface EquipoItemProps {
   equipo: Equipo;
@@ -19,8 +20,9 @@ export function EquipoItem({
   onIntervenir,
   onVerHistorial,
 }: EquipoItemProps) {
+  const navigate = useNavigate();
   return (
-    <Table.Row
+    <FilaClickeable onAbrir={() => navigate(`/equipos/detalle/${equipo.id}`)}
       borderBottomWidth="1px"
       borderColor="border.subtle"
       opacity={equipo.activo ? 1 : 0.65}
@@ -58,6 +60,6 @@ export function EquipoItem({
           )}
         </HStack>
       </Celda>
-    </Table.Row>
+    </FilaClickeable>
   );
 }

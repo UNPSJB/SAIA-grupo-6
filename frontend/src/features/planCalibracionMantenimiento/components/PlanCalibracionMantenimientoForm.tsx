@@ -8,15 +8,18 @@ import type {
 } from "../types/planCalibracionMantenimiento";
 import {
   AccionesFormulario,
+  AvisoFaltantes,
   BannerError,
   BotonCancelar,
   BotonGuardar,
+  faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
   TarjetaFormulario,
   TituloFormulario,
+  useIntentoEnvio,
 } from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoFormProps {
@@ -81,15 +84,18 @@ export function PlanCalibracionMantenimientoForm({
     }));
   };
 
+  const faltan = faltantes({
+    equipo: [!values.equipo_id, "el equipo"],
+    fecha: [!values.fecha_ultima_intervencion, "la fecha de la última intervención"],
+    periodicidad: [!(values.periodicidad_dias > 0), "la periodicidad (mayor a cero)"],
+  });
+  const { intentado, puedeEnviar } = useIntentoEnvio();
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!puedeEnviar(faltan.lista)) return;
     onSubmit(values);
   };
-
-  const formularioInvalido =
-    !values.equipo_id ||
-    !values.fecha_ultima_intervencion ||
-    values.periodicidad_dias <= 0;
 
   return (
     <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
@@ -97,7 +103,7 @@ export function PlanCalibracionMantenimientoForm({
 
       {errorEquipos && <BannerError>{errorEquipos}</BannerError>}
 
-      <FormField label="Equipo" required helper="Sólo se muestran equipos activos.">
+      <FormField label="Equipo" required helper="Sólo se muestran equipos activos." invalid={intentado && faltan.tiene("equipo")}>
         <FormNativeSelect
           value={values.equipo_id}
           onChange={handleEquipoChange}
@@ -126,7 +132,7 @@ export function PlanCalibracionMantenimientoForm({
         </FormNativeSelect>
       </FormField>
 
-      <FormField label="Fecha de la última intervención" required>
+      <FormField label="Fecha de la última intervención" required invalid={intentado && faltan.tiene("fecha")}>
         <FormInput
           type="date"
           value={values.fecha_ultima_intervencion}
@@ -135,7 +141,7 @@ export function PlanCalibracionMantenimientoForm({
         />
       </FormField>
 
-      <FormField label="Periodicidad (días)" required mb="0">
+      <FormField label="Periodicidad (días)" required mb="0" invalid={intentado && faltan.tiene("periodicidad")}>
         <FormInput
           type="number"
           min={1}
@@ -146,11 +152,9 @@ export function PlanCalibracionMantenimientoForm({
         />
       </FormField>
 
+      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
       <AccionesFormulario>
-        <BotonGuardar
-          loading={isLoading}
-          disabled={cargandoEquipos || formularioInvalido}
-        >
+        <BotonGuardar loading={isLoading} disabled={cargandoEquipos}>
           {submitLabel}
         </BotonGuardar>
         {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
