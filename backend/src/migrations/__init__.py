@@ -26,6 +26,8 @@ from .stock import migrar_stock
 from .tareas import migrar_tareas
 from .trazabilidad import migrar_trazabilidad
 from .vista_publica import migrar_vista_publica
+from .clientes import migrar_clientes
+from .transportistas import migrar_transportistas
 
 
 def run_migrations() -> None:
@@ -51,6 +53,8 @@ def run_migrations() -> None:
     # Vista pública: después de create_all (que ya creó la tabla) y de las
     # migraciones de estructura.
     migrar_vista_publica()
+    migrar_clientes()
+    migrar_transportistas()
 
 
 def crear_tablas_y_migrar() -> None:

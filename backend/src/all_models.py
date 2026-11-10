@@ -60,6 +60,8 @@ from src.elementoLimpieza.models import ElementoLimpieza  # noqa: F401
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: F401
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento  # noqa: F401
 from src.tareas.models import Tarea  # noqa: F401
+from src.clientes.models import Cliente  # noqa: F401
+from src.transportistas.models import Transportista  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
@@ -87,6 +89,8 @@ __all__ = [
     "AuditLog",
     "Calibracion",
     "Checklist",
+    "Cliente",
+    "Transportista",
     "ConfiguracionVistaPublica",
     "Documento",
     "ElementoLimpieza",

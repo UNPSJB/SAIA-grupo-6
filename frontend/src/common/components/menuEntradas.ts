@@ -123,6 +123,8 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
       { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
+      { to: "/clientes", label: "Clientes", rol: "administrar", icon: LuUsers },
+      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuTruck },
     ],
   },
   {
