@@ -8,6 +8,7 @@ interface InsumoItemProps {
   onEdit: (insumo: Insumo) => void;
   onDelete: (insumo: Insumo) => void;
   onReactivar: (insumo: Insumo) => void;
+  onNutricion: (insumo: Insumo) => void;
 }
 
 export function InsumoItem({
@@ -15,6 +16,7 @@ export function InsumoItem({
   onEdit,
   onDelete,
   onReactivar,
+  onNutricion,
 }: InsumoItemProps) {
   const unidadLabel = insumo.unidad_medida
     ? `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`
@@ -47,6 +49,9 @@ export function InsumoItem({
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo && (
             <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(insumo)} />
+          )}
+          {insumo.activo && (
+            <BotonAccion accion="nutricion" label="Datos nutricionales" onClick={() => onNutricion(insumo)} />
           )}
           {insumo.activo ? (
             <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(insumo)} />

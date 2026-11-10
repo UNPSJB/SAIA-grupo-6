@@ -52,6 +52,7 @@ from src.lotes.router import router as lotes_router
 from src.productos.router import router as productos_router
 from src.aditivos.router import router as aditivos_router
 from src.recetas.router import router as recetas_router
+from src.nutricion.router import router as nutricion_router
 from src.lotesInsumo.router import router as lotes_insumo_router
 from src.lotesInsumo.router import stock_router as stock_insumos_router
 from src.trazabilidad.router import router as trazabilidad_router
@@ -168,6 +169,7 @@ app.include_router(lotes_router)
 app.include_router(productos_router)
 app.include_router(aditivos_router)
 app.include_router(recetas_router)
+app.include_router(nutricion_router)
 app.include_router(lotes_insumo_router)
 app.include_router(stock_insumos_router)
 app.include_router(trazabilidad_router)

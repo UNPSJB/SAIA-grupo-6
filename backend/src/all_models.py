@@ -44,6 +44,15 @@ from src.recetas.models import (  # noqa: F401
     TareaRecetaInsumo,
     VersionReceta,
 )
+from src.nutricion.models import (  # noqa: F401
+    AlimentoReferencia,
+    InfoNutricionalProducto,
+    ParametroNutricion,
+    ParametroNutriente,
+    PerfilNutricionalInsumo,
+    ValorLaboratorioProducto,
+    ValorNutricionalInsumo,
+)
 from src.lotesInsumo.models import LoteInsumo  # noqa: F401
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: F401
 from src.insumoQuimico.models import InsumoQuimico, LoteStock  # noqa: F401
@@ -67,6 +76,13 @@ import src.auditoria.listeners  # noqa: F401
 
 __all__ = [
     "Aditivo",
+    "AlimentoReferencia",
+    "InfoNutricionalProducto",
+    "ParametroNutricion",
+    "ParametroNutriente",
+    "PerfilNutricionalInsumo",
+    "ValorLaboratorioProducto",
+    "ValorNutricionalInsumo",
     "Aptitud",
     "AuditLog",
     "Calibracion",

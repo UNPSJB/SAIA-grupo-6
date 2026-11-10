@@ -14,9 +14,10 @@ interface ProductoTableProps {
   onEdit: (producto: Producto) => void;
   onDelete: (producto: Producto) => void;
   onReactivar: (producto: Producto) => void;
+  onNutricion: (producto: Producto) => void;
 }
 
-export function ProductoTable({ productos, onEdit, onDelete, onReactivar }: ProductoTableProps) {
+export function ProductoTable({ productos, onEdit, onDelete, onReactivar, onNutricion }: ProductoTableProps) {
   if (productos.length === 0) {
     return (
       <Tarjeta p="8" textAlign="center">
@@ -56,6 +57,7 @@ export function ProductoTable({ productos, onEdit, onDelete, onReactivar }: Prod
                   {producto.activo ? (
                     <>
                       <BotonAccion accion="editar" label="Modificar producto" onClick={() => onEdit(producto)} />
+                      <BotonAccion accion="nutricion" label="Información nutricional" onClick={() => onNutricion(producto)} />
                       <BotonAccion accion="eliminar" label="Eliminar producto" onClick={() => onDelete(producto)} />
                     </>
                   ) : (

@@ -129,6 +129,7 @@ export function ProductoPage() {
             <ProductoTable
               productos={paginados}
               onEdit={(p) => navigate(`/productos/${p.id}/editar`)}
+              onNutricion={(p) => navigate(`/productos/${p.id}/informacion-nutricional`)}
               onDelete={setAEliminar}
               onReactivar={setAReactivar}
             />

@@ -255,6 +255,7 @@ export function InsumosPage() {
               insumos={insumos}
               orden={orden}
               onEdit={handleEdit}
+              onNutricion={(insumo) => navigate(`/insumos/${insumo.id}/nutricion`)}
               onDelete={handleDeleteRequest}
               onReactivar={handleReactivarRequest}
             />
