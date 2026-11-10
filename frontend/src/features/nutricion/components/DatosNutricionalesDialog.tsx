@@ -3,17 +3,22 @@ import type { DatosNutricionales } from "../types/nutricion";
 import { FormDatosNutricionales } from "./FormDatosNutricionales";
 
 /**
- * Completar los datos de un insumo sin salir de la tabla del producto
- * (E11, historia 3: "desde la misma pantalla de advertencia").
+ * Datos nutricionales de un insumo sin salir de la pantalla del producto.
+ *
+ * * Para completar lo que falta (E11, historia 3: "desde la misma pantalla de
+ *   advertencia"): editable.
+ * * Para consultar desde el detalle del cálculo: `soloLectura`.
  */
 export function DatosNutricionalesDialog({
   insumoId,
   onGuardado,
   onCerrar,
+  soloLectura = false,
 }: {
   insumoId: number;
-  onGuardado: (datos: DatosNutricionales) => void;
+  onGuardado?: (datos: DatosNutricionales) => void;
   onCerrar: () => void;
+  soloLectura?: boolean;
 }) {
   return (
     <DialogRoot
@@ -28,10 +33,10 @@ export function DatosNutricionalesDialog({
       <DialogContent bg="bg.panel" rounded="lg" boxShadow="dialog" width="900px" maxW="calc(100vw - 32px)">
         <DialogCloseTrigger />
         <DialogTitle as="h3" px="6" pt="6" mb="0" fontSize="lg" fontWeight="bold" color="fg">
-          Completar datos nutricionales
+          {soloLectura ? "Datos nutricionales del insumo" : "Completar datos nutricionales"}
         </DialogTitle>
         <DialogBody p="6">
-          <FormDatosNutricionales insumoId={insumoId} onGuardado={onGuardado} onCancel={onCerrar} />
+          <FormDatosNutricionales insumoId={insumoId} onGuardado={onGuardado} onCancel={onCerrar} soloLectura={soloLectura} />
         </DialogBody>
       </DialogContent>
     </DialogRoot>

@@ -73,6 +73,12 @@ interface Props {
   /** Se llama con los datos guardados (el diálogo se cierra, la página recalcula). */
   onGuardado?: (datos: DatosNutricionales) => void;
   onCancel?: () => void;
+  /**
+   * Solo para consultar: los campos quedan congelados y no hay botón de
+   * guardar. Lo usa el detalle del cálculo del producto; los datos se editan
+   * desde Insumos → Datos nutricionales (o desde "Completar datos" si faltan).
+   */
+  soloLectura?: boolean;
 }
 
 /**
@@ -84,7 +90,7 @@ interface Props {
  * respecto de lo que dijo la fuente, queda marcado como modificado con quién
  * lo hizo.
  */
-export function FormDatosNutricionales({ insumoId, onGuardado, onCancel }: Props) {
+export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLectura = false }: Props) {
   const [datos, setDatos] = useState<DatosNutricionales | null>(null);
   const [parametros, setParametros] = useState<ParametroNutriente[]>([]);
   const [filas, setFilas] = useState<Record<string, Fila>>({});
@@ -228,6 +234,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel }: Props
 
   const handleSubmit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
+    if (soloLectura) return;
     setIntentado(true);
     if (invalidos.length > 0) return;
     if ((peso && !numeroValido(peso)) || (densidad && !numeroValido(densidad))) return;
@@ -334,7 +341,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel }: Props
           icono={LuFlaskConical}
           ayuda="Por defecto un aditivo no lleva datos nutricionales. Si aporta energía o sodio de forma relevante (bicarbonato, conservantes con sodio), marcalo: entonces se le exigen esos dos valores."
         >
-          <Checkbox.Root checked={aporta} onCheckedChange={(e) => setAporta(!!e.checked)} colorPalette="brand">
+          <Checkbox.Root checked={aporta} onCheckedChange={(e) => setAporta(!!e.checked)} colorPalette="brand" disabled={soloLectura}>
             <Checkbox.HiddenInput />
             <Checkbox.Control />
             <Checkbox.Label fontWeight="medium">Aporta energía o sodio de forma relevante</Checkbox.Label>
@@ -356,89 +363,95 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel }: Props
           ) : necesitaDensidad ? (
             <FormField label="Densidad" required mb="0" invalid={intentado && !!densidad && !numeroValido(densidad)}>
               <InputGroup endElement={<Text fontSize="sm" color="fg.muted">g/ml</Text>} maxW="220px">
-                <FormInput value={densidad} onChange={(e) => setDensidad(e.target.value)} inputMode="decimal" placeholder="Ej: 1,03" textAlign="right" />
+                <FormInput value={densidad} onChange={(e) => setDensidad(e.target.value)} readOnly={soloLectura} inputMode="decimal" placeholder="Ej: 1,03" textAlign="right" />
               </InputGroup>
             </FormField>
           ) : (
             <FormField label="Peso de cada unidad" required mb="0" invalid={intentado && !!peso && !numeroValido(peso)}>
               <InputGroup endElement={<Text fontSize="sm" color="fg.muted">g</Text>} maxW="220px">
-                <FormInput value={peso} onChange={(e) => setPeso(e.target.value)} inputMode="decimal" placeholder="Ej: 50" textAlign="right" />
+                <FormInput value={peso} onChange={(e) => setPeso(e.target.value)} readOnly={soloLectura} inputMode="decimal" placeholder="Ej: 50" textAlign="right" />
               </InputGroup>
             </FormField>
           )}
         </Bloque>
       )}
 
-      <Bloque
-        titulo="Fuente de los datos"
-        icono={LuBookOpen}
-        ayuda={
-          fuente === "base_referencia"
-            ? "Buscá el alimento en la base de composición y tocá «Tomar valores del alimento»: la tabla de abajo se completa con sus valores."
-            : "Escribí los valores en la tabla de abajo: se guardan con esta fuente y este detalle."
-        }
-      >
-        <Box display="grid" gridTemplateColumns={{ base: "1fr", md: "minmax(0, 1fr) minmax(0, 1.4fr)" }} gap="4" alignItems="start">
-          <FormField label="Fuente" mb="0">
-            <FormNativeSelect
-              value={fuente}
-              onChange={(e) => {
-                setFuente(e.target.value as Fuente);
-                // El detalle es de la fuente anterior (otro proveedor, otra cita).
-                setReferencia("");
-              }}
-            >
-              {FUENTES.map((f) => (
-                <option key={f.valor} value={f.valor}>{f.etiqueta}</option>
-              ))}
-            </FormNativeSelect>
-          </FormField>
-          {fuente === "base_referencia" ? (
-            <BuscadorAlimento seleccionado={alimento} onSeleccionar={setAlimento} />
-          ) : (
-            <FormField label="Detalle de la fuente" mb="0" helper="Opcional, pero recomendado para auditar de dónde salió cada valor.">
-              <FormInput
-                value={referencia}
-                onChange={(e) => setReferencia(e.target.value)}
-                maxLength={300}
-                placeholder={fuente === "rotulo_proveedor" ? "Ej: Molinos X, harina 000, rótulo 2026" : "Ej: cita bibliográfica"}
-              />
+      {!soloLectura && (
+        <Bloque
+          titulo="Fuente de los datos"
+          icono={LuBookOpen}
+          ayuda={
+            fuente === "base_referencia"
+              ? "Buscá el alimento en la base de composición y tocá «Tomar valores del alimento»: la tabla de abajo se completa con sus valores."
+              : "Escribí los valores en la tabla de abajo: se guardan con esta fuente y este detalle."
+          }
+        >
+          <Box display="grid" gridTemplateColumns={{ base: "1fr", md: "minmax(0, 1fr) minmax(0, 1.4fr)" }} gap="4" alignItems="start">
+            <FormField label="Fuente" mb="0">
+              <FormNativeSelect
+                value={fuente}
+                onChange={(e) => {
+                  setFuente(e.target.value as Fuente);
+                  // El detalle es de la fuente anterior (otro proveedor, otra cita).
+                  setReferencia("");
+                }}
+              >
+                {FUENTES.map((f) => (
+                  <option key={f.valor} value={f.valor}>{f.etiqueta}</option>
+                ))}
+              </FormNativeSelect>
             </FormField>
-          )}
-        </Box>
+            {fuente === "base_referencia" ? (
+              <BuscadorAlimento seleccionado={alimento} onSeleccionar={setAlimento} />
+            ) : (
+              <FormField label="Detalle de la fuente" mb="0" helper="Opcional, pero recomendado para auditar de dónde salió cada valor.">
+                <FormInput
+                  value={referencia}
+                  onChange={(e) => setReferencia(e.target.value)}
+                  maxLength={300}
+                  placeholder={fuente === "rotulo_proveedor" ? "Ej: Molinos X, harina 000, rótulo 2026" : "Ej: cita bibliográfica"}
+                />
+              </FormField>
+            )}
+          </Box>
 
-        {fuente === "base_referencia" && (
-          <HStack mt="4" gap="3" flexWrap="wrap">
-            <Button type="button" colorPalette="brand" onClick={aplicar} disabled={!alimento}>
-              <LuDownload aria-hidden /> Tomar valores del alimento
-            </Button>
-            <Text fontSize="xs" color="fg.muted">Lo que escribas a mano en una fila vacía se guarda como «Valor propio».</Text>
-          </HStack>
-        )}
-        {fuente !== "base_referencia" && conOtraFuente > 0 && (
-          <Aviso
-            tono="info"
-            mt="4"
-            acciones={
-              <Button type="button" size="sm" variant="outline" colorPalette="blue" onClick={aplicar}>
-                Pasarlos a esta fuente
+          {fuente === "base_referencia" && (
+            <HStack mt="4" gap="3" flexWrap="wrap">
+              <Button type="button" colorPalette="brand" onClick={aplicar} disabled={!alimento}>
+                <LuDownload aria-hidden /> Tomar valores del alimento
               </Button>
-            }
-          >
-            {conOtraFuente === 1 ? "1 valor guardado tiene" : `${conOtraFuente} valores guardados tienen`} otra fuente y{" "}
-            {conOtraFuente === 1 ? "la conserva" : "la conservan"}.
-          </Aviso>
-        )}
-      </Bloque>
+              <Text fontSize="xs" color="fg.muted">Lo que escribas a mano en una fila vacía se guarda como «Valor propio».</Text>
+            </HStack>
+          )}
+          {fuente !== "base_referencia" && conOtraFuente > 0 && (
+            <Aviso
+              tono="info"
+              mt="4"
+              acciones={
+                <Button type="button" size="sm" variant="outline" colorPalette="blue" onClick={aplicar}>
+                  Pasarlos a esta fuente
+                </Button>
+              }
+            >
+              {conOtraFuente === 1 ? "1 valor guardado tiene" : `${conOtraFuente} valores guardados tienen`} otra fuente y{" "}
+              {conOtraFuente === 1 ? "la conserva" : "la conservan"}.
+            </Aviso>
+          )}
+        </Bloque>
+      )}
 
       <Bloque
         titulo="Valores por 100 g"
         icono={LuListChecks}
-        ayuda="Dejá vacío lo que no tengas. Si cambiás un número que vino de una fuente, queda marcado como modificado y se registra quién lo cambió."
+        ayuda={
+          soloLectura
+            ? "Solo lectura. Para cambiar estos datos, editá el insumo desde Insumos → Datos nutricionales."
+            : "Dejá vacío lo que no tengas. Si cambiás un número que vino de una fuente, queda marcado como modificado y se registra quién lo cambió."
+        }
       >
         {!esAditivo && (
           <Box mb="4" p="3" bg="bg.subtle" rounded="md">
-            <Checkbox.Root checked={anadidos} onCheckedChange={(e) => setAnadidos(!!e.checked)} colorPalette="brand">
+            <Checkbox.Root checked={anadidos} onCheckedChange={(e) => setAnadidos(!!e.checked)} colorPalette="brand" disabled={soloLectura}>
               <Checkbox.HiddenInput />
               <Checkbox.Control />
               <Checkbox.Label fontWeight="medium">Todo su azúcar es añadido</Checkbox.Label>
@@ -513,6 +526,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel }: Props
                           size="sm"
                           value={fila?.valor ?? ""}
                           onChange={(e) => cambiarValor(p.clave, e.target.value)}
+                          readOnly={soloLectura}
                           inputMode="decimal"
                           textAlign="right"
                           aria-label={`${p.nombre} por 100 g`}
@@ -574,6 +588,16 @@ Cargado el ${formatoFechaHora(guardado.cargado_en)}${guardado.cargado_por ? ` po
         <MensajeError mt="0" mb="4">Hay valores que no son números válidos (mayores o iguales a cero).</MensajeError>
       )}
 
+      {soloLectura ? (
+        <HStack gap="3" flexWrap="wrap" justify="space-between" pt="2">
+          <Text fontSize="sm" color="fg.muted">
+            Solo lectura: los datos se editan desde Insumos → Datos nutricionales.
+          </Text>
+          {onCancel && (
+            <BotonCancelar onClick={onCancel}>Cerrar</BotonCancelar>
+          )}
+        </HStack>
+      ) : (
       <HStack gap="3" flexWrap="wrap" justify="space-between" pt="2">
         <Text fontSize="sm" color={hayCambios ? "blue.fg" : "fg.muted"}>
           {hayCambios ? "Hay cambios sin guardar." : "No hay cambios sin guardar."}
@@ -587,6 +611,7 @@ Cargado el ${formatoFechaHora(guardado.cargado_en)}${guardado.cargado_por ? ` po
           <BotonGuardar loading={guardando}>Guardar datos nutricionales</BotonGuardar>
         </HStack>
       </HStack>
+      )}
     </Box>
   );
 }

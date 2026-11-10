@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, HStack, InputGroup, Stack, Text } from "@chakra-ui/react";
+import { Box, InputGroup, Text } from "@chakra-ui/react";
 import { SeccionDetalle } from "../../../components/ui/plantillas";
 import { BannerError, BotonGuardar, FormField, FormInput } from "../../../components/ui/patrones";
 import { toaster } from "../../../components/ui/toaster";
@@ -62,13 +62,24 @@ export function LaboratorioProducto({ info, onGuardado }: { info: InfoNutriciona
     >
       <Box as="form" {...{ noValidate: true }} onSubmit={guardar}>
         {error && <BannerError mb="4">{error}</BannerError>}
-        <Stack gap="1.5" mb="4">
+        <Text fontSize="xs" fontWeight="semibold" color="fg.muted" mb="2">
+          Valores por 100 {info.expresar_en} de producto terminado
+        </Text>
+        <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(170px, 1fr))" gap="3" mb="5">
           {info.filas.map((f) => (
-            <HStack key={f.clave} justify="space-between" gap="3">
-              <Text fontSize="sm" pl={SUBNUTRIENTES.includes(f.clave) ? "4" : "0"} color={valores[f.clave] ? "fg" : "fg.muted"}>
+            <Box key={f.clave} minW="0">
+              <Text
+                as="label"
+                display="block"
+                fontSize="xs"
+                mb="1"
+                color={valores[f.clave] ? "fg" : "fg.muted"}
+                fontWeight={SUBNUTRIENTES.includes(f.clave) ? "normal" : "medium"}
+                lineClamp={1}
+              >
                 {f.nombre}
               </Text>
-              <InputGroup endElement={<Text fontSize="xs" color="fg.muted">{f.unidad}</Text>} w="130px" flexShrink={0}>
+              <InputGroup endElement={<Text fontSize="xs" color="fg.muted">{f.unidad}</Text>}>
                 <FormInput
                   size="sm"
                   value={valores[f.clave] ?? ""}
@@ -79,23 +90,29 @@ export function LaboratorioProducto({ info, onGuardado }: { info: InfoNutriciona
                   aria-label={`${f.nombre} por 100 ${info.expresar_en} según laboratorio`}
                 />
               </InputGroup>
-            </HStack>
+            </Box>
           ))}
-        </Stack>
-        <Text fontSize="xs" color="fg.muted" mb="4">Valores por 100 {info.expresar_en} de producto terminado.</Text>
-        <FormField label="Laboratorio o informe" mb="3">
-          <FormInput value={referencia} onChange={(e) => setReferencia(e.target.value)} maxLength={300} placeholder="Ej: INTI, informe 2026-0412" />
-        </FormField>
-        <FormField label="Fecha del análisis" mb="4">
-          <FormInput type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-        </FormField>
+        </Box>
+        <Box
+          display="grid"
+          gridTemplateColumns={{ base: "1fr", md: "minmax(0, 2fr) minmax(0, 1fr) auto" }}
+          gap="4"
+          alignItems="end"
+        >
+          <FormField label="Laboratorio o informe" mb="0">
+            <FormInput value={referencia} onChange={(e) => setReferencia(e.target.value)} maxLength={300} placeholder="Ej: INTI, informe 2026-0412" />
+          </FormField>
+          <FormField label="Fecha del análisis" mb="0">
+            <FormInput type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+          <BotonGuardar loading={guardando}>Guardar resultados</BotonGuardar>
+        </Box>
         {primero && (
-          <Text fontSize="xs" color="fg.subtle" mb="3">
+          <Text fontSize="xs" color="fg.subtle" mt="3">
             Cargado el {formatoFecha(primero.cargado_en)}
             {primero.cargado_por ? ` por ${primero.cargado_por}` : ""}.
           </Text>
         )}
-        <BotonGuardar loading={guardando} w="100%">Guardar resultados</BotonGuardar>
       </Box>
     </SeccionDetalle>
   );

@@ -51,6 +51,8 @@ export function InfoNutricionalProductoPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [completar, setCompletar] = useState<number | null>(null);
+  // Consulta de solo lectura desde el detalle del cálculo.
+  const [consultar, setConsultar] = useState<number | null>(null);
   const [descargando, setDescargando] = useState(false);
 
   const recalcular = useCallback(async () => {
@@ -184,13 +186,24 @@ export function InfoNutricionalProductoPage() {
             </Box>
           )}
 
+          {/*
+            La tabla toma solo su ancho (como un rótulo, ~620 px) y la columna
+            de la derecha se queda con el resto: antes la tarjeta de la tabla se
+            estiraba y dejaba un hueco blanco a su derecha. El análisis de
+            laboratorio va abajo, a lo ancho, para que la columna de la derecha
+            no quede mucho más alta que la tabla.
+          */}
           <Box
             display="grid"
-            gridTemplateColumns={{ base: "minmax(0, 1fr)", xl: "minmax(0, 1fr) 360px" }}
+            gridTemplateColumns={{
+              base: "minmax(0, 1fr)",
+              lg: "minmax(0, 1fr) 300px",
+              xl: "fit-content(720px) minmax(340px, 1fr)",
+            }}
             gap="6"
             alignItems="start"
           >
-            <SeccionDetalle titulo="Tabla nutricional" mb="0">
+            <SeccionDetalle titulo="Tabla nutricional" mb="0" minW="0">
               <TablaNutricional info={info} />
             </SeccionDetalle>
 
@@ -208,8 +221,11 @@ export function InfoNutricionalProductoPage() {
                 </Box>
               </SeccionDetalle>
               <ConfiguracionProducto key={JSON.stringify(info.configuracion)} info={info} onGuardado={recalcular} />
-              <LaboratorioProducto key={JSON.stringify(info.laboratorio)} info={info} onGuardado={recalcular} />
             </Stack>
+          </Box>
+
+          <Box mt="6">
+            <LaboratorioProducto key={JSON.stringify(info.laboratorio)} info={info} onGuardado={recalcular} />
           </Box>
 
           <Bloque
@@ -251,9 +267,9 @@ export function InfoNutricionalProductoPage() {
                       </Celda>
                       <Celda py="2.5" px="4" center>
                         <BotonAccion
-                          accion="nutricion"
-                          label={`Datos nutricionales de ${ing.nombre}`}
-                          onClick={() => setCompletar(ing.insumo_id)}
+                          accion="ver"
+                          label={`Ver datos nutricionales de ${ing.nombre}`}
+                          onClick={() => setConsultar(ing.insumo_id)}
                         />
                       </Celda>
                     </Table.Row>
@@ -263,6 +279,10 @@ export function InfoNutricionalProductoPage() {
             </Box>
           </Bloque>
         </>
+      )}
+
+      {consultar !== null && (
+        <DatosNutricionalesDialog insumoId={consultar} soloLectura onCerrar={() => setConsultar(null)} />
       )}
 
       {completar !== null && (

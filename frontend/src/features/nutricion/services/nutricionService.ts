@@ -38,8 +38,12 @@ export async function guardarParametros(datos: Parametros): Promise<Parametros> 
 
 // ── Base de composición ────────────────────────────────────────────────────
 
-export async function buscarAlimentos(buscar = "", base = ""): Promise<AlimentoReferencia[]> {
-  const params = new URLSearchParams();
+export async function buscarAlimentos(
+  buscar = "",
+  base = "",
+  limite = 50,
+): Promise<AlimentoReferencia[]> {
+  const params = new URLSearchParams({ limite: String(limite) });
   if (buscar.trim()) params.set("buscar", buscar.trim());
   if (base) params.set("base", base);
   return pedir<AlimentoReferencia[]>(

@@ -1,17 +1,30 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, Box, Button, Checkbox, HStack, InputGroup, Stack, Table, Text } from "@chakra-ui/react";
-import { LuDatabase, LuFileDown, LuFileUp, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
-import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { LuFileDown, LuFileUp, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
+import { Pagina, PestanasPagina, SeccionDetalle } from "../../../../components/ui/plantillas";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  EstadoVacioFiltrado,
+  FiltroSelect,
+  chipsDeFiltros,
+} from "../../../../components/ui/filtros";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
   BannerError,
   BotonGuardar,
   Celda,
   EncabezadoOscuro,
   EstadoCargando,
+  EstadoVacio,
   FilaEncabezado,
   FormField,
   FormInput,
   FormNativeSelect,
+  Paginacion,
+  Tarjeta,
+  TextoTruncado,
 } from "../../../../components/ui/patrones";
 import { toaster } from "../../../../components/ui/toaster";
 import { formatoCantidad } from "../../../../common/utils/numeros";
@@ -256,6 +269,8 @@ function PanelParametros() {
   );
 }
 
+const PAGE_SIZE_ALIMENTOS = 10;
+
 const COLUMNAS_TABLA = [
   ["energia", "kcal"],
   ["carbohidratos", "Carbohid. (g)"],
@@ -292,13 +307,28 @@ function PanelBase() {
   const [resultado, setResultado] = useState<ResultadoImportacion | null>(null);
   const selector = useRef<HTMLInputElement>(null);
 
+  const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
+    alimentos,
+    PAGE_SIZE_ALIMENTOS,
+    `${buscar}|${base}|${recarga}`,
+  );
+  const limpiarFiltros = () => {
+    setTexto("");
+    setBase("");
+  };
+  const chips = chipsDeFiltros([
+    { clave: "busqueda", etiqueta: "Búsqueda", valor: texto, recortar: true, onQuitar: () => setTexto("") },
+    { clave: "base", etiqueta: "Base", valor: base, onQuitar: () => setBase("") },
+  ]);
+
   useEffect(() => {
     listarBases().then(setBases).catch(() => setBases([]));
   }, [recarga]);
 
   useEffect(() => {
     let vigente = true;
-    buscarAlimentos(buscar, base)
+    // Hasta 500 alimentos (el máximo de la API); la tabla los pagina de a 10.
+    buscarAlimentos(buscar, base, 500)
       .then((r) => vigente && setAlimentos(r))
       .catch((e: Error) => vigente && setError(e.message));
     return () => {
@@ -400,57 +430,71 @@ function PanelBase() {
         )}
       </Bloque>
 
-      <Bloque
+      <SeccionDetalle
+        sinMarco
+        mb="0"
         titulo="Alimentos cargados"
-        icono={LuDatabase}
-        ayuda="Valores por 100 g. Son los que se ofrecen al elegir «Base de composición» en los datos de un insumo."
-        acciones={
-          <HStack gap="3" flexWrap="wrap">
-            <FormInput value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Buscar por nombre..." w="240px" />
-            <FormNativeSelect value={base} onChange={(e) => setBase(e.target.value)} w="240px">
-              <option value="">Todas las bases</option>
-              {bases.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </FormNativeSelect>
-          </HStack>
-        }
+        descripcion="Valores por 100 g. Son los que se ofrecen al elegir «Base de composición» en los datos de un insumo."
       >
-        <Box overflowX="auto" mx={{ base: "-4", md: "-5" }} mb={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
-          <Table.Root size="sm" minW="960px" data-sin-tarjetas="">
-            <Table.Header>
-              <FilaEncabezado>
-                <EncabezadoOscuro width="260px">Alimento</EncabezadoOscuro>
-                {COLUMNAS_TABLA.map(([k, etiqueta]) => (
-                  <EncabezadoOscuro key={k} numero>{etiqueta}</EncabezadoOscuro>
-                ))}
-              </FilaEncabezado>
-            </Table.Header>
-            <Table.Body>
-              {alimentos.length === 0 && (
-                <Table.Row>
-                  <Table.Cell p="6" colSpan={COLUMNAS_TABLA.length + 1}>
-                    <Text color="fg.muted" textAlign="center">No hay alimentos que coincidan.</Text>
-                  </Table.Cell>
-                </Table.Row>
-              )}
-              {alimentos.map((a) => (
-                <Table.Row key={a.id} _hover={{ bg: "bg.subtle" }}>
-                  <Celda py="2" px="4">
-                    <Text fontWeight="medium">{a.nombre}</Text>
-                    <Badge variant="subtle" colorPalette="gray" size="sm" maxW="240px" title={a.base}>
-                      <Text as="span" lineClamp={1}>{a.base}</Text>
-                    </Badge>
-                  </Celda>
-                  {COLUMNAS_TABLA.map(([k]) => (
-                    <Celda key={k} py="2" px="4" numero>{formatoCantidad(a[k], "—")}</Celda>
+        <BarraFiltros
+          busqueda={<CampoBusqueda valor={texto} onCambio={setTexto} placeholder="Nombre del alimento..." />}
+          filtros={
+            <FiltroSelect
+              label="Base"
+              valor={base}
+              onCambio={setBase}
+              opciones={bases.map((b) => ({ valor: b, etiqueta: b }))}
+              todos="Todas las bases"
+              minW="260px"
+            />
+          }
+        />
+        <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarFiltros} />
+
+        {alimentos.length === 0 ? (
+          chips.length > 0 ? (
+            <EstadoVacioFiltrado onLimpiar={limpiarFiltros}>
+              No hay alimentos que coincidan con los filtros aplicados.
+            </EstadoVacioFiltrado>
+          ) : (
+            <EstadoVacio>Todavía no hay alimentos cargados: importá una base desde el formulario de arriba.</EstadoVacio>
+          )
+        ) : (
+          <>
+            <Tarjeta overflowX="auto">
+              <Table.Root variant="outline" w="100%" minW="960px">
+                <Table.Header>
+                  <FilaEncabezado>
+                    <EncabezadoOscuro width="220px">Alimento</EncabezadoOscuro>
+                    <EncabezadoOscuro width="180px">Base</EncabezadoOscuro>
+                    {COLUMNAS_TABLA.map(([k, etiqueta]) => (
+                      <EncabezadoOscuro key={k} numero>{etiqueta}</EncabezadoOscuro>
+                    ))}
+                  </FilaEncabezado>
+                </Table.Header>
+                <Table.Body>
+                  {paginados.map((a) => (
+                    <Table.Row key={a.id}>
+                      <Celda>
+                        <TextoTruncado texto={a.nombre} lineClamp={1} fontWeight="medium" />
+                      </Celda>
+                      <Celda>
+                        <TextoTruncado texto={a.base} lineClamp={1} fontSize="xs" color="fg.muted" title={a.base} />
+                      </Celda>
+                      {COLUMNAS_TABLA.map(([k]) => (
+                        <Celda key={k} numero>{formatoCantidad(a[k], "—")}</Celda>
+                      ))}
+                    </Table.Row>
                   ))}
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
-        </Box>
-      </Bloque>
+                </Table.Body>
+              </Table.Root>
+            </Tarjeta>
+            {hayVariasPaginas && (
+              <Paginacion count={alimentos.length} pageSize={PAGE_SIZE_ALIMENTOS} page={page} onPageChange={setPage} />
+            )}
+          </>
+        )}
+      </SeccionDetalle>
     </>
   );
 }
