@@ -43,6 +43,20 @@ export function InsumoItem({
       <Celda p="3">
         <TextoTruncado texto={unidadLabel} />
       </Celda>
+      <Celda p="3">
+        {insumo.densidad_g_ml != null ? (
+          <Text fontSize="sm">{insumo.densidad_g_ml}</Text>
+        ) : (
+          <Text fontSize="sm" color="fg.subtle">—</Text>
+        )}
+      </Celda>
+      <Celda p="3">
+        {insumo.peso_unitario_g != null ? (
+          <Text fontSize="sm">{insumo.peso_unitario_g}</Text>
+        ) : (
+          <Text fontSize="sm" color="fg.subtle">—</Text>
+        )}
+      </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo && (

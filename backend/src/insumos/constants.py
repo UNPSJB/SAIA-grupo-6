@@ -5,3 +5,5 @@ class ErrorCode:
     INSUMO_YA_EXISTE = "El insumo ya existe."
     NOMBRE_VACIO = "El nombre no puede estar vacío."
     UBICACION_VACIA = "ubicacion no puede estar vacia"
+    DENSIDAD_REQUERIDA_VOLUMEN = "La densidad (g/ml) es obligatoria para unidades de tipo Volumen."
+    PESO_UNITARIO_REQUERIDO_UNIDAD = "El peso unitario (g) es obligatorio para unidades de tipo Unidad."

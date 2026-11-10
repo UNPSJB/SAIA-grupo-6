@@ -76,7 +76,7 @@ export function UnidadMedidaEditPage() {
               nombre: unidadMedida.nombre,
               simbolo: unidadMedida.simbolo,
               tipo: unidadMedida.tipo,
-              factor_a_base: unidadMedida.factor_a_base,
+              factor_a_base: String(unidadMedida.factor_a_base ?? ""),
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}

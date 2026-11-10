@@ -9,4 +9,6 @@ export interface UnidadMedida {
   factor_a_base: number;
 }
 
-export type UnidadMedidaFormValues = Omit<UnidadMedida, "id" | "activo">;
+export type UnidadMedidaFormValues = Omit<UnidadMedida, "id" | "activo"> & {
+  factor_a_base: string;
+};

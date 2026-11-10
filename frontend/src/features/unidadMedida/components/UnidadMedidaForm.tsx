@@ -22,7 +22,7 @@ const emptyValues: UnidadMedidaFormValues = {
   nombre: "",
   simbolo: "",
   tipo: "unidad",
-  factor_a_base: 1,
+  factor_a_base: "",
 };
 
 export function UnidadMedidaForm({
@@ -53,15 +53,26 @@ export function UnidadMedidaForm({
       tipo: e.target.value as TipoUnidadMedida,
     }));
 
-  const handleFactorChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({
-      ...prev,
-      factor_a_base: Number(e.target.value) || 0,
-    }));
+  const handleFactorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const texto = e.target.value.replace(/,/g, ".");
+    // Permitir solo dígitos, un punto decimal y vacío (para borrar)
+    if (texto === "" || /^\d*\.?\d*$/.test(texto)) {
+      setValues((prev) => ({
+        ...prev,
+        factor_a_base: texto,
+      }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(values);
+    // Si está vacío, enviar 1 (el default del backend). Si tiene coma, convertir a punto.
+    const valorFactor =
+      values.factor_a_base === "" ? 1 : Number(values.factor_a_base);
+    onSubmit({
+      ...values,
+      factor_a_base: valorFactor,
+    });
   };
 
   return (
@@ -103,9 +114,8 @@ export function UnidadMedidaForm({
 
         <FormField label="Factor a base" required mb="0">
           <FormInput
-            type="number"
-            step="0.0001"
-            min="0.0001"
+            type="text"
+            inputMode="decimal"
             value={values.factor_a_base}
             onChange={handleFactorChange}
             placeholder="Ej: 1.0000"

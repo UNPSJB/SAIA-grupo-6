@@ -25,6 +25,7 @@ from .stock import migrar_stock
 from .tareas import migrar_tareas
 from .trazabilidad import migrar_trazabilidad
 from .unidades_medida_tipo_factor import migrar_unidades_medida_tipo_factor
+from .insumos_densidad_peso import migrar_insumos_densidad_peso
 from .vista_publica import migrar_vista_publica
 
 
@@ -45,6 +46,7 @@ def run_migrations() -> None:
     migrar_seguridad()
     migrar_notificaciones()
     migrar_unidades_medida_tipo_factor()
+    migrar_insumos_densidad_peso()
     migrar_vista_publica()
 
 

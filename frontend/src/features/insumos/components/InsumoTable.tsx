@@ -45,6 +45,8 @@ export function InsumoTable({
             <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media">
               Unidad Medida
             </EncabezadoOrdenable>
+            <EncabezadoOscuro ancho="angosta">Densidad g/ml</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="angosta">Peso unitario g</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">
               Acciones
             </EncabezadoOscuro>

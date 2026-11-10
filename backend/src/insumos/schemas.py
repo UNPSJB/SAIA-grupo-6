@@ -11,6 +11,8 @@ TipoInsumo = Literal["ingrediente", "aditivo"]
 class InsumoBase(BaseModel):
     nombre: str
     unidad_medida_id: int
+    densidad_g_ml: float | None = None
+    peso_unitario_g: float | None = None
 
     @field_validator("nombre")
     @classmethod
@@ -31,6 +33,8 @@ class InsumoUpdate(BaseModel):
     activo: bool | None = None
     tipo: TipoInsumo | None = None
     aditivo_id: int | None = Field(default=None, gt=0)
+    densidad_g_ml: float | None = None
+    peso_unitario_g: float | None = None
 
     # Igual que el alta: sin esto se podían guardar nombres vacíos al editar.
     @field_validator("nombre")
@@ -71,6 +75,7 @@ class UnidadMedidaResponse(BaseModel):
     id: int
     nombre: str
     simbolo: str
+    tipo: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
