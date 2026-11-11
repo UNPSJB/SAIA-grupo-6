@@ -19,6 +19,7 @@ import { useAuth } from "./common/context/useAuth";
 import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
 import { useLocation } from "react-router-dom";
 
+
 // 0. Panel principal
 const InicioPage = lazy(() =>
   import("./features/dashboard/components/pages/InicioPage").then((mod) => ({ default: mod.InicioPage })),
@@ -98,6 +99,10 @@ const LoteInsumoCreatePage = lazy(() =>
 );
 const TrazabilidadLoteInsumoPage = lazy(() =>
   import("./features/trazabilidad/components/pages/TrazabilidadLoteInsumoPage").then((mod) => ({ default: mod.TrazabilidadLoteInsumoPage })),
+);
+
+const RecetaComposicionPage = lazy(() =>
+  import("./features/recetas/components/pages/RecetaComposicionPage").then((mod) => ({ default: mod.RecetaComposicionPage })),
 );
 
 // 3. Equipos
@@ -845,6 +850,15 @@ export const router = createBrowserRouter([
                   </ConSuspense>
                 ),
               },
+
+                 {
+                path: "/recetas/versiones/:versionId/composicion",
+                element: (
+                  <ConSuspense>
+                    <RecetaComposicionPage />
+                  </ConSuspense>
+                ),
+              },              
 
               // ---------------- LOTES DE INSUMO Y TRAZABILIDAD ----------------
               {

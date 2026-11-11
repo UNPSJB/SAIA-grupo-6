@@ -93,6 +93,14 @@ export function RecetaDetallePage() {
                 Escalar e iniciar lote
               </BotonCancelar>
             )}
+            {esAdmin && versionId !== null && (
+               <BotonCancelar onClick={() => navigate(`/recetas/versiones/${versionId}/composicion`)}>
+               <LuCalculator aria-hidden />
+                Ver composición
+              </BotonCancelar>
+            )}
+
+
             {esAdmin && receta && (
               <BotonAgregar onClick={() => navigate(`/recetas/${receta.id}/nueva-version`)}>
                 Nueva versión

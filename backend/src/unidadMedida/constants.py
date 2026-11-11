@@ -1,3 +1,10 @@
+TIPO_MASA = "masa"
+TIPO_VOLUMEN = "volumen"
+TIPO_UNIDAD = "unidad"
+TIPOS = (TIPO_MASA, TIPO_VOLUMEN, TIPO_UNIDAD)
+
+
+
 class ErrorCode:
     UNIDAD_MEDIDA_NO_ENCONTRADA = "La unidad de medida no fue encontrada o fue dada de baja."
     DATO_DUPLICADO = "Ya existe un registro activo con esos datos en el sistema."

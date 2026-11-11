@@ -1,6 +1,13 @@
 CLASIFICACION_INGREDIENTE = "ingrediente"
 CLASIFICACION_ADITIVO = "aditivo"
 CLASIFICACIONES = (CLASIFICACION_INGREDIENTE, CLASIFICACION_ADITIVO)
+MOTIVOFALTANTE = "MotivoFaltante"
+
+TIPO_MASA = "masa"
+TIPO_VOLUMEN = "volumen"
+TIPO_UNIDAD = "unidad"
+TIPOS = (TIPO_MASA, TIPO_VOLUMEN, TIPO_UNIDAD)
+
 
 
 class ErrorCode:
@@ -41,3 +48,11 @@ class ErrorCode:
         "Indicá la cantidad objetivo o el factor multiplicador (uno de los dos)."
     )
     SIN_VERSION = "La receta todavía no tiene versiones."
+
+
+class MotivoFaltante:
+    """Por qué un insumo no se pudo convertir a gramos en la composición (E10)."""
+
+    UNIDAD_SIN_EQUIVALENCIA = "La unidad de medida no tiene tipo o factor de conversión."
+    SIN_DENSIDAD = "Falta la densidad del insumo (g/ml)."
+    SIN_PESO_UNITARIO = "Falta el peso por unidad del insumo (g)."
