@@ -3,7 +3,7 @@ from typing import Optional, Union
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin
+from src.auth.dependencies import get_current_user_activo_completo, require_admin
 from src.common.paginacion import ParamsPaginacion, Pagina
 from src.database import get_db
 from src.transportistas import schemas, services
@@ -12,16 +12,24 @@ from src.transportistas import schemas, services
 router = APIRouter(
     prefix="/transportistas",
     tags=["Transportistas"],
-    dependencies=[Depends(require_admin)],
 )
 
 
-@router.post("", response_model=schemas.TransportistaResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=schemas.TransportistaResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
 def crear_transportista(datos: schemas.TransportistaCreate, db: Session = Depends(get_db)):
     return services.crear_transportista(db, datos)
 
 
-@router.get("", response_model=Union[list[schemas.TransportistaResponse], Pagina[schemas.TransportistaResponse]])
+@router.get(
+    "",
+    response_model=Union[list[schemas.TransportistaResponse], Pagina[schemas.TransportistaResponse]],
+    dependencies=[Depends(get_current_user_activo_completo)],
+)
 def listar_transportistas(
     incluir_inactivos: bool = False,
     buscar: Optional[str] = Query(
@@ -69,12 +77,20 @@ def listar_transportistas(
     )
 
 
-@router.get("/{transportista_id}", response_model=schemas.TransportistaResponse)
+@router.get(
+    "/{transportista_id}",
+    response_model=schemas.TransportistaResponse,
+    dependencies=[Depends(get_current_user_activo_completo)],
+)
 def obtener_transportista(transportista_id: int, db: Session = Depends(get_db)):
     return services.obtener_transportista(db, transportista_id)
 
 
-@router.put("/{transportista_id}", response_model=schemas.TransportistaResponse)
+@router.put(
+    "/{transportista_id}",
+    response_model=schemas.TransportistaResponse,
+    dependencies=[Depends(require_admin)],
+)
 def actualizar_transportista(
     transportista_id: int,
     datos: schemas.TransportistaUpdate,
@@ -83,6 +99,10 @@ def actualizar_transportista(
     return services.actualizar_transportista(db, transportista_id, datos)
 
 
-@router.delete("/{transportista_id}", response_model=schemas.TransportistaResponse)
+@router.delete(
+    "/{transportista_id}",
+    response_model=schemas.TransportistaResponse,
+    dependencies=[Depends(require_admin)],
+)
 def eliminar_transportista(transportista_id: int, db: Session = Depends(get_db)):
     return services.eliminar_transportista(db, transportista_id)

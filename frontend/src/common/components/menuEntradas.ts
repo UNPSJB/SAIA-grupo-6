@@ -12,6 +12,7 @@ import {
   LuClipboardList,
   LuCog,
   LuContact,
+  LuContainer,
   LuCookingPot,
   LuFactory,
   LuFileSearch,
@@ -124,7 +125,7 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
       { to: "/clientes", label: "Clientes", rol: "administrar", icon: LuUsers },
-      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuTruck },
+      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuContainer },
     ],
   },
   {

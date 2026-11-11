@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, DateTime, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.certificaciones_transportista.estado import estado_habilitacion
 from src.models import ModeloBase
 
 
@@ -21,3 +22,14 @@ class Transportista(ModeloBase):
     fecha_actualizacion: Mapped[DateTime | None] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=True
     )
+
+    certificaciones = relationship(
+        "CertificacionTransportista",
+        back_populates="transportista",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def estado_habilitacion(self) -> str:
+        """Estado global calculado al serializar; nunca se persiste."""
+        return estado_habilitacion(self.certificaciones)

@@ -77,6 +77,7 @@ class TransportistaUpdate(TransportistaBase):
 class TransportistaResponse(TransportistaBase):
     id: int
     activo: bool
+    estado_habilitacion: str
     fecha_creacion: datetime
     fecha_actualizacion: datetime | None = None
 

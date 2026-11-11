@@ -28,6 +28,10 @@ from .trazabilidad import migrar_trazabilidad
 from .vista_publica import migrar_vista_publica
 from .clientes import migrar_clientes
 from .transportistas import migrar_transportistas
+from .certificaciones_transportista import (
+    migrar_certificaciones_transportista,
+    migrar_certificaciones_transportista_trazabilidad,
+)
 
 
 def run_migrations() -> None:
@@ -55,6 +59,8 @@ def run_migrations() -> None:
     migrar_vista_publica()
     migrar_clientes()
     migrar_transportistas()
+    migrar_certificaciones_transportista()
+    migrar_certificaciones_transportista_trazabilidad()
 
 
 def crear_tablas_y_migrar() -> None:

@@ -37,6 +37,7 @@ import {
   LuExternalLink,
   LuGauge,
   LuEye,
+  LuFileBadge,
   LuHistory,
   LuImage,
   LuLink,
@@ -496,7 +497,8 @@ export type AccionTabla =
   | "minimo"
   | "asociar"
   | "escalar"
-  | "nutricion";
+  | "nutricion"
+  | "certificacion";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -512,6 +514,7 @@ export type AccionTabla =
  *   reabrir / intervenir                    naranja vuelve atrás / mantenimiento
  *                                           (no comparten tabla, así que no se
  *                                           confunden entre sí)
+ *   certificación                           amarillo habilita/acredita
  */
 const PALETA_ACCION: Record<AccionTabla, string> = {
   ver: "gray",
@@ -532,6 +535,9 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   asociar: "blue",
   escalar: "blue",
   nutricion: "blue",
+  // Alta de una certificación/habilitación: crea datos, igual que "subir".
+  // Amarillo para distinguirla del resto de las altas (azul).
+  certificacion: "yellow",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -560,6 +566,8 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   escalar: LuCalculator,
   // E11: datos e información nutricional (insumos y productos).
   nutricion: LuApple,
+  // Certificación: documento con sello, no el escudo de SAIA.
+  certificacion: LuFileBadge,
 };
 
 /**

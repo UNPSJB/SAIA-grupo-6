@@ -49,6 +49,7 @@ from src.vencimientoPersonal.router import router as vencimiento_personal_router
 from src.aptitud.router import router as aptitud_router
 from src.clientes.router import router as clientes_router
 from src.transportistas.router import router as transportistas_router
+from src.certificaciones_transportista.router import router as certificaciones_transportista_router
 from src.proveedores.router import router as proveedores_router
 from src.lotes.router import router as lotes_router
 from src.productos.router import router as productos_router
@@ -168,6 +169,7 @@ app.include_router(vencimiento_personal_router)
 app.include_router(aptitud_router)
 app.include_router(clientes_router)
 app.include_router(transportistas_router)
+app.include_router(certificaciones_transportista_router)
 app.include_router(proveedores_router)
 app.include_router(lotes_router)
 app.include_router(productos_router)

@@ -2,7 +2,7 @@ from typing import Optional
 import logging
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from src.common.listados import filtro_busqueda
 from src.common.paginacion import paginar
@@ -12,7 +12,6 @@ from src.common.persistence import (
     es_violacion_unica,
     guardar,
     mapa_por_campo,
-    obtener,
     verificar_disponibilidad,
 )
 from src.transportistas import exceptions, schemas
@@ -65,7 +64,9 @@ def listar_transportistas(
 ):
     """Lista transportistas. Si se pasa `page` y `page_size`, devuelve paginación
     server-side `(items, total)`; si no, devuelve la lista completa."""
-    consulta = select(Transportista)
+    # El estado de habilitación se calcula con las certificaciones: se cargan
+    # en una segunda consulta (selectinload) para no hacer una por fila.
+    consulta = select(Transportista).options(selectinload(Transportista.certificaciones))
     filtro = filtro_busqueda(
         (
             Transportista.razon_social,
@@ -107,7 +108,15 @@ def listar_transportistas(
 
 
 def obtener_transportista(db: Session, transportista_id: int) -> Transportista:
-    return obtener(db, Transportista, transportista_id, exceptions.TransportistaNoEncontrado)
+    consulta = (
+        select(Transportista)
+        .options(selectinload(Transportista.certificaciones))
+        .where(Transportista.id == transportista_id)
+    )
+    transportista = db.scalar(consulta)
+    if transportista is None:
+        raise exceptions.TransportistaNoEncontrado()
+    return transportista
 
 
 def actualizar_transportista(
