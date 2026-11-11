@@ -8,7 +8,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useTransportistaABM } from "../../hooks/useTransportistaABM";
-import type { Transportista } from "../../types/transportista";
+import type { TransportistaFormValues } from "../../types/transportista";
 import { TransportistaForm } from "../TransportistaForm";
 
 export function TransportistaCreatePage() {
@@ -16,9 +16,9 @@ export function TransportistaCreatePage() {
   const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useTransportistaABM();
   const [exito, setExito] = useState(false);
-  const [valoresPendientes, setValoresPendientes] = useState<Omit<Transportista, "id" | "activo"> | null>(null);
+  const [valoresPendientes, setValoresPendientes] = useState<TransportistaFormValues | null>(null);
 
-  const handleSubmit = async (values: Omit<Transportista, "id" | "activo">) => {
+  const handleSubmit = async (values: TransportistaFormValues) => {
     try {
       await alta(values);
       setExito(true);

@@ -5,9 +5,9 @@ import {
   modificarTransportista,
   reactivarTransportista,
 } from "../services/transportistaService";
-import type { Transportista } from "../types/transportista";
+import type { Transportista, TransportistaFormValues } from "../types/transportista";
 
-type TransportistaInput = Omit<Transportista, "id" | "activo">;
+type TransportistaInput = TransportistaFormValues;
 
 export function useTransportistaABM() {
   return useABM<TransportistaInput, Transportista>({

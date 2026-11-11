@@ -9,7 +9,7 @@ import {
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useTransportista } from "../../hooks/useTransportista";
 import { useTransportistaABM } from "../../hooks/useTransportistaABM";
-import type { Transportista } from "../../types/transportista";
+import type { TransportistaFormValues } from "../../types/transportista";
 import { TransportistaForm } from "../TransportistaForm";
 
 export function TransportistaEditPage() {
@@ -24,7 +24,7 @@ export function TransportistaEditPage() {
   const { modificar, loading: guardando, error: errorGuardado } = useTransportistaABM();
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Transportista, "id" | "activo">) => {
+  const handleSubmit = async (values: TransportistaFormValues) => {
     try {
       await modificar(transportistaId, values);
       setExito(true);

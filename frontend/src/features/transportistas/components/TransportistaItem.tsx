@@ -1,7 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import { HStack, Table } from "@chakra-ui/react";
+import type { EstadoHabilitacion } from "../types/certificacion";
 import type { Transportista } from "../types/transportista";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  EtiquetaEstado,
+  TextoTruncado,
+  type TonoEstado,
+} from "../../../components/ui/patrones";
+
+const TONO_HABILITACION: Record<EstadoHabilitacion, TonoEstado> = {
+  Habilitado: "ok",
+  "Certificación vencida": "peligro",
+  "Sin certificaciones": "neutro",
+};
 
 interface TransportistaItemProps {
   transportista: Transportista;
@@ -9,6 +22,7 @@ interface TransportistaItemProps {
   onDelete: (transportista: Transportista) => void;
   onReactivar: (transportista: Transportista) => void;
   onVer?: (transportista: Transportista) => void;
+  onAgregarCertificacion?: (transportista: Transportista) => void;
 }
 
 export function TransportistaItem({
@@ -17,6 +31,7 @@ export function TransportistaItem({
   onDelete,
   onReactivar,
   onVer,
+  onAgregarCertificacion,
 }: TransportistaItemProps) {
   const navigate = useNavigate();
 
@@ -39,6 +54,13 @@ export function TransportistaItem({
       <Celda p="3">
         <TextoTruncado texto={transportista.telefono} />
       </Celda>
+      <Celda p="3" center>
+        <EtiquetaEstado
+          tono={TONO_HABILITACION[transportista.estado_habilitacion] ?? "neutro"}
+        >
+          {transportista.estado_habilitacion}
+        </EtiquetaEstado>
+      </Celda>
       <Celda p="3">
         <TextoTruncado texto={transportista.observaciones ?? "-"} />
       </Celda>
@@ -49,6 +71,13 @@ export function TransportistaItem({
               <BotonAccion accion="ver" label="Ver detalle" onClick={handleVer} />
               <BotonAccion accion="editar" label="Modificar transportista" onClick={() => onEdit(transportista)} />
               <BotonAccion accion="eliminar" label="Eliminar transportista" onClick={() => onDelete(transportista)} />
+              {onAgregarCertificacion && (
+                <BotonAccion
+                  accion="certificacion"
+                  label="Agregar certificación"
+                  onClick={() => onAgregarCertificacion(transportista)}
+                />
+              )}
             </>
           ) : (
             <>

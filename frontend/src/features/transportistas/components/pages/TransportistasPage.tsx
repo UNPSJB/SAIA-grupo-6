@@ -24,6 +24,7 @@ import { useTransportistas } from "../../hooks/useTransportistas";
 import type { OrdenTransportista } from "../../services/transportistaService";
 import type { Transportista } from "../../types/transportista";
 import { TransportistaTable } from "../TransportistaTable";
+import { ModalNuevaCertificacion } from "../ModalNuevaCertificacion";
 import { BotonesExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
@@ -58,6 +59,10 @@ export function TransportistasPage() {
 
   const [transportistaAEliminar, setTransportistaAEliminar] = useState<Transportista | null>(null);
   const [transportistaAReactivar, setTransportistaAReactivar] = useState<Transportista | null>(null);
+  const [certificacionModal, setCertificacionModal] = useState<{
+    transportista: Transportista | null;
+    open: boolean;
+  }>({ transportista: null, open: false });
 
   const limpiarTodo = () => {
     setBusqueda("");
@@ -109,6 +114,21 @@ export function TransportistasPage() {
     } catch {
       setTransportistaAEliminar(null);
     }
+  };
+
+  const handleAgregarCertificacion = (transportista: Transportista) => {
+    setCertificacionModal({ transportista, open: true });
+  };
+
+  const handleCloseCertificacionModal = () => {
+    setCertificacionModal({ transportista: null, open: false });
+  };
+
+  const handleCertificacionCreada = () => {
+    setCertificacionModal({ transportista: null, open: false });
+    // La columna "Habilitación" se calcula con las certificaciones activas:
+    // hay que recargar la página para que refleje el alta o la renovación.
+    void cargarTransportistas();
   };
 
   const handleReactivarRequest = (transportista: Transportista) =>
@@ -206,6 +226,7 @@ export function TransportistasPage() {
               onDelete={handleDeleteRequest}
               onReactivar={handleReactivarRequest}
               onVer={handleVer}
+              onAgregarCertificacion={handleAgregarCertificacion}
             />
           )}
 
@@ -239,6 +260,14 @@ export function TransportistasPage() {
         isLoading={procesando}
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
+      />
+
+      <ModalNuevaCertificacion
+        isOpen={certificacionModal.open}
+        transportistaId={certificacionModal.transportista?.id ?? 0}
+        transportistaNombre={certificacionModal.transportista?.razon_social ?? ""}
+        onClose={handleCloseCertificacionModal}
+        onCertificacionCreada={handleCertificacionCreada}
       />
     </Pagina>
   );

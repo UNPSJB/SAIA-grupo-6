@@ -1,7 +1,7 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
-import type { Transportista } from "../types/transportista";
+import type { Transportista, TransportistaFormValues } from "../types/transportista";
 
 export type ColumnaOrdenTransportista = "razon_social" | "cuit";
 
@@ -56,7 +56,7 @@ export async function listarTransportistasPaginados(
 }
 
 export async function crearTransportista(
-  datos: Omit<Transportista, "id" | "activo">
+  datos: TransportistaFormValues
 ): Promise<Transportista> {
   const response = await apiFetch(`${API_URL}/transportistas`, {
     method: "POST",
@@ -90,7 +90,7 @@ export async function eliminarTransportista(id: number): Promise<Transportista> 
 
 export async function reactivarTransportista(
   id: number,
-  datos: Omit<Transportista, "id" | "activo">
+  datos: TransportistaFormValues
 ): Promise<Transportista> {
   return modificarTransportista(id, { ...datos, activo: true });
 }

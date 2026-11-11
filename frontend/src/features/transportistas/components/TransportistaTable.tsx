@@ -1,6 +1,5 @@
 import { Table, Text } from "@chakra-ui/react";
 import type { Transportista } from "../types/transportista";
-import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
 import { TransportistaItem } from "./TransportistaItem";
 import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {
@@ -23,6 +22,7 @@ interface TransportistaTableProps {
   onDelete: (transportista: Transportista) => void;
   onReactivar: (transportista: Transportista) => void;
   onVer?: (transportista: Transportista) => void;
+  onAgregarCertificacion?: (transportista: Transportista) => void;
 }
 
 export function TransportistaTable({
@@ -32,6 +32,7 @@ export function TransportistaTable({
   onDelete,
   onReactivar,
   onVer,
+  onAgregarCertificacion,
 }: TransportistaTableProps) {
   if (transportistas.length === 0) {
     return (
@@ -45,7 +46,7 @@ export function TransportistaTable({
 
   return (
     <Tarjeta overflowX="auto">
-      <Table.Root variant="outline" w="100%" minW="800px">
+      <Table.Root variant="outline" w="100%" minW="920px">
         <Table.Header>
           <FilaEncabezado>
             {tieneOrden && orden ? (
@@ -63,6 +64,7 @@ export function TransportistaTable({
               <EncabezadoOscuro ancho="media">CUIT</EncabezadoOscuro>
             )}
             <EncabezadoOscuro ancho="media">Teléfono</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="media">Habilitación</EncabezadoOscuro>
             <EncabezadoOscuro ancho="amplia">Observaciones</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
@@ -76,6 +78,7 @@ export function TransportistaTable({
               onDelete={onDelete}
               onReactivar={onReactivar}
               onVer={onVer}
+              onAgregarCertificacion={onAgregarCertificacion}
             />
           ))}
         </Table.Body>
