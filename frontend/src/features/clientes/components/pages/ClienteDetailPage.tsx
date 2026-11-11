@@ -1,8 +1,8 @@
 import { useParams, useLocation } from "react-router-dom";
-import { Box, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { Box, SimpleGrid, Text } from "@chakra-ui/react";
 import { LuCircleCheck, LuMinus } from "react-icons/lu";
 import { useCliente } from "../../hooks/useCliente";
-import { BannerError, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
+import { BannerError, EstadoCargando } from "../../../../components/ui/patrones";
 import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { formatoFechaHora } from "../../../../common/utils/fechas";
 
@@ -41,7 +41,7 @@ export function ClienteDetailPage() {
     >
       {/* Sección: Datos principales */}
       <SeccionDetalle titulo="Datos principales">
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
           <Box>
             <Text fontSize="xs" color="fg.muted" mb="1">
               Nombre
@@ -87,7 +87,7 @@ export function ClienteDetailPage() {
 
       {/* Sección: Información del sistema */}
       <SeccionDetalle titulo="Información del sistema">
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
           <Box>
             <Text fontSize="xs" color="fg.muted" mb="1">
               Estado

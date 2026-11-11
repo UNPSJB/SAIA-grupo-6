@@ -8,7 +8,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useClienteABM } from "../../hooks/useClienteABM";
-import type { Cliente } from "../../types/cliente";
+import type { ClienteFormValues } from "../../types/cliente";
 import { ClienteForm } from "../ClienteForm";
 
 export function ClienteCreatePage() {
@@ -16,9 +16,9 @@ export function ClienteCreatePage() {
   const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useClienteABM();
   const [exito, setExito] = useState(false);
-  const [valoresPendientes, setValoresPendientes] = useState<Omit<Cliente, "id" | "activo"> | null>(null);
+  const [valoresPendientes, setValoresPendientes] = useState<ClienteFormValues | null>(null);
 
-  const handleSubmit = async (values: Omit<Cliente, "id" | "activo">) => {
+  const handleSubmit = async (values: ClienteFormValues) => {
     try {
       await alta(values);
       setExito(true);

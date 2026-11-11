@@ -5,9 +5,9 @@ import {
   modificarCliente,
   reactivarCliente,
 } from "../services/clienteService";
-import type { Cliente } from "../types/cliente";
+import type { Cliente, ClienteFormValues } from "../types/cliente";
 
-type ClienteInput = Omit<Cliente, "id" | "activo">;
+type ClienteInput = ClienteFormValues;
 
 export function useClienteABM() {
   return useABM<ClienteInput, Cliente>({

@@ -1,7 +1,5 @@
 import { Table, Text } from "@chakra-ui/react";
 import type { Cliente } from "../types/cliente";
-import type { OrdenCliente } from "../services/clienteService";
-import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
 import { ClienteItem } from "./ClienteItem";
 import { EncabezadoOrdenable } from "../../../components/ui/filtros";
 import {

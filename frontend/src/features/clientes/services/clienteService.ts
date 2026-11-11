@@ -1,7 +1,7 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
-import type { Cliente } from "../types/cliente";
+import type { Cliente, ClienteFormValues } from "../types/cliente";
 
 export type ColumnaOrdenCliente = "nombre" | "documento" | "telefono";
 
@@ -52,7 +52,7 @@ export async function listarClientesPaginados(
 }
 
 export async function crearCliente(
-  datos: Omit<Cliente, "id" | "activo">
+  datos: ClienteFormValues
 ): Promise<Cliente> {
   const response = await apiFetch(`${API_URL}/clientes`, {
     method: "POST",
@@ -86,7 +86,7 @@ export async function eliminarCliente(id: number): Promise<Cliente> {
 
 export async function reactivarCliente(
   id: number,
-  datos: Omit<Cliente, "id" | "activo">
+  datos: ClienteFormValues
 ): Promise<Cliente> {
   return modificarCliente(id, { ...datos, activo: true });
 }

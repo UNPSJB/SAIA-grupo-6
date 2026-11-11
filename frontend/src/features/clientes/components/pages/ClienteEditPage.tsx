@@ -9,7 +9,7 @@ import {
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useCliente } from "../../hooks/useCliente";
 import { useClienteABM } from "../../hooks/useClienteABM";
-import type { Cliente } from "../../types/cliente";
+import type { ClienteFormValues } from "../../types/cliente";
 import { ClienteForm } from "../ClienteForm";
 
 export function ClienteEditPage() {
@@ -24,7 +24,7 @@ export function ClienteEditPage() {
   const { modificar, loading: guardando, error: errorGuardado } = useClienteABM();
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Cliente, "id" | "activo">) => {
+  const handleSubmit = async (values: ClienteFormValues) => {
     try {
       await modificar(clienteId, values);
       setExito(true);
