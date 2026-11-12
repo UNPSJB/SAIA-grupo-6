@@ -164,4 +164,35 @@ export interface RecetaEscalada {
   tareas: TareaEscalada[];
 }
 
+export interface ComposicionItem {
+  insumo: InsumoResumen;
+  unidad_medida: UnidadResumen;
+  cantidad: string;
+  gramos: string;
+  porcentaje: string;
+}
+
+export interface ComposicionFaltante {
+  insumo: InsumoResumen;
+  clasificacion: Clasificacion;
+  motivo: string;
+}
+
+export interface Composicion {
+  version_id: number;
+  version_numero: number;
+  receta_id: number;
+  producto_nombre: string;
+  completa: boolean;
+  total_gramos: string | null;
+  ingredientes: ComposicionItem[];
+  aditivos: ComposicionItem[];
+  suma_porcentajes: string | null;
+  suma_correcta: boolean | null;
+  faltantes: ComposicionFaltante[];
+}
+
+
+
+
 export type ModoEscalado = "cantidad" | "factor";

@@ -57,6 +57,28 @@ def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
         raise exceptions.UnidadMedidaInactiva()
 
 
+def _validar_densidad_peso_por_tipo_unidad(
+    db: Session,
+    unidad_medida_id: int,
+    densidad_g_ml: float | None,
+    peso_unitario_g: float | None,
+) -> None:
+    """Valida que densidad/peso unitario estén presentes según el tipo de unidad.
+
+    - Volumen -> densidad_g_ml es obligatoria.
+    - Unidad  -> peso_unitario_g es obligatorio.
+    """
+    unidad = db.get(UnidadMedida, unidad_medida_id)
+    if unidad is None:
+        return  # ya falló antes en _verificar_unidad_medida
+
+    if unidad.tipo == "volumen" and densidad_g_ml is None:
+        raise exceptions.DensidadRequeridaParaVolumen()
+
+    if unidad.tipo == "unidad" and peso_unitario_g is None:
+        raise exceptions.PesoUnitarioRequeridoParaUnidad()
+
+
 def _normalizar_tipo(db: Session, tipo: str, aditivo_id: Optional[int]) -> Optional[int]:
     """Devuelve el `aditivo_id` que corresponde al tipo.
 
@@ -89,6 +111,9 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
             )
 
     _verificar_unidad_medida(db, insumo.unidad_medida_id)
+    _validar_densidad_peso_por_tipo_unidad(
+        db, insumo.unidad_medida_id, insumo.densidad_g_ml, insumo.peso_unitario_g
+    )
 
     datos = insumo.model_dump()
     datos["aditivo_id"] = _normalizar_tipo(db, insumo.tipo, insumo.aditivo_id)
@@ -225,6 +250,24 @@ def modificar_insumo(
         datos_a_actualizar["tipo"] = tipo_final
         datos_a_actualizar["aditivo_id"] = _normalizar_tipo(
             db, tipo_final, datos_a_actualizar.get("aditivo_id", db_insumo.aditivo_id)
+        )
+
+    # Densidad y peso unitario se validan contra el tipo de unidad final.
+    if any(
+        c in datos_a_actualizar
+        for c in ("unidad_medida_id", "densidad_g_ml", "peso_unitario_g")
+    ):
+        unidad_id_final = datos_a_actualizar.get(
+            "unidad_medida_id", db_insumo.unidad_medida_id
+        )
+        densidad_final = datos_a_actualizar.get(
+            "densidad_g_ml", db_insumo.densidad_g_ml
+        )
+        peso_final = datos_a_actualizar.get(
+            "peso_unitario_g", db_insumo.peso_unitario_g
+        )
+        _validar_densidad_peso_por_tipo_unidad(
+            db, unidad_id_final, densidad_final, peso_final
         )
 
     # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no

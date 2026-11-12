@@ -20,6 +20,10 @@ OrdenUnidadMedida = Literal[
     "nombre_desc",
     "simbolo_asc",
     "simbolo_desc",
+    "tipo_asc",
+    "tipo_desc",
+    "factor_a_base_asc",
+    "factor_a_base_desc",
 ]
 
 

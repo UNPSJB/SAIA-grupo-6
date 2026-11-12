@@ -28,6 +28,10 @@ export function UnidadMedidaItem({
 
       <Celda p="3">{unidad.simbolo}</Celda>
 
+      <Celda p="3">{unidad.tipo}</Celda>
+
+      <Celda p="3">{unidad.factor_a_base}</Celda>
+
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {unidad.activo ? (

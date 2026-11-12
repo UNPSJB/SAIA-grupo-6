@@ -25,6 +25,8 @@ from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
 from .trazabilidad import migrar_trazabilidad
+from .unidades_medida_tipo_factor import migrar_unidades_medida_tipo_factor
+from .insumos_densidad_peso import migrar_insumos_densidad_peso
 from .vista_publica import migrar_vista_publica
 
 
@@ -37,19 +39,17 @@ def run_migrations() -> None:
     migrar_stock()
     migrar_lotes()
     migrar_trazabilidad()
-    # E9: después de copiar los productos viejos (trazabilidad lee tipo='producto').
     migrar_aditivos_referencia()
     migrar_insumos_tipo()
     migrar_porcion_receta()
     # E11: parámetros de la tabla nutricional y base de composición de ejemplo.
     migrar_nutricion()
     migrar_equipos()
-    # Necesita personal.es_super_admin, por eso va después de migrar_columnas_personal.
     bootstrap_super_admin()
     migrar_seguridad()
     migrar_notificaciones()
-    # Vista pública: después de create_all (que ya creó la tabla) y de las
-    # migraciones de estructura.
+    migrar_unidades_medida_tipo_factor()
+    migrar_insumos_densidad_peso()
     migrar_vista_publica()
 
 

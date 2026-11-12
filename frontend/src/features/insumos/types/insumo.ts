@@ -24,6 +24,10 @@ export interface Insumo {
   aditivo_id: number | null;
   /** Clase funcional, nombre completo e INS (solo aditivos). */
   aditivo: AditivoResumen | null;
+  /** Densidad en g/ml. Obligatoria si la unidad es de tipo Volumen. */
+  densidad_g_ml: number | null;
+  /** Peso unitario en g. Obligatorio si la unidad es de tipo Unidad. */
+  peso_unitario_g: number | null;
 }
 
 export interface InsumoFormValues {
@@ -31,4 +35,8 @@ export interface InsumoFormValues {
   unidad_medida_id: number;
   tipo: TipoInsumo;
   aditivo_id: number | null;
+  /** String para permitir vacío y coma decimal en el formulario. */
+  densidad_g_ml: string;
+  /** String para permitir vacío y coma decimal en el formulario. */
+  peso_unitario_g: string;
 }

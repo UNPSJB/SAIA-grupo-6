@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, ForeignKey, String
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.aditivos.models import Aditivo
@@ -44,3 +44,13 @@ class Insumo(ModeloBase):
 
     unidad_medida: Mapped["UnidadMedida"] = relationship()
     aditivo: Mapped["Aditivo | None"] = relationship()
+
+    # Campos opcionales según tipo de unidad de medida:
+    #  - volumen -> densidad_g_ml es obligatorio
+    #  - unidad  -> peso_unitario_g es obligatorio
+    densidad_g_ml: Mapped[float | None] = mapped_column(
+        Numeric(10, 4), nullable=True
+    )
+    peso_unitario_g: Mapped[float | None] = mapped_column(
+        Numeric(10, 4), nullable=True
+    )

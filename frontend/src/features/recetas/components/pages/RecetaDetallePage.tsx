@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
-import { LuCalculator, LuHistory } from "react-icons/lu";
+import { LuCalculator, LuHistory, LuPercent } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
@@ -93,6 +93,14 @@ export function RecetaDetallePage() {
                 Escalar e iniciar lote
               </BotonCancelar>
             )}
+            {esAdmin && versionId !== null && (
+               <BotonCancelar onClick={() => navigate(`/recetas/versiones/${versionId}/composicion`)}>
+               <LuPercent aria-hidden />
+                Ver composición
+              </BotonCancelar>
+            )}
+
+
             {esAdmin && receta && (
               <BotonAgregar onClick={() => navigate(`/recetas/${receta.id}/nueva-version`)}>
                 Nueva versión

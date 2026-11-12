@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from src.auth.dependencies import require_admin, require_operador
 from src.database import get_db
 from src.personal.models import Personal
-from src.recetas import schemas, services
+from src.recetas import schemas, services , composicion_services
 
 # Consultar y escalar es del rol operar (E9: se consulta antes de elaborar,
 # en solo lectura). Crear recetas y versiones nuevas es de administración.
@@ -69,3 +69,14 @@ def crear_version(
     usuario: Personal = Depends(require_admin),
 ):
     return services.a_detalle(services.crear_version(db, receta_id, datos, usuario))
+
+
+
+@router.get("/versiones/{version_id}/composicion", response_model=schemas.Composicion)
+def ver_composicion(
+    version_id: int,
+    db: Session = Depends(get_db),
+    _: Personal = Depends(require_admin),
+):
+    
+    return composicion_services.calcular_composicion(db, version_id)

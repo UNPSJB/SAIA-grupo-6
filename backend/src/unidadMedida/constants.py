@@ -1,3 +1,10 @@
+TIPO_MASA = "masa"
+TIPO_VOLUMEN = "volumen"
+TIPO_UNIDAD = "unidad"
+TIPOS = (TIPO_MASA, TIPO_VOLUMEN, TIPO_UNIDAD)
+
+
+
 class ErrorCode:
     UNIDAD_MEDIDA_NO_ENCONTRADA = "La unidad de medida no fue encontrada o fue dada de baja."
     DATO_DUPLICADO = "Ya existe un registro activo con esos datos en el sistema."
@@ -6,4 +13,5 @@ class ErrorCode:
     NOMBRE_VACIO = "El nombre de la unidad de medida no puede estar vacío."
     NOMBRE_INVALIDO = "El nombre de la unidad de medida debe contener letras o números válidos."
     SIMBOLO_VACIO = "El símbolo de la unidad de medida no puede estar vacío."
+    FACTOR_INVALIDO = "El factor a base debe ser mayor a cero."
     UNIDAD_MEDIDA_EN_USO = "La unidad de medida está en uso y no puede ser eliminada."
