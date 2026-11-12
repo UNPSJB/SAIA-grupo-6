@@ -107,6 +107,20 @@ class PerfilNutricionalInsumo(ModeloBase):
     azucares_son_anadidos: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="0"
     )
+    # E12: marcas que alimentan la aplicabilidad del rotulado frontal. Se
+    # guardan para cualquier insumo; la receta decide cuáles llegan al producto.
+    grasas_son_anadidas: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+    sodio_es_anadido: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+    contiene_edulcorantes: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+    contiene_cafeina: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
 
 
 class ValorNutricionalInsumo(ModeloBase):

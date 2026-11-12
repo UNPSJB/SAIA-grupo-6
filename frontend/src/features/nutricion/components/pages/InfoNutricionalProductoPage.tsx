@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { LuCalculator, LuDownload, LuPrinter, LuUtensils } from "react-icons/lu";
+import { LuCalculator, LuDownload, LuPrinter, LuTag, LuUtensils } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BannerError,
@@ -109,6 +109,13 @@ export function InfoNutricionalProductoPage() {
       acciones={
         info && info.estado !== "sin_receta" ? (
           <>
+            <Button
+              variant="outline"
+              colorPalette="brand"
+              onClick={() => navigate(`/productos/${productoId}/rotulado-frontal`)}
+            >
+              <LuTag aria-hidden /> Rotulado frontal
+            </Button>
             <Button variant="outline" colorPalette="brand" onClick={() => window.print()}>
               <LuPrinter aria-hidden /> Imprimir
             </Button>

@@ -48,6 +48,7 @@ import {
   LuRefreshCw,
   LuRepeat,
   LuRotateCcw,
+  LuTag,
   LuTrash2,
   LuTriangleAlert,
   LuUpload,
@@ -496,7 +497,8 @@ export type AccionTabla =
   | "minimo"
   | "asociar"
   | "escalar"
-  | "nutricion";
+  | "nutricion"
+  | "rotulado";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -532,6 +534,7 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   asociar: "blue",
   escalar: "blue",
   nutricion: "blue",
+  rotulado: "blue",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -560,6 +563,8 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   escalar: LuCalculator,
   // E11: datos e información nutricional (insumos y productos).
   nutricion: LuApple,
+  // E12.1: aplicabilidad del rotulado frontal.
+  rotulado: LuTag,
 };
 
 /**

@@ -32,6 +32,7 @@ const ETIQUETAS: Record<string, string> = {
   "lotes-insumo": "Lote de insumo",
   escalar: "Escalar",
   "informacion-nutricional": "Información nutricional",
+  "rotulado-frontal": "Rotulado frontal",
   nutricion: "Datos nutricionales",
 };
 

@@ -30,6 +30,7 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuSprayCan,
+  LuTag,
   LuTriangleAlert,
   LuTruck,
   LuUsers,
@@ -111,6 +112,8 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
       // E11: redondeo, valores diarios y base de composición de la tabla nutricional.
       { to: "/nutricion", label: "Parámetros nutricionales", rol: "administrar", icon: LuApple },
+      // E12.1: versiones de las reglas que deciden si aplica el rotulado frontal.
+      { to: "/rotulado-frontal", label: "Reglas de rotulado frontal", rol: "administrar", icon: LuTag },
     ],
   },
   {

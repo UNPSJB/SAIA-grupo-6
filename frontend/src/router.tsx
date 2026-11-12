@@ -228,6 +228,14 @@ const ParametrosNutricionPage = lazy(() =>
   import("./features/nutricion/components/pages/ParametrosNutricionPage").then((mod) => ({ default: mod.ParametrosNutricionPage })),
 );
 
+// E12.1: aplicabilidad del rotulado frontal
+const RotuladoFrontalProductoPage = lazy(() =>
+  import("./features/rotuladoFrontal/components/pages/RotuladoFrontalProductoPage").then((mod) => ({ default: mod.RotuladoFrontalProductoPage })),
+);
+const ReglasRotuladoFrontalPage = lazy(() =>
+  import("./features/rotuladoFrontal/components/pages/ReglasRotuladoFrontalPage").then((mod) => ({ default: mod.ReglasRotuladoFrontalPage })),
+);
+
 // Configuración: ajustes del sistema, desde el menú de usuario (solo administradores)
 const ConfiguracionPage = lazy(() =>
   import("./features/configuracion/components/pages/ConfiguracionPage").then((mod) => ({ default: mod.ConfiguracionPage })),
@@ -845,6 +853,22 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <InfoNutricionalProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/productos/:id/rotulado-frontal",
+                element: (
+                  <ConSuspense>
+                    <RotuladoFrontalProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/rotulado-frontal",
+                element: (
+                  <ConSuspense>
+                    <ReglasRotuladoFrontalPage />
                   </ConSuspense>
                 ),
               },

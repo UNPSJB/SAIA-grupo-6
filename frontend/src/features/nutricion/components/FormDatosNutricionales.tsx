@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Badge, Box, Button, Checkbox, Heading, HStack, InputGroup, Stack, Table, Text } from "@chakra-ui/react";
-import { LuBookOpen, LuDownload, LuFlaskConical, LuListChecks, LuScale } from "react-icons/lu";
+import { LuBookOpen, LuDownload, LuFlaskConical, LuListChecks, LuScale, LuTag } from "react-icons/lu";
 import {
   BannerError,
   BotonCancelar,
@@ -98,6 +98,10 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
   const [densidad, setDensidad] = useState("");
   const [aporta, setAporta] = useState(false);
   const [anadidos, setAnadidos] = useState(false);
+  const [grasasAnadidas, setGrasasAnadidas] = useState(false);
+  const [sodioAnadido, setSodioAnadido] = useState(false);
+  const [edulcorantes, setEdulcorantes] = useState(false);
+  const [cafeina, setCafeina] = useState(false);
   const [fuente, setFuente] = useState<Fuente>("rotulo_proveedor");
   const [referencia, setReferencia] = useState("");
   const [alimento, setAlimento] = useState<AlimentoReferencia | null>(null);
@@ -126,6 +130,10 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     setDensidad(limpio(d.densidad_g_ml));
     setAporta(d.aporta_energia_sodio);
     setAnadidos(d.azucares_son_anadidos);
+    setGrasasAnadidas(d.grasas_son_anadidas);
+    setSodioAnadido(d.sodio_es_anadido);
+    setEdulcorantes(d.contiene_edulcorantes);
+    setCafeina(d.contiene_cafeina);
     // La fuente de arriba arranca en la que más se usó al cargar.
     const primera = d.valores[0];
     if (primera) {
@@ -246,6 +254,10 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
         densidad_g_ml: densidad ? aDecimal(densidad) : null,
         aporta_energia_sodio: aporta,
         azucares_son_anadidos: anadidos,
+        grasas_son_anadidas: grasasAnadidas,
+        sodio_es_anadido: sodioAnadido,
+        contiene_edulcorantes: edulcorantes,
+        contiene_cafeina: cafeina,
         valores: Object.entries(filas)
           .filter(([nutriente]) => !derivado(nutriente))
           .map(([nutriente, f]) => ({
@@ -269,19 +281,26 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     const clave = derivado(p.clave) ? "azucares_totales" : p.clave;
     return filas[clave] && numeroValido(filas[clave].valor);
   }).length;
-  const hayCambios = anadidos !== datos.azucares_son_anadidos || admitidos.some((p) => {
-    if (derivado(p.clave)) return false;
-    const fila = filas[p.clave];
-    const guardado = guardados[p.clave];
-    if (!fila) return Boolean(guardado);
-    const efectiva = fuenteDe(fila);
-    return (
-      !guardado ||
-      efectiva.fuente !== guardado.fuente ||
-      (efectiva.referencia ?? null) !== (guardado.referencia ?? null) ||
-      Number(aDecimal(fila.valor)) !== Number(guardado.valor)
-    );
-  });
+  const hayCambios =
+    aporta !== datos.aporta_energia_sodio ||
+    anadidos !== datos.azucares_son_anadidos ||
+    grasasAnadidas !== datos.grasas_son_anadidas ||
+    sodioAnadido !== datos.sodio_es_anadido ||
+    edulcorantes !== datos.contiene_edulcorantes ||
+    cafeina !== datos.contiene_cafeina ||
+    admitidos.some((p) => {
+      if (derivado(p.clave)) return false;
+      const fila = filas[p.clave];
+      const guardado = guardados[p.clave];
+      if (!fila) return Boolean(guardado);
+      const efectiva = fuenteDe(fila);
+      return (
+        !guardado ||
+        efectiva.fuente !== guardado.fuente ||
+        (efectiva.referencia ?? null) !== (guardado.referencia ?? null) ||
+        Number(aDecimal(fila.valor)) !== Number(guardado.valor)
+      );
+    });
 
   // Fuente que comparten todas las filas guardadas sin cambios: se muestra una
   // sola vez arriba de la tabla en lugar de repetirla en cada renglón.
@@ -441,6 +460,75 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
       )}
 
       <Bloque
+        titulo="Marcas para rotulado frontal"
+        icono={LuTag}
+        ayuda="Estas marcas deciden si corresponde rotulado frontal. No cambian los cálculos de la tabla nutricional."
+      >
+        <Box display="grid" gridTemplateColumns={{ base: "1fr", md: "1fr 1fr" }} gapX="6" gapY="4">
+          <Box>
+            <Checkbox.Root
+              checked={anadidos}
+              onCheckedChange={(e) => setAnadidos(!!e.checked)}
+              colorPalette="brand"
+              disabled={soloLectura}
+            >
+              <Checkbox.HiddenInput />
+              <Checkbox.Control />
+              <Checkbox.Label fontWeight="medium">
+                {esAditivo ? "Aporta azúcares agregados" : "Todo su azúcar es añadido"}
+              </Checkbox.Label>
+            </Checkbox.Root>
+            {!esAditivo && (
+              <Text fontSize="xs" color="fg.muted" mt="1">
+                Para azúcar, miel, jarabes, dulce de leche y similares. La guía de rotulado calcula los azúcares
+                añadidos sumando los azúcares de estos ingredientes: se toman sus azúcares totales.
+              </Text>
+            )}
+          </Box>
+          <Checkbox.Root
+            checked={grasasAnadidas}
+            onCheckedChange={(e) => setGrasasAnadidas(!!e.checked)}
+            colorPalette="brand"
+            disabled={soloLectura}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control />
+            <Checkbox.Label fontWeight="medium">Sus grasas son añadidas</Checkbox.Label>
+          </Checkbox.Root>
+          <Checkbox.Root
+            checked={sodioAnadido}
+            onCheckedChange={(e) => setSodioAnadido(!!e.checked)}
+            colorPalette="brand"
+            disabled={soloLectura}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control />
+            <Checkbox.Label fontWeight="medium">El sodio es añadido</Checkbox.Label>
+          </Checkbox.Root>
+          <Checkbox.Root
+            checked={edulcorantes}
+            onCheckedChange={(e) => setEdulcorantes(!!e.checked)}
+            colorPalette="brand"
+            disabled={soloLectura}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control />
+            <Checkbox.Label fontWeight="medium">Contiene edulcorantes</Checkbox.Label>
+          </Checkbox.Root>
+          <Checkbox.Root
+            checked={cafeina}
+            onCheckedChange={(e) => setCafeina(!!e.checked)}
+            colorPalette="brand"
+            disabled={soloLectura}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control />
+            <Checkbox.Label fontWeight="medium">Contiene cafeína</Checkbox.Label>
+          </Checkbox.Root>
+        </Box>
+      </Bloque>
+
+      <Bloque
         titulo="Valores por 100 g"
         icono={LuListChecks}
         ayuda={
@@ -449,19 +537,6 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
             : "Dejá vacío lo que no tengas. Si cambiás un número que vino de una fuente, queda marcado como modificado y se registra quién lo cambió."
         }
       >
-        {!esAditivo && (
-          <Box mb="4" p="3" bg="bg.subtle" rounded="md">
-            <Checkbox.Root checked={anadidos} onCheckedChange={(e) => setAnadidos(!!e.checked)} colorPalette="brand" disabled={soloLectura}>
-              <Checkbox.HiddenInput />
-              <Checkbox.Control />
-              <Checkbox.Label fontWeight="medium">Todo su azúcar es añadido</Checkbox.Label>
-            </Checkbox.Root>
-            <Text fontSize="xs" color="fg.muted" mt="1">
-              Para azúcar, miel, jarabes, dulce de leche y similares. La guía de rotulado calcula los azúcares
-              añadidos sumando los azúcares de estos ingredientes: se toman sus azúcares totales.
-            </Text>
-          </Box>
-        )}
         {comun && (
           <HStack gap="2" mb="4" fontSize="sm" flexWrap="wrap" color="fg.muted">
             <Text>Guardados con</Text>

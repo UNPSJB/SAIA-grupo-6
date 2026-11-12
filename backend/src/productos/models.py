@@ -17,5 +17,15 @@ class Producto(ModeloBase):
         ForeignKey("unidades_medida.id"), nullable=False
     )
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Categoría usada por el motor de rotulado frontal. La lista de claves
+    # válidas vive en la versión de la regla, no en este modelo.
+    categoria_rotulado: Mapped[str | None] = mapped_column(
+        String(80), nullable=True
+    )
+    # Compatibilidad con la primera versión: se mantiene sincronizado cuando
+    # se elige una categoría en la pantalla de rotulado.
+    categoria_exceptuada_por_ley: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
 
     unidad_medida: Mapped["UnidadMedida"] = relationship()

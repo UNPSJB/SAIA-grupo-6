@@ -53,6 +53,12 @@ from src.nutricion.models import (  # noqa: F401
     ValorLaboratorioProducto,
     ValorNutricionalInsumo,
 )
+from src.rotulado_frontal.models import (  # noqa: F401
+    ConfiguracionModuloRotulado,
+    ConfiguracionRotuladoProducto,
+    EvaluacionRotulado,
+    ReglaRotuladoFrontal,
+)
 from src.lotesInsumo.models import LoteInsumo  # noqa: F401
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: F401
 from src.insumoQuimico.models import InsumoQuimico, LoteStock  # noqa: F401
@@ -100,13 +106,17 @@ __all__ = [
     "InsumoQuimico",
     "ChecklistProduccion",
     "ClaseFuncional",
+    "ConfiguracionModuloRotulado",
+    "ConfiguracionRotuladoProducto",
     "ConsumoInsumo",
+    "EvaluacionRotulado",
     "LoteInsumo",
     "LoteProducto",
     "LoteStock",
     "Producto",
     "Receta",
     "RecetaInsumo",
+    "ReglaRotuladoFrontal",
     "TareaReceta",
     "TareaRecetaInsumo",
     "VersionReceta",

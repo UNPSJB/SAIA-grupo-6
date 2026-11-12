@@ -115,6 +115,10 @@ class DatosNutricionalesIn(BaseModel):
     densidad_g_ml: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=4)
     aporta_energia_sodio: bool = False
     azucares_son_anadidos: bool = False
+    grasas_son_anadidas: bool = False
+    sodio_es_anadido: bool = False
+    contiene_edulcorantes: bool = False
+    contiene_cafeina: bool = False
     # Los nutrientes que no vienen se borran: el formulario manda siempre todo.
     valores: list[ValorIn]
 
@@ -153,6 +157,10 @@ class DatosNutricionalesResponse(BaseModel):
     densidad_g_ml: Decimal | None
     aporta_energia_sodio: bool
     azucares_son_anadidos: bool
+    grasas_son_anadidas: bool
+    sodio_es_anadido: bool
+    contiene_edulcorantes: bool
+    contiene_cafeina: bool
     nutrientes_admitidos: list[str]
     valores: list[ValorResponse]
     completitud: Completitud

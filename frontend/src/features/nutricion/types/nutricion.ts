@@ -104,6 +104,10 @@ export interface DatosNutricionales {
   densidad_g_ml: string | null;
   aporta_energia_sodio: boolean;
   azucares_son_anadidos: boolean;
+  grasas_son_anadidas: boolean;
+  sodio_es_anadido: boolean;
+  contiene_edulcorantes: boolean;
+  contiene_cafeina: boolean;
   nutrientes_admitidos: string[];
   valores: ValorNutricional[];
   completitud: Completitud;
@@ -122,6 +126,10 @@ export interface DatosNutricionalesInput {
   densidad_g_ml: string | null;
   aporta_energia_sodio: boolean;
   azucares_son_anadidos: boolean;
+  grasas_son_anadidas: boolean;
+  sodio_es_anadido: boolean;
+  contiene_edulcorantes: boolean;
+  contiene_cafeina: boolean;
   valores: ValorInput[];
 }
 

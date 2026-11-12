@@ -130,6 +130,7 @@ export function ProductoPage() {
               productos={paginados}
               onEdit={(p) => navigate(`/productos/${p.id}/editar`)}
               onNutricion={(p) => navigate(`/productos/${p.id}/informacion-nutricional`)}
+              onRotulado={(p) => navigate(`/productos/${p.id}/rotulado-frontal`)}
               onDelete={setAEliminar}
               onReactivar={setAReactivar}
             />
