@@ -216,6 +216,16 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
     ],
   },
+  {
+    id: "recetas",
+    label: "Recetas",
+    ayuda: "Recetas, versiones y composición porcentual",
+    icon: LuCookingPot,
+    entradas: [
+      { to: "/recetas", label: "Recetas", rol: "administrar", icon: LuCookingPot },
+      { to: "/recetas/versiones", label: "Versiones", rol: "operar", icon: LuHistory },
+    ],
+  },
 ];
 
 /** Enlaces sueltos, fuera de cualquier grupo. */

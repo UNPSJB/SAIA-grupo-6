@@ -500,6 +500,14 @@ export const router = createBrowserRouter([
                 element: <RedirigirConId a={(id) => `/lotes/nuevo?receta=${id}`} />,
               },
               {
+                path: "/recetas/versiones",
+                element: (
+                  <ConSuspense>
+                    <RecetasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
                 path: "/lotes/nuevo",
                 element: (
                   <ConSuspense>

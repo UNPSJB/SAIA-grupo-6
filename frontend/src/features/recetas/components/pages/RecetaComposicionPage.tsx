@@ -1,11 +1,12 @@
 import { useParams } from "react-router-dom";
-import { SimpleGrid, Stack } from "@chakra-ui/react";
+import { SimpleGrid, Stack, Text, Heading } from "@chakra-ui/react";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { BannerError, EstadoCargando, Tarjeta } from "../../../../components/ui/patrones";
 import { obtenerComposicion } from "../../services/recetaService";
 import { GraficoComposicion } from "../GraficoComposicion";
 import { FaltantesComposicion, ResumenComposicion, TablaComposicion } from "../TablaComposicion";
+import { GraficoAditivos } from "../GraficoAditivos";
 
 export function RecetaComposicionPage() {
   const { versionId } = useParams<{ versionId: string }>();
@@ -37,9 +38,22 @@ export function RecetaComposicionPage() {
               <ResumenComposicion composicion={composicion} />
               <SimpleGrid columns={{ base: 1, lg: 2 }} gap="6" alignItems="start">
                 <TablaComposicion composicion={composicion} />
-                <Tarjeta p="4">
-                  <GraficoComposicion composicion={composicion} />
-                </Tarjeta>
+
+                <Stack gap="6">
+                  <Tarjeta p="4">
+                    <GraficoComposicion composicion={composicion} />
+                  </Tarjeta>
+
+                  {composicion.aditivos.length > 0 && (
+                    <Tarjeta p="4">
+                      <Heading as="h4" size="md" mb="1">Aditivos</Heading>
+                      <Text fontSize="sm" color="fg.muted" mb="2">
+                        Proporción entre los aditivos. El porcentaje sobre la formulación está en la tabla.
+                      </Text>
+                      <GraficoAditivos composicion={composicion} />
+                    </Tarjeta>
+                  )}
+                </Stack>
               </SimpleGrid>
             </Stack>
           ) : (
