@@ -63,6 +63,8 @@ from src.tareas.models import Tarea  # noqa: F401
 from src.clientes.models import Cliente  # noqa: F401
 from src.transportistas.models import Transportista  # noqa: F401
 from src.certificaciones_transportista.models import CertificacionTransportista  # noqa: F401
+from src.salidas.models import HitoLote, Salida, SalidaCertificacion  # noqa: F401
+from src.reclamos.models import Reclamo  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
@@ -96,6 +98,10 @@ __all__ = [
     "ConfiguracionVistaPublica",
     "Documento",
     "ElementoLimpieza",
+    "HitoLote",
+    "Salida",
+    "SalidaCertificacion",
+    "Reclamo",
     "Sector",
     "Equipo",
     "HistorialRegistroTarea",
