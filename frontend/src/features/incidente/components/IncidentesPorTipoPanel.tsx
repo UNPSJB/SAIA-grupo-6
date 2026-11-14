@@ -28,6 +28,8 @@ const COLOR_TIPO: Record<TipoIncidente, string> = {
   falla_equipo: "#ed8936",
   devolucion_cliente: "#ecc94b",
   higiene_contaminacion: "#805ad5",
+  entrega_rechazada: "#e53e3e",
+  reclamo_cliente: "#2c7fb8",
   otro: "#a0aec0",
 };
 

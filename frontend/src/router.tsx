@@ -64,6 +64,20 @@ const LoteCreatePage = lazy(() =>
 const LoteDetallePage = lazy(() =>
   import("./features/lotes/components/pages/LoteDetallePage").then((mod) => ({ default: mod.LoteDetallePage })),
 );
+// Salidas de producto
+const SalidasPage = lazy(() =>
+  import("./features/salidas/components/pages/SalidasPage").then((mod) => ({ default: mod.SalidasPage })),
+);
+const SalidaDetallePage = lazy(() =>
+  import("./features/salidas/components/pages/SalidaDetallePage").then((mod) => ({ default: mod.SalidaDetallePage })),
+);
+// Historia 20: reclamos de clientes sobre entregas ya realizadas
+const ReclamosPage = lazy(() =>
+  import("./features/reclamos/components/pages/ReclamosPage").then((mod) => ({ default: mod.ReclamosPage })),
+);
+const ReclamoDetallePage = lazy(() =>
+  import("./features/reclamos/components/pages/ReclamoDetallePage").then((mod) => ({ default: mod.ReclamoDetallePage })),
+);
 
 // Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
 const ProductoPage = lazy(() =>
@@ -553,6 +567,38 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <LoteDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/salidas",
+                element: (
+                  <ConSuspense>
+                    <SalidasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/salidas/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <SalidaDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reclamos",
+                element: (
+                  <ConSuspense>
+                    <ReclamosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reclamos/:id",
+                element: (
+                  <ConSuspense>
+                    <ReclamoDetallePage />
                   </ConSuspense>
                 ),
               },

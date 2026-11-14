@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Table, Text } from "@chakra-ui/react";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { LuRefreshCw } from "react-icons/lu";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
-import { formatoFecha } from "../../../../common/utils/fechas";
+import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
   BarraFiltros,
@@ -231,6 +231,9 @@ export function LotesPage() {
                     </Celda>
                     <Celda>
                       <BadgeEstadoLote estado={lote.estado} />
+                      {lote.fecha_vencimiento && lote.fecha_vencimiento < hoyISO() && (
+                        <Badge colorScheme="red" size="xs" ml="1">Vencido</Badge>
+                      )}
                     </Celda>
                     <Celda center>
                       <BotonAccion

@@ -25,6 +25,7 @@ import {
   LuListChecks,
   LuMapPin,
   LuMicroscope,
+  LuMessageSquare,
   LuPackage,
   LuRuler,
   LuSettings,
@@ -107,6 +108,8 @@ export const GRUPOS: GrupoMenu[] = [
     icon: LuChefHat,
     entradas: [
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
+      { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackage },
+      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquare },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },

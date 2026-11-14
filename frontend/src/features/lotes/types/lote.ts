@@ -27,8 +27,18 @@ export interface LoteResumen {
   creado_por_nombre: string | null;
   fecha_inicio: string;
   fecha_cierre: string | null;
+  fecha_vencimiento: string | null;
   items_total: number;
   items_completados: number;
+  // Campos de salidas (calculados en el backend, no persistidos).
+  retirado: boolean;
+  reservado: string;
+  despachado: string;
+  entregado: string;
+  en_revision: string;
+  desechado: string;
+  saldo: string;
+  estado_lote: string;
 }
 
 export interface InsumoPlanificado {

@@ -3,7 +3,7 @@ import { Box, Button, Input, Text } from "@chakra-ui/react";
 import {
   actualizarConfiguracionAlertas,
   obtenerConfiguracionAlertas,
-} from "../services/notificacionService";
+} from "../../configuracion/services/configuracionService";
 
 interface ConfiguracionAlertasPanelProps {
   onGuardado: () => void;
@@ -37,7 +37,9 @@ export function ConfiguracionAlertasPanel({
     try {
       setGuardando(true);
       setError(null);
-      const config = await actualizarConfiguracionAlertas(valor);
+      const config = await actualizarConfiguracionAlertas({
+        dias_alerta_vencimiento_personal: valor,
+      });
       setDiasGuardados(config.dias_alerta_vencimiento_personal);
       onGuardado();
     } catch (e) {
