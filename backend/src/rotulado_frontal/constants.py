@@ -1,7 +1,8 @@
-"""E12: aplicabilidad del rotulado frontal.
+"""E12: aplicabilidad y sellos del rotulado frontal.
 
-La historia no calcula sellos: solo decide si la normativa aplica, si el
-producto queda exceptuado o si falta información para responder.
+La aplicabilidad decide si la normativa aplica, si el producto queda
+exceptuado o si falta información para responder. Cuando aplica, los sellos
+se calculan con los valores de E11 y los parámetros de la regla vigente.
 """
 
 from datetime import date
@@ -207,6 +208,64 @@ FORMULAS_NUTRICIONALES_INICIALES = (
     },
 )
 
+# Definición estructural de cada sello. Los valores numéricos (umbrales y
+# factores) NO viven acá: se leen de `umbrales_sellos` y
+# `formulas_nutricionales` de la versión vigente. Esta lista solo dice qué
+# nutriente compara cada sello y con qué tipo de cálculo.
+TIPOS_CALCULO_SELLO = ("proporcion_energia", "mg_por_kcal", "valor_absoluto")
+
+SELLOS = (
+    {
+        "clave": "azucares",
+        "etiqueta": "Exceso en azúcares",
+        "tipo": "proporcion_energia",
+        "nutriente": "azucares_anadidos",
+        "unidad_nutriente": "g",
+        "umbral": "azucares_energia",
+        "formula": "kcal_por_g_azucares",
+        "criterio": "Azúcares añadidos sobre la energía total",
+    },
+    {
+        "clave": "grasas_totales",
+        "etiqueta": "Exceso en grasas totales",
+        "tipo": "proporcion_energia",
+        "nutriente": "grasas_totales",
+        "unidad_nutriente": "g",
+        "umbral": "grasas_totales_energia",
+        "formula": "kcal_por_g_grasas",
+        "criterio": "Grasas totales sobre la energía total",
+    },
+    {
+        "clave": "grasas_saturadas",
+        "etiqueta": "Exceso en grasas saturadas",
+        "tipo": "proporcion_energia",
+        "nutriente": "grasas_saturadas",
+        "unidad_nutriente": "g",
+        "umbral": "grasas_saturadas_energia",
+        "formula": "kcal_por_g_grasas_saturadas",
+        "criterio": "Grasas saturadas sobre la energía total",
+    },
+    {
+        "clave": "sodio",
+        "etiqueta": "Exceso en sodio",
+        "tipo": "mg_por_kcal",
+        "nutriente": "sodio",
+        "unidad_nutriente": "mg",
+        "umbral": "sodio_mg_kcal",
+        "criterio": "Sodio por energía",
+    },
+    {
+        "clave": "calorias",
+        "etiqueta": "Exceso en calorías",
+        "tipo": "valor_absoluto",
+        "nutriente": "energia",
+        "unidad_nutriente": "kcal",
+        "umbral_solido": "energia_solidos",
+        "umbral_liquido": "energia_liquidos",
+        "criterio": "Energía por 100 g o 100 ml, según se exprese el producto",
+    },
+)
+
 CLAVE_MIGRACION = "rotulado_frontal_regla_v1"
 
 MENSAJE_MODULO_INACTIVO = (
@@ -235,7 +294,10 @@ MENSAJE_EXCEPTUADO_POR_NATURALEZA = (
 )
 MENSAJE_APLICA = (
     "El producto se comercializa envasado y presenta marcas de rotulado frontal: "
-    "corresponde el rotulado frontal. En esta historia no se calculan sellos."
+    "corresponde el rotulado frontal y se calculan sus sellos."
+)
+MENSAJE_SELLOS_NO_EVALUADOS = (
+    "No se calculan sellos porque la evaluación no llegó a la instancia de rotulado."
 )
 MENSAJE_FALTAN_MARCAS = (
     "Falta definir marcas del producto antes de saber si corresponde el rotulado frontal."

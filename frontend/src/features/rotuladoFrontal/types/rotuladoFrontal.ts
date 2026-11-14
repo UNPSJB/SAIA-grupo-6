@@ -1,4 +1,4 @@
-/** E12.1: aplicabilidad del rotulado frontal. No incluye sellos. */
+/** E12: aplicabilidad y sellos del rotulado frontal. */
 
 export type ClaveMarca = "azucares" | "grasas" | "sodio" | "edulcorantes" | "cafeina";
 export type EstadoRotulado =
@@ -222,7 +222,7 @@ export const REGLAS_APLICABILIDAD_INICIALES: ReglasAplicabilidad = {
       cuando: [{ campo: "envasado", operador: "es_falso" }],
       estado: "no_aplica",
       mensaje:
-        "El producto no se comercializa envasado en ausencia del cliente: no corresponde el rotulado frontal.",
+        "El producto no se comercializa envasado en ausencia del cliente: no corresponde el rotulado frontal y no se calculan sellos.",
     },
     {
       clave: "falta_envasado",
@@ -241,7 +241,7 @@ export const REGLAS_APLICABILIDAD_INICIALES: ReglasAplicabilidad = {
       cuando: [{ campo: "alguna_marca_obligatoria", operador: "es_verdadero" }],
       estado: "aplica",
       mensaje:
-        "El producto se comercializa envasado y presenta marcas de rotulado frontal: corresponde el rotulado frontal.",
+        "El producto se comercializa envasado y presenta marcas de rotulado frontal: corresponde el rotulado frontal y se calculan sus sellos.",
     },
     {
       clave: "faltan_marcas",
@@ -256,7 +256,7 @@ export const REGLAS_APLICABILIDAD_INICIALES: ReglasAplicabilidad = {
       cuando: [{ campo: "siempre", operador: "es_verdadero" }],
       estado: "exceptuado",
       mensaje:
-        "El producto se comercializa envasado y no tiene marcas de rotulado frontal: queda exceptuado.",
+        "El producto se comercializa envasado y no tiene azúcares, grasas ni sodio agregados, ni edulcorantes ni cafeína: queda exceptuado del rotulado frontal.",
     },
   ],
 };
@@ -318,6 +318,48 @@ export interface MarcaRotulado {
   fuentes: FuenteMarca[];
 }
 
+export type TipoCalculoSello =
+  | "proporcion_energia"
+  | "mg_por_kcal"
+  | "valor_absoluto";
+
+export interface PasoCalculoSello {
+  descripcion: string;
+  valor: string | null;
+  unidad: string;
+}
+
+export interface ResultadoSello {
+  clave: string;
+  etiqueta: string;
+  tipo: TipoCalculoSello;
+  criterio: string;
+  nutriente: string;
+  nombre_nutriente: string;
+  unidad_nutriente: string;
+  valor_nutriente: string | null;
+  valor_calculado: string | null;
+  unidad_calculado: string;
+  umbral: string | null;
+  unidad_umbral: string;
+  formula: string | null;
+  pasos: PasoCalculoSello[];
+  exceso: boolean | null;
+  evaluado: boolean;
+  motivo: string | null;
+}
+
+export interface SellosRotulado {
+  evaluado: boolean;
+  completo: boolean;
+  motivo: string | null;
+  excesos: string[];
+  resultados: ResultadoSello[];
+  regla_version: number;
+  vigencia_desde: string;
+  norma_origen: string;
+}
+
 export interface VersionRotulado {
   id: number;
   numero: number;
@@ -367,6 +409,7 @@ export interface InstantaneaRotulado {
   faltantes: string[];
   advertencias: string[];
   marcas: MarcaRotulado[];
+  sellos?: SellosRotulado | null;
 }
 
 export interface EvaluacionRotulado {
@@ -384,6 +427,7 @@ export interface EvaluacionRotulado {
   faltantes: string[];
   advertencias: string[];
   marcas: MarcaRotulado[];
+  sellos: SellosRotulado;
   evaluado_en: string;
   instantanea: InstantaneaRotulado;
 }

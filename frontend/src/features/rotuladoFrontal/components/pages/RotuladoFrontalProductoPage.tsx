@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { LuBookOpen, LuCheck, LuInfo, LuTag } from "react-icons/lu";
+import { LuBookOpen, LuInfo, LuTriangleAlert } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BannerError,
@@ -15,6 +15,7 @@ import {
   FormNativeSelect,
 } from "../../../../components/ui/patrones";
 import { toaster } from "../../../../components/ui/toaster";
+import { formatoCantidad } from "../../../../common/utils/numeros";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { evaluarRotulado, guardarRotulado } from "../../services/rotuladoFrontalService";
 import {
@@ -67,6 +68,12 @@ function FuentesDeMarca({ marca }: { marca: MarcaRotulado }) {
       )}
     </Stack>
   );
+}
+
+function valorConUnidad(valor: string | null, unidad: string): string {
+  if (valor === null) return "Sin dato";
+  const texto = formatoCantidad(valor);
+  return unidad ? `${texto} ${unidad}` : texto;
 }
 
 export function RotuladoFrontalProductoPage() {
@@ -162,7 +169,7 @@ export function RotuladoFrontalProductoPage() {
       ancho="completo"
       volver={{ a: "/productos", etiqueta: "Productos", historial: true }}
       titulo={evaluacion?.producto ?? "Rotulado frontal"}
-      descripcion="Indicá cómo se comercializa el producto y las marcas que correspondan. Esta historia no calcula sellos."
+      descripcion="Indicá cómo se comercializa el producto y las marcas que correspondan. La evaluación aplica la regla vigente y calcula los sellos cuando corresponde."
       estado={
         evaluacion ? (
           <EtiquetaEstado tono={TONO_ESTADO[evaluacion.estado]}>
@@ -380,16 +387,6 @@ export function RotuladoFrontalProductoPage() {
                 ))}
               </Stack>
             )}
-
-            <Box mt="5" p="3" bg="bg.subtle" rounded="md">
-              <HStack gap="2" color="fg.muted" fontSize="sm">
-                <LuTag aria-hidden />
-                <Text>
-                  Esta historia solo informa si corresponde el rotulado frontal. El cálculo de sellos
-                  corresponde a una historia posterior.
-                </Text>
-              </HStack>
-            </Box>
           </SeccionDetalle>
 
           <SeccionDetalle titulo="Regla aplicada" mb="0">
@@ -410,13 +407,163 @@ export function RotuladoFrontalProductoPage() {
               <DatoDetalle etiqueta="Última evaluación">
                 {formatoFechaHora(evaluacion.evaluado_en)}
               </DatoDetalle>
-              <HStack gap="2" color="green.fg" fontSize="sm">
-                <LuCheck aria-hidden />
-                <Text>Sin cálculo de sellos en esta pantalla.</Text>
-              </HStack>
             </Stack>
           </SeccionDetalle>
         </Box>
+      )}
+
+      {evaluacion && (
+        <SeccionDetalle
+          titulo="Sellos de advertencia"
+          descripcion="Se calculan con los valores de la información nutricional y los umbrales de la regla vigente."
+          mt="6"
+          mb="0"
+        >
+          {!evaluacion.sellos.evaluado ? (
+            <HStack gap="2" color="fg.muted" fontSize="sm">
+              <LuInfo aria-hidden />
+              <Text>
+                {evaluacion.sellos.motivo ??
+                  "No se calcularon sellos para esta evaluación."}
+              </Text>
+            </HStack>
+          ) : (
+            <Stack gap="4">
+              {evaluacion.sellos.excesos.length > 0 ? (
+                <HStack gap="2" flexWrap="wrap">
+                  {evaluacion.sellos.excesos.map((exceso) => (
+                    <Badge
+                      key={exceso}
+                      colorPalette="red"
+                      variant="solid"
+                      size="lg"
+                    >
+                      {exceso}
+                    </Badge>
+                  ))}
+                </HStack>
+              ) : (
+                <Text fontSize="sm" color="fg.muted">
+                  El producto no supera ningún umbral de la regla vigente.
+                </Text>
+              )}
+
+              {!evaluacion.sellos.completo && (
+                <Box
+                  p="3"
+                  bg="orange.50"
+                  borderWidth="1px"
+                  borderColor="orange.200"
+                  rounded="md"
+                >
+                  <HStack gap="2" color="orange.900">
+                    <LuTriangleAlert aria-hidden />
+                    <Text fontSize="sm" fontWeight="semibold">
+                      El cálculo de sellos está incompleto
+                    </Text>
+                  </HStack>
+                  <Text fontSize="sm" color="orange.900" mt="1">
+                    {evaluacion.sellos.motivo}
+                  </Text>
+                </Box>
+              )}
+
+              <Box
+                overflowX="auto"
+                mx={{ base: "-4", md: "-5" }}
+                borderTopWidth="1px"
+                borderColor="border.subtle"
+              >
+                <Table.Root size="sm" minW="920px">
+                  <Table.Header>
+                    <FilaEncabezado>
+                      <EncabezadoOscuro>Sello</EncabezadoOscuro>
+                      <EncabezadoOscuro>Valor E11</EncabezadoOscuro>
+                      <EncabezadoOscuro>Cálculo</EncabezadoOscuro>
+                      <EncabezadoOscuro>Umbral</EncabezadoOscuro>
+                      <EncabezadoOscuro center>Resultado</EncabezadoOscuro>
+                    </FilaEncabezado>
+                  </Table.Header>
+                  <Table.Body>
+                    {evaluacion.sellos.resultados.map((resultado) => (
+                      <Table.Row
+                        key={resultado.clave}
+                        borderBottomWidth="1px"
+                        borderColor="border.subtle"
+                      >
+                        <Celda py="3" px="4">
+                          <Text fontWeight="medium">{resultado.etiqueta}</Text>
+                          <Text fontSize="xs" color="fg.muted" mt="1">
+                            {resultado.criterio}
+                          </Text>
+                        </Celda>
+                        <Celda py="3" px="4">
+                          {valorConUnidad(
+                            resultado.valor_nutriente,
+                            resultado.unidad_nutriente,
+                          )}
+                        </Celda>
+                        <Celda py="3" px="4">
+                          {resultado.evaluado ? (
+                            <Stack gap="1">
+                              <Text fontSize="sm">{resultado.formula}</Text>
+                              <Text fontSize="xs" color="fg.muted">
+                                {resultado.pasos
+                                  .map(
+                                    (paso) =>
+                                      `${paso.descripcion}: ${valorConUnidad(
+                                        paso.valor,
+                                        paso.unidad,
+                                      )}`,
+                                  )
+                                  .join(" · ")}
+                              </Text>
+                            </Stack>
+                          ) : (
+                            <Text fontSize="sm" color="fg.muted">
+                              {resultado.motivo}
+                            </Text>
+                          )}
+                        </Celda>
+                        <Celda py="3" px="4">
+                          {valorConUnidad(
+                            resultado.umbral,
+                            resultado.unidad_umbral,
+                          )}
+                        </Celda>
+                        <Celda py="3" px="4" center>
+                          {resultado.exceso === null ? (
+                            <Badge colorPalette="gray" variant="subtle" size="sm">
+                              Sin evaluar
+                            </Badge>
+                          ) : resultado.exceso ? (
+                            <Badge colorPalette="red" variant="solid" size="sm">
+                              Exceso
+                            </Badge>
+                          ) : (
+                            <Badge
+                              colorPalette="green"
+                              variant="subtle"
+                              size="sm"
+                            >
+                              No supera
+                            </Badge>
+                          )}
+                        </Celda>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </Box>
+
+              <Text fontSize="xs" color="fg.muted">
+                Regla v{evaluacion.sellos.regla_version} · Vigencia desde{" "}
+                {formatoFecha(evaluacion.sellos.vigencia_desde)} ·{" "}
+                {evaluacion.sellos.norma_origen}
+              </Text>
+            </Stack>
+          )}
+        </SeccionDetalle>
       )}
     </PaginaDetalle>
   );

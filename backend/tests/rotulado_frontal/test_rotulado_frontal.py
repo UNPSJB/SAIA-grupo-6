@@ -12,12 +12,17 @@ from src.aditivos.models import Aditivo, ClaseFuncional
 from src.auth.services import crear_access_token
 from src.database import get_db
 from src.insumos.models import TIPO_ADITIVO, Insumo
-from src.nutricion.models import PerfilNutricionalInsumo
+from src.nutricion.models import (
+    InfoNutricionalProducto,
+    PerfilNutricionalInsumo,
+    ValorNutricionalInsumo,
+)
+from src.nutricion.services import asegurar_parametros
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.recetas.models import Receta, RecetaInsumo, VersionReceta
 from src.rotulado_frontal import constants as rotulado_constants
-from src.rotulado_frontal.models import ReglaRotuladoFrontal
+from src.rotulado_frontal.models import EvaluacionRotulado, ReglaRotuladoFrontal
 from src.rotulado_frontal.router import router as rotulado_router
 from src.unidadMedida.models import UnidadMedida
 
@@ -228,6 +233,71 @@ def productos(db_session):
     }
 
 
+@pytest.fixture
+def producto_sellos(db_session):
+    """Producto completo para probar el cálculo de sellos de E12.2."""
+    asegurar_parametros(db_session)
+    g = UnidadMedida(nombre="gramo", simbolo="g")
+    insumo = Insumo(nombre="Base nutricional", unidad_medida=g)
+    producto = Producto(nombre="Producto con sellos", unidad_medida=g)
+    receta = Receta(producto=producto)
+    version = VersionReceta(
+        receta=receta,
+        numero=1,
+        rendimiento=Decimal("100"),
+        unidad_medida=g,
+    )
+    renglon = RecetaInsumo(
+        version=version,
+        insumo=insumo,
+        cantidad=Decimal("100"),
+        unidad_medida=g,
+        clasificacion="ingrediente",
+    )
+    _sin_auditoria(db_session, g, insumo, producto, receta, version, renglon)
+
+    _sin_auditoria(
+        db_session,
+        PerfilNutricionalInsumo(
+            insumo_id=insumo.id,
+            azucares_son_anadidos=True,
+            grasas_son_anadidas=True,
+            sodio_es_anadido=True,
+        ),
+        InfoNutricionalProducto(
+            producto_id=producto.id,
+            expresar_en="g",
+            porcion=Decimal("100"),
+            medida_casera="100 g",
+        ),
+    )
+    valores = {
+        "energia": Decimal("300"),
+        "carbohidratos": Decimal("20"),
+        "azucares_totales": Decimal("10"),
+        "proteinas": Decimal("5"),
+        "grasas_totales": Decimal("5"),
+        "grasas_saturadas": Decimal("1"),
+        "grasas_trans": Decimal("0"),
+        "fibra": Decimal("2"),
+        "sodio": Decimal("100"),
+    }
+    _sin_auditoria(
+        db_session,
+        *[
+            ValorNutricionalInsumo(
+                insumo_id=insumo.id,
+                nutriente=clave,
+                valor=valor,
+                fuente="valor_propio",
+                valor_fuente=valor,
+            )
+            for clave, valor in valores.items()
+        ],
+    )
+    return producto
+
+
 def _guardar(client, producto_id, headers, **datos):
     return client.put(
         f"/rotulado-frontal/productos/{producto_id}",
@@ -251,7 +321,13 @@ def test_sin_respuesta_de_envasado_queda_sin_definir(client, usuarios, regla, pr
 
 
 def body_has_no_sellos(cuerpo: dict) -> bool:
-    return not any("sello" in clave.lower() for clave in cuerpo)
+    sellos = cuerpo.get("sellos")
+    return (
+        sellos is not None
+        and sellos["evaluado"] is False
+        and sellos["excesos"] == []
+        and sellos["resultados"] == []
+    )
 
 
 def test_no_envasado_informa_que_no_aplica_y_no_calcula_sellos(
@@ -872,6 +948,30 @@ def test_el_resultado_por_defecto_tambien_sale_de_la_regla(
     )
 
 
+def test_una_regla_vieja_sin_evaluar_perfil_cuando_sigue_evaluando(
+    client, usuarios, regla, productos, db_session
+):
+    aplicabilidad = dict(regla.reglas_aplicabilidad)
+    aplicabilidad.pop("evaluar_perfil_cuando", None)
+    regla.reglas_aplicabilidad = aplicabilidad
+    db_session.commit()
+
+    respuesta = _guardar(
+        client,
+        productos["con_marcas"].id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["estado"] == "aplica"
+    assert any(marca["valor"] is True for marca in cuerpo["marcas"])
+    assert cuerpo["instantanea"]["parametros"]["reglas_aplicabilidad"][
+        "evaluar_perfil_cuando"
+    ]
+
+
 def test_el_historial_conserva_el_snapshot_de_cada_version(
     client, usuarios, regla, productos
 ):
@@ -925,7 +1025,8 @@ def test_el_historial_conserva_el_snapshot_de_cada_version(
         fila for fila in guardadas if fila["regla_version"] == nueva.json()["version"]
     )
 
-    assert vieja["instantanea"]["version_esquema"] == 4
+    assert vieja["instantanea"]["version_esquema"] == 5
+    assert vieja["instantanea"]["sellos"]["regla_version"] == regla.version
     assert vieja["instantanea"]["norma_origen"] == regla.norma_origen
     assert len(vieja["instantanea"]["parametros"]["umbrales_sellos"]) == 6
     assert nueva_guardada["instantanea"]["norma_origen"] == (
@@ -935,3 +1036,127 @@ def test_el_historial_conserva_el_snapshot_de_cada_version(
     assert nueva_guardada["instantanea"]["parametros"]["umbrales_sellos"][0][
         "valor"
     ] == 999.0
+
+
+def test_el_historial_guardado_sin_sellos_sigue_siendo_legible(
+    client, usuarios, regla, productos, db_session
+):
+    actual = _guardar(
+        client,
+        productos["con_marcas"].id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+    assert actual.status_code == 200
+
+    guardada = (
+        db_session.query(EvaluacionRotulado)
+        .filter_by(producto_id=productos["con_marcas"].id)
+        .one()
+    )
+    instantanea = dict(guardada.instantanea)
+    instantanea["version_esquema"] = 4
+    instantanea.pop("sellos", None)
+    guardada.instantanea = instantanea
+    db_session.commit()
+
+    historial = client.get(
+        f"/rotulado-frontal/productos/{productos['con_marcas'].id}/evaluaciones",
+        headers=usuarios["admin"],
+    )
+    assert historial.status_code == 200
+    vieja = next(
+        fila
+        for fila in historial.json()
+        if fila["regla_version"] == regla.version
+    )
+    assert vieja["instantanea"]["version_esquema"] == 4
+    assert vieja["instantanea"]["sellos"] is None
+
+
+def test_calcula_sellos_con_pasos_y_version_de_la_regla(
+    client, usuarios, regla, producto_sellos
+):
+    respuesta = _guardar(
+        client,
+        producto_sellos.id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["estado"] == "aplica"
+    sellos = cuerpo["sellos"]
+    assert sellos["evaluado"] is True
+    assert sellos["completo"] is True
+    assert sellos["regla_version"] == regla.version
+    assert sellos["vigencia_desde"] == "2022-03-23"
+    assert sellos["norma_origen"] == regla.norma_origen
+
+    resultados = {
+        resultado["clave"]: resultado for resultado in sellos["resultados"]
+    }
+    azucares = resultados["azucares"]
+    assert azucares["exceso"] is True
+    assert azucares["valor_nutriente"] == "10.0000"
+    assert azucares["valor_calculado"] == "13.3333"
+    assert azucares["umbral"] == "10.0"
+    assert azucares["formula"] == (
+        "10,00 g × 4,00 kcal/g × 100 ÷ 300,00 kcal = 13,33 %"
+    )
+    assert [paso["descripcion"] for paso in azucares["pasos"]] == [
+        "Nutriente por 100 g/ml",
+        "Factor energético",
+        "Aporte del nutriente",
+        "Energía total del producto",
+        "Porcentaje de la energía",
+    ]
+    assert resultados["calorias"]["exceso"] is True
+    assert resultados["calorias"]["umbral"] == "275.0"
+    assert resultados["grasas_totales"]["exceso"] is False
+    assert resultados["grasas_saturadas"]["exceso"] is False
+    assert resultados["sodio"]["exceso"] is False
+    assert sellos["excesos"] == ["Exceso en azúcares", "Exceso en calorías"]
+    assert cuerpo["instantanea"]["sellos"] == sellos
+
+
+def test_los_sellos_leen_los_umbrales_de_la_version_vigente(
+    client, usuarios, regla, producto_sellos
+):
+    umbrales = deepcopy(list(rotulado_constants.UMBRALES_SELLOS_INICIALES))
+    for parametro in umbrales:
+        if parametro["clave"] == "azucares_energia":
+            parametro["valor"] = 25.0
+    nueva = client.post(
+        "/rotulado-frontal/reglas",
+        headers=usuarios["admin"],
+        json={
+            "vigencia_desde": "2027-09-01",
+            "norma_origen": "Norma con umbral de azúcares actualizado",
+            "umbrales_sellos": umbrales,
+        },
+    )
+    assert nueva.status_code == 201
+    client.post(
+        f"/rotulado-frontal/reglas/{nueva.json()['id']}/activar",
+        headers=usuarios["admin"],
+    )
+
+    respuesta = _guardar(
+        client,
+        producto_sellos.id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+
+    assert respuesta.status_code == 200
+    sellos = respuesta.json()["sellos"]
+    azucares = next(
+        resultado
+        for resultado in sellos["resultados"]
+        if resultado["clave"] == "azucares"
+    )
+    assert azucares["umbral"] == "25.0"
+    assert azucares["exceso"] is False
+    assert sellos["excesos"] == ["Exceso en calorías"]

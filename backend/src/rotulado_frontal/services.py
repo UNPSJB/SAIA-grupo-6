@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -6,6 +7,8 @@ from sqlalchemy.orm import Session
 from src.common.fechas import ahora
 from src.common.texto import normalizar_texto
 from src.insumos.models import TIPO_ADITIVO, Insumo
+from src.nutricion import calculo as nutricion_calculo
+from src.nutricion import services as nutricion_services
 from src.nutricion.models import PerfilNutricionalInsumo
 from src.productos.models import Producto
 from src.recetas import exceptions as recetas_exceptions
@@ -441,6 +444,309 @@ def _parametros_congelados(
     )
 
 
+# --------------------------------------------------------------------------
+# Sellos de advertencia
+# --------------------------------------------------------------------------
+
+def _dec(valor) -> Decimal:
+    return Decimal(str(valor))
+
+
+def _parametros_de_regla(
+    regla: ReglaRotuladoFrontal,
+) -> tuple[
+    dict[str, schemas.ParametroNormativo],
+    dict[str, schemas.ParametroNormativo],
+]:
+    umbrales = {
+        parametro.clave: parametro
+        for parametro in (
+            schemas.ParametroNormativo.model_validate(item)
+            for item in regla.umbrales_sellos
+        )
+    }
+    formulas = {
+        parametro.clave: parametro
+        for parametro in (
+            schemas.ParametroNormativo.model_validate(item)
+            for item in regla.formulas_nutricionales
+        )
+    }
+    return umbrales, formulas
+
+
+def _umbral_de(
+    definicion: dict,
+    umbrales: dict[str, schemas.ParametroNormativo],
+    expresar_en: str,
+) -> schemas.ParametroNormativo | None:
+    if definicion["tipo"] == "valor_absoluto":
+        clave = (
+            definicion["umbral_liquido"]
+            if expresar_en == "ml"
+            else definicion["umbral_solido"]
+        )
+    else:
+        clave = definicion["umbral"]
+    return umbrales.get(clave)
+
+
+def _resultado_sin_evaluar(
+    definicion: dict,
+    fila,
+    motivo: str,
+    umbral: schemas.ParametroNormativo | None = None,
+) -> schemas.ResultadoSello:
+    return schemas.ResultadoSello(
+        clave=definicion["clave"],
+        etiqueta=definicion["etiqueta"],
+        tipo=definicion["tipo"],
+        criterio=definicion["criterio"],
+        nutriente=definicion["nutriente"],
+        nombre_nutriente=fila.nombre if fila is not None else definicion["nutriente"],
+        unidad_nutriente=(
+            fila.unidad if fila is not None else definicion["unidad_nutriente"]
+        ),
+        valor_nutriente=fila.por_100 if fila is not None else None,
+        valor_calculado=None,
+        unidad_calculado="",
+        umbral=_dec(umbral.valor) if umbral is not None else None,
+        unidad_umbral=umbral.unidad if umbral is not None else "",
+        evaluado=False,
+        motivo=motivo,
+    )
+
+
+def _evaluar_sello(
+    definicion: dict,
+    filas: dict,
+    umbrales: dict[str, schemas.ParametroNormativo],
+    formulas: dict[str, schemas.ParametroNormativo],
+    expresar_en: str,
+) -> schemas.ResultadoSello:
+    fila = filas.get(definicion["nutriente"])
+    umbral = _umbral_de(definicion, umbrales, expresar_en)
+    if umbral is None:
+        return _resultado_sin_evaluar(
+            definicion,
+            fila,
+            "La versión de la regla no define el umbral necesario para este sello.",
+        )
+    if fila is None or fila.por_100 is None or fila.faltan_datos:
+        return _resultado_sin_evaluar(
+            definicion,
+            fila,
+            f"Falta el dato de {definicion['nutriente']} en la información nutricional.",
+            umbral,
+        )
+
+    energia = filas.get("energia")
+    if definicion["tipo"] in ("proporcion_energia", "mg_por_kcal"):
+        if (
+            energia is None
+            or energia.por_100 is None
+            or energia.faltan_datos
+            or energia.por_100 == 0
+        ):
+            return _resultado_sin_evaluar(
+                definicion,
+                fila,
+                "Falta la energía del producto o es cero: no se puede calcular la proporción.",
+                umbral,
+            )
+
+    if definicion["tipo"] == "proporcion_energia":
+        formula = formulas.get(definicion["formula"])
+        if formula is None:
+            return _resultado_sin_evaluar(
+                definicion,
+                fila,
+                "La versión de la regla no define el factor energético necesario.",
+                umbral,
+            )
+        valor = _dec(fila.por_100)
+        factor = _dec(formula.valor)
+        energia_valor = _dec(energia.por_100)
+        aporte = valor * factor
+        porcentaje = aporte * _dec(100) / energia_valor
+        umbral_valor = _dec(umbral.valor)
+        return schemas.ResultadoSello(
+            clave=definicion["clave"],
+            etiqueta=definicion["etiqueta"],
+            tipo=definicion["tipo"],
+            criterio=definicion["criterio"],
+            nutriente=definicion["nutriente"],
+            nombre_nutriente=fila.nombre,
+            unidad_nutriente=fila.unidad,
+            valor_nutriente=valor,
+            valor_calculado=nutricion_calculo.redondear(porcentaje, 4),
+            unidad_calculado="% de energía",
+            umbral=umbral_valor,
+            unidad_umbral=umbral.unidad,
+            formula=(
+                f"{nutricion_calculo.texto_numero(valor, 2)} g × "
+                f"{nutricion_calculo.texto_numero(factor, 2)} kcal/g × 100 ÷ "
+                f"{nutricion_calculo.texto_numero(energia_valor, 2)} kcal = "
+                f"{nutricion_calculo.texto_numero(porcentaje, 2)} %"
+            ),
+            pasos=[
+                schemas.PasoCalculoSello(
+                    descripcion="Nutriente por 100 g/ml",
+                    valor=valor,
+                    unidad=fila.unidad,
+                ),
+                schemas.PasoCalculoSello(
+                    descripcion="Factor energético",
+                    valor=factor,
+                    unidad=formula.unidad,
+                ),
+                schemas.PasoCalculoSello(
+                    descripcion="Aporte del nutriente",
+                    valor=aporte,
+                    unidad=f"kcal/100 {expresar_en}",
+                ),
+                schemas.PasoCalculoSello(
+                    descripcion="Energía total del producto",
+                    valor=energia_valor,
+                    unidad=f"kcal/100 {expresar_en}",
+                ),
+                schemas.PasoCalculoSello(
+                    descripcion="Porcentaje de la energía",
+                    valor=porcentaje,
+                    unidad="%",
+                ),
+            ],
+            exceso=porcentaje >= umbral_valor,
+            evaluado=True,
+        )
+
+    if definicion["tipo"] == "mg_por_kcal":
+        valor = _dec(fila.por_100)
+        energia_valor = _dec(energia.por_100)
+        mg_kcal = valor / energia_valor
+        umbral_valor = _dec(umbral.valor)
+        return schemas.ResultadoSello(
+            clave=definicion["clave"],
+            etiqueta=definicion["etiqueta"],
+            tipo=definicion["tipo"],
+            criterio=definicion["criterio"],
+            nutriente=definicion["nutriente"],
+            nombre_nutriente=fila.nombre,
+            unidad_nutriente=fila.unidad,
+            valor_nutriente=valor,
+            valor_calculado=nutricion_calculo.redondear(mg_kcal, 4),
+            unidad_calculado="mg/kcal",
+            umbral=umbral_valor,
+            unidad_umbral=umbral.unidad,
+            formula=(
+                f"{nutricion_calculo.texto_numero(valor, 2)} mg ÷ "
+                f"{nutricion_calculo.texto_numero(energia_valor, 2)} kcal = "
+                f"{nutricion_calculo.texto_numero(mg_kcal, 2)} mg/kcal"
+            ),
+            pasos=[
+                schemas.PasoCalculoSello(
+                    descripcion="Nutriente por 100 g/ml",
+                    valor=valor,
+                    unidad=fila.unidad,
+                ),
+                schemas.PasoCalculoSello(
+                    descripcion="Energía total del producto",
+                    valor=energia_valor,
+                    unidad=f"kcal/100 {expresar_en}",
+                ),
+                schemas.PasoCalculoSello(
+                    descripcion="Sodio por energía",
+                    valor=mg_kcal,
+                    unidad="mg/kcal",
+                ),
+            ],
+            exceso=mg_kcal >= umbral_valor,
+            evaluado=True,
+        )
+
+    valor = _dec(fila.por_100)
+    umbral_valor = _dec(umbral.valor)
+    return schemas.ResultadoSello(
+        clave=definicion["clave"],
+        etiqueta=definicion["etiqueta"],
+        tipo=definicion["tipo"],
+        criterio=definicion["criterio"],
+        nutriente=definicion["nutriente"],
+        nombre_nutriente=fila.nombre,
+        unidad_nutriente=fila.unidad,
+        valor_nutriente=valor,
+        valor_calculado=valor,
+        unidad_calculado=f"kcal/100 {expresar_en}",
+        umbral=umbral_valor,
+        unidad_umbral=umbral.unidad,
+        formula=(
+            f"{nutricion_calculo.texto_numero(valor, 2)} kcal/100 {expresar_en} "
+            f"contra un umbral de {nutricion_calculo.texto_numero(umbral_valor, 2)} "
+            f"{umbral.unidad}"
+        ),
+        pasos=[
+            schemas.PasoCalculoSello(
+                descripcion="Energía por 100 g/ml",
+                valor=valor,
+                unidad=f"kcal/100 {expresar_en}",
+            )
+        ],
+        exceso=valor >= umbral_valor,
+        evaluado=True,
+    )
+
+
+def _calcular_sellos(
+    db: Session,
+    producto_id: int,
+    version_id: int | None,
+    regla: ReglaRotuladoFrontal,
+) -> schemas.SellosRotulado:
+    umbrales, formulas = _parametros_de_regla(regla)
+    info = nutricion_services.calcular_info_nutricional(
+        db, producto_id, version_id
+    )
+    filas = {fila.clave: fila for fila in info.filas}
+    resultados = [
+        _evaluar_sello(definicion, filas, umbrales, formulas, info.expresar_en)
+        for definicion in c.SELLOS
+    ]
+    completo = all(resultado.evaluado for resultado in resultados)
+    return schemas.SellosRotulado(
+        evaluado=True,
+        completo=completo,
+        motivo=(
+            None
+            if completo
+            else "Hay sellos que no se pudieron evaluar por falta de datos."
+        ),
+        excesos=[
+            resultado.etiqueta
+            for resultado in resultados
+            if resultado.exceso is True
+        ],
+        resultados=resultados,
+        regla_version=regla.version,
+        vigencia_desde=regla.vigencia_desde,
+        norma_origen=regla.norma_origen,
+    )
+
+
+def _sellos_no_evaluados(
+    regla: ReglaRotuladoFrontal, motivo: str
+) -> schemas.SellosRotulado:
+    return schemas.SellosRotulado(
+        evaluado=False,
+        completo=False,
+        motivo=motivo,
+        excesos=[],
+        resultados=[],
+        regla_version=regla.version,
+        vigencia_desde=regla.vigencia_desde,
+        norma_origen=regla.norma_origen,
+    )
+
+
 def _registrar_evaluacion(
     db: Session,
     producto: Producto,
@@ -534,6 +840,16 @@ def evaluar(
     hechos["hay_marcas_pendientes"] = bool(pendientes)
     estado, mensaje, faltantes = _aplicar_reglas(reglas, hechos, pendientes)
 
+    if estado == c.ESTADO_APLICA:
+        sellos = _calcular_sellos(
+            db,
+            producto_id,
+            version.id if version is not None else None,
+            regla,
+        )
+    else:
+        sellos = _sellos_no_evaluados(regla, c.MENSAJE_SELLOS_NO_EVALUADOS)
+
     version_resumen = None
     if version is not None:
         version_resumen = schemas.VersionRotuladoResumen(
@@ -550,6 +866,7 @@ def evaluar(
         mensaje=mensaje,
         modulo_activo=ajuste.modulo_activo,
         parametros=_parametros_congelados(regla),
+        sellos=sellos,
         regla_id=regla.id,
         regla_version=regla.version,
         norma_origen=regla.norma_origen,
@@ -583,6 +900,7 @@ def evaluar(
         faltantes=faltantes,
         advertencias=advertencias,
         marcas=marcas,
+        sellos=sellos,
         evaluado_en=evaluado_en,
         instantanea=instantanea,
     )

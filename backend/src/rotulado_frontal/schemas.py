@@ -97,17 +97,31 @@ class ResultadoReglaAplicabilidad(BaseModel):
     mensaje_extra_marcas: str | None = None
 
 
+def _evaluar_perfil_inicial() -> list[CondicionAplicabilidad]:
+    return [
+        CondicionAplicabilidad.model_validate(condicion)
+        for condicion in c.REGLAS_APLICABILIDAD_INICIALES[
+            "evaluar_perfil_cuando"
+        ]
+    ]
+
+
 class ReglasAplicabilidad(BaseModel):
     """Datos que ejecuta el motor de aplicabilidad.
 
-    `condiciones` se evalúa en orden: la primera que se cumple define el
-    estado. Para cambiar una regla de negocio se crea una versión nueva con
+    `condiciones` se evalA�a en orden: la primera que se cumple define el
+    estado. Para cambiar una regla de negocio se crea una versiA3n nueva con
     otra lista; el servicio no conoce los casos particulares.
     """
 
     canales_consumo_final: list[str] = Field(min_length=1)
     categorias_exceptuadas: list[CategoriaExceptuada] = Field(default_factory=list)
-    evaluar_perfil_cuando: list[CondicionAplicabilidad] = Field(min_length=1)
+    # Compatibilidad con reglas creadas antes de que el cruce de la receta
+    # fuera configurable: si falta, se usa el comportamiento inicial.
+    evaluar_perfil_cuando: list[CondicionAplicabilidad] = Field(
+        default_factory=_evaluar_perfil_inicial,
+        min_length=1,
+    )
     condiciones: list[CondicionReglaAplicabilidad] = Field(min_length=1)
     resultado_por_defecto: ResultadoReglaAplicabilidad
 
@@ -157,6 +171,50 @@ def _validar_parametros(
 
 def _parametros_iniciales(valores: tuple[dict, ...]) -> list[ParametroNormativo]:
     return [ParametroNormativo(**parametro) for parametro in valores]
+
+
+TipoCalculoSello = Literal["proporcion_energia", "mg_por_kcal", "valor_absoluto"]
+
+
+class PasoCalculoSello(BaseModel):
+    """Un renglón del cálculo que se muestra al usuario."""
+
+    descripcion: str
+    valor: Decimal | None = None
+    unidad: str = ""
+
+
+class ResultadoSello(BaseModel):
+    clave: str
+    etiqueta: str
+    tipo: TipoCalculoSello
+    criterio: str
+    nutriente: str
+    nombre_nutriente: str
+    unidad_nutriente: str
+    valor_nutriente: Decimal | None
+    valor_calculado: Decimal | None
+    unidad_calculado: str
+    umbral: Decimal | None
+    unidad_umbral: str
+    formula: str | None = None
+    pasos: list[PasoCalculoSello] = Field(default_factory=list)
+    exceso: bool | None = None
+    evaluado: bool = False
+    motivo: str | None = None
+
+
+class SellosRotulado(BaseModel):
+    """Resultado versionado del cálculo de sellos de una evaluación."""
+
+    evaluado: bool
+    completo: bool
+    motivo: str | None = None
+    excesos: list[str] = Field(default_factory=list)
+    resultados: list[ResultadoSello] = Field(default_factory=list)
+    regla_version: int
+    vigencia_desde: date
+    norma_origen: str
 
 
 class ReglaRotuladoIn(BaseModel):
@@ -333,12 +391,13 @@ class InstantaneaRotulado(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    version_esquema: int = 4
+    version_esquema: int = 5
     evaluado_en: datetime
     estado: EstadoRotulado
     mensaje: str
     modulo_activo: bool
     parametros: InstantaneaParametrosRotulado
+    sellos: SellosRotulado | None = None
     regla_id: int
     regla_version: int
     norma_origen: str
@@ -370,6 +429,7 @@ class EvaluacionRotuladoResponse(BaseModel):
     faltantes: list[str]
     advertencias: list[str]
     marcas: list[MarcaRotulado]
+    sellos: SellosRotulado
     evaluado_en: datetime
     instantanea: InstantaneaRotulado
 

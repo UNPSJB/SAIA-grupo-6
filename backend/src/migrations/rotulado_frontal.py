@@ -60,19 +60,27 @@ def _sembrar_interruptor_modulo(db) -> None:
 
 
 def _completar_resultado_por_defecto(db) -> None:
-    """Agrega el resultado por defecto a reglas creadas antes de existir.
+    """Completa claves nuevas de reglas creadas antes de existir.
 
     El motor ya no tiene un fallback hardcodeado: toda regla, incluida la
-    rama que no coincide con ninguna condición, debe traer su resultado.
+    rama que no coincide con ninguna condiciA3n, debe traer su resultado.
+    TambiAcn se completa el cruce de la receta, que antes no era configurable.
     """
     for regla in db.scalars(select(ReglaRotuladoFrontal)).all():
         datos = deepcopy(regla.reglas_aplicabilidad or {})
-        if "resultado_por_defecto" in datos:
-            continue
-        datos["resultado_por_defecto"] = deepcopy(
-            c.RESULTADO_APLICABILIDAD_INICIAL
-        )
-        regla.reglas_aplicabilidad = datos
+        cambios = False
+        if "resultado_por_defecto" not in datos:
+            datos["resultado_por_defecto"] = deepcopy(
+                c.RESULTADO_APLICABILIDAD_INICIAL
+            )
+            cambios = True
+        if "evaluar_perfil_cuando" not in datos:
+            datos["evaluar_perfil_cuando"] = deepcopy(
+                c.REGLAS_APLICABILIDAD_INICIALES["evaluar_perfil_cuando"]
+            )
+            cambios = True
+        if cambios:
+            regla.reglas_aplicabilidad = datos
     db.commit()
 
 
