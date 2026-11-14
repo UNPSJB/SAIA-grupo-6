@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Numeric,
@@ -10,6 +12,7 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     select,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
@@ -67,6 +70,7 @@ class LoteProducto(ModeloBase):
     )
     fecha_inicio: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    fecha_vencimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     producto: Mapped["Producto"] = relationship()
     version_receta: Mapped["VersionReceta | None"] = relationship()
@@ -74,6 +78,86 @@ class LoteProducto(ModeloBase):
     checklist: Mapped[list["ChecklistProduccion"]] = relationship(
         back_populates="lote", order_by="ChecklistProduccion.id"
     )
+    # Salidas de producto (reservas, despachos, entregas) de este lote.
+    salidas: Mapped[list["Salida"]] = relationship(
+        back_populates="lote", cascade="all, delete-orphan"
+    )
+
+    # Campo de retiro del mercado (baja lógica del lote como fuente de venta).
+    # Sin motivo ni fecha: eso corresponde a una historia posterior.
+    retirado: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), nullable=False
+    )
+
+    # -----------------------------------------------------------------------
+    # Propiedades calculadas a partir de las salidas (NO se persisten).
+    # Se calculan en memoria tras cargar las salidas con selectinload.
+    # -----------------------------------------------------------------------
+
+    @property
+    def reservado(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["reservado"]
+
+    @property
+    def despachado(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["despachado"]
+
+    @property
+    def entregado(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["entregado"]
+
+    @property
+    def en_revision(self) -> Decimal:
+        """Mercadería rechazada por el cliente que aún no tiene disposición."""
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["en_revision"]
+
+    @property
+    def desechado(self) -> Decimal:
+        """Mercadería rechazada que se decidió desechar (dada de baja)."""
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["desechado"]
+
+    @property
+    def saldo(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["saldo"]
+
+    @property
+    def estado_lote(self) -> str:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["estado_lote"]
 
 
 class ChecklistProduccion(ModeloBase):

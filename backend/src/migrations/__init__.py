@@ -18,15 +18,21 @@ from .insumos_tipo import (
     migrar_porcion_receta,
 )
 from .lotes import migrar_lotes
+from .lotes_fecha_vencimiento import migrar_lotes_fecha_vencimiento
 from .notificaciones import migrar_notificaciones
 from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
+from .reclamos import migrar_reclamos
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
 from .trazabilidad import migrar_trazabilidad
 from .vista_publica import migrar_vista_publica
 from .clientes import migrar_clientes
+from .salidas import migrar_salidas_despacho_entrega_cancelacion
+from .salidas_recibido_por import migrar_salidas_recibido_por
+from .salidas_momentos import migrar_salidas_momentos
+from .salidas_rechazo import migrar_salidas_rechazo
 from .transportistas import migrar_transportistas
 from .certificaciones_transportista import (
     migrar_certificaciones_transportista,
@@ -42,6 +48,7 @@ def run_migrations() -> None:
     migrar_tareas()
     migrar_stock()
     migrar_lotes()
+    migrar_lotes_fecha_vencimiento()
     migrar_trazabilidad()
     # E9: después de copiar los productos viejos (trazabilidad lee tipo='producto').
     migrar_aditivos_referencia()
@@ -61,6 +68,15 @@ def run_migrations() -> None:
     migrar_transportistas()
     migrar_certificaciones_transportista()
     migrar_certificaciones_transportista_trazabilidad()
+    migrar_salidas_despacho_entrega_cancelacion()
+    migrar_salidas_recibido_por()
+    migrar_salidas_momentos()
+    # Rechazos: después del resto de migraciones de salidas porque reconstruye
+    # la tabla si el CHECK de estado todavía no admite RECHAZADA.
+    migrar_salidas_rechazo()
+    # Reclamos: al final, porque depende de salidas, lotes, clientes y de la
+    # tabla clave-valor de configuración.
+    migrar_reclamos()
 
 
 def crear_tablas_y_migrar() -> None:

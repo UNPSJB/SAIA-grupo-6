@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -98,8 +98,18 @@ class LoteResumen(BaseModel):
     creado_por_nombre: str | None = None
     fecha_inicio: datetime
     fecha_cierre: datetime | None
+    fecha_vencimiento: date | None
     items_total: int
     items_completados: int
+    # Campos de salidas (calculados, no persistidos).
+    retirado: bool = False
+    reservado: Decimal = Decimal("0")
+    despachado: Decimal = Decimal("0")
+    entregado: Decimal = Decimal("0")
+    en_revision: Decimal = Decimal("0")
+    desechado: Decimal = Decimal("0")
+    saldo: Decimal = Decimal("0")
+    estado_lote: str = ""
 
     model_config = ConfigDict(from_attributes=True)
 

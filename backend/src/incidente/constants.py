@@ -6,6 +6,13 @@ class TipoIncidente(str, Enum):
     FALLA_EQUIPO = "falla_equipo"
     DEVOLUCION_CLIENTE = "devolucion_cliente"
     HIGIENE_CONTAMINACION = "higiene_contaminacion"
+    # Se abre automáticamente desde salidas cuando un cliente rechaza una
+    # entrega (Historia A del circuito de rechazos). No es un valor editable:
+    # los tipos son una lista fija, igual que el resto.
+    ENTREGA_RECHAZADA = "entrega_rechazada"
+    # Se abre automáticamente desde el alta de un reclamo de cliente
+    # (Historia 20). Tampoco es un valor editable a mano.
+    RECLAMO_CLIENTE = "reclamo_cliente"
     OTRO = "otro"
 
 
@@ -34,3 +41,14 @@ class ErrorCode:
     EQUIPO_INACTIVO = "El equipo seleccionado está dado de baja."
     PERMISO_DENEGADO = "No tenés permiso para ver este incidente."
     FECHA_RANGO_INVALIDO = "La fecha 'desde' no puede ser posterior a la fecha 'hasta'."
+    INCIDENTE_INMUTABLE = (
+        "Los incidentes generados por un rechazo de mercadería son inmutables. "
+        "Este incidente se resuelve desde Resolver rechazo en Salidas."
+    )
+
+
+# Formatos y tamaño máximo de la foto del incidente. Vive acá para que otros
+# flujos que abren incidentes (por ejemplo el rechazo de una entrega) usen
+# exactamente el mismo criterio de validación.
+EXTENSIONES_FOTO = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+TAMANO_MAX_FOTO = 5 * 1024 * 1024  # 5 MB

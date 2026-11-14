@@ -23,6 +23,7 @@ from src.lotesInsumo.services import saldo_lote_insumo
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.unidadMedida.models import UnidadMedida
+from src.salidas.models import Salida
 from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo
 from src.recetas.services import calcular_factor, version_vigente
 
@@ -60,6 +61,8 @@ def _opciones():
         .selectinload(ChecklistProduccion.consumos)
         .selectinload(ConsumoInsumo.lote_insumo)
         .selectinload(LoteInsumo.proveedor),
+        # Salidas del lote para calcular producido/reservado/despachado/entregado/saldo.
+        selectinload(LoteProducto.salidas).selectinload(Salida.cliente),
     )
 
 
@@ -358,8 +361,17 @@ def resumen(lote: LoteProducto) -> schemas.LoteResumen:
         creado_por_nombre=_nombre(lote.creado_por),
         fecha_inicio=lote.fecha_inicio,
         fecha_cierre=lote.fecha_cierre,
+        fecha_vencimiento=lote.fecha_vencimiento,
         items_total=len(lote.checklist),
         items_completados=sum(1 for i in lote.checklist if i.completado_en is not None),
+        retirado=lote.retirado,
+        reservado=lote.reservado,
+        despachado=lote.despachado,
+        entregado=lote.entregado,
+        en_revision=lote.en_revision,
+        desechado=lote.desechado,
+        saldo=lote.saldo,
+        estado_lote=lote.estado_lote,
     )
 
 
