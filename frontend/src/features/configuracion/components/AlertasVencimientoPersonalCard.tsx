@@ -52,7 +52,7 @@ export function AlertasVencimientoPersonalCard({
 
   return (
     <Tarjeta p={{ base: "5", md: "6" }}>
-      <Box as="form" onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handleSubmit} noValidate>
         <HStack gap="3" align="flex-start" mb="5">
           <Box color="brand.700" mt="0.5" aria-hidden>
             <LuCalendarClock size={22} />
@@ -101,7 +101,7 @@ export function AlertasVencimientoPersonalCard({
             Guardar cambios
           </BotonGuardar>
         </AccionesFormulario>
-      </Box>
+      </form>
     </Tarjeta>
   );
 }

@@ -1,6 +1,6 @@
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
-import type { ConfiguracionAlertas } from "../types/configuracion";
+import type { ConfiguracionAlertas, PlazoReclamo } from "../types/configuracion";
 
 export async function obtenerConfiguracionAlertas(): Promise<ConfiguracionAlertas> {
   const response = await apiFetch(`${API_URL}/configuracion/alertas`);
@@ -10,13 +10,22 @@ export async function obtenerConfiguracionAlertas(): Promise<ConfiguracionAlerta
   );
 }
 
+/** Plazo de reclamos: lectura abierta a cualquier usuario autenticado. */
+export async function obtenerPlazoReclamo(): Promise<PlazoReclamo> {
+  const response = await apiFetch(`${API_URL}/configuracion/plazo-reclamo`);
+  return pedir<PlazoReclamo>(
+    response,
+    "Error al obtener el plazo de reclamos"
+  );
+}
+
 export async function actualizarConfiguracionAlertas(
-  dias: number
+  cambios: Partial<ConfiguracionAlertas>
 ): Promise<ConfiguracionAlertas> {
   const response = await apiFetch(`${API_URL}/configuracion/alertas`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dias_alerta_vencimiento_personal: dias }),
+    body: JSON.stringify(cambios),
   });
   return pedir<ConfiguracionAlertas>(
     response,

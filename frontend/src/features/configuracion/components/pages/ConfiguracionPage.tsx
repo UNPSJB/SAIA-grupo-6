@@ -7,6 +7,7 @@ import {
 import { Pagina } from "../../../../components/ui/plantillas";
 import { useConfiguracionAlertas } from "../../hooks/useConfiguracionAlertas";
 import { AlertasVencimientoPersonalCard } from "../AlertasVencimientoPersonalCard";
+import { PlazoReclamoCard } from "../PlazoReclamoCard";
 
 /**
  * Ajustes generales del sistema. Se llega desde el menú de usuario (el avatar
@@ -59,7 +60,15 @@ export function ConfiguracionPage() {
           <AlertasVencimientoPersonalCard
             diasGuardados={configuracion.dias_alerta_vencimiento_personal}
             guardando={guardando}
-            onGuardar={guardar}
+            onGuardar={(dias) =>
+              guardar({ dias_alerta_vencimiento_personal: dias })
+            }
+            onEditar={limpiarMensajes}
+          />
+          <PlazoReclamoCard
+            plazoGuardado={configuracion.plazo_reclamo_dias}
+            guardando={guardando}
+            onGuardar={(dias) => guardar({ plazo_reclamo_dias: dias })}
             onEditar={limpiarMensajes}
           />
         </Stack>

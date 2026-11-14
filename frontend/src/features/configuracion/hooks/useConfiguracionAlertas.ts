@@ -38,25 +38,28 @@ export function useConfiguracionAlertas() {
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
 
-  const guardar = useCallback(async (dias: number): Promise<boolean> => {
-    try {
-      setGuardando(true);
-      setErrorGuardado(null);
-      setExito(null);
-      const actualizada = await actualizarConfiguracionAlertas(dias);
-      setGuardada(actualizada);
-      setExito("Configuración guardada correctamente.");
-      notificarCambioNotificaciones();
-      return true;
-    } catch (e) {
-      setErrorGuardado(
-        e instanceof Error ? e.message : "No se pudo guardar la configuración.",
-      );
-      return false;
-    } finally {
-      setGuardando(false);
-    }
-  }, []);
+  const guardar = useCallback(
+    async (cambios: Partial<ConfiguracionAlertas>): Promise<boolean> => {
+      try {
+        setGuardando(true);
+        setErrorGuardado(null);
+        setExito(null);
+        const actualizada = await actualizarConfiguracionAlertas(cambios);
+        setGuardada(actualizada);
+        setExito("Configuración guardada correctamente.");
+        notificarCambioNotificaciones();
+        return true;
+      } catch (e) {
+        setErrorGuardado(
+          e instanceof Error ? e.message : "No se pudo guardar la configuración.",
+        );
+        return false;
+      } finally {
+        setGuardando(false);
+      }
+    },
+    []
+  );
 
   /** Borra el mensaje de éxito/error cuando la persona vuelve a editar. */
   const limpiarMensajes = useCallback(() => {
