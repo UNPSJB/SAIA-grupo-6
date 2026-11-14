@@ -353,11 +353,11 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
         <Bloque
           titulo="Equivalencia a gramos"
           icono={LuScale}
-          ayuda={`La receta usa este insumo en ${datos.unidad}; para sumar su aporte hay que saber cuántos gramos son.`}
+          ayuda={`La receta usa este insumo en ${datos.unidad}; para sumar su aporte hay que saber cuántos gramos son. Es el mismo dato de la ficha del insumo y de la composición porcentual: cambiarlo acá lo cambia allá.`}
         >
           {datos.unidad_tipo === null ? (
             <Aviso tono="peligro">
-              La unidad «{datos.unidad}» no se puede pasar a gramos. Cambiala en el maestro de insumos para poder
+              La unidad «{datos.unidad}» no tiene tipo ni factor. Completalos en Unidades de medida para poder
               usar este insumo en el cálculo.
             </Aviso>
           ) : necesitaDensidad ? (

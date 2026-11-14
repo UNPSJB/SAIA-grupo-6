@@ -21,6 +21,7 @@ from src.nutricion.router import router as nutricion_router
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.recetas.models import Receta, RecetaInsumo, VersionReceta
+from src.unidadMedida.constants import equivalencia_conocida
 from src.unidadMedida.models import UnidadMedida
 
 TOLERANCIA = Decimal("0.01")  # 1 % relativo
@@ -62,12 +63,17 @@ def usuario(db_session):
     return persona
 
 
+def _unidad(nombre: str, simbolo: str) -> UnidadMedida:
+    """Unidad con su tipo y factor reales: el cálculo los toma de la unidad."""
+    return UnidadMedida(nombre=nombre, simbolo=simbolo, **equivalencia_conocida(nombre, simbolo))
+
+
 @pytest.fixture
 def receta(db_session, usuario):
     """Bizcochuelo: 250 g harina, 250 g azúcar, 300 g huevo, 5 g bicarbonato
     (aditivo que aporta sodio) y 2 g de sorbato sin datos. Rinde 0,7 kg."""
-    g = UnidadMedida(nombre="gramo", simbolo="g")
-    kg = UnidadMedida(nombre="kilogramo", simbolo="Kg")
+    g = _unidad("gramo", "g")
+    kg = _unidad("kilogramo", "Kg")
     clase = ClaseFuncional(nombre="Leudante")
     bicarb = Aditivo(clase_funcional=clase, nombre="Bicarbonato de sodio", numero_ins="500ii")
     sorbato_ref = Aditivo(clase_funcional=clase, nombre="Sorbato", numero_ins="202")
@@ -174,7 +180,7 @@ def test_funciones_de_expresion():
 
 def test_rendimiento_en_unidades_necesita_peso_por_unidad(db_session, receta, usuario):
     _cargar_todo(db_session, receta, usuario)
-    un = UnidadMedida(nombre="unidad", simbolo="un")
+    un = _unidad("unidad", "un")
     _sin_auditoria(db_session, un)
     version = VersionReceta(receta_id=receta["version"].receta_id, numero=2,
                             rendimiento=Decimal("2"), unidad_medida=un)
@@ -240,7 +246,7 @@ def test_aditivo_marcado_como_aportante_exige_energia_y_sodio(db_session, receta
 
 
 def test_insumo_en_litros_necesita_densidad(db_session, usuario):
-    litro = UnidadMedida(nombre="litro", simbolo="L")
+    litro = _unidad("litro", "L")
     leche = Insumo(nombre="Leche", unidad_medida=litro)
     _sin_auditoria(db_session, litro, leche)
     datos = services.guardar_datos_insumo(
@@ -253,6 +259,43 @@ def test_insumo_en_litros_necesita_densidad(db_session, usuario):
         usuario,
     )
     assert datos.completitud.completo
+    # Queda en el insumo: es el mismo dato que usa la composición porcentual.
+    db_session.refresh(leche)
+    assert Decimal(str(leche.densidad_g_ml)) == Decimal("1.03")
+
+
+def test_guardar_sin_densidad_no_borra_la_del_insumo(db_session, usuario):
+    litro = _unidad("litro", "L")
+    leche = Insumo(nombre="Leche", unidad_medida=litro, densidad_g_ml=1.03)
+    _sin_auditoria(db_session, litro, leche)
+
+    datos = services.guardar_datos_insumo(
+        db_session, leche.id, schemas.DatosNutricionalesIn(valores=_valores(HUEVO)), usuario
+    )
+
+    assert datos.densidad_g_ml == Decimal("1.03")
+    assert datos.completitud.completo
+
+
+def test_rendimiento_por_docena_cuenta_doce_unidades(db_session, receta, usuario):
+    _cargar_todo(db_session, receta, usuario)
+    docena = _unidad("docena", "doc")
+    _sin_auditoria(db_session, docena)
+    version = VersionReceta(receta_id=receta["version"].receta_id, numero=2,
+                            rendimiento=Decimal("1"), unidad_medida=docena)
+    renglon = RecetaInsumo(version=version, insumo=receta["harina"], cantidad=Decimal("120"),
+                           unidad_medida=receta["g"], clasificacion="ingrediente")
+    _sin_auditoria(db_session, version, renglon)
+    services.guardar_configuracion(
+        db_session, receta["producto"].id,
+        schemas.ConfiguracionProductoIn(porcion=Decimal("10"), medida_casera="1 unidad",
+                                        peso_unidad_g=Decimal("10")),
+    )
+
+    info = services.calcular_info_nutricional(db_session, receta["producto"].id)
+
+    # 1 docena x 12 x 10 g = 120 g de producto, todo harina.
+    assert info.cantidad_base == Decimal("120")
 
 
 # ── Carga de datos (historia 1) ────────────────────────────────────────────

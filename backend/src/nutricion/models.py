@@ -80,27 +80,21 @@ class AlimentoReferencia(ModeloBase):
 class PerfilNutricionalInsumo(ModeloBase):
     """Datos del insumo que necesita el cálculo además de los nutrientes.
 
-    * Equivalencias para pasar la cantidad de la receta a gramos: peso por
-      unidad (insumos en "un") y densidad (insumos en litros o ml).
     * Para aditivos: si aportan energía o sodio de forma relevante. Un aditivo
       sin esa marca no exige datos nutricionales.
+    * Si sus azúcares son añadidos.
+
+    La conversión a gramos (densidad y peso por unidad) NO está acá: es un dato
+    del insumo (`Insumo.densidad_g_ml` / `Insumo.peso_unitario_g`), con el tipo
+    y factor de su `UnidadMedida`. La usan también la composición porcentual y
+    el alta de insumos. Ver `migrations/nutricion_conversion_en_insumo.py`.
     """
 
     __tablename__ = "perfiles_nutricionales_insumo"
-    __table_args__ = (
-        CheckConstraint(
-            "peso_unidad_g IS NULL OR peso_unidad_g > 0", name="ck_perfil_insumo_peso"
-        ),
-        CheckConstraint(
-            "densidad_g_ml IS NULL OR densidad_g_ml > 0", name="ck_perfil_insumo_densidad"
-        ),
-    )
 
     insumo_id: Mapped[int] = mapped_column(
         ForeignKey("insumos.id", ondelete="CASCADE"), primary_key=True
     )
-    peso_unidad_g: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
-    densidad_g_ml: Mapped[Decimal | None] = mapped_column(Numeric(14, 4), nullable=True)
     aporta_energia_sodio: Mapped[bool] = mapped_column(Boolean, default=False)
     # Ingredientes cuyo azúcar es añadido (azúcar, miel, jarabes, dulce de leche):
     # sus azúcares añadidos son sus azúcares totales.

@@ -13,12 +13,17 @@ from src.insumos.services import (
     leer_insumo,
     modificar_insumo,
 )
+from src.unidadMedida.constants import equivalencia_conocida
 from src.unidadMedida.models import UnidadMedida
 from tests.database import db_session
 
 
 def _um(db_session, nombre="Unidad", simbolo="UN", activo=True):
-    fila = UnidadMedida(nombre=nombre, simbolo=simbolo, activo=activo)
+    # Tipo y factor reales (Kilogramo es masa, Litro volumen): con el default
+    # "unidad" el alta del insumo exigiría peso unitario.
+    fila = UnidadMedida(
+        nombre=nombre, simbolo=simbolo, activo=activo, **(equivalencia_conocida(nombre, simbolo) or {})
+    )
     db_session.info["sin_auditoria"] = True
     try:
         db_session.add(fila)
@@ -275,7 +280,8 @@ def test_modificar_insumo_cambia_unidad_medida(db_session):
     um1 = _um(db_session, nombre="Kilogramo", simbolo="KG")
     um2 = _um(db_session, nombre="Litro", simbolo="L")
     creado = _insumo(db_session, nombre="Harina", um_id=um1.id)
-    datos = schemas.InsumoUpdate(unidad_medida_id=um2.id)
+    # Litro es volumen: pasar a esa unidad exige la densidad.
+    datos = schemas.InsumoUpdate(unidad_medida_id=um2.id, densidad_g_ml=0.6)
 
     # Act
     modificado = modificar_insumo(db_session, creado.id, datos)

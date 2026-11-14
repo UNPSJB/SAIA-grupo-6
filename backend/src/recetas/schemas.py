@@ -8,33 +8,7 @@ from src.common.validators import texto_no_vacio, texto_opcional
 from src.recetas import exceptions
 
 Cantidad = Decimal
-# esto para poder mandar al fronter cuanto representa cada item 
-class ComposicionItem(BaseModel):
-    insumo: InsumoResumen
-    unidad_medida: UnidadResumen
-    cantidad: Decimal
-    gramos: Decimal
-    porcentaje: Decimal
 
-# esto para decir porque no se puede hacer las coasa hora 
-class ComposicionFaltante(BaseModel):
-    insumo: InsumoResumen
-    clasificacion: str
-    motivo: str
-
-# la respuesta completa
-class Composicion(BaseModel):
-    version_id: int
-    version_numero: int
-    receta_id: int
-    producto_nombre: str
-    completa: bool
-    total_gramos: Decimal | None = None
-    ingredientes: list[ComposicionItem] = Field(default_factory=list)
-    aditivos: list[ComposicionItem] = Field(default_factory=list)
-    suma_porcentajes: Decimal | None = None
-    suma_correcta: bool | None = None
-    faltantes: list[ComposicionFaltante] = Field(default_factory=list)
 
 class InsumoRecetaIn(BaseModel):
     """Renglón de la receta.
@@ -186,3 +160,42 @@ class RecetaEscalada(BaseModel):
     cantidad_objetivo: Decimal
     insumos: list[InsumoEscalado]
     tareas: list[TareaEscalada]
+
+
+# --------------------------------------------------------------------------
+# Composición porcentual (E10)
+# --------------------------------------------------------------------------
+# Van al final porque usan `InsumoResumen` y `UnidadResumen`: definidas antes
+# de ellas, el módulo solo cargaba en Python 3.14 (anotaciones diferidas) y en
+# 3.13 o anterior el backend no arrancaba (NameError).
+
+class ComposicionItem(BaseModel):
+    """Lo que representa un insumo de la versión: cantidad, gramos y porcentaje."""
+
+    insumo: InsumoResumen
+    unidad_medida: UnidadResumen
+    cantidad: Decimal
+    gramos: Decimal
+    porcentaje: Decimal
+
+
+class ComposicionFaltante(BaseModel):
+    """Insumo al que le falta una equivalencia: por eso no se puede calcular."""
+
+    insumo: InsumoResumen
+    clasificacion: str
+    motivo: str
+
+
+class Composicion(BaseModel):
+    version_id: int
+    version_numero: int
+    receta_id: int
+    producto_nombre: str
+    completa: bool
+    total_gramos: Decimal | None = None
+    ingredientes: list[ComposicionItem] = Field(default_factory=list)
+    aditivos: list[ComposicionItem] = Field(default_factory=list)
+    suma_porcentajes: Decimal | None = None
+    suma_correcta: bool | None = None
+    faltantes: list[ComposicionFaltante] = Field(default_factory=list)

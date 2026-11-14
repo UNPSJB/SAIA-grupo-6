@@ -892,15 +892,26 @@ export const router = createBrowserRouter([
                   </ConSuspense>
                 ),
               },
-
-                 {
+              // E10: la composición cuelga de su receta, así las migas quedan
+              // "Recetas > Detalle > Composición" como el resto del detalle.
+              {
+                path: "/recetas/:id/versiones/:versionId/composicion",
+                element: (
+                  <ConSuspense>
+                    <RecetaComposicionPage />
+                  </ConSuspense>
+                ),
+              },
+              // URL anterior (sin la receta): la página la reemplaza por la nueva
+              // apenas sabe a qué receta pertenece la versión.
+              {
                 path: "/recetas/versiones/:versionId/composicion",
                 element: (
                   <ConSuspense>
                     <RecetaComposicionPage />
                   </ConSuspense>
                 ),
-              },              
+              },
 
               // ---------------- LOTES DE INSUMO Y TRAZABILIDAD ----------------
               {

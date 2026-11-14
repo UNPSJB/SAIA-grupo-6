@@ -44,6 +44,21 @@ const ETIQUETAS: Record<string, string> = {
   nutricion: "Datos nutricionales",
 };
 
+/**
+ * Secciones cuya ruta `/<seccion>/:id` es una página de detalle. En las
+ * pantallas que cuelgan de ese detalle (`/recetas/3/nueva-version`) el id se
+ * muestra como la miga "Detalle", con enlace. En las demás (`/insumos/3/editar`)
+ * no hay página `/insumos/3` y el id no se muestra.
+ */
+const SECCIONES_CON_DETALLE = new Set(["recetas", "lotes", "incidentes"]);
+
+/**
+ * Segmentos que, seguidos de un id, no se muestran: la composición vive en
+ * `/recetas/3/versiones/7/composicion` pero la versión se elige dentro del
+ * detalle de la receta, no hay pantalla "Versiones" a la que volver.
+ */
+const SEGMENTOS_OCULTOS_CON_ID = new Set(["versiones"]);
+
 /** "planes-limpieza" -> "Planes limpieza" (último recurso). */
 function legible(segmento: string): string {
   const texto = segmento.replace(/-/g, " ");
@@ -91,12 +106,28 @@ function construirMigas(pathname: string, user: Usuario): Miga[] {
     acumulada += `/${segmento}`;
     const esUltimo = i === segmentos.length - 1;
 
-    // Los ids no se muestran (no sabemos el nombre del registro), salvo en
-    // páginas tipo `/incidentes/5`, donde el id es lo único que sigue.
-    if (/^\d+$/.test(segmento)) {
-      if (esUltimo && segmentos[i - 1] !== "detalle") {
+    const esId = (s: string | undefined) => s !== undefined && /^\d+$/.test(s);
+
+    // Los ids no se muestran con su número (no sabemos el nombre del
+    // registro): son la miga "Detalle". En `/incidentes/5` es la página
+    // actual; en `/recetas/3/nueva-version`, un enlace al detalle de la receta.
+    if (esId(segmento)) {
+      if (segmentos[i - 1] === "detalle") return;
+      if (esUltimo) {
         migas.push({ to: acumulada, label: "Detalle", actual: false, enlace: false });
+      } else if (i === 1 && SECCIONES_CON_DETALLE.has(segmentos[0])) {
+        const seccion = TODAS_LAS_ENTRADAS.find((e) => e.to === `/${segmentos[0]}`);
+        migas.push({
+          to: acumulada,
+          label: "Detalle",
+          actual: false,
+          enlace: !seccion || esVisibleEntrada(seccion, user),
+        });
       }
+      return;
+    }
+
+    if (SEGMENTOS_OCULTOS_CON_ID.has(segmento) && esId(segmentos[i + 1]) && esId(segmentos[i - 1])) {
       return;
     }
 

@@ -25,8 +25,12 @@ from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
 from .trazabilidad import migrar_trazabilidad
-from .unidades_medida_tipo_factor import migrar_unidades_medida_tipo_factor
+from .unidades_medida_tipo_factor import (
+    asignar_equivalencias_conocidas,
+    migrar_unidades_medida_tipo_factor,
+)
 from .insumos_densidad_peso import migrar_insumos_densidad_peso
+from .nutricion_conversion_en_insumo import migrar_conversion_a_insumo
 from .vista_publica import migrar_vista_publica
 
 
@@ -49,7 +53,10 @@ def run_migrations() -> None:
     migrar_seguridad()
     migrar_notificaciones()
     migrar_unidades_medida_tipo_factor()
+    asignar_equivalencias_conocidas()
     migrar_insumos_densidad_peso()
+    # Después de las columnas del insumo: les copia la densidad y el peso del perfil.
+    migrar_conversion_a_insumo()
     migrar_vista_publica()
 
 

@@ -18,9 +18,10 @@ function Grupo({ titulo, items }: { titulo: string; items: ComposicionItem[] }) 
           <Table.Header>
             <FilaEncabezado>
               <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-              <EncabezadoOscuro numero width="22%">En la receta</EncabezadoOscuro>
-              <EncabezadoOscuro numero width="22%">En gramos</EncabezadoOscuro>
-              <EncabezadoOscuro numero width="18">Porcentaje</EncabezadoOscuro>
+              <EncabezadoOscuro numero width="20%">En la receta</EncabezadoOscuro>
+              <EncabezadoOscuro numero width="20%">En gramos</EncabezadoOscuro>
+              {/* En % como las otras: `width="18"` eran 18px y la columna se cortaba; 24% para que "Porcentaje" entre en una línea. */}
+              <EncabezadoOscuro numero width="24%">Porcentaje</EncabezadoOscuro>
             </FilaEncabezado>
           </Table.Header>
           <Table.Body>

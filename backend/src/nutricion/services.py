@@ -28,6 +28,11 @@ def _q(valor: Decimal | None) -> Decimal | None:
     return None if valor is None else Decimal(valor).quantize(_PRECISION)
 
 
+def _decimal(valor: Decimal | float | None) -> Decimal | None:
+    """Densidad / peso del insumo como Decimal (la columna está tipada como float)."""
+    return None if valor is None else Decimal(str(valor))
+
+
 def _es_verdadero(texto: str) -> bool:
     return texto.strip().lower() in ("1", "true", "si", "sí")
 
@@ -336,12 +341,12 @@ def evaluar_insumo(
                 faltantes.append(reglas[clave].nombre if clave in reglas else clave)
     if necesita_conversion:
         unidad = insumo.unidad_medida
-        conversion = calculo.tipo_unidad(unidad.simbolo, unidad.nombre)
+        conversion = calculo.tipo_unidad(unidad)
         if conversion is None:
             faltantes.append(f"una unidad convertible a gramos (hoy está en {unidad.simbolo})")
-        elif conversion[0] == c.VOLUMEN and not (perfil and perfil.densidad_g_ml):
+        elif conversion[0] == c.VOLUMEN and not insumo.densidad_g_ml:
             faltantes.append("la densidad (g/ml)")
-        elif conversion[0] == c.POR_UNIDAD and not (perfil and perfil.peso_unidad_g):
+        elif conversion[0] == c.POR_UNIDAD and not insumo.peso_unitario_g:
             faltantes.append("el peso por unidad (g)")
     return schemas.Completitud(
         completo=not faltantes, exige_datos=exige, faltantes=faltantes
@@ -383,15 +388,16 @@ def obtener_datos_insumo(db: Session, insumo_id: int) -> schemas.DatosNutriciona
     reglas = _reglas(db)
     perfil = _perfiles_de(db, [insumo.id]).get(insumo.id)
     valores = _valores_de(db, [insumo.id])[insumo.id]
-    conversion = calculo.tipo_unidad(insumo.unidad_medida.simbolo, insumo.unidad_medida.nombre)
+    conversion = calculo.tipo_unidad(insumo.unidad_medida)
     return schemas.DatosNutricionalesResponse(
         insumo_id=insumo.id,
         nombre=insumo.nombre,
         tipo=insumo.tipo,
         unidad=insumo.unidad_medida.simbolo,
         unidad_tipo=conversion[0] if conversion else None,
-        peso_unidad_g=perfil.peso_unidad_g if perfil else None,
-        densidad_g_ml=perfil.densidad_g_ml if perfil else None,
+        # Son datos del insumo (los mismos que usa la composición porcentual).
+        peso_unidad_g=_decimal(insumo.peso_unitario_g),
+        densidad_g_ml=_decimal(insumo.densidad_g_ml),
         aporta_energia_sodio=bool(perfil and perfil.aporta_energia_sodio),
         azucares_son_anadidos=bool(perfil and perfil.azucares_son_anadidos),
         nutrientes_admitidos=list(_admitidos(insumo)),
@@ -436,12 +442,18 @@ def guardar_datos_insumo(
             raise exceptions.NutrienteNoAdmitidoAditivo()
         vistos.add(item.nutriente)
 
+    # La densidad y el peso por unidad se guardan en el insumo: es el mismo
+    # dato que pide su alta y que usa la composición porcentual. Un valor
+    # vacío no lo borra (el alta del insumo puede exigirlo según la unidad).
+    if datos.peso_unidad_g is not None:
+        insumo.peso_unitario_g = datos.peso_unidad_g
+    if datos.densidad_g_ml is not None:
+        insumo.densidad_g_ml = datos.densidad_g_ml
+
     perfil = db.get(PerfilNutricionalInsumo, insumo.id)
     if perfil is None:
         perfil = PerfilNutricionalInsumo(insumo_id=insumo.id)
         db.add(perfil)
-    perfil.peso_unidad_g = datos.peso_unidad_g
-    perfil.densidad_g_ml = datos.densidad_g_ml
     perfil.aporta_energia_sodio = insumo.tipo == TIPO_ADITIVO and datos.aporta_energia_sodio
     perfil.azucares_son_anadidos = insumo.tipo != TIPO_ADITIVO and datos.azucares_son_anadidos
 
@@ -576,7 +588,7 @@ def _cantidad_base(
 ) -> Decimal | None:
     """Rendimiento de la receta en g (o ml, según cómo se expresa la tabla)."""
     unidad = version.unidad_medida
-    conversion = calculo.tipo_unidad(unidad.simbolo, unidad.nombre)
+    conversion = calculo.tipo_unidad(unidad)
     masa = volumen = None
     if conversion is None:
         problemas.append(
@@ -589,7 +601,8 @@ def _cantidad_base(
     elif tipo == c.VOLUMEN:
         volumen = version.rendimiento * factor
     elif config.peso_unidad_g:
-        masa = version.rendimiento * config.peso_unidad_g
+        # El factor cuenta unidades: una docena son 12.
+        masa = version.rendimiento * factor * config.peso_unidad_g
     else:
         problemas.append(
             "El rendimiento está en unidades: indicá el peso por unidad del producto (g)."
@@ -615,19 +628,21 @@ def _cantidad_base(
     return None
 
 
-def _gramos_insumo(
-    renglon: RecetaInsumo, perfil: PerfilNutricionalInsumo | None
-) -> Decimal | None:
-    unidad = renglon.unidad_medida
-    conversion = calculo.tipo_unidad(unidad.simbolo, unidad.nombre)
+def _gramos_insumo(renglon: RecetaInsumo) -> Decimal | None:
+    """Cantidad del renglón en gramos, o None si al insumo le falta el dato."""
+    conversion = calculo.tipo_unidad(renglon.unidad_medida)
     if conversion is None:
         return None
     tipo, factor = conversion
+    base = renglon.cantidad * factor
     if tipo == c.MASA:
-        return renglon.cantidad * factor
+        return base
+    insumo = renglon.insumo
     if tipo == c.VOLUMEN:
-        return renglon.cantidad * factor * perfil.densidad_g_ml if perfil and perfil.densidad_g_ml else None
-    return renglon.cantidad * perfil.peso_unidad_g if perfil and perfil.peso_unidad_g else None
+        densidad = _decimal(insumo.densidad_g_ml)
+        return base * densidad if densidad else None
+    peso = _decimal(insumo.peso_unitario_g)
+    return base * peso if peso else None
 
 
 def _laboratorio(db: Session, producto_id: int) -> dict[str, ValorLaboratorioProducto]:
@@ -760,7 +775,7 @@ def calcular_info_nutricional(
         perfil = perfiles.get(insumo.id)
         datos = valores[insumo.id]
         completitud = evaluar_insumo(insumo, perfil, datos, reglas, cubiertos)
-        gramos = _gramos_insumo(renglon, perfil)
+        gramos = _gramos_insumo(renglon)
         incluido = gramos is not None and bool(datos)
         if completitud.exige_datos or datos:
             if gramos is None:

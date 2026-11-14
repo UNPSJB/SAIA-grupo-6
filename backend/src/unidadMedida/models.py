@@ -21,7 +21,13 @@ class UnidadMedida(ModeloBase):
     simbolo: Mapped[str] = mapped_column(String(10), unique=True, index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    tipo: Mapped[str] = mapped_column(String(10), nullable=False, default="unidad")
+    # `server_default` además de `default`: así una base creada con
+    # `create_all` queda igual que una migrada (ver
+    # `migrations/unidades_medida_tipo_factor.py`) y acepta INSERT sin estas
+    # columnas.
+    tipo: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="unidad", server_default="unidad"
+    )
     factor_a_base: Mapped[float] = mapped_column(
-        Numeric(10, 4), nullable=False, default=1.0
+        Numeric(10, 4), nullable=False, default=1.0, server_default="1.0"
     )

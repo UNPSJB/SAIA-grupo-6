@@ -8,7 +8,6 @@ tocar este archivo.
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
-from src.nutricion.constants import CONVERSIONES
 
 CIEN = Decimal("100")
 
@@ -24,14 +23,15 @@ class ReglaNutriente:
     decimales_desde_10: int
 
 
-def tipo_unidad(simbolo: str | None, nombre: str | None = None) -> tuple[str, Decimal] | None:
-    """(masa|volumen|unidad, factor a g o ml) o None si no se puede convertir."""
-    for texto in (simbolo, nombre):
-        if texto:
-            encontrado = CONVERSIONES.get(texto.strip().lower())
-            if encontrado:
-                return encontrado
-    return None
+def tipo_unidad(unidad) -> tuple[str, Decimal] | None:
+    """(masa|volumen|unidad, factor a g, ml o unidades) de una `UnidadMedida`.
+
+    Sale del tipo y el factor de la propia unidad, que se editan en la pantalla
+    de unidades. None solo si la unidad no los tiene (base sin migrar).
+    """
+    if unidad is None or not unidad.tipo or not unidad.factor_a_base:
+        return None
+    return unidad.tipo, Decimal(str(unidad.factor_a_base))
 
 
 def redondear(valor: Decimal, decimales: int) -> Decimal:

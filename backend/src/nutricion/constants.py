@@ -9,6 +9,8 @@ la carga inicial.
 
 from decimal import Decimal
 
+from src.unidadMedida.constants import TIPO_MASA, TIPO_UNIDAD, TIPO_VOLUMEN
+
 # ── Nutrientes ──────────────────────────────────────────────────────────────
 
 ENERGIA = "energia"
@@ -159,32 +161,14 @@ ESTADO_INCOMPLETA = "incompleta"
 ESTADO_SIN_RECETA = "sin_receta"
 
 # ── Unidades: conversión a gramos / mililitros ─────────────────────────────
+#
+# El tipo y el factor salen de cada `UnidadMedida` (se editan en la pantalla de
+# unidades); la densidad y el peso por unidad, del `Insumo`. Acá solo quedan
+# los nombres de los tipos, para leer el cálculo.
 
-MASA = "masa"
-VOLUMEN = "volumen"
-POR_UNIDAD = "unidad"
-
-# símbolo o nombre (en minúsculas) -> (tipo, factor a g o ml)
-CONVERSIONES: dict[str, tuple[str, Decimal]] = {
-    "kg": (MASA, Decimal("1000")),
-    "kilogramo": (MASA, Decimal("1000")),
-    "g": (MASA, Decimal("1")),
-    "gramo": (MASA, Decimal("1")),
-    "mg": (MASA, Decimal("0.001")),
-    "miligramo": (MASA, Decimal("0.001")),
-    "tn": (MASA, Decimal("1000000")),
-    "tonelada": (MASA, Decimal("1000000")),
-    "l": (VOLUMEN, Decimal("1000")),
-    "litro": (VOLUMEN, Decimal("1000")),
-    "ml": (VOLUMEN, Decimal("1")),
-    "mililitro": (VOLUMEN, Decimal("1")),
-    "cm³": (VOLUMEN, Decimal("1")),
-    "cm3": (VOLUMEN, Decimal("1")),
-    "cc": (VOLUMEN, Decimal("1")),
-    "centímetro cúbico": (VOLUMEN, Decimal("1")),
-    "un": (POR_UNIDAD, Decimal("1")),
-    "unidad": (POR_UNIDAD, Decimal("1")),
-}
+MASA = TIPO_MASA
+VOLUMEN = TIPO_VOLUMEN
+POR_UNIDAD = TIPO_UNIDAD
 
 # ── Base de composición: carga inicial de ejemplo ──────────────────────────
 #
