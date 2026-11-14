@@ -3,7 +3,15 @@ import { Link as RouterLink, useLocation } from "react-router-dom";
 import { Breadcrumb, Text } from "@chakra-ui/react";
 import { LuChevronRight } from "react-icons/lu";
 import { useAuth } from "../context/useAuth";
-import { TODAS_LAS_ENTRADAS, esVisibleEntrada } from "./menuEntradas";
+import {
+  BASE_PANEL,
+  CONFIGURACION,
+  GRUPOS,
+  RUTA_CONFIGURACION,
+  rutaPanel,
+  TODAS_LAS_ENTRADAS,
+  esVisibleEntrada,
+} from "./menuEntradas";
 
 type Usuario = Parameters<typeof esVisibleEntrada>[1];
 
@@ -31,6 +39,7 @@ const ETIQUETAS: Record<string, string> = {
   "lotes-producto": "Lote de producto",
   "lotes-insumo": "Lote de insumo",
   escalar: "Escalar",
+  composicion: "Composición",
   "informacion-nutricional": "Información nutricional",
   nutricion: "Datos nutricionales",
 };
@@ -49,6 +58,33 @@ function legible(segmento: string): string {
 function construirMigas(pathname: string, user: Usuario): Miga[] {
   const segmentos = pathname.split("/").filter(Boolean);
   const migas: Miga[] = [{ to: "/", label: "Inicio", actual: false, enlace: true }];
+
+  // Sectores, unidades de medida y vista pública cuelgan de Configuración
+  // aunque su URL no lo diga: se llega a ellas desde esa pantalla.
+  if (CONFIGURACION.some((e) => e.to === `/${segmentos[0]}`)) {
+    migas.push({ to: RUTA_CONFIGURACION, label: "Configuración", actual: false, enlace: true });
+  }
+
+  // Panel de una categoría (`/resumen/produccion`): una sola miga con su nombre.
+  if (`/${segmentos[0]}` === BASE_PANEL) {
+    const grupo = GRUPOS.find((g) => g.id === segmentos[1]);
+    if (grupo) migas.push({ to: rutaPanel(grupo), label: grupo.label, actual: true, enlace: false });
+    return migas;
+  }
+
+  // Las pantallas de una categoría cuelgan de su panel: "Inicio > Producción >
+  // Recetas".
+  const grupoDeLaRuta = GRUPOS.find((g) =>
+    g.entradas.some((e) => pathname === e.to || pathname.startsWith(`${e.to}/`)),
+  );
+  if (grupoDeLaRuta) {
+    migas.push({
+      to: rutaPanel(grupoDeLaRuta),
+      label: grupoDeLaRuta.label,
+      actual: false,
+      enlace: grupoDeLaRuta.entradas.some((e) => esVisibleEntrada(e, user)),
+    });
+  }
 
   let acumulada = "";
   segmentos.forEach((segmento, i) => {
@@ -95,13 +131,13 @@ export function Breadcrumbs() {
   if (!user) return null;
 
   return (
-    <Breadcrumb.Root size="lg" minW={0}> 
+    <Breadcrumb.Root size="sm" minW={0}>
       <Breadcrumb.List flexWrap="nowrap"> 
         {migas.map((miga, i) => (
           <Fragment key={miga.to}>
             {i > 0 && (
               <Breadcrumb.Separator>
-                <LuChevronRight size={18} aria-hidden />
+                <LuChevronRight size={14} aria-hidden />
               </Breadcrumb.Separator>
             )}
             <Breadcrumb.Item>

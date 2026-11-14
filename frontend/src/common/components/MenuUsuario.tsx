@@ -5,6 +5,7 @@ import { LuLogOut, LuSettings, LuUserRound } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar } from "../api/permissions";
+import { RUTA_CONFIGURACION } from "./menuEntradas";
 import { Tooltip } from "../../components/ui/tooltip";
 
 interface OpcionMenuUsuario {
@@ -49,7 +50,7 @@ export function MenuUsuario() {
       valor: "configuracion",
       label: "Configuración",
       icon: LuSettings,
-      accion: () => navigate("/configuracion"),
+      accion: () => navigate(RUTA_CONFIGURACION),
       soloAdministradores: true,
     },
     {
@@ -87,12 +88,12 @@ export function MenuUsuario() {
             aria-label={`Menú de usuario: ${nombreCompleto}`}
             _focusVisible={{
               outline: "2px solid",
-              outlineColor: "brand.700",
+              outlineColor: "white",
               outlineOffset: "2px",
             }}
           >
             {/* Iniciales del nombre (ej: "alan james" -> "AJ"). 40px, igual que el resto de la fila. */}
-            <Avatar.Root size="md" bg="brand.700" color="white">
+            <Avatar.Root size="md" bg="white" color="brand.700">
               <Avatar.Fallback name={nombreCompleto} />
             </Avatar.Root>
           </Menu.Trigger>

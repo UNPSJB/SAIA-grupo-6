@@ -7,6 +7,7 @@ import {
   FormField,
   FormInput,
   MensajeError,
+  SIN_VALIDACION_NATIVA,
   Tarjeta,
 } from "../../../components/ui/patrones";
 
@@ -52,7 +53,7 @@ export function AlertasVencimientoPersonalCard({
 
   return (
     <Tarjeta p={{ base: "5", md: "6" }}>
-      <Box as="form" onSubmit={handleSubmit} noValidate>
+      <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
         <HStack gap="3" align="flex-start" mb="5">
           <Box color="brand.700" mt="0.5" aria-hidden>
             <LuCalendarClock size={22} />

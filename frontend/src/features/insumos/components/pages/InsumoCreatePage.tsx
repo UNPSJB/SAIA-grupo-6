@@ -4,7 +4,7 @@ import { InsumoForm } from "../InsumoForm";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import type { InsumoFormValues } from "../../types/insumo";
+import type { InsumoInput } from "../../types/insumo";
 import {
   BannerError,
   DialogoExito,
@@ -24,9 +24,9 @@ export function InsumoCreatePage() {
   } = useInsumoABM();
   const [exito, setExito] = useState(false);
   const [valoresPendientes, setValoresPendientes] =
-    useState<InsumoFormValues | null>(null);
+    useState<InsumoInput | null>(null);
 
-  const handleSubmit = async (values: InsumoFormValues) => {
+  const handleSubmit = async (values: InsumoInput) => {
     try {
       await alta(values);
       setExito(true);

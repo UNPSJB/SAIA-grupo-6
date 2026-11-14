@@ -1,4 +1,4 @@
-import type { Insumo, InsumoFormValues, TipoInsumo } from "../types/insumo";
+import type { Insumo, InsumoInput, TipoInsumo } from "../types/insumo";
 import { pedir } from "../../../common/api/errors";
 
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
@@ -40,7 +40,7 @@ export async function obtenerInsumo(id: number): Promise<Insumo> {
 }
 
 export async function crearInsumo(
-    insumo: InsumoFormValues
+    insumo: InsumoInput
 ): Promise<Insumo> {
     const response = await apiFetch(`${API_URL}/insumos`, {
         method: "POST",
@@ -55,7 +55,7 @@ export async function crearInsumo(
 
 export async function modificarInsumo(
     id: number,
-    insumo: Partial<InsumoFormValues>
+    insumo: Partial<InsumoInput>
 ): Promise<Insumo> {
     const response = await apiFetch(`${API_URL}/insumos/${id}`, {
         method: "PUT",
@@ -68,7 +68,7 @@ export async function modificarInsumo(
     return pedir<Insumo>(response, "Error al modificar el insumo");
 }
 
-export async function reactivarInsumo(id: number, insumo: InsumoFormValues): Promise<Insumo> {
+export async function reactivarInsumo(id: number, insumo: InsumoInput): Promise<Insumo> {
     const response = await apiFetch(`${API_URL}/insumos/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

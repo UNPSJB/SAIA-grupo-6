@@ -5,7 +5,7 @@ import { InsumoForm } from "../../components/InsumoForm";
 import { useInsumo } from "../../hooks/useInsumo";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import type { InsumoFormValues } from "../../types/insumo";
+import type { InsumoInput } from "../../types/insumo";
 import {
   BannerError,
   DialogoExito,
@@ -31,7 +31,7 @@ export function InsumoEditPage() {
 
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: InsumoFormValues) => {
+  const handleSubmit = async (values: InsumoInput) => {
     try {
       await modificar(insumoId, values);
       setExito(true);

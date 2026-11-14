@@ -10,7 +10,20 @@ import {
   TarjetaFormulario,
   TituloFormulario,
 } from "../../../components/ui/patrones";
-import type { UnidadMedidaFormValues, TipoUnidadMedida } from "../types/unidadMedida";
+import type {
+  TipoUnidadMedida,
+  UnidadMedidaFormValues,
+  UnidadMedidaInput,
+} from "../types/unidadMedida";
+
+interface UnidadMedidaFormProps {
+  initialValues?: UnidadMedidaFormValues;
+  onSubmit: (values: UnidadMedidaInput) => Promise<void> | void;
+  isLoading?: boolean;
+  submitLabel?: string;
+  title?: string;
+  onCancel?: () => void;
+}
 
 const TIPO_UNIDAD_OPCIONES: { valor: TipoUnidadMedida; etiqueta: string }[] = [
   { valor: "masa", etiqueta: "Masa" },

@@ -14,7 +14,12 @@ import {
   TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
-import { TIPOS_INSUMO, type InsumoFormValues, type TipoInsumo } from "../types/insumo";
+import {
+  TIPOS_INSUMO,
+  type InsumoFormValues,
+  type InsumoInput,
+  type TipoInsumo,
+} from "../types/insumo";
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import { listarAditivos } from "../../aditivos/services/aditivoService";
@@ -22,7 +27,7 @@ import type { Aditivo } from "../../aditivos/types/aditivo";
 
 interface InsumoFormProps {
   initialValues?: InsumoFormValues;
-  onSubmit: (values: InsumoFormValues) => Promise<void> | void;
+  onSubmit: (values: InsumoInput) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
   title?: string;

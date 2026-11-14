@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, HStack, Input, Kbd, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, HStack, Input, Spinner, Stack, Text } from "@chakra-ui/react";
 import { LuArrowRight, LuSearch } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
-import { DialogBody, DialogContent, DialogRoot, DialogTitle } from "../../components/ui/dialog";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import { useValorDebounced } from "../hooks/useValorDebounced";
@@ -130,6 +129,10 @@ async function buscar(consulta: string, esAdmin: boolean, esOperador: boolean): 
  * clics. Acá se escribe el número de lote, el nombre de un equipo o de una
  * persona y se salta directo a la ficha. También encuentra secciones del menú
  * ("stock", "vencimientos"). Flechas para moverse, Enter para abrir.
+ *
+ * En la barra es solo la lupa: al hacer clic se despliega el campo de texto
+ * en el mismo lugar y los resultados caen debajo. Se cierra con Escape, al
+ * hacer clic afuera o al elegir un resultado.
  */
 export function BuscadorGlobal(): ReactElement | null {
   const { user } = useAuth();
@@ -141,7 +144,7 @@ export function BuscadorGlobal(): ReactElement | null {
   const [seleccion, setSeleccion] = useState(0);
   const aplicada = useValorDebounced(consulta.trim(), 250);
   const pedido = useRef(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const contenedorRef = useRef<HTMLDivElement>(null);
 
   const esAdmin = puedeAdministrar(user);
   const esOperador = puedeOperar(user);
@@ -196,6 +199,21 @@ export function BuscadorGlobal(): ReactElement | null {
     };
   }, [aplicada, esAdmin, esOperador]);
 
+  // Clic fuera del buscador: se pliega.
+  useEffect(() => {
+    if (!abierto) return;
+    const alApretar = (e: MouseEvent) => {
+      if (!contenedorRef.current?.contains(e.target as Node)) {
+        setAbierto(false);
+        setConsulta("");
+        setResultados([]);
+        setSeleccion(0);
+      }
+    };
+    document.addEventListener("mousedown", alApretar);
+    return () => document.removeEventListener("mousedown", alApretar);
+  }, [abierto]);
+
   const todos = aplicada.length < 2 ? [] : [...secciones, ...resultados];
 
   const cerrar = () => {
@@ -223,139 +241,185 @@ export function BuscadorGlobal(): ReactElement | null {
     g.items.push({ r, indice });
   });
 
+  const hayTexto = consulta.trim().length > 0;
+
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        colorPalette="neutral"
-        onClick={() => setAbierto(true)}
-        aria-label="Buscar (Ctrl+K)"
-        h="10"
-        px={{ base: "2.5", md: "3" }}
-        minW={{ base: "10", md: "260px" }}
-        justifyContent="flex-start"
-        color="fg.muted"
-        fontWeight="normal"
-        borderColor="border"
-        bg="bg.subtle"
-      >
-        <LuSearch aria-hidden />
-        <Box as="span" display={{ base: "none", md: "inline" }} flex="1" textAlign="left">
-          Buscar lote, equipo, persona...
-        </Box>
-        <Kbd display={{ base: "none", md: "inline-flex" }} size="sm">
-          Ctrl K
-        </Kbd>
-      </Button>
+    <Box
+      ref={contenedorRef}
+      position="relative"
+      flexShrink={0}
+      h="10"
+      // Plegado mide lo que la lupa. Desplegado, en escritorio crece en el
+      // lugar (empuja el menú); en celular no hay espacio, así que el campo
+      // se dibuja por encima de la barra (ver `position` más abajo).
+      w={abierto ? { base: "10", md: "300px" } : "10"}
+      transition="width 0.18s ease"
+      onBlur={(e) => {
+        // Salir con Tab también lo pliega.
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) cerrar();
+      }}
+    >
+      {!abierto ? (
+        <Button
+          type="button"
+          variant="outline"
+          colorPalette="neutral"
+          onClick={() => setAbierto(true)}
+          aria-label="Buscar (Ctrl+K)"
+          title="Buscar (Ctrl+K)"
+          aria-expanded={false}
+          boxSize="10"
+          minW="10"
+          p="0"
+          color="white"
+          borderColor="whiteAlpha.500"
+          bg="whiteAlpha.200"
+          _hover={{ bg: "whiteAlpha.300" }}
+          _focusVisible={{ outline: "2px solid", outlineColor: "white", outlineOffset: "2px" }}
+        >
+          <LuSearch aria-hidden />
+        </Button>
+      ) : (
+        <HStack
+          role="search"
+          position={{ base: "absolute", md: "static" }}
+          right="0"
+          top="0"
+          zIndex="dropdown"
+          w={{ base: "min(260px, calc(100vw - 130px))", md: "full" }}
+          h="10"
+          px="3"
+          gap="2"
+          bg="white"
+          color="fg"
+          rounded="md"
+          borderWidth="1px"
+          borderColor="white"
+        >
+          <Box color="fg.muted" flexShrink={0} aria-hidden>
+            <LuSearch />
+          </Box>
+          <Input
+            autoFocus
+            variant="flushed"
+            border="none"
+            _focusVisible={{ boxShadow: "none" }}
+            h="full"
+            px="0"
+            fontSize="sm"
+            placeholder="Buscar lote, equipo, persona..."
+            value={consulta}
+            onChange={(e) => setConsulta(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setSeleccion((s) => Math.min(s + 1, Math.max(todos.length - 1, 0)));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setSeleccion((s) => Math.max(s - 1, 0));
+              } else if (e.key === "Enter" && todos[seleccion]) {
+                e.preventDefault();
+                ir(todos[seleccion]);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cerrar();
+              }
+            }}
+            aria-label="Buscar en SAIA"
+            aria-controls="resultados-busqueda"
+          />
+          {buscando && <Spinner size="sm" color="brand.500" flexShrink={0} />}
+        </HStack>
+      )}
 
-      <DialogRoot
-        open={abierto}
-        onOpenChange={(e) => (e.open ? setAbierto(true) : cerrar())}
-        placement="top"
-        initialFocusEl={() => inputRef.current}
-      >
-        <DialogContent maxW="640px" w="calc(100vw - 32px)" mt="16" rounded="lg">
-          <DialogTitle srOnly>Buscar en SAIA</DialogTitle>
-          <HStack px="4" py="3" borderBottomWidth="1px" borderColor="border.subtle" gap="3">
-            <Box color="fg.muted" aria-hidden>
-              <LuSearch />
-            </Box>
-            <Input
-              ref={inputRef}
-              variant="flushed"
-              border="none"
-              _focusVisible={{ boxShadow: "none" }}
-              px="0"
-              placeholder="Número de lote, equipo, persona, insumo, sección..."
-              value={consulta}
-              onChange={(e) => setConsulta(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setSeleccion((s) => Math.min(s + 1, Math.max(todos.length - 1, 0)));
-                } else if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setSeleccion((s) => Math.max(s - 1, 0));
-                } else if (e.key === "Enter" && todos[seleccion]) {
-                  e.preventDefault();
-                  ir(todos[seleccion]);
-                }
-              }}
-              aria-label="Buscar"
-              aria-controls="resultados-busqueda"
-            />
-            {buscando && <Spinner size="sm" color="brand.500" />}
-          </HStack>
-
-          <DialogBody p="2" maxH="60vh" overflowY="auto" id="resultados-busqueda">
-            {aplicada.length < 2 && (
-              <Text fontSize="sm" color="fg.muted" p="3">
-                Escribí al menos 2 letras. Por ejemplo, un número de lote ("LP-2026"), un equipo
-                ("heladera") o una sección ("stock").
+      {abierto && hayTexto && (
+        <Box
+          id="resultados-busqueda"
+          // En celular ocupa el ancho de la pantalla, debajo de la barra.
+          position={{ base: "fixed", md: "absolute" }}
+          top={{ base: "68px", md: "calc(100% + 8px)" }}
+          left={{ base: "3", md: "auto" }}
+          right={{ base: "3", md: "0" }}
+          w={{ base: "auto", md: "440px" }}
+          maxH="70vh"
+          overflowY="auto"
+          zIndex="dropdown"
+          p="2"
+          bg="bg.panel"
+          color="fg"
+          rounded="lg"
+          borderWidth="1px"
+          borderColor="border.subtle"
+          boxShadow="lg"
+          // Que el clic en un resultado no le saque el foco al campo.
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {aplicada.length < 2 && (
+            <Text fontSize="sm" color="fg.muted" p="3">
+              Escribí al menos 2 letras. Por ejemplo, un número de lote ("LP-2026"), un equipo
+              ("heladera") o una sección ("stock").
+            </Text>
+          )}
+          {aplicada.length >= 2 && !buscando && todos.length === 0 && (
+            <Text fontSize="sm" color="fg.muted" p="3">
+              No se encontró nada para "{aplicada}".
+            </Text>
+          )}
+          {grupos.map((g) => (
+            <Box key={g.nombre} mb="2">
+              <Text fontSize="xs" fontWeight="semibold" color="fg.subtle" px="3" pt="2" pb="1">
+                {g.nombre}
               </Text>
-            )}
-            {aplicada.length >= 2 && !buscando && todos.length === 0 && (
-              <Text fontSize="sm" color="fg.muted" p="3">
-                No se encontró nada para "{aplicada}".
-              </Text>
-            )}
-            {grupos.map((g) => (
-              <Box key={g.nombre} mb="2">
-                <Text fontSize="xs" fontWeight="semibold" color="fg.subtle" px="3" pt="2" pb="1">
-                  {g.nombre}
-                </Text>
-                <Stack gap="0" role="listbox" aria-label={g.nombre}>
-                  {g.items.map(({ r, indice }) => {
-                    const activo = indice === seleccion;
-                    const Icono = r.icono;
-                    return (
-                      <HStack
-                        key={r.clave}
-                        role="option"
-                        aria-selected={activo}
-                        as="button"
-                        textAlign="left"
-                        w="100%"
-                        gap="3"
-                        px="3"
-                        py="2.5"
-                        rounded="md"
-                        bg={activo ? "brand.50" : "transparent"}
-                        _hover={{ bg: "brand.50" }}
-                        cursor="pointer"
-                        onMouseEnter={() => setSeleccion(indice)}
-                        onClick={() => ir(r)}
-                      >
-                        {Icono && (
-                          <Box color="fg.muted" aria-hidden>
-                            <Icono />
-                          </Box>
-                        )}
-                        <Box flex="1" minW="0">
-                          <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={1}>
-                            {r.titulo}
-                          </Text>
-                          {r.detalle && (
-                            <Text fontSize="xs" color="fg.muted" lineClamp={1}>
-                              {r.detalle}
-                            </Text>
-                          )}
+              <Stack gap="0" role="listbox" aria-label={g.nombre}>
+                {g.items.map(({ r, indice }) => {
+                  const activo = indice === seleccion;
+                  const Icono = r.icono;
+                  return (
+                    <HStack
+                      key={r.clave}
+                      role="option"
+                      aria-selected={activo}
+                      as="button"
+                      textAlign="left"
+                      w="100%"
+                      gap="3"
+                      px="3"
+                      py="2.5"
+                      rounded="md"
+                      bg={activo ? "brand.50" : "transparent"}
+                      _hover={{ bg: "brand.50" }}
+                      cursor="pointer"
+                      onMouseEnter={() => setSeleccion(indice)}
+                      onClick={() => ir(r)}
+                    >
+                      {Icono && (
+                        <Box color="fg.muted" aria-hidden>
+                          <Icono />
                         </Box>
-                        {activo && (
-                          <Box color="brand.fg" aria-hidden>
-                            <LuArrowRight />
-                          </Box>
+                      )}
+                      <Box flex="1" minW="0">
+                        <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={1}>
+                          {r.titulo}
+                        </Text>
+                        {r.detalle && (
+                          <Text fontSize="xs" color="fg.muted" lineClamp={1}>
+                            {r.detalle}
+                          </Text>
                         )}
-                      </HStack>
-                    );
-                  })}
-                </Stack>
-              </Box>
-            ))}
-          </DialogBody>
-        </DialogContent>
-      </DialogRoot>
-    </>
+                      </Box>
+                      {activo && (
+                        <Box color="brand.fg" aria-hidden>
+                          <LuArrowRight />
+                        </Box>
+                      )}
+                    </HStack>
+                  );
+                })}
+              </Stack>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
   );
 }

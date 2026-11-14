@@ -1,6 +1,7 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import type {
+  Composicion,
   InsumoOpcion,
   ModoEscalado,
   Receta,

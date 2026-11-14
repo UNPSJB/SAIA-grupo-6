@@ -101,12 +101,13 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
               variant="ghost"
               size="md"
               rounded="md"
-              bg={activa ? "brand.50" : "transparent"}
-              color="brand.700"
-              _hover={{ bg: "brand.100" }}
+              // Va sobre la barra superior teal.
+              bg={activa ? "whiteAlpha.300" : "transparent"}
+              color="white"
+              _hover={{ bg: "whiteAlpha.200" }}
               _focusVisible={{
                 outline: "2px solid",
-                outlineColor: "brand.700",
+                outlineColor: "white",
                 outlineOffset: "-2px",
               }}
             >

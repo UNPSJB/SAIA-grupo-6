@@ -40,3 +40,9 @@ export interface InsumoFormValues {
   /** String para permitir vacío y coma decimal en el formulario. */
   peso_unitario_g: string;
 }
+
+/** Lo que el formulario entrega y la API recibe: los números ya parseados. */
+export type InsumoInput = Omit<InsumoFormValues, "densidad_g_ml" | "peso_unitario_g"> & {
+  densidad_g_ml: number | null;
+  peso_unitario_g: number | null;
+};

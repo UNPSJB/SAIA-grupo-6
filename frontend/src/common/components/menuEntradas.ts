@@ -26,7 +26,6 @@ import {
   LuMicroscope,
   LuPackage,
   LuRuler,
-  LuSettings,
   LuShieldCheck,
   LuSparkles,
   LuSprayCan,
@@ -52,14 +51,12 @@ export interface EntradaMenu {
   label: string;
   rol: RolMenu;
   /**
-   * Ícono de la entrada.
-   *
-   * Antes el `NavItem` solo pintaba el texto, así que con el sidebar colapsado
-   * a una barra de íconos las opciones quedaban sin nada que mostrar. Va en el
-   * dato y no hardcodeado en el render para que agregar una sección sea
-   * siempre una línea.
+   * Ícono de la entrada. Va en el dato y no hardcodeado en el render para que
+   * agregar una sección sea siempre una línea.
    */
   icon: IconType;
+  /** Explicación corta, para las entradas que se muestran como tarjeta. */
+  ayuda?: string;
 }
 
 export interface GrupoMenu {
@@ -67,13 +64,13 @@ export interface GrupoMenu {
   label: string;
   /** Descripción corta que se lee bajo el título del grupo. */
   ayuda: string;
-  /** Ícono del grupo: con el sidebar colapsado es el separador de sección. */
+  /** Ícono de la categoría en la barra de navegación. */
   icon: IconType;
   entradas: EntradaMenu[];
 }
 
 /**
- * Secciones del sidebar, agrupadas por área de trabajo.
+ * Categorías de la barra de navegación, agrupadas por área de trabajo.
  *
  * Antes eran dos grupos ("Datos maestros" con 13 entradas y "Operaciones" con
  * 14), divididos por naturaleza del dato. Para encontrar algo había que saber
@@ -95,8 +92,8 @@ export interface GrupoMenu {
  * listado de lotes. "Reportar incidente" sí queda, porque para quien opera es
  * la pantalla de sus reportes, no solo el formulario.
  *
- * Los grupos arrancan cerrados y se abre solo el de la pantalla actual
- * (`Navbar`), así que siete grupos no alargan el menú.
+ * La barra (`Navbar`) muestra primero solo las categorías; al abrir una, la
+ * reemplaza por sus opciones.
  */
 export const GRUPOS: GrupoMenu[] = [
   {
@@ -208,28 +205,17 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
     ],
   },
-  {
-    id: "configuracion",
-    label: "Configuración",
-    ayuda: "Catálogos generales y vista pública",
-    icon: LuSettings,
-    entradas: [
-      { to: "/sectores", label: "Sectores", rol: "administrar", icon: LuMapPin },
-      { to: "/unidades-medida", label: "Unidades de medida", rol: "administrar", icon: LuRuler },
-      { to: "/vista-publica", label: "Vista pública", rol: "administrar", icon: LuGlobe },
-    ],
-  },
-  {
-    id: "recetas",
-    label: "Recetas",
-    ayuda: "Recetas, versiones y composición porcentual",
-    icon: LuCookingPot,
-    entradas: [
-      { to: "/recetas", label: "Recetas", rol: "administrar", icon: LuCookingPot },
-      { to: "/recetas/versiones", label: "Versiones", rol: "operar", icon: LuHistory },
-    ],
-  },
 ];
+
+/**
+ * Panel de una categoría: la pantalla con sus indicadores, que se abre al
+ * elegirla en la barra (`PanelCategoriaPage`).
+ */
+export const BASE_PANEL = "/resumen";
+
+export function rutaPanel(grupo: Pick<GrupoMenu, "id">): string {
+  return `${BASE_PANEL}/${grupo.id}`;
+}
 
 /** Enlaces sueltos, fuera de cualquier grupo. */
 export const MENU: EntradaMenu[] = [
@@ -242,16 +228,44 @@ export const MENU: EntradaMenu[] = [
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
 ];
 
+/** Pantalla de configuración: se abre desde el menú de usuario (el avatar). */
+export const RUTA_CONFIGURACION = "/configuracion";
+
+/**
+ * Catálogos generales y ajustes. No van en la barra de navegación: se usan
+ * poco, así que están todos juntos en la pantalla de Configuración
+ * (`ConfiguracionPage`), que los muestra como tarjetas. Siguen apareciendo en
+ * el buscador y en las migas de pan.
+ */
+export const CONFIGURACION: EntradaMenu[] = [
+  {
+    to: "/sectores",
+    label: "Sectores",
+    rol: "administrar",
+    icon: LuMapPin,
+    ayuda: "Áreas de la planta donde se ubican los equipos y se asignan las tareas.",
+  },
+  {
+    to: "/unidades-medida",
+    label: "Unidades de medida",
+    rol: "administrar",
+    icon: LuRuler,
+    ayuda: "Unidades con las que se miden insumos, recetas y productos.",
+  },
+  {
+    to: "/vista-publica",
+    label: "Vista pública",
+    rol: "administrar",
+    icon: LuGlobe,
+    ayuda: "Qué información se muestra en la página pública de la empresa.",
+  },
+];
+
 export const TODAS_LAS_ENTRADAS: EntradaMenu[] = [
   ...MENU,
   ...GRUPOS.flatMap((g) => g.entradas),
+  ...CONFIGURACION,
 ];
-
-export const ANCHO_EXPANDIDO_PX = 280;
-export const ANCHO_COLAPSADO_PX = 64;
-
-/** Ancho del sidebar plegado; el layout lo reserva siempre. */
-export const ANCHO_COLAPSADO = `${ANCHO_COLAPSADO_PX}px`;
 
 export function esVisibleEntrada(
   entrada: EntradaMenu,
