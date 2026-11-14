@@ -93,6 +93,9 @@ class SalidaResumen(BaseModel):
     # Indica si el lote de origen está retirado: el frontend lo usa para
     # deshabilitar el reingreso al resolver un rechazo.
     lote_retirado: bool = False
+    # Retiro asociado al lote (si existe).
+    retiro_id: int | None = None
+    retiro_estado: str | None = None
     # Certificaciones del transportista vigentes al despachar.
     certificaciones: list[SalidaCertificacionResumen] = []
     # Reclamos de cliente registrados sobre esta entrega.

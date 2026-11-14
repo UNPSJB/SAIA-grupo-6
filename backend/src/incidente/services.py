@@ -440,11 +440,15 @@ def cambiar_estado_incidente(
     if incidente is None:
         raise exceptions.IncidenteNoEncontrado()
 
-    # Los incidentes originados por un rechazo de mercadería no se cierran ni
-    # se reabren desde E6: su resolución vive en "Resolver rechazo" de Salidas.
+    # Los incidentes originados por un rechazo de mercadería o por un retiro
+    # de lote no se cierran ni se reabren desde E6: su resolución vive en
+    # "Resolver rechazo" de Salidas y en "Cerrar retiro" de Retiros.
     # Va antes del early return de "mismo estado" para que reabrir uno ya
     # cerrado también devuelva el error y no un 200 silencioso.
-    if incidente.tipo == TipoIncidente.ENTREGA_RECHAZADA.value:
+    if incidente.tipo in (
+        TipoIncidente.ENTREGA_RECHAZADA.value,
+        TipoIncidente.RETIRO_LOTE.value,
+    ):
         raise exceptions.IncidenteInmutable()
 
     if incidente.estado == estado.value:

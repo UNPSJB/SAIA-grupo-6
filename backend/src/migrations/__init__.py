@@ -23,6 +23,7 @@ from .notificaciones import migrar_notificaciones
 from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .reclamos import migrar_reclamos
+from .retiros import migrar_retiros
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
@@ -77,6 +78,8 @@ def run_migrations() -> None:
     # Reclamos: al final, porque depende de salidas, lotes, clientes y de la
     # tabla clave-valor de configuración.
     migrar_reclamos()
+    # Retiros: después de reclamos, salidas y lotes porque depende de ellos.
+    migrar_retiros()
 
 
 def crear_tablas_y_migrar() -> None:

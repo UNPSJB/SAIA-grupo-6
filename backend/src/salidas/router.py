@@ -72,7 +72,7 @@ def listar_salidas(
     salidas = services.listar_salidas(
         db, estado=estado, lote_id=lote_id, cliente_id=cliente_id
     )
-    return [services.salida_a_resumen(s) for s in salidas]
+    return [services.salida_a_resumen(s, db) for s in salidas]
 
 
 @router.get(
@@ -85,7 +85,7 @@ def obtener_salida(
     db: Session = Depends(get_db),
 ):
     salida = services.obtener_salida(db, salida_id)
-    return services.salida_a_resumen(salida)
+    return services.salida_a_resumen(salida, db)
 
 
 @router.post(

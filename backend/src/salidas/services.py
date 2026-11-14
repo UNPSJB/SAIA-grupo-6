@@ -401,6 +401,45 @@ def entregar(
     return salida
 
 
+def _cancelar_sin_commit(
+    db: Session,
+    salida: Salida,
+    motivo: str,
+    usuario: Personal,
+) -> None:
+    """Cancela una salida RESERVADO sin hacer commit.
+
+    Se usa desde el endpoint público `cancelar` y desde `iniciar_retiro`
+    (retiros) para mantener la atomicidad de la transacción mayor.
+    """
+    salida.motivo_cancelacion = motivo
+    salida.cancelada_por_id = usuario.id
+    salida.fecha_cancelacion = ahora()
+    salida.estado = ESTADO_CANCELADO
+
+    db.add(salida)
+    db.flush()
+
+    unidad = (
+        salida.lote.producto.unidad_medida.simbolo
+        if salida.lote.producto and salida.lote.producto.unidad_medida
+        else ""
+    )
+    descripcion = (
+        f"Cancelación de reserva de {formatear_cantidad(salida.cantidad)} {unidad} "
+        f"para {salida.cliente.nombre}. Motivo: {motivo} "
+        f"(usuario: {usuario.nombre} {usuario.apellido or ''})."
+    )
+    registrar_hito(
+        db,
+        lote_id=salida.lote_id,
+        tipo_evento=TIPO_EVENTO_CANCELACION,
+        descripcion=descripcion,
+        usuario_id=usuario.id,
+        salida_id=salida.id,
+    )
+
+
 def cancelar(
     db: Session,
     salida_id: int,
@@ -424,32 +463,8 @@ def cancelar(
     if not motivo:
         raise exceptions.MotivoRequerido()
 
-    salida.motivo_cancelacion = motivo
-    salida.cancelada_por_id = usuario.id
-    salida.fecha_cancelacion = ahora()
-    salida.estado = ESTADO_CANCELADO
-
-    db.add(salida)
-    db.flush()
+    _cancelar_sin_commit(db, salida, motivo, usuario)
     try:
-        unidad = (
-            salida.lote.producto.unidad_medida.simbolo
-            if salida.lote.producto and salida.lote.producto.unidad_medida
-            else ""
-        )
-        descripcion = (
-            f"Cancelación de reserva de {formatear_cantidad(salida.cantidad)} {unidad} "
-            f"para {salida.cliente.nombre}. Motivo: {motivo} "
-            f"(usuario: {usuario.nombre} {usuario.apellido or ''})."
-        )
-        registrar_hito(
-            db,
-            lote_id=salida.lote_id,
-            tipo_evento=TIPO_EVENTO_CANCELACION,
-            descripcion=descripcion,
-            usuario_id=usuario.id,
-            salida_id=salida.id,
-        )
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -678,7 +693,9 @@ def listar_salidas(
     return list(db.scalars(consulta).all())
 
 
-def salida_a_resumen(salida: Salida) -> schemas.SalidaResumen:
+def salida_a_resumen(
+    salida: Salida, db: Session | None = None
+) -> schemas.SalidaResumen:
     creado_por_nombre = None
     if salida.creado_por is not None:
         creado_por_nombre = (
@@ -735,6 +752,19 @@ def salida_a_resumen(salida: Salida) -> schemas.SalidaResumen:
             reverse=True,
         )
     ]
+
+    # Retiro asociado al lote (si existe y se pide con db).
+    retiro_id = None
+    retiro_estado = None
+    if db is not None:
+        from src.retiros.models import Retiro
+
+        retiro = db.scalar(
+            select(Retiro).where(Retiro.lote_id == salida.lote_id)
+        )
+        if retiro is not None:
+            retiro_id = retiro.id
+            retiro_estado = retiro.estado
 
     return schemas.SalidaResumen(
         id=salida.id,
@@ -795,6 +825,8 @@ def salida_a_resumen(salida: Salida) -> schemas.SalidaResumen:
         incidente_estado=incidente.estado if incidente is not None else None,
         incidente_foto_url=incidente.foto_url if incidente is not None else None,
         lote_retirado=bool(salida.lote.retirado),
+        retiro_id=retiro_id,
+        retiro_estado=retiro_estado,
         certificaciones=certificaciones,
         reclamos=reclamos,
     )

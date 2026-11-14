@@ -110,6 +110,38 @@ class LoteResumen(BaseModel):
     desechado: Decimal = Decimal("0")
     saldo: Decimal = Decimal("0")
     estado_lote: str = ""
+    # Retiro asociado al lote (si existe).
+    retiro_id: int | None = None
+    retiro_estado: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalidaAfectadaResumen(BaseModel):
+    """Salida afectada para GET /lotes/{lote_id}/impacto-retiro."""
+
+    salida_id: int
+    cliente_id: int
+    cliente_nombre: str
+    cantidad_con_unidad: str
+    unidad_medida: str
+    transportista: str
+    estado: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ImpactoRetiro(BaseModel):
+    """Respuesta de GET /lotes/{lote_id}/impacto-retiro."""
+
+    lote_id: int
+    lote_codigo: str
+    lote_producto_nombre: str
+    reservas_a_cancelar: int
+    salidas_afectadas: list[SalidaAfectadaResumen]
+    total_afectadas: int
+    saldo_en_planta: str
+    en_revision: str
 
     model_config = ConfigDict(from_attributes=True)
 

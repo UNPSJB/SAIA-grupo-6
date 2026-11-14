@@ -13,6 +13,10 @@ class TipoIncidente(str, Enum):
     # Se abre automáticamente desde el alta de un reclamo de cliente
     # (Historia 20). Tampoco es un valor editable a mano.
     RECLAMO_CLIENTE = "reclamo_cliente"
+    # Se abre automáticamente al iniciar un retiro de lote del mercado
+    # (Historia 21). Es un incidente de sistema: no se puede cerrar, reabrir
+    # ni editar desde los endpoints de E6.
+    RETIRO_LOTE = "retiro_lote"
     OTRO = "otro"
 
 
