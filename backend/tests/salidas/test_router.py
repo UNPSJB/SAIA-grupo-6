@@ -315,3 +315,27 @@ def test_listar_salidas_filtro_estado(cliente_test, db):
     datos = respuesta.json()
     assert len(datos) == 1
     assert datos[0]["estado"] == "RESERVADO"
+
+
+def test_listar_clientes_disponibles(cliente_test, db):
+    client, headers = cliente_test
+    cliente = _crear_cliente(db)
+
+    respuesta = client.get("/salidas/clientes-disponibles", headers=headers)
+    assert respuesta.status_code == 200
+    datos = respuesta.json()
+    assert len(datos) == 1
+    assert datos[0]["id"] == cliente.id
+    assert datos[0]["nombre"] == cliente.nombre
+
+
+def test_listar_lotes_disponibles(cliente_test, db):
+    client, headers = cliente_test
+    lote = _crear_lote(db)
+
+    respuesta = client.get("/salidas/lotes-disponibles", headers=headers)
+    assert respuesta.status_code == 200
+    datos = respuesta.json()
+    assert len(datos) == 1
+    assert datos[0]["id"] == lote.id
+    assert datos[0]["codigo"] == lote.numero_lote

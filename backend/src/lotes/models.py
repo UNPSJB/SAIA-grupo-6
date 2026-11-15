@@ -18,11 +18,14 @@ from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from src.common.fechas import ahora
 from src.lotes.constants import (
+    ESTADO_CANCELADO,
     ESTADO_EN_PROCESO,
+    ESTADO_TERMINADO,
     ESTADOS_LOTE_CERRADOS,
     TIPO_CONSUMO_REAL,
 )
 from src.lotes.exceptions import LoteCerradoError
+from sqlalchemy import inspect as sa_inspect
 from src.models import ModeloBase
 
 
@@ -246,8 +249,17 @@ def impedir_editar_lote_cerrado(mapper, connection, target):
     """Respaldo del service: el estado se lee de la base, no de la memoria."""
     if not object_session(target).is_modified(target, include_collections=False):
         return
-    if _estado_en_base(connection, target.id) in ESTADOS_LOTE_CERRADOS:
+    estado_base = _estado_en_base(connection, target.id)
+    if estado_base == ESTADO_CANCELADO:
         raise LoteCerradoError()
+    if estado_base == ESTADO_TERMINADO:
+        # En lotes TERMINADOS solo está permitido modificar el campo 'retirado';
+        # cualquier otro campo modificado dispara LoteCerradoError.
+        mapper_insp = sa_inspect(target)
+        for attr in mapper_insp.attrs:
+            hist = getattr(attr, "history", None)
+            if hist is not None and hist.has_changes() and attr.key != "retirado":
+                raise LoteCerradoError()
 
 
 @event.listens_for(ChecklistProduccion, "before_insert")

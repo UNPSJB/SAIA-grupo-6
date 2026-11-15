@@ -76,6 +76,33 @@ def listar_salidas(
 
 
 @router.get(
+    "/clientes-disponibles",
+    response_model=list[schemas.ClienteDisponible],
+    dependencies=[Depends(require_operador)],
+)
+def listar_clientes_disponibles(db: Session = Depends(get_db)):
+    """Lista básica de clientes activos para elegir al reservar una salida.
+
+    Solo lectura: cualquier usuario que puede operar la ve.
+    """
+    return services.obtener_clientes_disponibles(db)
+
+
+@router.get(
+    "/lotes-disponibles",
+    response_model=list[schemas.LoteDisponible],
+    dependencies=[Depends(require_operador)],
+)
+def listar_lotes_disponibles(db: Session = Depends(get_db)):
+    """Lista de lotes con saldo disponible para reservar (puede_operar).
+
+    Solo lectura: se devuelven los lotes que aún tienen mercadería
+    disponible, ordenados por código de lote.
+    """
+    return services.obtener_lotes_disponibles(db)
+
+
+@router.get(
     "/{salida_id}",
     response_model=schemas.SalidaResumen,
     dependencies=[Depends(get_current_user)],
@@ -275,30 +302,3 @@ def listar_hitos_lote(
         )
         for h in hitos
     ]
-
-
-@router.get(
-    "/clientes-disponibles",
-    response_model=list[schemas.ClienteDisponible],
-    dependencies=[Depends(require_operador)],
-)
-def listar_clientes_disponibles(db: Session = Depends(get_db)):
-    """Lista básica de clientes activos para elegir al reservar una salida.
-
-    Solo lectura: cualquier usuario que puede operar la ve.
-    """
-    return services.obtener_clientes_disponibles(db)
-
-
-@router.get(
-    "/lotes-disponibles",
-    response_model=list[schemas.LoteDisponible],
-    dependencies=[Depends(require_operador)],
-)
-def listar_lotes_disponibles(db: Session = Depends(get_db)):
-    """Lista de lotes con saldo disponible para reservar (puede_operar).
-
-    Solo lectura: se devuelven los lotes que aún tienen mercadería
-    disponible, ordenados por código de lote.
-    """
-    return services.obtener_lotes_disponibles(db)

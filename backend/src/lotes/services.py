@@ -24,7 +24,12 @@ from src.lotesInsumo.services import saldo_lote_insumo
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.unidadMedida.models import UnidadMedida
-from src.salidas.models import Salida
+from src.salidas.constants import (
+    ESTADO_RESERVADO,
+    ESTADO_DESPACHADO,
+    ESTADO_ENTREGADO,
+)
+from src.salidas.models import Salida, calcular_cantidades
 from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo
 from src.recetas.services import calcular_factor, version_vigente
 

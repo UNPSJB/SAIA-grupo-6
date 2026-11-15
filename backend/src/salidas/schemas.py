@@ -170,5 +170,7 @@ class LoteDisponible(BaseModel):
     saldo: Decimal
     fecha_inicio: date | None
     fecha_vencimiento: date | None
+    retirado: bool
+    retiro_id: int | None
 
     model_config = ConfigDict(from_attributes=True)

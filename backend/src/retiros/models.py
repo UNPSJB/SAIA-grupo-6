@@ -80,6 +80,7 @@ class Retiro(ModeloBase):
     cerrado_por: Mapped[Optional[Personal]] = relationship(
         foreign_keys=[cerrado_por_id]
     )
+    lote: Mapped["LoteProducto"] = relationship()
     afectados: Mapped[list["RetiroAfectado"]] = relationship(
         back_populates="retiro", cascade="all, delete-orphan"
     )

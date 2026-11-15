@@ -896,6 +896,12 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
 
     disponibles: list[schemas.LoteDisponible] = []
     for lote in lotes:
+        producto = lote.producto
+        unidad_medida = (
+            producto.unidad_medida.simbolo
+            if producto is not None and producto.unidad_medida is not None
+            else ""
+        )
         salidas = list(lote.salidas) if lote.salidas is not None else []
         calculo = calcular_cantidades(lote.cantidad_producida, salidas, lote.retirado)
         if calculo["saldo"] > 0:
@@ -903,11 +909,13 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
                 schemas.LoteDisponible(
                     id=lote.id,
                     codigo=lote.numero_lote,
-                    producto_nombre=lote.producto.nombre,
-                    unidad_medida=lote.producto.unidad_medida.simbolo,
-                    saldo=calculo["saldo"],
+                    producto_nombre=producto.nombre if producto is not None else "Sin producto",
+                    unidad_medida=unidad_medida,
+                    saldo=float(calculo["saldo"]),
                     fecha_inicio=lote.fecha_inicio.date() if lote.fecha_inicio else None,
                     fecha_vencimiento=lote.fecha_vencimiento,
+                    retirado=lote.retirado,
+                    retiro_id=None,
                 )
             )
     return disponibles

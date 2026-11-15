@@ -129,20 +129,7 @@ def iniciar_retiro(
             db, salida, f"Retiro del lote: {motivo}", usuario
         )
 
-    # 9. Crear filas de RetiroAfectado para DESPACHADO y ENTREGADO
-    salidas_afectadas = [
-        s for s in salidas if s.estado in (ESTADO_DESPACHADO, ESTADO_ENTREGADO)
-    ]
-    afectados_creados: list[RetiroAfectado] = []
-    for salida in salidas_afectadas:
-        afectado = RetiroAfectado(
-            salida_id=salida.id,
-            estado_notificacion=ESTADO_NOTIFICACION_PENDIENTE,
-        )
-        db.add(afectado)
-        afectados_creados.append(afectado)
-
-    # 10. Crear el retiro (flush para obtener el id)
+    # 9. Crear el retiro (flush para obtener el id antes de vincular afectados)
     retiro = Retiro(
         lote_id=lote_id,
         motivo=motivo,
@@ -157,9 +144,19 @@ def iniciar_retiro(
     db.add(retiro)
     db.flush()
 
-    # Vincular los afectados al retiro recién creado
-    for afectado in afectados_creados:
-        afectado.retiro_id = retiro.id
+    # 10. Crear filas de RetiroAfectado para DESPACHADO y ENTREGADO
+    salidas_afectadas = [
+        s for s in salidas if s.estado in (ESTADO_DESPACHADO, ESTADO_ENTREGADO)
+    ]
+    afectados_creados: list[RetiroAfectado] = []
+    for salida in salidas_afectadas:
+        afectado = RetiroAfectado(
+            retiro_id=retiro.id,
+            salida_id=salida.id,
+            estado_notificacion=ESTADO_NOTIFICACION_PENDIENTE,
+        )
+        db.add(afectado)
+        afectados_creados.append(afectado)
 
     # 11. Crear el incidente de tipo "retiro_lote" (inmutable en E6)
     n_reservas = len(salidas_reservadas)
