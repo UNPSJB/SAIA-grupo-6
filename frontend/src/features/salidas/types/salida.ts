@@ -105,6 +105,9 @@ export interface Salida {
   incidente_estado: "abierto" | "cerrado" | null;
   incidente_foto_url: string | null;
   lote_retirado: boolean;
+  /** Retiro asociado al lote (si existe). */
+  retiro_id: number | null;
+  retiro_estado: string | null;
   certificaciones: SalidaCertificacion[];
   /** Reclamos de cliente registrados sobre esta entrega (Historia 20). */
   reclamos: SalidaReclamoResumen[];

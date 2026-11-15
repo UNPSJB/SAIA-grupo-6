@@ -5,6 +5,7 @@ export type TipoIncidente =
   | "higiene_contaminacion"
   | "entrega_rechazada"
   | "reclamo_cliente"
+  | "retiro_lote"
   | "otro";
 
 /**
@@ -48,6 +49,7 @@ export const TIPOS_INCIDENTE: { value: TipoIncidente; label: string }[] = [
   { value: "higiene_contaminacion", label: "Higiene / Contaminación" },
   { value: "entrega_rechazada", label: "Entrega rechazada" },
   { value: "reclamo_cliente", label: "Reclamo de cliente" },
+  { value: "retiro_lote", label: "Retiro de lote" },
   { value: "otro", label: "Otro" },
 ];
 
@@ -59,6 +61,7 @@ export const TIPOS_INCIDENTE: { value: TipoIncidente; label: string }[] = [
 export const TIPOS_INCIDENTE_SISTEMA: TipoIncidente[] = [
   "entrega_rechazada",
   "reclamo_cliente",
+  "retiro_lote",
 ];
 
 /** Tipos que sí se pueden reportar a mano desde E6. */
@@ -113,6 +116,7 @@ export function tipoColor(tipo: TipoIncidente): string {
     case "devolucion_cliente": return "yellow";
     case "entrega_rechazada": return "red";
     case "reclamo_cliente": return "blue";
+    case "retiro_lote": return "red";
     case "higiene_contaminacion": return "purple";
     default: return "gray";
   }

@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Image, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Image, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
+import { puedeAdministrar } from "../../../../common/api/permissions";
 import {
   BannerError,
   BotonTexto,
   EstadoCargando,
   EtiquetaEstado,
 } from "../../../../components/ui/patrones";
+import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import {
   DatoDetalle,
   PaginaDetalle,
@@ -16,6 +18,7 @@ import {
 } from "../../../../components/ui/plantillas";
 import { VisorFoto } from "../../../../components/ui/VisorFoto";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
+import { useAuth } from "../../../../common/context/useAuth";
 import { useReclamo } from "../../hooks/useReclamo";
 import { BadgePlazo, BadgePrioridad } from "../ReclamosTable";
 
@@ -29,8 +32,11 @@ export function ReclamoDetallePage() {
   const { id } = useParams<{ id: string }>();
   const reclamoId = Number(id);
   const idValido = Number.isFinite(reclamoId) ? reclamoId : null;
+  const { user } = useAuth();
   const { reclamo, loading, error } = useReclamo(idValido);
+  const esAdmin = puedeAdministrar(user);
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
+  const [modalRetirar, setModalRetirar] = useState(false);
 
   // El hook va antes de los early returns: si no, cambia la cantidad de hooks
   // entre renders cuando la carga termina.
@@ -229,6 +235,23 @@ export function ReclamoDetallePage() {
               </Text>
             )}
           </SeccionDetalle>
+
+          {!cerrado && reclamo.lote_id && esAdmin && (
+            <SeccionDetalle sinMarco titulo="Retiro del lote">
+              <Button
+                colorPalette="red"
+                onClick={() => {
+                  setModalRetirar(true);
+                }}
+              >
+                Iniciar retiro del lote
+              </Button>
+              <Text fontSize="xs" color="fg.muted" mt="2">
+                Abrirá el modal para retirar el lote {reclamo.lote_numero} del
+                mercado, con el motivo "Reclamos de clientes" preseleccionado.
+              </Text>
+            </SeccionDetalle>
+          )}
         </Stack>
       </PaginaDetalle>
 
@@ -239,6 +262,16 @@ export function ReclamoDetallePage() {
           onClose={() => setImagenAmpliada(false)}
         />
       )}
+
+      <ModalIniciarRetiro
+        isOpen={modalRetirar}
+        loteIdInicial={reclamo.lote_id}
+        reclamoIdInicial={reclamo.id}
+        onClose={() => setModalRetirar(false)}
+        onRetiroIniciado={() => {
+          setModalRetirar(false);
+        }}
+      />
     </>
   );
 }

@@ -39,6 +39,9 @@ export interface LoteResumen {
   desechado: string;
   saldo: string;
   estado_lote: string;
+  // Retiro asociado al lote (si existe).
+  retiro_id: number | null;
+  retiro_estado: string | null;
 }
 
 export interface InsumoPlanificado {

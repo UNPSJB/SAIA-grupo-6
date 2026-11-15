@@ -29,6 +29,7 @@ export function IncidenteDetailPage() {
 
   const esReclamoCliente = incidente?.tipo === "reclamo_cliente";
   const esEntregaRechazada = incidente?.tipo === "entrega_rechazada";
+  const esRetiroLote = incidente?.tipo === "retiro_lote";
   // Solo se consulta cuando el incidente es de reclamo: en el resto de los
   // tipos no hay un reclamo vinculado que mostrar.
   const { reclamos } = useReclamoDeIncidente(
@@ -97,21 +98,25 @@ export function IncidenteDetailPage() {
       >
         <SeccionDetalle>
 
-        {(esEntregaRechazada || esReclamoCliente) && (
+        {(esEntregaRechazada || esReclamoCliente || esRetiroLote) && (
           <Alert.Root
-            status={esEntregaRechazada ? "warning" : "info"}
+            status={esRetiroLote ? "error" : esEntregaRechazada ? "warning" : "info"}
             mb="6"
             alignItems="flex-start"
           >
             <Alert.Indicator />
             <Alert.Content>
               <Alert.Title>
-                {esEntregaRechazada
+                {esRetiroLote
+                  ? "Incidente generado por un retiro de lote"
+                  : esEntregaRechazada
                   ? "Incidente generado por un rechazo"
                   : "Incidente generado por un reclamo"}
               </Alert.Title>
               <Alert.Description>
-                {esEntregaRechazada
+                {esRetiroLote
+                  ? "Este incidente se abrió al iniciar el retiro del lote. No se puede cerrar ni reabrir desde acá: se cierra desde Cerrar retiro en la ficha del retiro."
+                  : esEntregaRechazada
                   ? "Este incidente no se puede cerrar ni reabrir desde acá: se resuelve desde Resolver rechazo en la salida."
                   : "Se abrió automáticamente al registrar el reclamo de cliente. Se cierra desde esta pantalla cuando se resuelve."}
               </Alert.Description>
@@ -140,6 +145,16 @@ export function IncidenteDetailPage() {
                     title="Ver la ficha del reclamo"
                   >
                     Ver reclamo
+                  </BotonTexto>
+                )}
+                {esRetiroLote && (
+                  <BotonTexto
+                    onClick={() =>
+                      navigate(`/retiros?incidente_id=${incidente.id}`)
+                    }
+                    title="Ver la ficha del retiro"
+                  >
+                    Ver retiro
                   </BotonTexto>
                 )}
               </HStack>

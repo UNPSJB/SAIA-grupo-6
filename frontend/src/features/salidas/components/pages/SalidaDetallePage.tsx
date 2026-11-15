@@ -204,6 +204,8 @@ export function SalidaDetallePage() {
     }
   })();
 
+  const loteRetirado = salida.lote_retirado && salida.retiro_id;
+
   return (
     <PaginaDetalle
       volver={{ a: "/salidas", etiqueta: "Salidas" }}
@@ -284,6 +286,27 @@ export function SalidaDetallePage() {
         </HStack>
       }
     >
+      {loteRetirado && (
+        <Alert.Root status="error" mb="6" alignItems="flex-start">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Title>Lote retirado del mercado</Alert.Title>
+            <Alert.Description>
+              El lote de esta salida fue retirado del mercado (retiro #{
+                salida.retiro_id
+              }, estado: {salida.retiro_estado}).
+            </Alert.Description>
+            <HStack gap="3" flexWrap="wrap" mt="3">
+              <BotonTexto
+                onClick={() => navigate(`/retiros/${salida.retiro_id}`)}
+                title="Ver la ficha del retiro"
+              >
+                Ver retiro
+              </BotonTexto>
+            </HStack>
+          </Alert.Content>
+        </Alert.Root>
+      )}
       <Stack gap="6">
 
         {/* Tarjeta 1: Información de la Reserva */}

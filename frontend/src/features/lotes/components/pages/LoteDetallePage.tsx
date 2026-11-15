@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  Alert,
   Badge,
   Box,
   Button,
@@ -49,6 +50,7 @@ import { listarHitosLote } from "../../../salidas/services/salidaService";
 import type { Salida } from "../../../salidas/types/salida";
 import type { HitoLote } from "../../../salidas/types/salida";
 import { ModalReservarLote } from "../../../salidas/components/ModalReservarLote";
+import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import { LoteTimeline } from "../LoteTimeline";
 import type { ItemChecklist, LoteDetalle } from "../../types/lote";
 import { esLoteCerrado } from "../../types/lote";
@@ -339,6 +341,7 @@ export function LoteDetallePage() {
 
   // Reserva de salidas
   const [modalReservar, setModalReservar] = useState(false);
+  const [modalRetirar, setModalRetirar] = useState(false);
   const [salidasDelLote, setSalidasDelLote] = useState<Salida[]>([]);
   const [salidasLoading, setSalidasLoading] = useState(false);
   const [salidasError, setSalidasError] = useState<string | null>(null);
@@ -418,6 +421,25 @@ export function LoteDetallePage() {
                 </DatoDetalle>
               )}
             </GrillaDatos>
+            {lote.retirado && lote.retiro_id && (
+              <Alert.Root status="error" mb="6" alignItems="flex-start">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Lote retirado del mercado</Alert.Title>
+                  <Alert.Description>
+                    Este lote fue retirado del mercado (retiro #{lote.retiro_id}, estado: {lote.retiro_estado}). No se pueden hacer nuevas reservas ni despachos sobre él.
+                  </Alert.Description>
+                  <HStack gap="3" flexWrap="wrap" mt="3">
+                    <BotonTexto
+                      onClick={() => navigate(`/retiros/${lote.retiro_id}`)}
+                      title="Ver la ficha del retiro"
+                    >
+                      Ver retiro
+                    </BotonTexto>
+                  </HStack>
+                </Alert.Content>
+              </Alert.Root>
+            )}
             {lote.motivo_cancelacion && (
               <Text fontSize="sm" color="red.fg" mt="4">
                 Motivo de cancelación: {lote.motivo_cancelacion}
@@ -568,6 +590,19 @@ export function LoteDetallePage() {
                   Cancelar lote
                 </Button>
               )}
+              {esAdmin && !lote.retirado && !cerrado && (
+                <Button
+                  colorPalette="red"
+                  onClick={() => setModalRetirar(true)}
+                >
+                  Retirar lote del mercado
+                </Button>
+              )}
+              {esAdmin && lote.retirado && !cerrado && (
+                <Text fontSize="sm" color="fg.muted">
+                  El lote ya está retirado del mercado.
+                </Text>
+              )}
             </HStack>
           )}
 
@@ -680,6 +715,12 @@ export function LoteDetallePage() {
         setModalReservar(false);
         void recargar();
       }}
+    />
+    <ModalIniciarRetiro
+      isOpen={modalRetirar}
+      loteIdInicial={lote ? lote.id : null}
+      onClose={() => setModalRetirar(false)}
+      onRetiroIniciado={recargar}
     />
     </>
   );

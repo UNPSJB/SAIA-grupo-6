@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, HStack, Stack, Text, type BoxProps } from "@chakra-ui/react";
 import type { IconType } from "react-icons";
-import { LuBug, LuEllipsis, LuMessageSquare, LuSprayCan, LuTriangleAlert, LuUndo2, LuWrench } from "react-icons/lu";
+import { LuBug, LuEllipsis, LuMessageSquare, LuSprayCan, LuTruck, LuTriangleAlert, LuUndo2, LuWrench } from "react-icons/lu";
 import { EstadoCargando, MensajeError } from "../../../components/ui/patrones";
 import type { TipoIncidente } from "../../incidente/types/incidente";
 import { errorDeRangoFechas, type ParteTorta, type RangoFechas } from "../types/dashboard";
@@ -30,6 +30,7 @@ const ICONO_TIPO: Record<TipoIncidente, IconType> = {
   higiene_contaminacion: LuSprayCan,
   entrega_rechazada: LuTriangleAlert,
   reclamo_cliente: LuMessageSquare,
+  retiro_lote: LuTruck,
   otro: LuEllipsis,
 };
 

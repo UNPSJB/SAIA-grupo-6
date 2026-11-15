@@ -18,6 +18,9 @@ const TONO_EVENTO: Record<string, "ok" | "alerta" | "peligro" | "info" | "neutro
   RECHAZO: "peligro",
   DISPOSICION: "ok",
   RECLAMO: "alerta",
+  RETIRO: "peligro",
+  NOTIFICACION_RETIRO: "info",
+  CIERRE_RETIRO: "ok",
 };
 
 /** Texto legible del evento; si aparece uno nuevo se muestra tal cual. */
@@ -29,6 +32,9 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   RECHAZO: "Rechazo",
   DISPOSICION: "Disposición",
   RECLAMO: "Reclamo de cliente",
+  RETIRO: "Retiro de lote",
+  NOTIFICACION_RETIRO: "Notificación de retiro",
+  CIERRE_RETIRO: "Cierre de retiro",
 };
 
 interface LoteTimelineProps {

@@ -42,6 +42,9 @@ export function IncidenteItem({
     (incidente.tipo as string) === "Entrega rechazada" ||
     (incidente as any).tipo_incidente === "entrega_rechazada" ||
     (incidente as any).tipo_incidente === "Entrega rechazada";
+  // El retiro de lote también se resuelve desde su circuito (cerrar el retiro),
+  // igual que el rechazo de mercadería: acá no se ofrece el cierre manual.
+  const esRetiroLote = incidente.tipo === "retiro_lote";
 
   const handleVer = () => {
     if (onVer) {
@@ -200,9 +203,11 @@ export function IncidenteItem({
                 )
               )
             ) : (
-              // El cierre de un incidente de rechazo también está bloqueado:
-              // se resuelve desde "Resolver rechazo" en la salida.
+              // El cierre de un incidente de rechazo o de retiro de lote también
+              // está bloqueado: se resuelve desde su circuito ("Resolver rechazo"
+              // en la salida, "Cerrar retiro" en E6).
               !esEntregaRechazada &&
+              !esRetiroLote &&
               onCerrar && (
                 <BotonAccion
                   accion="cerrar"
