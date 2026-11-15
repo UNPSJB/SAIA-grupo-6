@@ -78,6 +78,13 @@ const ReclamosPage = lazy(() =>
 const ReclamoDetallePage = lazy(() =>
   import("./features/reclamos/components/pages/ReclamoDetallePage").then((mod) => ({ default: mod.ReclamoDetallePage })),
 );
+// Historia 21: retiros de lote del mercado
+const RetirosPage = lazy(() =>
+  import("./features/retiros/components/pages/RetirosPage").then((mod) => ({ default: mod.RetirosPage })),
+);
+const RetiroDetallePage = lazy(() =>
+  import("./features/retiros/components/pages/RetiroDetallePage").then((mod) => ({ default: mod.RetiroDetallePage })),
+);
 
 // Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
 const ProductoPage = lazy(() =>
@@ -599,6 +606,22 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <ReclamoDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/retiros",
+                element: (
+                  <ConSuspense>
+                    <RetirosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/retiros/:id",
+                element: (
+                  <ConSuspense>
+                    <RetiroDetallePage />
                   </ConSuspense>
                 ),
               },

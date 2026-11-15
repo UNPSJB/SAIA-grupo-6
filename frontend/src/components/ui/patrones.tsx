@@ -507,7 +507,8 @@ export type AccionTabla =
   | "entregar"
   | "rechazar"
   | "disposicion"
-  | "reclamar";
+  | "reclamar"
+  | "notificar";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -554,6 +555,8 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   disposicion: "blue",
   // Reclamo de cliente: alta de un seguimiento sobre una entrega entregada.
   reclamar: "blue",
+  // Notificar a un cliente afectado: confirma un contacto (cierra el pendiente).
+  notificar: "green",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -596,6 +599,8 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   disposicion: LuCircleCheck,
   // Reclamo: mensaje del cliente (distinto de la alerta del rechazo)
   reclamar: LuMessageSquare,
+  // Notificar: confirmación del contacto con el cliente afectado.
+  notificar: LuCircleCheck,
 };
 
 /**

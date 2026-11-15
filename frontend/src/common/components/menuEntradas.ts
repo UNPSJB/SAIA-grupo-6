@@ -110,6 +110,7 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
       { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackage },
       { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquare },
+      { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuTruck },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
