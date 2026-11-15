@@ -7,7 +7,7 @@ import { buscarAlimentos } from "../services/nutricionService";
 import type { AlimentoReferencia } from "../types/nutricion";
 
 /**
- * Buscador de un alimento de la base de composición (SARA 2 u otra importada).
+ * Buscador de un alimento de la base de composición (SARA 1 u otra importada).
  * La lista se abre como desplegable al enfocar o escribir, sin empujar el resto
  * del formulario.
  */

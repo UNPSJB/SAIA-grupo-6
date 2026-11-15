@@ -92,6 +92,9 @@ class ResultadoImportacion(BaseModel):
     creados: int
     actualizados: int
     errores: list[str]
+    # Lo que conviene saber aunque no sea un error: nutrientes que el archivo
+    # no trae, filas que no son alimentos (SARA 1).
+    avisos: list[str] = []
 
 
 # ── Datos nutricionales del insumo ─────────────────────────────────────────

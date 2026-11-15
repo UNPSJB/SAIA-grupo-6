@@ -68,6 +68,23 @@ function numeroValido(texto: string): boolean {
 
 const aDecimal = (texto: string) => texto.trim().replace(",", ".");
 
+/** ["a", "b", "c"] -> "a, b y c" (o "a, b ni c" en una negación). */
+function enumerar(items: string[], conector: "y" | "ni" = "y"): string {
+  return items.length <= 1
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} ${conector} ${items[items.length - 1]}`;
+}
+
+/** Resultado de «Tomar valores del alimento» con lo que el alimento no trae. */
+interface ResultadoTomar {
+  alimento: string;
+  faltan: string[];
+  /** Tenían el valor de otro alimento de una base: se vaciaron. */
+  vaciados: string[];
+  /** Cargados con otra fuente (rótulo, bibliografía, a mano): se conservan. */
+  conservados: string[];
+}
+
 interface Props {
   insumoId: number;
   /** Se llama con los datos guardados (el diálogo se cierra, la página recalcula). */
@@ -104,10 +121,12 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tomado, setTomado] = useState<ResultadoTomar | null>(null);
   const [intentado, setIntentado] = useState(false);
 
   const inicializar = (d: DatosNutricionales) => {
     setDatos(d);
+    setTomado(null);
     setFilas(
       Object.fromEntries(
         d.valores.map((v) => [
@@ -178,11 +197,32 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     if (fuente === "base_referencia") {
       if (!alimento) return setError("Elegí un alimento de la base de composición.");
       const nuevas = { ...filas };
-      let sinDato = 0;
+      const resultado: ResultadoTomar = {
+        alimento: `${alimento.base}: ${alimento.nombre}`,
+        faltan: [],
+        vaciados: [],
+        conservados: [],
+      };
       for (const p of admitidos) {
+        // Con "todo su azúcar es añadido", los añadidos salen de los totales.
+        if (derivado(p.clave)) continue;
         const valor = alimento[p.clave as ClaveNutriente];
         if (valor === null || valor === undefined) {
-          sinDato += 1;
+          const nombre = p.nombre.toLowerCase();
+          resultado.faltan.push(nombre);
+          const previa = nuevas[p.clave];
+          /*
+           * Un valor tomado antes de otro alimento de una base no puede quedar
+           * mezclado con el nuevo: el insumo figuraría completo con datos de
+           * dos alimentos. Lo cargado con otra fuente (rótulo, bibliografía, a
+           * mano) sí se conserva: es lo que completa lo que la base no trae.
+           */
+          if (previa && !previa.manual && previa.fuente === "base_referencia") {
+            delete nuevas[p.clave];
+            resultado.vaciados.push(nombre);
+          } else if (previa) {
+            resultado.conservados.push(nombre);
+          }
           continue;
         }
         nuevas[p.clave] = {
@@ -194,11 +234,8 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
         };
       }
       setFilas(nuevas);
-      setError(
-        sinDato > 0
-          ? `El alimento no tiene ${sinDato} de los nutrientes: completalos con otra fuente.`
-          : null,
-      );
+      setError(null);
+      setTomado(resultado.faltan.length > 0 ? resultado : null);
       return;
     }
     // Rótulo, bibliografía o valor propio: los valores guardados pasan a seguir la fuente de arriba.
@@ -208,6 +245,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     }
     setFilas(nuevas);
     setError(null);
+    setTomado(null);
   };
 
   const cambiarValor = (clave: string, valor: string) => {
@@ -402,7 +440,13 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
               </FormNativeSelect>
             </FormField>
             {fuente === "base_referencia" ? (
-              <BuscadorAlimento seleccionado={alimento} onSeleccionar={setAlimento} />
+              <BuscadorAlimento
+                seleccionado={alimento}
+                onSeleccionar={(a) => {
+                  setAlimento(a);
+                  setTomado(null);
+                }}
+              />
             ) : (
               <FormField label="Detalle de la fuente" mb="0" helper="Opcional, pero recomendado para auditar de dónde salió cada valor.">
                 <FormInput
@@ -422,6 +466,30 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
               </Button>
               <Text fontSize="xs" color="fg.muted">Lo que escribas a mano en una fila vacía se guarda como «Valor propio».</Text>
             </HStack>
+          )}
+          {/* Sigue visible al pasar a otra fuente para completar lo que falta. */}
+          {tomado && (
+            <Aviso tono="alerta" mt="4" titulo={`${tomado.alimento} no trae ${enumerar(tomado.faltan, "ni")}`}>
+              {tomado.vaciados.length > 0 && (
+                <Text>
+                  Se {tomado.vaciados.length === 1 ? "vació" : "vaciaron"} {enumerar(tomado.vaciados)}: tenía
+                  {tomado.vaciados.length === 1 ? "" : "n"} el valor de otro alimento de la base.
+                </Text>
+              )}
+              {tomado.conservados.length > 0 && (
+                <Text>
+                  {enumerar(tomado.conservados).replace(/^./, (c) => c.toUpperCase())}{" "}
+                  {tomado.conservados.length === 1 ? "conserva su valor" : "conservan su valor"} con la fuente que
+                  {tomado.conservados.length === 1 ? " tenía" : " tenían"}.
+                </Text>
+              )}
+              {tomado.faltan.length > tomado.conservados.length && (
+                <Text>
+                  Para completar lo que falta, elegí arriba otra fuente (por ejemplo, «Rótulo del proveedor») y escribí
+                  los valores en las filas vacías.
+                </Text>
+              )}
+            </Aviso>
           )}
           {fuente !== "base_referencia" && conOtraFuente > 0 && (
             <Aviso

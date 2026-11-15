@@ -15,7 +15,7 @@ from src.aditivos.models import Aditivo, ClaseFuncional
 from src.auth.services import crear_access_token
 from src.database import get_db
 from src.insumos.models import TIPO_ADITIVO, Insumo
-from src.nutricion import calculo, schemas, services
+from src.nutricion import calculo, exceptions, schemas, services
 from src.nutricion.models import AlimentoReferencia, ParametroNutriente
 from src.nutricion.router import router as nutricion_router
 from src.personal.models import Personal
@@ -349,6 +349,83 @@ def test_importar_csv_de_base(db_session):
     assert avena.proteinas == Decimal("16.9000") and avena.carbohidratos is None
     resultado = services.importar_alimentos(db_session, "Base propia", contenido.encode())
     assert resultado.actualizados == 1
+
+
+# Primeras columnas y filas reales del `AlimentoyComposicion.csv` de SARA 1
+# (export de su base Access que entregó la cátedra), recortado.
+SARA1 = (
+    'Codigo,Alimento,UnidadMedida,Decimales,FactorCorreccion,Id,Agua,E,Prot,Lip,HCtotal,'
+    'HCdisp,Fibra,Cen,Na,K,AGSat,AGMI\n'
+    '"A001","Almidón de maíz","gramos","sin",1.0000000000000000e+00,325,8.3200000000000003e+00,'
+    '3.6297000000000003e+02,2.6000000000000001e-01,5.0000000000000003e-02,9.1269999999999996e+01,'
+    '9.0370000000000005e+01,9.0000000000000002e-01,8.9999999999999997e-02,9.0000000000000000e+00,'
+    '3.0000000000000000e+00,8.9999999999999993e-03,1.6000000000000000e-02\n'
+    '"L010","Leche en polvo entera","mililitros","sin",1.0,1,2.5,4.9040000000000003e+02,'
+    '2.5800000000000001e+01,2.4800000000000001e+01,4.1e+01,4.1000000000000000e+01,0.0,6.0,'
+    '4.0400000000000000e+02,1.0,1.4760000000000000e+01,7.0\n'
+    '"S001","Hierro (elemental)","miligramos","sin",1.0,2,0,0,0,0,0,0,0,0,0,0,0,0\n'
+)
+
+
+def test_importar_csv_de_sara1_tal_como_viene(db_session):
+    resultado = services.importar_alimentos(db_session, "SARA 1", SARA1.encode())
+    assert resultado.creados == 2 and not resultado.errores
+
+    almidon = services.listar_alimentos(db_session, "almidón")[0]
+    assert almidon.codigo == "A001"
+    assert almidon.energia == Decimal("362.9700")
+    # Carbohidratos disponibles (HCdisp), no totales: es lo que va en el rótulo.
+    assert almidon.carbohidratos == Decimal("90.3700")
+    assert almidon.proteinas == Decimal("0.2600") and almidon.grasas_totales == Decimal("0.0500")
+    assert almidon.grasas_saturadas == Decimal("0.0090")
+    assert almidon.fibra == Decimal("0.9000") and almidon.sodio == Decimal("9.0000")
+    # SARA 1 no trae azúcares ni grasas trans.
+    assert almidon.azucares_totales is None and almidon.grasas_trans is None
+
+    # "mililitros" es cómo se registra el consumo: el valor es por 100 g.
+    leche = services.listar_alimentos(db_session, "leche en polvo")[0]
+    assert leche.energia == Decimal("490.4000")
+    # Los nutrientes aislados (mg, µg, UI) no son alimentos.
+    assert services.listar_alimentos(db_session, "hierro") == []
+
+    assert any("azúcares totales, azúcares añadidos y grasas trans" in a for a in resultado.avisos)
+    assert any("Hierro (elemental)" in a for a in resultado.avisos)
+
+    otra_vez = services.importar_alimentos(db_session, "SARA 1", SARA1.encode())
+    assert otra_vez.creados == 0 and otra_vez.actualizados == 2
+
+
+def test_importar_otro_csv_de_sara1_sin_alimentos_falla(db_session):
+    # Otro archivo del mismo export (p. ej. Provincias.csv): no hay alimentos.
+    with pytest.raises(exceptions.CsvInvalido):
+        services.importar_alimentos(db_session, "SARA 1", b"IdProvincia,Provincia\n1,Salta\n")
+
+
+def test_alimento_de_sara1_completa_lo_que_tiene(db_session, receta, usuario):
+    """Tomar valores de SARA 1 deja al insumo incompleto hasta cargar los azúcares
+    y las grasas trans con otra fuente."""
+    services.importar_alimentos(db_session, "SARA 1", SARA1.encode())
+    almidon = services.listar_alimentos(db_session, "almidón")[0]
+    desde_base = [
+        schemas.ValorIn(nutriente=k, valor=getattr(almidon, k), fuente="base_referencia",
+                        alimento_referencia_id=almidon.id)
+        for k in ("energia", "carbohidratos", "proteinas", "grasas_totales",
+                  "grasas_saturadas", "fibra", "sodio")
+    ]
+    datos = services.guardar_datos_insumo(
+        db_session, receta["harina"].id, schemas.DatosNutricionalesIn(valores=desde_base), usuario
+    )
+    assert not datos.completitud.completo
+    assert set(datos.completitud.faltantes) == {"Azúcares totales", "Azúcares añadidos", "Grasas trans"}
+
+    rotulo = _valores({"azucares_totales": 0, "azucares_anadidos": 0, "grasas_trans": 0})
+    datos = services.guardar_datos_insumo(
+        db_session, receta["harina"].id,
+        schemas.DatosNutricionalesIn(valores=desde_base + rotulo), usuario,
+    )
+    assert datos.completitud.completo
+    energia = next(v for v in datos.valores if v.nutriente == "energia")
+    assert energia.referencia == "SARA 1: Almidón de maíz"
 
 
 # ── API y PDF (historia 4) ─────────────────────────────────────────────────

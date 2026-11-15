@@ -192,21 +192,46 @@ def _numero_csv(texto: str | None) -> Decimal | None:
     texto = texto.strip().replace(" ", "")
     if texto in ("", "-", "—", "tr", "Tr"):
         return None
-    # Admite "1.234,5" y "1234.5".
+    # Admite "1.234,5", "1234.5" y la notación científica de SARA 1
+    # ("3.6297000000000003e+02").
     if "," in texto:
         texto = texto.replace(".", "").replace(",", ".")
     valor = Decimal(texto)
-    if valor < 0:
+    if not valor.is_finite() or valor < 0:
         raise InvalidOperation
-    return valor
+    return _q(valor)
+
+
+def _columnas_csv(nombres: list[str]) -> dict[str, str]:
+    """Dato del sistema -> columna del archivo, según `COLUMNAS_IMPORTACION`."""
+    presentes = {(nombre or "").strip().lower(): nombre for nombre in nombres}
+    columnas = {}
+    for dato, alias in c.COLUMNAS_IMPORTACION.items():
+        encontrada = next((presentes[a] for a in alias if a in presentes), None)
+        if encontrada is not None:
+            columnas[dato] = encontrada
+    if c.COLUMNA_UNIDAD_SARA1 in presentes:
+        columnas[c.COLUMNA_UNIDAD_SARA1] = presentes[c.COLUMNA_UNIDAD_SARA1]
+    return columnas
+
+
+def _lista_corta(nombres: list[str], maximo: int = 6) -> str:
+    """"a, b y c"; con más de `maximo`, "a, b, ... y 4 más"."""
+    if len(nombres) > maximo:
+        return f"{', '.join(nombres[:maximo])} y {len(nombres) - maximo} más"
+    if len(nombres) <= 1:
+        return "".join(nombres)
+    return f"{', '.join(nombres[:-1])} y {nombres[-1]}"
 
 
 def importar_alimentos(db: Session, base: str, contenido: bytes) -> schemas.ResultadoImportacion:
     """Importa (o actualiza) alimentos desde un CSV.
 
-    Columnas: `nombre` (obligatoria), `codigo` y una por nutriente con la
-    misma clave que usa el sistema (`energia`, `carbohidratos`, ... `sodio`),
-    todo por 100 g. Acepta coma, punto y coma o tabulador como separador.
+    Acepta la plantilla del sistema (`nombre`, `codigo` y una columna por
+    nutriente con su clave) y el CSV de SARA 1 tal como viene
+    (`AlimentoyComposicion.csv`: `Alimento`, `Codigo`, `E`, `HCdisp`...); ver
+    `COLUMNAS_IMPORTACION`. Todo por 100 g. Acepta coma, punto y coma o
+    tabulador como separador.
     """
     base = (base or "").strip()[:100]
     if not base:
@@ -222,7 +247,7 @@ def importar_alimentos(db: Session, base: str, contenido: bytes) -> schemas.Resu
     lector = csv.DictReader(io.StringIO(texto), dialect=dialecto)
     if not lector.fieldnames:
         raise exceptions.CsvInvalido()
-    columnas = {(nombre or "").strip().lower(): nombre for nombre in lector.fieldnames}
+    columnas = _columnas_csv(lector.fieldnames)
     if "nombre" not in columnas:
         raise exceptions.CsvInvalido()
 
@@ -232,10 +257,16 @@ def importar_alimentos(db: Session, base: str, contenido: bytes) -> schemas.Resu
     }
     creados = actualizados = 0
     errores: list[str] = []
+    omitidos: list[str] = []
     for numero, fila in enumerate(lector, start=2):
         nombre = (fila.get(columnas["nombre"]) or "").strip()[:200]
         if not nombre:
             continue
+        if c.COLUMNA_UNIDAD_SARA1 in columnas:
+            unidad = (fila.get(columnas[c.COLUMNA_UNIDAD_SARA1]) or "").strip().lower()
+            if unidad not in c.UNIDADES_ALIMENTO_SARA1:
+                omitidos.append(nombre)
+                continue
         try:
             valores = {
                 clave: _numero_csv(fila.get(columnas[clave])) if clave in columnas else None
@@ -258,8 +289,22 @@ def importar_alimentos(db: Session, base: str, contenido: bytes) -> schemas.Resu
         for clave, valor in valores.items():
             setattr(alimento, clave, valor)
     db.commit()
+
+    avisos: list[str] = []
+    faltan = [n[1].lower() for n in c.NUTRIENTES if n[0] not in columnas]
+    if faltan:
+        avisos.append(
+            f"El archivo no trae {_lista_corta(faltan, maximo=len(faltan))}. Al tomar valores de "
+            "esta base, esos nutrientes quedan vacíos y se completan con otra fuente "
+            "(por ejemplo, el rótulo del proveedor)."
+        )
+    if omitidos:
+        avisos.append(
+            f"Se omitieron {len(omitidos)} filas que no son alimentos sino nutrientes "
+            f"aislados medidos en mg, µg o UI: {_lista_corta(omitidos)}."
+        )
     return schemas.ResultadoImportacion(
-        base=base, creados=creados, actualizados=actualizados, errores=errores
+        base=base, creados=creados, actualizados=actualizados, errores=errores, avisos=avisos
     )
 
 

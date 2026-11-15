@@ -170,12 +170,43 @@ MASA = TIPO_MASA
 VOLUMEN = TIPO_VOLUMEN
 POR_UNIDAD = TIPO_UNIDAD
 
+# ── Importación de bases de composición ────────────────────────────────────
+#
+# Columnas que reconoce el importador para cada dato. Además de las de la
+# plantilla (la clave del nutriente) acepta las del CSV de SARA 1 tal como lo
+# exporta su base Access (`AlimentoyComposicion.csv`), que entregó la cátedra.
+# Todos los valores son por 100 g.
+#   * Carbohidratos = HCdisp (disponibles, sin la fibra), que es lo que se
+#     declara en el rótulo; HCtotal no se usa.
+#   * SARA 1 no trae azúcares ni grasas trans: quedan vacíos y se completan en
+#     cada insumo con otra fuente.
+COLUMNAS_IMPORTACION: dict[str, tuple[str, ...]] = {
+    "nombre": ("nombre", "alimento"),
+    "codigo": ("codigo", "código"),
+    "energia": ("energia", "energía", "e"),
+    "carbohidratos": ("carbohidratos", "hcdisp"),
+    "azucares_totales": ("azucares_totales",),
+    "azucares_anadidos": ("azucares_anadidos",),
+    "proteinas": ("proteinas", "proteínas", "prot"),
+    "grasas_totales": ("grasas_totales", "lip"),
+    "grasas_saturadas": ("grasas_saturadas", "agsat"),
+    "grasas_trans": ("grasas_trans",),
+    "fibra": ("fibra",),
+    "sodio": ("sodio", "na"),
+}
+# SARA 1 indica en qué unidad se registra el consumo de cada fila. Las que no
+# son gramos ni mililitros son nutrientes aislados (hierro, ácido fólico,
+# vitaminas en mg, µg o UI), no alimentos: no se importan. La de mililitros
+# es solo la forma de registrar el consumo (la leche en polvo figura en
+# mililitros con 490 kcal): sus valores también son por 100 g.
+COLUMNA_UNIDAD_SARA1 = "unidadmedida"
+UNIDADES_ALIMENTO_SARA1 = ("gramos", "mililitros")
+
 # ── Base de composición: carga inicial de ejemplo ──────────────────────────
 #
-# La licencia y el formato de SARA 2 todavía no están verificados (notas de
-# alcance), así que no se distribuyen sus datos. Esto es una base mínima de
+# La base de referencia la importa el admin desde la app (la cátedra pidió
+# usar el CSV de SARA 1; SARA 2 no tiene CSV). Esto es una base mínima de
 # EJEMPLO, con valores aproximados por 100 g, para poder probar la pantalla.
-# Se reemplaza importando un CSV desde la app.
 BASE_EJEMPLO = "Ejemplo (valores aproximados, verificar)"
 # (nombre, energía, carbohidratos, azúcares totales, azúcares añadidos,
 #  proteínas, grasas totales, saturadas, trans, fibra, sodio mg)
@@ -212,5 +243,8 @@ class ErrorCode:
         "Los azúcares totales, los azúcares añadidos y las grasas trans no tienen "
         "Valor Diario de referencia en la norma: el %VD se deja en blanco."
     )
-    CSV_INVALIDO = "El archivo no es un CSV válido o no tiene la columna 'nombre'."
+    CSV_INVALIDO = (
+        "El archivo no es un CSV válido o no tiene la columna del nombre del alimento "
+        "('nombre' en la plantilla, 'Alimento' en el CSV de SARA 1)."
+    )
     BASE_VACIA = "Indicá el nombre de la base de composición."

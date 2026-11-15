@@ -53,7 +53,7 @@ class ParametroNutricion(ModeloBase):
 
 
 class AlimentoReferencia(ModeloBase):
-    """Alimento de una base de composición (SARA 2 u otra), por 100 g."""
+    """Alimento de una base de composición (SARA 1 u otra importada desde la app), por 100 g."""
 
     __tablename__ = "alimentos_referencia"
     __table_args__ = (
