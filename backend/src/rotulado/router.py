@@ -1,0 +1,161 @@
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.orm import Session
+
+from src.auth.dependencies import require_admin
+from src.database import get_db
+from src.personal.models import Personal
+from src.rotulado import schemas, services
+from src.rotulado.exceptions import (
+    BorradorNoEncontrado,
+    LoteNoEncontrado,
+    LoteNoPerteneceAlProducto,
+    LoteVersionIncompatible,
+    ProductoNoEncontrado,
+    VersionNoEncontrada,
+    VersionNoPerteneceAlProducto,
+)
+from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado
+
+router = APIRouter(
+    prefix="/rotulado",
+    tags=["Rotulado"],
+    dependencies=[Depends(require_admin)],
+)
+
+
+@router.get(
+    "/productos/{producto_id}/borradores",
+    response_model=list[schemas.BorradorRotuladoOut],
+)
+def listar_borradores_por_producto(
+    producto_id: int,
+    db: Session = Depends(get_db),
+):
+    """Lista todos los borradores de rotulado de un producto."""
+    producto = db.get(__import__("src.productos.models", fromlist=["Producto"]).Producto, producto_id)
+    if producto is None:
+        raise ProductoNoEncontrado()
+    return services.obtener_borradores_por_producto(db, producto_id)
+
+
+@router.post(
+    "/productos/{producto_id}/borradores",
+    response_model=schemas.BorradorRotuladoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_borrador(
+    producto_id: int,
+    datos: schemas.BorradorRotuladoCreate,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Crea un nuevo borrador de rotulado para un producto."""
+    return services.crear_borrador(db, producto_id, datos, usuario)
+
+
+@router.get(
+    "/productos/{producto_id}/autocompletar/preview",
+    response_model=schemas.VistaPreviaAutocompletado,
+)
+def preview_autocompletado(
+    producto_id: int,
+    version_id: Optional[int] = Query(None, gt=0),
+    db: Session = Depends(get_db),
+):
+    """Devuelve una vista previa de datos autocompletados para un producto.
+
+    No guarda nada en la base de datos. Solo consulta producto, receta,
+    versión, composición (E10) y nutrición (E11) para proponer valores
+    al formulario de creación de borrador.
+    """
+    return services.preview_autocompletado(db, producto_id, version_id)
+
+
+@router.get(
+    "/borradores/{borrador_id}",
+    response_model=schemas.BorradorRotuladoOut,
+)
+def obtener_borrador(
+    borrador_id: int,
+    db: Session = Depends(get_db),
+):
+    """Obtiene un borrador de rotulado por su ID. Solo consulta, no crea."""
+    return services.obtener_borrador(db, borrador_id)
+
+
+@router.patch(
+    "/borradores/{borrador_id}",
+    response_model=schemas.BorradorRotuladoOut,
+)
+def actualizar_borrador(
+    borrador_id: int,
+    datos: schemas.BorradorRotuladoUpdate,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Actualiza parcialmente un borrador de rotulado (PATCH)."""
+    return services.actualizar_borrador(db, borrador_id, datos, usuario)
+
+
+@router.delete(
+    "/borradores/{borrador_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def eliminar_borrador(
+    borrador_id: int,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Elimina un borrador de rotulado."""
+    services.eliminar_borrador(db, borrador_id)
+    return None
+
+
+@router.post(
+    "/borradores/{borrador_id}/autocompletar",
+    response_model=schemas.BorradorRotuladoOut,
+)
+def autocompletar_borrador(
+    borrador_id: int,
+    datos: schemas.AutocompletarIn,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Llena campos vacíos del borrador desde E10, E11 y E8.
+
+    No sobrescribe valores ya cargados a menos que `forzar` sea true.
+    """
+    return services.autocompletar_borrador(
+        db,
+        borrador_id,
+        datos.version_id,
+        datos.lote_id,
+        datos.forzar,
+        usuario,
+    )
+
+
+@router.get(
+    "/borradores/{borrador_id}/completitud",
+    response_model=schemas.CompletitudRotulado,
+)
+def consultar_completitud(
+    borrador_id: int,
+    db: Session = Depends(get_db),
+):
+    """Devuelve el indicador de completitud del borrador."""
+    return services.calcular_completitud(db, borrador_id)
+
+
+@router.get(
+    "/borradores/{borrador_id}/historial-ediciones",
+    response_model=list[schemas.CampoEditadoOut],
+)
+def consultar_historial_ediciones(
+    borrador_id: int,
+    db: Session = Depends(get_db),
+):
+    """Devuelve la trazabilidad de modificaciones del borrador."""
+    return services.obtener_historial_ediciones(db, borrador_id)
