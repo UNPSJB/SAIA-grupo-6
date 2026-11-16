@@ -25,11 +25,12 @@ export function ProveedorTable({ proveedores, onEdit, onDelete, onReactivar }: P
 
   return (
     <Tarjeta overflowX="auto">
-      <Table.Root variant="outline" w="100%" minW="680px">
+      <Table.Root variant="outline" w="100%" minW="820px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro>Matrícula</EncabezadoOscuro>
+            <EncabezadoOscuro>CUIT</EncabezadoOscuro>
+            <EncabezadoOscuro>Certificación</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

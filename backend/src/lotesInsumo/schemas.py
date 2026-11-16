@@ -56,6 +56,7 @@ class LoteInsumoResponse(BaseModel):
     activo: bool
     motivo_baja: str | None
     fecha_baja: datetime | None
+    certificacion_id: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

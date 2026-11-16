@@ -59,7 +59,8 @@ export function ModalIniciarRetiro({
     fecha_inicio: string | null;
     fecha_vencimiento: string | null;
   }[]>([]);
-  const [impacto, setImpacto] = useState<{
+  const [impactoCargado, setImpacto] = useState<{
+    lote_id: number;
     reservas_a_cancelar: number;
     total_afectadas: number;
     saldo_en_planta: string;
@@ -71,6 +72,12 @@ export function ModalIniciarRetiro({
     producto_nombre: string;
     fecha_inicio: string | null;
   } | null>(null);
+  // El impacto solo vale para el lote con el que se pidió: al cambiar o quitar
+  // el lote deja de mostrarse sin tener que limpiarlo desde un efecto.
+  const impacto =
+    loteSeleccionado && impactoCargado?.lote_id === loteSeleccionado.id
+      ? impactoCargado
+      : null;
   const [codigoConfirmar, setCodigoConfirmar] = useState("");
   const { intentado, puedeEnviar } = useIntentoEnvio();
 
@@ -107,7 +114,7 @@ export function ModalIniciarRetiro({
     if (!isOpen) return;
     let vigente = true;
     void retiroService.listarLotesDisponibles()
-      .then((lotes: { id: number; codigo: string; producto_nombre: string; unidad_medida: string; saldo: string | number; fecha_inicio: string | null; fecha_vencimiento: string | null; retirado: boolean; retiro_id: number | null }[]) => {
+      .then((lotes) => {
         if (!vigente) return;
         const disponibles = lotes.filter((l) => !l.retirado && !l.retiro_id);
         setLotesDisponibles(disponibles);
@@ -120,7 +127,7 @@ export function ModalIniciarRetiro({
               producto_nombre: lote.producto_nombre,
               fecha_inicio: lote.fecha_inicio,
             });
-            setValues({ ...values, lote_id: loteIdInicial });
+            setValues((prev) => ({ ...prev, lote_id: loteIdInicial }));
           }
         }
       })
@@ -136,15 +143,14 @@ export function ModalIniciarRetiro({
   }, [isOpen, loteIdInicial]);
 
   useEffect(() => {
-    if (!loteSeleccionado) {
-      setImpacto(null);
-      return;
-    }
+    if (!loteSeleccionado) return;
+    const loteId = loteSeleccionado.id;
     let vigente = true;
-    void retiroService.obtenerImpactoRetiro(loteSeleccionado.id)
+    void retiroService.obtenerImpactoRetiro(loteId)
       .then((data) => {
         if (!vigente) return;
         setImpacto({
+          lote_id: loteId,
           reservas_a_cancelar: data.reservas_a_cancelar,
           total_afectadas: data.total_afectadas,
           saldo_en_planta: data.saldo_en_planta,
@@ -152,7 +158,7 @@ export function ModalIniciarRetiro({
         });
       })
       .catch(() => {
-        setImpacto(null);
+        if (vigente) setImpacto(null);
       });
 
     return () => {

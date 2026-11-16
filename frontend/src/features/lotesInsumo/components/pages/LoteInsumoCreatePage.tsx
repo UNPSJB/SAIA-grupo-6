@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { HStack, Box } from "@chakra-ui/react";
+import { HStack, Box, Text } from "@chakra-ui/react";
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { hoyISO } from "../../../../common/utils/fechas";
@@ -121,6 +121,12 @@ export function LoteInsumoCreatePage() {
               ))}
             </FormNativeSelect>
           </FormField>
+          {proveedores.find((p) => p.id === proveedorId)?.es_certificado && (
+            <Text fontSize="sm" color={proveedores.find((p) => p.id === proveedorId)?.estado_certificacion === "vigente" ? "green.600" : "red.600"} mb="3">
+              Certificación del proveedor: {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion ?? "sin certificación vigente"}.
+              {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion !== "vigente" && " No se podrá registrar la recepción hasta cargar una certificación vigente."}
+            </Text>
+          )}
 
           <HStack gap="5" align="flex-start" flexWrap="wrap" mb="4">
             <FormField label="Número de lote del proveedor" required mb="0">

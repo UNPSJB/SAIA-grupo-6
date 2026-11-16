@@ -1,6 +1,6 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
-import type { Proveedor } from "../types/proveedor";
+import type { Proveedor, ProveedorFormValues } from "../types/proveedor";
 
 export async function listarProveedores(
   incluirInactivos = false,
@@ -16,7 +16,7 @@ export async function listarProveedores(
 }
 
 export async function crearProveedor(
-  datos: Omit<Proveedor, "id" | "activo">
+  datos: ProveedorFormValues
 ): Promise<Proveedor> {
   const response = await apiFetch(`${API_URL}/proveedores`, {
     method: "POST",
@@ -29,7 +29,7 @@ export async function crearProveedor(
 
 export async function modificarProveedor(
   id: number,
-  datos: Partial<Omit<Proveedor, "id">>
+  datos: Partial<ProveedorFormValues> & { activo?: boolean }
 ): Promise<Proveedor> {
   const response = await apiFetch(`${API_URL}/proveedores/${id}`, {
     method: "PUT",
@@ -50,7 +50,7 @@ export async function eliminarProveedor(id: number): Promise<Proveedor> {
 
 export async function reactivarProveedor(
   id: number,
-  datos: Omit<Proveedor, "id" | "activo">
+  datos: ProveedorFormValues
 ): Promise<Proveedor> {
   return modificarProveedor(id, { ...datos, activo: true });
 }
@@ -58,4 +58,51 @@ export async function reactivarProveedor(
 export async function obtenerProveedor(id: number): Promise<Proveedor> {
   const response = await apiFetch(`${API_URL}/proveedores/${id}`);
   return pedir<Proveedor>(response, "Error al obtener el proveedor");
+}
+export async function asociarInsumosProveedor(
+  proveedorId: number,
+  insumoIds: number[]
+): Promise<Proveedor> {
+  const response = await apiFetch(
+    `${API_URL}/proveedores/${proveedorId}/insumos`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ insumo_ids: insumoIds }),
+    }
+  );
+
+  return pedir<Proveedor>(
+    response,
+    "Error al asociar los insumos al proveedor"
+  );
+}
+
+export async function cargarCertificacionProveedor(
+  proveedorId: number,
+  datos: {
+    tipo: string;
+    numero: string;
+    fecha_vencimiento: string;
+    archivo: File;
+  }
+): Promise<Proveedor> {
+  const formData = new FormData();
+  formData.append("tipo", datos.tipo);
+  formData.append("numero", datos.numero);
+  formData.append("fecha_vencimiento", datos.fecha_vencimiento);
+  formData.append("archivo", datos.archivo);
+
+  const response = await apiFetch(
+    `${API_URL}/proveedores/${proveedorId}/certificaciones`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  return pedir<Proveedor>(
+    response,
+    "Error al cargar la certificación"
+  );
 }

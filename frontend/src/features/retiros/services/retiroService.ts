@@ -97,8 +97,8 @@ export async function obtenerImpactoRetiro(loteId: number): Promise<ImpactoRetir
   return pedir<ImpactoRetiro>(response, "Error al obtener el impacto del retiro");
 }
 
-/** Lotes con saldo disponible para reservar (puede_operar). */
-export async function listarLotesDisponibles(): Promise<{
+/** Lote tal como lo devuelve `GET /salidas/lotes-disponibles`. */
+export interface LoteDisponible {
   id: number;
   codigo: string;
   producto_nombre: string;
@@ -106,17 +106,15 @@ export async function listarLotesDisponibles(): Promise<{
   saldo: number | string;
   fecha_inicio: string | null;
   fecha_vencimiento: string | null;
-}[]> {
+  retirado: boolean;
+  retiro_id: number | null;
+}
+
+/** Lotes con saldo disponible para reservar (puede_operar). */
+export async function listarLotesDisponibles(): Promise<LoteDisponible[]> {
   const response = await apiFetch(`${API_URL}/salidas/lotes-disponibles`);
-  return pedir<
-    {
-      id: number;
-      codigo: string;
-      producto_nombre: string;
-      unidad_medida: string;
-      saldo: number | string;
-      fecha_inicio: string | null;
-      fecha_vencimiento: string | null;
-    }[]
-  >(response, "Error al obtener los lotes disponibles");
+  return pedir<LoteDisponible[]>(
+    response,
+    "Error al obtener los lotes disponibles",
+  );
 }

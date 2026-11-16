@@ -9,8 +9,9 @@ import {
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useProveedor } from "../../hooks/useProveedor";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
-import type { Proveedor } from "../../types/proveedor";
+import type { ProveedorFormValues } from "../../types/proveedor";
 import { ProveedorForm } from "../ProveedorForm";
+import { ProveedorComplementos } from "../ProveedorComplementos";
 
 export function ProveedorEditPage() {
   const navigate = useNavigate();
@@ -18,13 +19,13 @@ export function ProveedorEditPage() {
   const { id } = useParams<{ id: string }>();
   const proveedorId = Number(id);
 
-  const { proveedor, loading: cargando, error: errorCarga } = useProveedor(
+  const { proveedor, loading: cargando, error: errorCarga, recargar: recargarProveedor } = useProveedor(
     Number.isFinite(proveedorId) ? proveedorId : null
   );
   const { modificar, loading: guardando, error: errorGuardado } = useProveedorABM();
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: Omit<Proveedor, "id" | "activo">) => {
+  const handleSubmit = async (values: ProveedorFormValues) => {
     try {
       await modificar(proveedorId, values);
       setExito(true);
@@ -53,13 +54,14 @@ export function ProveedorEditPage() {
 
           <ProveedorForm
             key={proveedor.id}
-            initialValues={{ nombre: proveedor.nombre, matricula: proveedor.matricula }}
+            initialValues={{ nombre: proveedor.nombre, cuit: proveedor.cuit ?? proveedor.matricula, contacto: proveedor.contacto ?? "", domicilio: proveedor.domicilio ?? "", rubro: proveedor.rubro ?? "", es_certificado: proveedor.es_certificado }}
             onSubmit={handleSubmit}
             isLoading={guardando}
             title="Modificar proveedor"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/proveedores")}
           />
+          <ProveedorComplementos key={proveedor.id} proveedor={proveedor} onActualizado={() => { void recargarProveedor(); }} />
         </>
       )}
 

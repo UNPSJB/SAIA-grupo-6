@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pagina } from "../../../../components/ui/plantillas";
 import {
@@ -16,6 +16,7 @@ import {
   EstadoVacio,
 } from "../../../../components/ui/patrones";
 import { LuRefreshCw } from "react-icons/lu";
+import { useLista } from "../../../../common/hooks/useLista";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { useAuth } from "../../../../common/context/useAuth";
 import { puedeAdministrar } from "../../../../common/api/permissions";
@@ -37,32 +38,23 @@ export function RetirosPage() {
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("");
   const [modalNuevo, setModalNuevo] = useState(false);
 
-  const [retiros, setRetiros] = useState<RetiroResumen[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const cargar = useCallback(
+    () => listarRetiros({ estado: filtroEstado || undefined }),
+    [filtroEstado]
+  );
 
-  const cargar = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listarRetiros({
-        estado: filtroEstado || undefined,
-      });
-      setRetiros(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar los retiros");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void cargar();
-  }, [filtroEstado]);
-
-  const recargar = async () => {
-    await cargar();
-  };
+  const {
+    items: retiros,
+    loading,
+    error,
+    recargar,
+  } = useLista<RetiroResumen[]>({
+    cargar,
+    dependencias: [filtroEstado],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los retiros",
+    preferirMensajeDelBackend: true,
+  });
 
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();

@@ -59,6 +59,15 @@ export function InsumoItem({
           <Text fontSize="sm" color="fg.subtle">—</Text>
         )}
       </Celda>
+      <Celda p="3">
+        {insumo.proveedores?.length ? (
+          <Stack gap="1">
+            {insumo.proveedores.map((proveedor) => (
+              <Text key={proveedor.id} fontSize="sm">{proveedor.nombre}</Text>
+            ))}
+          </Stack>
+        ) : <Text fontSize="sm" color="fg.subtle">Sin asociar</Text>}
+      </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo && (

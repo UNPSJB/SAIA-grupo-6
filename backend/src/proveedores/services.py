@@ -1,85 +1,132 @@
-from typing import Optional
 import logging
+from datetime import date
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-
-from src.common.listados import filtro_busqueda
-
-from src.common.persistence import (
-    aplicar_cambios,
-    baja_logica,
-    es_violacion_unica,
-    guardar,
-    mapa_por_campo,
-    obtener,
-    verificar_disponibilidad,
-)
+from sqlalchemy.orm import Session, selectinload
+from src.common.persistence import aplicar_cambios, baja_logica, guardar, obtener, verificar_disponibilidad
+from src.insumos.models import Insumo
 from src.proveedores import exceptions, schemas
-from src.proveedores.models import Proveedor
+from src.proveedores.models import Proveedor, CertificacionProveedor
 
 logger = logging.getLogger(__name__)
 
+def _cuit_normalizado(valor: str | None):
+    return "".join(ch for ch in (valor or "") if ch.isdigit()) or None
 
-_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
-    ("proveedores.matricula", exceptions.MatriculaYaExiste),
-    por_defecto=exceptions.MatriculaYaExiste,
-)
-
-
-def _mapear_conflicto_proveedor(mensaje: str) -> Exception:
-    """Solo una violación UNIQUE es un duplicado. Cualquier otro
-    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
-    y queda logueado."""
-    if not es_violacion_unica(mensaje):
-        logger.error(
-            "IntegrityError no-UNIQUE en proveedores (no es un duplicado): %s",
-            mensaje,
-        )
-        raise IntegrityError("sin mapear", {}, Exception(mensaje))
-    return _MAPEA_CONFLICTO_UNICO(mensaje)
-
+def _consulta_proveedor():
+    return select(Proveedor).options(
+        selectinload(Proveedor.insumos),
+        selectinload(Proveedor.certificaciones),
+    )
 
 def crear_proveedor(db: Session, datos: schemas.ProveedorCreate) -> Proveedor:
-    verificar_disponibilidad(
-        db,
-        Proveedor,
-        "matricula",
-        datos.matricula,
-        ya_existe=exceptions.MatriculaYaExiste,
-        etiqueta="proveedor",
-    )
-    proveedor = Proveedor(**datos.model_dump())
+    valores = datos.model_dump()
+    if valores.get("matricula"):
+        verificar_disponibilidad(
+            db, Proveedor, "matricula", valores["matricula"],
+            ya_existe=exceptions.MatriculaYaExiste, etiqueta="proveedor",
+        )
+    cuit = _cuit_normalizado(valores.get("cuit") or valores.get("matricula"))
+    if db.scalar(select(Proveedor).where(Proveedor.nombre.ilike(valores["nombre"]))):
+        raise exceptions.NombreProveedorDuplicado()
+    if cuit:
+        if valores.get("cuit") and len(cuit) != 11:
+            raise exceptions.CuitInvalido()
+        duplicado = db.scalar(select(Proveedor).where(Proveedor.cuit == cuit))
+        if duplicado:
+            raise exceptions.CuitDuplicado()
+    valores["cuit"] = cuit
+    valores["matricula"] = valores.get("matricula") or cuit
+    proveedor = Proveedor(**valores)
     db.add(proveedor)
-    return guardar(db, proveedor, _mapear_conflicto_proveedor)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return db.scalar(_consulta_proveedor().where(Proveedor.id == proveedor.id))
 
-
-def listar_proveedores(
-    db: Session,
-    incluir_inactivos: bool = False,
-    buscar: Optional[str] = None,
-) -> list[Proveedor]:
-    consulta = select(Proveedor)
-    filtro = filtro_busqueda((Proveedor.nombre, Proveedor.matricula), buscar)
-    if filtro is not None:
-        consulta = consulta.where(filtro)
+def listar_proveedores(db: Session, incluir_inactivos=False, buscar=None):
+    consulta = _consulta_proveedor()
+    if buscar:
+        termino = f"%{buscar.strip()}%"
+        consulta = consulta.where(
+            Proveedor.nombre.ilike(termino) |
+            Proveedor.cuit.ilike(termino) |
+            Proveedor.matricula.ilike(termino) |
+            Proveedor.rubro.ilike(termino)
+        )
     if not incluir_inactivos:
         consulta = consulta.where(Proveedor.activo.is_(True))
-
-    return list(db.scalars(consulta.order_by(Proveedor.id)).all())
-
+    return list(db.scalars(consulta.order_by(Proveedor.nombre)).unique().all())
 
 def obtener_proveedor(db: Session, proveedor_id: int) -> Proveedor:
-    return obtener(db, Proveedor, proveedor_id, exceptions.ProveedorNoEncontrado)
+    proveedor = db.scalar(_consulta_proveedor().where(Proveedor.id == proveedor_id))
+    if proveedor is None:
+        raise exceptions.ProveedorNoEncontrado()
+    return proveedor
 
-
-def actualizar_proveedor(
-    db: Session, proveedor_id: int, datos: schemas.ProveedorUpdate
-) -> Proveedor:
+def actualizar_proveedor(db: Session, proveedor_id: int, datos: schemas.ProveedorUpdate):
     proveedor = obtener_proveedor(db, proveedor_id)
     cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
-    return aplicar_cambios(db, proveedor, cambios, _mapear_conflicto_proveedor)
+    if "nombre" in cambios:
+        duplicado_nombre = db.scalar(select(Proveedor).where(
+            Proveedor.nombre.ilike(cambios["nombre"]), Proveedor.id != proveedor_id
+        ))
+        if duplicado_nombre:
+            raise exceptions.NombreProveedorDuplicado()
+    if "matricula" in cambios:
+        duplicado_matricula = db.scalar(select(Proveedor).where(
+            Proveedor.matricula == cambios["matricula"], Proveedor.id != proveedor_id
+        ))
+        if duplicado_matricula:
+            raise exceptions.MatriculaYaExiste()
+        if "cuit" not in cambios:
+            cambios["cuit"] = _cuit_normalizado(cambios["matricula"])
+    if "cuit" in cambios:
+        cuit = _cuit_normalizado(cambios["cuit"])
+        if cuit and len(cuit) != 11:
+            raise exceptions.CuitInvalido()
+        duplicado = db.scalar(select(Proveedor).where(Proveedor.cuit == cuit, Proveedor.id != proveedor_id))
+        if duplicado:
+            raise exceptions.CuitDuplicado()
+        cambios["cuit"] = cuit
+        cambios["matricula"] = cuit
+    elif "matricula" in cambios and "cuit" not in cambios:
+        cambios["matricula"] = cambios["matricula"]
+    return aplicar_cambios(db, proveedor, cambios)
 
-
-def eliminar_proveedor(db: Session, proveedor_id: int) -> Proveedor:
+def eliminar_proveedor(db: Session, proveedor_id: int):
     return baja_logica(db, obtener_proveedor(db, proveedor_id))
+
+def asociar_insumos(db: Session, proveedor_id: int, insumo_ids: list[int]):
+    proveedor = obtener_proveedor(db, proveedor_id)
+    ids = set(insumo_ids)
+    insumos = list(db.scalars(select(Insumo).where(Insumo.id.in_(ids), Insumo.activo.is_(True))).all()) if ids else []
+    if len(insumos) != len(ids):
+        raise exceptions.InsumosNoValidos()
+    proveedor.insumos = insumos
+    db.commit()
+    return obtener_proveedor(db, proveedor_id)
+
+def registrar_certificacion(db: Session, proveedor_id: int, datos: schemas.CertificacionCreate, archivo_url: str):
+    proveedor = obtener_proveedor(db, proveedor_id)
+    if not proveedor.activo:
+        raise exceptions.ProveedorNoEncontrado()
+    certificacion = CertificacionProveedor(
+        proveedor_id=proveedor_id, **datos.model_dump(), archivo_url=archivo_url
+    )
+    db.add(certificacion)
+    proveedor.es_certificado = True
+    db.commit()
+    return obtener_proveedor(db, proveedor_id)
+
+def obtener_certificacion_vigente(db: Session, proveedor_id: int, fecha: date):
+    return db.scalar(
+        select(CertificacionProveedor)
+        .where(
+            CertificacionProveedor.proveedor_id == proveedor_id,
+            CertificacionProveedor.fecha_vencimiento >= fecha,
+            (CertificacionProveedor.fecha_emision.is_(None) | (CertificacionProveedor.fecha_emision <= fecha)),
+        )
+        .order_by(CertificacionProveedor.fecha_vencimiento.desc(), CertificacionProveedor.id.desc())
+    )

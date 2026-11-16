@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -69,11 +69,7 @@ export function RetiroDetallePage() {
   } | null>(null);
   const [modalCerrar, setModalCerrar] = useState(false);
 
-  useEffect(() => {
-    cargar();
-  }, []);
-
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     if (!idValido) {
       setLoading(false);
       return;
@@ -88,7 +84,16 @@ export function RetiroDetallePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [idValido]);
+
+  // Mismo `setTimeout(..., 0)` que `useLista` y `useRegistro`: evita setear
+  // estado de forma síncrona dentro del efecto.
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void cargar();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [cargar]);
 
   const recargar = async () => {
     await cargar();

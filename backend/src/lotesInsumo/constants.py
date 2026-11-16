@@ -11,3 +11,4 @@ class ErrorCode:
     VENCIMIENTO_ANTERIOR = (
         "La fecha de vencimiento no puede ser anterior a la fecha de ingreso."
     )
+    CERTIFICACION_NO_VIGENTE = "No se puede recibir el lote: el proveedor no tiene una certificación vigente en la fecha de ingreso."

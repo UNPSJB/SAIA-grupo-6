@@ -46,13 +46,19 @@ class InsumoUpdate(BaseModel):
             raise exceptions.NombreVacio()
         return v.strip()
 
+class ProveedorResumen(BaseModel):
+    id: int
+    nombre: str
 
+    model_config = ConfigDict(from_attributes=True)
+    
 class Insumo(InsumoBase):
     id: int
     activo: bool
     tipo: str
     aditivo_id: int | None = None
     aditivo: AditivoResumen | None = None
+    proveedores: list[ProveedorResumen] = []
     unidad_medida: "UnidadMedidaResponse"
 
     model_config = ConfigDict(from_attributes=True)
@@ -84,3 +90,7 @@ class InsumoPagina(Pagina[Insumo]):
     """Página de insumos: la respuesta del listado paginado en el servidor."""
 
     pass
+
+ProveedorResumen.model_rebuild()
+Insumo.model_rebuild()
+InsumoPagina.model_rebuild()

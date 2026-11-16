@@ -95,7 +95,6 @@ export function ProveedorPage() {
     try {
       await reactivar(proveedorAReactivar.id, {
         nombre: proveedorAReactivar.nombre,
-        matricula: proveedorAReactivar.matricula,
       });
       setProveedorAReactivar(null);
       await cargarProveedores();
