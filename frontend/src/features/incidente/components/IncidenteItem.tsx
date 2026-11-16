@@ -37,6 +37,14 @@ export function IncidenteItem({
 }: IncidenteItemProps) {
   const navigate = useNavigate();
   const cerrado = incidente.estado === "cerrado";
+  const esEntregaRechazada =
+    incidente.tipo === "entrega_rechazada" ||
+    (incidente.tipo as string) === "Entrega rechazada" ||
+    (incidente as any).tipo_incidente === "entrega_rechazada" ||
+    (incidente as any).tipo_incidente === "Entrega rechazada";
+  // El retiro de lote también se resuelve desde su circuito (cerrar el retiro),
+  // igual que el rechazo de mercadería: acá no se ofrece el cierre manual.
+  const esRetiroLote = incidente.tipo === "retiro_lote";
 
   const handleVer = () => {
     if (onVer) {
@@ -160,21 +168,54 @@ export function IncidenteItem({
         <Celda p="3" center>
           <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
             <BotonAccion accion="ver" label="Ver detalle" onClick={handleVer} />
-            {cerrado
-              ? onReabrir && (
+            {cerrado ? (
+              // Los incidentes generados por un rechazo de mercadería son
+              // inmutables: la disposición ya quedó registrada y no se puede
+              // volver a abrir. El botón se muestra deshabilitado (en vez de
+              // desaparecer) para que se entienda que la acción existe pero
+              // está bloqueada, con el motivo en el tooltip.
+              esEntregaRechazada ? (
+                <Tooltip
+                  content="Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
+                  showArrow
+                  openDelay={300}
+                  closeDelay={0}
+                >
+                  {/* Un botón `disabled` no dispara tooltips: el span hace de
+                      ancla para el hover. */}
+                  <Box as="span" display="inline-flex">
+                    <BotonAccion
+                      accion="reabrir"
+                      label="Reabrir incidente"
+                      tooltip="Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
+                      disabled
+                      onClick={() => {}}
+                    />
+                  </Box>
+                </Tooltip>
+              ) : (
+                onReabrir && (
                   <BotonAccion
                     accion="reabrir"
                     label="Reabrir incidente"
                     onClick={() => onReabrir(incidente)}
                   />
                 )
-              : onCerrar && (
-                  <BotonAccion
-                    accion="cerrar"
-                    label="Cerrar incidente"
-                    onClick={() => onCerrar(incidente)}
-                  />
-                )}
+              )
+            ) : (
+              // El cierre de un incidente de rechazo o de retiro de lote también
+              // está bloqueado: se resuelve desde su circuito ("Resolver rechazo"
+              // en la salida, "Cerrar retiro" en E6).
+              !esEntregaRechazada &&
+              !esRetiroLote &&
+              onCerrar && (
+                <BotonAccion
+                  accion="cerrar"
+                  label="Cerrar incidente"
+                  onClick={() => onCerrar(incidente)}
+                />
+              )
+            )}
           </HStack>
         </Celda>
       )}

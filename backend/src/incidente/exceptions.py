@@ -50,3 +50,15 @@ class EstadoInvalido(BadRequest):
 
 class FechaInvalida(BadRequest):
     DETAIL = ErrorCode.FECHA_RANGO_INVALIDO
+
+
+class IncidenteInmutable(BadRequest):
+    """400. El incidente lo resuelve su flujo de origen, no E6."""
+
+    DETAIL = ErrorCode.INCIDENTE_INMUTABLE
+
+
+class ObservacionCierreRequerida(BadRequest):
+    """400. Al cerrar un reclamo de cliente es obligatoria la acción correctiva."""
+
+    DETAIL = "Para cerrar un reclamo de cliente es obligatoria la acción correctiva."

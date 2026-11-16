@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, DateTime, Text, ForeignKey
+from sqlalchemy import String, DateTime, Integer, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.common.fechas import ahora
 from src.incidente.constants import EstadoIncidente
@@ -20,6 +20,16 @@ class Incidente(ModeloBase):
     foto_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("personal.id"), nullable=False)
     fecha_reporte: Mapped[datetime] = mapped_column(DateTime, default=ahora, nullable=False)
+
+    # Vínculos opcionales con el origen del incidente. Los usa el rechazo de
+    # una entrega; a futuro también el reclamo de cliente. `salida_id` no lleva
+    # FK declarada a propósito: `salidas.incidente_id` ya apunta para el otro
+    # lado y dos FK cruzadas formarían un ciclo que SQLite no puede ordenar al
+    # crear las tablas. Se mantiene el índice para las consultas por salida.
+    lote_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lotes_producto.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    salida_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
 
     # Estado del incidente: se abre al reportarse y lo cierra el administrador
 

@@ -80,6 +80,9 @@ const COLOR_TORTA: Record<TipoIncidente, string> = {
   falla_equipo: "#eb6834",
   devolucion_cliente: "#1baf7a",
   higiene_contaminacion: "#eda100",
+  entrega_rechazada: "#c53030",
+  reclamo_cliente: "#2c7fb8",
+  retiro_lote: "#c53030",
   otro: "#8a94a3",
 };
 
@@ -89,6 +92,9 @@ const ETIQUETA_CORTA: Record<TipoIncidente, string> = {
   falla_equipo: "Falla Equipo",
   devolucion_cliente: "Devolución",
   higiene_contaminacion: "Higiene",
+  entrega_rechazada: "Rechazo",
+  reclamo_cliente: "Reclamo",
+  retiro_lote: "Retiro lote",
   otro: "Otro",
 };
 

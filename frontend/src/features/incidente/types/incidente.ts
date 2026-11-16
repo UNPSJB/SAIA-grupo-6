@@ -3,6 +3,9 @@ export type TipoIncidente =
   | "falla_equipo"
   | "devolucion_cliente"
   | "higiene_contaminacion"
+  | "entrega_rechazada"
+  | "reclamo_cliente"
+  | "retiro_lote"
   | "otro";
 
 /**
@@ -18,6 +21,9 @@ export interface Incidente {
   tipo: TipoIncidente;
   equipo_id: number | null;
   equipo_nombre: string | null;
+  // Vínculos opcionales con el lote / la salida que originaron el incidente.
+  lote_id: number | null;
+  salida_id: number | null;
   foto_url: string | null;
   usuario_id: number;
   usuario_nombre: string | null;
@@ -41,8 +47,28 @@ export const TIPOS_INCIDENTE: { value: TipoIncidente; label: string }[] = [
   { value: "falla_equipo", label: "Falla / Rotura de Equipo" },
   { value: "devolucion_cliente", label: "Devolución de Cliente" },
   { value: "higiene_contaminacion", label: "Higiene / Contaminación" },
+  { value: "entrega_rechazada", label: "Entrega rechazada" },
+  { value: "reclamo_cliente", label: "Reclamo de cliente" },
+  { value: "retiro_lote", label: "Retiro de lote" },
   { value: "otro", label: "Otro" },
 ];
+
+/**
+ * Tipos que genera el sistema a partir de otra acción (un rechazo o un
+ * reclamo): no se eligen en el alta manual de incidentes, porque nacen
+ * vinculados a su lote/salida y se resuelven desde ese circuito.
+ */
+export const TIPOS_INCIDENTE_SISTEMA: TipoIncidente[] = [
+  "entrega_rechazada",
+  "reclamo_cliente",
+  "retiro_lote",
+];
+
+/** Tipos que sí se pueden reportar a mano desde E6. */
+export const TIPOS_INCIDENTE_MANUALES: { value: TipoIncidente; label: string }[] =
+  TIPOS_INCIDENTE.filter(
+    (tipo) => !TIPOS_INCIDENTE_SISTEMA.includes(tipo.value)
+  );
 
 // Tipos donde tiene sentido asociar un equipo concreto. Para el resto el
 // equipo queda en null y el detalle se describe en la descripción libre.
@@ -88,6 +114,9 @@ export function tipoColor(tipo: TipoIncidente): string {
     case "plagas": return "red";
     case "falla_equipo": return "orange";
     case "devolucion_cliente": return "yellow";
+    case "entrega_rechazada": return "red";
+    case "reclamo_cliente": return "blue";
+    case "retiro_lote": return "red";
     case "higiene_contaminacion": return "purple";
     default: return "gray";
   }

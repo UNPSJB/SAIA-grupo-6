@@ -26,6 +26,10 @@ from src.vencimientoPersonal.models import VencimientoPersonal
 MARGEN_DIAS_ALERTA = 3
 CLAVE_DIAS_VENCIMIENTO_PERSONAL = "dias_alerta_vencimiento_personal"
 DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
+# Plazo de referencia para los reclamos de clientes (Historia 20). Es solo una
+# referencia para marcar el reclamo como "fuera de plazo": no bloquea el alta.
+CLAVE_PLAZO_RECLAMO_DIAS = "plazo_reclamo_dias"
+PLAZO_RECLAMO_DIAS_POR_DEFECTO = 30
 
 
 
@@ -143,6 +147,22 @@ def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
         config.valor = dias
     else:
         db.add(ConfiguracionAlerta(clave=CLAVE_DIAS_VENCIMIENTO_PERSONAL, valor=dias))
+    db.commit()
+    return dias
+
+
+def obtener_plazo_reclamo_dias(db: Session) -> int:
+    """Días de referencia para marcar un reclamo como fuera de plazo."""
+    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    return config.valor if config else PLAZO_RECLAMO_DIAS_POR_DEFECTO
+
+
+def actualizar_plazo_reclamo_dias(db: Session, dias: int) -> int:
+    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    if config:
+        config.valor = dias
+    else:
+        db.add(ConfiguracionAlerta(clave=CLAVE_PLAZO_RECLAMO_DIAS, valor=dias))
     db.commit()
     return dias
 

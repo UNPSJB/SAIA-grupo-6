@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +24,12 @@ from src.lotesInsumo.services import saldo_lote_insumo
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.unidadMedida.models import UnidadMedida
+from src.salidas.constants import (
+    ESTADO_RESERVADO,
+    ESTADO_DESPACHADO,
+    ESTADO_ENTREGADO,
+)
+from src.salidas.models import Salida, calcular_cantidades
 from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo
 from src.recetas.services import calcular_factor, version_vigente
 
@@ -60,6 +67,8 @@ def _opciones():
         .selectinload(ChecklistProduccion.consumos)
         .selectinload(ConsumoInsumo.lote_insumo)
         .selectinload(LoteInsumo.proveedor),
+        # Salidas del lote para calcular producido/reservado/despachado/entregado/saldo.
+        selectinload(LoteProducto.salidas).selectinload(Salida.cliente),
     )
 
 
@@ -340,7 +349,20 @@ def _nombre(persona: Personal | None) -> str | None:
     return f"{persona.nombre} {persona.apellido or ''}".strip()
 
 
-def resumen(lote: LoteProducto) -> schemas.LoteResumen:
+def resumen(
+    lote: LoteProducto, db: Session | None = None
+) -> schemas.LoteResumen:
+    # Retiro asociado al lote (si existe y se pide con db).
+    retiro_id = None
+    retiro_estado = None
+    if db is not None:
+        from src.retiros.models import Retiro
+
+        retiro = db.scalar(select(Retiro).where(Retiro.lote_id == lote.id))
+        if retiro is not None:
+            retiro_id = retiro.id
+            retiro_estado = retiro.estado
+
     return schemas.LoteResumen(
         id=lote.id,
         numero_lote=lote.numero_lote,
@@ -358,8 +380,19 @@ def resumen(lote: LoteProducto) -> schemas.LoteResumen:
         creado_por_nombre=_nombre(lote.creado_por),
         fecha_inicio=lote.fecha_inicio,
         fecha_cierre=lote.fecha_cierre,
+        fecha_vencimiento=lote.fecha_vencimiento,
         items_total=len(lote.checklist),
         items_completados=sum(1 for i in lote.checklist if i.completado_en is not None),
+        retirado=lote.retirado,
+        reservado=lote.reservado,
+        despachado=lote.despachado,
+        entregado=lote.entregado,
+        en_revision=lote.en_revision,
+        desechado=lote.desechado,
+        saldo=lote.saldo,
+        estado_lote=lote.estado_lote,
+        retiro_id=retiro_id,
+        retiro_estado=retiro_estado,
     )
 
 
@@ -432,7 +465,72 @@ def detalle(db: Session, lote: LoteProducto) -> schemas.LoteDetalle:
                 consumos=[consumo_a_respuesta(c) for c in item.consumos],
             )
         )
-    return schemas.LoteDetalle(**resumen(lote).model_dump(), checklist=items)
+    return schemas.LoteDetalle(**resumen(lote, db).model_dump(), checklist=items)
+
+
+def impacto_retiro(db: Session, lote_id: int) -> schemas.ImpactoRetiro:
+    """Impacto de retirar un lote: reservas a cancelar y salidas afectadas."""
+    lote = db.get(LoteProducto, lote_id)
+    if lote is None:
+        from src.lotes import exceptions as lotes_exceptions
+
+        raise lotes_exceptions.LoteNoEncontrado()
+
+    salidas = list(lote.salidas) if lote.salidas is not None else []
+    reservas = [s for s in salidas if s.estado == ESTADO_RESERVADO]
+    afectadas = [s for s in salidas if s.estado in (ESTADO_DESPACHADO, ESTADO_ENTREGADO)]
+
+    salidas_afectadas_resumen = []
+    for salida in afectadas:
+        cliente = salida.cliente
+        transportista = salida.transportista
+        unidad = (
+            salida.lote.producto.unidad_medida.simbolo
+            if salida.lote.producto and salida.lote.producto.unidad_medida
+            else ""
+        )
+        salidas_afectadas_resumen.append(
+            schemas.SalidaAfectadaResumen(
+                salida_id=salida.id,
+                cliente_id=cliente.id,
+                cliente_nombre=cliente.nombre,
+                cantidad_con_unidad=_cantidad_con_unidad_lotes(salida.cantidad, unidad),
+                unidad_medida=unidad,
+                transportista=(
+                    transportista.razon_social if transportista else "Retira en planta"
+                ),
+                estado=salida.estado,
+            )
+        )
+
+    calculo = calcular_cantidades(
+        lote.cantidad_producida, salidas, lote.retirado
+    )
+    unidad = (
+        lote.producto.unidad_medida.simbolo
+        if lote.producto and lote.producto.unidad_medida
+        else ""
+    )
+
+    return schemas.ImpactoRetiro(
+        lote_id=lote.id,
+        lote_codigo=lote.numero_lote,
+        lote_producto_nombre=lote.producto.nombre,
+        reservas_a_cancelar=len(reservas),
+        salidas_afectadas=salidas_afectadas_resumen,
+        total_afectadas=len(afectadas),
+        saldo_en_planta=_cantidad_con_unidad_lotes(calculo["saldo"], unidad),
+        en_revision=_cantidad_con_unidad_lotes(calculo["en_revision"], unidad),
+    )
+
+
+def _cantidad_con_unidad_lotes(cantidad, unidad: Optional[str]) -> str:
+    from src.salidas.models import formatear_cantidad
+
+    texto = formatear_cantidad(cantidad)
+    if unidad:
+        return f"{texto} {unidad}"
+    return texto
 
 
 def dashboard(

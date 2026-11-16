@@ -74,21 +74,55 @@ def _verificar_usuario(db: Session, usuario_id: int) -> None:
         raise exceptions.UsuarioInactivo()
 
 
+def crear_incidente_vinculado(
+    db: Session,
+    *,
+    titulo: str,
+    descripcion: str,
+    tipo: str,
+    usuario_id: int,
+    equipo_id: Optional[int] = None,
+    foto_url: Optional[str] = None,
+    lote_id: Optional[int] = None,
+    salida_id: Optional[int] = None,
+) -> models.Incidente:
+    """Crea un incidente ABIERTO sin commitear.
+
+    Es la versión transaccional de `crear_incidente`: la usan los flujos que
+    necesitan que el incidente, la entidad que lo origina y su hito se guarden
+    en UNA sola transacción (por ejemplo el rechazo de una entrega). El caller
+    hace el commit. La verificación del usuario la hace el caller.
+    """
+    incidente = models.Incidente(
+        titulo=titulo,
+        descripcion=descripcion,
+        tipo=tipo,
+        equipo_id=equipo_id,
+        foto_url=foto_url,
+        usuario_id=usuario_id,
+        fecha_reporte=ahora(),
+        estado=EstadoIncidente.ABIERTO.value,
+        lote_id=lote_id,
+        salida_id=salida_id,
+    )
+    db.add(incidente)
+    db.flush()
+    return incidente
+
+
 def crear_incidente(db: Session, datos: schemas.IncidenteCreate, usuario_id: int) -> models.Incidente:
     _verificar_equipo(db, datos.equipo_id)
     _verificar_usuario(db, usuario_id)
 
-    incidente = models.Incidente(
+    incidente = crear_incidente_vinculado(
+        db,
         titulo=datos.titulo,
         descripcion=datos.descripcion,
         tipo=datos.tipo,
+        usuario_id=usuario_id,
         equipo_id=datos.equipo_id,
         foto_url=datos.foto_url,
-        usuario_id=usuario_id,
-        fecha_reporte=ahora(),
-        estado=EstadoIncidente.ABIERTO.value,
     )
-    db.add(incidente)
     return guardar(db, incidente)
 
 
@@ -341,6 +375,50 @@ def resumen_por_tipo(
     )
 
 
+def cerrar_incidente(
+    db: Session,
+    incidente: models.Incidente,
+    current_user: Personal,
+    observacion_cierre: Optional[str] = None,
+) -> models.Incidente:
+    """Cierra un incidente y asienta la acción correctiva, SIN commitear.
+
+    Concentra la lógica de cierre que antes vivía dentro de
+    `cambiar_estado_incidente`, para que el rechazo de una entrega pueda
+    cerrar el incidente vinculado dentro de su propia transacción sin
+    duplicar el comportamiento. Deja el incidente en `flush`.
+    """
+    if incidente.estado == EstadoIncidente.CERRADO.value:
+        return incidente
+
+    # Un reclamo de cliente no se cierra sin asentar la acción correctiva.
+    if (
+        incidente.tipo == TipoIncidente.RECLAMO_CLIENTE.value
+        and not (observacion_cierre or "").strip()
+    ):
+        raise exceptions.ObservacionCierreRequerida()
+
+    _verificar_usuario(db, current_user.id)
+    estado_anterior = incidente.estado
+    incidente.estado = EstadoIncidente.CERRADO.value
+    incidente.fecha_cierre = ahora()
+    incidente.responsable_cierre_id = current_user.id
+    incidente.observacion_cierre = observacion_cierre
+
+    db.add(
+        models.HistorialIncidente(
+            incidente_id=incidente.id,
+            estado_anterior=estado_anterior,
+            estado_nuevo=EstadoIncidente.CERRADO.value,
+            usuario_id=current_user.id,
+            observacion=observacion_cierre,
+        )
+    )
+    db.flush()
+    logger.info("Incidente %s cerrado por %s", incidente.id, current_user.id)
+    return incidente
+
+
 def cambiar_estado_incidente(
     db: Session,
     incidente_id: int,
@@ -362,6 +440,17 @@ def cambiar_estado_incidente(
     if incidente is None:
         raise exceptions.IncidenteNoEncontrado()
 
+    # Los incidentes originados por un rechazo de mercadería o por un retiro
+    # de lote no se cierran ni se reabren desde E6: su resolución vive en
+    # "Resolver rechazo" de Salidas y en "Cerrar retiro" de Retiros.
+    # Va antes del early return de "mismo estado" para que reabrir uno ya
+    # cerrado también devuelva el error y no un 200 silencioso.
+    if incidente.tipo in (
+        TipoIncidente.ENTREGA_RECHAZADA.value,
+        TipoIncidente.RETIRO_LOTE.value,
+    ):
+        raise exceptions.IncidenteInmutable()
+
     if incidente.estado == estado.value:
         # Ya está en ese estado: no se pisa la fecha de cierre original.
         # Aun así hay que completar los nombres: sin esto, este camino
@@ -369,34 +458,24 @@ def cambiar_estado_incidente(
         # la inconsistencia con el GET pasaba inadvertida).
         return _completar_nombres([incidente])[0]
 
-    estado_anterior = incidente.estado
-
     if estado == EstadoIncidente.CERRADO:
-        _verificar_usuario(db, current_user.id)
-        incidente.estado = EstadoIncidente.CERRADO.value
-        incidente.fecha_cierre = ahora()
-        incidente.responsable_cierre_id = current_user.id
-        incidente.observacion_cierre = observacion_cierre
-        logger.info(
-            "Incidente %s cerrado por %s", incidente.id, current_user.id
-        )
+        cerrar_incidente(db, incidente, current_user, observacion_cierre)
     else:
+        estado_anterior = incidente.estado
         incidente.estado = EstadoIncidente.ABIERTO.value
         incidente.fecha_cierre = None
         incidente.responsable_cierre_id = None
         incidente.observacion_cierre = None
-        logger.info("Incidente %s reabierto por %s", incidente.id, current_user.id)
-
-    # Guardar evento en el historial
-    db.add(
-        models.HistorialIncidente(
-            incidente_id=incidente.id,
-            estado_anterior=estado_anterior,
-            estado_nuevo=estado.value,
-            usuario_id=current_user.id,
-            observacion=observacion_cierre,
+        db.add(
+            models.HistorialIncidente(
+                incidente_id=incidente.id,
+                estado_anterior=estado_anterior,
+                estado_nuevo=EstadoIncidente.ABIERTO.value,
+                usuario_id=current_user.id,
+                observacion=observacion_cierre,
+            )
         )
-    )
+        logger.info("Incidente %s reabierto por %s", incidente.id, current_user.id)
 
     guardar(db, incidente)
 

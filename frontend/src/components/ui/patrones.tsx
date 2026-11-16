@@ -37,18 +37,22 @@ import {
   LuExternalLink,
   LuGauge,
   LuEye,
+  LuFileBadge,
   LuHistory,
   LuImage,
   LuLink,
   LuLoader,
+  LuMessageSquare,
   LuMinus,
   LuPackagePlus,
+  LuPackageCheck,
   LuPencil,
   LuPlus,
   LuRefreshCw,
   LuRepeat,
   LuRotateCcw,
   LuTrash2,
+  LuTruck,
   LuTriangleAlert,
   LuUpload,
   LuWrench,
@@ -496,7 +500,15 @@ export type AccionTabla =
   | "minimo"
   | "asociar"
   | "escalar"
-  | "nutricion";
+  | "nutricion"
+  | "certificacion"
+  | "despachar"
+  | "cancelar"
+  | "entregar"
+  | "rechazar"
+  | "disposicion"
+  | "reclamar"
+  | "notificar";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -512,6 +524,7 @@ export type AccionTabla =
  *   reabrir / intervenir                    naranja vuelve atrás / mantenimiento
  *                                           (no comparten tabla, así que no se
  *                                           confunden entre sí)
+ *   certificación                           amarillo habilita/acredita
  */
 const PALETA_ACCION: Record<AccionTabla, string> = {
   ver: "gray",
@@ -532,6 +545,18 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   asociar: "blue",
   escalar: "blue",
   nutricion: "blue",
+  // Alta de una certificación/habilitación: crea datos, igual que "subir".
+  // Amarillo para distinguirla del resto de las altas (azul).
+  certificacion: "yellow",
+  despachar: "brand",
+  cancelar: "red",
+  entregar: "green",
+  rechazar: "orange",
+  disposicion: "blue",
+  // Reclamo de cliente: alta de un seguimiento sobre una entrega entregada.
+  reclamar: "blue",
+  // Notificar a un cliente afectado: confirma un contacto (cierra el pendiente).
+  notificar: "green",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -560,6 +585,22 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   escalar: LuCalculator,
   // E11: datos e información nutricional (insumos y productos).
   nutricion: LuApple,
+  // Certificación: documento con sello, no el escudo de SAIA.
+  certificacion: LuFileBadge,
+  // Despachar: camión (logística)
+  despachar: LuTruck,
+  // Cancelar: basura (descarte)
+  cancelar: LuTrash2,
+  // Entregar: paquete con check (entregado)
+  entregar: LuPackageCheck,
+  // Rechazar: alerta (la entrega fue rechazada)
+  rechazar: LuTriangleAlert,
+  // Disposición: cierre del rechazo (resolver el destino)
+  disposicion: LuCircleCheck,
+  // Reclamo: mensaje del cliente (distinto de la alerta del rechazo)
+  reclamar: LuMessageSquare,
+  // Notificar: confirmación del contacto con el cliente afectado.
+  notificar: LuCircleCheck,
 };
 
 /**
@@ -580,12 +621,15 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
 export function BotonAccion({
   accion,
   label,
+  tooltip,
   onClick,
   ...rest
 }: {
   accion: AccionTabla;
-  /** Nombre de la acción: se usa en el tooltip y en el `aria-label`. */
+  /** Nombre de la acción: se usa en el aria-label y por defecto en el tooltip. */
   label: string;
+  /** Texto alternativo del tooltip cuando difiere del label de la acción. */
+  tooltip?: string;
   onClick: () => void;
 } & Omit<
   IconButtonProps,
@@ -599,7 +643,7 @@ export function BotonAccion({
    */
   const esGris = paleta === "gray";
   return (
-    <Tooltip content={label} showArrow openDelay={300} closeDelay={0}>
+    <Tooltip content={tooltip ?? label} showArrow openDelay={300} closeDelay={0}>
       <IconButton
         type="button"
         colorPalette={paleta}

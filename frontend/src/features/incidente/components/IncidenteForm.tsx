@@ -12,7 +12,7 @@ import {
 import { LuPaperclip, LuX } from "react-icons/lu";
 import type { IncidenteFormValues, TipoIncidente } from "../types/incidente";
 import {
-  TIPOS_INCIDENTE,
+  TIPOS_INCIDENTE_MANUALES,
   admiteEquipo,
   requiereEquipoObligatorio,
 } from "../types/incidente";
@@ -193,7 +193,7 @@ export function IncidenteForm({
           onChange={handleTipoChange}
           maxW={anchoCampo}
         >
-          {TIPOS_INCIDENTE.map((tipo) => (
+          {TIPOS_INCIDENTE_MANUALES.map((tipo) => (
             <option key={tipo.value} value={tipo.value}>
               {tipo.label}
             </option>

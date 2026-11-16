@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin, require_operador
+from src.auth.dependencies import get_current_user, require_admin, require_operador
 from src.database import get_db
 from src.lotes import schemas, services
 from src.lotes.constants import ESTADOS_LOTE
@@ -64,6 +64,16 @@ def obtener_dashboard(
 )
 def obtener_lote(lote_id: int, db: Session = Depends(get_db)):
     return services.detalle(db, services.obtener_lote(db, lote_id))
+
+
+@router.get(
+    "/{lote_id}/impacto-retiro",
+    response_model=schemas.ImpactoRetiro,
+    dependencies=[Depends(require_admin)],
+)
+def impacto_retiro(lote_id: int, db: Session = Depends(get_db)):
+    """Impacto de retirar un lote: reservas a cancelar y salidas afectadas."""
+    return services.impacto_retiro(db, lote_id)
 
 
 @router.post(

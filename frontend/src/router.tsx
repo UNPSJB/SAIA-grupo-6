@@ -76,6 +76,27 @@ const LoteCreatePage = lazy(() =>
 const LoteDetallePage = lazy(() =>
   import("./features/lotes/components/pages/LoteDetallePage").then((mod) => ({ default: mod.LoteDetallePage })),
 );
+// Salidas de producto
+const SalidasPage = lazy(() =>
+  import("./features/salidas/components/pages/SalidasPage").then((mod) => ({ default: mod.SalidasPage })),
+);
+const SalidaDetallePage = lazy(() =>
+  import("./features/salidas/components/pages/SalidaDetallePage").then((mod) => ({ default: mod.SalidaDetallePage })),
+);
+// Historia 20: reclamos de clientes sobre entregas ya realizadas
+const ReclamosPage = lazy(() =>
+  import("./features/reclamos/components/pages/ReclamosPage").then((mod) => ({ default: mod.ReclamosPage })),
+);
+const ReclamoDetallePage = lazy(() =>
+  import("./features/reclamos/components/pages/ReclamoDetallePage").then((mod) => ({ default: mod.ReclamoDetallePage })),
+);
+// Historia 21: retiros de lote del mercado
+const RetirosPage = lazy(() =>
+  import("./features/retiros/components/pages/RetirosPage").then((mod) => ({ default: mod.RetirosPage })),
+);
+const RetiroDetallePage = lazy(() =>
+  import("./features/retiros/components/pages/RetiroDetallePage").then((mod) => ({ default: mod.RetiroDetallePage })),
+);
 
 // Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
 const ProductoPage = lazy(() =>
@@ -226,6 +247,33 @@ const ProveedorCreatePage = lazy(() =>
 );
 const ProveedorEditPage = lazy(() =>
   import("./features/proveedores/components/pages/ProveedorEditPage").then((mod) => ({ default: mod.ProveedorEditPage })),
+);
+
+// Clientes
+const ClientesPage = lazy(() =>
+  import("./features/clientes/components/pages/ClientesPage").then((mod) => ({ default: mod.ClientesPage })),
+);
+// Transportistas
+const TransportistasPage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistasPage").then((mod) => ({ default: mod.TransportistasPage })),
+);
+const TransportistaCreatePage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistaCreatePage").then((mod) => ({ default: mod.TransportistaCreatePage })),
+);
+const TransportistaEditPage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistaEditPage").then((mod) => ({ default: mod.TransportistaEditPage })),
+);
+const TransportistaDetallePage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistaDetallePage").then((mod) => ({ default: mod.TransportistaDetallePage })),
+);
+const ClienteCreatePage = lazy(() =>
+  import("./features/clientes/components/pages/ClienteCreatePage").then((mod) => ({ default: mod.ClienteCreatePage })),
+);
+const ClienteEditPage = lazy(() =>
+  import("./features/clientes/components/pages/ClienteEditPage").then((mod) => ({ default: mod.ClienteEditPage })),
+);
+const ClienteDetailPage = lazy(() =>
+  import("./features/clientes/components/pages/ClienteDetailPage").then((mod) => ({ default: mod.ClienteDetailPage })),
 );
 
 // Notificaciones
@@ -546,6 +594,54 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <LoteDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/salidas",
+                element: (
+                  <ConSuspense>
+                    <SalidasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/salidas/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <SalidaDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reclamos",
+                element: (
+                  <ConSuspense>
+                    <ReclamosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reclamos/:id",
+                element: (
+                  <ConSuspense>
+                    <ReclamoDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/retiros",
+                element: (
+                  <ConSuspense>
+                    <RetirosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/retiros/:id",
+                element: (
+                  <ConSuspense>
+                    <RetiroDetallePage />
                   </ConSuspense>
                 ),
               },
@@ -1101,6 +1197,74 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <ProveedorEditPage />
+                  </ConSuspense>
+                ),
+              },
+
+              // ---------------- CLIENTES ----------------
+              {
+                path: "/clientes",
+                element: (
+                  <ConSuspense>
+                    <ClientesPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/clientes/nuevo",
+                element: (
+                  <ConSuspense>
+                    <ClienteCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/clientes/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <ClienteEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/clientes/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <ClienteDetailPage />
+                  </ConSuspense>
+                ),
+              },
+
+              // ---------------- TRANSPORTISTAS ----------------
+              {
+                path: "/transportistas",
+                element: (
+                  <ConSuspense>
+                    <TransportistasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/transportistas/nuevo",
+                element: (
+                  <ConSuspense>
+                    <TransportistaCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/transportistas/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <TransportistaEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/transportistas/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <TransportistaDetallePage />
                   </ConSuspense>
                 ),
               },

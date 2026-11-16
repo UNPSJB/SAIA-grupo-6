@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Numeric,
@@ -10,16 +12,20 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     select,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from src.common.fechas import ahora
 from src.lotes.constants import (
+    ESTADO_CANCELADO,
     ESTADO_EN_PROCESO,
+    ESTADO_TERMINADO,
     ESTADOS_LOTE_CERRADOS,
     TIPO_CONSUMO_REAL,
 )
 from src.lotes.exceptions import LoteCerradoError
+from sqlalchemy import inspect as sa_inspect
 from src.models import ModeloBase
 
 
@@ -67,6 +73,7 @@ class LoteProducto(ModeloBase):
     )
     fecha_inicio: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
     fecha_cierre: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    fecha_vencimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     producto: Mapped["Producto"] = relationship()
     version_receta: Mapped["VersionReceta | None"] = relationship()
@@ -74,6 +81,86 @@ class LoteProducto(ModeloBase):
     checklist: Mapped[list["ChecklistProduccion"]] = relationship(
         back_populates="lote", order_by="ChecklistProduccion.id"
     )
+    # Salidas de producto (reservas, despachos, entregas) de este lote.
+    salidas: Mapped[list["Salida"]] = relationship(
+        back_populates="lote", cascade="all, delete-orphan"
+    )
+
+    # Campo de retiro del mercado (baja lógica del lote como fuente de venta).
+    # Sin motivo ni fecha: eso corresponde a una historia posterior.
+    retirado: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), nullable=False
+    )
+
+    # -----------------------------------------------------------------------
+    # Propiedades calculadas a partir de las salidas (NO se persisten).
+    # Se calculan en memoria tras cargar las salidas con selectinload.
+    # -----------------------------------------------------------------------
+
+    @property
+    def reservado(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["reservado"]
+
+    @property
+    def despachado(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["despachado"]
+
+    @property
+    def entregado(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["entregado"]
+
+    @property
+    def en_revision(self) -> Decimal:
+        """Mercadería rechazada por el cliente que aún no tiene disposición."""
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["en_revision"]
+
+    @property
+    def desechado(self) -> Decimal:
+        """Mercadería rechazada que se decidió desechar (dada de baja)."""
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["desechado"]
+
+    @property
+    def saldo(self) -> Decimal:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["saldo"]
+
+    @property
+    def estado_lote(self) -> str:
+        from src.salidas.models import calcular_cantidades
+
+        salidas = list(self.salidas) if self.salidas is not None else []
+        return calcular_cantidades(
+            self.cantidad_producida, salidas, self.retirado
+        )["estado_lote"]
 
 
 class ChecklistProduccion(ModeloBase):
@@ -162,8 +249,17 @@ def impedir_editar_lote_cerrado(mapper, connection, target):
     """Respaldo del service: el estado se lee de la base, no de la memoria."""
     if not object_session(target).is_modified(target, include_collections=False):
         return
-    if _estado_en_base(connection, target.id) in ESTADOS_LOTE_CERRADOS:
+    estado_base = _estado_en_base(connection, target.id)
+    if estado_base == ESTADO_CANCELADO:
         raise LoteCerradoError()
+    if estado_base == ESTADO_TERMINADO:
+        # En lotes TERMINADOS solo está permitido modificar el campo 'retirado';
+        # cualquier otro campo modificado dispara LoteCerradoError.
+        mapper_insp = sa_inspect(target)
+        for attr in mapper_insp.attrs:
+            hist = getattr(attr, "history", None)
+            if hist is not None and hist.has_changes() and attr.key != "retirado":
+                raise LoteCerradoError()
 
 
 @event.listens_for(ChecklistProduccion, "before_insert")
