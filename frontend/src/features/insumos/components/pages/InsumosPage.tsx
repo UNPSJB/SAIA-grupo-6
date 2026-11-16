@@ -28,6 +28,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
+import { useProveedores } from "../../../proveedores/hooks/useProveedores";
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +40,8 @@ export function InsumosPage() {
   const busquedaAplicada = useValorDebounced(busqueda);
   const [unidadId, setUnidadId] = useState("");
   const [tipo, setTipo] = useState<TipoInsumo | "">("");
+  const [proveedorId, setProveedorId] = useState("");
+  const { proveedores } = useProveedores(false);
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const orden = useOrdenTabla<ColumnaOrdenInsumo, "nombre_asc">("nombre_asc");
 
@@ -57,6 +60,7 @@ export function InsumosPage() {
       buscar: busquedaAplicada,
       unidadMedidaId: unidadId ? Number(unidadId) : undefined,
       tipo: tipo || undefined,
+      proveedorId: proveedorId ? Number(proveedorId) : undefined,
       orden: orden.orden,
     },
     PAGE_SIZE
@@ -88,10 +92,11 @@ export function InsumosPage() {
     setBusqueda("");
     setUnidadId("");
     setTipo("");
+    setProveedorId("");
     orden.reiniciar();
   };
 
-  const hayFiltros = busqueda.trim() !== "" || unidadId !== "" || tipo !== "";
+  const hayFiltros = busqueda.trim() !== "" || unidadId !== "" || tipo !== "" || proveedorId !== "";
 
   const ETIQUETAS_ORDEN: Record<ColumnaOrdenInsumo, string> = {
     nombre: "Nombre",
@@ -111,6 +116,12 @@ export function InsumosPage() {
       etiqueta: "Tipo",
       valor: tipo === "aditivo" ? "Aditivos" : tipo === "ingrediente" ? "Ingredientes" : "",
       onQuitar: () => setTipo(""),
+    },
+    {
+      clave: "proveedor",
+      etiqueta: "Proveedor",
+      valor: proveedores.find((p) => String(p.id) === proveedorId)?.nombre ?? "",
+      onQuitar: () => setProveedorId(""),
     },
     {
       clave: "unidad",
@@ -204,6 +215,13 @@ export function InsumosPage() {
               todos="Todos los tipos"
             />
             <FiltroSelect
+              label="Proveedor"
+              valor={proveedorId}
+              onCambio={setProveedorId}
+              opciones={proveedores.map((proveedor) => ({ valor: String(proveedor.id), etiqueta: proveedor.nombre }))}
+              todos="Todos"
+            />
+            <FiltroSelect
               label="Unidad de medida"
               valor={unidadId}
               onCambio={setUnidadId}
@@ -229,7 +247,9 @@ export function InsumosPage() {
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
                 tipo: tipo || undefined,
+      proveedorId: proveedorId ? Number(proveedorId) : undefined,
                 unidad_id: unidadId || undefined,
+                proveedor_id: proveedorId || undefined,
               }}
             />
           </>

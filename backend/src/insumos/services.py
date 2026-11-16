@@ -13,6 +13,7 @@ from src.common.texto import sin_tildes
 from src.exceptions import ConflictoRegistroInactivo
 from src.aditivos.models import Aditivo
 from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
+from src.proveedores.models import Proveedor
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -134,6 +135,7 @@ def _consulta_insumos(
     unidad_medida_id: Optional[int],
     tipo: Optional[str] = None,
     solo_inactivos: bool = False,
+    proveedor_id: Optional[int] = None,
 ):
     """Consulta base con el JOIN a la unidad, compartida por ambos caminos.
 
@@ -145,10 +147,13 @@ def _consulta_insumos(
         .options(
             selectinload(Insumo.unidad_medida),
             selectinload(Insumo.aditivo).selectinload(Aditivo.clase_funcional),
+            selectinload(Insumo.proveedores),
         )
     )
     if tipo is not None:
         consulta = consulta.where(Insumo.tipo == tipo)
+    if proveedor_id is not None:
+        consulta = consulta.where(Insumo.proveedores.any(Proveedor.id == proveedor_id))
 
     filtros = [
         filtro
@@ -180,9 +185,10 @@ def listar_insumos(
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
     tipo: Optional[str] = None,
+    proveedor_id: Optional[int] = None,
 ) -> List[Insumo]:
     consulta = _consulta_insumos(
-        incluir_inactivos, buscar, unidad_medida_id, tipo
+        incluir_inactivos, buscar, unidad_medida_id, tipo, proveedor_id=proveedor_id
     ).order_by(Insumo.id)
     return list(db.scalars(consulta).all())
 
@@ -197,6 +203,7 @@ def listar_insumos_paginado(
     orden: str = "nombre_asc",
     tipo: Optional[str] = None,
     solo_inactivos: bool = False,
+    proveedor_id: Optional[int] = None,
 ) -> tuple[List[Insumo], int]:
     """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
     return paginar_consulta(
@@ -207,6 +214,7 @@ def listar_insumos_paginado(
             unidad_medida_id,
             tipo,
             solo_inactivos=solo_inactivos,
+            proveedor_id=proveedor_id,
         ),
         modelo=Insumo,
         orden=orden,
@@ -218,7 +226,7 @@ def listar_insumos_paginado(
 
 
 def leer_insumo(db: Session, insumo_id: int) -> Insumo:
-    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id))
+    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id).options(selectinload(Insumo.proveedores)))
     if db_insumo is None:
         raise exceptions.InsumoNoEncontrado()
     return db_insumo

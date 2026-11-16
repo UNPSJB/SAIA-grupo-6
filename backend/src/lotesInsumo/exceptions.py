@@ -32,3 +32,6 @@ class LoteYaDadoDeBaja(BadRequest):
 
 class VencimientoAnterior(BadRequest):
     DETAIL = ErrorCode.VENCIMIENTO_ANTERIOR
+
+class CertificacionProveedorNoVigente(BadRequest):
+    DETAIL = ErrorCode.CERTIFICACION_NO_VIGENTE

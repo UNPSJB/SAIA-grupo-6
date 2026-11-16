@@ -51,6 +51,7 @@ class LoteInsumo(ModeloBase):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     motivo_baja: Mapped[str | None] = mapped_column(String(300), nullable=True)
     fecha_baja: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    certificacion_id: Mapped[int | None] = mapped_column(ForeignKey("certificaciones_proveedor.id", ondelete="RESTRICT"), nullable=True)
     creado_por_id: Mapped[int | None] = mapped_column(
         ForeignKey("personal.id"), nullable=True
     )
@@ -58,3 +59,4 @@ class LoteInsumo(ModeloBase):
 
     insumo: Mapped["Insumo"] = relationship()
     proveedor: Mapped["Proveedor"] = relationship()
+    certificacion: Mapped["CertificacionProveedor | None"] = relationship()

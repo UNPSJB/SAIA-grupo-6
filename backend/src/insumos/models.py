@@ -44,6 +44,9 @@ class Insumo(ModeloBase):
 
     unidad_medida: Mapped["UnidadMedida"] = relationship()
     aditivo: Mapped["Aditivo | None"] = relationship()
+    proveedores: Mapped[list["Proveedor"]] = relationship(
+        "Proveedor", secondary="proveedores_insumos", back_populates="insumos"
+    )
 
     # Campos opcionales según tipo de unidad de medida:
     #  - volumen -> densidad_g_ml es obligatorio

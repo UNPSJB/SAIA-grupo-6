@@ -13,6 +13,7 @@ export interface FiltrosInsumos {
     buscar?: string;
     unidadMedidaId?: number;
     tipo?: TipoInsumo;
+    proveedorId?: number;
     orden?: OrdenInsumo;
 }
 
@@ -26,6 +27,7 @@ export async function listarInsumos(
         buscar: filtros.buscar?.trim() || undefined,
         unidad_medida_id: filtros.unidadMedidaId,
         tipo: filtros.tipo,
+        proveedor_id: filtros.proveedorId,
         orden: filtros.orden,
     });
     const response = await apiFetch(`${API_URL}/insumos${query}`);

@@ -35,7 +35,7 @@ from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
 from src.aditivos.models import Aditivo, ClaseFuncional  # noqa: F401
 from src.insumos.models import Insumo  # noqa: F401
-from src.proveedores.models import Proveedor  # noqa: F401
+from src.proveedores.models import Proveedor, CertificacionProveedor  # noqa: F401
 from src.productos.models import Producto  # noqa: F401
 from src.recetas.models import (  # noqa: F401
     Receta,
@@ -114,6 +114,7 @@ __all__ = [
     "PlanCalibracionMantenimiento",
     "PlanLimpieza",
     "Proveedor",
+    "CertificacionProveedor",
     "RegistroTarea",
     "Tarea",
     "TokenRevocado",

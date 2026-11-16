@@ -28,6 +28,7 @@ export interface Insumo {
   densidad_g_ml: number | null;
   /** Peso unitario en g. Obligatorio si la unidad es de tipo Unidad. */
   peso_unitario_g: number | null;
+  proveedores: { id: number; nombre: string; cuit: string | null }[];
 }
 
 export interface InsumoFormValues {
@@ -45,4 +46,5 @@ export interface InsumoFormValues {
 export type InsumoInput = Omit<InsumoFormValues, "densidad_g_ml" | "peso_unitario_g"> & {
   densidad_g_ml: number | null;
   peso_unitario_g: number | null;
+  proveedores: { id: number; nombre: string; cuit: string | null }[];
 };

@@ -32,6 +32,7 @@ from .unidades_medida_tipo_factor import (
 from .insumos_densidad_peso import migrar_insumos_densidad_peso
 from .nutricion_conversion_en_insumo import migrar_conversion_a_insumo
 from .vista_publica import migrar_vista_publica
+from .proveedores import migrar_proveedores
 
 
 def run_migrations() -> None:
@@ -58,6 +59,7 @@ def run_migrations() -> None:
     # Después de las columnas del insumo: les copia la densidad y el peso del perfil.
     migrar_conversion_a_insumo()
     migrar_vista_publica()
+    migrar_proveedores()
 
 
 def crear_tablas_y_migrar() -> None:

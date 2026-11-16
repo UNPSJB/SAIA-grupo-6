@@ -14,6 +14,7 @@ from src.lotesInsumo import exceptions, schemas
 from src.lotesInsumo.models import LoteInsumo
 from src.personal.models import Personal
 from src.proveedores.models import Proveedor
+from src.proveedores.services import obtener_certificacion_vigente
 
 _MILESIMA = Decimal("0.001")
 CERO = Decimal("0.000")
@@ -48,6 +49,10 @@ def crear_lote_insumo(
     if datos.fecha_vencimiento is not None and datos.fecha_vencimiento < fecha_ingreso:
         raise exceptions.VencimientoAnterior()
 
+    certificacion = obtener_certificacion_vigente(db, proveedor.id, fecha_ingreso)
+    if proveedor.es_certificado and certificacion is None:
+        raise exceptions.CertificacionProveedorNoVigente()
+
     lote = LoteInsumo(
         insumo=insumo,
         proveedor=proveedor,
@@ -56,6 +61,7 @@ def crear_lote_insumo(
         fecha_ingreso=fecha_ingreso,
         fecha_vencimiento=datos.fecha_vencimiento,
         creado_por_id=usuario.id if usuario else None,
+        certificacion_id=certificacion.id if certificacion else None,
     )
     db.add(lote)
     try:

@@ -1,4 +1,4 @@
-import { HStack, Table } from "@chakra-ui/react";
+import { HStack, Table, Text } from "@chakra-ui/react";
 import type { Proveedor } from "../types/proveedor";
 import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
 
@@ -16,7 +16,12 @@ export function ProveedorItem({ proveedor, onEdit, onDelete, onReactivar }: Prov
         <TextoTruncado texto={proveedor.nombre} />
       </Celda>
       <Celda p="3">
-        <TextoTruncado texto={proveedor.matricula} />
+        <TextoTruncado texto={proveedor.cuit ?? proveedor.matricula} />
+      </Celda>
+      <Celda p="3">
+        {proveedor.es_certificado ? (
+          <Text>{proveedor.estado_certificacion === "vigente" ? "Vigente" : "Vencida / sin certificado"}</Text>
+        ) : "No requiere"}
       </Celda>
       <Celda p="3" center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">

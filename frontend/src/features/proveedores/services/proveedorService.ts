@@ -16,7 +16,7 @@ export async function listarProveedores(
 }
 
 export async function crearProveedor(
-  datos: Omit<Proveedor, "id" | "activo">
+  datos: ProveedorFormValues
 ): Promise<Proveedor> {
   const response = await apiFetch(`${API_URL}/proveedores`, {
     method: "POST",
@@ -29,7 +29,7 @@ export async function crearProveedor(
 
 export async function modificarProveedor(
   id: number,
-  datos: Partial<Omit<Proveedor, "id">>
+  datos: Partial<ProveedorFormValues> & { activo?: boolean }
 ): Promise<Proveedor> {
   const response = await apiFetch(`${API_URL}/proveedores/${id}`, {
     method: "PUT",
@@ -50,7 +50,7 @@ export async function eliminarProveedor(id: number): Promise<Proveedor> {
 
 export async function reactivarProveedor(
   id: number,
-  datos: Omit<Proveedor, "id" | "activo">
+  datos: ProveedorFormValues
 ): Promise<Proveedor> {
   return modificarProveedor(id, { ...datos, activo: true });
 }

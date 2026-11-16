@@ -15,6 +15,7 @@ export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
         buscar,
         unidadMedidaId,
         tipo,
+        proveedorId,
         orden = "nombre_asc",
     } = filtros;
 
@@ -25,9 +26,10 @@ export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
                 buscar,
                 unidadMedidaId,
                 tipo,
+                proveedorId,
                 orden,
             }),
-        [soloInactivos, buscar, unidadMedidaId, tipo, orden]
+        [soloInactivos, buscar, unidadMedidaId, tipo, proveedorId, orden]
     );
 
     const {
@@ -41,7 +43,7 @@ export function useInsumos(filtros: FiltrosInsumos = {}, pageSize = 10) {
         recargar,
     } = useListaPaginada<Insumo>({
         cargar,
-        dependencias: [soloInactivos, buscar, unidadMedidaId, tipo, orden],
+        dependencias: [soloInactivos, buscar, unidadMedidaId, tipo, proveedorId, orden],
         valorInicial: [],
         mensajeError: "No se pudieron cargar los insumos",
         pageSize,
