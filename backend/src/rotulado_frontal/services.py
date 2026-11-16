@@ -2,7 +2,7 @@ import re
 from decimal import Decimal
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from src.common.fechas import ahora
 from src.common.texto import normalizar_texto
@@ -13,7 +13,7 @@ from src.nutricion.models import PerfilNutricionalInsumo
 from src.productos.models import Producto
 from src.recetas import exceptions as recetas_exceptions
 from src.recetas.models import Receta, VersionReceta
-from src.recetas.services import obtener_version, version_vigente
+from src.recetas.services import nombre_personal, obtener_version, version_vigente
 from src.rotulado_frontal import constants as c, exceptions, schemas
 from src.rotulado_frontal.models import (
     ConfiguracionModuloRotulado,
@@ -155,6 +155,44 @@ def _envasado(
 
 def _receta_de(db: Session, producto_id: int) -> Receta | None:
     return db.scalar(select(Receta).where(Receta.producto_id == producto_id))
+
+
+def _historial_versiones(
+    db: Session, receta: Receta | None
+) -> list[schemas.VersionRecetaHistorial]:
+    """Versiones de la receta, de la más nueva a la más vieja, con su autor."""
+    if receta is None:
+        return []
+    versiones = list(
+        db.scalars(
+            select(VersionReceta)
+            .where(VersionReceta.receta_id == receta.id)
+            .options(
+                selectinload(VersionReceta.creado_por),
+                selectinload(VersionReceta.unidad_medida),
+                selectinload(VersionReceta.porcion_unidad_medida),
+            )
+            .order_by(VersionReceta.numero.desc())
+        ).all()
+    )
+    if not versiones:
+        return []
+    numero_vigente = max(version.numero for version in versiones)
+    return [
+        schemas.VersionRecetaHistorial(
+            id=version.id,
+            numero=version.numero,
+            rendimiento=version.rendimiento,
+            unidad=version.unidad_medida.simbolo,
+            porcion_descripcion=version.porcion_descripcion,
+            porcion_cantidad=version.porcion_cantidad,
+            creado_en=version.creado_en,
+            creado_por_id=version.creado_por_id,
+            creado_por_nombre=nombre_personal(version.creado_por),
+            vigente=version.numero == numero_vigente,
+        )
+        for version in versiones
+    ]
 
 
 def _version_de(
@@ -794,6 +832,7 @@ def evaluar(
 
     receta = _receta_de(db, producto_id)
     version = _version_de(db, receta, version_id)
+    historial_versiones = _historial_versiones(db, receta)
     derivable = version is not None
     evaluado_en = ahora()
 
@@ -903,6 +942,7 @@ def evaluar(
         sellos=sellos,
         evaluado_en=evaluado_en,
         instantanea=instantanea,
+        versiones_receta=historial_versiones,
     )
     _registrar_evaluacion(db, producto, instantanea)
     return respuesta

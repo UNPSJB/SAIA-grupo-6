@@ -15,7 +15,7 @@ import {
   FormNativeSelect,
 } from "../../../../components/ui/patrones";
 import { toaster } from "../../../../components/ui/toaster";
-import { formatoCantidad } from "../../../../common/utils/numeros";
+import { formatoCantidad, cantidadConUnidad } from "../../../../common/utils/numeros";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { evaluarRotulado, guardarRotulado } from "../../services/rotuladoFrontalService";
 import {
@@ -410,6 +410,75 @@ export function RotuladoFrontalProductoPage() {
             </Stack>
           </SeccionDetalle>
         </Box>
+      )}
+
+      {evaluacion && (
+        <SeccionDetalle
+          titulo="Historial de versiones de la receta"
+          descripcion="Cada modificación de la receta crea una versión nueva. Se muestra la fecha y hora de creación y quién la guardó."
+          mt="6"
+          mb="0"
+        >
+          {evaluacion.versiones_receta.length === 0 ? (
+            <HStack gap="2" color="fg.muted" fontSize="sm">
+              <LuInfo aria-hidden />
+              <Text>El producto todavía no tiene versiones de receta.</Text>
+            </HStack>
+          ) : (
+            <Box
+              overflowX="auto"
+              mx={{ base: "-4", md: "-5" }}
+              borderTopWidth="1px"
+              borderColor="border.subtle"
+            >
+              <Table.Root size="sm" minW="640px">
+                <Table.Header>
+                  <FilaEncabezado>
+                    <EncabezadoOscuro ancho="angosta">Versión</EncabezadoOscuro>
+                    <EncabezadoOscuro>Fecha y hora</EncabezadoOscuro>
+                    <EncabezadoOscuro>Creado / modificado por</EncabezadoOscuro>
+                    <EncabezadoOscuro numero ancho="media">Rendimiento</EncabezadoOscuro>
+                  </FilaEncabezado>
+                </Table.Header>
+                <Table.Body>
+                  {evaluacion.versiones_receta.map((version) => (
+                    <Table.Row
+                      key={version.id}
+                      borderBottomWidth="1px"
+                      borderColor="border.subtle"
+                    >
+                      <Celda py="3" px="4">
+                        <HStack gap="2" flexWrap="wrap">
+                          <Text fontWeight="medium">v{version.numero}</Text>
+                          {version.vigente && (
+                            <Badge colorPalette="green" variant="subtle" size="sm">
+                              Vigente
+                            </Badge>
+                          )}
+                          {version.id === evaluacion.version?.id && (
+                            <Badge colorPalette="blue" variant="subtle" size="sm">
+                              En evaluación
+                            </Badge>
+                          )}
+                        </HStack>
+                      </Celda>
+                      <Celda py="3" px="4">{formatoFechaHora(version.creado_en)}</Celda>
+                      <Celda py="3" px="4">
+                        <Text fontSize="xs" color="fg.muted">
+                          {version.numero === 1 ? "Creado por" : "Modificado por"}
+                        </Text>
+                        <Text>{version.creado_por_nombre ?? "Sin registrar"}</Text>
+                      </Celda>
+                      <Celda py="3" px="4" numero>
+                        {cantidadConUnidad(version.rendimiento, version.unidad)}
+                      </Celda>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          )}
+        </SeccionDetalle>
       )}
 
       {evaluacion && (

@@ -49,7 +49,7 @@ from pathlib import Path
 from typing import Optional
 
 from faker import Faker
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
 # Permite correr el script desde cualquier directorio.
@@ -136,6 +136,7 @@ from src.nutricion.constants import (  # noqa: E402
     FUENTE_PROVEEDOR,
 )
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: E402
+from src.rotulado_frontal.models import EvaluacionRotulado  # noqa: E402
 from src.lotes.constants import (  # noqa: E402
     ESTADO_CANCELADO,
     ESTADO_EN_PROCESO,
@@ -475,6 +476,8 @@ VOCAB_INGREDIENTES = [
     ("Polvo de hornear", "gramo"),
     ("Bicarbonato de sodio", "gramo"),
     ("Coco rallado", "gramo"),
+    ("Sucralosa", "gramo"),
+    ("Café molido", "gramo"),
 ]
 
 # Materias primas que son aditivos (E9): nombre del aditivo en la lista de
@@ -486,6 +489,7 @@ ADITIVO_DE_INGREDIENTE = {
     "Esencia de vainilla": "Aroma de vainilla",
     "Polvo de hornear": "Pirofosfato ácido de sodio",
     "Bicarbonato de sodio": "Bicarbonato de sodio",
+    "Sucralosa": "Sucralosa",
 }
 
 # Porción o unidad de venta por producto: (descripción, cantidad, clave de unidad).
@@ -518,12 +522,12 @@ PORCION_POR_PRODUCTO = {
 NUTRICION_INGREDIENTES = {
     "Harina 000": {"base": "Harina de trigo 000", "corregir": {"fibra": "3.1"}},
     "Azúcar común": {"base": "Azúcar blanca", "anadidos": True},
-    "Manteca": {"base": "Manteca"},
+    "Manteca": {"base": "Manteca", "grasas": True},
     "Huevo fresco": {"base": "Huevo entero crudo", "peso_unidad": "50"},
     "Leche entera": {"base": "Leche entera", "densidad": "1.03"},
-    "Sal fina": {"base": "Sal fina"},
+    "Sal fina": {"base": "Sal fina", "sodio": True},
     "Levadura fresca": {"base": "Levadura fresca"},
-    "Aceite de girasol": {"base": "Aceite de girasol", "densidad": "0.92"},
+    "Aceite de girasol": {"base": "Aceite de girasol", "densidad": "0.92", "grasas": True},
     "Dulce de leche repostero": {"base": "Dulce de leche"},
     "Frutilla fresca": {
         "valores": (32, 7.7, 4.9, 0, 0.7, 0.3, 0, 0, 2.0, 1),
@@ -553,16 +557,24 @@ NUTRICION_INGREDIENTES = {
     # Aditivos que aportan sodio de forma relevante: solo energía y sodio.
     "Bicarbonato de sodio": {
         "aporta": True,
+        "sodio": True,
         "valores": (0, None, None, None, None, None, None, None, None, 27400),
         "fuente": (FUENTE_BIBLIOGRAFIA, "Ficha técnica del bicarbonato de sodio"),
     },
     "Polvo de hornear": {
         "aporta": True,
+        "sodio": True,
         "valores": (53, None, None, None, None, None, None, None, None, 10600),
         "fuente": (FUENTE_PROVEEDOR, "Rótulo del proveedor, polvo de hornear"),
     },
+    "Café molido": {
+        "cafeina": True,
+        "valores": (353, 75, 0, 0, 12, 0.5, 0.2, 0, 0, 2),
+        "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
+    },
+    "Sucralosa": {"edulcorantes": True},
     # Esencia de vainilla, pectina, ácido cítrico y sorbato: aditivos sin
-    # datos (no son incompletos) y el orégano, sin cargar.
+    # datos (no son incompletos); el orégano queda sin cargar.
     "Esencia de vainilla": {"densidad": "0.88"},
 }
 
@@ -624,6 +636,7 @@ VOCAB_RECETAS = [
             ("Azúcar común", "4.8", "ingrediente", 1),
             ("Pectina cítrica", "60", "aditivo", 1),
             ("Ácido cítrico", "25", "aditivo", 2),
+            ("Sucralosa", "5", "aditivo", 2),
         ],
     },
     {
@@ -729,6 +742,7 @@ VOCAB_RECETAS = [
             ("Azúcar común", "1.5", "ingrediente", 0),
             ("Huevo fresco", "10", "ingrediente", 1),
             ("Cacao amargo", "0.5", "ingrediente", 1),
+            ("Café molido", "100", "ingrediente", 1),
             ("Harina 000", "3", "ingrediente", 1),
             ("Polvo de hornear", "40", "aditivo", 2),
         ],
@@ -861,6 +875,8 @@ def borrar_todo(db) -> None:
         # Caché derivada: se recalcula al final con lo recién cargado.
         NotificacionPersistida,
         EstadoNotificaciones,
+        # Historial de evaluaciones de rotulado: los productos se recrean.
+        EvaluacionRotulado,
         # Trazabilidad (hijos primero). El borrado masivo no dispara los
         # eventos del ORM que protegen versiones de receta y lotes cerrados.
         # Información nutricional (E11). La base de composición y los
@@ -906,6 +922,12 @@ def borrar_todo(db) -> None:
         Proveedor,
         # Personal NO se borra por defecto (script peligroso en producción).
     ]
+    # Tablas legacy de la migración de trazabilidad (sin modelo ORM): siguen
+    # referenciando `insumos`, así que hay que vaciarlas antes del DELETE.
+    existentes = set(inspect(db.get_bind()).get_table_names())
+    for tabla_vieja in ("lotes_insumos", "lotes"):
+        if tabla_vieja in existentes:
+            db.execute(text(f'DELETE FROM "{tabla_vieja}"'))
     for modelo in orden:
         # Borrado masivo a propósito: este seed SÍ audita lo que carga, pero el
         # vaciado previo no es una operación de negocio que deba registrarse.
@@ -1974,6 +1996,10 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
                 peso_unidad_g=Decimal(datos["peso_unidad"]) if "peso_unidad" in datos else None,
                 aporta_energia_sodio=bool(datos.get("aporta")),
                 azucares_son_anadidos=bool(datos.get("anadidos")),
+                grasas_son_anadidas=bool(datos.get("grasas")),
+                sodio_es_anadido=bool(datos.get("sodio")),
+                contiene_edulcorantes=bool(datos.get("edulcorantes")),
+                contiene_cafeina=bool(datos.get("cafeina")),
             ))
         if insumo.id in con_datos:
             continue

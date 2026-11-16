@@ -30,6 +30,7 @@ export interface VersionResumen {
   porcion_unidad_medida: UnidadResumen | null;
   creado_en: string;
   creado_por_id: number | null;
+  creado_por_nombre: string | null;
 }
 
 export interface Receta {

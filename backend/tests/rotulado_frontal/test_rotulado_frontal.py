@@ -1160,3 +1160,69 @@ def test_los_sellos_leen_los_umbrales_de_la_version_vigente(
     assert azucares["umbral"] == "25.0"
     assert azucares["exceso"] is False
     assert sellos["excesos"] == ["Exceso en calorías"]
+
+
+def test_los_liquidos_usan_el_umbral_de_kcal_por_100_ml(
+    client, usuarios, regla, producto_sellos, db_session
+):
+    energia = (
+        db_session.query(ValorNutricionalInsumo)
+        .filter_by(nutriente="energia")
+        .one()
+    )
+    energia.valor = Decimal("100")
+    energia.valor_fuente = Decimal("100")
+    config = db_session.get(InfoNutricionalProducto, producto_sellos.id)
+    config.expresar_en = "ml"
+    config.densidad_g_ml = Decimal("1")
+    db_session.commit()
+
+    respuesta = _guardar(
+        client,
+        producto_sellos.id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+
+    assert respuesta.status_code == 200
+    calorias = next(
+        resultado
+        for resultado in respuesta.json()["sellos"]["resultados"]
+        if resultado["clave"] == "calorias"
+    )
+    assert calorias["umbral"] == "70.0"
+    assert calorias["unidad_umbral"] == "kcal/100 ml"
+    assert calorias["exceso"] is True
+
+
+def test_si_falta_un_dato_el_sello_queda_sin_evaluar(
+    client, usuarios, regla, producto_sellos, db_session
+):
+    sodio = (
+        db_session.query(ValorNutricionalInsumo)
+        .filter_by(nutriente="sodio")
+        .one()
+    )
+    db_session.delete(sodio)
+    db_session.commit()
+
+    respuesta = _guardar(
+        client,
+        producto_sellos.id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+
+    assert respuesta.status_code == 200
+    sellos = respuesta.json()["sellos"]
+    assert sellos["evaluado"] is True
+    assert sellos["completo"] is False
+    assert sellos["motivo"] == "Hay sellos que no se pudieron evaluar por falta de datos."
+    resultado_sodio = next(
+        resultado
+        for resultado in sellos["resultados"]
+        if resultado["clave"] == "sodio"
+    )
+    assert resultado_sodio["evaluado"] is False
+    assert resultado_sodio["exceso"] is None
+    assert "sodio" in resultado_sodio["motivo"]

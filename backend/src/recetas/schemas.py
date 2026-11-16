@@ -107,6 +107,7 @@ class VersionResumen(BaseModel):
     porcion_unidad_medida: UnidadResumen | None = None
     creado_en: datetime
     creado_por_id: int | None
+    creado_por_nombre: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

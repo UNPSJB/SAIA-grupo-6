@@ -367,6 +367,19 @@ export interface VersionRotulado {
   unidad: string;
 }
 
+export interface HistorialVersionReceta {
+  id: number;
+  numero: number;
+  rendimiento: string;
+  unidad: string;
+  porcion_descripcion: string | null;
+  porcion_cantidad: string | null;
+  creado_en: string;
+  creado_por_id: number | null;
+  creado_por_nombre: string | null;
+  vigente: boolean;
+}
+
 export interface InstantaneaParametrosRotulado {
   regla_id: number;
   regla_version: number;
@@ -430,4 +443,5 @@ export interface EvaluacionRotulado {
   sellos: SellosRotulado;
   evaluado_en: string;
   instantanea: InstantaneaRotulado;
+  versiones_receta: HistorialVersionReceta[];
 }

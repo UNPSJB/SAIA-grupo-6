@@ -344,6 +344,21 @@ class VersionRotuladoResumen(BaseModel):
     unidad: str
 
 
+class VersionRecetaHistorial(BaseModel):
+    """Versión de la receta con quién y cuándo la creó, para el historial."""
+
+    id: int
+    numero: int
+    rendimiento: Decimal
+    unidad: str
+    porcion_descripcion: str | None = None
+    porcion_cantidad: Decimal | None = None
+    creado_en: datetime
+    creado_por_id: int | None = None
+    creado_por_nombre: str | None = None
+    vigente: bool = False
+
+
 class AjusteModuloRotuladoIn(BaseModel):
     modulo_activo: bool
 
@@ -432,6 +447,7 @@ class EvaluacionRotuladoResponse(BaseModel):
     sellos: SellosRotulado
     evaluado_en: datetime
     instantanea: InstantaneaRotulado
+    versiones_receta: list[VersionRecetaHistorial] = Field(default_factory=list)
 
 
 class EvaluacionRotuladoGuardadaResponse(BaseModel):
