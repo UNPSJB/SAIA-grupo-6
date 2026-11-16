@@ -108,6 +108,8 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
       // E11: redondeo, valores diarios y base de composición de la tabla nutricional.
       { to: "/nutricion", label: "Parámetros nutricionales", rol: "administrar", icon: LuApple },
+      // E13: rotulado según CAA (Capítulo V).
+      { to: "/rotulado", label: "Rotulado de productos", rol: "administrar", icon: LuFileText },
     ],
   },
   {

@@ -80,9 +80,18 @@ def asegurar_parametros(db: Session) -> None:
         db.commit()
 
 
-def _reglas(db: Session) -> dict[str, calculo.ReglaNutriente]:
-    asegurar_parametros(db)
+def _reglas(db: Session, inicializar: bool = True) -> dict[str, calculo.ReglaNutriente]:
+    if inicializar:
+        asegurar_parametros(db)
     filas = db.scalars(select(ParametroNutriente).order_by(ParametroNutriente.orden)).all()
+    if not inicializar:
+        existentes = {f.clave for f in filas}
+        for clave, nombre, unidad, orden in c.NUTRIENTES:
+            if clave not in existentes:
+                vd, umbral, menor, mayor = c.PARAMETROS_INICIALES[clave]
+                filas.append(ParametroNutriente(clave=clave, nombre=nombre, unidad=unidad,
+                    orden=orden, valor_diario=vd, umbral_no_significativo=umbral,
+                    decimales_menor_10=menor, decimales_desde_10=mayor))
     return {
         f.clave: calculo.ReglaNutriente(
             clave=f.clave,
@@ -98,10 +107,11 @@ def _reglas(db: Session) -> dict[str, calculo.ReglaNutriente]:
     }
 
 
-def _generales(db: Session) -> dict[str, str]:
-    asegurar_parametros(db)
+def _generales(db: Session, inicializar: bool = True) -> dict[str, str]:
+    if inicializar:
+        asegurar_parametros(db)
     filas = db.scalars(select(ParametroNutricion)).all()
-    return {f.clave: f.valor for f in filas}
+    return {**c.PARAMETROS_GENERALES_INICIALES, **{f.clave: f.valor for f in filas}}
 
 
 def obtener_parametros(db: Session) -> schemas.ParametrosResponse:
@@ -761,7 +771,7 @@ def _a_laboratorio(
 
 
 def calcular_info_nutricional(
-    db: Session, producto_id: int, version_id: int | None = None
+    db: Session, producto_id: int, version_id: int | None = None, *, inicializar_parametros: bool = True
 ) -> schemas.InfoNutricionalResponse:
     """Tabla del producto a partir de la receta, los datos de cada insumo y el rendimiento.
 
@@ -771,8 +781,8 @@ def calcular_info_nutricional(
     pide poder combinar ambas fuentes). No se modelan pérdidas por cocción.
     """
     producto = _obtener_producto(db, producto_id)
-    reglas = _reglas(db)
-    generales = _generales(db)
+    reglas = _reglas(db, inicializar_parametros)
+    generales = _generales(db, inicializar_parametros)
     config = _config(db, producto_id)
     receta, version = _version(db, producto_id, version_id)
     laboratorio = _laboratorio(db, producto_id)

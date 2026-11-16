@@ -33,6 +33,14 @@ const MiPerfilPage = lazy(() =>
   import("./features/personal/components/pages/MiPerfilPage").then((mod) => ({ default: mod.MiPerfilPage })),
 );
 
+// E13: rotulado de productos
+const RotuladoPage = lazy(() =>
+  import("./features/rotulado/components/pages/RotuladoPage").then((mod) => ({ default: mod.RotuladoPage })),
+);
+const RotuladoEditPage = lazy(() =>
+  import("./features/rotulado/components/pages/RotuladoEditPage").then((mod) => ({ default: mod.RotuladoEditPage })),
+);
+
 // 1. Personal
 const PersonalPage = lazy(() =>
   import("./features/personal/components/pages/PersonalPage").then((mod) => ({ default: mod.PersonalPage })),
@@ -857,6 +865,31 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <InfoNutricionalProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              // E13: Rotulado de productos (Capítulo V del CAA)
+              {
+                path: "/rotulado",
+                element: (
+                  <ConSuspense>
+                    <RotuladoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/rotulado/nuevo/:producto_id",
+                element: (
+                  <ConSuspense>
+                    <RotuladoEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/rotulado/borradores/:id",
+                element: (
+                  <ConSuspense>
+                    <RotuladoEditPage />
                   </ConSuspense>
                 ),
               },
