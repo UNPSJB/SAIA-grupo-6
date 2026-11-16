@@ -161,6 +161,7 @@ export async function listarLotesDisponibles(): Promise<{
   saldo: number | string;
   fecha_inicio: string | null;
   fecha_vencimiento: string | null;
+  retirado: boolean;
 }[]> {
   const response = await apiFetch(`${API_URL}/salidas/lotes-disponibles`);
   return pedir<
@@ -172,6 +173,7 @@ export async function listarLotesDisponibles(): Promise<{
       saldo: number | string;
       fecha_inicio: string | null;
       fecha_vencimiento: string | null;
+      retirado: boolean;
     }[]
   >(response, "Error al obtener los lotes disponibles");
 }

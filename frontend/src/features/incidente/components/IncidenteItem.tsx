@@ -169,14 +169,18 @@ export function IncidenteItem({
           <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
             <BotonAccion accion="ver" label="Ver detalle" onClick={handleVer} />
             {cerrado ? (
-              // Los incidentes generados por un rechazo de mercadería son
-              // inmutables: la disposición ya quedó registrada y no se puede
-              // volver a abrir. El botón se muestra deshabilitado (en vez de
-              // desaparecer) para que se entienda que la acción existe pero
-              // está bloqueada, con el motivo en el tooltip.
-              esEntregaRechazada ? (
+              // Los incidentes generados por un rechazo de mercadería o por un
+              // retiro de lote son inmutables desde acá: se resuelven desde su
+              // propio circuito ("Resolver rechazo" en la salida, "Cerrar
+              // retiro" en E6). El botón se muestra deshabilitado con el
+              // motivo en el tooltip.
+              esEntregaRechazada || esRetiroLote ? (
                 <Tooltip
-                  content="Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
+                  content={
+                    esRetiroLote
+                      ? "Este incidente se resuelve desde Cerrar retiro en la ficha del retiro y no se puede reabrir desde acá."
+                      : "Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
+                  }
                   showArrow
                   openDelay={300}
                   closeDelay={0}
@@ -187,7 +191,11 @@ export function IncidenteItem({
                     <BotonAccion
                       accion="reabrir"
                       label="Reabrir incidente"
-                      tooltip="Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
+                      tooltip={
+                        esRetiroLote
+                          ? "Este incidente se resuelve desde Cerrar retiro en la ficha del retiro y no se puede reabrir desde acá."
+                          : "Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
+                      }
                       disabled
                       onClick={() => {}}
                     />

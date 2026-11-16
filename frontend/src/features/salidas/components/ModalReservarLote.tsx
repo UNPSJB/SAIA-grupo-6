@@ -50,6 +50,7 @@ interface LoteOpcion {
   fecha_vencimiento: string | null;
   fecha_inicio: string | null;
   vencido: boolean;
+  retirado: boolean;
 }
 
 /**
@@ -133,17 +134,21 @@ export function ModalReservarLote({
     void Promise.all([listarLotesDisponibles(), listarClientesDisponibles()])
       .then(([lotes, clientes]) => {
         if (!vigente) return;
-        const disponibles = lotes.map((l) => ({
-          id: l.id,
-          numero_lote: l.codigo,
-          producto_nombre: l.producto_nombre,
-          saldo: Number(l.saldo),
-          unidad: l.unidad_medida,
-          fecha_vencimiento: l.fecha_vencimiento,
-          fecha_inicio: l.fecha_inicio,
-          vencido:
-            !!l.fecha_vencimiento && l.fecha_vencimiento < hoyISO(),
-        })).sort(compararLotes);
+        // Filtro defensivo: no mostrar lotes retirados aunque el backend los devuelva.
+        const disponibles = lotes
+          .filter((l) => !l.retirado)
+          .map((l) => ({
+            id: l.id,
+            numero_lote: l.codigo,
+            producto_nombre: l.producto_nombre,
+            saldo: Number(l.saldo),
+            unidad: l.unidad_medida,
+            fecha_vencimiento: l.fecha_vencimiento,
+            fecha_inicio: l.fecha_inicio,
+            vencido:
+              !!l.fecha_vencimiento && l.fecha_vencimiento < hoyISO(),
+            retirado: l.retirado,
+          })).sort(compararLotes);
         setLotesDisponibles(disponibles);
         setClientesActivos(
           clientes

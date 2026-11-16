@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Box, Text, Textarea } from "@chakra-ui/react";
+import { Box, SimpleGrid, Text, Textarea } from "@chakra-ui/react";
 import {
   DialogContent,
   DialogDescription,
   DialogRoot,
   DialogTitle,
 } from "../../../components/ui/dialog";
+import { DatoDetalle } from "../../../components/ui/plantillas";
 import {
   AccionesFormulario,
   AvisoFaltantes,
@@ -16,10 +17,18 @@ import {
   faltantes,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import { etiquetaMotivoRetiro } from "../types/retiro";
+import { useAuth } from "../../../common/context/useAuth";
 
 interface ModalCerrarRetiroProps {
   isOpen: boolean;
   retiroId: number;
+  loteCodigo: string;
+  loteProducto: string;
+  motivo: string;
+  totalAfectados: number;
+  notificados: number;
+  incidenteId: number | null;
   tienePendientes: boolean;
   totalPendientes: number;
   onClose: () => void;
@@ -30,12 +39,19 @@ interface ModalCerrarRetiroProps {
 export function ModalCerrarRetiro({
   isOpen,
   retiroId,
+  loteCodigo,
+  loteProducto,
+  motivo,
+  totalAfectados,
+  notificados,
+  incidenteId,
   tienePendientes,
   totalPendientes,
   onClose,
   onCerrado,
   disabled = false,
 }: ModalCerrarRetiroProps) {
+  const { user } = useAuth();
   const [accion, setAccion] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,17 +112,47 @@ export function ModalCerrarRetiro({
         </DialogTitle>
 
         <DialogDescription color="fg.muted" mb="4">
-          Al cerrar, el retiro queda como `CERRADO` y se cierra el incidente
-          vinculado en E6. La acción correctiva quedará registrada con tu
+          Al cerrar, el retiro queda como "Cerrado" y se cierra
+          automáticamente el incidente vinculado en E6. El retiro pasará a
+          solo lectura y la acción correctiva quedará registrada con tu
           usuario y la fecha actual.
         </DialogDescription>
+
+        {/* Contexto del retiro: a la vista al cerrar. */}
+        <Box
+          bg="bg.subtle"
+          borderWidth="1px"
+          borderColor="border.subtle"
+          rounded="md"
+          p="4"
+          mb="5"
+        >
+          <Text fontSize="sm" fontWeight="semibold" color="fg" mb="3">
+            Resumen del cierre
+          </Text>
+          <SimpleGrid columns={2} gap="3">
+            <DatoDetalle etiqueta="Lote y producto">
+              {loteCodigo} · {loteProducto}
+            </DatoDetalle>
+            <DatoDetalle etiqueta="Motivo">{etiquetaMotivoRetiro(motivo)}</DatoDetalle>
+            <DatoDetalle etiqueta="Clientes notificados">
+              {totalAfectados === 0 ? "Sin afectados" : `${notificados} de ${totalAfectados}`}
+            </DatoDetalle>
+            <DatoDetalle etiqueta="Incidente vinculado">
+              {incidenteId ? `#${incidenteId}` : "—"}
+            </DatoDetalle>
+            <DatoDetalle etiqueta="Registra el cierre">
+              {user ? `${user.nombre} ${user.apellido}` : "—"}
+            </DatoDetalle>
+          </SimpleGrid>
+        </Box>
 
         <form onSubmit={handleSubmit} noValidate>
           {error ? <MensajeError>{error}</MensajeError> : null}
           <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
 
           <FormField
-            label="Acción correctiva *"
+            label="Acción correctiva"
             required
             mb="0"
             invalid={intentado && faltan.tiene("accion_correctiva")}
@@ -137,7 +183,7 @@ export function ModalCerrarRetiro({
           <AccionesFormulario>
             <BotonGuardar
               loading={enviando}
-              disabled={disabled || enviando || tienePendientes || !puedeEnviar(faltan.lista)}
+              disabled={disabled || enviando || tienePendientes}
             >
               Cerrar retiro
             </BotonGuardar>

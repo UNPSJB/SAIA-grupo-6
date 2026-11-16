@@ -21,9 +21,12 @@ export interface Incidente {
   tipo: TipoIncidente;
   equipo_id: number | null;
   equipo_nombre: string | null;
-  // Vínculos opcionales con el lote / la salida que originaron el incidente.
+  // Vínculos opcionales con el lote / la salida / el retiro que originaron
+  // el incidente. Para un retiro de lote, `retiro_id` apunta al retiro que
+  // generó el incidente y permite navear directamente a su ficha de detalle.
   lote_id: number | null;
   salida_id: number | null;
+  retiro_id: number | null;
   foto_url: string | null;
   usuario_id: number;
   usuario_nombre: string | null;

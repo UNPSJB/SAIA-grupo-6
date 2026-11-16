@@ -263,12 +263,12 @@ export function RetiroDetallePage() {
                   </BotonTexto>
                 </DatoDetalle>
               )}
+              {retiro.detalle?.trim() && (
+                <Box mt="6" gridColumn="1 / -1">
+                  <DatoDetalle etiqueta="Detalle">{retiro.detalle}</DatoDetalle>
+                </Box>
+              )}
             </SimpleGrid>
-            {retiro.detalle?.trim() && (
-              <Box mt="6">
-                <DatoDetalle etiqueta="Detalle">{retiro.detalle}</DatoDetalle>
-              </Box>
-            )}
           </SeccionDetalle>
 
           {/* Tabla de afectados */}
@@ -361,6 +361,12 @@ export function RetiroDetallePage() {
       <ModalCerrarRetiro
         isOpen={modalCerrar}
         retiroId={retiroId}
+        loteCodigo={retiro.lote_codigo}
+        loteProducto={retiro.lote_producto_nombre}
+        motivo={retiro.motivo}
+        totalAfectados={totalAfectados}
+        notificados={notificados}
+        incidenteId={retiro.incidente_id}
         tienePendientes={tienePendientes}
         totalPendientes={totalPendientes}
         onClose={() => setModalCerrar(false)}

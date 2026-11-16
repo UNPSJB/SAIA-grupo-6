@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { Alert, Badge, Box, HStack, Image, Text, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuHistory } from "react-icons/lu";
@@ -7,6 +7,7 @@ import { useHistorialIncidente } from "../../hooks/useHistorialIncidente";
 import { HistorialIncidenteModal } from "../HistorialIncidenteModal";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
 import { useReclamoDeIncidente } from "../../../reclamos/hooks/useReclamoDeIncidente";
+import { listarRetiros } from "../../../retiros/services/retiroService";
 import {
   estadoLabel,
   tipoLabel,
@@ -26,6 +27,23 @@ export function IncidenteDetailPage() {
   const { historial, loading: loadingHistorial, cargarHistorial, limpiarHistorial } = useHistorialIncidente();
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
+  const [buscandoRetiro, setBuscandoRetiro] = useState(false);
+
+  const handleVerRetiro = useCallback(async () => {
+    if (!incidente?.lote_id) return;
+    setBuscandoRetiro(true);
+    try {
+      const retiros = await listarRetiros({ lote_id: incidente.lote_id });
+      const retiro = retiros[0];
+      if (retiro) {
+        navigate(`/retiros/${retiro.id}`);
+      }
+    } catch {
+      // No crítico: si no se encuentra el retiro, simplemente no navegamos.
+    } finally {
+      setBuscandoRetiro(false);
+    }
+  }, [incidente?.lote_id, navigate]);
 
   const esReclamoCliente = incidente?.tipo === "reclamo_cliente";
   const esEntregaRechazada = incidente?.tipo === "entrega_rechazada";
@@ -149,12 +167,11 @@ export function IncidenteDetailPage() {
                 )}
                 {esRetiroLote && (
                   <BotonTexto
-                    onClick={() =>
-                      navigate(`/retiros?incidente_id=${incidente.id}`)
-                    }
+                    onClick={handleVerRetiro}
                     title="Ver la ficha del retiro"
+                    disabled={buscandoRetiro}
                   >
-                    Ver retiro
+                    {buscandoRetiro ? "Buscando retiro…" : "Ver retiro"}
                   </BotonTexto>
                 )}
               </HStack>

@@ -904,7 +904,7 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
         )
         salidas = list(lote.salidas) if lote.salidas is not None else []
         calculo = calcular_cantidades(lote.cantidad_producida, salidas, lote.retirado)
-        if calculo["saldo"] > 0:
+        if not lote.retirado and calculo["saldo"] > 0:
             disponibles.append(
                 schemas.LoteDisponible(
                     id=lote.id,
