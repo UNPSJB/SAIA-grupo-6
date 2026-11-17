@@ -32,6 +32,7 @@ from src.salidas.constants import (
 from src.salidas.models import Salida, calcular_cantidades
 from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo
 from src.recetas.services import calcular_factor, version_vigente
+from src.unidadMedida.cantidades import es_cantidad_valida
 
 _MILESIMA = Decimal("0.001")
 CERO = Decimal("0.000")
@@ -139,6 +140,10 @@ def crear_lote(
     factor, cantidad_objetivo = calcular_factor(
         version.rendimiento, datos.cantidad_objetivo, datos.factor
     )
+    # Un producto que se cuenta por piezas no se elabora en fracciones, ni
+    # pidiendo la cantidad ni multiplicando la receta (10 panes × 1,33).
+    if not es_cantidad_valida(cantidad_objetivo, producto.unidad_medida):
+        raise exceptions.CantidadObjetivoNoEntera()
 
     for _ in range(5):
         lote = LoteProducto(
@@ -280,6 +285,8 @@ def cerrar_lote(
         raise exceptions.ChecklistIncompleto()
     if datos.cantidad_producida <= 0:
         raise exceptions.CantidadProducidaInvalida()
+    if not es_cantidad_valida(datos.cantidad_producida, lote.producto.unidad_medida):
+        raise exceptions.CantidadProducidaNoEntera()
     lote.cantidad_producida = datos.cantidad_producida
     lote.estado = ESTADO_TERMINADO
     lote.fecha_cierre = ahora()

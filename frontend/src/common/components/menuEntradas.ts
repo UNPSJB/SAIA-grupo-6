@@ -106,7 +106,6 @@ export const GRUPOS: GrupoMenu[] = [
     entradas: [
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
       { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackage },
-      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquare },
       { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuTruck },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
@@ -127,8 +126,6 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
       { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
-      { to: "/clientes", label: "Clientes", rol: "administrar", icon: LuUsers },
-      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuContainer },
     ],
   },
   {
@@ -178,7 +175,7 @@ export const GRUPOS: GrupoMenu[] = [
   {
     id: "calidad",
     label: "Calidad",
-    ayuda: "Incidentes, documentos y vencimientos",
+    ayuda: "Incidentes, reclamos, documentos y vencimientos",
     icon: LuShieldCheck,
     entradas: [
       {
@@ -193,6 +190,7 @@ export const GRUPOS: GrupoMenu[] = [
         rol: "administrar",
         icon: LuClipboardList,
       },
+      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquare },
       { to: "/vencimientos", label: "Vencimientos", rol: "administrar", icon: LuCalendarClock },
       {
         to: "/consulta-documentos",
@@ -207,11 +205,13 @@ export const GRUPOS: GrupoMenu[] = [
   {
     id: "personas",
     label: "Personas",
-    ayuda: "Personal y aptitudes",
+    ayuda: "Personal, clientes y transportistas",
     icon: LuContact,
     entradas: [
       { to: "/personal", label: "Personal", rol: "administrar", icon: LuUsers },
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
+      { to: "/clientes", label: "Clientes", rol: "administrar", icon: LuUsers },
+      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuContainer },
     ],
   },
 ];

@@ -1,9 +1,10 @@
 import type { ReactElement } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { puedeAdministrar } from "../../../../common/api/permissions";
 import { GRUPOS, esVisibleEntrada } from "../../../../common/components/menuEntradas";
 import { useAuth } from "../../../../common/context/useAuth";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { Box } from "@chakra-ui/react";
+import { BannerPanel } from "../BannerPanel";
+import type { CategoriaPanel } from "../../types/paneles";
 import { PanelCalidad } from "../paneles/PanelCalidad";
 import { PanelEquipos } from "../paneles/PanelEquipos";
 import { PanelInventario } from "../paneles/PanelInventario";
@@ -13,12 +14,12 @@ import { PanelProduccion } from "../paneles/PanelProduccion";
 
 /** Texto bajo el título de cada panel. */
 const DESCRIPCION: Record<string, string> = {
-  produccion: "Lotes en curso, producción reciente y estado de recetas y productos.",
-  inventario: "Stock de materia prima, vencimientos de lotes recibidos y proveedores.",
-  limpieza: "Cumplimiento del checklist, stock de químicos y recambio de elementos.",
-  equipos: "Estado de calibración y mantenimiento, y distribución de los equipos.",
-  calidad: "Incidentes, tiempos de cierre y vencimientos que piden atención.",
-  personas: "Personal por rol y estado de sus aptitudes.",
+  produccion: "Lotes elaborados, salidas de producto, retiros y estado del catálogo.",
+  inventario: "Stock de materia prima, vencimientos de lotes y movimiento del depósito.",
+  limpieza: "Cumplimiento del checklist, estado de los planes y reposición de químicos.",
+  equipos: "Equipos en servicio, sus incidentes y el estado de calibración y mantenimiento.",
+  calidad: "Incidentes, tiempos de resolución, reclamos de clientes y vencimientos.",
+  personas: "Personal y sus aptitudes, cumplimiento de tareas, clientes y transportistas.",
 };
 
 /**
@@ -28,8 +29,8 @@ const DESCRIPCION: Record<string, string> = {
  *
  * La categoría sale de `GRUPOS`: si el usuario no ve ninguna pantalla de esa
  * categoría (un operador en Inventario) tampoco ve su panel, y vuelve al
- * inicio. Dentro de cada panel, los bloques de administración se piden solo
- * si el usuario administra.
+ * inicio. Los datos de cada panel vienen de un único endpoint agregado
+ * (`/paneles/{categoria}`), que ya recorta lo que es solo de administración.
  */
 export function PanelCategoriaPage() {
   const { categoria = "" } = useParams<{ categoria: string }>();
@@ -39,22 +40,28 @@ export function PanelCategoriaPage() {
   const visible = grupo?.entradas.some((e) => esVisibleEntrada(e, user)) ?? false;
   if (!grupo || !visible) return <Navigate to="/" replace />;
 
-  const administra = puedeAdministrar(user);
-
   const paneles: Record<string, ReactElement> = {
-    produccion: <PanelProduccion administra={administra} />,
+    produccion: <PanelProduccion />,
     inventario: <PanelInventario />,
-    limpieza: <PanelLimpieza administra={administra} />,
+    limpieza: <PanelLimpieza />,
     equipos: <PanelEquipos />,
-    calidad: <PanelCalidad administra={administra} />,
+    calidad: <PanelCalidad />,
     personas: <PanelPersonas />,
   };
   const panel = paneles[grupo.id];
   if (!panel) return <Navigate to="/" replace />;
 
   return (
-    <Pagina titulo={grupo.label} descripcion={DESCRIPCION[grupo.id] ?? grupo.ayuda}>
+    // Sin margen propio (a diferencia de `Pagina`): solo el de `main`, igual
+    // que el Inicio, así el banner queda a la misma distancia de la barra.
+    <Box w="100%">
+      <BannerPanel
+        categoria={grupo.id as CategoriaPanel}
+        titulo={grupo.label}
+        descripcion={DESCRIPCION[grupo.id] ?? grupo.ayuda}
+        icono={grupo.icon}
+      />
       {panel}
-    </Pagina>
+    </Box>
   );
 }

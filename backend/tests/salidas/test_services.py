@@ -311,6 +311,40 @@ def test_reservar_cantidad_mayor_a_saldo_rechazada(db_session):
         )
 
 
+@pytest.mark.parametrize(
+    ("tipo", "factor", "cantidad", "valida"),
+    [
+        ("unidad", 1, "10.5", False),  # no hay medio pan
+        ("unidad", 1, "10", True),
+        ("unidad", 12, "1.5", True),  # 1,5 docenas son 18 unidades
+        ("masa", 1000, "10.5", True),  # en kg sí hay fracciones
+    ],
+)
+def test_reservar_respeta_si_el_producto_se_cuenta_por_unidad(db_session, tipo, factor, cantidad, valida):
+    lote = _lote(db_session, cantidad_producida=Decimal("100.000"))
+    unidad = lote.producto.unidad_medida
+    unidad.tipo, unidad.factor_a_base = tipo, factor
+    db_session.commit()
+    cliente = _cliente(db_session)
+    usuario = _personal(db_session)
+
+    def reservar():
+        return services.reservar(
+            db_session,
+            lote_id=lote.id,
+            cliente_id=cliente.id,
+            cantidad=Decimal(cantidad),
+            fecha_reserva=date(2026, 1, 5),
+            usuario=usuario,
+        )
+
+    if valida:
+        assert reservar().cantidad == Decimal(cantidad)
+    else:
+        with pytest.raises(exceptions.CantidadNoEntera):
+            reservar()
+
+
 def test_reservar_cantidad_cero_o_negativa_rechazada(db_session):
     lote = _lote(db_session, cantidad_producida=Decimal("100.000"))
     cliente = _cliente(db_session)

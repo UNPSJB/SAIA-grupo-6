@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Text } from "@chakra-ui/react";
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
-import { cantidadConUnidad, formatoCantidad } from "../../../../common/utils/numeros";
+import {
+  cantidadConUnidad,
+  cantidadValidaParaUnidad,
+  formatoCantidad,
+  propsCampoCantidad,
+} from "../../../../common/utils/numeros";
 import {
   AccionesFormulario,
   BannerError,
@@ -61,6 +66,10 @@ export function LoteCreatePage() {
           ? "La cantidad objetivo debe ser mayor a cero."
           : "El factor debe ser mayor a cero.",
       );
+      return;
+    }
+    if (modo === "cantidad" && !cantidadValidaParaUnidad(valor, simbolo)) {
+      setError("El producto se elabora por unidad: la cantidad objetivo tiene que ser un número entero.");
       return;
     }
 
@@ -142,8 +151,9 @@ export function LoteCreatePage() {
           <FormInput
             type="number"
             min="0"
-            step="any"
-            inputMode="decimal"
+            {...(modo === "cantidad"
+              ? propsCampoCantidad(simbolo)
+              : { step: "any", inputMode: "decimal" as const })}
             value={valor}
             onChange={(e) => setValor(e.target.value)}
             placeholder={modo === "cantidad" ? "Ej: 40" : "Ej: 2"}

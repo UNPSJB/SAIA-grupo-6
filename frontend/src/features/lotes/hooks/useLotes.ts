@@ -30,16 +30,16 @@ export function useLotes(filtros: FiltrosLotes = {}) {
 }
 
 export function useDashboardLotes(filtros: FiltrosLotes = {}) {
-  const { fechaDesde, fechaHasta } = filtros;
+  const { fechaDesde, fechaHasta, productoId } = filtros;
 
   const cargar = useCallback(
-    () => obtenerDashboardLotes({ fechaDesde, fechaHasta }),
-    [fechaDesde, fechaHasta],
+    () => obtenerDashboardLotes({ fechaDesde, fechaHasta, productoId }),
+    [fechaDesde, fechaHasta, productoId],
   );
 
   const { items, loading, error, recargar } = useLista<DashboardLotes>({
     cargar,
-    dependencias: [fechaDesde, fechaHasta],
+    dependencias: [fechaDesde, fechaHasta, productoId],
     valorInicial: DASHBOARD_VACIO,
     mensajeError: "No se pudieron cargar las estadísticas de producción",
   });

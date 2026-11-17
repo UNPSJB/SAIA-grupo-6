@@ -69,12 +69,10 @@ const config = defineConfig({
        *
        * `fontSize="13px"` es `sm`; `fontSize="22px"` es `2xl`.
        *
-       * EXCEPCION: `5xl` (48px), el token que ya trae Chakra, se usa solo en
-       * el indicador de cumplimiento del panel de inicio (`TarjetaCumplimiento`).
-       * Es el unico numero de la app que necesita leerse a distancia. Se usa
-       * el token y no un valor crudo para no abrir la puerta a un sexto
-       * tamanho arbitrario: si manana hace falta otro, se declara aca con su
-       * unico uso.
+       * EXCEPCION: `3xl` (30px, declarado abajo) para las cifras clave de los
+       * paneles (Inicio y `/resumen/*`), que se leen a distancia. Ya no se
+       * usan `4xl` ni `5xl`. Si manana hace falta otro tamanho, se declara aca
+       * con su unico uso.
        */
       fontSizes: {
         xs: { value: "0.75rem" },
@@ -83,6 +81,13 @@ const config = defineConfig({
         lg: { value: "1.125rem" },
         xl: { value: "1.25rem" },
         "2xl": { value: "1.5rem" },
+        /*
+         * 30px: SOLO para las cifras clave de los paneles (`MetricasBloque`,
+         * el centro de las donas y las tarjetas del Inicio), que se leen a
+         * distancia en planta o laboratorio. Declarado acá, con su único
+         * uso, como pide la regla de la escala de arriba.
+         */
+        "3xl": { value: "1.875rem" },
       },
 
       shadows: {

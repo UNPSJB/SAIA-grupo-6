@@ -8,6 +8,7 @@ from src.lotes import exceptions, schemas, services
 from src.lotes.constants import ESTADO_CANCELADO, ESTADO_EN_PROCESO, ESTADO_TERMINADO
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto
 from src.recetas import services as recetas_services
+from src.unidadMedida.models import UnidadMedida
 
 from .conftest import receta_datos
 
@@ -216,6 +217,43 @@ def test_cerrar_exige_checklist_completo_y_cantidad_producida(escenario):
     assert cerrado.estado == ESTADO_TERMINADO
     assert cerrado.cantidad_producida == Decimal("38")
     assert cerrado.fecha_cierre is not None
+
+
+def test_producto_por_unidad_se_elabora_en_cantidades_enteras(escenario):
+    """No hay 66,105 panes: ni de objetivo, ni multiplicando la receta, ni al cerrar."""
+    db = escenario.db
+    escenario.pan.unidad_medida = UnidadMedida(
+        nombre="Unidad", simbolo="un", tipo="unidad", factor_a_base=1
+    )
+    db.commit()
+
+    with pytest.raises(exceptions.CantidadObjetivoNoEntera):
+        _crear(escenario, objetivo="40.5")
+    with pytest.raises(exceptions.CantidadObjetivoNoEntera):
+        # La receta rinde 20: ×1,33 serían 26,6 panes.
+        services.crear_lote(
+            db, schemas.LoteCreate(producto_id=escenario.pan.id, factor=Decimal("1.33")), escenario.admin
+        )
+
+    lote = _crear(escenario, objetivo="40")
+    _completar_todo(escenario, lote)
+    with pytest.raises(exceptions.CantidadProducidaNoEntera):
+        services.cerrar_lote(db, lote.id, schemas.LoteCierre(cantidad_producida=Decimal("38.5")))
+    cerrado = services.cerrar_lote(db, lote.id, schemas.LoteCierre(cantidad_producida=Decimal("38")))
+    assert cerrado.cantidad_producida == Decimal("38")
+
+
+def test_producto_por_peso_admite_fracciones(escenario):
+    escenario.pan.unidad_medida.tipo = "masa"
+    escenario.pan.unidad_medida.factor_a_base = 1000
+    escenario.db.commit()
+
+    lote = _crear(escenario, objetivo="40.5")
+    _completar_todo(escenario, lote)
+    cerrado = services.cerrar_lote(
+        escenario.db, lote.id, schemas.LoteCierre(cantidad_producida=Decimal("38.25"))
+    )
+    assert cerrado.cantidad_producida == Decimal("38.25")
 
 
 def test_cancelar_guarda_el_motivo(escenario):

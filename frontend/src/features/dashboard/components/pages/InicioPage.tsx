@@ -1,78 +1,48 @@
-import { useMemo, useState } from "react";
-import { Box, Flex, Grid, Heading } from "@chakra-ui/react";
+import { useMemo } from "react";
+import { Box, Grid, GridItem, Heading } from "@chakra-ui/react";
 import {
+  EstadoCargando,
   EstadoVacio,
+  MensajeError,
 } from "../../../../components/ui/patrones";
 import { useDashboard } from "../../hooks/useDashboard";
-import {
-  calcularCumplimiento,
-  calcularEquiposCalibrados,
-  incidentesPorPeriodo,
-  partesPorTipo,
-  type RangoFechas,
-} from "../../types/dashboard";
-import { haceDiasISO, hoyISO } from "../../../../common/utils/fechas";
-import { GraficoTorta } from "../GraficoTorta";
+import { useInicio } from "../../hooks/useInicio";
+import { calcularCumplimiento } from "../../types/dashboard";
+import { RequiereAtencion } from "../RequiereAtencion";
+import { TarjetaArea } from "../TarjetaArea";
 import { TarjetaCumplimiento } from "../TarjetaCumplimiento";
-import { TarjetaEquiposCalibrados } from "../TarjetaEquiposCalibrados";
-import { TarjetaIniciadosResueltos } from "../TarjetaIniciadosResueltos";
-import { TarjetaProduccion } from "../../../lotes/components/TarjetaProduccion";
 
 /**
- * Panel principal.
+ * Columnas que ocupa cada pieza en la grilla de 12: en pantallas anchas, 3
+ * tarjetas de área por fila (4 + 4 + 4) y abajo "Requiere atención" (8,
+ * debajo de las dos primeras) y el checklist (4, debajo de la tercera); en
+ * tablet, tarjetas de a 2 y lo de abajo a todo el ancho; en el celular, todo
+ * a todo el ancho.
+ */
+const COLUMNAS_AREA = { base: "span 12", md: "span 6", xl: "span 4" };
+const COLUMNAS_ATENCION = { base: "span 12", xl: "span 8" };
+const COLUMNAS_CHECKLIST = { base: "span 12", xl: "span 4" };
+
+/**
+ * Panel principal: cómo está la planta hoy y qué necesita atención.
  *
- * Reúne indicadores y estadísticas generales. Las notificaciones y la gestión
- * de criticidad se encuentran en su pantalla específica y no se cargan acá.
+ * Sin banner propio: cada tarjeta de área lleva el banner de su panel. Todo
+ * va en UNA grilla de 12 columnas con el mismo espacio en toda la página,
+ * así las tarjetas de arriba y los bloques de abajo quedan alineados por sus
+ * bordes. La evolución y el análisis viven en el panel de cada área: acá no
+ * se repiten.
  */
 export function InicioPage() {
-  const {
-    cumplimiento,
-    incidentes,
-    limpieza,
-    calibracion,
-    verOperacion,
-    verIncidentes,
-  } = useDashboard();
+  const { cumplimiento, verOperacion, verIncidentes } = useDashboard();
+  const habilitado = verOperacion || verIncidentes;
+  const { inicio, loading, error } = useInicio(habilitado);
 
   const resumen = useMemo(
     () => calcularCumplimiento(cumplimiento.datos.tareas),
     [cumplimiento.datos],
   );
 
-  // Cada tarjeta de incidentes tiene su propio período, como Producción.
-  // Por defecto, los últimos 30 días.
-  const [rangoTorta, setRangoTorta] = useState<RangoFechas>(() => ({
-    desde: haceDiasISO(30),
-    hasta: hoyISO(),
-  }));
-  const [rangoSerie, setRangoSerie] = useState<RangoFechas>(() => ({
-    desde: haceDiasISO(30),
-    hasta: hoyISO(),
-  }));
-
-  const partes = useMemo(
-    () => partesPorTipo(incidentes.datos, "todos", rangoTorta),
-    [incidentes.datos, rangoTorta],
-  );
-
-  const estadoCalibracion = useMemo(
-    () =>
-      calcularEquiposCalibrados(
-        calibracion.datos.equipos,
-        calibracion.datos.planes,
-      ),
-    [calibracion.datos],
-  );
-
-  const serie = useMemo(
-    () =>
-      rangoSerie.desde && rangoSerie.hasta && rangoSerie.desde <= rangoSerie.hasta
-        ? incidentesPorPeriodo(incidentes.datos, rangoSerie)
-        : [],
-    [incidentes.datos, rangoSerie],
-  );
-
-  if (!verOperacion && !verIncidentes) {
+  if (!habilitado) {
     return (
       <Box flex="1" display="flex" flexDirection="column">
         <EstadoVacio>
@@ -84,7 +54,8 @@ export function InicioPage() {
   }
 
   return (
-    <Box flex="1" display="flex" flexDirection="column">
+    // Mismo espacio entre piezas que los paneles de cada área (5 = 20px).
+    <Box flex="1" display="flex" flexDirection="column" gap="5">
       <Heading
         as="h2"
         position="absolute"
@@ -99,70 +70,36 @@ export function InicioPage() {
         Panel principal
       </Heading>
 
-      <Grid
-        templateColumns={{
-          base: "1fr",
-          xl: verIncidentes ? "minmax(0, 3fr) minmax(0, 2fr)" : "1fr",
-        }}
-        templateRows={{ xl: "1fr" }}
-        gap="6"
-        flex="1"
-      >
-        <Flex direction="column" gap="6" minW="0">
-          <Grid
-            templateColumns={{
-              base: "1fr",
-              md: "repeat(auto-fit, minmax(220px, 1fr))",
-            }}
-            gap="6"
-          >
-            {verOperacion && (
+      {loading && <EstadoCargando>Cargando el estado de las áreas...</EstadoCargando>}
+
+      {!loading && error && <MensajeError>{error}</MensajeError>}
+
+      {!loading && !error && (
+        <Grid templateColumns="repeat(12, minmax(0, 1fr))" gap="5" alignItems="start">
+          {inicio.areas.map((area) => (
+            <GridItem key={area.clave} gridColumn={COLUMNAS_AREA} alignSelf="stretch">
+              <TarjetaArea area={area} />
+            </GridItem>
+          ))}
+
+          <GridItem gridColumn={verOperacion ? COLUMNAS_ATENCION : "span 12"}>
+            <RequiereAtencion filas={inicio.atencion} total={inicio.atencion_total} h="auto" />
+          </GridItem>
+
+          {verOperacion && (
+            <GridItem gridColumn={COLUMNAS_CHECKLIST}>
               <TarjetaCumplimiento
                 total={resumen.total}
                 completadas={resumen.completadas}
                 porcentaje={resumen.porcentaje}
                 loading={cumplimiento.loading}
                 error={cumplimiento.error}
-                periodo={verIncidentes ? limpieza : undefined}
+                h="auto"
               />
-            )}
-
-            {verIncidentes && (
-              <TarjetaEquiposCalibrados
-                estado={estadoCalibracion}
-                loading={calibracion.loading}
-                error={calibracion.error}
-              />
-            )}
-          </Grid>
-
-          {verIncidentes && <TarjetaProduccion />}
-        </Flex>
-
-        {verIncidentes && (
-          <Flex direction="column" gap="6" minW="0">
-            <GraficoTorta
-              partes={partes}
-              loading={incidentes.loading}
-              error={incidentes.error}
-              rango={rangoTorta}
-              onCambiarRango={setRangoTorta}
-              h="auto"
-              flexShrink={0}
-            />
-
-            <TarjetaIniciadosResueltos
-              datos={serie}
-              loading={incidentes.loading}
-              error={incidentes.error}
-              rango={rangoSerie}
-              onCambiarRango={setRangoSerie}
-              flex="1"
-              h="auto"
-            />
-          </Flex>
-        )}
-      </Grid>
+            </GridItem>
+          )}
+        </Grid>
+      )}
     </Box>
   );
 }

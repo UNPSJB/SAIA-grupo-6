@@ -67,3 +67,27 @@ export function formatoPorcentajeFino(valor: string | number | null | undefined)
     maximumFractionDigits: 2,                    //    máximo 2 decimales
   })}%`;                                         // 4. le agrega el signo %
 }
+
+/**
+ * Símbolos de las unidades que cuentan piezas sueltas: de esos productos no
+ * se elabora ni se reserva una fracción (no hay 66,1 panes). El backend lo
+ * valida con el tipo de la unidad (también para la docena, donde 1,5 vale);
+ * acá solo se ajusta el campo para no dejar escribir decimales.
+ */
+const SIMBOLOS_POR_PIEZA = new Set(["un", "u", "unidad", "unidades"]);
+
+export function seCuentaPorPieza(simbolo: string | null | undefined): boolean {
+  return SIMBOLOS_POR_PIEZA.has((simbolo ?? "").trim().toLowerCase().replace(/\.$/, ""));
+}
+
+/** Props de un campo numérico de cantidad según la unidad del producto. */
+export function propsCampoCantidad(simbolo: string | null | undefined) {
+  return seCuentaPorPieza(simbolo)
+    ? { step: "1", inputMode: "numeric" as const }
+    : { step: "any", inputMode: "decimal" as const };
+}
+
+/** True si el texto es un número válido para esa unidad (entero si se cuenta por pieza). */
+export function cantidadValidaParaUnidad(valor: string, simbolo: string | null | undefined): boolean {
+  return !seCuentaPorPieza(simbolo) || Number.isInteger(Number(valor));
+}

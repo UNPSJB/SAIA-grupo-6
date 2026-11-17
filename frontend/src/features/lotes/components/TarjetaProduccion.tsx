@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { HStack, Text } from "@chakra-ui/react";
+import { Text } from "@chakra-ui/react";
+import { LuFactory, LuScale } from "react-icons/lu";
 import {
   BannerError,
   EstadoCargando,
@@ -9,8 +10,14 @@ import { useDashboardLotes } from "../hooks/useLotes";
 import { GraficoProduccion } from "./GraficoProduccion";
 import { TarjetaPanel } from "../../dashboard/components/TarjetaPanel";
 import { SelectorRango } from "../../dashboard/components/SelectorRango";
-import { cantidadConUnidad, formatoCantidad } from "../../../common/utils/numeros";
+import { MetricasBloque, type Metrica } from "../../dashboard/components/piezasPanel";
+import { formatoCantidad } from "../../../common/utils/numeros";
 
+/**
+ * Producción por producto en el período elegido. Arriba, los totales en el
+ * mismo formato que las métricas de los paneles de categoría: uno por unidad
+ * (kg, un...), porque sumar kilos con unidades no significa nada, y los lotes.
+ */
 export function TarjetaProduccion() {
   const [fechaDesde, setFechaDesde] = useState(() => haceDiasISO(30));
   const [fechaHasta, setFechaHasta] = useState(() => hoyISO());
@@ -23,6 +30,7 @@ export function TarjetaProduccion() {
   return (
     <TarjetaPanel
       titulo="Producción por producto"
+      tamanoTitulo="lg"
       descripcion="Cantidad producida por producto en el período seleccionado"
       h="auto"
       flex="1"
@@ -43,25 +51,25 @@ export function TarjetaProduccion() {
 
       {!loading && !error && (
         <>
-          <HStack gap="6" mb="3" flexWrap="wrap">
-            <Text fontSize="sm" color="fg.muted">
-              Total producido:{" "}
-              {/* Por unidad: antes se sumaban kilos con unidades en un solo número. */}
-              <Text as="span" fontWeight="bold" color="fg">
-                {dashboard.total_por_unidad.length === 0
-                  ? "-"
-                  : dashboard.total_por_unidad
-                      .map((t) => cantidadConUnidad(t.cantidad, t.unidad))
-                      .join(" · ")}
-              </Text>
-            </Text>
-            <Text fontSize="sm" color="fg.muted">
-              Lotes registrados:{" "}
-              <Text as="span" fontWeight="bold" color="fg">
-                {formatoCantidad(dashboard.total_lotes)}
-              </Text>
-            </Text>
-          </HStack>
+          <MetricasBloque
+            metricas={[
+              ...dashboard.total_por_unidad.map(
+                (t): Metrica => ({
+                  clave: `total-${t.unidad}`,
+                  etiqueta: `Producido en ${t.unidad}`,
+                  // Un decimal: "105,751 kg" en un número grande se lee como miles.
+                  valor: `${formatoCantidad(Math.round(Number(t.cantidad) * 10) / 10)} ${t.unidad}`,
+                  icono: LuScale,
+                }),
+              ),
+              {
+                clave: "lotes",
+                etiqueta: "Lotes registrados",
+                valor: formatoCantidad(dashboard.total_lotes),
+                icono: LuFactory,
+              },
+            ]}
+          />
 
           {dashboard.por_producto.length === 0 ? (
             <Text fontSize="sm" color="fg.subtle" py="8" textAlign="center">

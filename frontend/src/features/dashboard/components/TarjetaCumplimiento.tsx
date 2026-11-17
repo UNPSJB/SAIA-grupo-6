@@ -1,20 +1,8 @@
-import { useState } from "react";
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  HStack,
-  Input,
-  Stack,
-  Text,
-  type BoxProps,
-} from "@chakra-ui/react";
-import { hoyISO } from "../../../common/utils/fechas";
+import { Box, Flex, HStack, Stack, Text, type BoxProps } from "@chakra-ui/react";
 import { EstadoCargando, MensajeError } from "../../../components/ui/patrones";
-import { GraficoCumplimiento } from "../../checklist/components/GraficoCumplimiento";
-import type { PeriodoLimpieza } from "../hooks/useDashboard";
 import { AnilloProgreso } from "./AnilloProgreso";
+import { EtiquetaEstado, type TonoEstado } from "../../../components/ui/patrones";
+import { COLOR_CALIDO } from "../types/coloresGraficos";
 import { TarjetaPanel } from "./TarjetaPanel";
 
 interface TarjetaCumplimientoProps {
@@ -23,15 +11,7 @@ interface TarjetaCumplimientoProps {
   porcentaje: number;
   loading: boolean;
   error: string | null;
-  /**
-   * Si viene, la tarjeta suma el selector Hoy | Período con el gráfico de
-   * líneas. Sin esta prop (un operador) se comporta como siempre: solo el día
-   * de hoy.
-   */
-  periodo?: PeriodoLimpieza;
 }
-
-type Vista = "hoy" | "periodo";
 
 /**
  * Estado del día según el porcentaje.
@@ -39,66 +19,65 @@ type Vista = "hoy" | "periodo";
  * Una sola tabla decide el color del anillo, el del badge y la frase, para que
  * no puedan contradecirse (un anillo rojo con un "Buen avance"). El color
  * codifica el estado y no decora: verde al día, teal en marcha, ámbar por
- * debajo de la mitad, rojo cuando la carga ya no se levanta.
+ * debajo de la mitad (el mismo de las advertencias de los paneles, no el
+ * naranja de "editar"), rojo cuando la carga ya no se levanta.
  */
-function estadoDelDia(total: number, porcentaje: number) {
+function estadoDelDia(
+  total: number,
+  porcentaje: number,
+): { color: string; tono: TonoEstado | "brand"; texto: string } {
   if (total === 0) {
-    return { color: "var(--chakra-colors-brand-500)", paleta: "gray", texto: "Sin tareas" };
+    return { color: "var(--chakra-colors-brand-500)", tono: "neutro", texto: "Sin tareas" };
   }
   if (porcentaje >= 100) {
-    return { color: "var(--chakra-colors-green-500)", paleta: "green", texto: "Todo al día" };
+    return { color: "var(--chakra-colors-green-500)", tono: "ok", texto: "Todo al día" };
   }
   if (porcentaje >= 50) {
-    return { color: "var(--chakra-colors-brand-500)", paleta: "brand", texto: "Buen avance" };
+    return { color: "var(--chakra-colors-brand-500)", tono: "brand", texto: "Buen avance" };
   }
   if (porcentaje >= 25) {
-    return { color: "var(--chakra-colors-orange-500)", paleta: "orange", texto: "Con demora" };
+    // Ocre de la marca: armoniza con el chip ámbar de al lado.
+    return { color: COLOR_CALIDO.ocre, tono: "alerta", texto: "Con demora" };
   }
 
-  return { color: "var(--chakra-colors-red-500)", paleta: "red", texto: "Muy atrasado" };
+  return { color: "var(--chakra-colors-red-500)", tono: "peligro", texto: "Muy atrasado" };
 }
 
-/** Selector Hoy | Período. Cada botón avisa su estado con `aria-pressed`. */
-function SelectorVista({
-  vista,
-  onChange,
-}: {
-  vista: Vista;
-  onChange: (vista: Vista) => void;
-}) {
-  const opciones: { valor: Vista; texto: string }[] = [
-    { valor: "hoy", texto: "Hoy" },
-    { valor: "periodo", texto: "Período" },
-  ];
+/** Ámbar de advertencia de los paneles (fondo, borde, texto): ~6:1 de contraste. */
+const AMBAR = { fondo: "#fbf1dc", borde: "#ecd3a0", texto: "#8a5a12" } as const;
 
-  return (
-    <HStack gap="1">
-      {opciones.map((opcion) => (
-        <Button
-          key={opcion.valor}
-          size="xs"
-          colorPalette="brand"
-          variant={vista === opcion.valor ? "solid" : "outline"}
-          aria-pressed={vista === opcion.valor}
-          onClick={() => onChange(opcion.valor)}
-        >
-          {opcion.texto}
-        </Button>
-      ))}
-    </HStack>
-  );
+/** Etiqueta del estado del día, con los mismos colores que las listas de los paneles. */
+function EtiquetaDia({ tono, children }: { tono: TonoEstado | "brand"; children: string }) {
+  if (tono === "alerta" || tono === "brand") {
+    const ambar = tono === "alerta";
+    return (
+      <Box
+        as="span"
+        display="inline-flex"
+        px="2.5"
+        py="1"
+        rounded="full"
+        fontSize="xs"
+        fontWeight="medium"
+        bg={ambar ? AMBAR.fondo : "brand.50"}
+        color={ambar ? AMBAR.texto : "brand.800"}
+        borderWidth="1px"
+        borderColor={ambar ? AMBAR.borde : "brand.200"}
+      >
+        {children}
+      </Box>
+    );
+  }
+  return <EtiquetaEstado tono={tono}>{children}</EtiquetaEstado>;
 }
 
 /**
- * Indicador de cumplimiento.
- *
- * Vista "Hoy": a la izquierda, el porcentaje grande con el estado del día y el
- * desglose (hechas y pendientes); a la derecha, el anillo con el conteo en el
- * centro. Con `total === 0` no se muestra "0%" sino "—": un plan sin tareas
- * para la fecha no es un día con cero cumplimiento.
- *
- * Vista "Período" (solo administradores): evolución diaria del porcentaje de
- * cumplimiento en el rango de fechas que se elija.
+ * Indicador de cumplimiento del día, de extremo a extremo: a la izquierda,
+ * el porcentaje grande con el estado del día y, debajo, el desglose (hechas
+ * y pendientes) con el color de cada parte del anillo; a la derecha, el
+ * anillo con el conteo en el centro. Con `total === 0` no se muestra "0%"
+ * sino "—": un plan sin tareas para la fecha no es un día con cero
+ * cumplimiento. La evolución del período está en el panel de Limpieza.
  */
 export function TarjetaCumplimiento({
   total,
@@ -106,75 +85,83 @@ export function TarjetaCumplimiento({
   porcentaje,
   loading,
   error,
-  periodo,
   ...rest
 }: TarjetaCumplimientoProps & BoxProps) {
-  const [vista, setVista] = useState<Vista>("hoy");
-
   const estado = estadoDelDia(total, porcentaje);
   const pendientes = total - completadas;
 
-  // Resumen del período: se suman las tareas, no se promedian los porcentajes.
-  const cumplidasPeriodo = periodo?.datos.reduce((suma, p) => suma + p.cumplidas, 0) ?? 0;
-  const totalPeriodo = periodo?.datos.reduce((suma, p) => suma + p.total, 0) ?? 0;
-
   return (
     <TarjetaPanel
-      titulo="Cumplimiento de Checklist"
-      tamanoTitulo="sm"
-      acciones={periodo ? <SelectorVista vista={vista} onChange={setVista} /> : undefined}
+      titulo="Checklist de limpieza de hoy"
+      tamanoTitulo="lg"
+      descripcion="Tareas del día ya completadas"
       {...rest}
     >
-      {/* ---------------------------- Vista: Hoy ---------------------------- */}
-      {vista === "hoy" && loading && <EstadoCargando />}
+      {loading && <EstadoCargando />}
 
-      {vista === "hoy" && !loading && error && <MensajeError>{error}</MensajeError>}
+      {!loading && error && <MensajeError>{error}</MensajeError>}
 
-      {vista === "hoy" && !loading && !error && (
-        <Flex align="center" gap="4" flex="1" my="auto">
-          <Box minW="0">
-            {/*
-              `4xl` es el token del framework, no un `fontSize="56px"`: la
-              escala tipográfica del tema corta en `2xl` y este es el único
-              lugar de la app que necesita un número más grande (declarado como
-              excepción en `theme/index.ts`).
-            */}
-            <Text as="p" fontSize="4xl" fontWeight="bold" lineHeight="1" color="brand.fg">
-              {total === 0 ? "—" : `${porcentaje}%`}
-            </Text>
+      {!loading && !error && (
+        // De extremo a extremo: los números a la izquierda y el anillo a la
+        // derecha, centrados en altura, sin espacio muerto en el medio.
+        <Flex align="center" justify="space-between" gap="4" flex="1" my="auto">
+          <Stack gap="2.5" minW="0">
+            <HStack gap="3" align="center" flexWrap="wrap">
+              {/* Cifra clave: `3xl` extrabold, la misma escala que las
+                  métricas de los paneles (ver `theme/index.ts`). */}
+              <Text
+                as="p"
+                fontSize="3xl"
+                fontWeight="extrabold"
+                lineHeight="1"
+                letterSpacing="-0.02em"
+                color="fg"
+                fontVariantNumeric="tabular-nums"
+              >
+                {total === 0 ? "—" : `${porcentaje}%`}
+              </Text>
+              <EtiquetaDia tono={estado.tono}>{estado.texto}</EtiquetaDia>
+            </HStack>
 
-            <Badge
-              mt="2"
-              colorPalette={estado.paleta}
-              variant="subtle"
-              px="2"
-              py="0.5"
-              borderRadius="full"
-              fontSize="xs"
-            >
-              {estado.texto}
-            </Badge>
-
-            <Text mt="2" fontSize="xs" color="fg.muted">
-              {total === 0 ? (
-                "No hay tareas programadas para hoy."
-              ) : (
-                <HStack as="span" gap="3" display="inline-flex">
-                  <span>Hoy · {completadas} hechas</span>
-                  <span>{pendientes} pendientes</span>
+            {total === 0 ? (
+              <Text fontSize="xs" color="fg.muted">
+                No hay tareas programadas para hoy.
+              </Text>
+            ) : (
+              <HStack
+                as="dl"
+                gap="4"
+                fontSize="xs"
+                color="fg.muted"
+                fontVariantNumeric="tabular-nums"
+                flexWrap="wrap"
+              >
+                <HStack gap="1.5">
+                  <Box w="2" h="2" rounded="full" bg={estado.color} aria-hidden />
+                  <Text as="dd" fontWeight="semibold" color="fg">
+                    {completadas}
+                  </Text>
+                  <Text as="dt">{completadas === 1 ? "hecha" : "hechas"}</Text>
                 </HStack>
-              )}
-            </Text>
-          </Box>
+                <HStack gap="1.5">
+                  <Box w="2" h="2" rounded="full" bg="gray.300" aria-hidden />
+                  <Text as="dd" fontWeight="semibold" color="fg">
+                    {pendientes}
+                  </Text>
+                  <Text as="dt">{pendientes === 1 ? "pendiente" : "pendientes"}</Text>
+                </HStack>
+              </HStack>
+            )}
+          </Stack>
 
-          <Box w="100px" h="100px" flexShrink={0} ml="auto">
+          <Box w="96px" h="96px" flexShrink={0}>
             <AnilloProgreso porcentaje={porcentaje} color={estado.color}>
               {total > 0 && (
                 <>
-                  <Text fontSize="lg" fontWeight="bold" lineHeight="1" color="fg">
+                  <Text fontSize="md" fontWeight="bold" lineHeight="1" color="fg">
                     {completadas}/{total}
                   </Text>
-                  <Text fontSize="xs" color="fg.muted">
+                  <Text fontSize="xs" color="fg.muted" mt="0.5">
                     tareas
                   </Text>
                 </>
@@ -182,56 +169,6 @@ export function TarjetaCumplimiento({
             </AnilloProgreso>
           </Box>
         </Flex>
-      )}
-
-      {/* -------------------------- Vista: Período -------------------------- */}
-      {vista === "periodo" && periodo && (
-        <Stack gap="2" flex="1">
-          <HStack gap="2">
-            <Input
-              type="date"
-              size="xs"
-              aria-label="Desde"
-              value={periodo.desde}
-              max={periodo.hasta || hoyISO()}
-              onChange={(e) => periodo.cambiarRango(e.target.value, periodo.hasta)}
-            />
-            <Text as="span" fontSize="xs" color="fg.muted">
-              a
-            </Text>
-            <Input
-              type="date"
-              size="xs"
-              aria-label="Hasta"
-              value={periodo.hasta}
-              min={periodo.desde}
-              max={hoyISO()}
-              onChange={(e) => periodo.cambiarRango(periodo.desde, e.target.value)}
-            />
-          </HStack>
-
-          {periodo.loading && <EstadoCargando />}
-
-          {!periodo.loading && periodo.error && <MensajeError>{periodo.error}</MensajeError>}
-
-          {/* Sin tareas no se muestra "0%": un período sin checklists no es un
-              período sin cumplimiento. */}
-          {!periodo.loading && !periodo.error && totalPeriodo === 0 && (
-            <Text fontSize="sm" color="fg.muted" my="auto">
-              No hay tareas registradas en este período.
-            </Text>
-          )}
-
-          {!periodo.loading && !periodo.error && totalPeriodo > 0 && (
-            <>
-              <Text fontSize="xs" color="fg.subtle">
-                <b>{Math.round((cumplidasPeriodo / totalPeriodo) * 100)}%</b> de las tareas
-                cumplidas en el período
-              </Text>
-              <GraficoCumplimiento datos={periodo.datos} alto={150} />
-            </>
-          )}
-        </Stack>
       )}
     </TarjetaPanel>
   );
