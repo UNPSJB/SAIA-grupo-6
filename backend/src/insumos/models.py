@@ -1,4 +1,5 @@
-from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String
+from datetime import datetime
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, JSON, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.aditivos.models import Aditivo
@@ -29,6 +30,9 @@ class Insumo(ModeloBase):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    perfil_declaracion: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    perfil_actualizado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    perfil_actualizado_por_id: Mapped[int | None] = mapped_column(ForeignKey("personal.id"), nullable=True)
     nombre: Mapped[str] = mapped_column(index=True, unique=True)
     unidad_medida_id: Mapped[int] = mapped_column(ForeignKey("unidades_medida.id"), nullable=False)
     activo: Mapped[bool] = mapped_column(default=True)

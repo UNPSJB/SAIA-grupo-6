@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
@@ -11,6 +11,7 @@ class Producto(ModeloBase):
     __tablename__ = "productos"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    conservacion: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     nombre: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     descripcion: Mapped[str | None] = mapped_column(String(500), nullable=True)
     unidad_medida_id: Mapped[int] = mapped_column(

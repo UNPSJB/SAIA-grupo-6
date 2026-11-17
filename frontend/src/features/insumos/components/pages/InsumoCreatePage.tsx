@@ -55,6 +55,7 @@ export function InsumoCreatePage() {
 
   return (
     <PaginaFormulario
+      ancho="ancho"
       volver={{ a: "/insumos", etiqueta: "Insumos" }}
       titulo="Nuevo insumo"
     >

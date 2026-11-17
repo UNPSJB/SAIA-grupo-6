@@ -36,6 +36,7 @@ from .insumos_densidad_peso import migrar_insumos_densidad_peso
 from .nutricion_conversion_en_insumo import migrar_conversion_a_insumo
 from .vista_publica import migrar_vista_publica
 from .rotulado import migrar_rotulado
+from .declaraciones_rotulado import migrar_declaraciones_rotulado
 from .clientes import migrar_clientes
 from .salidas import migrar_salidas_despacho_entrega_cancelacion
 from .salidas_recibido_por import migrar_salidas_recibido_por
@@ -75,6 +76,7 @@ def run_migrations() -> None:
     migrar_conversion_a_insumo()
     migrar_vista_publica()
     migrar_rotulado()
+    migrar_declaraciones_rotulado()
     migrar_clientes()
     migrar_transportistas()
     migrar_certificaciones_transportista()

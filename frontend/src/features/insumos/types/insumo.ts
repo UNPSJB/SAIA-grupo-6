@@ -1,3 +1,4 @@
+import type { PerfilDeclaracion } from "../../rotulado/types/declaraciones";
 export interface UnidadMedidaInfo {
   id: number;
   nombre: string;
@@ -15,6 +16,7 @@ export const TIPOS_INSUMO: { valor: TipoInsumo; etiqueta: string }[] = [
 ];
 
 export interface Insumo {
+  perfil_declaracion?: PerfilDeclaracion | null;
   id: number;
   nombre: string;
   unidad_medida_id: number;
@@ -32,6 +34,7 @@ export interface Insumo {
 }
 
 export interface InsumoFormValues {
+  perfil_declaracion?: PerfilDeclaracion | null;
   nombre: string;
   unidad_medida_id: number;
   tipo: TipoInsumo;

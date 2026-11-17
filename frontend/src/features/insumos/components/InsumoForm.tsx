@@ -1,3 +1,4 @@
+import { PerfilDeclaracionFields } from "../../rotulado/components/PerfilDeclaracionFields";
 import { useEffect, useMemo, useState } from "react";
 import { Text } from "@chakra-ui/react";
 import {
@@ -260,6 +261,7 @@ export function InsumoForm({
         </FormField>
       )}
 
+      <PerfilDeclaracionFields value={values.perfil_declaracion ?? null} onChange={v => setValues(prev => ({ ...prev, perfil_declaracion: v }))} />
       <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
       <AccionesFormulario>
         <BotonGuardar loading={isLoading}>

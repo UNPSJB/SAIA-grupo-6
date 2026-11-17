@@ -44,6 +44,7 @@ export function InsumoEditPage() {
 
   return (
     <PaginaFormulario
+      ancho="ancho"
       volver={{ a: "/insumos", etiqueta: "Insumos" }}
       titulo="Editar insumo"
     >
@@ -65,6 +66,7 @@ export function InsumoEditPage() {
           <InsumoForm
             key={insumo.id}
             initialValues={{
+              perfil_declaracion: insumo.perfil_declaracion,
               nombre: insumo.nombre,
               unidad_medida_id: insumo.unidad_medida_id,
               tipo: insumo.tipo,

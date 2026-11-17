@@ -1,14 +1,18 @@
 from typing import Literal
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from src.aditivos.schemas import AditivoResumen
 from src.common.paginacion import Pagina
 from src.insumos import exceptions
 
+from src.rotulado.declaraciones_schemas import PerfilInsumoDeclaracion
+
 TipoInsumo = Literal["ingrediente", "aditivo"]
 
 
 class InsumoBase(BaseModel):
+    perfil_declaracion: PerfilInsumoDeclaracion | None = None
     nombre: str
     unidad_medida_id: int
     densidad_g_ml: float | None = None
@@ -28,6 +32,7 @@ class InsumoCreate(InsumoBase):
 
 
 class InsumoUpdate(BaseModel):
+    perfil_declaracion: PerfilInsumoDeclaracion | None = None
     nombre: str | None = None
     unidad_medida_id: int | None = None
     activo: bool | None = None
@@ -53,6 +58,8 @@ class ProveedorResumen(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
 class Insumo(InsumoBase):
+    perfil_actualizado_en: datetime | None = None
+    perfil_actualizado_por_id: int | None = None
     id: int
     activo: bool
     tipo: str

@@ -175,4 +175,5 @@ def test_http_guardar_editar_y_reabrir(datos):
     assert resultado["fecha_duracion"] is None
     historial = client.get(f"/rotulado/borradores/{borrador_id}/historial-ediciones")
     assert historial.status_code == 200, historial.text
-    assert len(historial.json()) == 2
+    assert len([e for e in historial.json() if e["campo"] != "declaraciones"]) == 2
+    assert any(e["campo"] == "declaraciones" for e in historial.json())

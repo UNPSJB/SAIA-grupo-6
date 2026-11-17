@@ -37,7 +37,7 @@ def crear_producto(db: Session, datos: schemas.ProductoCreate) -> Producto:
         etiqueta="producto",
     )
     _verificar_unidad(db, datos.unidad_medida_id)
-    producto = Producto(**datos.model_dump())
+    producto = Producto(**datos.model_dump(mode="json"))
     db.add(producto)
     return guardar(db, producto, _MAPEA_CONFLICTO_UNICO)
 
@@ -64,7 +64,8 @@ def actualizar_producto(
     db: Session, producto_id: int, datos: schemas.ProductoUpdate
 ) -> Producto:
     producto = obtener_producto(db, producto_id)
-    cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
+    cambios = {k: v for k, v in datos.model_dump(exclude_unset=True, mode="json").items()
+               if v is not None or k == "conservacion"}
     if "unidad_medida_id" in cambios:
         _verificar_unidad(db, cambios["unidad_medida_id"])
     return aplicar_cambios(db, producto, cambios, _MAPEA_CONFLICTO_UNICO)

@@ -59,6 +59,8 @@ class BorradorRotuladoCreate(BorradorRotuladoBase):
 
 
 class BorradorRotuladoUpdate(BaseModel):
+    version_receta_id: Optional[int] = Field(default=None, gt=0)
+    lote_producto_id: Optional[int] = Field(default=None, gt=0)
     denominacion_venta: Optional[str] = Field(default=None, max_length=200)
     lista_ingredientes: Optional[str] = None
     contenido_neto: Optional[str] = Field(default=None, max_length=100)
@@ -126,6 +128,7 @@ class VistaPreviaAutocompletado(BaseModel):
     sellos_disponibles: bool = False
     version_receta_id: Optional[int] = None
     version_receta_numero: Optional[int] = None
+    declaraciones: dict | None = None
     receta_encontrada: bool = False
     mensaje: Optional[str] = None
 

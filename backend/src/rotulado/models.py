@@ -9,6 +9,10 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    JSON,
+    UniqueConstraint,
+    event,
+    inspect,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,6 +32,7 @@ class BorradorRotulado(ModeloBase):
     __tablename__ = "borradores_rotulado"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    archivado: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     producto_id: Mapped[int] = mapped_column(
         ForeignKey("productos.id", ondelete="RESTRICT"), index=True, nullable=False
     )
@@ -140,3 +145,41 @@ class CampoRotuladoEditado(ModeloBase):
         if self.usuario is None:
             return None
         return " ".join(p for p in (self.usuario.nombre, self.usuario.apellido) if p)
+
+
+class RevisionDeclaracionRotulado(ModeloBase):
+    """Instantánea histórica; el contenido nunca se actualiza al regenerar."""
+
+    __tablename__ = "revisiones_declaracion_rotulado"
+    __table_args__ = (UniqueConstraint("borrador_id", "numero"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    borrador_id: Mapped[int] = mapped_column(
+        ForeignKey("borradores_rotulado.id", ondelete="RESTRICT"), index=True
+    )
+    numero: Mapped[int] = mapped_column(Integer)
+    contenido: Mapped[dict] = mapped_column(JSON)
+    huella_origen: Mapped[str] = mapped_column(String(64))
+    creado_por_id: Mapped[int | None] = mapped_column(ForeignKey("personal.id"))
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+    confirmado_por_id: Mapped[int | None] = mapped_column(ForeignKey("personal.id"))
+    confirmado_en: Mapped[datetime | None] = mapped_column(DateTime)
+
+    confirmado_por: Mapped[Optional["Personal"]] = relationship(foreign_keys=[confirmado_por_id])
+
+
+@event.listens_for(RevisionDeclaracionRotulado, "before_update")
+def proteger_revision_declaraciones(mapper, connection, revision):
+    atributos = inspect(revision).attrs
+    inmutables = ("borrador_id", "numero", "contenido", "huella_origen", "creado_por_id", "creado_en")
+    if any(atributos[campo].history.has_changes() for campo in inmutables):
+        raise ValueError("Una revisión es histórica. Creá una revisión nueva para editar.")
+    for campo in ("confirmado_por_id", "confirmado_en"):
+        historia = atributos[campo].history
+        if historia.has_changes() and historia.deleted and historia.deleted[0] is not None:
+            raise ValueError("La confirmación histórica no puede modificarse.")
+
+
+@event.listens_for(RevisionDeclaracionRotulado, "before_delete")
+def impedir_borrar_revision_declaraciones(mapper, connection, revision):
+    raise ValueError("Las revisiones de declaraciones son históricas y no se eliminan.")
