@@ -22,6 +22,7 @@ from src.personal.models import Personal
 from src.productos.models import Producto
 from src.recetas.models import Receta, RecetaInsumo, VersionReceta
 from src.rotulado_frontal import constants as rotulado_constants
+from src.rotulado_frontal import services as rotulado_services
 from src.rotulado_frontal.models import EvaluacionRotulado, ReglaRotuladoFrontal
 from src.rotulado_frontal.router import router as rotulado_router
 from src.unidadMedida.models import UnidadMedida
@@ -95,7 +96,7 @@ def regla(db_session):
 
 @pytest.fixture
 def productos(db_session):
-    g = UnidadMedida(nombre="gramo", simbolo="g")
+    g = UnidadMedida(nombre="gramo", simbolo="g", tipo="masa", factor_a_base=1)
     kg = UnidadMedida(nombre="kilogramo", simbolo="kg")
 
     azucar = Insumo(nombre="Azúcar", unidad_medida=g)
@@ -237,7 +238,7 @@ def productos(db_session):
 def producto_sellos(db_session):
     """Producto completo para probar el cálculo de sellos de E12.2."""
     asegurar_parametros(db_session)
-    g = UnidadMedida(nombre="gramo", simbolo="g")
+    g = UnidadMedida(nombre="gramo", simbolo="g", tipo="masa", factor_a_base=1)
     insumo = Insumo(nombre="Base nutricional", unidad_medida=g)
     producto = Producto(nombre="Producto con sellos", unidad_medida=g)
     receta = Receta(producto=producto)
@@ -493,7 +494,7 @@ def test_la_regla_versionada_controla_ins_y_cafeina(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2026-01-01",
+            "vigencia_desde": "2020-01-01",
             "norma_origen": "Regla de prueba",
             "requiere_envasado": True,
             "obliga_azucares": True,
@@ -582,7 +583,7 @@ def test_crear_y_activar_una_version_deja_una_sola_vigente(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2026-01-01",
+            "vigencia_desde": "2020-01-01",
             "norma_origen": "Norma actualizada",
             "requiere_envasado": True,
             "obliga_azucares": True,
@@ -606,6 +607,56 @@ def test_crear_y_activar_una_version_deja_una_sola_vigente(
 
     reglas = client.get("/rotulado-frontal/reglas", headers=usuarios["admin"]).json()
     assert [regla["vigente"] for regla in reglas] == [True, False]
+
+
+def test_una_regla_con_vigencia_futura_queda_programada_y_no_se_usa_antes(
+    client, usuarios, regla, productos, db_session
+):
+    futura = client.post(
+        "/rotulado-frontal/reglas",
+        headers=usuarios["admin"],
+        json={
+            "vigencia_desde": "2099-01-01",
+            "norma_origen": "Norma futura",
+            "obliga_grasas": False,
+            "obliga_sodio": False,
+            "obliga_edulcorantes": False,
+            "obliga_cafeina": False,
+        },
+    )
+    assert futura.status_code == 201
+    assert futura.json()["vigente"] is False
+    assert futura.json()["programada"] is False
+
+    programada = client.post(
+        f"/rotulado-frontal/reglas/{futura.json()['id']}/activar",
+        headers=usuarios["admin"],
+    )
+    assert programada.status_code == 200
+    assert programada.json()["vigente"] is False
+    assert programada.json()["programada"] is True
+
+    actual = _guardar(
+        client,
+        productos["con_marcas"].id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+    assert actual.status_code == 200
+    assert actual.json()["regla"]["version"] == regla.version
+
+    reglas = client.get("/rotulado-frontal/reglas", headers=usuarios["admin"]).json()
+    assert [(r["version"], r["vigente"], r["programada"]) for r in reglas] == [
+        (2, False, True),
+        (1, True, False),
+    ]
+
+    promovida = rotulado_services.regla_vigente(
+        db_session, fecha=date(2099, 1, 2)
+    )
+    assert promovida.version == 2
+    assert promovida.vigente is True
+    assert promovida.programada is False
 
 
 def test_sin_regla_vigente_devuelve_error_claro(client, usuarios, regla, productos, db_session):
@@ -678,7 +729,7 @@ def test_la_instantanea_congela_umbrales_formulas_y_canal(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-01-01",
+            "vigencia_desde": "2020-01-01",
             "norma_origen": "Norma con parametros propios",
             "umbrales_sellos": [
                 {
@@ -739,7 +790,7 @@ def test_los_parametros_normativos_no_admiten_claves_repetidas(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-01-01",
+            "vigencia_desde": "2020-01-01",
             "norma_origen": "Norma invalida",
             "umbrales_sellos": [
                 {
@@ -773,7 +824,7 @@ def test_las_categorias_exceptuadas_se_leen_de_la_regla(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-01-01",
+            "vigencia_desde": "2020-01-01",
             "norma_origen": "Categorías reducidas",
             "reglas_aplicabilidad": aplicabilidad,
         },
@@ -842,7 +893,7 @@ def test_los_canales_y_condiciones_tambien_salen_de_la_regla(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-01-01",
+            "vigencia_desde": "2020-01-01",
             "norma_origen": "Canal mayorista incluido",
             "reglas_aplicabilidad": aplicabilidad,
         },
@@ -873,7 +924,7 @@ def test_los_canales_y_condiciones_tambien_salen_de_la_regla(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2028-01-01",
+            "vigencia_desde": "2020-02-01",
             "norma_origen": "Condición dinámica",
             "reglas_aplicabilidad": aplicabilidad,
         },
@@ -919,7 +970,7 @@ def test_el_resultado_por_defecto_tambien_sale_de_la_regla(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-06-01",
+            "vigencia_desde": "2020-06-01",
             "norma_origen": "Norma con resultado por defecto",
             "reglas_aplicabilidad": aplicabilidad,
         },
@@ -987,7 +1038,7 @@ def test_el_historial_conserva_el_snapshot_de_cada_version(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-07-01",
+            "vigencia_desde": "2020-07-01",
             "norma_origen": "Norma con un solo umbral",
             "umbrales_sellos": [
                 {
@@ -1132,7 +1183,7 @@ def test_los_sellos_leen_los_umbrales_de_la_version_vigente(
         "/rotulado-frontal/reglas",
         headers=usuarios["admin"],
         json={
-            "vigencia_desde": "2027-09-01",
+            "vigencia_desde": "2020-09-01",
             "norma_origen": "Norma con umbral de azúcares actualizado",
             "umbrales_sellos": umbrales,
         },

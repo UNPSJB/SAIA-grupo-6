@@ -13,6 +13,7 @@ from src.common.texto import sin_tildes
 from src.exceptions import ConflictoRegistroInactivo
 from src.aditivos.models import Aditivo
 from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
+from src.proveedores.models import Proveedor
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
 
@@ -57,6 +58,28 @@ def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
         raise exceptions.UnidadMedidaInactiva()
 
 
+def _validar_densidad_peso_por_tipo_unidad(
+    db: Session,
+    unidad_medida_id: int,
+    densidad_g_ml: float | None,
+    peso_unitario_g: float | None,
+) -> None:
+    """Valida que densidad/peso unitario estén presentes según el tipo de unidad.
+
+    - Volumen -> densidad_g_ml es obligatoria.
+    - Unidad  -> peso_unitario_g es obligatorio.
+    """
+    unidad = db.get(UnidadMedida, unidad_medida_id)
+    if unidad is None:
+        return  # ya falló antes en _verificar_unidad_medida
+
+    if unidad.tipo == "volumen" and densidad_g_ml is None:
+        raise exceptions.DensidadRequeridaParaVolumen()
+
+    if unidad.tipo == "unidad" and peso_unitario_g is None:
+        raise exceptions.PesoUnitarioRequeridoParaUnidad()
+
+
 def _normalizar_tipo(db: Session, tipo: str, aditivo_id: Optional[int]) -> Optional[int]:
     """Devuelve el `aditivo_id` que corresponde al tipo.
 
@@ -89,6 +112,9 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
             )
 
     _verificar_unidad_medida(db, insumo.unidad_medida_id)
+    _validar_densidad_peso_por_tipo_unidad(
+        db, insumo.unidad_medida_id, insumo.densidad_g_ml, insumo.peso_unitario_g
+    )
 
     datos = insumo.model_dump()
     datos["aditivo_id"] = _normalizar_tipo(db, insumo.tipo, insumo.aditivo_id)
@@ -109,6 +135,7 @@ def _consulta_insumos(
     unidad_medida_id: Optional[int],
     tipo: Optional[str] = None,
     solo_inactivos: bool = False,
+    proveedor_id: Optional[int] = None,
 ):
     """Consulta base con el JOIN a la unidad, compartida por ambos caminos.
 
@@ -120,10 +147,13 @@ def _consulta_insumos(
         .options(
             selectinload(Insumo.unidad_medida),
             selectinload(Insumo.aditivo).selectinload(Aditivo.clase_funcional),
+            selectinload(Insumo.proveedores),
         )
     )
     if tipo is not None:
         consulta = consulta.where(Insumo.tipo == tipo)
+    if proveedor_id is not None:
+        consulta = consulta.where(Insumo.proveedores.any(Proveedor.id == proveedor_id))
 
     filtros = [
         filtro
@@ -155,9 +185,10 @@ def listar_insumos(
     buscar: Optional[str] = None,
     unidad_medida_id: Optional[int] = None,
     tipo: Optional[str] = None,
+    proveedor_id: Optional[int] = None,
 ) -> List[Insumo]:
     consulta = _consulta_insumos(
-        incluir_inactivos, buscar, unidad_medida_id, tipo
+        incluir_inactivos, buscar, unidad_medida_id, tipo, proveedor_id=proveedor_id
     ).order_by(Insumo.id)
     return list(db.scalars(consulta).all())
 
@@ -172,6 +203,7 @@ def listar_insumos_paginado(
     orden: str = "nombre_asc",
     tipo: Optional[str] = None,
     solo_inactivos: bool = False,
+    proveedor_id: Optional[int] = None,
 ) -> tuple[List[Insumo], int]:
     """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
     return paginar_consulta(
@@ -182,6 +214,7 @@ def listar_insumos_paginado(
             unidad_medida_id,
             tipo,
             solo_inactivos=solo_inactivos,
+            proveedor_id=proveedor_id,
         ),
         modelo=Insumo,
         orden=orden,
@@ -193,7 +226,7 @@ def listar_insumos_paginado(
 
 
 def leer_insumo(db: Session, insumo_id: int) -> Insumo:
-    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id))
+    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id).options(selectinload(Insumo.proveedores)))
     if db_insumo is None:
         raise exceptions.InsumoNoEncontrado()
     return db_insumo
@@ -225,6 +258,24 @@ def modificar_insumo(
         datos_a_actualizar["tipo"] = tipo_final
         datos_a_actualizar["aditivo_id"] = _normalizar_tipo(
             db, tipo_final, datos_a_actualizar.get("aditivo_id", db_insumo.aditivo_id)
+        )
+
+    # Densidad y peso unitario se validan contra el tipo de unidad final.
+    if any(
+        c in datos_a_actualizar
+        for c in ("unidad_medida_id", "densidad_g_ml", "peso_unitario_g")
+    ):
+        unidad_id_final = datos_a_actualizar.get(
+            "unidad_medida_id", db_insumo.unidad_medida_id
+        )
+        densidad_final = datos_a_actualizar.get(
+            "densidad_g_ml", db_insumo.densidad_g_ml
+        )
+        peso_final = datos_a_actualizar.get(
+            "peso_unitario_g", db_insumo.peso_unitario_g
+        )
+        _validar_densidad_peso_por_tipo_unidad(
+            db, unidad_id_final, densidad_final, peso_final
         )
 
     # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no

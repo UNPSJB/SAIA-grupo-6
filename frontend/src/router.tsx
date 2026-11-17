@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useRef, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet, useParams } from "react-router-dom";
 import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
@@ -11,22 +11,34 @@ import { Login } from "./features/Login";
 // `React.lazy`), así que cada chunk se adapta con un `.then`. Antes de esto
 // las 35 páginas entraban al bundle inicial.
 
-import Navbar from "./common/components/Navbar";
-import { ANCHO_COLAPSADO } from "./common/components/menuEntradas"; 
+import { Breadcrumbs } from "./common/components/Breadcrumbs";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
 import { BarraSuperior } from "./common/components/BarraSuperior";
 import { useAuth } from "./common/context/useAuth";
 import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
-import { useLocation } from "react-router-dom";
+
 
 // 0. Panel principal
 const InicioPage = lazy(() =>
   import("./features/dashboard/components/pages/InicioPage").then((mod) => ({ default: mod.InicioPage })),
 );
 
+// 0.a. Panel de cada categoría del menú (Producción, Inventario, ...)
+const PanelCategoriaPage = lazy(() =>
+  import("./features/dashboard/components/pages/PanelCategoriaPage").then((mod) => ({ default: mod.PanelCategoriaPage })),
+);
+
 // 0.bis. Mi perfil: la ficha propia (datos de /auth/me), sin permisos extra
 const MiPerfilPage = lazy(() =>
   import("./features/personal/components/pages/MiPerfilPage").then((mod) => ({ default: mod.MiPerfilPage })),
+);
+
+// E13: rotulado de productos
+const RotuladoPage = lazy(() =>
+  import("./features/rotulado/components/pages/RotuladoPage").then((mod) => ({ default: mod.RotuladoPage })),
+);
+const RotuladoEditPage = lazy(() =>
+  import("./features/rotulado/components/pages/RotuladoEditPage").then((mod) => ({ default: mod.RotuladoEditPage })),
 );
 
 // 1. Personal
@@ -64,6 +76,27 @@ const LoteCreatePage = lazy(() =>
 const LoteDetallePage = lazy(() =>
   import("./features/lotes/components/pages/LoteDetallePage").then((mod) => ({ default: mod.LoteDetallePage })),
 );
+// Salidas de producto
+const SalidasPage = lazy(() =>
+  import("./features/salidas/components/pages/SalidasPage").then((mod) => ({ default: mod.SalidasPage })),
+);
+const SalidaDetallePage = lazy(() =>
+  import("./features/salidas/components/pages/SalidaDetallePage").then((mod) => ({ default: mod.SalidaDetallePage })),
+);
+// Historia 20: reclamos de clientes sobre entregas ya realizadas
+const ReclamosPage = lazy(() =>
+  import("./features/reclamos/components/pages/ReclamosPage").then((mod) => ({ default: mod.ReclamosPage })),
+);
+const ReclamoDetallePage = lazy(() =>
+  import("./features/reclamos/components/pages/ReclamoDetallePage").then((mod) => ({ default: mod.ReclamoDetallePage })),
+);
+// Historia 21: retiros de lote del mercado
+const RetirosPage = lazy(() =>
+  import("./features/retiros/components/pages/RetirosPage").then((mod) => ({ default: mod.RetirosPage })),
+);
+const RetiroDetallePage = lazy(() =>
+  import("./features/retiros/components/pages/RetiroDetallePage").then((mod) => ({ default: mod.RetiroDetallePage })),
+);
 
 // Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
 const ProductoPage = lazy(() =>
@@ -98,6 +131,10 @@ const LoteInsumoCreatePage = lazy(() =>
 );
 const TrazabilidadLoteInsumoPage = lazy(() =>
   import("./features/trazabilidad/components/pages/TrazabilidadLoteInsumoPage").then((mod) => ({ default: mod.TrazabilidadLoteInsumoPage })),
+);
+
+const RecetaComposicionPage = lazy(() =>
+  import("./features/recetas/components/pages/RecetaComposicionPage").then((mod) => ({ default: mod.RecetaComposicionPage })),
 );
 
 // 3. Equipos
@@ -210,6 +247,33 @@ const ProveedorCreatePage = lazy(() =>
 );
 const ProveedorEditPage = lazy(() =>
   import("./features/proveedores/components/pages/ProveedorEditPage").then((mod) => ({ default: mod.ProveedorEditPage })),
+);
+
+// Clientes
+const ClientesPage = lazy(() =>
+  import("./features/clientes/components/pages/ClientesPage").then((mod) => ({ default: mod.ClientesPage })),
+);
+// Transportistas
+const TransportistasPage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistasPage").then((mod) => ({ default: mod.TransportistasPage })),
+);
+const TransportistaCreatePage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistaCreatePage").then((mod) => ({ default: mod.TransportistaCreatePage })),
+);
+const TransportistaEditPage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistaEditPage").then((mod) => ({ default: mod.TransportistaEditPage })),
+);
+const TransportistaDetallePage = lazy(() =>
+  import("./features/transportistas/components/pages/TransportistaDetallePage").then((mod) => ({ default: mod.TransportistaDetallePage })),
+);
+const ClienteCreatePage = lazy(() =>
+  import("./features/clientes/components/pages/ClienteCreatePage").then((mod) => ({ default: mod.ClienteCreatePage })),
+);
+const ClienteEditPage = lazy(() =>
+  import("./features/clientes/components/pages/ClienteEditPage").then((mod) => ({ default: mod.ClienteEditPage })),
+);
+const ClienteDetailPage = lazy(() =>
+  import("./features/clientes/components/pages/ClienteDetailPage").then((mod) => ({ default: mod.ClienteDetailPage })),
 );
 
 // Notificaciones
@@ -328,50 +392,35 @@ function ConSuspense({ children }: { children: ReactNode }) {
   );
 }
 
-// Layout principal que mantiene el menú a la izquierda
+// Layout principal: barra superior (con el menú de navegación) y migas de pan arriba,
+// y el contenido de la pantalla debajo.
 function LayoutPrincipal() {
-  const { pathname } = useLocation();
   const { user } = useAuth();
-  const [menuColapsado, setMenuColapsado] = useState(true);
   const contenidoRef = useRef<HTMLDivElement>(null);
   useTablasResponsivas(contenidoRef);
 
-  // El panel es overlay: al navegar vuelve a plegarse solo.
-  const [pathnamePrevio, setPathnamePrevio] = useState(pathname);
-  if (pathname !== pathnamePrevio) {
-    setPathnamePrevio(pathname);
-    setMenuColapsado(true);
-  }
-
-  // Esc pliega el menú.
-  useEffect(() => {
-    if (menuColapsado) return;
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuColapsado(true);
-    };
-    window.addEventListener("keydown", alTeclear);
-    return () => window.removeEventListener("keydown", alTeclear);
-  }, [menuColapsado]);
-
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
-      {/* Overlay: no ocupa lugar en el flex (ver Navbar). */}
-      <Navbar colapsado={menuColapsado} onAlternarMenu={() => setMenuColapsado((prev) => !prev)} />
-
-      {/* Fondo oscuro: un clic afuera pliega el menú. Va debajo de la barra (zIndex 30). */}
-      {!menuColapsado && (
-        <Box
-          position="fixed"
-          inset={0}
-          zIndex={20}
-          bg="blackAlpha.400"
-          aria-hidden
-          onClick={() => setMenuColapsado(true)}
-        />
-      )}
-
-      <Flex flex={1} ml={ANCHO_COLAPSADO} minW={0} direction="column" overflow="hidden">
+      <Flex flex={1} minW={0} direction="column" overflow="hidden">
         <BarraSuperior />
+        {/*
+          Migas de pan debajo de la barra, en su propia franja: así no pisan las
+          opciones de la barra. Son el texto más chico de los tres niveles.
+          En celular se ocultan (no entran y el título de la página ya dice
+          dónde se está).
+        */}
+        <Box
+          display={{ base: "none", md: "block" }}
+          flexShrink={0}
+          px="30px"
+          py="2"
+          bg="white"
+          borderBottomWidth="1px"
+          borderColor="border.subtle"
+          overflowX="auto"
+        >
+          <Breadcrumbs />
+        </Box>
         {/* Banner: recordar al usuario que debe cambiar su contraseña temporal */}
         {user?.debe_cambiar_password && (
           <Box
@@ -461,6 +510,18 @@ export const router = createBrowserRouter([
             ),
           },
 
+          // Panel de una categoría. No va bajo `RequireRole`: hay categorías
+          // que ve quien opera y otras solo quien administra, y eso lo
+          // resuelve la propia página con los mismos datos que el menú.
+          {
+            path: "/resumen/:categoria",
+            element: (
+              <ConSuspense>
+                <PanelCategoriaPage />
+              </ConSuspense>
+            ),
+          },
+
           // Mi perfil: la ficha de la persona logueada. No va bajo
           // `RequireRole`: los datos salen de /auth/me y le sirven a todos
           // los roles, operadores incluidos.
@@ -513,6 +574,13 @@ export const router = createBrowserRouter([
                 path: "/recetas/:id/escalar",
                 element: <RedirigirConId a={(id) => `/lotes/nuevo?receta=${id}`} />,
               },
+              // Sin página propia: las versiones se ven en el detalle de cada
+              // receta. Se redirige para que no caiga en /recetas/:id con
+              // id "versiones".
+              {
+                path: "/recetas/versiones",
+                element: <Navigate to="/recetas" replace />,
+              },
               {
                 path: "/lotes/nuevo",
                 element: (
@@ -534,6 +602,54 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <LoteDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/salidas",
+                element: (
+                  <ConSuspense>
+                    <SalidasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/salidas/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <SalidaDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reclamos",
+                element: (
+                  <ConSuspense>
+                    <ReclamosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reclamos/:id",
+                element: (
+                  <ConSuspense>
+                    <ReclamoDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/retiros",
+                element: (
+                  <ConSuspense>
+                    <RetirosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/retiros/:id",
+                element: (
+                  <ConSuspense>
+                    <RetiroDetallePage />
                   </ConSuspense>
                 ),
               },
@@ -856,6 +972,31 @@ export const router = createBrowserRouter([
                   </ConSuspense>
                 ),
               },
+              // E13: Rotulado de productos (Capítulo V del CAA)
+              {
+                path: "/rotulado",
+                element: (
+                  <ConSuspense>
+                    <RotuladoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/rotulado/nuevo/:producto_id",
+                element: (
+                  <ConSuspense>
+                    <RotuladoEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/rotulado/borradores/:id",
+                element: (
+                  <ConSuspense>
+                    <RotuladoEditPage />
+                  </ConSuspense>
+                ),
+              },
               {
                 path: "/productos/:id/rotulado-frontal",
                 element: (
@@ -901,6 +1042,26 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <RecetaNuevaVersionPage />
+                  </ConSuspense>
+                ),
+              },
+              // E10: la composición cuelga de su receta, así las migas quedan
+              // "Recetas > Detalle > Composición" como el resto del detalle.
+              {
+                path: "/recetas/:id/versiones/:versionId/composicion",
+                element: (
+                  <ConSuspense>
+                    <RecetaComposicionPage />
+                  </ConSuspense>
+                ),
+              },
+              // URL anterior (sin la receta): la página la reemplaza por la nueva
+              // apenas sabe a qué receta pertenece la versión.
+              {
+                path: "/recetas/versiones/:versionId/composicion",
+                element: (
+                  <ConSuspense>
+                    <RecetaComposicionPage />
                   </ConSuspense>
                 ),
               },
@@ -1060,6 +1221,74 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <ProveedorEditPage />
+                  </ConSuspense>
+                ),
+              },
+
+              // ---------------- CLIENTES ----------------
+              {
+                path: "/clientes",
+                element: (
+                  <ConSuspense>
+                    <ClientesPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/clientes/nuevo",
+                element: (
+                  <ConSuspense>
+                    <ClienteCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/clientes/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <ClienteEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/clientes/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <ClienteDetailPage />
+                  </ConSuspense>
+                ),
+              },
+
+              // ---------------- TRANSPORTISTAS ----------------
+              {
+                path: "/transportistas",
+                element: (
+                  <ConSuspense>
+                    <TransportistasPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/transportistas/nuevo",
+                element: (
+                  <ConSuspense>
+                    <TransportistaCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/transportistas/:id/editar",
+                element: (
+                  <ConSuspense>
+                    <TransportistaEditPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/transportistas/:id/detalle",
+                element: (
+                  <ConSuspense>
+                    <TransportistaDetallePage />
                   </ConSuspense>
                 ),
               },

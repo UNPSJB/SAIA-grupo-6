@@ -28,6 +28,7 @@ export interface VersionResumen {
   porcion_descripcion: string | null;
   porcion_cantidad: string | null;
   porcion_unidad_medida: UnidadResumen | null;
+  vida_util_dias: number | null;
   creado_en: string;
   creado_por_id: number | null;
   creado_por_nombre: string | null;
@@ -76,6 +77,7 @@ export interface VersionInput {
   porcion_descripcion: string | null;
   porcion_cantidad: string | null;
   porcion_unidad_medida_id: number | null;
+  vida_util_dias?: number | null;
   insumos: {
     insumo_id: number;
     cantidad: string;
@@ -117,6 +119,7 @@ export interface VersionFormState {
   porcion_descripcion: string;
   porcion_cantidad: string;
   porcion_unidad_medida_id: number;
+  vida_util_dias: string;
   insumos: FilaInsumoForm[];
   tareas: FilaTareaForm[];
 }
@@ -164,5 +167,36 @@ export interface RecetaEscalada {
   insumos: InsumoEscalado[];
   tareas: TareaEscalada[];
 }
+
+export interface ComposicionItem {
+  insumo: InsumoResumen;
+  unidad_medida: UnidadResumen;
+  cantidad: string;
+  gramos: string;
+  porcentaje: string;
+}
+
+export interface ComposicionFaltante {
+  insumo: InsumoResumen;
+  clasificacion: Clasificacion;
+  motivo: string;
+}
+
+export interface Composicion {
+  version_id: number;
+  version_numero: number;
+  receta_id: number;
+  producto_nombre: string;
+  completa: boolean;
+  total_gramos: string | null;
+  ingredientes: ComposicionItem[];
+  aditivos: ComposicionItem[];
+  suma_porcentajes: string | null;
+  suma_correcta: boolean | null;
+  faltantes: ComposicionFaltante[];
+}
+
+
+
 
 export type ModoEscalado = "cantidad" | "factor";

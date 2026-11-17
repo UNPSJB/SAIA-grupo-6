@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { LuBookOpen, LuInfo, LuTriangleAlert } from "react-icons/lu";
+import { LuBookOpen, LuHistory, LuInfo, LuTriangleAlert } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BannerError,
@@ -17,7 +17,11 @@ import {
 import { toaster } from "../../../../components/ui/toaster";
 import { formatoCantidad, cantidadConUnidad } from "../../../../common/utils/numeros";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
-import { evaluarRotulado, guardarRotulado } from "../../services/rotuladoFrontalService";
+import {
+  evaluarRotulado,
+  guardarRotulado,
+  listarEvaluaciones,
+} from "../../services/rotuladoFrontalService";
 import {
   CANALES_COMERCIALIZACION,
   ETIQUETA_ESTADO,
@@ -26,6 +30,7 @@ import {
   type ClaveMarca,
   type EstadoRotulado,
   type EvaluacionRotulado,
+  type EvaluacionRotuladoGuardada,
   type MarcaRotulado,
 } from "../../types/rotuladoFrontal";
 
@@ -76,6 +81,150 @@ function valorConUnidad(valor: string | null, unidad: string): string {
   return unidad ? `${texto} ${unidad}` : texto;
 }
 
+function DetalleEvaluacionGuardada({
+  evaluacion,
+  onCerrar,
+}: {
+  evaluacion: EvaluacionRotuladoGuardada;
+  onCerrar: () => void;
+}) {
+  const sellos = evaluacion.instantanea.sellos;
+  return (
+    <Box
+      mt="4"
+      p="4"
+      borderWidth="1px"
+      borderColor="border.subtle"
+      rounded="md"
+      bg="bg.subtle"
+    >
+      <HStack justify="space-between" align="flex-start" gap="3" flexWrap="wrap">
+        <Box>
+          <Text fontWeight="semibold">
+            Evaluación del {formatoFechaHora(evaluacion.evaluado_en)}
+          </Text>
+          <Text fontSize="sm" color="fg.muted">
+            {evaluacion.producto_nombre} · Regla v{evaluacion.regla_version} ·{" "}
+            {evaluacion.norma_origen}
+          </Text>
+        </Box>
+        <Button size="xs" variant="ghost" onClick={onCerrar}>
+          Cerrar
+        </Button>
+      </HStack>
+
+      <HStack gap="2" mt="4" flexWrap="wrap">
+        <EtiquetaEstado tono={TONO_ESTADO[evaluacion.estado]}>
+          {ETIQUETA_ESTADO[evaluacion.estado]}
+        </EtiquetaEstado>
+        {sellos?.excesos.map((exceso) => (
+          <Badge key={exceso} colorPalette="red" variant="subtle" size="sm">
+            {exceso}
+          </Badge>
+        ))}
+      </HStack>
+
+      <Text mt="3" fontSize="sm">
+        {evaluacion.mensaje}
+      </Text>
+
+      <Box
+        mt="4"
+        display="grid"
+        gridTemplateColumns={{ base: "1fr", md: "repeat(3, minmax(0, 1fr))" }}
+        gap="4"
+      >
+        <DatoDetalle etiqueta="Norma de origen">
+          {evaluacion.norma_origen}
+        </DatoDetalle>
+        <DatoDetalle etiqueta="Vigencia desde">
+          {formatoFecha(evaluacion.instantanea.parametros.vigencia_desde)}
+        </DatoDetalle>
+        <DatoDetalle etiqueta="Receta">
+          {evaluacion.instantanea.version_receta_numero
+            ? `Versión ${evaluacion.instantanea.version_receta_numero}`
+            : "Sin versión de receta"}
+        </DatoDetalle>
+      </Box>
+
+      <Text fontSize="sm" fontWeight="medium" mt="5" mb="2">
+        Marcas registradas
+      </Text>
+      <HStack gap="2" flexWrap="wrap">
+        {evaluacion.instantanea.marcas.map((marca) => (
+          <Badge key={marca.clave} variant="subtle" colorPalette="gray" size="sm">
+            {marca.nombre}: {marca.valor === null ? "sin dato" : marca.valor ? "sí" : "no"}
+          </Badge>
+        ))}
+      </HStack>
+
+      <Text fontSize="sm" fontWeight="medium" mt="5" mb="2">
+        Sellos calculados
+      </Text>
+      {!sellos ? (
+        <Text fontSize="sm" color="fg.muted">
+          Esta evaluación no guardó el cálculo de sellos.
+        </Text>
+      ) : !sellos.evaluado ? (
+        <Text fontSize="sm" color="fg.muted">
+          {sellos.motivo ?? "No se calcularon sellos para esta evaluación."}
+        </Text>
+      ) : (
+        <Box overflowX="auto" borderTopWidth="1px" borderColor="border.subtle">
+          <Table.Root size="sm" minW="760px">
+            <Table.Header>
+              <FilaEncabezado>
+                <EncabezadoOscuro>Sello</EncabezadoOscuro>
+                <EncabezadoOscuro>Cálculo</EncabezadoOscuro>
+                <EncabezadoOscuro>Umbral</EncabezadoOscuro>
+                <EncabezadoOscuro center>Resultado</EncabezadoOscuro>
+              </FilaEncabezado>
+            </Table.Header>
+            <Table.Body>
+              {sellos.resultados.map((resultado) => (
+                <Table.Row
+                  key={resultado.clave}
+                  borderBottomWidth="1px"
+                  borderColor="border.subtle"
+                >
+                  <Celda py="2" px="3">{resultado.etiqueta}</Celda>
+                  <Celda py="2" px="3">
+                    {resultado.evaluado ? (
+                      <Text fontSize="xs">{resultado.formula}</Text>
+                    ) : (
+                      <Text fontSize="xs" color="fg.muted">
+                        {resultado.motivo}
+                      </Text>
+                    )}
+                  </Celda>
+                  <Celda py="2" px="3">
+                    {valorConUnidad(resultado.umbral, resultado.unidad_umbral)}
+                  </Celda>
+                  <Celda py="2" px="3" center>
+                    {resultado.exceso === null ? (
+                      <Badge colorPalette="gray" variant="subtle" size="sm">
+                        Sin evaluar
+                      </Badge>
+                    ) : resultado.exceso ? (
+                      <Badge colorPalette="red" variant="solid" size="sm">
+                        Exceso
+                      </Badge>
+                    ) : (
+                      <Badge colorPalette="green" variant="subtle" size="sm">
+                        No supera
+                      </Badge>
+                    )}
+                  </Celda>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export function RotuladoFrontalProductoPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -94,6 +243,11 @@ export function RotuladoFrontalProductoPage() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historial, setHistorial] = useState<EvaluacionRotuladoGuardada[]>([]);
+  const [cargandoHistorial, setCargandoHistorial] = useState(true);
+  const [historialError, setHistorialError] = useState<string | null>(null);
+  const [seleccionada, setSeleccionada] =
+    useState<EvaluacionRotuladoGuardada | null>(null);
 
   const inicializar = (datos: EvaluacionRotulado) => {
     setEvaluacion(datos);
@@ -116,6 +270,24 @@ export function RotuladoFrontalProductoPage() {
     });
   };
 
+  const cargarHistorial = async () => {
+    setCargandoHistorial(true);
+    try {
+      const datos = await listarEvaluaciones(productoId);
+      setHistorial(datos);
+      setHistorialError(null);
+      setSeleccionada((actual) =>
+        actual ? datos.find((item) => item.id === actual.id) ?? null : null,
+      );
+    } catch (e) {
+      setHistorialError(
+        e instanceof Error ? e.message : "No se pudo cargar el historial.",
+      );
+    } finally {
+      setCargandoHistorial(false);
+    }
+  };
+
   useEffect(() => {
     let vigente = true;
     evaluarRotulado(productoId)
@@ -127,6 +299,10 @@ export function RotuladoFrontalProductoPage() {
     return () => {
       vigente = false;
     };
+  }, [productoId]);
+
+  useEffect(() => {
+    void cargarHistorial();
   }, [productoId]);
 
   const guardar = async (event: { preventDefault(): void }) => {
@@ -145,6 +321,7 @@ export function RotuladoFrontalProductoPage() {
         categoria_rotulado: categoriaRotulado || null,
       });
       inicializar(datos);
+      await cargarHistorial();
       toaster.create({ type: "success", title: "Rotulado frontal evaluado." });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la evaluación.");
@@ -631,6 +808,114 @@ export function RotuladoFrontalProductoPage() {
                 {evaluacion.sellos.norma_origen}
               </Text>
             </Stack>
+          )}
+        </SeccionDetalle>
+      )}
+
+      {evaluacion && (
+        <SeccionDetalle
+          titulo="Historial de evaluaciones"
+          descripcion="Cada evaluación guarda una foto de la regla, la receta y los sellos calculados. Podés reconstruir un resultado anterior aunque después cambie la norma."
+          mt="6"
+          mb="0"
+        >
+          {cargandoHistorial ? (
+            <EstadoCargando>Cargando historial...</EstadoCargando>
+          ) : historialError ? (
+            <BannerError>{historialError}</BannerError>
+          ) : historial.length === 0 ? (
+            <HStack gap="2" color="fg.muted" fontSize="sm">
+              <LuHistory aria-hidden />
+              <Text>Todavía no hay evaluaciones guardadas para este producto.</Text>
+            </HStack>
+          ) : (
+            <>
+              <Box
+                overflowX="auto"
+                mx={{ base: "-4", md: "-5" }}
+                borderTopWidth="1px"
+                borderColor="border.subtle"
+              >
+                <Table.Root size="sm" minW="860px">
+                  <Table.Header>
+                    <FilaEncabezado>
+                      <EncabezadoOscuro>Fecha y hora</EncabezadoOscuro>
+                      <EncabezadoOscuro>Estado</EncabezadoOscuro>
+                      <EncabezadoOscuro ancho="angosta">Regla</EncabezadoOscuro>
+                      <EncabezadoOscuro>Norma</EncabezadoOscuro>
+                      <EncabezadoOscuro>Excesos</EncabezadoOscuro>
+                      <EncabezadoOscuro center ancho="media">Detalle</EncabezadoOscuro>
+                    </FilaEncabezado>
+                  </Table.Header>
+                  <Table.Body>
+                    {historial.map((item) => {
+                      const sellos = item.instantanea.sellos;
+                      return (
+                        <Table.Row
+                          key={item.id}
+                          borderBottomWidth="1px"
+                          borderColor="border.subtle"
+                        >
+                          <Celda py="3" px="4">
+                            {formatoFechaHora(item.evaluado_en)}
+                          </Celda>
+                          <Celda py="3" px="4">
+                            <EtiquetaEstado tono={TONO_ESTADO[item.estado]}>
+                              {ETIQUETA_ESTADO[item.estado]}
+                            </EtiquetaEstado>
+                          </Celda>
+                          <Celda py="3" px="4">v{item.regla_version}</Celda>
+                          <Celda py="3" px="4">
+                            <Text fontSize="sm">{item.norma_origen}</Text>
+                            <Text fontSize="xs" color="fg.muted">
+                              Vigencia desde{" "}
+                              {formatoFecha(
+                                item.instantanea.parametros.vigencia_desde,
+                              )}
+                            </Text>
+                          </Celda>
+                          <Celda py="3" px="4">
+                            {!sellos ? (
+                              <Text fontSize="sm" color="fg.muted">Sin sellos</Text>
+                            ) : sellos.excesos.length === 0 ? (
+                              <Text fontSize="sm" color="fg.muted">Sin excesos</Text>
+                            ) : (
+                              <HStack gap="1" flexWrap="wrap">
+                                {sellos.excesos.map((exceso) => (
+                                  <Badge
+                                    key={exceso}
+                                    colorPalette="red"
+                                    variant="subtle"
+                                    size="sm"
+                                  >
+                                    {exceso}
+                                  </Badge>
+                                ))}
+                              </HStack>
+                            )}
+                          </Celda>
+                          <Celda py="3" px="4" center>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              onClick={() => setSeleccionada(item)}
+                            >
+                              Ver snapshot
+                            </Button>
+                          </Celda>
+                        </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
+                </Table.Root>
+              </Box>
+              {seleccionada && (
+                <DetalleEvaluacionGuardada
+                  evaluacion={seleccionada}
+                  onCerrar={() => setSeleccionada(null)}
+                />
+              )}
+            </>
           )}
         </SeccionDetalle>
       )}

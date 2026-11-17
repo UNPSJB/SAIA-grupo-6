@@ -34,7 +34,7 @@ EstadoVencimiento = Literal["VENCIDO", "PROXIMO", "VIGENTE"]
 
 @router.get("", response_model=List[schemas.VencimientoConsolidadoResponse])
 def listar_vencimientos(
-    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO", "DOCUMENTO"]] = Query(None),
+    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO", "DOCUMENTO", "LOTE"]] = Query(None),
     db: Session = Depends(get_db),
 ):
     return services.listar_vencimientos(db, tipo)
@@ -52,7 +52,7 @@ def listar_opciones_vencimientos(db: Session = Depends(get_db)):
     response_model=schemas.VencimientoPagina,
 )
 def listar_vencimientos_paginado(
-    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO", "DOCUMENTO"]] = Query(None),
+    tipo: Optional[Literal["PERSONAL", "CALIBRACION", "MANTENIMIENTO", "DOCUMENTO", "LOTE"]] = Query(None),
     persona_id: Optional[int] = Query(None, description="Solo vencimientos de esa persona."),
     aptitud: Optional[str] = Query(None, description="Solo la aptitud (detalle) indicada."),
     estado: Optional[EstadoVencimiento] = Query(

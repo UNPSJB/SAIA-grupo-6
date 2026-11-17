@@ -58,3 +58,12 @@ export function formatoFactor(valor: string | number | null | undefined): string
   const numero = aNumero(valor);
   return numero === null ? "-" : `×${formatoCantidad(numero)}`;
 }
+
+export function formatoPorcentajeFino(valor: string | number | null | undefined): string {
+  const numero = aNumero(valor);                 // 1. pasa el texto "83.33" a número
+  if (numero === null) return "-";               // 2. si no hay valor, muestra "-"
+  return `${numero.toLocaleString(LOCALE, {      // 3. formato es-AR:
+    minimumFractionDigits: 2,                    //    mínimo 2 decimales
+    maximumFractionDigits: 2,                    //    máximo 2 decimales
+  })}%`;                                         // 4. le agrega el signo %
+}

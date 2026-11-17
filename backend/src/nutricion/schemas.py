@@ -92,6 +92,9 @@ class ResultadoImportacion(BaseModel):
     creados: int
     actualizados: int
     errores: list[str]
+    # Lo que conviene saber aunque no sea un error: nutrientes que el archivo
+    # no trae, filas que no son alimentos (SARA 1).
+    avisos: list[str] = []
 
 
 # ── Datos nutricionales del insumo ─────────────────────────────────────────
@@ -111,8 +114,9 @@ class ValorIn(BaseModel):
 
 
 class DatosNutricionalesIn(BaseModel):
-    peso_unidad_g: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=4)
-    densidad_g_ml: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=4)
+    # Se guardan en el insumo (`peso_unitario_g` / `densidad_g_ml`, NUMERIC(10,4)).
+    peso_unidad_g: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=4)
+    densidad_g_ml: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=4)
     aporta_energia_sodio: bool = False
     azucares_son_anadidos: bool = False
     grasas_son_anadidas: bool = False

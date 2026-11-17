@@ -35,7 +35,7 @@ from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
 from src.aditivos.models import Aditivo, ClaseFuncional  # noqa: F401
 from src.insumos.models import Insumo  # noqa: F401
-from src.proveedores.models import Proveedor  # noqa: F401
+from src.proveedores.models import Proveedor, CertificacionProveedor  # noqa: F401
 from src.productos.models import Producto  # noqa: F401
 from src.recetas.models import (  # noqa: F401
     Receta,
@@ -66,6 +66,12 @@ from src.elementoLimpieza.models import ElementoLimpieza  # noqa: F401
 from src.PlanLimpieza.models import PlanLimpieza  # noqa: F401
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento  # noqa: F401
 from src.tareas.models import Tarea  # noqa: F401
+from src.clientes.models import Cliente  # noqa: F401
+from src.transportistas.models import Transportista  # noqa: F401
+from src.certificaciones_transportista.models import CertificacionTransportista  # noqa: F401
+from src.salidas.models import HitoLote, Salida, SalidaCertificacion  # noqa: F401
+from src.reclamos.models import Reclamo  # noqa: F401
+from src.retiros.models import Retiro, RetiroAfectado  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
@@ -73,6 +79,7 @@ from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 from src.vistaPublica.models import ConfiguracionVistaPublica, IndicadorVistaPublica  # noqa: F401
 from src.notificaciones.models import NotificacionPersistida  # noqa: F401
 from src.notificaciones.invalidacion import EstadoNotificaciones  # noqa: F401
+from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: F401
 
 # Bitácora de auditoría: va al final a propósito. Los listeners se registran
 # sobre `ModeloBase` con `propagate=True` y el modelo ya tiene que estar
@@ -93,9 +100,18 @@ __all__ = [
     "AuditLog",
     "Calibracion",
     "Checklist",
+    "Cliente",
+    "Transportista",
+    "CertificacionTransportista",
     "ConfiguracionVistaPublica",
     "Documento",
     "ElementoLimpieza",
+    "HitoLote",
+    "Salida",
+    "SalidaCertificacion",
+    "Reclamo",
+    "Retiro",
+    "RetiroAfectado",
     "Sector",
     "Equipo",
     "HistorialRegistroTarea",
@@ -124,6 +140,7 @@ __all__ = [
     "PlanCalibracionMantenimiento",
     "PlanLimpieza",
     "Proveedor",
+    "CertificacionProveedor",
     "RegistroTarea",
     "Tarea",
     "TokenRevocado",
@@ -132,4 +149,6 @@ __all__ = [
     "VersionDocumento",
     "NotificacionPersistida",
     "EstadoNotificaciones",
+    "BorradorRotulado",
+    "CampoRotuladoEditado",
 ]

@@ -17,7 +17,8 @@ combinados al azar: `fake.word()` devolvería cosas como "Cocina warned" y la
 base quedaría inservible para probar la aplicación.
 
 También carga la trazabilidad de producción (materias primas, productos con
-recetas versionadas, lotes de insumo por proveedor y lotes de producción con
+recetas versionadas, unidades con su tipo y factor e insumos con densidad o
+peso unitario para la composición porcentual, lotes de insumo por proveedor y lotes de producción con
 checklist, consumos reales y desperdicios en los tres estados), la
 información nutricional (E11: datos por 100 g de cada materia prima con su
 fuente, porción y medida casera de cada producto y un análisis de
@@ -77,6 +78,7 @@ from src.sector.models import Sector  # noqa: E402
 from src.Equipo.models import Equipo, Calibracion  # noqa: E402
 from src.aptitud.models import Aptitud  # noqa: E402
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
+from src.unidadMedida.constants import equivalencia_conocida  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
 from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo  # noqa: E402
 from src.aditivos.models import Aditivo  # noqa: E402
@@ -451,6 +453,25 @@ SIMBOLOS_ALTERNATIVOS = {
 # Trazabilidad de producción
 # ------------------------------------------------------------
 
+# Insumos generales (descartables y limpieza): (nombre base, clave de unidad,
+# conversión a gramos). Cada uno con una unidad que tenga sentido y el dato que
+# esa unidad exige: peso unitario (g) si se cuenta por unidad, densidad (g/ml)
+# si se mide en volumen. Valores aproximados.
+INSUMOS_GENERALES = [
+    ("Bolsa de consorcio", "unidad", {"peso_unitario_g": "35"}),
+    ("Bolsa negra", "unidad", {"peso_unitario_g": "20"}),
+    ("Papel film", "unidad", {"peso_unitario_g": "450"}),
+    ("Papel manteca", "unidad", {"peso_unitario_g": "300"}),
+    ("Rollo de cocina", "unidad", {"peso_unitario_g": "250"}),
+    ("Guantes descartables", "unidad", {"peso_unitario_g": "5"}),
+    ("Servilletas de papel", "unidad", {"peso_unitario_g": "2"}),
+    ("Alcohol en gel", "mililitro", {"densidad_g_ml": "0.88"}),
+    ("Limpia pisos neutro", "litro", {"densidad_g_ml": "1.01"}),
+    ("Desinfectante de pisos", "litro", {"densidad_g_ml": "1.02"}),
+    ("Quitamanchas de ropa de trabajo", "mililitro", {"densidad_g_ml": "1.05"}),
+    ("Aromatizador de ambientes", "mililitro", {"densidad_g_ml": "0.95"}),
+]
+
 # Materias primas alimentarias (insumos de tipo "insumo"): (nombre, clave de unidad).
 # Las de limpieza de `crear_insumos` no sirven para una receta.
 VOCAB_INGREDIENTES = [
@@ -515,7 +536,8 @@ PORCION_POR_PRODUCTO = {
 #   fuente        rótulo del proveedor o bibliografía, con su detalle
 #   corregir      {nutriente: valor} cambiado a mano respecto de la fuente
 #                 (queda "Modificado" con quién lo hizo)
-#   densidad / peso_unidad / anadidos / aporta   ver PerfilNutricionalInsumo
+#   densidad / peso_unidad   se guardan en el Insumo (ver `_conversion_ingrediente`)
+#   anadidos / aporta        ver PerfilNutricionalInsumo
 #
 # Quedan incompletos a propósito el orégano (sin datos) y el coco rallado
 # (sin fibra): la salsa de tomate y los alfajores muestran la advertencia.
@@ -951,7 +973,7 @@ def crear_unidades(db, vistos: dict) -> dict:
     for nombre, simbolo in UNIDADES:
         if nombre in vistos["unidad"]:
             continue
-        db.add(UnidadMedida(nombre=nombre, simbolo=simbolo))
+        db.add(UnidadMedida(nombre=nombre, simbolo=simbolo, **(equivalencia_conocida(nombre, simbolo) or {})))
         vistos["unidad"].add(nombre)
     db.flush()
     return {u.nombre: u for u in db.query(UnidadMedida).all()}
@@ -1168,22 +1190,22 @@ def crear_elementos(db, cantidad: int, vistos: dict) -> list:
 
 def crear_insumos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} insumos generales...")
-    base_nombres = [
-        "Bolsa de consorcio", "Bolsa negra", "Papel film", "Papel manteca",
-        "Rollo de cocina", "Guantes descartables", "Servilletas de papel",
-        "Alcohol en gel", "Limpia pisos neutro", "Desinfectante de pisos",
-        "Quitamanchas de ropa de trabajo", "Aromatizador de ambientes",
-    ]
     insumos = []
     for _ in range(cantidad):
-        base = random.choice(base_nombres)
+        base, clave_unidad, conversion = random.choice(INSUMOS_GENERALES)
         nombre = unico(
             lambda: recortar(f"{base} {random.choice('ABC')}", 100),
             vistos["insumo"],
             largo=100,
         )
-        unidad = unidades[random.choice(["unidad", "litro", "mililitro"])]
-        insumos.append(Insumo(nombre=nombre, unidad_medida_id=unidad.id, activo=not bernoulli(0.06)))
+        insumos.append(
+            Insumo(
+                nombre=nombre,
+                unidad_medida_id=unidades[clave_unidad].id,
+                activo=not bernoulli(0.06),
+                **{campo: Decimal(valor) for campo, valor in conversion.items()},
+            )
+        )
     db.add_all(insumos)
     db.flush()
     return insumos
@@ -1848,6 +1870,22 @@ def _momento(dias_atras: int, hora_min: int = 6, hora_max: int = 18) -> datetime
     return base + timedelta(hours=random.randint(hora_min, hora_max), minutes=random.randint(0, 59))
 
 
+def _conversion_ingrediente(nombre: str) -> dict:
+    """Densidad (g/ml) y peso unitario (g) del insumo, para llevarlo a gramos.
+
+    El servicio de insumos las exige según el tipo de unidad (volumen -> densidad,
+    unidad -> peso) y las usan la composición porcentual y la tabla nutricional.
+    Los valores están en `NUTRICION_INGREDIENTES`.
+    """
+    datos = NUTRICION_INGREDIENTES.get(nombre, {})
+    conversion = {}
+    if "densidad" in datos:
+        conversion["densidad_g_ml"] = Decimal(datos["densidad"])
+    if "peso_unidad" in datos:
+        conversion["peso_unitario_g"] = Decimal(datos["peso_unidad"])
+    return conversion
+
+
 def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
     """Materias primas alimentarias que usan las recetas.
 
@@ -1863,7 +1901,14 @@ def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
     }
     aditivos = {a.nombre: a for a in db.scalars(select(Aditivo)).all()}
     for nombre, clave_unidad in VOCAB_INGREDIENTES:
+        conversion = _conversion_ingrediente(nombre)
         if nombre in existentes:
+            # `--agregar` sobre una base cargada antes de la composición
+            # porcentual: se completa lo que falte, sin pisar lo cargado.
+            insumo = existentes[nombre]
+            for campo, valor in conversion.items():
+                if getattr(insumo, campo) is None:
+                    setattr(insumo, campo, valor)
             continue
         referencia = aditivos.get(ADITIVO_DE_INGREDIENTE.get(nombre, ""))
         insumo = Insumo(
@@ -1872,6 +1917,7 @@ def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
             # Sin la referencia cargada (base sin migrar) queda como ingrediente.
             tipo=TIPO_ADITIVO if referencia else TIPO_INGREDIENTE,
             aditivo=referencia,
+            **conversion,
         )
         db.add(insumo)
         existentes[nombre] = insumo
@@ -1991,9 +2037,9 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
         cargado_en = _momento(random.randint(20, 120))
         if insumo.id not in con_perfil:
             db.add(PerfilNutricionalInsumo(
+                # La densidad y el peso por unidad van en el insumo
+                # (`_conversion_ingrediente`), no en el perfil.
                 insumo_id=insumo.id,
-                densidad_g_ml=Decimal(datos["densidad"]) if "densidad" in datos else None,
-                peso_unidad_g=Decimal(datos["peso_unidad"]) if "peso_unidad" in datos else None,
                 aporta_energia_sodio=bool(datos.get("aporta")),
                 azucares_son_anadidos=bool(datos.get("anadidos")),
                 grasas_son_anadidas=bool(datos.get("grasas")),

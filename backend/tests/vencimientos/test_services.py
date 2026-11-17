@@ -1,6 +1,7 @@
 """Tests unitarios de services del módulo `vencimientos` (consulta consolidada)."""
 
 from datetime import date
+from decimal import Decimal
 
 from src.aptitud.models import Aptitud
 from src.notificaciones.services import obtener_dias_alerta_vencimiento_personal
@@ -156,3 +157,117 @@ def test_listar_opciones_vencimientos(db_session, monkeypatch):
     assert len(opciones.personas) == 1
     assert opciones.personas[0].nombre == "Juan Perez"
     assert aptitud.nombre in opciones.aptitudes
+
+
+# ---------------------------------------------------------------------------
+# Lotes de producción en el consolidado de vencimientos
+# ---------------------------------------------------------------------------
+
+def _lote_terminado_con_vencimiento(db, numero="LP-001", vence=None, saldo_positivo=True):
+    from src.lotes.models import LoteProducto
+    from src.productos.models import Producto
+    from src.unidadMedida.models import UnidadMedida
+    from src.salidas.models import Salida
+    from src.salidas.constants import ESTADO_ENTREGADO
+    unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg", tipo="masa")
+    producto = Producto(nombre=f"Producto {numero}", unidad_medida=unidad)
+    db.add_all([unidad, producto])
+    db.commit()
+    db.refresh(producto)
+
+    lote = LoteProducto(
+        numero_lote=numero,
+        producto=producto,
+        estado="terminado",
+        cantidad_objetivo=Decimal("100"),
+        cantidad_producida=Decimal("100"),
+        fecha_vencimiento=vence,
+    )
+    db.add(lote)
+    db.commit()
+    db.refresh(lote)
+
+    # Si no debe tener saldo, agregar una salida que consuma todo.
+    if not saldo_positivo:
+        from src.clientes.models import Cliente
+        cliente = Cliente(nombre="Cliente test", documento="12345678", telefono="11111111", email="c@test.local")
+        db.add(cliente)
+        db.commit()
+        db.refresh(cliente)
+        salida = Salida(
+            lote_id=lote.id,
+            cliente_id=cliente.id,
+            estado=ESTADO_ENTREGADO,
+            cantidad=Decimal("100"),
+            fecha_reserva=date.today(),
+            forma_entrega="RETIRA_CLIENTE",
+        )
+        db.add(salida)
+        db.commit()
+
+    return lote
+
+
+def test_listar_vencimientos_incluye_lotes_terminados(db_session, monkeypatch):
+    from src.common.fechas import hoy
+    _mock_hoy_y_margen(monkeypatch, date(2025, 6, 10), margen_dias=15)
+    vence = date(2025, 6, 20)  # 10 días -> PROXIMO
+    _lote_terminado_con_vencimiento(db_session, numero="LP-001", vence=vence)
+
+    resultado = listar_vencimientos(db_session, tipo="LOTE")
+
+    assert len(resultado) == 1
+    assert resultado[0].tipo == "LOTE"
+    assert resultado[0].detalle == "Lote LP-001"
+    assert resultado[0].dias_restantes == 10
+    assert resultado[0].estado == "PROXIMO"
+    assert resultado[0].link_destino == "/lotes/1"
+
+
+def test_listar_vencimientos_excluye_lotes_cancelados_y_retirados(db_session, monkeypatch):
+    from src.lotes.models import LoteProducto
+    from src.productos.models import Producto
+    from src.unidadMedida.models import UnidadMedida
+    from src.retiros.models import Retiro
+    from src.retiros.constants import ESTADO_RETIRO_CERRADO
+
+    _mock_hoy_y_margen(monkeypatch, date(2025, 6, 10), margen_dias=15)
+    unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg", tipo="masa")
+    producto = Producto(nombre="Producto retirado", unidad_medida=unidad)
+    db_session.add_all([unidad, producto])
+    db_session.commit()
+    db_session.refresh(producto)
+
+    lote = LoteProducto(
+        numero_lote="LP-RETIRADO",
+        producto=producto,
+        estado="terminado",
+        cantidad_objetivo=Decimal("100"),
+        cantidad_producida=Decimal("100"),
+        fecha_vencimiento=date(2025, 6, 20),
+        retirado=True,
+    )
+    db_session.add(lote)
+    db_session.commit()
+
+    resultado = listar_vencimientos(db_session, tipo="LOTE")
+    assert len(resultado) == 0
+
+
+def test_listar_vencimientos_excluye_lotes_sin_saldo(db_session, monkeypatch):
+    _mock_hoy_y_margen(monkeypatch, date(2025, 6, 10), margen_dias=15)
+    _lote_terminado_con_vencimiento(
+        db_session, numero="LP-SIN-SALDO", vence=date(2025, 6, 20), saldo_positivo=False
+    )
+
+    resultado = listar_vencimientos(db_session, tipo="LOTE")
+    assert len(resultado) == 0
+
+
+def test_listar_vencimientos_tipo_lote_no_aparece_otro_tipo(db_session, monkeypatch):
+    _mock_hoy_y_margen(monkeypatch, date(2025, 6, 10), margen_dias=15)
+    _lote_terminado_con_vencimiento(db_session, numero="LP-002", vence=date(2025, 6, 20))
+
+    resultado = listar_vencimientos(db_session, tipo="PERSONAL")
+    assert len(resultado) == 0
+

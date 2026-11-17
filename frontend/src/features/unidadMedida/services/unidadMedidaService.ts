@@ -18,7 +18,7 @@ export async function listarUnidadesMedida(incluirInactivos = false): Promise<Un
  * de insumos, que necesitan todas las opciones de una vez.
  */
 
-export type ColumnaOrdenUnidadMedida = "nombre" | "simbolo";
+export type ColumnaOrdenUnidadMedida = "nombre" | "simbolo" | "tipo" | "factor_a_base";
 export type OrdenUnidadMedida =
   | `${ColumnaOrdenUnidadMedida}_asc`
   | `${ColumnaOrdenUnidadMedida}_desc`;

@@ -8,7 +8,12 @@ from src.common.archivos import guardar_archivo
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
 from src.incidente import schemas, services
-from src.incidente.constants import EstadoIncidente, TipoIncidente
+from src.incidente.constants import (
+    EXTENSIONES_FOTO,
+    EstadoIncidente,
+    TAMANO_MAX_FOTO,
+    TipoIncidente,
+)
 from src.personal.models import Personal
 
 
@@ -31,9 +36,8 @@ OrdenIncidente = Literal[
 
 # Formatos y tamaño máximo de la foto del incidente. Mismo criterio que las
 # evidencias del checklist: el MIME que manda el navegador no alcanza, el
-# archivo se valida acá.
-EXTENSIONES_FOTO = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-TAMANO_MAX_FOTO = 5 * 1024 * 1024  # 5 MB
+# archivo se valida acá. Se importan de `constants` para que otros flujos que
+# abren incidentes (rechazo de entrega) usen exactamente el mismo límite.
 
 
 

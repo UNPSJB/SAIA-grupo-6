@@ -25,6 +25,7 @@ def _sembrar_regla_inicial(db) -> None:
             ReglaRotuladoFrontal(
                 version=1,
                 vigente=True,
+                programada=False,
                 vigencia_desde=c.VIGENCIA_INICIAL,
                 norma_origen=c.NORMATIVA_INICIAL,
                 requiere_envasado=True,
@@ -116,6 +117,11 @@ def migrar_rotulado_frontal() -> None:
         )
 
     if "reglas_rotulado_frontal" in existentes:
+        agregar_columna(
+            "reglas_rotulado_frontal",
+            "programada",
+            "BOOLEAN NOT NULL DEFAULT 0",
+        )
         agregar_columna(
             "reglas_rotulado_frontal",
             "validar_ins_edulcorantes",

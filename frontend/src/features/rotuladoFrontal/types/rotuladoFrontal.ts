@@ -265,6 +265,7 @@ export interface ReglaRotulado {
   id: number;
   version: number;
   vigente: boolean;
+  programada: boolean;
   vigencia_desde: string;
   norma_origen: string;
   requiere_envasado: boolean;
@@ -283,7 +284,10 @@ export interface ReglaRotulado {
   creado_en: string;
 }
 
-export type ReglaRotuladoInput = Omit<ReglaRotulado, "id" | "version" | "vigente" | "creado_en">;
+export type ReglaRotuladoInput = Omit<
+  ReglaRotulado,
+  "id" | "version" | "vigente" | "programada" | "creado_en"
+>;
 
 export interface ConfiguracionRotulado {
   configurada: boolean;
@@ -444,4 +448,19 @@ export interface EvaluacionRotulado {
   evaluado_en: string;
   instantanea: InstantaneaRotulado;
   versiones_receta: HistorialVersionReceta[];
+}
+
+export interface EvaluacionRotuladoGuardada {
+  id: number;
+  producto_id: number;
+  producto_nombre: string;
+  receta_id: number | null;
+  version_receta_id: number | null;
+  regla_id: number;
+  regla_version: number;
+  norma_origen: string;
+  estado: EstadoRotulado;
+  mensaje: string;
+  evaluado_en: string;
+  instantanea: InstantaneaRotulado;
 }

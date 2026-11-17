@@ -65,6 +65,9 @@ class IncidenteResponse(IncidenteBase):
     fecha_cierre: Optional[datetime] = None
     observacion_cierre: Optional[str] = None
     responsable_cierre_id: Optional[int] = None
+    # Vínculos opcionales con el lote / la salida que originaron el incidente.
+    lote_id: Optional[int] = None
+    salida_id: Optional[int] = None
     equipo_nombre: Optional[str] = None
     usuario_nombre: Optional[str] = None
     responsable_cierre_nombre: Optional[str] = None

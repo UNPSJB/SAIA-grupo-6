@@ -31,6 +31,10 @@ class SimboloVacio(BadRequest):
     DETAIL = ErrorCode.SIMBOLO_VACIO
 
 
+class FactorInvalido(BadRequest):
+    DETAIL = ErrorCode.FACTOR_INVALIDO
+
+
 class UnidadMedidaEnUso(HTTPException):
     def __init__(self, mensaje: str):
         super().__init__(status_code=400, detail=mensaje)

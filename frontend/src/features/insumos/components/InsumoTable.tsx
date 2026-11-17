@@ -37,7 +37,7 @@ export function InsumoTable({
 
   return (
     <Tarjeta overflowX="auto">
-      <Table.Root variant="outline" w="100%" minW="860px">
+      <Table.Root variant="outline" w="100%" minW="980px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOrdenable columna="nombre" orden={orden}>
@@ -47,6 +47,9 @@ export function InsumoTable({
             <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media">
               Unidad Medida
             </EncabezadoOrdenable>
+            <EncabezadoOscuro ancho="angosta">Densidad g/ml</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="angosta">Peso unitario g</EncabezadoOscuro>
+            <EncabezadoOscuro>Proveedores</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">
               Acciones
             </EncabezadoOscuro>

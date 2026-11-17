@@ -33,6 +33,7 @@ from src.sector.models import Sector
 from src.Equipo.models import Equipo, Calibracion
 from src.aptitud.models import Aptitud
 from src.vencimientoPersonal.models import VencimientoPersonal
+from src.unidadMedida.constants import equivalencia_conocida
 from src.unidadMedida.models import UnidadMedida
 from src.insumos.models import Insumo
 from src.insumoQuimico.models import InsumoQuimico, TipoQuimico
@@ -132,7 +133,7 @@ try:
         ("mililitro", "mL"),
     ]
     for nombre, simbolo in unidades:
-        db.add(UnidadMedida(nombre=nombre, simbolo=simbolo))
+        db.add(UnidadMedida(nombre=nombre, simbolo=simbolo, **(equivalencia_conocida(nombre, simbolo) or {})))
     db.flush()
     unidad_por_nombre = {u.nombre: u for u in db.query(UnidadMedida).all()}
     unidad_kg = unidad_por_nombre["kilogramo"]

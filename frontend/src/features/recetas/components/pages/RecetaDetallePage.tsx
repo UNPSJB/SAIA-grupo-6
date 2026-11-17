@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
-import { LuCalculator, LuHistory } from "react-icons/lu";
+import { LuCalculator, LuHistory, LuPercent } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
@@ -44,25 +44,40 @@ export function RecetaDetallePage() {
   // Mientras se cargan las versiones de otra receta, `versiones` todavía
   // tiene las de la anterior: no se ofrece el historial hasta que lleguen.
   const { versiones, loading: cargandoVersiones } = useVersiones(recetaId);
-  const [verHistorial, setVerHistorial] = useState(false);
-  const [elegida, setElegida] = useState<number | null>(null);
+
+  /*
+   * La versión elegida va en la URL (`?version=ID`): así "Volver a Receta"
+   * desde la composición, el botón atrás o un enlace compartido abren la
+   * misma versión y no la vigente. Solo se acepta si es de esta receta.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const versionUrl = Number(searchParams.get("version")) || null;
+  const versionUrlEsDeEstaReceta =
+    versionUrl !== null && !cargandoVersiones && versiones.some((v) => v.id === versionUrl);
+  const elegida = versionUrlEsDeEstaReceta ? versionUrl : null;
+  const setElegida = (id: number | null) =>
+    setSearchParams(id === null ? {} : { version: String(id) }, { replace: true });
+  const [verHistorial, setVerHistorial] = useState(versionUrl !== null);
 
   /*
    * Al pasar de una receta a otra (enlace "Receta usada" de un lote, atrás /
    * adelante del navegador) React reusa este componente: sin esto, el
-   * historial abierto y la versión elegida de la receta anterior seguían
-   * aplicándose a la nueva. Se ajusta el estado durante el render, el patrón
-   * que React documenta para "resetear al cambiar una prop".
+   * historial abierto de la receta anterior seguía abierto en la nueva. Se
+   * ajusta el estado durante el render, el patrón que React documenta para
+   * "resetear al cambiar una prop". La versión elegida no hace falta
+   * resetearla: viene en la URL de la receta nueva.
    */
   const [recetaMostrada, setRecetaMostrada] = useState(recetaId);
   if (recetaMostrada !== recetaId) {
     setRecetaMostrada(recetaId);
-    setVerHistorial(false);
-    setElegida(null);
+    setVerHistorial(versionUrl !== null);
   }
 
   const vigenteId = receta?.version_vigente?.id ?? null;
-  const versionId = elegida ?? vigenteId;
+  // Mientras se confirma que la versión de la URL es de esta receta no se pide
+  // la vigente, para no cargarla y enseguida reemplazarla.
+  const esperandoVersionUrl = versionUrl !== null && cargandoVersiones;
+  const versionId = elegida ?? (esperandoVersionUrl ? null : vigenteId);
   const { registro: version, loading: cargandoVersion, error: errorVersion } = useRegistro({
     cargar: obtenerVersion,
     id: versionId,
@@ -93,6 +108,14 @@ export function RecetaDetallePage() {
                 Escalar e iniciar lote
               </BotonCancelar>
             )}
+            {esAdmin && versionId !== null && (
+               <BotonCancelar onClick={() => navigate(`/recetas/${receta?.id}/versiones/${versionId}/composicion`)}>
+               <LuPercent aria-hidden />
+                Ver composición
+              </BotonCancelar>
+            )}
+
+
             {esAdmin && receta && (
               <BotonAgregar onClick={() => navigate(`/recetas/${receta.id}/nueva-version`)}>
                 Nueva versión
@@ -152,6 +175,7 @@ export function RecetaDetallePage() {
                       <EncabezadoOscuro ancho="angosta">Versión</EncabezadoOscuro>
                       <EncabezadoOscuro>Creada el</EncabezadoOscuro>
                       <EncabezadoOscuro numero ancho="media">Rendimiento</EncabezadoOscuro>
+                      <EncabezadoOscuro ancho="angosta">Vida útil</EncabezadoOscuro>
                       <EncabezadoOscuro center ancho="angosta">Ver</EncabezadoOscuro>
                     </FilaEncabezado>
                   </Table.Header>
@@ -164,6 +188,11 @@ export function RecetaDetallePage() {
                         </Celda>
                         <Celda>{formatoFechaHora(v.creado_en)}</Celda>
                         <Celda numero>{cantidadConUnidad(v.rendimiento, v.unidad_medida.simbolo)}</Celda>
+                        <Celda>
+                          {v.vida_util_dias !== null && v.vida_util_dias !== undefined
+                            ? `${v.vida_util_dias} días`
+                            : "Sin definir"}
+                        </Celda>
                         <Celda center>
                           <BotonAccion
                             accion="ver"

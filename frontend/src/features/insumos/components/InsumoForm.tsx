@@ -14,7 +14,12 @@ import {
   TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
-import { TIPOS_INSUMO, type InsumoFormValues, type TipoInsumo } from "../types/insumo";
+import {
+  TIPOS_INSUMO,
+  type InsumoFormValues,
+  type InsumoInput,
+  type TipoInsumo,
+} from "../types/insumo";
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import { listarAditivos } from "../../aditivos/services/aditivoService";
@@ -22,7 +27,7 @@ import type { Aditivo } from "../../aditivos/types/aditivo";
 
 interface InsumoFormProps {
   initialValues?: InsumoFormValues;
-  onSubmit: (values: InsumoFormValues) => Promise<void> | void;
+  onSubmit: (values: InsumoInput) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
   title?: string;
@@ -34,6 +39,8 @@ const emptyValues: InsumoFormValues = {
   unidad_medida_id: 0,
   tipo: "ingrediente",
   aditivo_id: null,
+  densidad_g_ml: "",
+  peso_unitario_g: "",
 };
 
 export function InsumoForm({
@@ -80,17 +87,39 @@ export function InsumoForm({
 
   const esAditivo = values.tipo === "aditivo";
   const faltaAditivo = esAditivo && !values.aditivo_id;
+
+  // Unidad seleccionada para saber si es volumen o unidad (reglas de densidad/peso).
+  const unidadSeleccionada = unidades.find(
+    (u) => u.id === values.unidad_medida_id
+  );
+  const esVolumen = unidadSeleccionada?.tipo === "volumen";
+  const esUnidad = unidadSeleccionada?.tipo === "unidad";
+  const faltaDensidad = esVolumen && !values.densidad_g_ml.trim();
+  const faltaPeso = esUnidad && !values.peso_unitario_g.trim();
+
   const faltan = faltantes({
     nombre: [!values.nombre.trim(), "el nombre"],
     unidad: [!values.unidad_medida_id, "la unidad de medida"],
     aditivo: [faltaAditivo, "el aditivo de la lista de referencia"],
+    densidad: [faltaDensidad, "la densidad (g/ml)"],
+    peso: [faltaPeso, "el peso unitario (g)"],
   });
   const { intentado, puedeEnviar } = useIntentoEnvio();
+
+  const parseNumero = (v: string): number | null => {
+    const limpio = v.replace(/,/g, ".").trim();
+    return limpio === "" ? null : Number(limpio);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!puedeEnviar(faltan.lista)) return;
-    onSubmit({ ...values, aditivo_id: esAditivo ? values.aditivo_id : null });
+    onSubmit({
+      ...values,
+      aditivo_id: esAditivo ? values.aditivo_id : null,
+      densidad_g_ml: parseNumero(values.densidad_g_ml),
+      peso_unitario_g: parseNumero(values.peso_unitario_g),
+    });
   };
 
   return (
@@ -106,7 +135,11 @@ export function InsumoForm({
         />
       </FormField>
 
-      <FormField label="Unidad de medida" required invalid={intentado && faltan.tiene("unidad")}>
+      <FormField
+        label="Unidad de medida"
+        required
+        invalid={intentado && faltan.tiene("unidad")}
+      >
         <FormNativeSelect
           invalid={intentado && faltan.tiene("unidad")}
           value={values.unidad_medida_id}
@@ -183,6 +216,48 @@ export function InsumoForm({
         <Text fontSize="sm" color="orange.fg" mt="3">
           Un aditivo no se puede guardar sin su clase funcional: elegilo de la lista.
         </Text>
+      )}
+
+      {/* Densidad: obligatoria si la unidad es Volumen */}
+      {esVolumen && (
+        <FormField
+          label="Densidad (g/ml)"
+          required
+          invalid={intentado && faltan.tiene("densidad")}
+          helper="Densidad del insumo en gramos por mililitro. Usá punto o coma decimal."
+        >
+          <FormInput
+            type="text"
+            inputMode="decimal"
+            value={values.densidad_g_ml}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, densidad_g_ml: e.target.value }))
+            }
+            placeholder="Ej: 1.2000"
+            maxW="500px"
+          />
+        </FormField>
+      )}
+
+      {/* Peso unitario: obligatorio si la unidad es Unidad */}
+      {esUnidad && (
+        <FormField
+          label="Peso unitario (g)"
+          required
+          invalid={intentado && faltan.tiene("peso")}
+          helper="Peso de una unidad del insumo en gramos. Usá punto o coma decimal."
+        >
+          <FormInput
+            type="text"
+            inputMode="decimal"
+            value={values.peso_unitario_g}
+            onChange={(e) =>
+              setValues((prev) => ({ ...prev, peso_unitario_g: e.target.value }))
+            }
+            placeholder="Ej: 500"
+            maxW="500px"
+          />
+        </FormField>
       )}
 
       <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />

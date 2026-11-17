@@ -444,11 +444,16 @@ export function ReglasRotuladoFrontalPage() {
     setActivando(regla.id);
     setError(null);
     try {
-      await activarRegla(regla.id);
+      const actualizada = await activarRegla(regla.id);
       await cargar();
-      toaster.create({ type: "success", title: `Versión ${regla.version} activada.` });
+      toaster.create({
+        type: "success",
+        title: actualizada.programada
+          ? `VersiA3n ${regla.version} programada para el ${formatoFecha(actualizada.vigencia_desde)}.`
+          : `VersiA3n ${regla.version} activada.`,
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo activar la versión.");
+      setError(e instanceof Error ? e.message : "No se pudo activar la versiA3n.");
     } finally {
       setActivando(null);
     }
@@ -552,13 +557,19 @@ export function ReglasRotuladoFrontalPage() {
                     <Celda py="3" px="4" center>
                       {regla.vigente ? (
                         <EtiquetaEstado tono="ok">Vigente</EtiquetaEstado>
+                      ) : regla.programada ? (
+                        <EtiquetaEstado tono="alerta">Programada</EtiquetaEstado>
                       ) : (
-                        <EtiquetaEstado tono="neutro">Histórica</EtiquetaEstado>
+                        <EtiquetaEstado tono="neutro">HistA3rica</EtiquetaEstado>
                       )}
                     </Celda>
                     <Celda py="3" px="4" center>
                       {regla.vigente ? (
                         <Text fontSize="sm" color="fg.muted">En uso</Text>
+                      ) : regla.programada ? (
+                        <Text fontSize="sm" color="fg.muted">
+                          Se activa el {formatoFecha(regla.vigencia_desde)}
+                        </Text>
                       ) : (
                         <Button
                           size="sm"

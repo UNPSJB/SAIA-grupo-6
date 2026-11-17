@@ -34,6 +34,7 @@ class ReglaRotuladoFrontal(ModeloBase):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     version: Mapped[int] = mapped_column(Integer, unique=True, index=True)
     vigente: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    programada: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     vigencia_desde: Mapped[date] = mapped_column(Date)
     norma_origen: Mapped[str] = mapped_column(String(200))
     requiere_envasado: Mapped[bool] = mapped_column(Boolean, default=True)

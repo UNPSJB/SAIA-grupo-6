@@ -6,10 +6,10 @@ import {
     reactivarInsumo,
 } from "../services/insumoService";
 import type { Insumo } from "../types/insumo";
-import type { InsumoFormValues } from "../types/insumo";
+import type { InsumoInput } from "../types/insumo";
 
 export function useInsumoABM() {
-    return useABM<InsumoFormValues, Insumo>({
+    return useABM<InsumoInput, Insumo>({
         crear: crearInsumo,
         modificar: modificarInsumo,
         eliminar: eliminarInsumo,

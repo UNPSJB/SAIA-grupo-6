@@ -1,10 +1,11 @@
 import re
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from src.common.fechas import ahora
+from src.common.fechas import ahora, hoy
 from src.common.texto import normalizar_texto
 from src.insumos.models import TIPO_ADITIVO, Insumo
 from src.nutricion import calculo as nutricion_calculo
@@ -34,10 +35,44 @@ def _obtener_producto(db: Session, producto_id: int) -> Producto:
     return producto
 
 
-def regla_vigente(db: Session) -> ReglaRotuladoFrontal:
+def regla_vigente(
+    db: Session, fecha: date | None = None
+) -> ReglaRotuladoFrontal:
+    fecha = fecha or hoy()
+    programadas = list(
+        db.scalars(
+            select(ReglaRotuladoFrontal)
+            .where(
+                ReglaRotuladoFrontal.programada.is_(True),
+                ReglaRotuladoFrontal.vigencia_desde <= fecha,
+            )
+            .order_by(ReglaRotuladoFrontal.version.desc())
+        ).all()
+    )
+    if programadas:
+        nueva = programadas[0]
+        for activa in db.scalars(
+            select(ReglaRotuladoFrontal).where(
+                ReglaRotuladoFrontal.vigente.is_(True)
+            )
+        ).all():
+            activa.vigente = False
+        for pendiente in db.scalars(
+            select(ReglaRotuladoFrontal).where(
+                ReglaRotuladoFrontal.programada.is_(True)
+            )
+        ).all():
+            pendiente.programada = False
+        nueva.vigente = True
+        db.commit()
+        db.refresh(nueva)
+
     regla = db.scalar(
         select(ReglaRotuladoFrontal)
-        .where(ReglaRotuladoFrontal.vigente.is_(True))
+        .where(
+            ReglaRotuladoFrontal.vigente.is_(True),
+            ReglaRotuladoFrontal.vigencia_desde <= fecha,
+        )
         .order_by(ReglaRotuladoFrontal.version.desc())
         .limit(1)
     )
@@ -60,6 +95,7 @@ def crear_regla(db: Session, datos: schemas.ReglaRotuladoIn) -> ReglaRotuladoFro
         **datos.model_dump(),
         version=ultima + 1,
         vigente=False,
+        programada=False,
     )
     db.add(regla)
     db.commit()
@@ -71,14 +107,29 @@ def activar_regla(db: Session, regla_id: int) -> ReglaRotuladoFrontal:
     regla = db.get(ReglaRotuladoFrontal, regla_id)
     if regla is None:
         raise exceptions.ReglaNoEncontrada()
-    if not regla.vigente:
-        for activa in db.scalars(
-            select(ReglaRotuladoFrontal).where(ReglaRotuladoFrontal.vigente.is_(True))
+
+    if regla.vigencia_desde > hoy():
+        for pendiente in db.scalars(
+            select(ReglaRotuladoFrontal).where(
+                ReglaRotuladoFrontal.programada.is_(True),
+                ReglaRotuladoFrontal.id != regla.id,
+            )
         ).all():
-            activa.vigente = False
-        regla.vigente = True
+            pendiente.programada = False
+        regla.vigente = False
+        regla.programada = True
         db.commit()
         db.refresh(regla)
+        return regla
+
+    for activa in db.scalars(
+        select(ReglaRotuladoFrontal).where(ReglaRotuladoFrontal.vigente.is_(True))
+    ).all():
+        activa.vigente = False
+    regla.programada = False
+    regla.vigente = True
+    db.commit()
+    db.refresh(regla)
     return regla
 
 

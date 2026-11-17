@@ -16,3 +16,23 @@ class NombreVacio(BadRequest):
 
 class MatriculaVacia(BadRequest):
     DETAIL = ErrorCode.MATRICULA_VACIA
+
+class CuitDuplicado(BadRequest):
+    DETAIL = ErrorCode.CUIT_DUPLICADO
+
+class CertificacionNoEncontrada(NotFound):
+    DETAIL = ErrorCode.CERTIFICACION_NO_ENCONTRADA
+
+class CertificacionInvalida(BadRequest):
+    DETAIL = ErrorCode.CERTIFICACION_INVALIDA
+
+
+class NombreProveedorDuplicado(BadRequest):
+    DETAIL = ErrorCode.NOMBRE_DUPLICADO
+
+
+class CuitInvalido(BadRequest):
+    DETAIL = ErrorCode.CUIT_INVALIDO
+
+class InsumosNoValidos(BadRequest):
+    DETAIL = ErrorCode.INSUMOS_NO_VALIDOS

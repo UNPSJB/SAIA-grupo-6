@@ -9,8 +9,9 @@ from src.Equipo.models import Equipo
 from src.common.estado_documento import estado_documento
 from src.common.texto import coincide_terminos, normalizar_texto
 from src.common.fechas import hoy
+from src.lotes.constants import ESTADO_TERMINADO
+from src.lotes.models import LoteProducto
 from src.notificaciones.services import (
-    MARGEN_DIAS_ALERTA,
     obtener_dias_alerta_vencimiento_personal,
 )
 from src.personal.models import Personal
@@ -31,6 +32,7 @@ _ETIQUETA_TIPO = {
     "CALIBRACION": "Calibración",
     "MANTENIMIENTO": "Mantenimiento",
     "DOCUMENTO": "Documento",
+    "LOTE": "Lote de producción",
 }
 
 
@@ -164,6 +166,56 @@ def _vencimientos_documentos(db: Session) -> List[VencimientoConsolidadoResponse
         )
     return resultado
 
+def _vencimientos_lotes(db: Session) -> List[VencimientoConsolidadoResponse]:
+    """Lotes de producto terminados con saldo disponible y fecha de vencimiento.
+
+    Solo lotes TERMINADO (no cancelados ni retirados) que aún tengan mercadería
+    disponible y una fecha de vencimiento cargada. El sujeto es el producto.
+    """
+    hoy_dia = hoy()
+    margen = obtener_dias_alerta_vencimiento_personal(db)
+
+    lotes = db.scalars(
+        select(LoteProducto)
+        .options(selectinload(LoteProducto.producto))
+        .where(
+            LoteProducto.estado == ESTADO_TERMINADO,
+            LoteProducto.retirado.is_(False),
+            LoteProducto.fecha_vencimiento.is_not(None),
+        )
+    ).all()
+
+    resultado = []
+    for lote in lotes:
+        # Recalcular saldo en memoria a partir de las salidas ya cargadas.
+        salidas = list(lote.salidas) if lote.salidas is not None else []
+        from src.salidas.models import calcular_cantidades
+
+        calculo = calcular_cantidades(
+            lote.cantidad_producida, salidas, lote.retirado
+        )
+        if calculo["saldo"] <= 0:
+            continue
+
+        producto = lote.producto
+        dias = (lote.fecha_vencimiento - hoy_dia).days
+        resultado.append(
+            VencimientoConsolidadoResponse(
+                id_vencimiento=f"lote-{lote.id}",
+                tipo="LOTE",
+                entidad_id=lote.id,
+                sujeto_id=producto.id,
+                detalle=f"Lote {lote.numero_lote}",
+                sujeto=producto.nombre,
+                fecha_vencimiento=lote.fecha_vencimiento,
+                dias_restantes=dias,
+                estado=estado_documento(lote.fecha_vencimiento, hoy_dia, margen),
+                link_destino=f"/lotes/{lote.id}",
+            )
+        )
+    return resultado
+
+
 def listar_vencimientos(
     db: Session, tipo: Optional[str] = None
 ) -> List[VencimientoConsolidadoResponse]:
@@ -180,6 +232,8 @@ def listar_vencimientos(
         items.extend(_vencimientos_equipos(db, tipo))
     if tipo in (None, "DOCUMENTO"):
         items.extend(_vencimientos_documentos(db))
+    if tipo in (None, "LOTE"):
+        items.extend(_vencimientos_lotes(db))
 
     # Primero por estado y, dentro de cada estado, el más urgente (menos días) arriba.
     items.sort(key=lambda v: (_ORDEN_ESTADO[v.estado], v.dias_restantes))

@@ -50,6 +50,10 @@ class VersionReceta(ModeloBase):
             "porcion_cantidad IS NULL OR porcion_cantidad > 0",
             name="ck_versiones_receta_porcion_positiva",
         ),
+        CheckConstraint(
+            "vida_util_dias IS NULL OR vida_util_dias > 0",
+            name="ck_versiones_receta_vida_util_positiva",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -65,6 +69,7 @@ class VersionReceta(ModeloBase):
     porcion_unidad_medida_id: Mapped[int | None] = mapped_column(
         ForeignKey("unidades_medida.id"), nullable=True
     )
+    vida_util_dias: Mapped[int | None] = mapped_column(Integer, nullable=True)
     creado_por_id: Mapped[int | None] = mapped_column(
         ForeignKey("personal.id"), nullable=True
     )

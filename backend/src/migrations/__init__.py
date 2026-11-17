@@ -18,15 +18,37 @@ from .insumos_tipo import (
     migrar_porcion_receta,
 )
 from .lotes import migrar_lotes
+from .lotes_fecha_vencimiento import migrar_lotes_fecha_vencimiento
 from .notificaciones import migrar_notificaciones
+from .versiones_receta_vida_util import migrar_versiones_receta_vida_util
 from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .rotulado_frontal import migrar_rotulado_frontal
+from .reclamos import migrar_reclamos
+from .retiros import migrar_retiros
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
 from .trazabilidad import migrar_trazabilidad
+from .unidades_medida_tipo_factor import (
+    asignar_equivalencias_conocidas,
+    migrar_unidades_medida_tipo_factor,
+)
+from .insumos_densidad_peso import migrar_insumos_densidad_peso
+from .nutricion_conversion_en_insumo import migrar_conversion_a_insumo
 from .vista_publica import migrar_vista_publica
+from .rotulado import migrar_rotulado
+from .clientes import migrar_clientes
+from .salidas import migrar_salidas_despacho_entrega_cancelacion
+from .salidas_recibido_por import migrar_salidas_recibido_por
+from .salidas_momentos import migrar_salidas_momentos
+from .salidas_rechazo import migrar_salidas_rechazo
+from .transportistas import migrar_transportistas
+from .certificaciones_transportista import (
+    migrar_certificaciones_transportista,
+    migrar_certificaciones_transportista_trazabilidad,
+)
+from .proveedores import migrar_proveedores
 
 
 def run_migrations() -> None:
@@ -37,8 +59,9 @@ def run_migrations() -> None:
     migrar_tareas()
     migrar_stock()
     migrar_lotes()
+    migrar_lotes_fecha_vencimiento()
+    migrar_versiones_receta_vida_util()
     migrar_trazabilidad()
-    # E9: después de copiar los productos viejos (trazabilidad lee tipo='producto').
     migrar_aditivos_referencia()
     migrar_insumos_tipo()
     migrar_porcion_receta()
@@ -47,13 +70,32 @@ def run_migrations() -> None:
     # E12.1: depende de las columnas del perfil nutricional de E11.
     migrar_rotulado_frontal()
     migrar_equipos()
-    # Necesita personal.es_super_admin, por eso va después de migrar_columnas_personal.
     bootstrap_super_admin()
     migrar_seguridad()
     migrar_notificaciones()
-    # Vista pública: después de create_all (que ya creó la tabla) y de las
-    # migraciones de estructura.
+    migrar_unidades_medida_tipo_factor()
+    asignar_equivalencias_conocidas()
+    migrar_insumos_densidad_peso()
+    # Después de las columnas del insumo: les copia la densidad y el peso del perfil.
+    migrar_conversion_a_insumo()
     migrar_vista_publica()
+    migrar_rotulado()
+    migrar_clientes()
+    migrar_transportistas()
+    migrar_certificaciones_transportista()
+    migrar_certificaciones_transportista_trazabilidad()
+    migrar_salidas_despacho_entrega_cancelacion()
+    migrar_salidas_recibido_por()
+    migrar_salidas_momentos()
+    # Rechazos: después del resto de migraciones de salidas porque reconstruye
+    # la tabla si el CHECK de estado todavía no admite RECHAZADA.
+    migrar_salidas_rechazo()
+    # Reclamos: al final, porque depende de salidas, lotes, clientes y de la
+    # tabla clave-valor de configuración.
+    migrar_reclamos()
+    # Retiros: después de reclamos, salidas y lotes porque depende de ellos.
+    migrar_retiros()
+    migrar_proveedores()
 
 
 def crear_tablas_y_migrar() -> None:

@@ -35,6 +35,7 @@ def read_insumos(
         description="Busca en nombre, unidad y símbolo (sin distinguir mayúsculas ni tildes).",
     ),
     unidad_medida_id: Optional[int] = Query(None, ge=1),
+    proveedor_id: Optional[int] = Query(None, ge=1),
     tipo: Optional[TipoInsumo] = Query(
         None,
         description="Filtra por tipo. Sin este parámetro se devuelven ingredientes y aditivos.",
@@ -55,7 +56,7 @@ def read_insumos(
     )
     if page is None:
         return services.listar_insumos(
-            db, incluir_inactivos, buscar, unidad_medida_id, tipo
+            db, incluir_inactivos, buscar, unidad_medida_id, tipo, proveedor_id
         )
     items, total = services.listar_insumos_paginado(
         db,
@@ -67,6 +68,7 @@ def read_insumos(
         orden=orden,
         tipo=tipo,
         solo_inactivos=solo_inactivos,
+        proveedor_id=proveedor_id,
     )
     return schemas.InsumoPagina(items=items, total=total, page=page, page_size=page_size)
 

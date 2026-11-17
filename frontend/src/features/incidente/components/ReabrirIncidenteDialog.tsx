@@ -44,6 +44,9 @@ export function ReabrirIncidenteDialog({
   }
 
   if (!isOpen || !incidente) return null;
+  if (incidente.tipo === "entrega_rechazada" || (incidente.tipo as string) === "Entrega rechazada") {
+    return null;
+  }
 
   return (
     <DialogRoot

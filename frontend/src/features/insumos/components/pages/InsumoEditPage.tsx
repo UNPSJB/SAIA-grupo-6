@@ -5,7 +5,7 @@ import { InsumoForm } from "../../components/InsumoForm";
 import { useInsumo } from "../../hooks/useInsumo";
 import { useInsumoABM } from "../../hooks/useInsumoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import type { InsumoFormValues } from "../../types/insumo";
+import type { InsumoInput } from "../../types/insumo";
 import {
   BannerError,
   DialogoExito,
@@ -31,7 +31,7 @@ export function InsumoEditPage() {
 
   const [exito, setExito] = useState(false);
 
-  const handleSubmit = async (values: InsumoFormValues) => {
+  const handleSubmit = async (values: InsumoInput) => {
     try {
       await modificar(insumoId, values);
       setExito(true);
@@ -69,6 +69,8 @@ export function InsumoEditPage() {
               unidad_medida_id: insumo.unidad_medida_id,
               tipo: insumo.tipo,
               aditivo_id: insumo.aditivo_id,
+              densidad_g_ml: String(insumo.densidad_g_ml ?? ""),
+              peso_unitario_g: String(insumo.peso_unitario_g ?? ""),
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}

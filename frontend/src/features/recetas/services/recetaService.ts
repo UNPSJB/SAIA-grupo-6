@@ -1,6 +1,7 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import type {
+  Composicion,
   InsumoOpcion,
   ModoEscalado,
   Receta,
@@ -70,4 +71,10 @@ export async function escalarReceta(
 export async function listarInsumosParaReceta(): Promise<InsumoOpcion[]> {
   const response = await apiFetch(`${API_URL}/insumos`);
   return pedir<InsumoOpcion[]>(response, "Error al obtener los insumos");
+}
+
+
+export async function obtenerComposicion(versionId: number): Promise<Composicion> {
+  const response = await apiFetch(`${API_URL}/recetas/versiones/${versionId}/composicion`);
+  return pedir<Composicion>(response, "Error al obtener la composición porcentual");
 }

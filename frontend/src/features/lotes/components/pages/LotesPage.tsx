@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Table, Text } from "@chakra-ui/react";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { LuRefreshCw } from "react-icons/lu";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
-import { formatoFecha } from "../../../../common/utils/fechas";
+import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
   BarraFiltros,
@@ -210,6 +210,7 @@ export function LotesPage() {
                   <EncabezadoOscuro width="8%">Receta</EncabezadoOscuro>
                   <EncabezadoOscuro numero ancho="media">Objetivo</EncabezadoOscuro>
                   <EncabezadoOscuro width="8%">Tareas</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="angosta">Vencimiento</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
                   <EncabezadoOscuro center width="9%">Acciones</EncabezadoOscuro>
                 </FilaEncabezado>
@@ -230,7 +231,37 @@ export function LotesPage() {
                       {lote.items_completados} de {lote.items_total}
                     </Celda>
                     <Celda>
+                      {lote.fecha_vencimiento ? formatoFecha(lote.fecha_vencimiento) : "-"}
+                    </Celda>
+                    <Celda>
                       <BadgeEstadoLote estado={lote.estado} />
+                      {(() => {
+                        if (!lote.fecha_vencimiento) return null;
+                        const hoy = new Date(hoyISO());
+                        const vence = new Date(lote.fecha_vencimiento);
+                        const diasDiff = Math.ceil(
+                          (vence.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
+                        );
+                        if (lote.fecha_vencimiento < hoyISO()) {
+                          return (
+                            <Badge colorPalette="red" variant="subtle" size="xs" ml="1">
+                              Vencido
+                            </Badge>
+                          );
+                        }
+                        if (
+                          diasDiff >= 0 &&
+                          diasDiff <= 15 &&
+                          Number(lote.saldo) > 0
+                        ) {
+                          return (
+                            <Badge colorPalette="yellow" variant="subtle" size="xs" ml="1">
+                              Próximo a vencer
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
                     </Celda>
                     <Celda center>
                       <BotonAccion

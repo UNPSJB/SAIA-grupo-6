@@ -9,6 +9,8 @@ la carga inicial.
 
 from decimal import Decimal
 
+from src.unidadMedida.constants import TIPO_MASA, TIPO_UNIDAD, TIPO_VOLUMEN
+
 # ── Nutrientes ──────────────────────────────────────────────────────────────
 
 ENERGIA = "energia"
@@ -159,39 +161,52 @@ ESTADO_INCOMPLETA = "incompleta"
 ESTADO_SIN_RECETA = "sin_receta"
 
 # ── Unidades: conversión a gramos / mililitros ─────────────────────────────
+#
+# El tipo y el factor salen de cada `UnidadMedida` (se editan en la pantalla de
+# unidades); la densidad y el peso por unidad, del `Insumo`. Acá solo quedan
+# los nombres de los tipos, para leer el cálculo.
 
-MASA = "masa"
-VOLUMEN = "volumen"
-POR_UNIDAD = "unidad"
+MASA = TIPO_MASA
+VOLUMEN = TIPO_VOLUMEN
+POR_UNIDAD = TIPO_UNIDAD
 
-# símbolo o nombre (en minúsculas) -> (tipo, factor a g o ml)
-CONVERSIONES: dict[str, tuple[str, Decimal]] = {
-    "kg": (MASA, Decimal("1000")),
-    "kilogramo": (MASA, Decimal("1000")),
-    "g": (MASA, Decimal("1")),
-    "gramo": (MASA, Decimal("1")),
-    "mg": (MASA, Decimal("0.001")),
-    "miligramo": (MASA, Decimal("0.001")),
-    "tn": (MASA, Decimal("1000000")),
-    "tonelada": (MASA, Decimal("1000000")),
-    "l": (VOLUMEN, Decimal("1000")),
-    "litro": (VOLUMEN, Decimal("1000")),
-    "ml": (VOLUMEN, Decimal("1")),
-    "mililitro": (VOLUMEN, Decimal("1")),
-    "cm³": (VOLUMEN, Decimal("1")),
-    "cm3": (VOLUMEN, Decimal("1")),
-    "cc": (VOLUMEN, Decimal("1")),
-    "centímetro cúbico": (VOLUMEN, Decimal("1")),
-    "un": (POR_UNIDAD, Decimal("1")),
-    "unidad": (POR_UNIDAD, Decimal("1")),
+# ── Importación de bases de composición ────────────────────────────────────
+#
+# Columnas que reconoce el importador para cada dato. Además de las de la
+# plantilla (la clave del nutriente) acepta las del CSV de SARA 1 tal como lo
+# exporta su base Access (`AlimentoyComposicion.csv`), que entregó la cátedra.
+# Todos los valores son por 100 g.
+#   * Carbohidratos = HCdisp (disponibles, sin la fibra), que es lo que se
+#     declara en el rótulo; HCtotal no se usa.
+#   * SARA 1 no trae azúcares ni grasas trans: quedan vacíos y se completan en
+#     cada insumo con otra fuente.
+COLUMNAS_IMPORTACION: dict[str, tuple[str, ...]] = {
+    "nombre": ("nombre", "alimento"),
+    "codigo": ("codigo", "código"),
+    "energia": ("energia", "energía", "e"),
+    "carbohidratos": ("carbohidratos", "hcdisp"),
+    "azucares_totales": ("azucares_totales",),
+    "azucares_anadidos": ("azucares_anadidos",),
+    "proteinas": ("proteinas", "proteínas", "prot"),
+    "grasas_totales": ("grasas_totales", "lip"),
+    "grasas_saturadas": ("grasas_saturadas", "agsat"),
+    "grasas_trans": ("grasas_trans",),
+    "fibra": ("fibra",),
+    "sodio": ("sodio", "na"),
 }
+# SARA 1 indica en qué unidad se registra el consumo de cada fila. Las que no
+# son gramos ni mililitros son nutrientes aislados (hierro, ácido fólico,
+# vitaminas en mg, µg o UI), no alimentos: no se importan. La de mililitros
+# es solo la forma de registrar el consumo (la leche en polvo figura en
+# mililitros con 490 kcal): sus valores también son por 100 g.
+COLUMNA_UNIDAD_SARA1 = "unidadmedida"
+UNIDADES_ALIMENTO_SARA1 = ("gramos", "mililitros")
 
 # ── Base de composición: carga inicial de ejemplo ──────────────────────────
 #
-# La licencia y el formato de SARA 2 todavía no están verificados (notas de
-# alcance), así que no se distribuyen sus datos. Esto es una base mínima de
+# La base de referencia la importa el admin desde la app (la cátedra pidió
+# usar el CSV de SARA 1; SARA 2 no tiene CSV). Esto es una base mínima de
 # EJEMPLO, con valores aproximados por 100 g, para poder probar la pantalla.
-# Se reemplaza importando un CSV desde la app.
 BASE_EJEMPLO = "Ejemplo (valores aproximados, verificar)"
 # (nombre, energía, carbohidratos, azúcares totales, azúcares añadidos,
 #  proteínas, grasas totales, saturadas, trans, fibra, sodio mg)
@@ -228,5 +243,8 @@ class ErrorCode:
         "Los azúcares totales, los azúcares añadidos y las grasas trans no tienen "
         "Valor Diario de referencia en la norma: el %VD se deja en blanco."
     )
-    CSV_INVALIDO = "El archivo no es un CSV válido o no tiene la columna 'nombre'."
+    CSV_INVALIDO = (
+        "El archivo no es un CSV válido o no tiene la columna del nombre del alimento "
+        "('nombre' en la plantilla, 'Alimento' en el CSV de SARA 1)."
+    )
     BASE_VACIA = "Indicá el nombre de la base de composición."

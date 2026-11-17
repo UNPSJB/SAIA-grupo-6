@@ -360,7 +360,7 @@ function PanelBase() {
       <Bloque
         titulo="Importar una base de composición"
         icono={LuFileUp}
-        ayuda="La licencia y el formato de SARA 2 todavía no están verificados: la base se importa desde un CSV. La que viene cargada es solo de ejemplo."
+        ayuda="Subí el CSV de SARA 1 (AlimentoyComposicion.csv) tal como viene, o cualquier otra tabla con el formato de la plantilla. Queda como referencia para completar los datos nutricionales de los insumos. La que viene cargada es solo de ejemplo."
         acciones={
           <Button size="sm" variant="ghost" colorPalette="brand" onClick={descargarPlantilla}>
             <LuFileDown aria-hidden /> Descargar plantilla CSV
@@ -370,7 +370,17 @@ function PanelBase() {
         <Box as="form" {...{ noValidate: true }} onSubmit={importar}>
           <Box display="grid" gridTemplateColumns={{ base: "1fr", md: "1fr 1fr auto" }} gap="4" alignItems="end">
             <FormField label="Nombre de la base" required mb="0">
-              <FormInput value={nombreBase} onChange={(e) => setNombreBase(e.target.value)} maxLength={100} placeholder="Ej: SARA 2" list="bases-existentes" />
+              {/* Texto libre con sugerencias de las bases ya cargadas. Se oculta la
+                  flecha que Chrome agrega a los campos con <datalist>: hacía
+                  parecer que solo se podía elegir una base existente. */}
+              <FormInput
+                value={nombreBase}
+                onChange={(e) => setNombreBase(e.target.value)}
+                maxLength={100}
+                placeholder="Nueva o existente, ej: SARA 1"
+                list="bases-existentes"
+                css={{ "&::-webkit-calendar-picker-indicator": { display: "none !important" } }}
+              />
               <datalist id="bases-existentes">
                 {bases.map((b) => (
                   <option key={b} value={b} />
@@ -413,12 +423,22 @@ function PanelBase() {
           </Box>
           <Text fontSize="xs" color="fg.muted" mt="3">
             Una fila por alimento, valores por 100 g (energía en kcal, sodio en mg). Columnas: «nombre» (obligatoria),
-            «codigo» y una por nutriente con el nombre de la plantilla. Si el alimento ya existe en esa base, se actualiza.
+            «codigo» y una por nutriente con el nombre de la plantilla. El CSV de SARA 1 se reconoce solo; no trae
+            azúcares ni grasas trans, que se completan en cada insumo con otra fuente. Para actualizar una base ya
+            cargada, escribí su mismo nombre (aparece como sugerencia al escribir): los alimentos que ya estaban se
+            actualizan y los nuevos se agregan.
           </Text>
         </Box>
         {resultado && (
           <Aviso tono={resultado.errores.length ? "alerta" : "ok"} mt="4" titulo={`Base «${resultado.base}» importada`}>
             {resultado.creados} alimentos nuevos y {resultado.actualizados} actualizados.
+            {resultado.avisos.length > 0 && (
+              <Stack gap="1" mt="2">
+                {resultado.avisos.map((a) => (
+                  <Text key={a} fontSize="sm">{a}</Text>
+                ))}
+              </Stack>
+            )}
             {resultado.errores.length > 0 && (
               <Stack gap="0.5" mt="2">
                 {resultado.errores.map((e) => (

@@ -1,12 +1,22 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import {
+  Alert,
+  Badge,
+  Box,
+  Button,
+  HStack,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+} from "@chakra-ui/react";
 import { LuCircleCheck } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { useAuth } from "../../../../common/context/useAuth";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
-import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
+import { formatoFecha, formatoFechaHora, hoyISO } from "../../../../common/utils/fechas";
 import { cantidadConUnidad, formatoFactor } from "../../../../common/utils/numeros";
 import {
   BannerError,
@@ -17,6 +27,7 @@ import {
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
+  EtiquetaEstado,
   FilaEncabezado,
   Tarjeta,
 } from "../../../../components/ui/patrones";
@@ -29,8 +40,17 @@ import {
 } from "../../../../components/ui/plantillas";
 import { trazarLoteProducto } from "../../../trazabilidad/services/trazabilidadService";
 import type { TrazabilidadLoteProducto } from "../../../trazabilidad/types/trazabilidad";
-import { cancelarLote, completarItem, obtenerLote } from "../../services/loteService";
-import { esLoteCerrado, type ItemChecklist, type LoteDetalle } from "../../types/lote";
+import {
+  cancelarLote,
+  completarItem,
+  obtenerLote,
+} from "../../services/loteService";
+import { useSalidas } from "../../../salidas/hooks/useSalidas";
+import { ModalReservarLote } from "../../../salidas/components/ModalReservarLote";
+import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
+import { LoteProgressTracker } from "../LoteProgressTracker";
+import type { ItemChecklist, LoteDetalle } from "../../types/lote";
+import { esLoteCerrado } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
 import { CierreLoteDialog } from "../CierreLoteDialog";
 import { ConsumoDialog } from "../ConsumoDialog";
@@ -225,6 +245,27 @@ function SeccionTrazabilidad({ traza }: { traza: TrazabilidadLoteProducto }) {
   );
 }
 
+const TONO_ESTADO_LOTE: Record<
+  string,
+  "ok" | "alerta" | "peligro" | "info" | "neutro"
+> = {
+  "En almacén": "neutro",
+  "Con salidas parciales": "info",
+  Agotado: "neutro",
+  Retirado: "peligro",
+};
+
+const TONO_ESTADO_SALIDA: Record<
+  string,
+  "ok" | "alerta" | "peligro" | "info" | "neutro"
+> = {
+  RESERVADO: "info",
+  DESPACHADO: "ok",
+  ENTREGADO: "ok",
+  CANCELADO: "peligro",
+  RECHAZADA: "peligro",
+};
+
 export function LoteDetallePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -244,10 +285,30 @@ export function LoteDetallePage() {
     id: esAdmin ? idValido : null,
     etiqueta: "la trazabilidad del lote",
   });
+
+  const {
+    salidas: salidasDelLote,
+    loading: salidasLoading,
+    error: salidasError,
+    recargarSalidas,
+  } = useSalidas({
+    lote_id: idValido ?? undefined,
+  });
+
   // Un consumo nuevo cambia también la trazabilidad: se recargan juntas.
   const recargar = async () => {
-    await Promise.all([recargarLote(), esAdmin ? recargarTraza() : Promise.resolve()]);
+    await Promise.all([
+      recargarLote(),
+      esAdmin ? recargarTraza() : Promise.resolve(),
+      recargarSalidas(),
+    ]);
   };
+
+  const cerrado = lote ? esLoteCerrado(lote.estado) : false;
+
+  const reservasDisponibles = lote
+    ? Number(lote.saldo) > 0 && !lote.retirado && !cerrado
+    : false;
 
   const [consumiendo, setConsumiendo] = useState<ItemChecklist | null>(null);
   const [cerrando, setCerrando] = useState(false);
@@ -255,7 +316,10 @@ export function LoteDetallePage() {
   const [procesando, setProcesando] = useState<number | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
-  const cerrado = lote ? esLoteCerrado(lote.estado) : false;
+  // Reserva de salidas
+  const [modalReservar, setModalReservar] = useState(false);
+  const [modalRetirar, setModalRetirar] = useState(false);
+
   const checklistCompleto = lote
     ? lote.checklist.every((i) => i.completado)
     : false;
@@ -275,6 +339,7 @@ export function LoteDetallePage() {
   };
 
   return (
+    <>
     <PaginaDetalle
       // Se llega desde la lista, desde un lote de insumo o desde Trazabilidad:
       // "Volver" regresa a la pantalla de origen.
@@ -318,10 +383,37 @@ export function LoteDetallePage() {
               <DatoDetalle etiqueta="Creado por">{lote.creado_por_nombre ?? "-"}</DatoDetalle>
               <DatoDetalle etiqueta="Inicio">{formatoFechaHora(lote.fecha_inicio)}</DatoDetalle>
               {lote.fecha_cierre && <DatoDetalle etiqueta="Cierre">{formatoFechaHora(lote.fecha_cierre)}</DatoDetalle>}
+              <DatoDetalle etiqueta="Vencimiento">
+                {lote.fecha_vencimiento ? formatoFecha(lote.fecha_vencimiento) : "Sin fecha"}
+              </DatoDetalle>
               <DatoDetalle etiqueta="Tareas hechas">
                 {lote.items_completados} de {lote.items_total}
               </DatoDetalle>
+              {lote.fecha_vencimiento && lote.fecha_vencimiento < hoyISO() && (
+                <Text fontSize="xs" color="red.fg" fontWeight="bold" mt="1">
+                  ⚠ Vencido
+                </Text>
+              )}
             </GrillaDatos>
+            {lote.retirado && lote.retiro_id && (
+              <Alert.Root status="error" mb="6" alignItems="flex-start">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Lote retirado del mercado</Alert.Title>
+                  <Alert.Description>
+                    Este lote fue retirado del mercado (retiro #{lote.retiro_id}, estado: {lote.retiro_estado}). No se pueden hacer nuevas reservas ni despachos sobre él.
+                  </Alert.Description>
+                  <HStack gap="3" flexWrap="wrap" mt="3">
+                    <BotonTexto
+                      onClick={() => navigate(`/retiros/${lote.retiro_id}`)}
+                      title="Ver la ficha del retiro"
+                    >
+                      Ver retiro
+                    </BotonTexto>
+                  </HStack>
+                </Alert.Content>
+              </Alert.Root>
+            )}
             {lote.motivo_cancelacion && (
               <Text fontSize="sm" color="red.fg" mt="4">
                 Motivo de cancelación: {lote.motivo_cancelacion}
@@ -332,6 +424,11 @@ export function LoteDetallePage() {
           {cerrado && (
             <AvisoSoloLectura mb="0">Lote {lote.estado}: es de solo lectura.</AvisoSoloLectura>
           )}
+
+          {/* Línea de tiempo de elaboración y progreso */}
+          <SeccionDetalle sinMarco titulo="Progreso de producción" mb="0">
+            <LoteProgressTracker loteId={lote.id} />
+          </SeccionDetalle>
 
           <SeccionDetalle sinMarco titulo="Tareas" mb="0">
           <Stack gap="4">
@@ -356,6 +453,21 @@ export function LoteDetallePage() {
 
           {!cerrado && (
             <HStack gap="3" flexWrap="wrap" pt="2">
+              {reservasDisponibles && (
+                <Button
+                  colorPalette="brand"
+                  onClick={() => {
+                    setModalReservar(true);
+                  }}
+                >
+                  Reservar
+                </Button>
+              )}
+              {!reservasDisponibles && !lote.retirado && (
+                <Text fontSize="sm" color="fg.muted">
+                  Sin saldo disponible para reservar.
+                </Text>
+              )}
               <Button
                 colorPalette="brand"
                 onClick={() => setCerrando(true)}
@@ -379,10 +491,204 @@ export function LoteDetallePage() {
                   Cancelar lote
                 </Button>
               )}
+              {esAdmin && !lote.retirado && !cerrado && (
+                <Button
+                  colorPalette="red"
+                  onClick={() => setModalRetirar(true)}
+                >
+                  Retirar lote del mercado
+                </Button>
+              )}
+              {esAdmin && lote.retirado && !cerrado && (
+                <Text fontSize="sm" color="fg.muted">
+                  El lote ya está retirado del mercado.
+                </Text>
+              )}
             </HStack>
           )}
 
           {esAdmin && traza && <SeccionTrazabilidad traza={traza} />}
+
+          {/* Distribución y Stock del Lote */}
+          <SeccionDetalle sinMarco titulo="Distribución y Stock del Lote" mb="0">
+            <Tarjeta p="4" mb="4">
+              <Stack
+                direction={{ base: "column", lg: "row" }}
+                justify="space-between"
+                align={{ base: "stretch", lg: "flex-start" }}
+                gap="6"
+              >
+                {/* Métricas cuantitativas */}
+                <SimpleGrid
+                  columns={{ base: 2, sm: 3, md: 4, xl: (Number(lote.en_revision) > 0 || Number(lote.desechado) > 0) ? 6 : 4 }}
+                  gap="4"
+                  flex="1"
+                >
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Producido
+                    </Text>
+                    <Text fontSize="sm" fontWeight="medium" color="fg">
+                      {cantidadConUnidad(lote.cantidad_producida, lote.unidad)}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Saldo disponible
+                    </Text>
+                    <Text
+                      fontSize="sm"
+                      fontWeight="bold"
+                      color={Number(lote.saldo) > 0 ? "green.600" : "fg"}
+                    >
+                      {cantidadConUnidad(lote.saldo, lote.unidad)}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Reservado
+                    </Text>
+                    <HStack gap="1" align="baseline">
+                      <Text fontSize="sm" fontWeight="medium" color="fg">
+                        {cantidadConUnidad(lote.reservado, lote.unidad)}
+                      </Text>
+                      {Number(lote.reservado) > 0 && (
+                        <Badge size="xs" colorPalette="blue" variant="subtle">
+                          Asignado
+                        </Badge>
+                      )}
+                    </HStack>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Despachado / Entregado
+                    </Text>
+                    <Text fontSize="sm" fontWeight="medium" color="fg">
+                      {cantidadConUnidad(Number(lote.despachado) + Number(lote.entregado), lote.unidad)}
+                    </Text>
+                    <Text fontSize="2xs" color="fg.subtle">
+                      {cantidadConUnidad(lote.despachado, lote.unidad)} desp. · {cantidadConUnidad(lote.entregado, lote.unidad)} entr.
+                    </Text>
+                  </Box>
+                  {Number(lote.en_revision) > 0 && (
+                    <Box>
+                      <Text fontSize="xs" color="fg.muted" mb="1">
+                        En revisión
+                      </Text>
+                      <Text fontSize="sm" fontWeight="medium" color="orange.fg">
+                        {cantidadConUnidad(lote.en_revision, lote.unidad)}
+                      </Text>
+                    </Box>
+                  )}
+                  {Number(lote.desechado) > 0 && (
+                    <Box>
+                      <Text fontSize="xs" color="fg.muted" mb="1">
+                        Desechado
+                      </Text>
+                      <Text fontSize="sm" fontWeight="medium" color="red.fg">
+                        {cantidadConUnidad(lote.desechado, lote.unidad)}
+                      </Text>
+                    </Box>
+                  )}
+                </SimpleGrid>
+
+                {/* Estado comercial a la derecha perfectamente alineado a la izquierda de su columna */}
+                <Box
+                  pl={{ base: "0", lg: "6" }}
+                  pt={{ base: "3", lg: "0" }}
+                  borderLeftWidth={{ base: "0", lg: "1px" }}
+                  borderTopWidth={{ base: "1px", lg: "0" }}
+                  borderColor="border.subtle"
+                  minW={{ base: "auto", lg: "180px" }}
+                  textAlign="left"
+                >
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Estado comercial
+                  </Text>
+                  <Box display="inline-flex">
+                    <EtiquetaEstado
+                      tono={
+                        TONO_ESTADO_LOTE[lote.estado_lote] ?? "neutro"
+                      }
+                    >
+                      {lote.estado_lote}
+                    </EtiquetaEstado>
+                  </Box>
+                </Box>
+              </Stack>
+            </Tarjeta>
+
+            {salidasLoading && <EstadoCargando>Cargando salidas...</EstadoCargando>}
+            {salidasError && <BannerError>{salidasError}</BannerError>}
+            {!salidasLoading && !salidasError && salidasDelLote.length === 0 && (
+              <EstadoVacio>
+                Este lote aún no tiene salidas ni reservas asignadas a clientes.
+              </EstadoVacio>
+            )}
+            {!salidasLoading && !salidasError && salidasDelLote.length > 0 && (
+              <Tarjeta overflowX="auto">
+                <Table.Root variant="outline" w="100%" minW="720px">
+                  <Table.Header>
+                    <Table.Row bg="bg.muted">
+                      <Table.ColumnHeader px="4" py="3">Fecha</Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3">Cliente</Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3" textAlign="right">
+                        Cantidad
+                      </Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3">Estado</Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3" textAlign="center" width="80px">
+                        Acción
+                      </Table.ColumnHeader>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {salidasDelLote.map((salida) => (
+                      <Table.Row
+                        key={salida.id}
+                        borderBottomWidth="1px"
+                        borderColor="border.subtle"
+                        cursor="pointer"
+                        _hover={{ bg: "bg.muted" }}
+                        onClick={() => navigate(`/salidas/${salida.id}/detalle`)}
+                      >
+                        <Celda p="3">
+                          <Text fontSize="sm" color="fg">
+                            {formatoFecha(salida.fecha_reserva)}
+                          </Text>
+                        </Celda>
+                        <Celda p="3">
+                          <Text fontSize="sm" fontWeight="medium" color="fg">
+                            {salida.cliente_nombre}
+                          </Text>
+                        </Celda>
+                        <Celda p="3" textAlign="right">
+                          <Text fontSize="sm" color="fg">
+                            {cantidadConUnidad(salida.cantidad, lote.unidad)}
+                          </Text>
+                        </Celda>
+                        <Celda p="3">
+                          <EtiquetaEstado
+                            tono={
+                              TONO_ESTADO_SALIDA[salida.estado] ?? "neutro"
+                            }
+                          >
+                            {salida.estado}
+                          </EtiquetaEstado>
+                        </Celda>
+                        <Celda p="3" textAlign="center">
+                          <BotonAccion
+                            accion="ver"
+                            label="Ver detalle de salida"
+                            onClick={() => navigate(`/salidas/${salida.id}/detalle`)}
+                          />
+                        </Celda>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </Tarjeta>
+            )}
+          </SeccionDetalle>
         </Stack>
       )}
 
@@ -414,5 +720,22 @@ export function LoteDetallePage() {
         />
       )}
     </PaginaDetalle>
+
+    <ModalReservarLote
+      isOpen={modalReservar}
+      loteIdInicial={lote ? lote.id : null}
+      onClose={() => setModalReservar(false)}
+      onReservaRegistrada={async () => {
+        setModalReservar(false);
+        await Promise.all([recargarLote(), recargarSalidas()]);
+      }}
+    />
+    <ModalIniciarRetiro
+      isOpen={modalRetirar}
+      loteIdInicial={lote ? lote.id : null}
+      onClose={() => setModalRetirar(false)}
+      onRetiroIniciado={recargar}
+    />
+    </>
   );
 }

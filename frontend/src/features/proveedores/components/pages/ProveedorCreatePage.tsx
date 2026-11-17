@@ -8,7 +8,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
-import type { Proveedor } from "../../types/proveedor";
+import type { ProveedorFormValues } from "../../types/proveedor";
 import { ProveedorForm } from "../ProveedorForm";
 
 export function ProveedorCreatePage() {
@@ -16,9 +16,9 @@ export function ProveedorCreatePage() {
   const delayedNavigate = useDelayedNavigate();
   const { alta, reactivar, conflicto, cancelarConflicto, loading, error } = useProveedorABM();
   const [exito, setExito] = useState(false);
-  const [valoresPendientes, setValoresPendientes] = useState<Omit<Proveedor, "id" | "activo"> | null>(null);
+  const [valoresPendientes, setValoresPendientes] = useState<ProveedorFormValues | null>(null);
 
-  const handleSubmit = async (values: Omit<Proveedor, "id" | "activo">) => {
+  const handleSubmit = async (values: ProveedorFormValues) => {
     try {
       await alta(values);
       setExito(true);

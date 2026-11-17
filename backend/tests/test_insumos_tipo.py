@@ -15,6 +15,7 @@ from src.database import get_db
 from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
 from src.insumos.router import router as insumos_router
 from src.personal.models import Personal
+from src.unidadMedida.constants import TIPO_MASA
 from src.unidadMedida.models import UnidadMedida
 
 
@@ -48,7 +49,7 @@ def headers_admin(db_session):
 
 @pytest.fixture
 def maestro(db_session):
-    unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg")
+    unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg", tipo=TIPO_MASA, factor_a_base=1000)
     conservante = ClaseFuncional(nombre="Conservante")
     sorbato = Aditivo(clase_funcional=conservante, nombre="Sorbato de potasio", numero_ins="202")
     harina = Insumo(nombre="Harina", unidad_medida=unidad)

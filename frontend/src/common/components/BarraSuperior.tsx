@@ -1,24 +1,21 @@
 import type { ReactElement } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
-import { Box, Flex, Link } from "@chakra-ui/react";
+import { Flex, Link } from "@chakra-ui/react";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar } from "../api/permissions";
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
-import { Breadcrumbs } from "./Breadcrumbs";
 import { BuscadorGlobal } from "./BuscadorGlobal";
 import { LogoSaia } from "./LogoSaia";
 import { MenuUsuario } from "./MenuUsuario";
+import Navbar from "./Navbar";
 
 /**
- * Barra superior, organizada como la de GitHub:
+ * Barra superior:
  *
- *   [ logo SAIA ] [ migas de pan ] .... [ buscar ] [ 🔔 ] [ avatar ]
+ *   [ logo SAIA ] [ categorías u opciones (Navbar) ] [ buscar ] [ 🔔 ] [ avatar ]
  *
- * El logo va a la izquierda, al lado del breadcrumb. El botón hamburguesa ya
- * no va acá: vive en el encabezado de la barra lateral (ver `Navbar.tsx`).
- *
- * El nombre "SAIA" no va acá: aparece junto al logo en el encabezado del menú
- * lateral cuando se despliega.
+ * Fondo teal (brand.700): todo lo de adentro va en blanco. Debajo van las
+ * migas de pan (`Breadcrumbs`), armadas en `LayoutPrincipal`.
  */
 export function BarraSuperior(): ReactElement | null {
   const { user } = useAuth();
@@ -35,41 +32,32 @@ export function BarraSuperior(): ReactElement | null {
       h="16"
       px={{ base: "3", md: "4" }}
       flexShrink={0}
-      bg="white"
-      borderBottomWidth="1px"
-      borderColor="border.subtle"
+      bg="brand.700"
+      color="white"
     >
-      {/* Izquierda: logo + migas de pan. `minW=0` deja que el breadcrumb se
-          recorte en pantallas chicas. */}
-      <Flex align="center" gap="3" flex="1" minW={0}>
-        {/* Logo de la empresa: escudo sin texto. Lleva al inicio. */}
-        <Link
-          asChild
-          aria-label="SAIA, ir al inicio"
-          color="brand.700"
-          flexShrink={0}
-          rounded="md"
-          textDecoration="none"
-          _hover={{ textDecoration: "none", opacity: 0.8 }}
-          _focusVisible={{
-            outline: "2px solid",
-            outlineColor: "brand.700",
-            outlineOffset: "2px",
-          }}
-        >
-          <RouterLink to="/">
-            <LogoSaia soloIcono />
-          </RouterLink>
-        </Link>
+      {/* Logo de la empresa con el nombre. Lleva al inicio. */}
+      <Link
+        asChild
+        aria-label="SAIA, ir al inicio"
+        color="white"
+        flexShrink={0}
+        rounded="md"
+        textDecoration="none"
+        _hover={{ textDecoration: "none", opacity: 0.8 }}
+        _focusVisible={{
+          outline: "2px solid",
+          outlineColor: "white",
+          outlineOffset: "2px",
+        }}
+      >
+        <RouterLink to="/">
+          <LogoSaia />
+        </RouterLink>
+      </Link>
 
-        {/* En celular no entran junto al buscador y quedaban una letra por
-            renglón: ahí se ocultan (el título de la página ya dice dónde se está). */}
-        <Box minW={0} display={{ base: "none", md: "block" }}>
-          <Breadcrumbs />
-        </Box>
-      </Flex>
+      <Navbar />
 
-      {/* Derecha: notificaciones y usuario. Los dos miden 40px. */}
+      {/* Derecha: buscador, notificaciones y usuario. Miden 40px de alto. */}
       <Flex align="center" gap="2" flexShrink={0}>
         <BuscadorGlobal />
         {puedeAdministrar(user) && (

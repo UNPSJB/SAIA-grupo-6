@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
-import { Badge, Box, Image, Portal, Text, VStack } from "@chakra-ui/react";
+import { useCallback, useState } from "react";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { Alert, Badge, Box, HStack, Image, Text, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuHistory } from "react-icons/lu";
 import { useIncidente } from "../../hooks/useIncidente";
 import { useHistorialIncidente } from "../../hooks/useHistorialIncidente";
 import { HistorialIncidenteModal } from "../HistorialIncidenteModal";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
+import { useReclamoDeIncidente } from "../../../reclamos/hooks/useReclamoDeIncidente";
+import { listarRetiros } from "../../../retiros/services/retiroService";
 import {
   estadoLabel,
   tipoLabel,
@@ -13,16 +15,45 @@ import {
   formatoFecha,
   formatoFechaCierre,
 } from "../../types/incidente";
-import { BannerError, BotonCancelar, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
+import { BannerError, BotonCancelar, BotonTexto, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
+import { VisorFoto } from "../../../../components/ui/VisorFoto";
 import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const { incidente, loading, error } = useIncidente(Number(id));
   const { historial, loading: loadingHistorial, cargarHistorial, limpiarHistorial } = useHistorialIncidente();
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
+  const [buscandoRetiro, setBuscandoRetiro] = useState(false);
+
+  const handleVerRetiro = useCallback(async () => {
+    if (!incidente?.lote_id) return;
+    setBuscandoRetiro(true);
+    try {
+      const retiros = await listarRetiros({ lote_id: incidente.lote_id });
+      const retiro = retiros[0];
+      if (retiro) {
+        navigate(`/retiros/${retiro.id}`);
+      }
+    } catch {
+      // No crítico: si no se encuentra el retiro, simplemente no navegamos.
+    } finally {
+      setBuscandoRetiro(false);
+    }
+  }, [incidente?.lote_id, navigate]);
+
+  const esReclamoCliente = incidente?.tipo === "reclamo_cliente";
+  const esEntregaRechazada = incidente?.tipo === "entrega_rechazada";
+  const esRetiroLote = incidente?.tipo === "retiro_lote";
+  // Solo se consulta cuando el incidente es de reclamo: en el resto de los
+  // tipos no hay un reclamo vinculado que mostrar.
+  const { reclamos } = useReclamoDeIncidente(
+    esReclamoCliente ? incidente?.id ?? null : null
+  );
+  const reclamoVinculado = reclamos[0];
 
   // Si el usuario viene de "Mis Reportes" (operador), vuelve ahí. Si viene de
   // la gestión (admin), vuelve a la lista de gestión.
@@ -84,6 +115,69 @@ export function IncidenteDetailPage() {
         }
       >
         <SeccionDetalle>
+
+        {(esEntregaRechazada || esReclamoCliente || esRetiroLote) && (
+          <Alert.Root
+            status={esRetiroLote ? "error" : esEntregaRechazada ? "warning" : "info"}
+            mb="6"
+            alignItems="flex-start"
+          >
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Title>
+                {esRetiroLote
+                  ? "Incidente generado por un retiro de lote"
+                  : esEntregaRechazada
+                  ? "Incidente generado por un rechazo"
+                  : "Incidente generado por un reclamo"}
+              </Alert.Title>
+              <Alert.Description>
+                {esRetiroLote
+                  ? "Este incidente se abrió al iniciar el retiro del lote. No se puede cerrar ni reabrir desde acá: se cierra desde Cerrar retiro en la ficha del retiro."
+                  : esEntregaRechazada
+                  ? "Este incidente no se puede cerrar ni reabrir desde acá: se resuelve desde Resolver rechazo en la salida."
+                  : "Se abrió automáticamente al registrar el reclamo de cliente. Se cierra desde esta pantalla cuando se resuelve."}
+              </Alert.Description>
+              <HStack gap="3" flexWrap="wrap" mt="3">
+                {incidente.lote_id && (
+                  <BotonTexto
+                    onClick={() => navigate(`/lotes/${incidente.lote_id}`)}
+                    title="Ver la ficha del lote"
+                  >
+                    Ver lote
+                  </BotonTexto>
+                )}
+                {incidente.salida_id && (
+                  <BotonTexto
+                    onClick={() =>
+                      navigate(`/salidas/${incidente.salida_id}/detalle`)
+                    }
+                    title="Ver la salida asociada"
+                  >
+                    Ver salida
+                  </BotonTexto>
+                )}
+                {reclamoVinculado && (
+                  <BotonTexto
+                    onClick={() => navigate(`/reclamos/${reclamoVinculado.id}`)}
+                    title="Ver la ficha del reclamo"
+                  >
+                    Ver reclamo
+                  </BotonTexto>
+                )}
+                {esRetiroLote && (
+                  <BotonTexto
+                    onClick={handleVerRetiro}
+                    title="Ver la ficha del retiro"
+                    disabled={buscandoRetiro}
+                  >
+                    {buscandoRetiro ? "Buscando retiro…" : "Ver retiro"}
+                  </BotonTexto>
+                )}
+              </HStack>
+            </Alert.Content>
+          </Alert.Root>
+        )}
 
         {/* Tipo */}
         <Box mb="4">
@@ -231,28 +325,11 @@ export function IncidenteDetailPage() {
 
       {/* Imagen ampliada */}
       {imagenAmpliada && imagen.src && (
-        <Portal>
-          <Box
-            position="fixed"
-            inset={0}
-            bg="blackAlpha.800"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            zIndex={2000}
-            p="5"
-            cursor="zoom-out"
-            onClick={() => setImagenAmpliada(false)}
-          >
-            <Image
-              src={imagen.src}
-              alt="Evidencia ampliada"
-              maxW="90%"
-              maxH="90%"
-              rounded="lg"
-            />
-          </Box>
-        </Portal>
+        <VisorFoto
+          src={imagen.src}
+          alt="Evidencia ampliada"
+          onClose={() => setImagenAmpliada(false)}
+        />
       )}
 
       {/* Modal de historial */}

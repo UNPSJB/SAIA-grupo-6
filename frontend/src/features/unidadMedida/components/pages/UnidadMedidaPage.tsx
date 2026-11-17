@@ -76,6 +76,8 @@ export function UnidadMedidaPage() {
   const ETIQUETAS_ORDEN: Record<ColumnaOrdenUnidadMedida, string> = {
     nombre: "Nombre",
     simbolo: "Símbolo",
+    tipo: "Tipo",
+    factor_a_base: "Factor base",
   };
 
   const chips = chipsDeFiltros([

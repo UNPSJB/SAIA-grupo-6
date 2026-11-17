@@ -20,6 +20,9 @@ RE_NOMBRE_GENERICO = r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ \-\.()]+$"
 RE_NOMBRE_SOLO_LETRAS = r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$"
 RE_DNI = r"^\d{7,8}$"
 RE_EMAIL = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+RE_DOCUMENTO = r"^\d{8}$|^\d{11}$|^\d{2}-?\d{8}-?\d{1}$"
+# CUIT estricto: exactamente 11 dígitos, opcionalmente con guiones XX-XXXXXXXX-X
+RE_CUIT = r"^\d{11}$|^\d{2}-?\d{8}-?\d{1}$"
 
 
 def texto_obligatorio(
@@ -101,3 +104,29 @@ def email_valido(v: Optional[str], *, invalido: Callable[[], Exception]) -> Opti
     if not texto or not re.match(RE_EMAIL, texto):
         raise invalido()
     return texto
+
+
+def documento_valido(v: Optional[str], *, invalido: Callable[[], Exception]) -> Optional[str]:
+    """Valida un documento de cliente: DNI de 8 dígitos o CUIT de 11 dígitos,
+    permitiendo opcionalmente guiones en el formato XX-XXXXXXXX-X.
+    Devuelve el documento normalizado (solo dígitos, sin guiones)."""
+    if v is None:
+        return None
+    texto = v.strip()
+    if not texto or not re.match(RE_DOCUMENTO, texto):
+        raise invalido()
+    # Normalizar: quitar guiones para guardar solo dígitos
+    return texto.replace("-", "")
+
+
+def cuit_valido(v: Optional[str], *, invalido: Callable[[], Exception]) -> Optional[str]:
+    """Valida un CUIT argentino estrictamente: 11 dígitos numéricos,
+    permitiendo opcionalmente guiones en el formato XX-XXXXXXXX-X.
+    Devuelve el CUIT normalizado (solo dígitos, sin guiones)."""
+    if v is None:
+        return None
+    texto = v.strip()
+    if not texto or not re.match(RE_CUIT, texto):
+        raise invalido()
+    # Normalizar: quitar guiones para guardar solo dígitos
+    return texto.replace("-", "")

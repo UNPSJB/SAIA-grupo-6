@@ -47,8 +47,14 @@ from src.unidadMedida.router import router as unidad_medida_router
 from src.incidente.router import router as incidente_router
 from src.vencimientoPersonal.router import router as vencimiento_personal_router
 from src.aptitud.router import router as aptitud_router
+from src.clientes.router import router as clientes_router
+from src.transportistas.router import router as transportistas_router
+from src.certificaciones_transportista.router import router as certificaciones_transportista_router
 from src.proveedores.router import router as proveedores_router
 from src.lotes.router import router as lotes_router
+from src.salidas.router import router as salidas_router
+from src.reclamos.router import router as reclamos_router
+from src.retiros.router import router as retiros_router
 from src.productos.router import router as productos_router
 from src.aditivos.router import router as aditivos_router
 from src.recetas.router import router as recetas_router
@@ -67,6 +73,7 @@ from src.auditoria.router import router as auditoria_router
 from src.vistaPublica.router import router as vista_publica_router
 
 from src.exportacion.router import router as exportacion_router
+from src.rotulado.router import router as rotulado_router
 
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
@@ -165,8 +172,14 @@ app.include_router(configuracion_router)
 app.include_router(unidad_medida_router)
 app.include_router(vencimiento_personal_router)
 app.include_router(aptitud_router)
+app.include_router(clientes_router)
+app.include_router(transportistas_router)
+app.include_router(certificaciones_transportista_router)
 app.include_router(proveedores_router)
 app.include_router(lotes_router)
+app.include_router(salidas_router)
+app.include_router(reclamos_router)
+app.include_router(retiros_router)
 app.include_router(productos_router)
 app.include_router(aditivos_router)
 app.include_router(recetas_router)
@@ -180,4 +193,5 @@ app.include_router(documentos_router)
 app.include_router(vencimientos_router)
 app.include_router(auditoria_router)
 app.include_router(exportacion_router)
+app.include_router(rotulado_router)
 app.include_router(vista_publica_router)

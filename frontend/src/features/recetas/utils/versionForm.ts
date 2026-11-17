@@ -35,6 +35,7 @@ export const estadoInicial = (): VersionFormState => ({
   porcion_descripcion: "",
   porcion_cantidad: "",
   porcion_unidad_medida_id: 0,
+  vida_util_dias: "",
   insumos: [nuevaFilaInsumo()],
   tareas: [nuevaFilaTarea()],
 });
@@ -47,6 +48,10 @@ export function desdeDetalle(version: VersionDetalle): VersionFormState {
     porcion_descripcion: version.porcion_descripcion ?? "",
     porcion_cantidad: version.porcion_cantidad ? String(Number(version.porcion_cantidad)) : "",
     porcion_unidad_medida_id: version.porcion_unidad_medida?.id ?? 0,
+    vida_util_dias:
+      version.vida_util_dias !== null && version.vida_util_dias !== undefined
+        ? String(version.vida_util_dias)
+        : "",
     insumos: version.insumos.map((i) => ({
       clave: nuevaClave(),
       insumo_id: i.insumo.id,
@@ -106,6 +111,10 @@ export function validar(estado: VersionFormState, insumos: InsumoOpcion[] = []):
   if (porcion && numero(porcion) <= 0) return "La cantidad de la porción debe ser mayor a cero.";
   if (porcion && !estado.porcion_unidad_medida_id) return "Elegí la unidad de la porción.";
   if (!porcion && estado.porcion_unidad_medida_id) return "Indicá la cantidad de la porción.";
+  const vidaUtil = estado.vida_util_dias.trim();
+  if (vidaUtil && (numero(vidaUtil) <= 0 || !Number.isInteger(numero(vidaUtil)))) {
+    return "La vida útil debe ser un número entero mayor a cero.";
+  }
   if (estado.insumos.length === 0) return "Agregá al menos un insumo.";
   if (estado.insumos.some((i) => !i.insumo_id || numero(i.cantidad) <= 0)) {
     return "Completá el insumo y una cantidad mayor a cero en cada fila.";
@@ -150,6 +159,7 @@ export function aInput(estado: VersionFormState, insumos: InsumoOpcion[]): Versi
     porcion_descripcion: estado.porcion_descripcion.trim() || null,
     porcion_cantidad: estado.porcion_cantidad.trim() ? String(numero(estado.porcion_cantidad)) : null,
     porcion_unidad_medida_id: estado.porcion_unidad_medida_id || null,
+    vida_util_dias: estado.vida_util_dias.trim() ? Math.floor(numero(estado.vida_util_dias)) : null,
     insumos: estado.insumos.map((i) => ({
       insumo_id: i.insumo_id,
       cantidad: String(numero(i.cantidad)),

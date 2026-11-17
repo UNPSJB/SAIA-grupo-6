@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -98,8 +98,51 @@ class LoteResumen(BaseModel):
     creado_por_nombre: str | None = None
     fecha_inicio: datetime
     fecha_cierre: datetime | None
+    fecha_vencimiento: date | None
     items_total: int
     items_completados: int
+    # Campos de salidas (calculados, no persistidos).
+    retirado: bool = False
+    reservado: Decimal = Decimal("0")
+    despachado: Decimal = Decimal("0")
+    entregado: Decimal = Decimal("0")
+    en_revision: Decimal = Decimal("0")
+    desechado: Decimal = Decimal("0")
+    saldo: Decimal = Decimal("0")
+    estado_lote: str = ""
+    # Retiro asociado al lote (si existe).
+    retiro_id: int | None = None
+    retiro_estado: str | None = None
+    vida_util_dias: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalidaAfectadaResumen(BaseModel):
+    """Salida afectada para GET /lotes/{lote_id}/impacto-retiro."""
+
+    salida_id: int
+    cliente_id: int
+    cliente_nombre: str
+    cantidad_con_unidad: str
+    unidad_medida: str
+    transportista: str
+    estado: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ImpactoRetiro(BaseModel):
+    """Respuesta de GET /lotes/{lote_id}/impacto-retiro."""
+
+    lote_id: int
+    lote_codigo: str
+    lote_producto_nombre: str
+    reservas_a_cancelar: int
+    salidas_afectadas: list[SalidaAfectadaResumen]
+    total_afectadas: int
+    saldo_en_planta: str
+    en_revision: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -136,3 +179,70 @@ class DashboardLotesResponse(BaseModel):
     total_por_unidad: list[TotalPorUnidad]
     por_estado: list[LoteResumenEstado]
     por_producto: list[ProduccionPorProducto]
+
+
+# --------------------------------------------------------------------------
+# Línea de tiempo cronológica del lote (Timeline)
+# --------------------------------------------------------------------------
+
+EstadoNodoTimeline = Literal["completado", "en_proceso", "pendiente"]
+TipoNodoTimeline = Literal["inicio", "tarea", "cierre"]
+
+
+class ConsumoInsumoTimelineItem(BaseModel):
+    insumo_nombre: str
+    cantidad: Decimal
+    unidad_medida: str
+    lote_insumo_codigo: str
+    proveedor_nombre: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DesperdicioTimelineItem(BaseModel):
+    cantidad: Decimal
+    unidad_medida: str
+    motivo: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RendimientoTimeline(BaseModel):
+    cantidad_objetivo: Decimal
+    cantidad_producida: Decimal | None
+    porcentaje_rendimiento: Decimal | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DetalleNodoTimeline(BaseModel):
+    operario_nombre: str | None = None
+    descripcion: str | None = None
+    insumos_consumidos: list[ConsumoInsumoTimelineItem] = Field(default_factory=list)
+    desperdicios: list[DesperdicioTimelineItem] = Field(default_factory=list)
+    rendimiento: RendimientoTimeline | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NodoTimelineResponse(BaseModel):
+    id: str  # ej: "inicio", "tarea_12", "cierre"
+    orden: int
+    tipo: TipoNodoTimeline
+    titulo: str
+    subtitulo: str | None = None
+    fecha_hora: datetime | None = None
+    estado: EstadoNodoTimeline
+    tiene_desvio: bool = False  # True si hubo desperdicios en esa etapa
+    detalle: DetalleNodoTimeline
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LoteTimelineResponse(BaseModel):
+    lote_id: int
+    numero_lote: str
+    estado_lote: str
+    nodos: list[NodoTimelineResponse]
+
+    model_config = ConfigDict(from_attributes=True)

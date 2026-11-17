@@ -4,6 +4,7 @@ import type {
   AjusteModuloRotulado,
   ConfiguracionRotuladoInput,
   EvaluacionRotulado,
+  EvaluacionRotuladoGuardada,
   ReglaRotulado,
   ReglaRotuladoInput,
 } from "../types/rotuladoFrontal";
@@ -35,7 +36,19 @@ export async function guardarRotulado(
 ): Promise<EvaluacionRotulado> {
   return pedir<EvaluacionRotulado>(
     await apiFetch(`${BASE}/productos/${productoId}`, json("PUT", datos)),
-    "No se pudo guardar la configuración de rotulado frontal",
+    "No se pudo guardar la configuraciA3n de rotulado frontal",
+  );
+}
+
+export async function listarEvaluaciones(
+  productoId: number,
+  limite = 20,
+): Promise<EvaluacionRotuladoGuardada[]> {
+  return pedir<EvaluacionRotuladoGuardada[]>(
+    await apiFetch(
+      `${BASE}/productos/${productoId}/evaluaciones?limite=${limite}`,
+    ),
+    "No se pudo cargar el historial de evaluaciones",
   );
 }
 

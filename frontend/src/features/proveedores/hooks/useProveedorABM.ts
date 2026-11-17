@@ -5,9 +5,9 @@ import {
   modificarProveedor,
   reactivarProveedor,
 } from "../services/proveedorService";
-import type { Proveedor } from "../types/proveedor";
+import type { Proveedor, ProveedorFormValues } from "../types/proveedor";
 
-type ProveedorInput = Omit<Proveedor, "id" | "activo">;
+type ProveedorInput = ProveedorFormValues;
 
 export function useProveedorABM() {
   return useABM<ProveedorInput, Proveedor>({

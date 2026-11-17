@@ -288,6 +288,7 @@ class ReglaRotuladoResponse(ReglaRotuladoIn):
     id: int
     version: int
     vigente: bool
+    programada: bool
     creado_en: datetime
 
     model_config = ConfigDict(from_attributes=True)

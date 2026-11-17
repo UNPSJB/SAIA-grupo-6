@@ -3,7 +3,7 @@
 export type Fuente = "base_referencia" | "rotulo_proveedor" | "bibliografia" | "valor_propio";
 
 export const FUENTES: { valor: Fuente; etiqueta: string }[] = [
-  { valor: "base_referencia", etiqueta: "Base de composición (SARA 2 u otra)" },
+  { valor: "base_referencia", etiqueta: "Base de composición (SARA 1 u otra)" },
   { valor: "rotulo_proveedor", etiqueta: "Rótulo del proveedor" },
   { valor: "bibliografia", etiqueta: "Otra bibliografía" },
   { valor: "valor_propio", etiqueta: "Valor propio" },
@@ -69,6 +69,8 @@ export interface ResultadoImportacion {
   creados: number;
   actualizados: number;
   errores: string[];
+  /** Nutrientes que el archivo no trae, filas omitidas (SARA 1). */
+  avisos: string[];
 }
 
 export interface ValorNutricional {

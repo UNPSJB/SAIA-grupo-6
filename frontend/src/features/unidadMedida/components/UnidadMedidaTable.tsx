@@ -44,6 +44,12 @@ export function UnidadMedidaTable({
             <EncabezadoOrdenable columna="simbolo" orden={orden} ancho="angosta">
               Símbolo
             </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="tipo" orden={orden} ancho="angosta">
+              Tipo
+            </EncabezadoOrdenable>
+            <EncabezadoOrdenable columna="factor_a_base" orden={orden} ancho="angosta">
+              Factor base
+            </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

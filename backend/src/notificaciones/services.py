@@ -20,12 +20,17 @@ from src.notificaciones.invalidacion import (
 )
 from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida
 from src.personal.models import Personal
+from src.lotesInsumo.models import LoteInsumo
 from src.unidadMedida.models import UnidadMedida
 from src.vencimientoPersonal.models import VencimientoPersonal
 
 MARGEN_DIAS_ALERTA = 3
 CLAVE_DIAS_VENCIMIENTO_PERSONAL = "dias_alerta_vencimiento_personal"
 DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
+# Plazo de referencia para los reclamos de clientes (Historia 20). Es solo una
+# referencia para marcar el reclamo como "fuera de plazo": no bloquea el alta.
+CLAVE_PLAZO_RECLAMO_DIAS = "plazo_reclamo_dias"
+PLAZO_RECLAMO_DIAS_POR_DEFECTO = 30
 
 
 
@@ -147,6 +152,22 @@ def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
     return dias
 
 
+def obtener_plazo_reclamo_dias(db: Session) -> int:
+    """Días de referencia para marcar un reclamo como fuera de plazo."""
+    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    return config.valor if config else PLAZO_RECLAMO_DIAS_POR_DEFECTO
+
+
+def actualizar_plazo_reclamo_dias(db: Session, dias: int) -> int:
+    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    if config:
+        config.valor = dias
+    else:
+        db.add(ConfiguracionAlerta(clave=CLAVE_PLAZO_RECLAMO_DIAS, valor=dias))
+    db.commit()
+    return dias
+
+
 def _nombre_persona(persona: Personal) -> str:
     return f"{persona.nombre} {persona.apellido or ''}".strip()
 
@@ -203,6 +224,64 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
 
     return notificaciones
 
+def obtener_notificaciones_vencimiento_lotes_insumo(
+    db: Session,
+) -> List[NotificacionResponse]:
+    hoy_dia = hoy()
+    limite = hoy_dia + timedelta(days=MARGEN_DIAS_ALERTA)
+
+    lotes = db.scalars(
+        select(LoteInsumo)
+        .options(
+            selectinload(LoteInsumo.insumo),
+            selectinload(LoteInsumo.proveedor),
+        )
+        .where(
+            LoteInsumo.activo.is_(True),
+            LoteInsumo.fecha_vencimiento.is_not(None),
+            LoteInsumo.fecha_vencimiento <= limite,
+        )
+        .order_by(LoteInsumo.fecha_vencimiento)
+    ).all()
+
+    notificaciones = []
+
+    for lote in lotes:
+        dias_restantes = (lote.fecha_vencimiento - hoy_dia).days
+
+        if dias_restantes <= 0:
+            titulo = "Lote de insumo vencido"
+            nivel = "VENCIDO"
+            mensaje = (
+                f"El lote '{lote.numero_lote}' de '{lote.insumo.nombre}' "
+                f"del proveedor '{lote.proveedor.nombre}' venció el "
+                f"{lote.fecha_vencimiento:%d/%m/%Y}."
+            )
+        else:
+            titulo = "Lote de insumo próximo a vencer"
+            nivel = "PROXIMO_A_VENCER"
+            mensaje = (
+                f"El lote '{lote.numero_lote}' de '{lote.insumo.nombre}' "
+                f"del proveedor '{lote.proveedor.nombre}' vence en "
+                f"{dias_restantes} día(s), el "
+                f"{lote.fecha_vencimiento:%d/%m/%Y}."
+            )
+
+        notificaciones.append(
+            NotificacionResponse(
+                id_notificacion=f"lote-insumo-{lote.id}",
+                tipo="VENCIMIENTO_LOTE_INSUMO",
+                entidad_id=lote.id,
+                titulo=titulo,
+                mensaje=mensaje,
+                nivel=nivel,
+                link_destino="/gestion-stock/lotes-insumo",
+                fecha_referencia=lote.fecha_vencimiento,
+                grupo_clave=f"lote-insumo:{lote.id}",
+            )
+        )
+
+    return notificaciones
 
 def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]:
     filas = db.execute(
@@ -304,6 +383,7 @@ def calcular_filas_notificaciones(db: Session) -> list[dict]:
     notificaciones_originales.extend(obtener_notificaciones_planes_calibracion_mantenimiento(db))
     notificaciones_originales.extend(obtener_notificaciones_vencimientos_personal(db))
     notificaciones_originales.extend(obtener_notificaciones_stock_bajo(db))
+    notificaciones_originales.extend(obtener_notificaciones_vencimiento_lotes_insumo(db))
     por_id = {n.id_notificacion: n for n in notificaciones_originales}
 
     def _recortar(texto: str | None, largo: int) -> str | None:
