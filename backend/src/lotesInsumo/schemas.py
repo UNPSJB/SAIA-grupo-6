@@ -1,10 +1,13 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.common.validators import texto_no_vacio
+from src.common.validators import texto_no_vacio, texto_opcional
 from src.lotesInsumo import exceptions
+
+MotivoBajaTipo = Literal["danado", "vencido", "contaminado", "devuelto_proveedor"]
 
 
 class LoteInsumoCreate(BaseModel):
@@ -22,12 +25,30 @@ class LoteInsumoCreate(BaseModel):
 
 
 class LoteInsumoBaja(BaseModel):
-    motivo: str = Field(max_length=300)
+    motivo: MotivoBajaTipo
+    cantidad: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=3)
+    observaciones: str | None = Field(default=None, max_length=300)
+    foto_data_url: str | None = Field(default=None, max_length=2_500_000)
+    dar_de_baja_lote_completo: bool = False
 
-    @field_validator("motivo")
+    @field_validator("observaciones")
     @classmethod
-    def validar_motivo(cls, valor: str) -> str:
-        return texto_no_vacio(valor, vacio=exceptions.MotivoVacio)
+    def validar_observaciones(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor, largo_maximo=300)
+
+
+class BajaLoteInsumoResponse(BaseModel):
+    id: int
+    lote_insumo_id: int
+    motivo: str
+    motivo_etiqueta: str
+    observaciones: str | None
+    cantidad: Decimal
+    tiene_foto: bool
+    foto_data_url: str | None
+    registrado_por_id: int
+    registrado_por_nombre: str
+    registrado_en: datetime
 
 
 class ProveedorResumen(BaseModel):
@@ -56,6 +77,7 @@ class LoteInsumoResponse(BaseModel):
     activo: bool
     motivo_baja: str | None
     fecha_baja: datetime | None
+    dado_de_baja_por_nombre: str | None = None
     certificacion_id: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -65,15 +87,20 @@ class StockLoteInsumo(BaseModel):
     lote_insumo_id: int
     insumo_id: int
     insumo_nombre: str
+    unidad: str
     proveedor_id: int
     proveedor_nombre: str
     numero_lote: str
     fecha_vencimiento: date | None
     activo: bool
     vencido: bool
+    motivo_baja: str | None = None
+    fecha_baja: datetime | None = None
+    dado_de_baja_por_nombre: str | None = None
     cantidad_recibida: Decimal
     consumo_real: Decimal
     desperdicio: Decimal
+    cantidad_baja: Decimal
     saldo: Decimal
 
 
@@ -84,5 +111,18 @@ class StockInsumo(BaseModel):
     cantidad_recibida: Decimal
     consumo_real: Decimal
     desperdicio: Decimal
+    cantidad_baja: Decimal
     stock: Decimal
     stock_vencido: Decimal
+
+
+class IndicadorBajasPorMotivoItem(BaseModel):
+    motivo: str
+    etiqueta: str
+    cantidad_registros: int
+    cantidad_total: Decimal
+
+
+class IndicadorBajasResponse(BaseModel):
+    total_registros: int
+    por_motivo: list[IndicadorBajasPorMotivoItem]

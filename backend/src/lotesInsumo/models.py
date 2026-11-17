@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -18,12 +19,7 @@ from src.models import ModeloBase
 
 
 class LoteInsumo(ModeloBase):
-    """Lote de un insumo recibido de un proveedor.
-
-    No guarda stock: el saldo se calcula (recibido - consumos). Con consumos
-    asociados no se borra; se da de baja (`activo=False`).
-    """
-
+    
     __tablename__ = "lotes_insumo"
     __table_args__ = (
         UniqueConstraint(
@@ -51,7 +47,12 @@ class LoteInsumo(ModeloBase):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     motivo_baja: Mapped[str | None] = mapped_column(String(300), nullable=True)
     fecha_baja: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    certificacion_id: Mapped[int | None] = mapped_column(ForeignKey("certificaciones_proveedor.id", ondelete="RESTRICT"), nullable=True)
+    dado_de_baja_por_id: Mapped[int | None] = mapped_column(
+        ForeignKey("personal.id"), nullable=True
+    )
+    certificacion_id: Mapped[int | None] = mapped_column(
+        ForeignKey("certificaciones_proveedor.id", ondelete="RESTRICT"), nullable=True
+    )
     creado_por_id: Mapped[int | None] = mapped_column(
         ForeignKey("personal.id"), nullable=True
     )
@@ -60,3 +61,34 @@ class LoteInsumo(ModeloBase):
     insumo: Mapped["Insumo"] = relationship()
     proveedor: Mapped["Proveedor"] = relationship()
     certificacion: Mapped["CertificacionProveedor | None"] = relationship()
+    dado_de_baja_por: Mapped["Personal | None"] = relationship(
+        foreign_keys=[dado_de_baja_por_id]
+    )
+    bajas: Mapped[list["BajaLoteInsumo"]] = relationship(
+        back_populates="lote_insumo", cascade="all, delete-orphan"
+    )
+
+
+class BajaLoteInsumo(ModeloBase):
+    """Registro auditado de baja parcial o total de un lote de insumo."""
+
+    __tablename__ = "bajas_lote_insumo"
+    __table_args__ = (
+        CheckConstraint("cantidad > 0", name="ck_bajas_lote_insumo_cantidad_positiva"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    lote_insumo_id: Mapped[int] = mapped_column(
+        ForeignKey("lotes_insumo.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    motivo: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    observaciones: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    foto_data_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    registrado_por_id: Mapped[int] = mapped_column(
+        ForeignKey("personal.id", ondelete="RESTRICT"), nullable=False
+    )
+    registrado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, index=True)
+
+    lote_insumo: Mapped["LoteInsumo"] = relationship(back_populates="bajas")
+    registrado_por: Mapped["Personal"] = relationship()

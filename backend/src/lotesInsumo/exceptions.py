@@ -26,6 +26,18 @@ class MotivoVacio(BadRequest):
     DETAIL = ErrorCode.MOTIVO_VACIO
 
 
+class MotivoInvalido(BadRequest):
+    DETAIL = ErrorCode.MOTIVO_INVALIDO
+
+
+class CantidadBajaInvalida(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_BAJA_INVALIDA
+
+
+class CantidadSuperaSaldo(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_SUPERA_SALDO
+
+
 class LoteYaDadoDeBaja(BadRequest):
     DETAIL = ErrorCode.LOTE_YA_DADO_DE_BAJA
 
@@ -33,5 +45,7 @@ class LoteYaDadoDeBaja(BadRequest):
 class VencimientoAnterior(BadRequest):
     DETAIL = ErrorCode.VENCIMIENTO_ANTERIOR
 
+
 class CertificacionProveedorNoVigente(BadRequest):
     DETAIL = ErrorCode.CERTIFICACION_NO_VIGENTE
+    

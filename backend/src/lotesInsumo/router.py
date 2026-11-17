@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -20,13 +22,14 @@ def crear_lote_insumo(
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_admin),
 ):
-    return services.crear_lote_insumo(db, datos, usuario)
+    lote = services.crear_lote_insumo(db, datos, usuario)
+    return services.lote_a_respuesta(lote)
 
 
 @router.get(
     "",
     response_model=list[schemas.LoteInsumoResponse],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_operador)],
 )
 def listar_lotes_insumo(
     insumo_id: int | None = Query(None, ge=1),
@@ -34,7 +37,8 @@ def listar_lotes_insumo(
     incluir_inactivos: bool = False,
     db: Session = Depends(get_db),
 ):
-    return services.listar_lotes_insumo(db, insumo_id, proveedor_id, incluir_inactivos)
+    lotes = services.listar_lotes_insumo(db, insumo_id, proveedor_id, incluir_inactivos)
+    return [services.lote_a_respuesta(l) for l in lotes]
 
 
 @router.get(
@@ -47,53 +51,65 @@ def lotes_sugeridos(
     todos: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Lotes ordenados por vencimiento (el primero disponible es el sugerido).
-
-    Con `todos=true` incluye también los vencidos o sin saldo.
-    """
     return services.lotes_sugeridos(db, insumo_id, todos)
 
 
 @router.get(
     "/{lote_insumo_id}",
     response_model=schemas.LoteInsumoResponse,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_operador)],
 )
 def obtener_lote_insumo(lote_insumo_id: int, db: Session = Depends(get_db)):
-    return services.obtener_lote_insumo(db, lote_insumo_id)
+    return services.lote_a_respuesta(services.obtener_lote_insumo(db, lote_insumo_id))
+
+
+@router.get(
+    "/{lote_insumo_id}/bajas",
+    response_model=list[schemas.BajaLoteInsumoResponse],
+    dependencies=[Depends(require_operador)],
+)
+def listar_bajas_lote_insumo(lote_insumo_id: int, db: Session = Depends(get_db)):
+    return services.listar_bajas_lote_insumo(db, lote_insumo_id)
 
 
 @router.post(
     "/{lote_insumo_id}/baja",
     response_model=schemas.LoteInsumoResponse,
-    dependencies=[Depends(require_admin)],
 )
 def dar_de_baja(
     lote_insumo_id: int,
     datos: schemas.LoteInsumoBaja,
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_operador),
 ):
-    return services.dar_de_baja_lote_insumo(db, lote_insumo_id, datos.motivo)
+    lote = services.dar_de_baja_lote_insumo(db, lote_insumo_id, datos, usuario)
+    return services.lote_a_respuesta(lote)
 
 
 @router.delete(
     "/{lote_insumo_id}",
     response_model=schemas.LoteInsumoResponse,
-    dependencies=[Depends(require_admin)],
 )
 def eliminar_lote_insumo(
     lote_insumo_id: int,
-    motivo: str = Query("Baja manual", min_length=1, max_length=300),
+    motivo: schemas.MotivoBajaTipo = Query("danado"),
+    observaciones: str | None = Query(None, max_length=300),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_operador),
 ):
-    """No borra la fila: es una baja lógica, igual que `POST /{id}/baja`."""
-    return services.dar_de_baja_lote_insumo(db, lote_insumo_id, motivo)
+    datos = schemas.LoteInsumoBaja(
+        motivo=motivo,
+        observaciones=observaciones,
+        dar_de_baja_lote_completo=True,
+    )
+    lote = services.dar_de_baja_lote_insumo(db, lote_insumo_id, datos, usuario)
+    return services.lote_a_respuesta(lote)
 
 
 @stock_router.get(
     "/insumos",
     response_model=list[schemas.StockInsumo],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_operador)],
 )
 def stock_por_insumo(
     insumo_id: int | None = Query(None, ge=1), db: Session = Depends(get_db)
@@ -104,7 +120,7 @@ def stock_por_insumo(
 @stock_router.get(
     "/lotes-insumo",
     response_model=list[schemas.StockLoteInsumo],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_operador)],
 )
 def stock_por_lote(
     insumo_id: int | None = Query(None, ge=1),
@@ -112,3 +128,16 @@ def stock_por_lote(
     db: Session = Depends(get_db),
 ):
     return services.stock_por_lote(db, insumo_id, incluir_inactivos)
+
+
+@stock_router.get(
+    "/bajas-por-motivo",
+    response_model=schemas.IndicadorBajasResponse,
+    dependencies=[Depends(require_operador)],
+)
+def indicador_bajas(
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
+    db: Session = Depends(get_db),
+):
+    return services.indicador_bajas_por_motivo(db, fecha_desde, fecha_hasta)
