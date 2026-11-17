@@ -11,7 +11,7 @@ import {
   Table,
   Text,
 } from "@chakra-ui/react";
-import { LuCircleCheck } from "react-icons/lu";
+import { LuCircleCheck, LuNetwork } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -187,7 +187,7 @@ function ItemCard({
  * Ahora lo único que aportaba —vencimiento, proveedor y matrícula de cada
  * lote de insumo— vive acá. Solo para administración: el endpoint lo es.
  */
-function SeccionTrazabilidad({ traza }: { traza: TrazabilidadLoteProducto }) {
+function SeccionTrazabilidad({ traza, loteId }: { traza: TrazabilidadLoteProducto; loteId: number }) {
   const navigate = useNavigate();
   return (
     <SeccionDetalle
@@ -196,6 +196,18 @@ function SeccionTrazabilidad({ traza }: { traza: TrazabilidadLoteProducto }) {
       descripcion="Trazabilidad hacia atrás: de qué lote de insumo y de qué proveedor salió cada consumo."
       mb="0"
     >
+      <HStack justify="flex-start" mb="3">
+        <Button
+          variant="outline"
+          colorPalette="brand"
+          size="sm"
+          onClick={() => navigate(`/trazabilidad/lotes-producto/${loteId}`)}
+        >
+          <LuNetwork aria-hidden />
+          Ver Árbol de Trazabilidad Completa
+        </Button>
+      </HStack>
+
       {traza.lotes_insumo.length === 0 ? (
         <EstadoVacio>Todavía no hay consumos registrados.</EstadoVacio>
       ) : (
@@ -507,7 +519,7 @@ export function LoteDetallePage() {
             </HStack>
           )}
 
-          {esAdmin && traza && <SeccionTrazabilidad traza={traza} />}
+          {esAdmin && traza && <SeccionTrazabilidad traza={traza} loteId={lote.id} />}
 
           {/* Distribución y Stock del Lote */}
           <SeccionDetalle sinMarco titulo="Distribución y Stock del Lote" mb="0">

@@ -1,18 +1,22 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin
+from src.auth.dependencies import get_current_user, require_admin
 from src.database import get_db
+from src.personal.models import Personal
 from src.trazabilidad import schemas, services
 
 router = APIRouter(
     prefix="/trazabilidad",
     tags=["Trazabilidad"],
-    dependencies=[Depends(require_admin)],
 )
 
 
-@router.get("/lotes-producto/{lote_id}", response_model=schemas.TrazabilidadLoteProducto)
+@router.get(
+    "/lotes-producto/{lote_id}",
+    response_model=schemas.TrazabilidadLoteProducto,
+    dependencies=[Depends(require_admin)],
+)
 def trazar_lote_producto(lote_id: int, db: Session = Depends(get_db)):
     return services.trazar_lote_producto(db, lote_id)
 
@@ -20,6 +24,20 @@ def trazar_lote_producto(lote_id: int, db: Session = Depends(get_db)):
 @router.get(
     "/lotes-insumo/{lote_insumo_id}/lotes-producto",
     response_model=schemas.TrazabilidadLoteInsumo,
+    dependencies=[Depends(require_admin)],
 )
 def trazar_lote_insumo(lote_insumo_id: int, db: Session = Depends(get_db)):
     return services.trazar_lote_insumo(db, lote_insumo_id)
+
+
+@router.get(
+    "/lotes-producto/{lote_id}/grafo",
+    response_model=schemas.GrafoTrazabilidadResponse,
+)
+def obtener_grafo_trazabilidad_lote(
+    lote_id: int,
+    db: Session = Depends(get_db),
+    _usuario: Personal = Depends(get_current_user),
+):
+    return services.obtener_grafo_trazabilidad_lote(db, lote_id)
+
