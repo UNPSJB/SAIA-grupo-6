@@ -109,8 +109,8 @@ def _evaluar_perfil_inicial() -> list[CondicionAplicabilidad]:
 class ReglasAplicabilidad(BaseModel):
     """Datos que ejecuta el motor de aplicabilidad.
 
-    `condiciones` se evalA�a en orden: la primera que se cumple define el
-    estado. Para cambiar una regla de negocio se crea una versiA3n nueva con
+    `condiciones` se evalúa en orden: la primera que se cumple define el
+    estado. Para cambiar una regla de negocio se crea una versión nueva con
     otra lista; el servicio no conoce los casos particulares.
     """
 

@@ -449,11 +449,11 @@ export function ReglasRotuladoFrontalPage() {
       toaster.create({
         type: "success",
         title: actualizada.programada
-          ? `VersiA3n ${regla.version} programada para el ${formatoFecha(actualizada.vigencia_desde)}.`
-          : `VersiA3n ${regla.version} activada.`,
+          ? `Versión ${regla.version} programada para el ${formatoFecha(actualizada.vigencia_desde)}.`
+          : `Versión ${regla.version} activada.`,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo activar la versiA3n.");
+      setError(e instanceof Error ? e.message : "No se pudo activar la versión.");
     } finally {
       setActivando(null);
     }
@@ -560,7 +560,7 @@ export function ReglasRotuladoFrontalPage() {
                       ) : regla.programada ? (
                         <EtiquetaEstado tono="alerta">Programada</EtiquetaEstado>
                       ) : (
-                        <EtiquetaEstado tono="neutro">HistA3rica</EtiquetaEstado>
+                        <EtiquetaEstado tono="neutro">Histórica</EtiquetaEstado>
                       )}
                     </Celda>
                     <Celda py="3" px="4" center>

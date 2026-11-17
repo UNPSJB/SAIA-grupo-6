@@ -36,7 +36,7 @@ export async function guardarRotulado(
 ): Promise<EvaluacionRotulado> {
   return pedir<EvaluacionRotulado>(
     await apiFetch(`${BASE}/productos/${productoId}`, json("PUT", datos)),
-    "No se pudo guardar la configuraciA3n de rotulado frontal",
+    "No se pudo guardar la configuración de rotulado frontal",
   );
 }
 

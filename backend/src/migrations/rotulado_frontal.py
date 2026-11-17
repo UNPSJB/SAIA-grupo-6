@@ -64,8 +64,8 @@ def _completar_resultado_por_defecto(db) -> None:
     """Completa claves nuevas de reglas creadas antes de existir.
 
     El motor ya no tiene un fallback hardcodeado: toda regla, incluida la
-    rama que no coincide con ninguna condiciA3n, debe traer su resultado.
-    TambiAcn se completa el cruce de la receta, que antes no era configurable.
+    rama que no coincide con ninguna condición, debe traer su resultado.
+    También se completa el cruce de la receta, que antes no era configurable.
     """
     for regla in db.scalars(select(ReglaRotuladoFrontal)).all():
         datos = deepcopy(regla.reglas_aplicabilidad or {})
