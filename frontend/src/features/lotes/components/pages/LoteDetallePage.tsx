@@ -412,13 +412,16 @@ export function LoteDetallePage() {
               <DatoDetalle etiqueta="Creado por">{lote.creado_por_nombre ?? "-"}</DatoDetalle>
               <DatoDetalle etiqueta="Inicio">{formatoFechaHora(lote.fecha_inicio)}</DatoDetalle>
               {lote.fecha_cierre && <DatoDetalle etiqueta="Cierre">{formatoFechaHora(lote.fecha_cierre)}</DatoDetalle>}
+              <DatoDetalle etiqueta="Vencimiento">
+                {lote.fecha_vencimiento ? formatoFecha(lote.fecha_vencimiento) : "Sin fecha"}
+              </DatoDetalle>
               <DatoDetalle etiqueta="Tareas hechas">
                 {lote.items_completados} de {lote.items_total}
               </DatoDetalle>
               {lote.fecha_vencimiento && lote.fecha_vencimiento < hoyISO() && (
-                <DatoDetalle etiqueta="Estado de vencimiento">
-                  <Badge colorScheme="red">Vencido</Badge>
-                </DatoDetalle>
+                <Text fontSize="xs" color="red.fg" fontWeight="bold" mt="1">
+                  ⚠ Vencido
+                </Text>
               )}
             </GrillaDatos>
             {lote.retirado && lote.retiro_id && (

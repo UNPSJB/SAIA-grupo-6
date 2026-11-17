@@ -1,4 +1,9 @@
-export type TipoVencimiento = "PERSONAL" | "CALIBRACION" | "MANTENIMIENTO" | "DOCUMENTO";
+export type TipoVencimiento =
+  | "PERSONAL"
+  | "CALIBRACION"
+  | "MANTENIMIENTO"
+  | "DOCUMENTO"
+  | "LOTE";
 
 
 export type EstadoVencimiento = "VENCIDO" | "PROXIMO" | "VIGENTE";
@@ -8,6 +13,7 @@ export const TIPOS_VENCIMIENTO: { value: TipoVencimiento; label: string }[] = [
   { value: "CALIBRACION", label: "Calibración" },
   { value: "MANTENIMIENTO", label: "Mantenimiento" },
   { value: "DOCUMENTO", label: "Documento" },
+  { value: "LOTE", label: "Lote de producción" },
 ];
 
 /** Estados con los que se puede filtrar el consolidado. */

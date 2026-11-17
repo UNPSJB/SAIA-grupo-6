@@ -28,6 +28,7 @@ export interface VersionResumen {
   porcion_descripcion: string | null;
   porcion_cantidad: string | null;
   porcion_unidad_medida: UnidadResumen | null;
+  vida_util_dias: number | null;
   creado_en: string;
   creado_por_id: number | null;
 }
@@ -75,6 +76,7 @@ export interface VersionInput {
   porcion_descripcion: string | null;
   porcion_cantidad: string | null;
   porcion_unidad_medida_id: number | null;
+  vida_util_dias?: number | null;
   insumos: {
     insumo_id: number;
     cantidad: string;
@@ -116,6 +118,7 @@ export interface VersionFormState {
   porcion_descripcion: string;
   porcion_cantidad: string;
   porcion_unidad_medida_id: number;
+  vida_util_dias: string;
   insumos: FilaInsumoForm[];
   tareas: FilaTareaForm[];
 }

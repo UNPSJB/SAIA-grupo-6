@@ -141,6 +141,7 @@ def _armar_version(
         porcion_descripcion=datos.porcion_descripcion,
         porcion_cantidad=datos.porcion_cantidad,
         porcion_unidad_medida_id=datos.porcion_unidad_medida_id,
+        vida_util_dias=datos.vida_util_dias,
         creado_por_id=usuario.id if usuario else None,
     )
     por_insumo = {
@@ -258,6 +259,7 @@ def _resumen_version(version: VersionReceta) -> dict:
             if version.porcion_unidad_medida
             else None
         ),
+        "vida_util_dias": version.vida_util_dias,
         "creado_en": version.creado_en,
         "creado_por_id": version.creado_por_id,
     }

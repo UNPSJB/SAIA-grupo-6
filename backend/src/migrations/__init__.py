@@ -20,6 +20,7 @@ from .insumos_tipo import (
 from .lotes import migrar_lotes
 from .lotes_fecha_vencimiento import migrar_lotes_fecha_vencimiento
 from .notificaciones import migrar_notificaciones
+from .versiones_receta_vida_util import migrar_versiones_receta_vida_util
 from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .reclamos import migrar_reclamos
@@ -58,6 +59,7 @@ def run_migrations() -> None:
     migrar_stock()
     migrar_lotes()
     migrar_lotes_fecha_vencimiento()
+    migrar_versiones_receta_vida_util()
     migrar_trazabilidad()
     migrar_aditivos_referencia()
     migrar_insumos_tipo()

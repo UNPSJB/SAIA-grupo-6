@@ -113,6 +113,7 @@ class LoteResumen(BaseModel):
     # Retiro asociado al lote (si existe).
     retiro_id: int | None = None
     retiro_estado: str | None = None
+    vida_util_dias: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

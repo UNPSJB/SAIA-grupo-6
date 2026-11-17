@@ -273,7 +273,12 @@ def registrar_consumo(
 def cerrar_lote(
     db: Session, lote_id: int, datos: schemas.LoteCierre
 ) -> LoteProducto:
-    """`terminado`: checklist completo y cantidad final producida cargada."""
+    """`terminado`: checklist completo y cantidad final producida cargada.
+
+    Si la versión de la receta tiene `vida_util_dias`, se calcula y guarda
+    automáticamente `fecha_vencimiento = fecha_cierre.date() + timedelta(days=vida_util_dias)`.
+    Si es `None`, `fecha_vencimiento` queda `None`.
+    """
     lote = obtener_lote(db, lote_id)
     _exigir_abierto(lote)
     if any(item.completado_en is None for item in lote.checklist):
@@ -283,6 +288,14 @@ def cerrar_lote(
     lote.cantidad_producida = datos.cantidad_producida
     lote.estado = ESTADO_TERMINADO
     lote.fecha_cierre = ahora()
+
+    if lote.version_receta and lote.version_receta.vida_util_dias is not None:
+        lote.fecha_vencimiento = lote.fecha_cierre.date() + timedelta(
+            days=lote.version_receta.vida_util_dias
+        )
+    else:
+        lote.fecha_vencimiento = None
+
     db.commit()
     return obtener_lote(db, lote_id)
 
@@ -393,6 +406,7 @@ def resumen(
         estado_lote=lote.estado_lote,
         retiro_id=retiro_id,
         retiro_estado=retiro_estado,
+        vida_util_dias=lote.version_receta.vida_util_dias if lote.version_receta else None,
     )
 
 

@@ -159,3 +159,55 @@ def test_api_crear_version_devuelve_el_detalle(client, escenario):
     assert respuesta.status_code == 201
     assert respuesta.json()["numero"] == 2
     assert respuesta.json()["tareas"][0]["insumos"][0]["cantidad"] == "9.000"
+
+
+def test_crear_version_con_vida_util_dias(client, escenario):
+    cuerpo = {
+        "rendimiento": "20",
+        "unidad_medida_id": escenario.kg.id,
+        "vida_util_dias": 180,
+        "insumos": [
+            {
+                "insumo_id": escenario.harina.id,
+                "cantidad": "9",
+                "unidad_medida_id": escenario.kg.id,
+            }
+        ],
+        "tareas": [
+            {"descripcion": "Amasar", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "9"}]}
+        ],
+    }
+
+    respuesta = client.post(
+        f"/recetas/{escenario.receta.id}/versiones", json=cuerpo, headers=escenario.h_admin
+    )
+
+    assert respuesta.status_code == 201
+    assert respuesta.json()["vida_util_dias"] == 180
+
+    receta = client.get(f"/recetas/{escenario.receta.id}", headers=escenario.h_admin).json()
+    assert receta["version_vigente"]["vida_util_dias"] == 180
+
+
+def test_crear_version_vida_util_dias_invalida_lanza_error(client, escenario):
+    cuerpo = {
+        "rendimiento": "20",
+        "unidad_medida_id": escenario.kg.id,
+        "vida_util_dias": 0,
+        "insumos": [
+            {
+                "insumo_id": escenario.harina.id,
+                "cantidad": "9",
+                "unidad_medida_id": escenario.kg.id,
+            }
+        ],
+        "tareas": [
+            {"descripcion": "Amasar", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "9"}]}
+        ],
+    }
+
+    respuesta = client.post(
+        f"/recetas/{escenario.receta.id}/versiones", json=cuerpo, headers=escenario.h_admin
+    )
+    assert respuesta.status_code == 400
+    assert respuesta.json()["detail"] == exceptions.VidaUtilInvalida.DETAIL
