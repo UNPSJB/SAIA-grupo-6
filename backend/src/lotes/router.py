@@ -67,6 +67,15 @@ def obtener_lote(lote_id: int, db: Session = Depends(get_db)):
 
 
 @router.get(
+    "/{lote_id}/timeline",
+    response_model=schemas.LoteTimelineResponse,
+    dependencies=[Depends(require_operador)],
+)
+def obtener_timeline_lote(lote_id: int, db: Session = Depends(get_db)):
+    return services.obtener_timeline_lote(db, lote_id)
+
+
+@router.get(
     "/{lote_id}/impacto-retiro",
     response_model=schemas.ImpactoRetiro,
     dependencies=[Depends(require_admin)],

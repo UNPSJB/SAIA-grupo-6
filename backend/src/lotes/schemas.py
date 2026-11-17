@@ -179,3 +179,70 @@ class DashboardLotesResponse(BaseModel):
     total_por_unidad: list[TotalPorUnidad]
     por_estado: list[LoteResumenEstado]
     por_producto: list[ProduccionPorProducto]
+
+
+# --------------------------------------------------------------------------
+# Línea de tiempo cronológica del lote (Timeline)
+# --------------------------------------------------------------------------
+
+EstadoNodoTimeline = Literal["completado", "en_proceso", "pendiente"]
+TipoNodoTimeline = Literal["inicio", "tarea", "cierre"]
+
+
+class ConsumoInsumoTimelineItem(BaseModel):
+    insumo_nombre: str
+    cantidad: Decimal
+    unidad_medida: str
+    lote_insumo_codigo: str
+    proveedor_nombre: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DesperdicioTimelineItem(BaseModel):
+    cantidad: Decimal
+    unidad_medida: str
+    motivo: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RendimientoTimeline(BaseModel):
+    cantidad_objetivo: Decimal
+    cantidad_producida: Decimal | None
+    porcentaje_rendimiento: Decimal | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DetalleNodoTimeline(BaseModel):
+    operario_nombre: str | None = None
+    descripcion: str | None = None
+    insumos_consumidos: list[ConsumoInsumoTimelineItem] = Field(default_factory=list)
+    desperdicios: list[DesperdicioTimelineItem] = Field(default_factory=list)
+    rendimiento: RendimientoTimeline | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NodoTimelineResponse(BaseModel):
+    id: str  # ej: "inicio", "tarea_12", "cierre"
+    orden: int
+    tipo: TipoNodoTimeline
+    titulo: str
+    subtitulo: str | None = None
+    fecha_hora: datetime | None = None
+    estado: EstadoNodoTimeline
+    tiene_desvio: bool = False  # True si hubo desperdicios en esa etapa
+    detalle: DetalleNodoTimeline
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LoteTimelineResponse(BaseModel):
+    lote_id: int
+    numero_lote: str
+    estado_lote: str
+    nodos: list[NodoTimelineResponse]
+
+    model_config = ConfigDict(from_attributes=True)
