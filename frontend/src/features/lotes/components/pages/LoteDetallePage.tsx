@@ -45,13 +45,10 @@ import {
   completarItem,
   obtenerLote,
 } from "../../services/loteService";
-import { listarSalidas } from "../../../salidas/services/salidaService";
-import { listarHitosLote } from "../../../salidas/services/salidaService";
-import type { Salida } from "../../../salidas/types/salida";
-import type { HitoLote } from "../../../salidas/types/salida";
+import { useSalidas } from "../../../salidas/hooks/useSalidas";
 import { ModalReservarLote } from "../../../salidas/components/ModalReservarLote";
 import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
-import { LoteTimeline } from "../LoteTimeline";
+import { LoteProgressTracker } from "../LoteProgressTracker";
 import type { ItemChecklist, LoteDetalle } from "../../types/lote";
 import { esLoteCerrado } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
@@ -288,43 +285,23 @@ export function LoteDetallePage() {
     id: esAdmin ? idValido : null,
     etiqueta: "la trazabilidad del lote",
   });
+
+  const {
+    salidas: salidasDelLote,
+    loading: salidasLoading,
+    error: salidasError,
+    recargarSalidas,
+  } = useSalidas({
+    lote_id: idValido ?? undefined,
+  });
+
   // Un consumo nuevo cambia también la trazabilidad: se recargan juntas.
   const recargar = async () => {
-    await Promise.all([recargarLote(), esAdmin ? recargarTraza() : Promise.resolve()]);
-    await cargarSalidas();
-    await cargarHitos();
-  };
-
-  const cargarSalidas = async () => {
-    if (!lote) return;
-    setSalidasLoading(true);
-    setSalidasError(null);
-    try {
-      const data = await listarSalidas({ lote_id: lote.id });
-      setSalidasDelLote(data);
-    } catch (err) {
-      setSalidasError(
-        err instanceof Error ? err.message : "No se pudieron cargar las salidas del lote."
-      );
-    } finally {
-      setSalidasLoading(false);
-    }
-  };
-
-  const cargarHitos = async () => {
-    if (!lote) return;
-    setHitosLoading(true);
-    setHitosError(null);
-    try {
-      const data = await listarHitosLote(lote.id);
-      setHitosDelLote(data);
-    } catch (err) {
-      setHitosError(
-        err instanceof Error ? err.message : "No se pudieron cargar los hitos del lote."
-      );
-    } finally {
-      setHitosLoading(false);
-    }
+    await Promise.all([
+      recargarLote(),
+      esAdmin ? recargarTraza() : Promise.resolve(),
+      recargarSalidas(),
+    ]);
   };
 
   const cerrado = lote ? esLoteCerrado(lote.estado) : false;
@@ -342,12 +319,6 @@ export function LoteDetallePage() {
   // Reserva de salidas
   const [modalReservar, setModalReservar] = useState(false);
   const [modalRetirar, setModalRetirar] = useState(false);
-  const [salidasDelLote, setSalidasDelLote] = useState<Salida[]>([]);
-  const [salidasLoading, setSalidasLoading] = useState(false);
-  const [salidasError, setSalidasError] = useState<string | null>(null);
-  const [hitosDelLote, setHitosDelLote] = useState<HitoLote[]>([]);
-  const [hitosLoading, setHitosLoading] = useState(false);
-  const [hitosError, setHitosError] = useState<string | null>(null);
 
   const checklistCompleto = lote
     ? lote.checklist.every((i) => i.completado)
@@ -450,87 +421,14 @@ export function LoteDetallePage() {
             )}
           </SeccionDetalle>
 
-          {/* Métricas de salidas del lote */}
-          <SeccionDetalle sinMarco titulo="Salidas del lote" mb="0">
-            <SimpleGrid columns={{ base: 1, md: 3, lg: 8 }} gap="4">
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Producido
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="fg">
-                  {cantidadConUnidad(lote.cantidad_producida, lote.unidad)}
-                </Text>
-              </Box>
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Reservado
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="fg">
-                  {cantidadConUnidad(lote.reservado, lote.unidad)}
-                </Text>
-              </Box>
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Despachado
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="fg">
-                  {cantidadConUnidad(lote.despachado, lote.unidad)}
-                </Text>
-              </Box>
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Entregado
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="fg">
-                  {cantidadConUnidad(lote.entregado, lote.unidad)}
-                </Text>
-              </Box>
-              {Number(lote.en_revision) > 0 && (
-                <Box>
-                  <Text fontSize="xs" color="fg.muted" mb="1">
-                    En revisión
-                  </Text>
-                  <Text fontSize="sm" fontWeight="medium" color="orange.fg">
-                    {cantidadConUnidad(lote.en_revision, lote.unidad)}
-                  </Text>
-                </Box>
-              )}
-              {Number(lote.desechado) > 0 && (
-                <Box>
-                  <Text fontSize="xs" color="fg.muted" mb="1">
-                    Desechado
-                  </Text>
-                  <Text fontSize="sm" fontWeight="medium" color="red.fg">
-                    {cantidadConUnidad(lote.desechado, lote.unidad)}
-                  </Text>
-                </Box>
-              )}
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Saldo
-                </Text>
-                <Text fontSize="sm" fontWeight="bold" color="fg">
-                  {cantidadConUnidad(lote.saldo, lote.unidad)}
-                </Text>
-              </Box>
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Estado del lote
-                </Text>
-                <EtiquetaEstado
-                  tono={
-                    TONO_ESTADO_LOTE[lote.estado_lote] ?? "neutro"
-                  }
-                >
-                  {lote.estado_lote}
-                </EtiquetaEstado>
-              </Box>
-            </SimpleGrid>
-          </SeccionDetalle>
-
           {cerrado && (
             <AvisoSoloLectura mb="0">Lote {lote.estado}: es de solo lectura.</AvisoSoloLectura>
           )}
+
+          {/* Línea de tiempo de elaboración y progreso */}
+          <SeccionDetalle sinMarco titulo="Progreso de producción" mb="0">
+            <LoteProgressTracker loteId={lote.id} />
+          </SeccionDetalle>
 
           <SeccionDetalle sinMarco titulo="Tareas" mb="0">
           <Stack gap="4">
@@ -611,72 +509,188 @@ export function LoteDetallePage() {
 
           {esAdmin && traza && <SeccionTrazabilidad traza={traza} />}
 
-          {/* Salidas del lote (solo lectura) */}
-          <SeccionDetalle sinMarco titulo="Salidas del lote" mb="0">
+          {/* Distribución y Stock del Lote */}
+          <SeccionDetalle sinMarco titulo="Distribución y Stock del Lote" mb="0">
+            <Tarjeta p="4" mb="4">
+              <Stack
+                direction={{ base: "column", lg: "row" }}
+                justify="space-between"
+                align={{ base: "stretch", lg: "flex-start" }}
+                gap="6"
+              >
+                {/* Métricas cuantitativas */}
+                <SimpleGrid
+                  columns={{ base: 2, sm: 3, md: 4, xl: (Number(lote.en_revision) > 0 || Number(lote.desechado) > 0) ? 6 : 4 }}
+                  gap="4"
+                  flex="1"
+                >
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Producido
+                    </Text>
+                    <Text fontSize="sm" fontWeight="medium" color="fg">
+                      {cantidadConUnidad(lote.cantidad_producida, lote.unidad)}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Saldo disponible
+                    </Text>
+                    <Text
+                      fontSize="sm"
+                      fontWeight="bold"
+                      color={Number(lote.saldo) > 0 ? "green.600" : "fg"}
+                    >
+                      {cantidadConUnidad(lote.saldo, lote.unidad)}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Reservado
+                    </Text>
+                    <HStack gap="1" align="baseline">
+                      <Text fontSize="sm" fontWeight="medium" color="fg">
+                        {cantidadConUnidad(lote.reservado, lote.unidad)}
+                      </Text>
+                      {Number(lote.reservado) > 0 && (
+                        <Badge size="xs" colorPalette="blue" variant="subtle">
+                          Asignado
+                        </Badge>
+                      )}
+                    </HStack>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Despachado / Entregado
+                    </Text>
+                    <Text fontSize="sm" fontWeight="medium" color="fg">
+                      {cantidadConUnidad(Number(lote.despachado) + Number(lote.entregado), lote.unidad)}
+                    </Text>
+                    <Text fontSize="2xs" color="fg.subtle">
+                      {cantidadConUnidad(lote.despachado, lote.unidad)} desp. · {cantidadConUnidad(lote.entregado, lote.unidad)} entr.
+                    </Text>
+                  </Box>
+                  {Number(lote.en_revision) > 0 && (
+                    <Box>
+                      <Text fontSize="xs" color="fg.muted" mb="1">
+                        En revisión
+                      </Text>
+                      <Text fontSize="sm" fontWeight="medium" color="orange.fg">
+                        {cantidadConUnidad(lote.en_revision, lote.unidad)}
+                      </Text>
+                    </Box>
+                  )}
+                  {Number(lote.desechado) > 0 && (
+                    <Box>
+                      <Text fontSize="xs" color="fg.muted" mb="1">
+                        Desechado
+                      </Text>
+                      <Text fontSize="sm" fontWeight="medium" color="red.fg">
+                        {cantidadConUnidad(lote.desechado, lote.unidad)}
+                      </Text>
+                    </Box>
+                  )}
+                </SimpleGrid>
+
+                {/* Estado comercial a la derecha perfectamente alineado a la izquierda de su columna */}
+                <Box
+                  pl={{ base: "0", lg: "6" }}
+                  pt={{ base: "3", lg: "0" }}
+                  borderLeftWidth={{ base: "0", lg: "1px" }}
+                  borderTopWidth={{ base: "1px", lg: "0" }}
+                  borderColor="border.subtle"
+                  minW={{ base: "auto", lg: "180px" }}
+                  textAlign="left"
+                >
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Estado comercial
+                  </Text>
+                  <Box display="inline-flex">
+                    <EtiquetaEstado
+                      tono={
+                        TONO_ESTADO_LOTE[lote.estado_lote] ?? "neutro"
+                      }
+                    >
+                      {lote.estado_lote}
+                    </EtiquetaEstado>
+                  </Box>
+                </Box>
+              </Stack>
+            </Tarjeta>
+
             {salidasLoading && <EstadoCargando>Cargando salidas...</EstadoCargando>}
             {salidasError && <BannerError>{salidasError}</BannerError>}
             {!salidasLoading && !salidasError && salidasDelLote.length === 0 && (
-              <Text color="fg.muted" fontSize="sm">
-                Este lote no tiene salidas registradas.
-              </Text>
+              <EstadoVacio>
+                Este lote aún no tiene salidas ni reservas asignadas a clientes.
+              </EstadoVacio>
             )}
             {!salidasLoading && !salidasError && salidasDelLote.length > 0 && (
-              <Table.Root variant="outline" w="100%" minW="720px">
-                <Table.Header>
-                  <Table.Row bg="bg.muted">
-                    <Table.ColumnHeader px="4" py="3">Fecha</Table.ColumnHeader>
-                    <Table.ColumnHeader px="4" py="3">Cliente</Table.ColumnHeader>
-                    <Table.ColumnHeader px="4" py="3" textAlign="right">
-                      Cantidad
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader px="4" py="3">Estado</Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {salidasDelLote.map((salida) => (
-                    <Table.Row
-                      key={salida.id}
-                      borderBottomWidth="1px"
-                      borderColor="border.subtle"
-                    >
-                      <Celda p="3">
-                        <Text fontSize="sm" color="fg">
-                          {formatoFecha(salida.fecha_reserva)}
-                        </Text>
-                      </Celda>
-                      <Celda p="3">
-                        <Text fontSize="sm" color="fg">
-                          {salida.cliente_nombre}
-                        </Text>
-                      </Celda>
-                      <Celda p="3">
-                        <Text fontSize="sm" color="fg" textAlign="right">
-                          {cantidadConUnidad(salida.cantidad, lote.unidad)}
-                        </Text>
-                      </Celda>
-                      <Celda p="3">
-                        <EtiquetaEstado
-                          tono={
-                            TONO_ESTADO_SALIDA[salida.estado] ?? "neutro"
-                          }
-                        >
-                          {salida.estado}
-                        </EtiquetaEstado>
-                      </Celda>
+              <Tarjeta overflowX="auto">
+                <Table.Root variant="outline" w="100%" minW="720px">
+                  <Table.Header>
+                    <Table.Row bg="bg.muted">
+                      <Table.ColumnHeader px="4" py="3">Fecha</Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3">Cliente</Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3" textAlign="right">
+                        Cantidad
+                      </Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3">Estado</Table.ColumnHeader>
+                      <Table.ColumnHeader px="4" py="3" textAlign="center" width="80px">
+                        Acción
+                      </Table.ColumnHeader>
                     </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
+                  </Table.Header>
+                  <Table.Body>
+                    {salidasDelLote.map((salida) => (
+                      <Table.Row
+                        key={salida.id}
+                        borderBottomWidth="1px"
+                        borderColor="border.subtle"
+                        cursor="pointer"
+                        _hover={{ bg: "bg.muted" }}
+                        onClick={() => navigate(`/salidas/${salida.id}/detalle`)}
+                      >
+                        <Celda p="3">
+                          <Text fontSize="sm" color="fg">
+                            {formatoFecha(salida.fecha_reserva)}
+                          </Text>
+                        </Celda>
+                        <Celda p="3">
+                          <Text fontSize="sm" fontWeight="medium" color="fg">
+                            {salida.cliente_nombre}
+                          </Text>
+                        </Celda>
+                        <Celda p="3" textAlign="right">
+                          <Text fontSize="sm" color="fg">
+                            {cantidadConUnidad(salida.cantidad, lote.unidad)}
+                          </Text>
+                        </Celda>
+                        <Celda p="3">
+                          <EtiquetaEstado
+                            tono={
+                              TONO_ESTADO_SALIDA[salida.estado] ?? "neutro"
+                            }
+                          >
+                            {salida.estado}
+                          </EtiquetaEstado>
+                        </Celda>
+                        <Celda p="3" textAlign="center">
+                          <BotonAccion
+                            accion="ver"
+                            label="Ver detalle de salida"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/salidas/${salida.id}/detalle`);
+                            }}
+                          />
+                        </Celda>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </Tarjeta>
             )}
-          </SeccionDetalle>
-
-          {/* Línea de tiempo del lote (hitos) */}
-          <SeccionDetalle sinMarco titulo="Línea de tiempo" mb="0">
-            <LoteTimeline
-              hitos={hitosDelLote}
-              loading={hitosLoading}
-              error={hitosError}
-            />
           </SeccionDetalle>
         </Stack>
       )}
@@ -714,9 +728,9 @@ export function LoteDetallePage() {
       isOpen={modalReservar}
       loteIdInicial={lote ? lote.id : null}
       onClose={() => setModalReservar(false)}
-      onReservaRegistrada={() => {
+      onReservaRegistrada={async () => {
         setModalReservar(false);
-        void recargar();
+        await Promise.all([recargarLote(), recargarSalidas()]);
       }}
     />
     <ModalIniciarRetiro

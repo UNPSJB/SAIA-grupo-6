@@ -9,6 +9,7 @@ import type {
   LoteDetalle,
   LoteResumen,
 } from "../types/lote";
+import type { LoteTimelineResponse } from "../types/timeline";
 
 function queryFiltros(filtros: FiltrosLotes = {}): string {
   const params = new URLSearchParams();
@@ -109,4 +110,9 @@ export async function obtenerDashboardLotes(
       cantidad_producida: Number(p.cantidad_producida),
     })),
   };
+}
+
+export async function getTimelineLote(loteId: number): Promise<LoteTimelineResponse> {
+  const response = await apiFetch(`${API_URL}/lotes/${loteId}/timeline`);
+  return pedir<LoteTimelineResponse>(response, "Error al obtener la línea de tiempo del lote");
 }
