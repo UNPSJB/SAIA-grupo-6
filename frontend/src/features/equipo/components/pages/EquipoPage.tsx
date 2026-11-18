@@ -240,7 +240,7 @@ export function EquiposPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando equipos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando equipos...</EstadoCargando>}
 
       {!loading && !error && (
         <>

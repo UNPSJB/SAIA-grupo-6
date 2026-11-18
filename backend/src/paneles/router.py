@@ -29,7 +29,7 @@ def panel_inicio(
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_operador),
 ):
-    """Estado de hoy de cada área y lo que requiere atención, para el inicio."""
+    """Solo lo del día de hoy, para el inicio: checklist, producción, calidad y vencimientos."""
     return services.panel_inicio(db, usuario, _administra(usuario))
 
 

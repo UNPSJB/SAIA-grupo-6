@@ -98,7 +98,7 @@ function TabStockPorInsumo() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando stock...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando stock...</EstadoCargando>}
       {!loading && !error && stock.length === 0 && <EstadoVacio>No hay insumos registrados.</EstadoVacio>}
       {!loading && !error && stock.length > 0 && visibles.length === 0 && (
         <EstadoVacioFiltrado onLimpiar={limpiar}>No hay insumos que coincidan con los filtros aplicados.</EstadoVacioFiltrado>

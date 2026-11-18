@@ -284,3 +284,37 @@ export function esVisibleEntrada(
   if (entrada.rol === "operar") return puedeOperar(user);
   return puedeAdministrar(user);
 }
+
+/**
+ * Orden de las pantallas tal como se leen en la barra, de izquierda a
+ * derecha: el Inicio, y por cada categoría su panel y después sus opciones;
+ * al final, Configuración y sus catálogos. Sale de los mismos datos del menú,
+ * así nunca se desincroniza. Lo usa la transición entre pantallas para saber
+ * hacia qué lado barrer.
+ */
+const ORDEN_RUTAS: string[] = [
+  ...MENU.map((e) => e.to),
+  ...GRUPOS.flatMap((g) => [rutaPanel(g), ...g.entradas.map((e) => e.to)]),
+  RUTA_CONFIGURACION,
+  ...CONFIGURACION.map((e) => e.to),
+];
+
+/**
+ * Posición de una ruta en `ORDEN_RUTAS`, o `null` si no es una pantalla del
+ * menú (el perfil, una ruta vieja). Una ficha cuenta como su listado
+ * (`/lotes/12` → `/lotes`); si dos entradas coinciden gana la más específica
+ * (`/checklist/historial` antes que `/checklist`). El Inicio solo coincide
+ * exacto.
+ */
+export function indiceRuta(pathname: string): number | null {
+  let mejor: number | null = null;
+  let largo = -1;
+  ORDEN_RUTAS.forEach((to, i) => {
+    const coincide = to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
+    if (coincide && to.length > largo) {
+      mejor = i;
+      largo = to.length;
+    }
+  });
+  return mejor;
+}

@@ -28,6 +28,21 @@ export const brand = {
   900: "#26454B",
 } as const;
 
+/**
+ * Fondo de la franja de las migas de pan y de la pestaña seleccionada de la
+ * barra, que se funden en una sola pieza: tiene que ser EXACTAMENTE el mismo
+ * color sólido en los dos (sin transparencias, que sobre el teal darían dos
+ * tonos distintos).
+ */
+export const FONDO_PESTANA = "white";
+
+/**
+ * Degradado del teal de la marca para el fondo del Inicio (barra superior
+ * incluida): oscuro a la izquierda, donde va el texto (logo, saludo), y más
+ * claro hacia la derecha, con un brillo suave arriba a la derecha.
+ */
+export const DEGRADADO_MARCA = `radial-gradient(ellipse at 100% 0%, rgba(255,255,255,0.18), transparent 45%), linear-gradient(100deg, ${brand[900]} 0%, ${brand[700]} 35%, ${brand[500]} 70%, ${brand[400]} 100%)`;
+
 const config = defineConfig({
   theme: {
     tokens: {

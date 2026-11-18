@@ -171,11 +171,26 @@ export function EstadoVacio({ children }: { children: ReactNode }) {
 /** Indicador de carga de una página o de una sección. */
 export function EstadoCargando({
   children = "Cargando...",
+  pagina = false,
 }: {
   children?: ReactNode;
+  /**
+   * Carga de una pantalla entera (el listado de una sección del menú): ocupa
+   * desde el principio un alto parecido al de la tabla que va a aparecer, así
+   * la pantalla no pega un tirón al terminar de cargar (se nota sobre todo
+   * mientras entra con el barrido entre pantallas).
+   */
+  pagina?: boolean;
 }) {
   return (
-    <HStack justify="center" gap="3" p="8" role="status" aria-live="polite">
+    <HStack
+      justify="center"
+      gap="3"
+      p="8"
+      role="status"
+      aria-live="polite"
+      {...(pagina ? { minH: "420px", alignItems: "center" } : {})}
+    >
       <Spinner size="md" color="brand.500" />
       <Text color="fg.muted" fontSize="sm">
         {children}

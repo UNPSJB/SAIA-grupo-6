@@ -11,6 +11,7 @@ from src.Equipo.models import Equipo
 from src.incidente.models import Incidente
 from src.lotes.models import LoteProducto
 from src.nutricion.models import InfoNutricionalProducto
+from src.notificaciones.services import META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO, actualizar_meta_cumplimiento_limpieza
 from src.paneles import schemas, services
 from src.paneles.exceptions import PeriodoDemasiadoLargo, RangoFechasInvalido
 from src.personal.models import Personal
@@ -434,107 +435,70 @@ def test_produccion_por_dia_por_cierre_unidad_y_producto(base):
 # ─────────────────────────────────── Inicio ──────────────────────────────────
 
 
-def test_panel_inicio_administracion(base):
-    """Una tarjeta por área y lo vencido primero, de todas las áreas."""
+def test_panel_inicio_solo_cuenta_lo_de_hoy(base):
+    """Las cifras son del día: lo de días anteriores no suma."""
     db, hoy_dia = base["db"], hoy()
     db.add_all([
-        # Plan vencido (peligro) en Equipos.
-        PlanCalibracionMantenimiento(
-            equipo_id=base["horno"].id, autor_id=base["admin"].id, tipo="calibracion",
-            fecha_ultima_intervencion=hoy_dia - timedelta(days=100), periodicidad_dias=30,
-        ),
-        # Incidente abierto hace 3 días (alerta) en Calidad.
         Incidente(
-            titulo="No calienta", descripcion="x", tipo="falla_equipo",
-            usuario_id=base["operador"].id, equipo_id=base["horno"].id,
+            titulo="Hoy", descripcion="x", tipo="plagas", usuario_id=base["admin"].id,
+            fecha_reporte=_a_las(hoy_dia),
+        ),
+        Incidente(
+            titulo="Antes", descripcion="x", tipo="plagas", usuario_id=base["admin"].id,
             fecha_reporte=_a_las(hoy_dia - timedelta(days=3)),
         ),
-    ])
-    db.commit()
-
-    inicio = services.panel_inicio(db, base["admin"], True)
-
-    assert [a.clave for a in inicio.areas] == [
-        "produccion", "inventario", "limpieza", "equipos", "calidad", "personas",
-    ]
-    assert all(a.link == f"/resumen/{a.clave}" for a in inicio.areas)
-    equipos = next(a for a in inicio.areas if a.clave == "equipos")
-    vencidos = next(m for m in equipos.metricas if m.clave == "planes_vencidos")
-    assert (vencidos.valor, vencidos.tono) == (1, "peligro")
-    calidad = next(a for a in inicio.areas if a.clave == "calidad")
-    abiertos = next(m for m in calidad.metricas if m.clave == "abiertos")
-    assert (abiertos.valor, abiertos.tono) == (1, "alerta")
-    # Sin nada que atender, la cifra es neutra.
-    inventario = next(a for a in inicio.areas if a.clave == "inventario")
-    assert all(m.tono == "neutro" for m in inventario.metricas)
-    # Limpieza va con el período (lo de hoy lo muestra el checklist del día):
-    # sin tareas no hay porcentaje que mostrar.
-    limpieza = next(a for a in inicio.areas if a.clave == "limpieza")
-    assert [(m.clave, m.valor, m.unidad) for m in limpieza.metricas] == [
-        ("cumplimiento", None, "%"),
-        ("incumplidas", 0, None),
-    ]
-
-    # Lo más grave primero, cada fila con su área.
-    assert [(f.area, f.tono) for f in inicio.atencion] == [("equipos", "peligro"), ("calidad", "alerta")]
-    assert inicio.atencion_total == 2
-
-
-def test_panel_inicio_operador_ve_solo_sus_areas(base):
-    db, hoy_dia = base["db"], hoy()
-    db.add_all([
+        # Calibración que vence justo hoy (última hace 30 días, cada 30).
         PlanCalibracionMantenimiento(
             equipo_id=base["horno"].id, autor_id=base["admin"].id, tipo="calibracion",
+            fecha_ultima_intervencion=hoy_dia - timedelta(days=30), periodicidad_dias=30,
+        ),
+        # Vencida hace rato: no es "de hoy".
+        PlanCalibracionMantenimiento(
+            equipo_id=base["horno"].id, autor_id=base["admin"].id, tipo="mantenimiento",
             fecha_ultima_intervencion=hoy_dia - timedelta(days=100), periodicidad_dias=30,
         ),
-        # Reportado por otro: el operador no lo ve.
-        Incidente(
-            titulo="Plaga", descripcion="x", tipo="plagas", usuario_id=base["admin"].id,
-            fecha_reporte=_a_las(hoy_dia - timedelta(days=20)),
-        ),
     ])
     db.commit()
-
-    inicio = services.panel_inicio(db, base["operador"], False)
-
-    assert [a.clave for a in inicio.areas] == ["produccion", "limpieza", "calidad"]
-    assert inicio.atencion == []
-    assert inicio.atencion_total == 0
-
-
-def test_intercalar_areas_reparte_dentro_de_cada_gravedad():
-    def fila(area, tono, n):
-        return schemas.FilaAtencionArea(
-            clave=f"{area}-{n}", titulo=f"{area} {n}", tono=tono, estado="x",
-            area=area, area_titulo=area,
-        )
-
-    filas = [
-        fila("inventario", "peligro", 1), fila("inventario", "peligro", 2), fila("inventario", "peligro", 3),
-        fila("calidad", "alerta", 1), fila("equipos", "peligro", 1),
-    ]
-
-    assert [f.clave for f in services._intercalar_areas(filas)] == [
-        "inventario-1", "equipos-1", "inventario-2", "inventario-3", "calidad-1",
-    ]
-
-
-def test_panel_inicio_recorta_la_lista_de_atencion(base, monkeypatch):
-    db, hoy_dia = base["db"], hoy()
-    db.add_all([
-        Incidente(
-            titulo=f"Incidente {i}", descripcion="x", tipo="plagas", usuario_id=base["admin"].id,
-            fecha_reporte=_a_las(hoy_dia - timedelta(days=10 + i)),
-        )
-        for i in range(4)
-    ])
-    db.commit()
-    monkeypatch.setattr(services, "FILAS_ATENCION_INICIO", 2)
 
     inicio = services.panel_inicio(db, base["admin"], True)
 
-    assert len(inicio.atencion) == 2
-    assert inicio.atencion_total == 4
+    assert inicio.fecha == hoy_dia
+    assert [g.clave for g in inicio.grupos] == ["produccion", "inventario", "calidad"]
+    calidad = next(g for g in inicio.grupos if g.clave == "calidad")
+    incidentes = next(c for c in calidad.cifras if c.clave == "incidentes")
+    assert (incidentes.valor, incidentes.tono) == (1, "alerta")
+    retiros = next(c for c in calidad.cifras if c.clave == "retiros")
+    assert (retiros.valor, retiros.tono) == (0, "neutro")
+    assert [v.estado for v in inicio.vencen_hoy] == ["Calibraciones"]
+    # Sin planes de limpieza no hay tareas hoy: sin porcentaje, con la meta por defecto.
+    assert (inicio.checklist.total, inicio.checklist.porcentaje) == (0, None)
+    assert inicio.checklist.meta == META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO
+
+
+def test_panel_inicio_checklist_de_hoy(base):
+    _checklist(base, dias_atras=2, completadas=0, total=5)
+    _checklist(base, dias_atras=0, completadas=1, total=4)
+    actualizar_meta_cumplimiento_limpieza(base["db"], 90)
+
+    checklist = services.panel_inicio(base["db"], base["admin"], True).checklist
+
+    # Solo el de hoy: 1 de 4.
+    assert (checklist.total, checklist.completadas, checklist.porcentaje) == (4, 1, 25.0)
+    assert checklist.meta == 90
+    assert [(m.clave, m.cumplen, m.total) for m in checklist.por_momento] == [("operacional", 1, 4)]
+    assert checklist.pendientes_total == 3
+    assert checklist.pendientes[0].detalle.startswith("Limpieza del horno · ")
+
+
+def test_panel_inicio_operador(base):
+    _checklist(base, dias_atras=0, completadas=0, total=3)
+
+    inicio = services.panel_inicio(base["db"], base["operador"], False)
+
+    assert [g.clave for g in inicio.grupos] == ["produccion", "calidad"]
+    assert inicio.vencen_hoy is None
+    # Ve sus tareas y las sin asignar (la primera es suya, las otras de nadie).
+    assert inicio.checklist.total == 3
 
 
 # ─────────────────────────── Inventario y Personas ─────────────────────────

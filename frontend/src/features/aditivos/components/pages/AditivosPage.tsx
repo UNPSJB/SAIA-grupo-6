@@ -140,7 +140,7 @@ function TabAditivos() {
 
       {error && <BannerError>{error}</BannerError>}
       {errorAccion && <BannerError>{errorAccion}</BannerError>}
-      {loading && <EstadoCargando>Cargando aditivos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando aditivos...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 &&
         (claseId || buscar ? (

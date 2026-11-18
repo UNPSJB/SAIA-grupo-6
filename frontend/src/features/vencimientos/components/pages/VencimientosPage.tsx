@@ -336,7 +336,7 @@ export function VencimientosPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-      {loading && <EstadoCargando>Cargando vencimientos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando vencimientos...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && items.length === 0 && (

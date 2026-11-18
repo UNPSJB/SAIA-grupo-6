@@ -154,7 +154,7 @@ export function RetirosPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando retiros...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando retiros...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 && (
         hayFiltros ? (

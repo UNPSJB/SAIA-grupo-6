@@ -32,7 +32,12 @@ export function BarraSuperior(): ReactElement | null {
       h="16"
       px={{ base: "3", md: "4" }}
       flexShrink={0}
-      bg="brand.700"
+      // En el Inicio la barra es transparente: forma parte del degradado de
+      // fondo de esa pantalla (lo pone el layout). En el resto, teal fijo.
+      bg={pathname === "/" ? "transparent" : "brand.700"}
+      // En el Inicio, una línea apenas visible la separa del encabezado, que
+      // tiene el mismo degradado de fondo.
+      borderBottom={pathname === "/" ? "1px solid rgba(255, 255, 255, 0.1)" : undefined}
       color="white"
     >
       {/* Logo de la empresa con el nombre. Lleva al inicio. */}

@@ -314,7 +314,7 @@ export function IncidentesListPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-      {loading && <EstadoCargando>Cargando incidentes...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando incidentes...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {mensajeAviso && <BannerExito>{mensajeAviso}</BannerExito>}

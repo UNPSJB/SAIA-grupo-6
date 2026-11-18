@@ -56,7 +56,8 @@ def test_inicio_segun_permisos(client, usuarios):
     operador = client.get("/paneles/inicio", headers=usuarios["operador"])
 
     assert admin.status_code == 200
-    assert len(admin.json()["areas"]) == 6
+    assert [g["clave"] for g in admin.json()["grupos"]] == ["produccion", "inventario", "calidad"]
     assert operador.status_code == 200
-    assert [a["clave"] for a in operador.json()["areas"]] == ["produccion", "limpieza", "calidad"]
+    assert [g["clave"] for g in operador.json()["grupos"]] == ["produccion", "calidad"]
+    assert operador.json()["vencen_hoy"] is None
     assert client.get("/paneles/inicio").status_code == 401

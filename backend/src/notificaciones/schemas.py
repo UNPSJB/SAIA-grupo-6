@@ -79,6 +79,8 @@ class ConfiguracionAlertasResponse(BaseModel):
     dias_alerta_vencimiento_personal: int
     # Plazo de referencia (en días) para marcar un reclamo como fuera de plazo.
     plazo_reclamo_dias: int
+    # Porcentaje de cumplimiento de limpieza esperado (meta del inicio).
+    meta_cumplimiento_limpieza: int
 
 
 class PlazoReclamoResponse(BaseModel):
@@ -90,12 +92,13 @@ class PlazoReclamoResponse(BaseModel):
 class ConfiguracionAlertasUpdate(BaseModel):
     """Cambios parciales: cada tarjeta de configuración guarda su propio campo.
 
-    Ambos son opcionales para que actualizar uno no pise el otro con un valor
-    viejo que la pantalla tenía cargado.
+    Todos son opcionales para que actualizar uno no pise los otros con un
+    valor viejo que la pantalla tenía cargado.
     """
 
     dias_alerta_vencimiento_personal: int | None = Field(default=None, ge=1, le=365)
     plazo_reclamo_dias: int | None = Field(default=None, ge=1, le=365)
+    meta_cumplimiento_limpieza: int | None = Field(default=None, ge=1, le=100)
 
 
 class NotificacionPersistidaResponse(BaseModel):

@@ -1003,7 +1003,7 @@ export function ChecklistPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {loading && <EstadoCargando>Cargando tareas...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando tareas...</EstadoCargando>}
 
       {!loading && grupos.length === 0 && !error && (
         <EstadoVacio>

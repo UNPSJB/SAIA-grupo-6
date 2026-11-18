@@ -14,14 +14,6 @@ DIAS_POR_VENCER = 7
 FILAS_LISTA = 6
 FILAS_RANKING = 8
 
-# Inicio: filas de "Requiere atención" y período de las cifras que dependen
-# de él (el mismo que abren los paneles por defecto).
-FILAS_ATENCION_INICIO = 8
-DIAS_PERIODO_INICIO = 30
-# Por debajo de este porcentaje de cumplimiento de limpieza, el inicio lo
-# marca en ámbar.
-CUMPLIMIENTO_ESPERADO = 80
-
 MESES = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
 
 

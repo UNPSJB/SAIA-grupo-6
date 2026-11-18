@@ -121,32 +121,6 @@ export function PanelProduccion() {
     >
       {(d) => (
         <>
-          <GrillaBloques principal>
-            <Bloque
-              titulo="Lotes iniciados por estado"
-              descripcion={`Lotes iniciados ${textoGranularidad(d.serie_lotes_por_estado)}, apilados según su estado actual`}
-              vacio={sinValores(d.lotes_por_estado) && "No se iniciaron lotes en el período."}
-              acciones={<MetricasBloque metricas={metricasLotes(d)} enCabecera />}
-            >
-              <GraficoSerie
-                serie={d.serie_lotes_por_estado}
-                series={SERIES_ESTADO_LOTE}
-                tipo="apiladas"
-                resumen="Lotes iniciados por período, según su estado actual"
-                llenar
-              />
-            </Bloque>
-
-            <Bloque
-              titulo="Salidas por estado"
-              descripcion="Estado actual de las salidas registradas en el período"
-              vacio={sinValores(d.salidas_por_estado) && "No se registraron salidas en el período."}
-            >
-              <GraficoDona partes={conColor(d.salidas_por_estado, COLOR_SALIDA)} unidad="salidas" />
-              <VerTodos to="/salidas">Ver las salidas</VerTodos>
-            </Bloque>
-          </GrillaBloques>
-
           {/* Lo producido: día a día y por producto, con el mismo criterio
               (lotes terminados, por día de cierre). */}
           <GrillaBloques principal>
@@ -184,6 +158,32 @@ export function PanelProduccion() {
                   {d.elaborado_sin_peso.map((c) => `${c.etiqueta} (${c.detalle})`).join(", ")}.
                 </Text>
               ) : null}
+            </Bloque>
+          </GrillaBloques>
+
+          <GrillaBloques principal>
+            <Bloque
+              titulo="Lotes iniciados por estado"
+              descripcion={`Lotes iniciados ${textoGranularidad(d.serie_lotes_por_estado)}, apilados según su estado actual`}
+              vacio={sinValores(d.lotes_por_estado) && "No se iniciaron lotes en el período."}
+              acciones={<MetricasBloque metricas={metricasLotes(d)} enCabecera />}
+            >
+              <GraficoSerie
+                serie={d.serie_lotes_por_estado}
+                series={SERIES_ESTADO_LOTE}
+                tipo="apiladas"
+                resumen="Lotes iniciados por período, según su estado actual"
+                llenar
+              />
+            </Bloque>
+
+            <Bloque
+              titulo="Salidas por estado"
+              descripcion="Estado actual de las salidas registradas en el período"
+              vacio={sinValores(d.salidas_por_estado) && "No se registraron salidas en el período."}
+            >
+              <GraficoDona partes={conColor(d.salidas_por_estado, COLOR_SALIDA)} unidad="salidas" />
+              <VerTodos to="/salidas">Ver las salidas</VerTodos>
             </Bloque>
           </GrillaBloques>
 

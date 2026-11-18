@@ -117,7 +117,7 @@ export function ProductoPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-      {loading && <EstadoCargando>Cargando productos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando productos...</EstadoCargando>}
 
       {!loading && !error && (
         <>

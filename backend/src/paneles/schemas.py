@@ -287,35 +287,50 @@ class PanelPersonas(BaseModel):
 # ─────────────────────────────── Inicio ───────────────────────────────
 
 
-class MetricaArea(BaseModel):
+class CifraHoy(BaseModel):
+    """Una cifra del día, con el enlace a donde se ve el detalle."""
+
     clave: str
     etiqueta: str
-    valor: Optional[float]
-    # "%" o None (un conteo).
-    unidad: Optional[str] = None
-    # "peligro" o "alerta" cuando hay algo que atender; "neutro" si no.
+    valor: float
+    detalle: Optional[str] = None
+    link: Optional[str] = None
+    # "peligro" o "alerta" cuando lo de hoy pide atención; "neutro" si no.
     tono: Tono
 
 
-class TarjetaArea(BaseModel):
-    """El estado de hoy de un área, con el enlace a su panel."""
+class GrupoHoy(BaseModel):
+    """Las cifras de hoy de un área."""
 
     clave: str
     titulo: str
-    link: str
-    metricas: list[MetricaArea]
+    cifras: list[CifraHoy]
+    # Solo Producción: lo terminado hoy, una entrada por unidad (kg, un...).
+    producido: list[ProduccionDelDia] = []
 
 
-class FilaAtencionArea(FilaAtencion):
-    area: str
-    area_titulo: str
+class ChecklistHoy(BaseModel):
+    """El checklist de limpieza de hoy, con el alcance de quien lo pide."""
+
+    total: int
+    completadas: int
+    # `None` si hoy no hay tareas programadas.
+    porcentaje: Optional[float]
+    # Meta de cumplimiento configurada (Configuración → Indicadores).
+    meta: int
+    # Avance por momento (preoperacional, operacional, postoperacional).
+    por_momento: list[Avance]
+    # Las primeras tareas sin completar, y cuántas son en total.
+    pendientes: list[FilaAtencion]
+    pendientes_total: int
 
 
 class PanelInicio(BaseModel):
+    """Solo lo del día de hoy."""
+
+    fecha: date
+    checklist: ChecklistHoy
     # Solo las áreas que el usuario puede ver.
-    areas: list[TarjetaArea]
-    # Lo vencido o atrasado de todas las áreas, lo más grave primero, hasta
-    # `FILAS_ATENCION_INICIO` filas.
-    atencion: list[FilaAtencionArea]
-    # Cuántas filas había antes de recortar.
-    atencion_total: int
+    grupos: list[GrupoHoy]
+    # Lo que vence hoy; solo para quien administra.
+    vencen_hoy: Optional[list[FilaAtencion]] = None

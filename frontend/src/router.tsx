@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
-import { lazy, Suspense, useRef, type ReactNode } from "react";
-import { createBrowserRouter, Navigate, Outlet, useParams } from "react-router-dom";
+import { lazy, Suspense, useCallback, useRef, type ReactNode } from "react";
+import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
@@ -14,8 +14,10 @@ import { Login } from "./features/Login";
 import { Breadcrumbs } from "./common/components/Breadcrumbs";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
 import { BarraSuperior } from "./common/components/BarraSuperior";
+import { TransicionCarrusel } from "./common/components/TransicionCarrusel";
 import { useAuth } from "./common/context/useAuth";
 import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
+import { DEGRADADO_MARCA, FONDO_PESTANA } from "./theme";
 
 
 // 0. Panel principal
@@ -374,7 +376,9 @@ function ConSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <Flex p="40px" justify="center">
+        // Mismo alto que la carga de una pantalla (ver `EstadoCargando`): la
+        // página que entra con el barrido no pega un tirón al aparecer.
+        <Flex p="40px" justify="center" align="center" minH="420px">
           <Spinner size="lg" color="brand.500" />
         </Flex>
       }
@@ -390,29 +394,63 @@ function LayoutPrincipal() {
   const { user } = useAuth();
   const contenidoRef = useRef<HTMLDivElement>(null);
   useTablasResponsivas(contenidoRef);
+  // En el Inicio, toda la pantalla (barra superior y migas incluidas) va
+  // sobre el degradado teal de la marca, y las tarjetas blancas encima.
+  const { pathname } = useLocation();
+  const enInicio = pathname === "/";
+  // Para el barrido entre pantallas: el elemento cuyo fondo se copia en la
+  // vista que se va.
+  const fondoRef = useRef<HTMLDivElement>(null);
+  const fondoDe = useCallback(() => fondoRef.current, []);
 
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
-      <Flex flex={1} minW={0} direction="column" overflow="hidden">
+      <Flex
+        ref={fondoRef}
+        flex={1}
+        minW={0}
+        direction="column"
+        overflow="hidden"
+        // `bgColor` y no `bg`: `bg` es el atajo de `background` y borraría la
+        // imagen del degradado. El color queda de respaldo.
+        bgColor={enInicio ? "brand.700" : undefined}
+        backgroundImage={enInicio ? DEGRADADO_MARCA : undefined}
+      >
         <BarraSuperior />
         {/*
           Migas de pan debajo de la barra, en su propia franja: así no pisan las
           opciones de la barra. Son el texto más chico de los tres niveles.
           En celular se ocultan (no entran y el título de la página ya dice
-          dónde se está).
+          dónde se está). Quedan FIJAS, fuera del barrido entre pantallas: solo
+          su texto cambia con un fundido, y el color de la franja (transparente
+          en el Inicio, blanco en el resto) se funde al ritmo del barrido.
         */}
         <Box
           display={{ base: "none", md: "block" }}
           flexShrink={0}
           px="30px"
           py="2"
-          bg="white"
+          // Mismo color sólido que la pestaña seleccionada de la barra (se
+          // funden en una pieza). Sin transición de color: si la franja se
+          // fundiera mientras la pestaña ya está, se verían dos tonos.
+          bg={enInicio ? "transparent" : FONDO_PESTANA}
           borderBottomWidth="1px"
-          borderColor="border.subtle"
+          borderColor={enInicio ? "transparent" : "border.subtle"}
+          // Sube 1px por debajo de la barra (y queda por encima): tapa la
+          // línea de subpíxel que el navegador puede dibujar entre el pie de
+          // la pestaña y la franja. La pestaña no puede bajar ella: la lista
+          // de la barra scrollea de costado y recorta en vertical.
+          mt="-1px"
+          position="relative"
           overflowX="auto"
         >
-          <Breadcrumbs />
+          <Box key={pathname} animation="fade-in 220ms ease-out">
+            <Breadcrumbs claro={enInicio} />
+          </Box>
         </Box>
+        {/* La barra y las migas quedan fijas; lo de abajo (avisos y la
+            pantalla) barre de costado al cambiar de pantalla. */}
+        <TransicionCarrusel fondoDe={fondoDe}>
         {/* Banner: recordar al usuario que debe cambiar su contraseña temporal */}
         {user?.debe_cambiar_password && (
           <Box
@@ -451,6 +489,7 @@ function LayoutPrincipal() {
         >
           <Outlet />
         </Flex>
+        </TransicionCarrusel>
       </Flex>
     </Flex>
   );

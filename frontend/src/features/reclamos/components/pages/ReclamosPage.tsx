@@ -193,7 +193,7 @@ export function ReclamosPage() {
 
       {error && <BannerError>{error}</BannerError>}
       {mensajeAviso && <BannerExito>{mensajeAviso}</BannerExito>}
-      {loading && <EstadoCargando>Cargando reclamos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando reclamos...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 && (
         hayFiltros ? (

@@ -296,7 +296,7 @@ export function SalidasPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando salidas...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando salidas...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 && (
         hayFiltros ? (

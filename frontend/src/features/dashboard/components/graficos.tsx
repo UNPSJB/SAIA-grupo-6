@@ -830,22 +830,22 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
             as="li"
             key={dato.clave}
             display="grid"
-            // Columna del valor de ancho fijo: cada fila es su propia grilla, y
-            // con `auto` un valor más largo correría el comienzo de la línea.
-            gridTemplateColumns={{ base: "minmax(0, 1fr) auto", sm: "minmax(0, 2fr) minmax(0, 3fr) 6.5rem" }}
+            // Nombre y valor en la primera fila; la paleta abajo, a todo el
+            // ancho. Así el nombre tiene la fila entera y entra completo.
+            gridTemplateColumns="minmax(0, 1fr) auto"
             columnGap="3"
             rowGap="1"
             alignItems="center"
             title={`${dato.etiqueta}: ${texto}`}
           >
-            <Text fontSize="sm" color="fg" lineClamp={1}>
+            <Text fontSize="sm" color="fg">
               {dato.etiqueta}
             </Text>
             <Box
               position="relative"
               h="3"
-              gridColumn={{ base: "1 / -1", sm: "auto" }}
-              gridRow={{ base: "2", sm: "auto" }}
+              gridColumn="1 / -1"
+              gridRow="2"
               aria-hidden
             >
               {/* Eje: dónde está el cero y hasta dónde llega el máximo. */}
@@ -872,11 +872,7 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
                 left={`calc((100% - 12px) * ${proporcion})`}
               />
             </Box>
-            <HStack
-              justify="flex-end"
-              gridRow={{ base: "1", sm: "auto" }}
-              gridColumn={{ base: "2", sm: "auto" }}
-            >
+            <HStack justify="flex-end" gridRow="1" gridColumn="2">
               <Text fontSize="sm" fontWeight="semibold" color="fg" fontVariantNumeric="tabular-nums">
                 {valor}
               </Text>

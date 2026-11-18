@@ -261,36 +261,48 @@ export function textoGranularidad(serie: Pick<Serie, "granularidad">): string {
 
 /* ─────────────────────────────── Inicio ─────────────────────────────── */
 
-/** Una cifra del estado de un área; `tono` peligro o alerta cuando hay algo que atender. */
-export interface MetricaArea {
+/** Una cifra del día, con el enlace a donde se ve el detalle. */
+export interface CifraHoy {
   clave: string;
   etiqueta: string;
-  valor: number | null;
-  /** "%" o null (un conteo). */
-  unidad: string | null;
+  valor: number;
+  detalle: string | null;
+  link: string | null;
+  /** "peligro" o "alerta" cuando lo de hoy pide atención; "neutro" si no. */
   tono: TonoEstado;
 }
 
-/** El estado de hoy de un área, con el enlace a su panel. */
-export interface TarjetaArea {
+/** Las cifras de hoy de un área. */
+export interface GrupoHoy {
   clave: CategoriaPanel;
   titulo: string;
-  link: string;
-  metricas: MetricaArea[];
+  cifras: CifraHoy[];
+  /** Solo Producción: lo terminado hoy, una entrada por unidad. */
+  producido: ProduccionDelDia[];
 }
 
-export interface FilaAtencionArea extends FilaAtencion {
-  area: CategoriaPanel;
-  area_titulo: string;
+/** El checklist de limpieza de hoy, con el alcance de quien lo pide. */
+export interface ChecklistHoy {
+  total: number;
+  completadas: number;
+  /** null si hoy no hay tareas programadas. */
+  porcentaje: number | null;
+  /** Meta configurada en Configuración → Indicadores. */
+  meta: number;
+  por_momento: Avance[];
+  pendientes: FilaAtencion[];
+  pendientes_total: number;
 }
 
+/** El inicio: solo lo del día de hoy. */
 export interface PanelInicio {
+  /** `YYYY-MM-DD`. */
+  fecha: string;
+  checklist: ChecklistHoy;
   /** Solo las áreas que el usuario puede ver. */
-  areas: TarjetaArea[];
-  /** Lo vencido o atrasado de todas las áreas, lo más grave primero (recortado). */
-  atencion: FilaAtencionArea[];
-  /** Cuántas filas había antes de recortar. */
-  atencion_total: number;
+  grupos: GrupoHoy[];
+  /** Lo que vence hoy; null para quien no administra. */
+  vencen_hoy: FilaAtencion[] | null;
 }
 
 /** `1 lote` / `3 lotes`. */

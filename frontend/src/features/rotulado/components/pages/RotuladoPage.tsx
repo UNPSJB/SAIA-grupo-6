@@ -91,7 +91,7 @@ export function RotuladoPage() {
         titulo="Rotulado de productos"
         descripcion="Listado de productos y sus borradores de rotulado."
       >
-        <EstadoCargando>Cargando productos...</EstadoCargando>
+        <EstadoCargando pagina>Cargando productos...</EstadoCargando>
       </Pagina>
     );
   }

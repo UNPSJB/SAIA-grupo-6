@@ -73,7 +73,7 @@ export function RecetasPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={() => setBusqueda("")} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando recetas...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando recetas...</EstadoCargando>}
       {!loading && !error && recetas.length > 0 && visibles.length === 0 && (
         <EstadoVacioFiltrado onLimpiar={() => setBusqueda("")}>
           No hay recetas que coincidan con la búsqueda.

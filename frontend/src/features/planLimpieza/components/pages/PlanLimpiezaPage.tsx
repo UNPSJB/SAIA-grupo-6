@@ -209,7 +209,7 @@ export function PlanLimpiezaPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-      {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando planes...</EstadoCargando>}
       {!loading && error && <BannerError>{error}</BannerError>}
 
       {!loading && !error && (

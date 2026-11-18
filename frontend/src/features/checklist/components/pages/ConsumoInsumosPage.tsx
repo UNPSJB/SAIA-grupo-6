@@ -82,7 +82,7 @@ export function ConsumoInsumosPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {loading && <EstadoCargando>Cargando consumo...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando consumo...</EstadoCargando>}
 
       {!loading && consumo && (
         <>

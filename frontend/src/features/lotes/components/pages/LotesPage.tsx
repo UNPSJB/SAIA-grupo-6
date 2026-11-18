@@ -187,7 +187,7 @@ export function LotesPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando lotes...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando lotes...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 &&
         (hayFiltros ? (

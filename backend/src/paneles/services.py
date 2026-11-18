@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from src.aptitud.models import Aptitud  # noqa: F401  (registro de modelos)
 from src.certificaciones_transportista.models import CertificacionTransportista
 from src.checklist.models import Checklist, EstadoChecklist, RegistroTarea
+from src.checklist.services.tareas_del_dia import listar_tareas_del_dia
 from src.clientes.models import Cliente
 from src.common.estado_documento import PROXIMO, VENCIDO, estado_documento
 from src.common.fechas import hoy
@@ -37,12 +38,10 @@ from src.lotes.constants import (
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto
 from src.lotesInsumo import services as lotes_insumo_services
 from src.lotesInsumo.models import LoteInsumo
-from src.notificaciones.services import MARGEN_DIAS_ALERTA
+from src.notificaciones.services import MARGEN_DIAS_ALERTA, obtener_meta_cumplimiento_limpieza
 from src.nutricion.models import InfoNutricionalProducto
 from src.paneles import schemas
 from src.paneles.constants import (
-    CUMPLIMIENTO_ESPERADO,
-    DIAS_PERIODO_INICIO,
     DIAS_POR_VENCER,
     ETIQUETA_ESTADO_CHECKLIST,
     ETIQUETA_ESTADO_LOTE,
@@ -51,7 +50,6 @@ from src.paneles.constants import (
     ETIQUETA_TIPO_INCIDENTE,
     ETIQUETA_TIPO_INSUMO,
     ETIQUETA_TIPO_VENCIMIENTO,
-    FILAS_ATENCION_INICIO,
     FILAS_LISTA,
     FILAS_RANKING,
     MAXIMO_DIAS_PERIODO,
@@ -1538,172 +1536,167 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
 
 # ─────────────────────────────── Inicio ───────────────────────────────
 
-# Orden de gravedad de las filas de atención del inicio.
-_GRAVEDAD = {"peligro": 0, "alerta": 1}
+# ──────────────────────────────── Inicio ────────────────────────────────
 
 
-def _metrica(
+def _cifra(
     clave: str,
     etiqueta: str,
-    valor: Optional[float],
-    tono_si_hay: schemas.Tono = "peligro",
-    unidad: Optional[str] = None,
-) -> schemas.MetricaArea:
-    """Una cifra de área: en `tono_si_hay` si es mayor que cero; si no, neutra."""
-    return schemas.MetricaArea(
+    valor: float,
+    link: Optional[str] = None,
+    tono_si_hay: schemas.Tono = "neutro",
+    detalle: Optional[str] = None,
+) -> schemas.CifraHoy:
+    """Una cifra del día: en `tono_si_hay` si es mayor que cero; si no, neutra."""
+    return schemas.CifraHoy(
         clave=clave,
         etiqueta=etiqueta,
         valor=valor,
-        unidad=unidad,
+        detalle=detalle,
+        link=link,
         tono=tono_si_hay if valor else "neutro",
     )
 
 
-def _con_area(
-    filas: Iterable[schemas.FilaAtencion], area: str, titulo: str
-) -> list[schemas.FilaAtencionArea]:
-    """Solo lo que hay que atender (peligro o alerta), marcado con su área."""
-    return [
-        schemas.FilaAtencionArea(**fila.model_dump(), area=area, area_titulo=titulo)
-        for fila in filas
-        if fila.tono in _GRAVEDAD
+def _checklist_de_hoy(db: Session, usuario: Personal, hoy_dia: date, meta: int) -> schemas.ChecklistHoy:
+    """Las tareas de limpieza de hoy, con las de los planes que todavía no
+    tienen checklist creado: es la misma lista que ve el operador en
+    "Checklist diario" (y con su mismo alcance: un operador, solo las suyas)."""
+    tareas = listar_tareas_del_dia(db, hoy_dia, usuario).tareas
+    completadas = sum(1 for t in tareas if t.completado)
+
+    por_momento = []
+    for clave, etiqueta in ETIQUETA_MOMENTO_TAREA.items():
+        del_momento = [t for t in tareas if (t.tipo or "") == clave]
+        if del_momento:
+            por_momento.append(
+                schemas.Avance(
+                    clave=clave,
+                    etiqueta=etiqueta,
+                    cumplen=sum(1 for t in del_momento if t.completado),
+                    total=len(del_momento),
+                )
+            )
+
+    pendientes = [
+        schemas.FilaAtencion(
+            clave=f"tarea-{t.id}-{t.equipo_id}",
+            titulo=t.nombre,
+            # "Plan · Operador": siempre las dos partes, el frontend las separa.
+            detalle=f"{t.plan_nombre or 'Sin plan'} · "
+            f"{t.reemplazado_por_nombre or t.operador_nombre or 'Sin asignar'}",
+            tono="alerta",
+            estado=ETIQUETA_MOMENTO_TAREA.get(t.tipo or "", "Pendiente"),
+            link="/checklist",
+        )
+        for t in tareas
+        if not t.completado
     ]
 
+    return schemas.ChecklistHoy(
+        total=len(tareas),
+        completadas=completadas,
+        porcentaje=_porcentaje(completadas, len(tareas)),
+        meta=meta,
+        por_momento=por_momento,
+        pendientes=pendientes[:FILAS_LISTA],
+        pendientes_total=len(pendientes),
+    )
 
-def _intercalar_areas(filas: list[schemas.FilaAtencionArea]) -> list[schemas.FilaAtencionArea]:
-    """Lo más grave primero y, dentro de cada gravedad, una fila de cada área
-    por turno: así un área con muchos vencidos no tapa a las demás al
-    recortar. Cada área conserva el orden de su panel (que ya pone primero lo
-    más vencido o lo más viejo)."""
-    resultado: list[schemas.FilaAtencionArea] = []
-    for tono in _GRAVEDAD:
-        por_area: dict[str, list[schemas.FilaAtencionArea]] = {}
-        for fila in filas:
-            if fila.tono == tono:
-                por_area.setdefault(fila.area, []).append(fila)
-        colas = list(por_area.values())
-        while any(colas):
-            for cola in colas:
-                if cola:
-                    resultado.append(cola.pop(0))
-    return resultado
+
+def _vencen_hoy(db: Session, hoy_dia: date) -> list[schemas.FilaAtencion]:
+    """Lo que vence hoy: lotes de insumo con saldo, aptitudes del personal,
+    calibraciones y mantenimientos, y documentos."""
+    filas = [
+        schemas.FilaAtencion(
+            clave=f"lote-insumo-{lote.lote_insumo_id}",
+            titulo=f"{lote.insumo_nombre} · lote {lote.numero_lote}",
+            detalle=lote.proveedor_nombre,
+            tono="peligro",
+            estado="Lote de insumo",
+            link="/stock-insumos",
+        )
+        for lote in lotes_insumo_services.stock_por_lote(db)
+        if lote.saldo > 0 and lote.fecha_vencimiento == hoy_dia
+    ]
+    filas += [
+        schemas.FilaAtencion(
+            clave=v.id_vencimiento,
+            titulo=f"{v.detalle} · {v.sujeto}",
+            tono="peligro",
+            estado=ETIQUETA_TIPO_VENCIMIENTO.get(v.tipo, v.tipo),
+            link=v.link_destino,
+        )
+        for v in vencimientos_services.listar_vencimientos(db)
+        if v.dias_restantes == 0
+    ]
+    return filas
 
 
 def panel_inicio(db: Session, usuario: Personal, administra: bool) -> schemas.PanelInicio:
-    """Lo de hoy y lo pendiente de cada área, para la página de inicio.
+    """Solo lo del día de hoy: el checklist, lo que se produjo, lo que entró y
+    salió, lo que se reportó y lo que vence hoy.
 
-    No calcula nada propio: toma las cifras y las listas de atención de los
-    paneles de cada área, así el inicio y los paneles nunca dicen cosas
-    distintas. Los estados ("sin stock", "planes vencidos") no dependen del
-    período; lo que sí, se pide con el período por defecto de los paneles. Quien solo opera ve Producción, Limpieza y
-    Calidad, con el mismo alcance que en esos paneles.
+    Las cifras salen de los mismos cálculos de los paneles de cada área,
+    pedidos con el período de hoy, así el inicio y los paneles nunca dicen
+    cosas distintas. Quien solo opera ve el checklist, Producción y Calidad,
+    con el mismo alcance que en esos paneles (sus tareas, sus reportes).
     """
     hoy_dia = hoy()
-    periodo = schemas.Periodo(desde=hoy_dia - timedelta(days=DIAS_PERIODO_INICIO - 1), hasta=hoy_dia)
-
-    areas: list[schemas.TarjetaArea] = []
-    atencion: list[schemas.FilaAtencionArea] = []
-
-    def area(clave: str, titulo: str, metricas: list[schemas.MetricaArea]) -> None:
-        areas.append(
-            schemas.TarjetaArea(clave=clave, titulo=titulo, link=f"/resumen/{clave}", metricas=metricas)
-        )
+    periodo = schemas.Periodo(desde=hoy_dia, hasta=hoy_dia)
+    grupos: list[schemas.GrupoHoy] = []
 
     produccion = panel_produccion(db, periodo, None, administra)
-    area(
-        "produccion",
-        "Producción",
-        [
-            _metrica("en_proceso", "Lotes en proceso", produccion.lotes_en_proceso, "neutro"),
-            _metrica("retiros", "Retiros en curso", produccion.retiros_en_curso),
-        ],
+    producido_hoy = [d for d in produccion.produccion_por_dia if d.fecha == hoy_dia]
+    grupos.append(
+        schemas.GrupoHoy(
+            clave="produccion",
+            titulo="Producción",
+            cifras=[
+                _cifra("iniciados", "Lotes iniciados", produccion.lotes_iniciados, "/lotes"),
+                _cifra("terminados", "Lotes terminados", produccion.lotes_terminados, "/lotes"),
+                _cifra("salidas", "Salidas registradas", produccion.salidas_registradas, "/salidas"),
+            ],
+            producido=producido_hoy,
+        )
     )
 
     if administra:
         inventario = panel_inventario(db, periodo, None)
-        area(
-            "inventario",
-            "Inventario",
-            [
-                _metrica("sin_stock", "Insumos sin stock", inventario.insumos_sin_stock),
-                _metrica(
-                    "vencidos",
-                    "Lotes vencidos o por vencer",
-                    inventario.lotes_vencidos + inventario.lotes_por_vencer,
-                    "peligro" if inventario.lotes_vencidos else "alerta",
-                ),
-            ],
+        grupos.append(
+            schemas.GrupoHoy(
+                clave="inventario",
+                titulo="Inventario",
+                cifras=[
+                    _cifra("recibidos", "Lotes de insumo recibidos", inventario.lotes_recibidos, "/stock-insumos"),
+                ],
+            )
         )
-        atencion += _con_area(inventario.vencen_primero, "inventario", "Inventario")
-
-    # Lo de hoy ya lo muestra el checklist del día en el inicio (con las
-    # tareas de los planes aunque todavía no tengan checklist creado): acá
-    # va cómo viene el período, para no repetir ni contradecir esa tarjeta.
-    limpieza = panel_limpieza(db, periodo, None, usuario, administra)
-    cumplimiento = None if limpieza.cumplimiento is None else round(limpieza.cumplimiento)
-    area(
-        "limpieza",
-        "Limpieza",
-        [
-            schemas.MetricaArea(
-                clave="cumplimiento",
-                etiqueta=f"Cumplimiento en {DIAS_PERIODO_INICIO} días",
-                valor=cumplimiento,
-                unidad="%",
-                tono="alerta" if cumplimiento is not None and cumplimiento < CUMPLIMIENTO_ESPERADO else "neutro",
-            ),
-            _metrica(
-                "incumplidas",
-                f"Tareas incumplidas en {DIAS_PERIODO_INICIO} días",
-                limpieza.tareas_incumplidas,
-                "alerta",
-            ),
-        ],
-    )
-    atencion += _con_area(limpieza.atencion or [], "limpieza", "Limpieza")
-
-    if administra:
-        equipos = panel_equipos(db, periodo, None)
-        area(
-            "equipos",
-            "Equipos",
-            [
-                _metrica("planes_vencidos", "Planes vencidos", equipos.planes_vencidos),
-                _metrica(
-                    "con_incidentes",
-                    "Equipos con incidentes abiertos",
-                    equipos.equipos_con_incidentes_abiertos,
-                    "alerta",
-                ),
-            ],
-        )
-        atencion += _con_area(equipos.proximas_intervenciones, "equipos", "Equipos")
 
     calidad = panel_calidad(db, periodo, None, usuario, administra)
-    area(
-        "calidad",
-        "Calidad",
-        [
-            _metrica("abiertos", "Incidentes abiertos", calidad.incidentes_abiertos, "alerta"),
-            _metrica("fuera_de_plazo", "Reclamos fuera de plazo", calidad.reclamos_fuera_de_plazo),
-        ],
-    )
-    atencion += _con_area(calidad.abiertos_antiguos, "calidad", "Calidad")
-
-    if administra:
-        personas = panel_personas(db, periodo)
-        area(
-            "personas",
-            "Personas",
-            [
-                _metrica("aptitudes_vencidas", "Aptitudes vencidas", personas.aptitudes_vencidas),
-                _metrica("aptitudes_proximas", "Aptitudes por vencer", personas.aptitudes_proximas, "alerta"),
+    grupos.append(
+        schemas.GrupoHoy(
+            clave="calidad",
+            titulo="Calidad",
+            cifras=[
+                _cifra(
+                    "incidentes",
+                    "Incidentes reportados",
+                    calidad.incidentes_reportados,
+                    "/incidentes" if administra else "/incidentes/reportar",
+                    "alerta",
+                ),
+                _cifra("cerrados", "Incidentes cerrados", calidad.cerrados_periodo,
+                       "/incidentes" if administra else "/incidentes/reportar"),
+                _cifra("reclamos", "Reclamos recibidos", calidad.reclamos, "/reclamos", "alerta"),
+                _cifra("retiros", "Retiros iniciados", produccion.retiros_periodo, "/retiros", "peligro"),
             ],
         )
-        atencion += _con_area(personas.aptitudes_atencion, "personas", "Personas")
+    )
 
     return schemas.PanelInicio(
-        areas=areas,
-        atencion=_intercalar_areas(atencion)[:FILAS_ATENCION_INICIO],
-        atencion_total=len(atencion),
+        fecha=hoy_dia,
+        checklist=_checklist_de_hoy(db, usuario, hoy_dia, obtener_meta_cumplimiento_limpieza(db)),
+        grupos=grupos,
+        vencen_hoy=_vencen_hoy(db, hoy_dia) if administra else None,
     )

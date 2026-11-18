@@ -88,7 +88,7 @@ function PanelParametros() {
     obtenerParametros().then(setDatos).catch((e: Error) => setError(e.message));
   }, []);
 
-  if (!datos) return error ? <BannerError>{error}</BannerError> : <EstadoCargando>Cargando parámetros...</EstadoCargando>;
+  if (!datos) return error ? <BannerError>{error}</BannerError> : <EstadoCargando pagina>Cargando parámetros...</EstadoCargando>;
 
   const cambiarNutriente = (clave: string, campo: string, valor: string | number | null) =>
     setDatos({
