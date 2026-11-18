@@ -1,24 +1,26 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HStack, Table } from "@chakra-ui/react";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
-import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import { formatoFecha } from "../../../../common/utils/fechas";
 import {
   BannerError,
   BotonAccion,
   BotonAgregar,
+  CantidadConUnidad,
   Celda,
+  DatoPrincipal,
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
   FilaClickeable,
   FilaEncabezado,
-  Paginacion,
-  Tarjeta,
-  TextoTruncado,
+  PieTabla,
+  PildoraNeutra,
+  TarjetaTabla,
 } from "../../../../components/ui/patrones";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
@@ -48,7 +50,7 @@ export function RecetasPage() {
     const texto = normalizar(busqueda);
     return texto ? recetas.filter((r) => normalizar(r.producto_nombre).includes(texto)) : recetas;
   }, [recetas, busqueda]);
-  const { paginados, page, setPage, hayVariasPaginas } = usePaginas(visibles, PAGE_SIZE, busqueda);
+  const { paginados, page, setPage } = usePaginas(visibles, PAGE_SIZE, busqueda);
   const chips = chipsDeFiltros([
     { clave: "busqueda", etiqueta: "Búsqueda", valor: busqueda, recortar: true, onQuitar: () => setBusqueda("") },
   ]);
@@ -69,6 +71,15 @@ export function RecetasPage() {
     >
       <BarraFiltros
         busqueda={<CampoBusqueda valor={busqueda} onCambio={setBusqueda} placeholder="Buscar por producto..." />}
+        herramientas={
+          esAdmin ? (
+            <BotonesExportar
+              nombreTabla="recetas"
+              vista="recetas"
+              filtros={{ buscar: busqueda.trim() || undefined }}
+            />
+          ) : undefined
+        }
       />
       <ChipsFiltros filtros={chips} onLimpiarTodo={() => setBusqueda("")} />
 
@@ -89,34 +100,56 @@ export function RecetasPage() {
       )}
 
       {!loading && !error && visibles.length > 0 && (
-        <>
-        <Tarjeta overflowX="auto">
+        <TarjetaTabla
+          pie={
+            <PieTabla
+              count={visibles.length}
+              page={page}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+              unidad={visibles.length === 1 ? "receta" : "recetas"}
+            />
+          }
+        >
+          {/*
+            Cuatro columnas cortas con ancho propio y la de acciones justa
+            para sus dos botones: el producto se queda con el resto y no queda
+            un hueco vacío antes de las acciones.
+          */}
           <Table.Root variant="outline" w="100%" minW="720px">
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="angosta">Versión vigente</EncabezadoOscuro>
-                <EncabezadoOscuro numero ancho="amplia">Rendimiento</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Vigente desde</EncabezadoOscuro>
-                <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>
+                <EncabezadoOscuro center width="15%">Versión vigente</EncabezadoOscuro>
+                <EncabezadoOscuro numero width="17%">Rendimiento</EncabezadoOscuro>
+                <EncabezadoOscuro width="15%">Vigente desde</EncabezadoOscuro>
+                <EncabezadoOscuro center width="13%">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
               {paginados.map((receta) => (
                 <FilaClickeable onAbrir={() => navigate(`/recetas/${receta.id}`)} key={receta.id}>
                   <Celda>
-                    <TextoTruncado texto={receta.producto_nombre} />
+                    <DatoPrincipal titulo={receta.producto_nombre} />
                   </Celda>
-                  <Celda>{receta.version_vigente ? `v${receta.version_vigente.numero}` : "-"}</Celda>
+                  <Celda center>
+                    {receta.version_vigente ? (
+                      <PildoraNeutra mono>v{receta.version_vigente.numero}</PildoraNeutra>
+                    ) : (
+                      "-"
+                    )}
+                  </Celda>
                   <Celda numero>
-                    {receta.version_vigente
-                      ? cantidadConUnidad(
-                          receta.version_vigente.rendimiento,
-                          receta.version_vigente.unidad_medida.simbolo,
-                        )
-                      : "-"}
+                    {receta.version_vigente ? (
+                      <CantidadConUnidad
+                        valor={receta.version_vigente.rendimiento}
+                        unidad={receta.version_vigente.unidad_medida.simbolo}
+                      />
+                    ) : (
+                      "-"
+                    )}
                   </Celda>
-                  <Celda>{formatoFecha(receta.version_vigente?.creado_en)}</Celda>
+                  <Celda whiteSpace="nowrap">{formatoFecha(receta.version_vigente?.creado_en)}</Celda>
                   <Celda center>
                     <HStack justify="center" gap="2">
                       <BotonAccion
@@ -137,11 +170,7 @@ export function RecetasPage() {
               ))}
             </Table.Body>
           </Table.Root>
-        </Tarjeta>
-        {hayVariasPaginas && (
-          <Paginacion count={visibles.length} pageSize={PAGE_SIZE} page={page} onPageChange={setPage} />
-        )}
-        </>
+        </TarjetaTabla>
       )}
     </Pagina>
   );

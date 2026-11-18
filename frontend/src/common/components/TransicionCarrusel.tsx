@@ -14,6 +14,12 @@ const CURVA = "cubic-bezier(0.25, 1, 0.5, 1)";
  */
 const RECORRIDO = 103;
 
+/**
+ * Tope para borrar la copia si la animación de salida nunca avisa que
+ * terminó. Lo normal es que la borre `onfinish`; esto es solo el seguro.
+ */
+const RESPALDO = DURACION + 1500;
+
 const sinMovimiento = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
@@ -57,15 +63,21 @@ interface Instantanea {
 class Barrido extends Component<PropsBarrido> {
   private marco = createRef<HTMLDivElement>();
   private contenido = createRef<HTMLDivElement>();
-  /** Barrido en curso: la copia que sale y la animación de la que entra. */
-  private enCurso: { copia: HTMLElement; entrada: Animation } | null = null;
+  /** Barrido en curso: la copia que sale, la animación de la que entra y su respaldo. */
+  private enCurso: { copia: HTMLElement; entrada: Animation; respaldo: number } | null = null;
 
-  /** Corta el barrido en curso: borra la copia y deja la vista actual quieta. */
+  /**
+   * Corta el barrido en curso: borra la copia y deja la vista actual quieta en
+   * su lugar final (`finish`, no `cancel`: así, si enseguida se copia para el
+   * barrido siguiente, la copia sale derecha y no a mitad de camino).
+   */
   private cortar() {
     if (!this.enCurso) return;
-    this.enCurso.entrada.cancel();
-    this.enCurso.copia.remove();
+    const { copia, entrada, respaldo } = this.enCurso;
     this.enCurso = null;
+    window.clearTimeout(respaldo);
+    entrada.finish();
+    copia.remove();
   }
 
   componentWillUnmount() {
@@ -74,20 +86,22 @@ class Barrido extends Component<PropsBarrido> {
 
   getSnapshotBeforeUpdate(previas: PropsBarrido): Instantanea | null {
     if (previas.pathname === this.props.pathname) return null;
-    // Clic rápido sobre otra pestaña con un barrido todavía en curso: se corta
-    // y la pantalla nueva aparece directamente, sin encimar tres vistas ni
-    // copiar una vista a mitad de camino.
-    if (this.enCurso) {
-      this.cortar();
-      return null;
-    }
     const desde = indiceRuta(previas.pathname);
     const hasta = indiceRuta(this.props.pathname);
     const caja = this.marco.current;
     const actual = this.contenido.current;
+    // Cambio dentro de la misma pantalla del menú (listado ↔ ficha, pestañas
+    // internas) o fuera del menú: no barre, y tampoco corta el barrido en
+    // curso. Importa en las rutas que redirigen al entrar: `/gestion-stock`
+    // salta enseguida a `/gestion-stock/stock` con un `<Navigate>`, y si ese
+    // segundo cambio cortaba el barrido, "Stock de químicos" nunca animaba.
     if (desde === null || hasta === null || desde === hasta || !caja || !actual || sinMovimiento()) {
       return null;
     }
+    // Clic rápido sobre otra pestaña con un barrido todavía en curso: se
+    // termina el anterior al instante (sin encimar tres vistas) y se barre
+    // desde la pantalla actual hacia la nueva.
+    this.cortar();
 
     const copia = actual.cloneNode(true) as HTMLElement;
     copia.setAttribute("aria-hidden", "true");
@@ -142,16 +156,21 @@ class Barrido extends Component<PropsBarrido> {
       ],
       { ...tiempo, fill: "forwards" },
     );
-    this.enCurso = { copia, entrada };
     const terminar = () => {
       copia.remove();
-      if (this.enCurso?.copia === copia) this.enCurso = null;
+      if (this.enCurso?.copia === copia) {
+        window.clearTimeout(this.enCurso.respaldo);
+        this.enCurso = null;
+      }
     };
+    // Respaldo por si la animación nunca termina (pestaña en segundo plano):
+    // la copia no queda tapando la pantalla. Es holgado a propósito: la
+    // animación arranca en el primer frame que se pinta, y en una pantalla
+    // pesada ese frame puede tardar. Un respaldo corto, contado desde acá,
+    // borraba la copia a mitad del barrido (o antes de que empezara).
+    this.enCurso = { copia, entrada, respaldo: window.setTimeout(terminar, RESPALDO) };
     salida.onfinish = terminar;
     salida.oncancel = terminar;
-    // Por las dudas (pestaña en segundo plano, animación que no termina): la
-    // copia nunca queda tapando la pantalla.
-    window.setTimeout(terminar, DURACION + 200);
   }
 
   render() {

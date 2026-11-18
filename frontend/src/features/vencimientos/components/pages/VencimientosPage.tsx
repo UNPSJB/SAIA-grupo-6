@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Text } from "@chakra-ui/react";
+import { Text } from "@chakra-ui/react";
 import {
   obtenerOpcionesVencimientos,
   obtenerVencimientosPaginados,
@@ -41,6 +41,8 @@ import {
   Tarjeta,
   TextoTruncado,
   type TonoEstado,
+  DatoPrincipal,
+  PildoraNeutra,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { Table } from "@chakra-ui/react";
@@ -387,7 +389,7 @@ export function VencimientosPage() {
                   >
                     Vencimiento
                   </EncabezadoOrdenable>
-                  <EncabezadoOrdenable columna="estado" orden={orden} ancho="media">
+                  <EncabezadoOrdenable columna="estado" orden={orden} ancho="media" center>
                     Estado
                   </EncabezadoOrdenable>
                   <EncabezadoOscuro center ancho="acciones">
@@ -399,25 +401,15 @@ export function VencimientosPage() {
                 {items.map((v) => {
                   const estilo = ESTILO_ESTADO[v.estado];
                   return (
-                    <FilaClickeable onAbrir={() => navigate(v.link_destino)} key={v.id_vencimiento} _hover={{ bg: "brand.50" }}>
+                    <FilaClickeable onAbrir={() => navigate(v.link_destino)} key={v.id_vencimiento}>
                       <Celda>
-                        <Badge
-                          colorPalette="purple"
-                          variant="subtle"
-                          maxW="100%"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                        >
+                        <PildoraNeutra>
                           {TIPOS_VENCIMIENTO.find((t) => t.value === v.tipo)?.label ??
                             v.tipo}
-                        </Badge>
+                        </PildoraNeutra>
                       </Celda>
                       <Celda>
-                        <TextoTruncado
-                          fontWeight="bold"
-                          color="fg"
-                          texto={v.detalle}
-                        />
+                        <DatoPrincipal titulo={v.detalle} />
                       </Celda>
                       <Celda>
                         <TextoTruncado color="fg.muted" texto={v.sujeto} />
@@ -434,7 +426,7 @@ export function VencimientosPage() {
                           {textoDias(v)}
                         </Text>
                       </Celda>
-                      <Celda>
+                      <Celda center>
                         <EtiquetaEstado tono={estilo.tono}>{estilo.etiqueta}</EtiquetaEstado>
                       </Celda>
                       <Celda center>

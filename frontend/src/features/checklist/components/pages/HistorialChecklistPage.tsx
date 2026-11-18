@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
+import { Box, Field, HStack, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
 import { useSearchParams } from "react-router-dom";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
@@ -36,7 +36,9 @@ import {
   LabelFiltro,
   Paginacion,
   Tarjeta,
-  TextoTruncado,
+  DatoPrincipal,
+  EtiquetaEstado,
+  ProgresoTareas,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
@@ -354,8 +356,8 @@ export function HistorialChecklistPage() {
                   <EncabezadoOrdenable columna="equipo" orden={orden} ancho="media">
                     Equipo
                   </EncabezadoOrdenable>
-                  <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro numero center ancho="media">Cumplimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="amplia">Cumplimiento</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="media">
                     Incumplidas
                   </EncabezadoOscuro>
@@ -368,31 +370,28 @@ export function HistorialChecklistPage() {
                 {checklists.map((cl) => (
                   <Fragment key={cl.checklist_id}>
                     <FilaClickeable onAbrir={() => setChecklistSeleccionado(cl)}>
-                      <Celda>{formatoFecha(cl.fecha)}</Celda>
+                      <Celda whiteSpace="nowrap">{formatoFecha(cl.fecha)}</Celda>
                       <Celda>
-                        <TextoTruncado texto={cl.equipo_nombre} />
+                        <DatoPrincipal titulo={cl.equipo_nombre} />
                       </Celda>
-                      <Celda>
-                        <Badge
-                          colorPalette={cl.estado === "cerrado" ? "green" : "orange"}
-                          rounded="md"
-                          px="2"
-                          py="1"
-                          textTransform="capitalize"
-                          maxW="100%"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                        >
-                          {cl.estado}
-                        </Badge>
+                      <Celda center>
+                        <EtiquetaEstado tono={cl.estado === "cerrado" ? "ok" : "alerta"}>
+                          {cl.estado.charAt(0).toUpperCase() + cl.estado.slice(1)}
+                        </EtiquetaEstado>
                       </Celda>
-                      <Celda numero center>
-                        <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
-                          {formatoPorcentaje(cl.porcentaje_cumplimiento)}
-                        </Text>
-                        <Text fontSize="xs" color="fg.muted">
-                          {cl.tareas_completadas}/{cl.total_tareas}
-                        </Text>
+                      <Celda center>
+                        <HStack justify="center" gap="2">
+                          <ProgresoTareas hechas={cl.tareas_completadas} total={cl.total_tareas} />
+                          <Text
+                            as="span"
+                            fontSize="sm"
+                            fontWeight="semibold"
+                            fontVariantNumeric="tabular-nums"
+                            color={colorPorcentaje(cl.porcentaje_cumplimiento)}
+                          >
+                            {formatoPorcentaje(cl.porcentaje_cumplimiento)}
+                          </Text>
+                        </HStack>
                       </Celda>
                       <Celda center>
                         {cl.tareas_incumplidas.length === 0 ? (

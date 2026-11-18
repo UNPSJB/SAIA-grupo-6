@@ -191,6 +191,12 @@ export function chipsDeFiltros(definiciones: DefinicionChip[]): ChipFiltro[] {
   return chips;
 }
 
+/**
+ * Filtros aplicados, en la franja entre la barra de filtros y la tabla: un
+ * chip "Campo: Valor ×" por cada criterio activo y, al final, "Limpiar
+ * filtros". Sin filtros no se renderiza nada, así la barra y la tabla quedan
+ * a la distancia de siempre. La × vuelve ese control a su valor inicial.
+ */
 export function ChipsFiltros({
   filtros,
   onLimpiarTodo,
@@ -204,9 +210,11 @@ export function ChipsFiltros({
     <HStack
       gap="2"
       flexWrap="wrap"
+      align="center"
+      mt="-1"
       mb="4"
       role="group"
-      aria-label="Filtros y orden aplicados"
+      aria-label="Filtros aplicados"
     >
       {filtros.map((filtro) => (
         <Box
@@ -214,26 +222,34 @@ export function ChipsFiltros({
           as="span"
           display="inline-flex"
           alignItems="center"
-          gap="2"
+          gap="1"
+          h="7"
           pl="3"
           pr="1"
-          py="1"
           rounded="full"
+          /* Misma familia que la barra superior (`brand.700`). */
           bg="brand.50"
           borderWidth="1px"
           borderColor="brand.200"
+          color="brand.700"
+          fontSize="13px"
+          fontWeight="500"
+          lineHeight="1"
+          maxW="100%"
         >
-          <Text as="span" fontSize="xs" color="fg.muted">
-            {filtro.etiqueta}:
-          </Text>
-          <Text as="span" fontSize="sm" fontWeight="semibold">
-            {filtro.valor}
+          <Text as="span" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={`${filtro.etiqueta}: ${filtro.valor}`}>
+            {filtro.etiqueta}: {filtro.valor}
           </Text>
           <IconButton
             aria-label={`Quitar filtro ${filtro.etiqueta}`}
-            size="2xs"
+            title="Quitar filtro"
+            minW="5"
+            w="5"
+            h="5"
+            rounded="full"
             variant="ghost"
-            colorPalette="neutral"
+            color="brand.700"
+            _hover={{ bg: "brand.100" }}
             onClick={filtro.onQuitar}
           >
             <LuX size={12} aria-hidden />
@@ -244,11 +260,14 @@ export function ChipsFiltros({
       <Button
         type="button"
         size="xs"
-        variant="ghost"
-        colorPalette="neutral"
+        variant="plain"
+        color="#64748B"
+        fontWeight="medium"
+        px="1"
+        _hover={{ color: "brand.700", textDecoration: "underline" }}
         onClick={onLimpiarTodo}
       >
-        Limpiar todo
+        Limpiar filtros
       </Button>
     </HStack>
   );

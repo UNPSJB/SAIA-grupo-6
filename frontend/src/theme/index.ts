@@ -337,12 +337,13 @@ const config = defineConfig({
           },
           /*
            * Hover de fila uniforme: lo hereda TODA tabla de la app sin que
-           * cada componente tenga que pasar `_hover`. Se usa `bg.subtle` (un
-           * gris muy claro) para no competir con el color de las acciones ni
-           * con el teal del encabezado.
+           * cada componente tenga que pasar `_hover`. Aguamarina muy suave
+           * (`#F0FDFA`) con transición corta: guía la vista a lo largo de la
+           * fila en monitores anchos sin competir con el color de los estados.
            */
           row: {
-            _hover: { bg: "bg.subtle" },
+            transition: "background-color 0.15s ease",
+            _hover: { bg: "#F0FDFA" },
           },
         },
       },

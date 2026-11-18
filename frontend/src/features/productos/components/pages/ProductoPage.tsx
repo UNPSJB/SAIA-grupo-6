@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -16,7 +17,7 @@ import {
   BannerError,
   BotonAgregar,
   EstadoCargando,
-  Paginacion,
+  PieTabla,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { useProductoABM } from "../../hooks/useProductoABM";
@@ -42,7 +43,6 @@ export function ProductoPage() {
     totalFiltrados,
     page,
     setPage,
-    hayVariasPaginas,
   } = usePaginacion(productos, verInactivos, PAGE_SIZE);
 
   const [aEliminar, setAEliminar] = useState<Producto | null>(null);
@@ -102,16 +102,26 @@ export function ProductoPage() {
           />
         }
         herramientas={
-          <ToggleInactivos
-            enBarra
-            checked={verInactivos}
-            onChange={(checked: boolean) => {
-              setVerInactivos(checked);
-              setPage(1);
-            }}
-          >
-            Ver dados de baja
-          </ToggleInactivos>
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={(checked: boolean) => {
+                setVerInactivos(checked);
+                setPage(1);
+              }}
+            >
+              Ver dados de baja
+            </ToggleInactivos>
+            <BotonesExportar
+              nombreTabla="productos"
+              vista="productos"
+              filtros={{
+                incluir_inactivos: String(verInactivos),
+                buscar: busqueda.trim() || undefined,
+              }}
+            />
+          </>
         }
       />
 
@@ -132,11 +142,16 @@ export function ProductoPage() {
               onNutricion={(p) => navigate(`/productos/${p.id}/informacion-nutricional`)}
               onDelete={setAEliminar}
               onReactivar={setAReactivar}
+              pie={
+                <PieTabla
+                  count={totalFiltrados}
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  onPageChange={setPage}
+                  unidad={totalFiltrados === 1 ? "producto" : "productos"}
+                />
+              }
             />
-          )}
-
-          {hayVariasPaginas && (
-            <Paginacion count={totalFiltrados} pageSize={PAGE_SIZE} page={page} onPageChange={setPage} />
           )}
         </>
       )}

@@ -143,11 +143,24 @@ export function Tarjeta({
 } & BoxProps) {
   return (
     <Box
+      data-tarjeta=""
       bg="bg.panel"
       rounded="lg"
       borderWidth="1px"
       borderColor="border.subtle"
       overflow="hidden"
+      /*
+       * Si inmediatamente después va el pie de paginación (`Paginacion`), la
+       * tarjeta y el pie se leen como una sola pieza: se le quitan las
+       * esquinas y el borde de abajo, y el pie pone el filete divisor.
+       */
+      css={{
+        "&:has(+ [data-pie-tabla])": {
+          borderBottomLeftRadius: 0,
+          borderBottomRightRadius: 0,
+          borderBottomWidth: 0,
+        },
+      }}
       {...(desplazable ? { overflow: "auto", maxH: "calc(100vh - 260px)", minH: "240px" } : {})}
       {...rest}
     >
@@ -234,6 +247,23 @@ export function MensajeError({
 }
 
 /**
+ * Colores de las tablas, iguales a los de los paneles (`/resumen/*`): gris
+ * pizarra en el encabezado, aguamarina muy suave al pasar el mouse por una
+ * fila. Fijos y no tokens semánticos porque la app es solo en modo claro
+ * (ver `provider.tsx`).
+ */
+export const COLOR_TABLA = {
+  fondoEncabezado: "#F1F5F9",
+  textoEncabezado: "#475569",
+  bordeEncabezado: "#E2E8F0",
+  bordeFila: "#EEF2F6",
+  hoverFila: "#F0FDFA",
+  textoPrincipal: "#1E293B",
+  textoSecundario: "#64748B",
+  accion: "#0F766E",
+} as const;
+
+/**
  * Celda de cuerpo de tabla. Padding y borde ya resueltos.
  *
  * `numero`: cantidades, stock, porcentajes. Van a la derecha y con dígitos de
@@ -250,11 +280,16 @@ export function Celda({
   return (
     <Table.Cell
       px="4"
-      py="3"
+      /*
+       * 15px arriba y abajo con texto de 14px: la fila respira (≈50px de
+       * alto) y una tabla de 10 filas deja de verse apretada.
+       */
+      py="15px"
       color="fg"
       fontSize="sm"
+      lineHeight="1.4"
       borderBottomWidth="1px"
-      borderColor="border.subtle"
+      borderColor={COLOR_TABLA.bordeFila}
       textAlign={numero ? "right" : center ? "center" : undefined}
       fontVariantNumeric={numero ? "tabular-nums" : undefined}
       whiteSpace={numero ? "nowrap" : undefined}
@@ -333,20 +368,19 @@ export function TextoTruncado({
  *   angosta          14%  símbolo, estado, foto, cantidad: una palabra corta
  *   media            12%  fechas, DNI, periodicidad, "días restantes"
  *   amplia           16%  tipo, sector
- *   acciones         20%  un botón, o dos chicos ("Cerrar", "Reabrir")
- *   accionesAnchas   28%  dos botones ("Modificar" + "Eliminar" miden 177px)
- *                     o cuatro, que pasan a dos filas
+ *   acciones         14%  uno o dos botones de ícono (`BotonAccion`, 34px)
+ *   accionesAnchas   20%  tres botones de ícono; con cuatro, en una tabla
+ *                     angosta pasan a dos filas
  *
  * `angosta` es 14% y no menos porque la columna "Estado" y la "Origen" llevan
  * un `Badge`: "Pendiente" y "Elemento de limpieza" miden unos 90px, y con 9%
  * el texto se salía de la celda. La suma más cargada (incidentes, 7 columnas)
  * queda en 96%, y el plan de calibración (8 columnas) en 94%.
  *
- * `acciones` al 20% alcanza solo cuando hay un botón. Los catálogos con
- * "Modificar" y "Eliminar" necesitan `accionesAnchas`: con 20% en una tabla de
- * 660px la celda quedaba en 132px, los dos botones sumaban 177px y el
- * `overflow: hidden` de la tabla (el que hace las esquinas redondeadas)
- * recortaba "Eliminar".
+ * Antes las acciones eran botones con texto ("Modificar" + "Eliminar" medían
+ * 177px) y pedían 20–28%. Con los botones de ícono de 34px esos anchos dejaban
+ * un hueco vacío entre los datos y las acciones: tres botones miden 118px,
+ * y el 20% de una tabla de 680px son 136px.
  *
  * La columna principal (nombre, título, producto) NO lleva ancho a propósito:
  * se queda con lo que sobra y por eso siempre es la más ancha de la tabla.
@@ -355,11 +389,25 @@ const ANCHO_COLUMNA = {
   angosta: "14%",
   media: "12%",
   amplia: "16%",
-  acciones: "20%",
-  accionesAnchas: "28%",
+  acciones: "14%",
+  accionesAnchas: "20%",
 } as const;
 
 export type AnchoColumna = keyof typeof ANCHO_COLUMNA;
+
+/**
+ * En las páginas con franja teal (`Pagina banner`, marcadas con
+ * `data-pagina-banner`) el encabezado toma el mismo teal de la franja y de la
+ * barra superior (`brand.700`), con texto blanco. El resto de la app sigue
+ * con el gris claro.
+ */
+const ENCABEZADO_TEAL = {
+  "[data-pagina-banner] &, [data-pagina-banner] &:hover": {
+    background: "var(--chakra-colors-brand-700)",
+    color: "white",
+    borderColor: "var(--chakra-colors-brand-800)",
+  },
+} as const;
 
 /**
  * Columna de encabezado para tablas de detalle (fondo claro).
@@ -390,6 +438,7 @@ export function ColumnaHeader({
       borderBottomWidth="2px"
       borderColor="border"
       bg="bg.muted"
+      css={ENCABEZADO_TEAL}
       {...rest}
     >
       {children}
@@ -410,7 +459,15 @@ export function ColumnaHeader({
  * lo usan; `EncabezadoTabla` es el alias con el nombre que corresponde.
  */
 export function FilaEncabezado({ children }: { children: ReactNode }) {
-  return <Table.Row bg="gray.100">{children}</Table.Row>;
+  return (
+    <Table.Row
+      bg={COLOR_TABLA.fondoEncabezado}
+      _hover={{ bg: COLOR_TABLA.fondoEncabezado }}
+      css={ENCABEZADO_TEAL}
+    >
+      {children}
+    </Table.Row>
+  );
 }
 
 export function EncabezadoOscuro({
@@ -432,12 +489,13 @@ export function EncabezadoOscuro({
     <Table.ColumnHeader
       px="4"
       py="3"
-      color="gray.700"
-      bg="gray.100"
+      color={COLOR_TABLA.textoEncabezado}
+      bg={COLOR_TABLA.fondoEncabezado}
       fontWeight="semibold"
-      fontSize="sm"
+      fontSize="xs"
+      lineHeight="1.3"
       borderBottomWidth="2px"
-      borderColor="gray.300"
+      borderColor={COLOR_TABLA.bordeEncabezado}
       textAlign={numero ? "right" : center ? "center" : undefined}
       width={width ?? (ancho ? ANCHO_COLUMNA[ancho] : undefined)}
       /*
@@ -449,6 +507,7 @@ export function EncabezadoOscuro({
       position="sticky"
       top="0"
       zIndex="1"
+      css={ENCABEZADO_TEAL}
       {...rest}
     >
       {children}
@@ -479,6 +538,8 @@ export function FilaClickeable({
       onClick={(e) => {
         const destino = e.target as HTMLElement;
         if (destino.closest("button, a, input, select, textarea, label")) return;
+        // Seleccionar texto (arrastrar para copiar un número de lote) no abre la ficha.
+        if (window.getSelection()?.toString()) return;
         onAbrir();
       }}
       onKeyDown={(e) => {
@@ -487,7 +548,8 @@ export function FilaClickeable({
           onAbrir();
         }
       }}
-      _hover={{ bg: "brand.50" }}
+      transition="background-color 0.15s ease"
+      _hover={{ bg: COLOR_TABLA.hoverFila }}
       _focusVisible={{ outline: "2px solid", outlineColor: "brand.400", outlineOffset: "-2px" }}
       {...rest}
     >
@@ -666,10 +728,11 @@ export function BotonAccion({
         size="sm"
         /*
          * 44px de lado en pantallas chicas (el mínimo recomendado para tocar
-         * con el dedo); 32px desde `md`, donde se usa mouse.
+         * con el dedo); 34px desde `md`, donde se usa mouse.
          */
-        minW={{ base: "11", md: "8" }}
-        h={{ base: "11", md: "8" }}
+        minW={{ base: "11", md: "34px" }}
+        w={{ base: "11", md: "34px" }}
+        h={{ base: "11", md: "34px" }}
         borderWidth="2px"
         bg={esGris ? "gray.100" : `${paleta}.50`}
         borderColor={esGris ? "gray.400" : `${paleta}.400`}
@@ -681,7 +744,11 @@ export function BotonAccion({
         }}
         _active={{ bg: esGris ? "gray.300" : `${paleta}.200` }}
         aria-label={label}
-        onClick={onClick}
+        onClick={(e) => {
+          // La fila puede ser clickeable (abre la ficha): el botón no la activa.
+          e.stopPropagation();
+          onClick();
+        }}
         {...rest}
       >
         <Icono size={18} aria-hidden />
@@ -1161,11 +1228,35 @@ export function BannerExito({
   );
 }
 
+/**
+ * Pie de paginación de un listado: "Mostrando 11–20 de 42" y los controles
+ * de página al centro. Es lo que usan todas las tablas paginadas: puesto
+ * justo después de la `Tarjeta` de la tabla se pega a ella y forman una sola
+ * tarjeta (ver `Tarjeta`); en otro lugar queda como una tarjeta propia.
+ * Las tablas armadas con `TarjetaTabla` pasan el `PieTabla` por `pie`.
+ */
 export function Paginacion({
+  unidad,
+  ...props
+}: {
+  count: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  /** Cómo se llaman las filas ("lotes", "equipos"). Por defecto, "registros". */
+  unidad?: string;
+}) {
+  return <PieTabla {...props} unidad={unidad} suelto />;
+}
+
+/** Solo los botones de página (« ‹ 1 2 3 › »). */
+function ControlesPaginacion({
   count,
   page,
   pageSize,
   onPageChange,
+  mt = "0",
+  justify = "center",
 }: {
   /**
    * Total de FILAS, no de páginas: es el `count` de Chakra, que calcula las
@@ -1177,6 +1268,9 @@ export function Paginacion({
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  mt?: string;
+  /** Alineación de los controles: al centro suelta, a la derecha en el pie. */
+  justify?: "center" | "flex-end";
 }) {
   // Para « inicio y » fin: los triggers de Chakra solo cubren anterior y
   // siguiente, así que estos dos botones llaman directo a `onPageChange`.
@@ -1202,13 +1296,13 @@ export function Paginacion({
       pageSize={pageSize}
       page={page}
       onPageChange={(e) => onPageChange(e.page)}
-      mt="6"
+      mt={mt}
     >
       {/* flexWrap (acá y no en el HStack): los botones viven todos dentro
           del mismo ButtonGroup, así que la fila que tiene que envolver en
           pantallas angostas es la del grupo. */}
-      <HStack justify="center">
-        <ButtonGroup variant="ghost" size="sm" flexWrap="wrap" justifyContent="center">
+      <HStack justify={justify}>
+        <ButtonGroup variant="ghost" size="sm" flexWrap="wrap" justifyContent={justify}>
           {/* « inicio */}
           <IconButton
             aria-label="Primera página"
@@ -1276,6 +1370,318 @@ export function Paginacion({
         </ButtonGroup>
       </HStack>
     </Pagination.Root>
+  );
+}
+
+/* ───────────────────── Tarjeta de tabla y pie de página ────────────────── */
+
+/**
+ * Tarjeta blanca de un listado: la tabla scrollea en horizontal por dentro y
+ * el pie (`PieTabla`) queda fijo abajo, dentro de la misma tarjeta. Antes la
+ * paginación flotaba suelta debajo de la tarjeta y no se leía como parte de
+ * la tabla.
+ */
+export function TarjetaTabla({
+  children,
+  pie,
+  ...rest
+}: { children: ReactNode; pie?: ReactNode } & BoxProps) {
+  return (
+    <Tarjeta {...rest}>
+      <Box overflowX="auto">{children}</Box>
+      {pie}
+    </Tarjeta>
+  );
+}
+
+/**
+ * Pie de un listado, dentro de su tarjeta: a la izquierda "Mostrando 11–20 de
+ * 42 lotes", al centro los controles de página (solo si hay más de una).
+ */
+export function PieTabla({
+  count,
+  page = 1,
+  pageSize,
+  onPageChange,
+  unidad = "registros",
+  suelto = false,
+  extra,
+}: {
+  /** Control extra a la derecha del pie (ej. "20 por página"). */
+  extra?: ReactNode;
+  /**
+   * Fuera de una `TarjetaTabla`: lleva borde y esquinas propias, y si va
+   * pegado a la `Tarjeta` de la tabla se une a ella (lo hace `Paginacion`).
+   */
+  suelto?: boolean;
+  /** Total de filas (ya filtradas). */
+  count: number;
+  page?: number;
+  /** Sin `pageSize` el listado no pagina: solo se muestra el total. */
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  /** Cómo se llaman las filas: "lotes", "salidas"... */
+  unidad?: string;
+}) {
+  const desde = count === 0 ? 0 : pageSize ? (page - 1) * pageSize + 1 : 1;
+  const hasta = pageSize ? Math.min(page * pageSize, count) : count;
+  const pagina = Boolean(pageSize && onPageChange && count > pageSize);
+  return (
+    /*
+     * Tres columnas (1fr · auto · 1fr): el resumen a la izquierda y los
+     * controles de página centrados respecto de la tabla entera, no del
+     * espacio que sobra al lado del resumen. En el celular, uno debajo del
+     * otro y los controles centrados.
+     */
+    <Box
+      display="grid"
+      gridTemplateColumns={{ base: "1fr", md: "1fr auto 1fr" }}
+      alignItems="center"
+      gap="3"
+      px="4"
+      py="3"
+      borderTopWidth="1px"
+      borderColor={COLOR_TABLA.bordeEncabezado}
+      bg="bg.panel"
+      {...(suelto
+        ? {
+            "data-pie-tabla": "",
+            mt: "4",
+            borderWidth: "1px",
+            borderColor: "border.subtle",
+            rounded: "lg",
+            css: {
+              "[data-tarjeta] + &": {
+                marginTop: 0,
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: 0,
+                borderTopColor: COLOR_TABLA.bordeEncabezado,
+              },
+            },
+          }
+        : {})}
+    >
+      <Text
+        fontSize="sm"
+        color={COLOR_TABLA.textoSecundario}
+        fontVariantNumeric="tabular-nums"
+        textAlign={{ base: "center", md: "left" }}
+      >
+        Mostrando{" "}
+        <Text as="span" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal}>
+          {desde.toLocaleString("es-AR")}–{hasta.toLocaleString("es-AR")}
+        </Text>{" "}
+        de{" "}
+        <Text as="span" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal}>
+          {count.toLocaleString("es-AR")}
+        </Text>{" "}
+        {unidad}
+      </Text>
+      {pagina && pageSize && onPageChange ? (
+        <ControlesPaginacion
+          count={count}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+        />
+      ) : (
+        <Box display={{ base: "none", md: "block" }} />
+      )}
+      {extra ? (
+        <Box justifySelf={{ base: "center", md: "end" }}>{extra}</Box>
+      ) : null}
+    </Box>
+  );
+}
+
+/**
+ * Botón con texto dentro de una fila o al pie de una tabla. Dos variantes,
+ * iguales en todas las tablas: `primario` en el verde azulado institucional
+ * (`#0F766E`) para la acción principal de la fila, `secundario` con borde
+ * suave para el resto. Frena la propagación: no activa la fila clickeable.
+ */
+export function BotonFila({
+  variante = "secundario",
+  onClick,
+  children,
+  ...rest
+}: {
+  variante?: "primario" | "secundario";
+  onClick: () => void;
+  children: ReactNode;
+} & Omit<ButtonProps, "onClick" | "children" | "variant">) {
+  const primario = variante === "primario";
+  return (
+    <Button
+      type="button"
+      size="sm"
+      h="34px"
+      px="3"
+      gap="1.5"
+      rounded="md"
+      fontWeight="medium"
+      bg={primario ? COLOR_TABLA.accion : "bg.panel"}
+      color={primario ? "white" : COLOR_TABLA.accion}
+      borderWidth="1px"
+      borderColor={primario ? COLOR_TABLA.accion : "#CBD5E1"}
+      transition="background-color 0.15s ease, border-color 0.15s ease"
+      _hover={primario ? { bg: "#115E59", borderColor: "#115E59" } : { bg: COLOR_TABLA.hoverFila, borderColor: "#5EEAD4" }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      {...rest}
+    >
+      {children}
+    </Button>
+  );
+}
+
+/* ──────────────────────── Micro-componentes de celda ───────────────────── */
+
+/**
+ * Dato principal de una fila (producto, receta) con su identificador debajo
+ * (número de lote, código) en monoespaciada gris. Así la vista encuentra
+ * primero el nombre y el código queda a mano sin competir con él.
+ */
+export function DatoPrincipal({
+  titulo,
+  codigo,
+  secundario,
+}: {
+  titulo: ReactNode;
+  /** Identificador en monoespaciada (número de lote, código). */
+  codigo?: ReactNode;
+  /** Texto secundario común (descripción, cliente). */
+  secundario?: ReactNode;
+}) {
+  return (
+    <Box minW="0">
+      <Text
+        fontWeight="semibold"
+        color={COLOR_TABLA.textoPrincipal}
+        fontSize="sm"
+        lineClamp={1}
+        title={typeof titulo === "string" ? titulo : undefined}
+      >
+        {titulo}
+      </Text>
+      {codigo ? (
+        <Text
+          fontFamily="mono"
+          fontSize="xs"
+          color={COLOR_TABLA.textoSecundario}
+          mt="0.5"
+          whiteSpace="nowrap"
+          overflow="hidden"
+          textOverflow="ellipsis"
+        >
+          {codigo}
+        </Text>
+      ) : null}
+      {secundario ? (
+        <Text
+          fontSize="xs"
+          color={COLOR_TABLA.textoSecundario}
+          mt="0.5"
+          lineClamp={1}
+          title={typeof secundario === "string" ? secundario : undefined}
+        >
+          {secundario}
+        </Text>
+      ) : null}
+    </Box>
+  );
+}
+
+/**
+ * Píldora neutra para datos de formato (versión "v3", unidad "kg"): gris
+ * claro, sin significado de estado. Antes eran texto suelto y se confundían
+ * con el dato.
+ */
+export function PildoraNeutra({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
+  return (
+    <Box
+      as="span"
+      display="inline-flex"
+      alignItems="center"
+      px="2"
+      py="0.5"
+      rounded="full"
+      bg={COLOR_TABLA.fondoEncabezado}
+      borderWidth="1px"
+      borderColor={COLOR_TABLA.bordeEncabezado}
+      color={COLOR_TABLA.textoEncabezado}
+      fontSize="xs"
+      fontWeight="medium"
+      fontFamily={mono ? "mono" : undefined}
+      lineHeight="1.4"
+      whiteSpace="nowrap"
+    >
+      {children}
+    </Box>
+  );
+}
+
+/**
+ * Cantidad con la unidad en píldora: "120 [kg]". Va en celdas `numero`: la
+ * cifra queda encolumnada a la derecha con dígitos tabulares.
+ */
+export function CantidadConUnidad({
+  valor,
+  unidad,
+}: {
+  valor: string | number | null | undefined;
+  unidad?: string | null;
+}) {
+  const numero = valor === null || valor === undefined || valor === "" ? null : Number(valor);
+  if (numero === null || Number.isNaN(numero)) return <>-</>;
+  return (
+    <HStack as="span" display="inline-flex" gap="1.5" justify="flex-end">
+      <Text as="span" fontVariantNumeric="tabular-nums" color={COLOR_TABLA.textoPrincipal}>
+        {numero.toLocaleString("es-AR", { maximumFractionDigits: 3 })}
+      </Text>
+      {unidad ? <PildoraNeutra>{unidad}</PildoraNeutra> : null}
+    </HStack>
+  );
+}
+
+/**
+ * Avance de tareas en una píldora con mini barra, igual que el checklist del
+ * Inicio: "3/5" con la barra teal, verde al completar, gris si no hay tareas.
+ */
+export function ProgresoTareas({ hechas, total }: { hechas: number; total: number }) {
+  const porcentaje = total > 0 ? Math.round((hechas / total) * 100) : 0;
+  const completo = total > 0 && hechas >= total;
+  const color = completo ? "green.500" : hechas > 0 ? COLOR_TABLA.accion : "gray.300";
+  const descripcion = total > 0 ? `${hechas} de ${total} tareas completadas (${porcentaje}%)` : "Sin tareas";
+  return (
+    <HStack
+      as="span"
+      display="inline-flex"
+      gap="2"
+      px="2.5"
+      py="1"
+      rounded="full"
+      bg={completo ? "green.50" : COLOR_TABLA.fondoEncabezado}
+      borderWidth="1px"
+      borderColor={completo ? "green.200" : COLOR_TABLA.bordeEncabezado}
+      title={descripcion}
+      aria-label={descripcion}
+    >
+      <Box w="10" h="1.5" rounded="full" bg="blackAlpha.100" overflow="hidden" aria-hidden>
+        <Box h="full" w={`${porcentaje}%`} rounded="full" bg={color} transition="width 0.3s ease" />
+      </Box>
+      <Text
+        as="span"
+        fontSize="xs"
+        fontWeight="semibold"
+        fontVariantNumeric="tabular-nums"
+        color={completo ? "green.700" : COLOR_TABLA.textoEncabezado}
+      >
+        {hechas}/{total}
+      </Text>
+    </HStack>
   );
 }
 

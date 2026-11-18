@@ -1,6 +1,11 @@
 import { HStack, Table } from "@chakra-ui/react";
 import type { PlanLimpieza } from "../types/planLimpieza";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  TextoTruncado,
+  DatoPrincipal,
+} from "../../../components/ui/patrones";
 
 interface PlanLimpiezaItemProps {
   plan: PlanLimpieza;
@@ -21,16 +26,17 @@ export function PlanLimpiezaItem({
 }: PlanLimpiezaItemProps) {
   return (
     <Table.Row opacity={plan.activo ? 1 : 0.65}>
-      <Celda p="3">
-        <TextoTruncado texto={plan.nombre} />
+      <Celda>
+        <DatoPrincipal titulo={plan.nombre} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         {/*
          * La lista de tareas concatenadas puede pasar los 200 caracteres: sin
          * tope, esta celda era la que más engordaba la fila.
          */}
         <TextoTruncado
           max={60}
+          color="#64748B"
           texto={plan.tareas
             .map(
               (tarea) =>
@@ -39,13 +45,13 @@ export function PlanLimpiezaItem({
             .join(", ")}
         />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={nombreSector} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={nombreEquipo} />
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {plan.activo ? (
             <>

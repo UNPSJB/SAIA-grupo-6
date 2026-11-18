@@ -75,7 +75,6 @@ export function IncidenteItem({
         para no perderla del todo. El detalle la muestra completa.
       */}
       <Celda
-        p="3"
         whiteSpace="nowrap"
         title={new Date(incidente.fecha_reporte).toLocaleString("es-AR", {
           timeZone: "America/Argentina/Buenos_Aires",
@@ -85,12 +84,12 @@ export function IncidenteItem({
         {formatoFechaDia(incidente.fecha_reporte)}
       </Celda>
 
-      <Celda p="3" maxW="220px">
+      <Celda maxW="220px">
         <Text
-          fontWeight="bold"
-          fontSize="15px"
+          fontWeight="semibold"
+          fontSize="sm"
           lineClamp={1}
-          color={esViejo ? "red.fg" : "fg"}
+          color={esViejo ? "red.fg" : "#1E293B"}
           title={incidente.titulo}
         >
           {incidente.titulo}
@@ -114,7 +113,7 @@ export function IncidenteItem({
         )}
       </Celda>
 
-      <Celda p="3" center>
+      <Celda center>
         {incidente.foto_url ? (
           <Tooltip content="Ver detalle para ver la foto" showArrow openDelay={300} closeDelay={0}>
             <Box
@@ -131,7 +130,7 @@ export function IncidenteItem({
         )}
       </Celda>
 
-      <Celda p="3">
+      <Celda>
         {/*
           `maxW` + ellipsis en los badges: con `table-layout: fixed` la columna
           ya no crece para acomodar la etiqueta, y "Falla / Rotura de Equipo"
@@ -151,21 +150,21 @@ export function IncidenteItem({
         </Badge>
       </Celda>
 
-      <Celda p="3">
+      <Celda>
         {/* Abierto en naranja (pendiente), no en rojo: el rojo es "vencido". */}
         <EtiquetaEstado tono={cerrado ? "ok" : "alerta"}>
           {estadoLabel(incidente.estado)}
         </EtiquetaEstado>
       </Celda>
 
-      <Celda p="3">
+      <Celda>
         <TextoTruncado
           texto={incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
         />
       </Celda>
 
       {showActions && (
-        <Celda p="3" center>
+        <Celda center>
           <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
             <BotonAccion accion="ver" label="Ver detalle" onClick={handleVer} />
             {cerrado ? (

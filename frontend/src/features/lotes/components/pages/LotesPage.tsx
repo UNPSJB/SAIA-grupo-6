@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, Table } from "@chakra-ui/react";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { LuRefreshCw } from "react-icons/lu";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
-import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -19,7 +19,9 @@ import {
   BotonAccion,
   BotonAgregar,
   BotonCancelar,
+  CantidadConUnidad,
   Celda,
+  DatoPrincipal,
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
@@ -27,9 +29,13 @@ import {
   FilaEncabezado,
   FormInput,
   LabelFiltro,
-  Paginacion,
-  Tarjeta,
+  PieTabla,
+  PildoraNeutra,
+  ProgresoTareas,
+  TarjetaTabla,
 } from "../../../../components/ui/patrones";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useLotes } from "../../hooks/useLotes";
 import { ESTADOS_LOTE, type EstadoLote } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
@@ -38,6 +44,8 @@ const PAGE_SIZE = 10;
 
 export function LotesPage() {
   const navigate = useNavigate();
+  // Exportar es de administración (el backend lo exige).
+  const esAdmin = puedeAdministrar(useAuth().user);
 
   const [busqueda, setBusqueda] = useState("");
   const [producto, setProducto] = useState("");
@@ -73,7 +81,7 @@ export function LotesPage() {
           l.producto_nombre.toLowerCase().includes(texto)),
     );
   }, [lotes, producto, busqueda]);
-  const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
+  const { paginados, page, setPage } = usePaginas(
     filtrados,
     PAGE_SIZE,
     `${busqueda}|${producto}|${estado}|${fechaDesde}|${fechaHasta}`,
@@ -177,10 +185,25 @@ export function LotesPage() {
           </>
         }
         herramientas={
-          <BotonCancelar onClick={recargar}>
-            <LuRefreshCw aria-hidden />
-            Actualizar
-          </BotonCancelar>
+          <>
+            {esAdmin && (
+              <BotonesExportar
+                nombreTabla="lotes de producción"
+                vista="lotes-produccion"
+                filtros={{
+                  producto_id: producto || undefined,
+                  estado: estado || undefined,
+                  fecha_desde: fechaDesde || undefined,
+                  fecha_hasta: fechaHasta || undefined,
+                  buscar: busqueda.trim() || undefined,
+                }}
+              />
+            )}
+            <BotonCancelar onClick={recargar}>
+              <LuRefreshCw aria-hidden />
+              Actualizar
+            </BotonCancelar>
+          </>
         }
       />
 
@@ -199,64 +222,71 @@ export function LotesPage() {
         ))}
 
       {!loading && !error && filtrados.length > 0 && (
-        <>
-          <Tarjeta overflowX="auto">
-            <Table.Root variant="outline" w="100%" minW="980px">
-              <Table.Header>
-                <FilaEncabezado>
-                  <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
-                  <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                  <EncabezadoOscuro width="8%">Receta</EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="media">Objetivo</EncabezadoOscuro>
-                  <EncabezadoOscuro width="8%">Tareas</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro center width="9%">Acciones</EncabezadoOscuro>
-                </FilaEncabezado>
-              </Table.Header>
-              <Table.Body>
-                {paginados.map((lote) => (
-                  <FilaClickeable onAbrir={() => navigate(`/lotes/${lote.id}`)} key={lote.id}>
-                    <Celda>{formatoFecha(lote.fecha_inicio)}</Celda>
-                    <Celda>
-                      <Text fontFamily="mono" fontSize="sm">
-                        {lote.numero_lote}
-                      </Text>
-                    </Celda>
-                    <Celda>{lote.producto_nombre}</Celda>
-                    <Celda>{lote.version_numero ? `v${lote.version_numero}` : "Sin receta"}</Celda>
-                    <Celda numero>{cantidadConUnidad(lote.cantidad_objetivo, lote.unidad)}</Celda>
-                    <Celda>
-                      {lote.items_completados} de {lote.items_total}
-                    </Celda>
-                    <Celda>
+        <TarjetaTabla
+          pie={
+            <PieTabla
+              count={filtrados.length}
+              page={page}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+              unidad={filtrados.length === 1 ? "lote" : "lotes"}
+            />
+          }
+        >
+          <Table.Root variant="outline" w="100%" minW="980px">
+            <Table.Header>
+              <FilaEncabezado>
+                <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+                <EncabezadoOscuro>Producto / Lote</EncabezadoOscuro>
+                <EncabezadoOscuro center width="9%">Receta</EncabezadoOscuro>
+                <EncabezadoOscuro numero ancho="media">Objetivo</EncabezadoOscuro>
+                <EncabezadoOscuro center width="12%">Tareas</EncabezadoOscuro>
+                <EncabezadoOscuro center ancho="amplia">Estado</EncabezadoOscuro>
+                <EncabezadoOscuro center width="10%">Acciones</EncabezadoOscuro>
+              </FilaEncabezado>
+            </Table.Header>
+            <Table.Body>
+              {paginados.map((lote) => (
+                <FilaClickeable onAbrir={() => navigate(`/lotes/${lote.id}`)} key={lote.id}>
+                  <Celda whiteSpace="nowrap">{formatoFecha(lote.fecha_inicio)}</Celda>
+                  <Celda>
+                    <DatoPrincipal titulo={lote.producto_nombre} codigo={lote.numero_lote} />
+                  </Celda>
+                  <Celda center>
+                    {lote.version_numero ? (
+                      <PildoraNeutra mono>v{lote.version_numero}</PildoraNeutra>
+                    ) : (
+                      <PildoraNeutra>Sin receta</PildoraNeutra>
+                    )}
+                  </Celda>
+                  <Celda numero>
+                    <CantidadConUnidad valor={lote.cantidad_objetivo} unidad={lote.unidad} />
+                  </Celda>
+                  <Celda center>
+                    <ProgresoTareas hechas={lote.items_completados} total={lote.items_total} />
+                  </Celda>
+                  <Celda center>
+                    <HStack justify="center" gap="1" flexWrap="wrap">
                       <BadgeEstadoLote estado={lote.estado} />
                       {lote.fecha_vencimiento && lote.fecha_vencimiento < hoyISO() && (
-                        <Badge colorScheme="red" size="xs" ml="1">Vencido</Badge>
+                        <Badge colorPalette="red" variant="subtle" size="sm" rounded="full">
+                          Vencido
+                        </Badge>
                       )}
-                    </Celda>
-                    <Celda center>
-                      <BotonAccion
-                        accion="ver"
-                        label="Abrir lote"
-                        onClick={() => navigate(`/lotes/${lote.id}`)}
-                      />
-                    </Celda>
-                  </FilaClickeable>
-                ))}
-              </Table.Body>
-            </Table.Root>
-          </Tarjeta>
-
-          {hayVariasPaginas && (
-            <Paginacion
-              count={filtrados.length}
-              pageSize={PAGE_SIZE}
-              page={page}
-              onPageChange={setPage}
-            />
-          )}
-        </>
+                    </HStack>
+                  </Celda>
+                  <Celda center>
+                    <BotonAccion
+                      accion="ver"
+                      label="Abrir lote"
+                      onClick={() => navigate(`/lotes/${lote.id}`)}
+                    />
+                  </Celda>
+                </FilaClickeable>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </TarjetaTabla>
       )}
     </Pagina>
   );

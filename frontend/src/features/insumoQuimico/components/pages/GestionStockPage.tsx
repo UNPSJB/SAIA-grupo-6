@@ -1,41 +1,30 @@
-import { Tabs } from "@chakra-ui/react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { ConsumoInsumosPage } from "../../../checklist/components/pages/ConsumoInsumosPage";
+import { LotesStockTab } from "../LotesStockTab";
+import { MovimientosStockTab } from "../MovimientosStockTab";
+import { StockActualTab } from "../StockActualTab";
 
-const TABS = [
-  { value: "stock", label: "Stock actual" },
-  { value: "movimientos", label: "Movimientos" },
-  { value: "lotes", label: "Lotes" },
-  { value: "consumos", label: "Consumos" },
-];
-
+/**
+ * Stock de químicos. La pestaña va en la URL (`/gestion-stock?tab=movimientos`)
+ * y se resuelve en `PestanasPagina`: sin pestaña, abre "Stock actual" sin
+ * redirigir. Antes cada pestaña era una ruta hija y `/gestion-stock` saltaba a
+ * `/gestion-stock/stock` con un `<Navigate>`; las direcciones viejas siguen
+ * funcionando (ver el router).
+ */
 export function GestionStockPage() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const tabActual = TABS.find((tab) => pathname.endsWith(`/${tab.value}`))?.value ?? "stock";
-
   return (
     <Pagina
       titulo="Stock de químicos"
       descripcion="Controlá existencias, movimientos y consumos de productos químicos."
     >
-      <Tabs.Root
-        value={tabActual}
-        onValueChange={(detalle) => navigate(`/gestion-stock/${detalle.value}`)}
-        variant="line"
-        colorPalette="brand"
-      >
-        <Tabs.List overflowX="auto" overflowY="hidden" mb="6">
-          {TABS.map((tab) => (
-            <Tabs.Trigger key={tab.value} value={tab.value} flexShrink={0}>
-              {tab.label}
-            </Tabs.Trigger>
-          ))}
-          <Tabs.Indicator />
-        </Tabs.List>
-      </Tabs.Root>
-
-      <Outlet />
+      <PestanasPagina
+        pestanas={[
+          { valor: "stock", etiqueta: "Stock actual", contenido: <StockActualTab /> },
+          { valor: "movimientos", etiqueta: "Movimientos", contenido: <MovimientosStockTab /> },
+          { valor: "lotes", etiqueta: "Lotes", contenido: <LotesStockTab /> },
+          { valor: "consumos", etiqueta: "Consumos", contenido: <ConsumoInsumosPage /> },
+        ]}
+      />
     </Pagina>
   );
 }

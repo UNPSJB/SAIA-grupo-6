@@ -23,6 +23,8 @@ import {
   Paginacion,
   Tarjeta,
   ToggleInactivos,
+  DatoPrincipal,
+  PildoraNeutra,
 } from "../../../../components/ui/patrones";
 import {
   crearAditivo,
@@ -109,11 +111,6 @@ function TabAditivos() {
 
   return (
     <>
-      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
-        Cada aditivo se identifica por su clase funcional, su nombre completo y su número INS. Los
-        insumos de tipo aditivo se eligen de esta lista.
-      </Text>
-
       <BarraFiltros
         busqueda={
           <CampoBusqueda valor={buscar} onCambio={setBuscar} placeholder="Nombre o INS..." />
@@ -136,6 +133,10 @@ function TabAditivos() {
           </>
         }
       />
+      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
+        Cada aditivo se identifica por su clase funcional, su nombre completo y su número INS. Los
+        insumos de tipo aditivo se eligen de esta lista.
+      </Text>
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
       {error && <BannerError>{error}</BannerError>}
@@ -166,13 +167,15 @@ function TabAditivos() {
               <Table.Body>
                 {paginados.map((a) => (
                   <Table.Row key={a.id} opacity={a.activo ? 1 : 0.65}>
-                    <Celda>{a.clase_funcional.nombre}</Celda>
-                    <Celda>{a.nombre}</Celda>
+                    <Celda>
+                      <PildoraNeutra>{a.clase_funcional.nombre}</PildoraNeutra>
+                    </Celda>
+                    <Celda>
+                      <DatoPrincipal titulo={a.nombre} />
+                    </Celda>
                     <Celda>
                       {a.numero_ins ? (
-                        <Text fontFamily="mono" fontSize="sm">
-                          {a.numero_ins}
-                        </Text>
+                        <PildoraNeutra mono>{a.numero_ins}</PildoraNeutra>
                       ) : (
                         <Text fontSize="sm" color="fg.subtle">
                           No aplica
@@ -245,11 +248,6 @@ function TabClases() {
 
   return (
     <>
-      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
-        Funciones tecnológicas de los aditivos. En las marcadas como "solo por su función" el número
-        INS es opcional.
-      </Text>
-
       <BarraFiltros
         herramientas={
           <>
@@ -260,6 +258,10 @@ function TabClases() {
           </>
         }
       />
+      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
+        Funciones tecnológicas de los aditivos. En las marcadas como "solo por su función" el número
+        INS es opcional.
+      </Text>
 
       {error && <BannerError>{error}</BannerError>}
       {errorAccion && <BannerError>{errorAccion}</BannerError>}
@@ -280,9 +282,11 @@ function TabClases() {
             <Table.Body>
               {clases.map((c) => (
                 <Table.Row key={c.id} opacity={c.activo ? 1 : 0.65}>
-                  <Celda>{c.nombre}</Celda>
                   <Celda>
-                    <Badge colorPalette={c.ins_opcional ? "gray" : "blue"} variant="subtle">
+                    <DatoPrincipal titulo={c.nombre} />
+                  </Celda>
+                  <Celda>
+                    <Badge colorPalette={c.ins_opcional ? "gray" : "blue"} variant="subtle" rounded="full">
                       {c.ins_opcional ? "Opcional (solo por su función)" : "Obligatorio"}
                     </Badge>
                   </Celda>

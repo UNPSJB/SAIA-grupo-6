@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, Box, Button, Checkbox, HStack, InputGroup, Stack, Table, Text } from "@chakra-ui/react";
 import { LuFileDown, LuFileUp, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina, PestanasPagina, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
@@ -15,6 +16,7 @@ import {
   BannerError,
   BotonGuardar,
   Celda,
+  DatoPrincipal,
   EncabezadoOscuro,
   EstadoCargando,
   EstadoVacio,
@@ -22,9 +24,8 @@ import {
   FormField,
   FormInput,
   FormNativeSelect,
-  Paginacion,
-  Tarjeta,
-  TextoTruncado,
+  PieTabla,
+  TarjetaTabla,
 } from "../../../../components/ui/patrones";
 import { toaster } from "../../../../components/ui/toaster";
 import { formatoCantidad } from "../../../../common/utils/numeros";
@@ -134,11 +135,6 @@ function PanelParametros() {
     <Box as="form" {...{ noValidate: true }} onSubmit={guardar}>
       {error && <BannerError mb="4">{error}</BannerError>}
 
-      <Aviso tono="info" mb="5">
-        Valores iniciales tomados de las Res. GMC 46/03 y 47/03 (MERCOSUR). Confirmalos con el/la profesional de
-        referencia: cualquier cambio se aplica a todas las tablas desde el próximo cálculo.
-      </Aviso>
-
       <Bloque
         titulo="Por nutriente"
         icono={LuSlidersHorizontal}
@@ -219,6 +215,11 @@ function PanelParametros() {
           </Table.Root>
         </Box>
       </Bloque>
+
+      <Aviso tono="info" mb="5">
+        Valores iniciales tomados de las Res. GMC 46/03 y 47/03 (MERCOSUR). Confirmalos con el/la profesional de
+        referencia: cualquier cambio se aplica a todas las tablas desde el próximo cálculo.
+      </Aviso>
 
       <Bloque
         titulo="Notas y formato de la tabla"
@@ -307,7 +308,7 @@ function PanelBase() {
   const [resultado, setResultado] = useState<ResultadoImportacion | null>(null);
   const selector = useRef<HTMLInputElement>(null);
 
-  const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
+  const { paginados, page, setPage } = usePaginas(
     alimentos,
     PAGE_SIZE_ALIMENTOS,
     `${buscar}|${base}|${recarga}`,
@@ -468,6 +469,13 @@ function PanelBase() {
               minW="260px"
             />
           }
+          herramientas={
+            <BotonesExportar
+              nombreTabla="alimentos"
+              vista="alimentos"
+              filtros={{ buscar: texto.trim() || undefined, base: base || undefined }}
+            />
+          }
         />
         <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarFiltros} />
 
@@ -480,39 +488,42 @@ function PanelBase() {
             <EstadoVacio>Todavía no hay alimentos cargados: importá una base desde el formulario de arriba.</EstadoVacio>
           )
         ) : (
-          <>
-            <Tarjeta overflowX="auto">
-              <Table.Root variant="outline" w="100%" minW="960px">
-                <Table.Header>
-                  <FilaEncabezado>
-                    <EncabezadoOscuro width="220px">Alimento</EncabezadoOscuro>
-                    <EncabezadoOscuro width="180px">Base</EncabezadoOscuro>
-                    {COLUMNAS_TABLA.map(([k, etiqueta]) => (
-                      <EncabezadoOscuro key={k} numero>{etiqueta}</EncabezadoOscuro>
-                    ))}
-                  </FilaEncabezado>
-                </Table.Header>
-                <Table.Body>
-                  {paginados.map((a) => (
-                    <Table.Row key={a.id}>
-                      <Celda>
-                        <TextoTruncado texto={a.nombre} lineClamp={1} fontWeight="medium" />
-                      </Celda>
-                      <Celda>
-                        <TextoTruncado texto={a.base} lineClamp={1} fontSize="xs" color="fg.muted" title={a.base} />
-                      </Celda>
-                      {COLUMNAS_TABLA.map(([k]) => (
-                        <Celda key={k} numero>{formatoCantidad(a[k], "—")}</Celda>
-                      ))}
-                    </Table.Row>
+          <TarjetaTabla
+            pie={
+              <PieTabla
+                count={alimentos.length}
+                page={page}
+                pageSize={PAGE_SIZE_ALIMENTOS}
+                onPageChange={setPage}
+                unidad={alimentos.length === 1 ? "alimento" : "alimentos"}
+              />
+            }
+          >
+            {/* La base va debajo del nombre (dato secundario): deja más lugar a
+                las ocho columnas de composición, alineadas a la derecha. */}
+            <Table.Root variant="outline" w="100%" minW="960px">
+              <Table.Header>
+                <FilaEncabezado>
+                  <EncabezadoOscuro width="26%">Alimento</EncabezadoOscuro>
+                  {COLUMNAS_TABLA.map(([k, etiqueta]) => (
+                    <EncabezadoOscuro key={k} numero>{etiqueta}</EncabezadoOscuro>
                   ))}
-                </Table.Body>
-              </Table.Root>
-            </Tarjeta>
-            {hayVariasPaginas && (
-              <Paginacion count={alimentos.length} pageSize={PAGE_SIZE_ALIMENTOS} page={page} onPageChange={setPage} />
-            )}
-          </>
+                </FilaEncabezado>
+              </Table.Header>
+              <Table.Body>
+                {paginados.map((a) => (
+                  <Table.Row key={a.id}>
+                    <Celda>
+                      <DatoPrincipal titulo={a.nombre} secundario={a.base} />
+                    </Celda>
+                    {COLUMNAS_TABLA.map(([k]) => (
+                      <Celda key={k} numero>{formatoCantidad(a[k], "—")}</Celda>
+                    ))}
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </TarjetaTabla>
         )}
       </SeccionDetalle>
     </>

@@ -1,7 +1,13 @@
 import { formatoFecha } from "../../../common/utils/fechas";
 import { HStack, Table } from "@chakra-ui/react";
 import type { PlanCalibracionMantenimiento } from "../types/planCalibracionMantenimiento";
-import { BotonAccion, Celda, EtiquetaEstado, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  EtiquetaEstado,
+  DatoPrincipal,
+  PildoraNeutra,
+} from "../../../components/ui/patrones";
 
 interface PlanCalibracionMantenimientoItemProps {
   plan: PlanCalibracionMantenimiento;
@@ -30,25 +36,25 @@ export function PlanCalibracionMantenimientoItem({
 
   return (
     <Table.Row>
-      <Celda p="3">
-        <TextoTruncado texto={nombreEquipo} />
+      <Celda>
+        <DatoPrincipal titulo={nombreEquipo} />
       </Celda>
-      <Celda p="3">
-        {plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}
+      <Celda>
+        <PildoraNeutra>{plan.tipo === "calibracion" ? "Calibración" : "Mantenimiento"}</PildoraNeutra>
       </Celda>
-      <Celda p="3">{formatoFecha(plan.fecha_ultima_intervencion)}</Celda>
-      <Celda p="3">
+      <Celda whiteSpace="nowrap">{formatoFecha(plan.fecha_ultima_intervencion)}</Celda>
+      <Celda>
         Cada {plan.periodicidad_dias}{" "}
         {plan.periodicidad_dias === 1 ? "día" : "días"}
       </Celda>
-      <Celda p="3">{formatoFecha(plan.proxima_fecha_vencimiento)}</Celda>
-      <Celda p="3" center>
+      <Celda whiteSpace="nowrap">{formatoFecha(plan.proxima_fecha_vencimiento)}</Celda>
+      <Celda center fontVariantNumeric="tabular-nums" fontWeight="semibold">
         {plan.dias_restantes}
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <EtiquetaEstado tono={estado.tono}>{estado.etiqueta}</EtiquetaEstado>
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(plan)} />
           <BotonAccion accion="eliminar" label="Eliminar" onClick={() => onDelete(plan)} />

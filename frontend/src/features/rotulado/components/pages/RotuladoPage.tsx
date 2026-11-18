@@ -1,18 +1,33 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Table } from "@chakra-ui/react";
+import { Box, Heading, HStack, Table, Text } from "@chakra-ui/react";
+import { LuArrowLeft, LuFileText, LuPencil, LuPlus } from "react-icons/lu";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import {
   BannerError,
+  BotonFila,
+  BotonVolver,
+  COLOR_TABLA,
   EstadoCargando,
   EstadoVacio,
   Celda,
+  DatoPrincipal,
+  FilaClickeable,
   FilaEncabezado,
   EncabezadoOscuro,
-  Tarjeta,
-  TextoTruncado,
+  PieTabla,
+  PildoraNeutra,
+  TarjetaTabla,
 } from "../../../../components/ui/patrones";
-import { BarraFiltros, CampoBusqueda } from "../../../../components/ui/filtros";
+import {
+  BarraFiltros,
+  CampoBusqueda,
+  ChipsFiltros,
+  chipsDeFiltros,
+  type ChipFiltro,
+} from "../../../../components/ui/filtros";
+import { formatoFechaHora } from "../../../../common/utils/fechas";
 import { useValorDebounced } from "../../../../common/hooks/useValorDebounced";
 import { useLista } from "../../../../common/hooks/useLista";
 import { listarProductos } from "../../../productos/services/productoService";
@@ -88,7 +103,7 @@ export function RotuladoPage() {
   if (loading) {
     return (
       <Pagina
-        titulo="Rotulado de productos"
+      titulo="Rotulado de productos"
         descripcion="Listado de productos y sus borradores de rotulado."
       >
         <EstadoCargando pagina>Cargando productos...</EstadoCargando>
@@ -99,7 +114,7 @@ export function RotuladoPage() {
   if (error || errorBorradores) {
     return (
       <Pagina
-        titulo="Rotulado de productos"
+      titulo="Rotulado de productos"
         descripcion="Listado de productos y sus borradores de rotulado."
       >
         <BannerError>{error ?? errorBorradores}</BannerError>
@@ -107,7 +122,7 @@ export function RotuladoPage() {
     );
   }
 
-  const chips = [
+  const chips = chipsDeFiltros([
     {
       clave: "busqueda",
       etiqueta: "Búsqueda",
@@ -117,7 +132,7 @@ export function RotuladoPage() {
         setBusqueda("");
       },
     },
-  ];
+  ]);
 
   return (
     <Pagina
@@ -126,21 +141,10 @@ export function RotuladoPage() {
       acciones={
         <>
           {productoSeleccionado && (
-            <button
-              type="button"
-              onClick={cerrarSeleccion}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "#6b7280",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                marginRight: "0.5rem",
-              }}
-            >
-              ← Volver al listado
-            </button>
+            <BotonVolver onClick={cerrarSeleccion}>
+              <LuArrowLeft aria-hidden />
+              Volver al listado
+            </BotonVolver>
           )}
         </>
       }
@@ -176,18 +180,10 @@ function VistaListadoProductos({
   productos: ProductoConBorradores[];
   busqueda: string;
   onCambioBusqueda: (valor: string) => void;
-  chips: { clave: string; etiqueta: string; valor: string; recortar: boolean; onQuitar: () => void }[];
+  chips: ChipFiltro[];
   onSeleccionarProducto: (producto: ProductoConBorradores) => void;
   onCrearBorrador: (productoId: number) => void;
 }) {
-  const chipsRender = chips.map((c) => ({
-    clave: c.clave,
-    etiqueta: c.etiqueta,
-    valor: c.valor,
-    recortar: c.recortar,
-    onQuitar: c.onQuitar,
-  }));
-
   return (
     <>
       <BarraFiltros
@@ -198,45 +194,15 @@ function VistaListadoProductos({
             placeholder="Buscar producto por nombre..."
           />
         }
+        herramientas={
+          <BotonesExportar
+            nombreTabla="rotulado"
+            vista="rotulado"
+            filtros={{ buscar: busqueda.trim() || undefined }}
+          />
+        }
       />
-      {chipsRender.length > 0 && (
-        <div style={{ marginBottom: "1rem" }}>
-          {chipsRender.map((chip) => (
-            <span
-              key={chip.clave}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                background: "#eff6ff",
-                border: "1px solid #bfdbfe",
-                borderRadius: "9999px",
-                padding: "0.25rem 0.75rem",
-                fontSize: "0.875rem",
-                marginRight: "0.5rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              {chip.etiqueta}: {chip.valor}
-              <button
-                type="button"
-                onClick={chip.onQuitar}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "0",
-                  fontSize: "1.25rem",
-                  lineHeight: "1",
-                  color: "#9ca3af",
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      <ChipsFiltros filtros={chips} onLimpiarTodo={() => onCambioBusqueda("")} />
 
       {productos.length === 0 && (
         <EstadoVacio>
@@ -255,6 +221,11 @@ function VistaListadoProductos({
   );
 }
 
+/**
+ * Productos con sus borradores. Pocas columnas: las cortas (unidad,
+ * borradores) llevan ancho propio y la de acciones mide lo justo para sus dos
+ * botones, así no queda un hueco entre el nombre y las acciones.
+ */
 function TablaProductosRotulado({
   productos,
   onSeleccionarProducto,
@@ -265,119 +236,87 @@ function TablaProductosRotulado({
   onCrearBorrador: (productoId: number) => void;
 }) {
   return (
-    <Tarjeta>
+    <TarjetaTabla
+      pie={
+        <PieTabla
+          count={productos.length}
+          unidad={productos.length === 1 ? "producto" : "productos"}
+        />
+      }
+    >
       <Table.Root variant="outline" w="100%" minW="680px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="angosta">Unidad</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="angosta">Borradores</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro center width="12%">Unidad</EncabezadoOscuro>
+            <EncabezadoOscuro center width="13%">Borradores</EncabezadoOscuro>
+            <EncabezadoOscuro width="28%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {productos.map((producto) => (
-            <Table.Row
+            <FilaClickeable
               key={producto.id}
-              borderBottomWidth="1px"
-              borderColor="border.subtle"
-              onClick={() => onSeleccionarProducto(producto)}
-              style={{ cursor: "pointer" }}
-              _hover={{ bg: "#f9fafb" }}
+              onAbrir={() => onSeleccionarProducto(producto)}
             >
-              <Celda p="3">
-                <TextoTruncado texto={producto.nombre} />
+              <Celda>
+                <DatoPrincipal titulo={producto.nombre} />
               </Celda>
-              <Celda p="3">{producto.unidad_medida.simbolo}</Celda>
-              <Celda p="3" center>
-                <BadgeBorradores count={producto.borradores.length}>
-                  {producto.borradores.length}
-                </BadgeBorradores>
+              <Celda center>
+                <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>
               </Celda>
-              <Celda p="3" center>
-                <HStackAcciones>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCrearBorrador(producto.id);
-                    }}
-                    style={{
-                      padding: "0.375rem 0.75rem",
-                      background: "#16a34a",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "0.25rem",
-                      fontSize: "0.875rem",
-                      cursor: "pointer",
-                      marginRight: "0.25rem",
-                    }}
+              <Celda center>
+                <BadgeBorradores count={producto.borradores.length} />
+              </Celda>
+              <Celda>
+                {/* Alineadas a la izquierda: "Nuevo borrador" queda siempre en
+                    el mismo lugar, haya o no "Ver borradores" al lado. */}
+                <HStack gap="2" flexWrap="wrap">
+                  <BotonFila
+                    variante="primario"
+                    onClick={() => onCrearBorrador(producto.id)}
                   >
+                    <LuPlus aria-hidden />
                     Nuevo borrador
-                  </button>
+                  </BotonFila>
                   {producto.borradores.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSeleccionarProducto(producto);
-                      }}
-                      style={{
-                        padding: "0.375rem 0.75rem",
-                        background: "#2563eb",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        fontSize: "0.875rem",
-                        cursor: "pointer",
-                      }}
-                    >
+                    <BotonFila onClick={() => onSeleccionarProducto(producto)}>
+                      <LuFileText aria-hidden />
                       Ver borradores
-                    </button>
+                    </BotonFila>
                   )}
-                </HStackAcciones>
+                </HStack>
               </Celda>
-            </Table.Row>
+            </FilaClickeable>
           ))}
         </Table.Body>
       </Table.Root>
-    </Tarjeta>
+    </TarjetaTabla>
   );
 }
 
-function HStackAcciones({ children }: { children: ReactNode }) {
+function BadgeBorradores({ count }: { count: number }) {
   return (
-    <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
-      {children}
-    </div>
-  );
-}
-
-function BadgeBorradores({
-  count,
-  children,
-}: {
-  count: number;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: "2rem",
-        height: "1.5rem",
-        padding: "0 0.5rem",
-        background: count > 0 ? "#dcfce7" : "#f3f4f6",
-        color: count > 0 ? "#166534" : "#6b7280",
-        borderRadius: "9999px",
-        fontSize: "0.75rem",
-        fontWeight: "medium",
-      }}
+    <Box
+      as="span"
+      display="inline-flex"
+      alignItems="center"
+      justifyContent="center"
+      minW="8"
+      h="6"
+      px="2"
+      rounded="full"
+      fontSize="xs"
+      fontWeight="semibold"
+      fontVariantNumeric="tabular-nums"
+      bg={count > 0 ? "green.50" : COLOR_TABLA.fondoEncabezado}
+      color={count > 0 ? "green.700" : COLOR_TABLA.textoSecundario}
+      borderWidth="1px"
+      borderColor={count > 0 ? "green.200" : COLOR_TABLA.bordeEncabezado}
+      aria-label={`${count} borrador${count === 1 ? "" : "es"}`}
     >
-      {children}
-    </span>
+      {count}
+    </Box>
   );
 }
 
@@ -392,85 +331,68 @@ function VistaProductoSeleccionado({
 }) {
   return (
     <>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "0.25rem" }}>
-          {producto.nombre}
-        </h2>
-        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-          Unidad: {producto.unidad_medida.simbolo}
-        </p>
-      </div>
+      <HStack justify="space-between" align="flex-end" gap="4" mb="6" flexWrap="wrap">
+        <Box>
+          <Heading as="h3" size="lg" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal} mb="1">
+            {producto.nombre}
+          </Heading>
+          <HStack gap="2">
+            <Text fontSize="sm" color={COLOR_TABLA.textoSecundario}>Unidad</Text>
+            <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>
+          </HStack>
+        </Box>
+        <BotonFila variante="primario" onClick={() => onCrearBorrador(producto.id)}>
+          <LuPlus aria-hidden />
+          Crear nuevo borrador
+        </BotonFila>
+      </HStack>
 
       {producto.borradores.length === 0 ? (
         <EstadoVacio>
           Este producto no tiene borradores de rotulado. Creá el primero.
         </EstadoVacio>
       ) : (
-        <Tarjeta>
+        <TarjetaTabla
+          pie={
+            <PieTabla
+              count={producto.borradores.length}
+              unidad={producto.borradores.length === 1 ? "borrador" : "borradores"}
+            />
+          }
+        >
           <Table.Root variant="outline" w="100%" minW="680px">
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Borrador</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="angosta">Actualizado</EncabezadoOscuro>
-                <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+                <EncabezadoOscuro center width="18%">Estado</EncabezadoOscuro>
+                <EncabezadoOscuro width="22%">Actualizado</EncabezadoOscuro>
+                <EncabezadoOscuro center width="16%">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
               {producto.borradores.map((b) => (
-                <Table.Row
-                  key={b.id}
-                  borderBottomWidth="1px"
-                  borderColor="border.subtle"
-                >
-                  <Celda p="3">
-                    <TextoTruncado texto={`Borrador #${b.id}`} />
+                <FilaClickeable key={b.id} onAbrir={() => onEditarBorrador(b.id)}>
+                  <Celda>
+                    <DatoPrincipal titulo={`Borrador #${b.id}`} />
                   </Celda>
-                  <Celda p="3">{b.estado}</Celda>
-                  <Celda p="3">
-                    {b.actualizado_en ?? "-"}
+                  <Celda center>
+                    <PildoraNeutra>{b.estado.replaceAll("_", " ")}</PildoraNeutra>
                   </Celda>
-                  <Celda p="3" center>
-                    <button
-                      type="button"
-                      onClick={() => onEditarBorrador(b.id)}
-                      style={{
-                        padding: "0.375rem 0.75rem",
-                        background: "#2563eb",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        fontSize: "0.875rem",
-                        cursor: "pointer",
-                      }}
-                    >
+                  <Celda whiteSpace="nowrap">
+                    {b.actualizado_en ? formatoFechaHora(b.actualizado_en) : "-"}
+                  </Celda>
+                  <Celda center>
+                    <BotonFila onClick={() => onEditarBorrador(b.id)}>
+                      <LuPencil aria-hidden />
                       Editar
-                    </button>
+                    </BotonFila>
                   </Celda>
-                </Table.Row>
+                </FilaClickeable>
               ))}
             </Table.Body>
           </Table.Root>
-        </Tarjeta>
+        </TarjetaTabla>
       )}
-
-      <div style={{ marginTop: "1.5rem" }}>
-        <button
-          type="button"
-          onClick={() => onCrearBorrador(producto.id)}
-          style={{
-            padding: "0.5rem 1rem",
-            background: "#16a34a",
-            color: "white",
-            border: "none",
-            borderRadius: "0.25rem",
-            fontSize: "0.875rem",
-            cursor: "pointer",
-          }}
-        >
-          Crear nuevo borrador
-        </button>
-      </div>
     </>
   );
 }

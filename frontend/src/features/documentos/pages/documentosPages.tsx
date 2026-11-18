@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, HStack, Spinner, Table, Text } from "@chakra-ui/react";
+import { HStack, Spinner, Table, Text } from "@chakra-ui/react";
 import {
   BotonAgregar,
   BannerError,
@@ -11,7 +11,9 @@ import {
   FilaEncabezado,
   Paginacion,
   Tarjeta,
-  TextoTruncado,
+  DatoPrincipal,
+  PildoraNeutra,
+  EtiquetaEstado,
 } from "../../../components/ui/patrones";
 import { Pagina } from "../../../components/ui/plantillas";
 import {
@@ -203,10 +205,11 @@ export function DocumentosPage() {
                     columna="estado"
                     orden={orden}
                     ancho="media"
+                    center
                   >
                     Estado
                   </EncabezadoOrdenable>
-                  <EncabezadoOscuro ancho="media">Archivadas</EncabezadoOscuro>
+                  <EncabezadoOscuro numero ancho="media">Archivadas</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="accionesAnchas">
                     Acciones
                   </EncabezadoOscuro>
@@ -217,11 +220,13 @@ export function DocumentosPage() {
                   const vigente = doc.version_vigente;
                   return (
                     <Table.Row key={doc.id}>
-                      <Celda p="3">
-                        <TextoTruncado texto={doc.nombre} />
+                      <Celda>
+                        <DatoPrincipal titulo={doc.nombre} />
                       </Celda>
-                      <Celda p="3">{etiquetaTipo(doc.tipo)}</Celda>
-                      <Celda p="3">
+                      <Celda>
+                        <PildoraNeutra>{etiquetaTipo(doc.tipo)}</PildoraNeutra>
+                      </Celda>
+                      <Celda>
                         {vigente ? (
                           <>
                             <BotonTexto
@@ -243,33 +248,13 @@ export function DocumentosPage() {
                           </Text>
                         )}
                       </Celda>
-                      <Celda p="3">
+                      <Celda center>
                         {vigente ? (
-                          <Badge
-                            colorPalette={
-                              vigente.estado === "vencido"
-                                ? "red"
-                                : "green"
-                            }
-                            rounded="full"
-                            px="2"
-                            py="1"
-                            fontSize="xs"
-                            fontWeight="bold"
-                          >
+                          <EtiquetaEstado tono={vigente.estado === "vencido" ? "peligro" : "ok"}>
                             {vigente.estado === "vencido" ? "Vencido" : "Vigente"}
-                          </Badge>
+                          </EtiquetaEstado>
                         ) : (
-                          <Badge
-                            colorPalette="gray"
-                            rounded="full"
-                            px="2"
-                            py="1"
-                            fontSize="xs"
-                            fontWeight="bold"
-                          >
-                            Archivado
-                          </Badge>
+                          <EtiquetaEstado tono="neutro">Archivado</EtiquetaEstado>
                         )}
 
                         {vigente?.fecha_vencimiento && (
@@ -278,8 +263,8 @@ export function DocumentosPage() {
                           </Text>
                         )}
                       </Celda>
-                      <Celda p="3">{doc.cantidad_archivadas}</Celda>
-                      <Celda p="3" center>
+                      <Celda numero>{doc.cantidad_archivadas}</Celda>
+                      <Celda center>
                         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
                           <BotonAccion
                             accion="historial"

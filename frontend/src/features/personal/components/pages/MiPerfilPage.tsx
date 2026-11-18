@@ -139,7 +139,7 @@ export function MiPerfilPage() {
 
   if (loading) {
     return (
-      <Pagina titulo="Mi perfil">
+      <Pagina titulo="Mi perfil" banner={false}>
         <EstadoCargando>Cargando tu perfil...</EstadoCargando>
       </Pagina>
     );
@@ -147,7 +147,7 @@ export function MiPerfilPage() {
 
   if (error || !persona) {
     return (
-      <Pagina titulo="Mi perfil">
+      <Pagina titulo="Mi perfil" banner={false}>
         <BannerError mb="0">{error || "No se encontró tu perfil"}</BannerError>
       </Pagina>
     );
@@ -187,6 +187,7 @@ export function MiPerfilPage() {
 
   return (
     <Pagina
+      banner={false}
       titulo="Mi perfil"
       descripcion="Tus datos personales y permisos en el sistema."
     >
