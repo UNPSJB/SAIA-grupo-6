@@ -193,7 +193,7 @@ export function StockActualTab() {
 
           <Stack display={{ base: "flex", md: "none" }} gap="3">
             {stock.map((insumo) => (
-              <Tarjeta key={insumo.insumo_quimico_id} p="4" borderColor={insumo.stock_bajo ? "red.300" : "border.subtle"}>
+              <Tarjeta key={insumo.insumo_quimico_id} p="4" borderColor={insumo.stock_bajo ? "red.border" : "border.subtle"}>
                 <HStack justify="space-between" align="flex-start" gap="3" mb="3">
                   <Box>
                     <Text fontWeight="bold">{insumo.nombre}</Text>

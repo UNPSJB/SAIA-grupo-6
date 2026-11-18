@@ -63,7 +63,7 @@ export function ReclamosTable({
                   <Text fontWeight="bold" color="fg" fontSize="sm">
                     {reclamo.producto_nombre}
                   </Text>
-                  <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">
+                  <Text fontSize="xs" color="fg.subtle" whiteSpace="nowrap">
                     {reclamo.lote_numero}
                   </Text>
                 </Box>

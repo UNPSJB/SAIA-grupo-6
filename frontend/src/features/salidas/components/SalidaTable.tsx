@@ -87,7 +87,7 @@ export function SalidaTable({
                   <Text fontWeight="bold" color="fg" fontSize="sm">
                     {salida.producto_nombre}
                   </Text>
-                  <Text fontSize="xs" color="gray.500">
+                  <Text fontSize="xs" color="fg.subtle">
                     {salida.lote_numero}
                   </Text>
                 </Box>

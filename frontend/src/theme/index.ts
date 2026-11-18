@@ -28,13 +28,33 @@ export const brand = {
   900: "#26454B",
 } as const;
 
+/* Escala para modo oscuro: fondos teal casi negros, texto en teals claros.
+ * 500 queda igual que en claro (spinners, bordes de acento). */
+export const brandDark = {
+  50: "#0F1B1D",
+  100: "#152427",
+  200: "#1C3135",
+  300: "#2B5157",
+  400: "#4F8E96",
+  500: "#468189",
+  600: "#468189",
+  700: "#90BEBB",
+  800: "#BBDFDC",
+  900: "#DCEEEC",
+} as const;
+
+const escala = (valores: Record<number, string>) =>
+  Object.fromEntries(Object.entries(valores).map(([k, value]) => [k, { value }]));
+
 const config = defineConfig({
   theme: {
     tokens: {
       colors: {
-        brand: Object.fromEntries(
-          Object.entries(brand).map(([step, value]) => [step, { value }])
-        ),
+        /* Escalas fijas. Usá `brandLight.N` cuando el color NO debe invertirse
+         * (ej: fondo teal con texto blanco encima). `brand.N` (abajo, en
+         * semanticTokens) sí cambia con el modo. */
+        brandLight: escala(brand),
+        brandDark: escala(brandDark),
       },
 
       // Una sola familia en toda la app: Inter variable, auto-hospedada via
@@ -115,7 +135,22 @@ const config = defineConfig({
       colors: {
         /* Teal: acción principal. `solid` es el fondo de los botones. */
         brand: {
-          solid: { value: "{colors.brand.600}" },
+          ...Object.fromEntries(
+            Object.keys(brand).map((k) => [
+              k,
+              {
+                value: {
+                  _light: `{colors.brandLight.${k}}`,
+                  _dark: `{colors.brandDark.${k}}`,
+                },
+              },
+            ])
+          ),
+          /* Barra superior: teal con texto blanco, en ambos modos. */
+          bar: {
+            value: { _light: "{colors.brandLight.700}", _dark: "{colors.brandLight.900}" },
+          },
+          solid: { value: "{colors.brandLight.600}" },
           contrast: { value: "{colors.white}" },
           fg: { value: "{colors.brand.700}" },
           muted: { value: "{colors.brand.100}" },
@@ -141,9 +176,16 @@ const config = defineConfig({
          * Antes `fg.muted` era gray.400 y `fg.subtle` gray.300: a 12-14px no
          * llegaban a 4.5:1.
          */
-        fg: { value: "{colors.gray.900}" },
-        "fg.muted": { value: "{colors.gray.600}" },
-        "fg.subtle": { value: "{colors.gray.500}" },
+        fg: { value: { _light: "{colors.gray.900}", _dark: "{colors.gray.50}" } },
+        "fg.muted": { value: { _light: "{colors.gray.600}", _dark: "{colors.gray.300}" } },
+        "fg.subtle": { value: { _light: "{colors.gray.500}", _dark: "{colors.gray.400}" } },
+
+        /* Superficies. En claro: página teal muy suave y tarjetas blancas.
+         * En oscuro: página casi negra y tarjetas un escalón más claras. */
+        bg: { value: { _light: "{colors.white}", _dark: "{colors.brandDark.50}" } },
+        "bg.panel": { value: { _light: "{colors.white}", _dark: "{colors.brandDark.100}" } },
+        "bg.subtle": { value: { _light: "{colors.gray.50}", _dark: "{colors.brandDark.200}" } },
+        "bg.muted": { value: { _light: "{colors.gray.100}", _dark: "{colors.brandDark.200}" } },
       },
     },
     /**
@@ -168,7 +210,7 @@ const config = defineConfig({
 
       card: defineRecipe({
         base: {
-          bg: "white",
+          bg: "bg.panel",
           p: "6",
           rounded: "l2",
           boxShadow: "sm",
@@ -202,7 +244,7 @@ const config = defineConfig({
         base: {
           width: "100%",
           minWidth: "0",
-          color: "gray.800",
+          color: "fg",
           fontFamily: "body",
           borderRadius: "lg",
           outline: "none",
@@ -224,16 +266,16 @@ const config = defineConfig({
         variants: {
           variant: {
             outline: {
-              bg: "white",
+              bg: "bg.panel",
               borderWidth: "2px",
               borderStyle: "solid",
               borderColor: "brand.300",
               paddingX: "3",
               _hover: { borderColor: "brand.400" },
-              _placeholder: { color: "gray.400" },
+              _placeholder: { color: "fg.subtle" },
               _focusVisible: {
                 borderColor: "brand.500",
-                boxShadow: "0 0 0 3px var(--chakra-colors-brand-100)",
+                boxShadow: "0 0 0 3px var(--chakra-colors-brand-300)",
               },
               _invalid: {
                 borderColor: "red.500",
@@ -252,7 +294,7 @@ const config = defineConfig({
       textarea: defineRecipe<{ variant: { outline: SystemStyleObject } }>({
         base: {
           width: "100%",
-          color: "gray.800",
+          color: "fg",
           fontFamily: "body",
           borderRadius: "lg",
           outline: "none",
@@ -263,16 +305,16 @@ const config = defineConfig({
         variants: {
           variant: {
             outline: {
-              bg: "white",
+              bg: "bg.panel",
               borderWidth: "2px",
               borderStyle: "solid",
               borderColor: "brand.300",
               padding: "3",
               _hover: { borderColor: "brand.400" },
-              _placeholder: { color: "gray.400" },
+              _placeholder: { color: "fg.subtle" },
               _focusVisible: {
                 borderColor: "brand.500",
-                boxShadow: "0 0 0 3px var(--chakra-colors-brand-100)",
+                boxShadow: "0 0 0 3px var(--chakra-colors-brand-300)",
               },
               _invalid: { borderColor: "red.500" },
               _disabled: { opacity: 0.6, cursor: "not-allowed" },

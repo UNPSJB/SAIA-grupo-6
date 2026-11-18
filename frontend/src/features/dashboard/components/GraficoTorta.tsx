@@ -210,7 +210,7 @@ export function GraficoTorta({
                   px="2"
                   py="1.5"
                   rounded="md"
-                  bg={seleccionada ? "gray.100" : "transparent"}
+                  bg={seleccionada ? "bg.muted" : "transparent"}
                   opacity={activo !== null && !seleccionada ? 0.55 : 1}
                   transition="opacity 0.15s ease, background 0.15s ease"
                   cursor="default"

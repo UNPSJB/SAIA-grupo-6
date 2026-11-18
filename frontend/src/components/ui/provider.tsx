@@ -9,23 +9,19 @@ import {
 } from "./color-mode"
 
 /*
- * `defaultTheme="light"` + `enableSystem={false}` a propósito.
+ * Modo claro / oscuro.
  *
- * La app está diseñada para un solo tema claro: el fondo de página, la
- * superficie de las tarjetas y los colores de la paleta `brand` son valores
- * fijos, no tokens que se inviertan. Si `next-themes` respetara la preferencia
- * del sistema y aplicara la clase `.dark`, los tokens semánticos (`fg`,
- * `bg.panel`, `border`) sí se invertirían y quedarían texto blanco sobre
- * superficies claras, botones blancos con texto blanco y tablas negras. Por eso
- * el modo claro va forzado: es el único que el tema soporta hoy.
- *
- * Para agregar modo oscuro de verdad hay que definir los tokens con
- * condiciones `_light`/`_dark` (no valores fijos) y recién ahí quitar esto.
+ * `defaultTheme="system"` + `enableSystem`: la primera vez se usa la
+ * preferencia del sistema operativo; después manda lo que se elija con el
+ * botón de la barra superior (`ColorModeButton`), que `next-themes` guarda en
+ * localStorage. Los colores de la app son tokens con condición `_light`/`_dark`
+ * (ver `src/theme/index.ts`): `brand.N`, `fg*`, `bg*`. Para un color que NO
+ * debe invertirse (fondo teal con texto blanco) usá `brandLight.N` o `white`.
  */
 export function Provider(props: ColorModeProviderProps) {
   return (
     <ChakraProvider value={system}>
-      <ColorModeProvider defaultTheme="light" enableSystem={false} {...props} />
+      <ColorModeProvider defaultTheme="system" enableSystem {...props} />
       {/* Avisos breves (éxito al guardar): fuera del router para que sigan
           visibles al navegar a otra pantalla. */}
       <Toaster />

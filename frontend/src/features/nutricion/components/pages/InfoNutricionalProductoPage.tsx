@@ -139,12 +139,12 @@ export function InfoNutricionalProductoPage() {
       {info && info.estado !== "sin_receta" && (
         <>
           {pendientes > 0 && (
-            <Box mb="6" borderWidth="1px" borderColor="red.200" bg="red.50" rounded="lg" overflow="hidden">
-              <Box px="5" py="4" borderBottomWidth="1px" borderColor="red.200">
-                <Text fontWeight="semibold" color="red.800">
+            <Box mb="6" borderWidth="1px" borderColor="red.border" bg="red.subtle" rounded="lg" overflow="hidden">
+              <Box px="5" py="4" borderBottomWidth="1px" borderColor="red.border">
+                <Text fontWeight="semibold" color="red.fg">
                   La tabla está incompleta: {pendientes === 1 ? "falta 1 dato" : `faltan ${pendientes} datos`}
                 </Text>
-                <Text fontSize="sm" color="red.700">
+                <Text fontSize="sm" color="red.fg">
                   Mientras tanto se marca como incompleta en la pantalla, al imprimir y en el PDF. Al completar un dato
                   se recalcula sola.
                 </Text>
@@ -168,7 +168,7 @@ export function InfoNutricionalProductoPage() {
                           · {ing.tipo === "aditivo" ? "aditivo con aporte de energía o sodio" : "ingrediente"}
                         </Text>
                       </Text>
-                      <Text fontSize="sm" color="red.700">Falta: {ing.faltantes.join(", ")}</Text>
+                      <Text fontSize="sm" color="red.fg">Falta: {ing.faltantes.join(", ")}</Text>
                     </Box>
                     <Button size="sm" colorPalette="brand" onClick={() => setCompletar(ing.insumo_id)}>
                       Completar datos
@@ -177,7 +177,7 @@ export function InfoNutricionalProductoPage() {
                 ))}
                 {info.problemas.map((p) => (
                   <HStack key={p} px="5" py="3" borderBottomWidth="1px" borderColor="border.subtle">
-                    <Text fontSize="sm" color="red.700">
+                    <Text fontSize="sm" color="red.fg">
                       {p} <Text as="span" color="fg.muted">(se completa en «Porción declarada»)</Text>
                     </Text>
                   </HStack>

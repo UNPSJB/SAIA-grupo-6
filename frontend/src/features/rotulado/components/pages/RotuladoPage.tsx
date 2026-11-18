@@ -208,8 +208,8 @@ function VistaListadoProductos({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "0.5rem",
-                background: "#eff6ff",
-                border: "1px solid #bfdbfe",
+                background: "var(--chakra-colors-blue-subtle)",
+                border: "1px solid var(--chakra-colors-blue-border)",
                 borderRadius: "9999px",
                 padding: "0.25rem 0.75rem",
                 fontSize: "0.875rem",
@@ -228,7 +228,7 @@ function VistaListadoProductos({
                   padding: "0",
                   fontSize: "1.25rem",
                   lineHeight: "1",
-                  color: "#9ca3af",
+                  color: "var(--chakra-colors-fg-subtle)",
                 }}
               >
                 ×
@@ -283,7 +283,7 @@ function TablaProductosRotulado({
               borderColor="border.subtle"
               onClick={() => onSeleccionarProducto(producto)}
               style={{ cursor: "pointer" }}
-              _hover={{ bg: "#f9fafb" }}
+              _hover={{ bg: "bg.subtle" }}
             >
               <Celda p="3">
                 <TextoTruncado texto={producto.nombre} />
@@ -369,8 +369,8 @@ function BadgeBorradores({
         minWidth: "2rem",
         height: "1.5rem",
         padding: "0 0.5rem",
-        background: count > 0 ? "#dcfce7" : "#f3f4f6",
-        color: count > 0 ? "#166534" : "#6b7280",
+        background: count > 0 ? "var(--chakra-colors-green-muted)" : "var(--chakra-colors-bg-muted)",
+        color: count > 0 ? "var(--chakra-colors-green-fg)" : "var(--chakra-colors-fg-muted)",
         borderRadius: "9999px",
         fontSize: "0.75rem",
         fontWeight: "medium",
@@ -396,7 +396,7 @@ function VistaProductoSeleccionado({
         <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "0.25rem" }}>
           {producto.nombre}
         </h2>
-        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+        <p style={{ fontSize: "0.875rem", color: "var(--chakra-colors-fg-muted)" }}>
           Unidad: {producto.unidad_medida.simbolo}
         </p>
       </div>

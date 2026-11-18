@@ -43,21 +43,21 @@ export function ElegirIndicadoresPanel() {
           <Box
             p="4"
             borderWidth="1px"
-            borderColor="orange.300"
+            borderColor="orange.border"
             rounded="md"
-            bg="orange.50"
+            bg="orange.subtle"
           >
             <HStack gap="2" align="flex-start">
-              <Box color="orange.800" pt="0.5">
+              <Box color="orange.fg" pt="0.5">
                 <LuTriangleAlert aria-hidden />
               </Box>
               <Box>
-                <Text fontWeight="semibold" fontSize="sm" color="orange.800">
+                <Text fontWeight="semibold" fontSize="sm" color="orange.fg">
                   {visiblesSinDatos.length === 1
                     ? "Un indicador visible todavía no se muestra al público"
                     : `${visiblesSinDatos.length} indicadores visibles todavía no se muestran al público`}
                 </Text>
-                <Text mt="1" fontSize="sm" color="orange.800">
+                <Text mt="1" fontSize="sm" color="orange.fg">
                   {visiblesSinDatos
                     .map((indicador) => indicador.etiqueta)
                     .join(", ")}
@@ -107,7 +107,7 @@ export function ElegirIndicadoresPanel() {
                       {indicador.descripcion}
                     </Text>
                     {indicador.habilitado && !indicador.con_datos ? (
-                      <Text mt="2" fontSize="sm" fontWeight="medium" color="orange.800">
+                      <Text mt="2" fontSize="sm" fontWeight="medium" color="orange.fg">
                         El público todavía no lo ve: faltan datos suficientes
                         para calcularlo.
                       </Text>

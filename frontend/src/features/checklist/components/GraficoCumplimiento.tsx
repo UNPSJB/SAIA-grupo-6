@@ -11,7 +11,7 @@ import {
 import type { PuntoDiario } from "../types/cumplimiento";
 
 const COLOR_LINEA = "var(--chakra-colors-brand-500)";
-const COLOR_TEXTO = "var(--chakra-colors-gray-600)";
+const COLOR_TEXTO = "var(--chakra-colors-fg-muted)";
 
 interface GraficoCumplimientoProps {
   datos: PuntoDiario[];
@@ -73,7 +73,7 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
         <LineChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 6 }}>
           <CartesianGrid
             vertical={false}
-            stroke="var(--chakra-colors-gray-100)"
+            stroke="var(--chakra-colors-bg-muted)"
             strokeDasharray="4 4"
           />
           <XAxis
@@ -96,7 +96,7 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
           />
           <Tooltip
             content={<TooltipDia />}
-            cursor={{ stroke: "var(--chakra-colors-gray-300)", strokeDasharray: "4 4" }}
+            cursor={{ stroke: "var(--chakra-colors-border-emphasized)", strokeDasharray: "4 4" }}
           />
           <Line
             type="monotone"

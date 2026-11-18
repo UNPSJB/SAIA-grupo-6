@@ -74,7 +74,7 @@ function ItemCard({
   onCompletar: () => void;
 }) {
   return (
-    <Tarjeta p="5" borderColor={item.completado ? "green.200" : "border.subtle"}>
+    <Tarjeta p="5" borderColor={item.completado ? "green.border" : "border.subtle"}>
       <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap="3" mb="3">
         <Box>
           <Text fontWeight="bold" color="fg">

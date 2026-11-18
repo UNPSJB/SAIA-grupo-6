@@ -83,7 +83,8 @@ export function CambiarFechaVencimientoDialog({
       >
         <Box
           style={{
-            backgroundColor: "white",
+            backgroundColor: "var(--chakra-colors-bg-panel)",
+            color: "var(--chakra-colors-fg)",
             padding: "25px",
             borderRadius: "12px",
             boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
@@ -91,15 +92,15 @@ export function CambiarFechaVencimientoDialog({
             maxWidth: "90vw",
           }}
         >
-          <Box as="h3" style={{ marginTop: 0, color: "#333" }}>
+          <Box as="h3" style={{ marginTop: 0, color: "var(--chakra-colors-fg)" }}>
             Renovar vencimiento
           </Box>
-          <Text style={{ color: "#555", marginBottom: "6px" }}>
+          <Text style={{ color: "var(--chakra-colors-fg-muted)", marginBottom: "6px" }}>
             {vencimiento.mensaje}
           </Text>
           <Text
             style={{
-              color: "#777",
+              color: "var(--chakra-colors-fg-subtle)",
               fontSize: "14px",
               marginBottom: "16px",
             }}
@@ -110,7 +111,7 @@ export function CambiarFechaVencimientoDialog({
           <Text
             style={{
               fontWeight: "bold",
-              color: "#333",
+              color: "var(--chakra-colors-fg)",
               marginBottom: "4px",
             }}
           >
@@ -126,7 +127,7 @@ export function CambiarFechaVencimientoDialog({
           {error && (
             <Text
               style={{
-                color: "#c53030",
+                color: "var(--chakra-colors-red-fg)",
                 fontSize: "14px",
                 marginTop: "8px",
               }}
@@ -151,8 +152,8 @@ export function CambiarFechaVencimientoDialog({
               style={{
                 padding: "8px 16px",
                 borderRadius: "6px",
-                border: "1px solid #ccc",
-                backgroundColor: "#fff",
+                border: "1px solid var(--chakra-colors-border)",
+                backgroundColor: "var(--chakra-colors-bg-panel)",
                 cursor: "pointer",
                 fontWeight: "bold",
               }}

@@ -42,7 +42,7 @@ export function RetirosTable({
                   <Text fontWeight="bold" color="fg" fontSize="sm">
                     {retiro.lote_producto_nombre}
                   </Text>
-                  <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">
+                  <Text fontSize="xs" color="fg.subtle" whiteSpace="nowrap">
                     {retiro.lote_codigo}
                   </Text>
                 </Box>

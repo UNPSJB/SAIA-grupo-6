@@ -406,7 +406,7 @@ function LayoutPrincipal() {
           flexShrink={0}
           px="30px"
           py="2"
-          bg="white"
+          bg="bg.panel"
           borderBottomWidth="1px"
           borderColor="border.subtle"
           overflowX="auto"
@@ -418,16 +418,16 @@ function LayoutPrincipal() {
           <Box
             mb="4"
             p="3"
-            bg="orange.50"
+            bg="orange.subtle"
             borderWidth="1px"
-            borderColor="orange.300"
+            borderColor="orange.border"
             rounded="md"
             w="full"
           >
-            <Text fontSize="sm" fontWeight="bold" color="orange.800">
+            <Text fontSize="sm" fontWeight="bold" color="orange.fg">
               ⚠️ Debés cambiar tu contraseña
             </Text>
-            <Text fontSize="xs" color="orange.700" mt="1">
+            <Text fontSize="xs" color="orange.fg" mt="1">
               Iniciaste sesión con una contraseña temporal. Por seguridad, cambiála
               desde "Mi perfil" antes de seguir usando el sistema.
             </Text>

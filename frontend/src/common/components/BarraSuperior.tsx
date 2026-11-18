@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { Flex, Link } from "@chakra-ui/react";
+import { ColorModeButton } from "../../components/ui/color-mode";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar } from "../api/permissions";
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
@@ -14,7 +15,7 @@ import Navbar from "./Navbar";
  *
  *   [ logo SAIA ] [ categorías u opciones (Navbar) ] [ buscar ] [ 🔔 ] [ avatar ]
  *
- * Fondo teal (brand.700): todo lo de adentro va en blanco. Debajo van las
+ * Fondo teal (brand.bar): todo lo de adentro va en blanco. Debajo van las
  * migas de pan (`Breadcrumbs`), armadas en `LayoutPrincipal`.
  */
 export function BarraSuperior(): ReactElement | null {
@@ -32,7 +33,7 @@ export function BarraSuperior(): ReactElement | null {
       h="16"
       px={{ base: "3", md: "4" }}
       flexShrink={0}
-      bg="brand.700"
+      bg="brand.bar"
       color="white"
     >
       {/* Logo de la empresa con el nombre. Lleva al inicio. */}
@@ -60,6 +61,15 @@ export function BarraSuperior(): ReactElement | null {
       {/* Derecha: buscador, notificaciones y usuario. Miden 40px de alto. */}
       <Flex align="center" gap="2" flexShrink={0}>
         <BuscadorGlobal />
+        <ColorModeButton
+          aria-label="Cambiar entre modo claro y oscuro"
+          title="Modo claro / oscuro"
+          color="white"
+          boxSize="10"
+          rounded="md"
+          _hover={{ bg: "whiteAlpha.200" }}
+          _focusVisible={{ outline: "2px solid", outlineColor: "white", outlineOffset: "2px" }}
+        />
         {puedeAdministrar(user) && (
           <BotonNotificaciones activa={pathname.startsWith("/notificaciones")} />
         )}
