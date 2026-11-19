@@ -49,6 +49,7 @@ from .certificaciones_transportista import (
     migrar_certificaciones_transportista_trazabilidad,
 )
 from .proveedores import migrar_proveedores
+from .lotes_insumo_bajas import migrar_lotes_insumo_bajas
 
 
 def run_migrations() -> None:
@@ -96,6 +97,7 @@ def run_migrations() -> None:
     # Retiros: después de reclamos, salidas y lotes porque depende de ellos.
     migrar_retiros()
     migrar_proveedores()
+    migrar_lotes_insumo_bajas()
 
 
 def crear_tablas_y_migrar() -> None:

@@ -124,7 +124,7 @@ const RecetaNuevaVersionPage = lazy(() =>
   import("./features/recetas/components/pages/RecetaNuevaVersionPage").then((mod) => ({ default: mod.RecetaNuevaVersionPage })),
 );
 const StockInsumosPage = lazy(() =>
-  import("./features/lotesInsumo/components/pages/StockInsumosPage").then((mod) => ({ default: mod.StockInsumosPage })),
+  import("./features/lotesInsumo/components/StockInsumosPage").then((mod) => ({ default: mod.StockInsumosPage })),
 );
 const LoteInsumoCreatePage = lazy(() =>
   import("./features/lotesInsumo/components/pages/LoteInsumoCreatePage").then((mod) => ({ default: mod.LoteInsumoCreatePage })),
