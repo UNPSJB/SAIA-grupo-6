@@ -51,6 +51,13 @@ def test_listado_sectores_solo_inactivos(client_auditoria, db_session):
             "/exportacion/vistas/stock-consumo?fecha_desde=2026-01-01&fecha_hasta=2026-12-31",
             "Cantidad acumulada",
         ),
+        ("/exportacion/vistas/lotes-produccion", "Número de lote"),
+        ("/exportacion/vistas/salidas", "Fecha de reserva"),
+        ("/exportacion/vistas/retiros", "Notificados"),
+        ("/exportacion/vistas/recetas", "Versión vigente"),
+        ("/exportacion/vistas/productos", "Descripción"),
+        ("/exportacion/vistas/alimentos", "Energía (kcal)"),
+        ("/exportacion/vistas/rotulado", "Borradores"),
     ],
 )
 def test_vistas_exportan_csv_y_pdf(client_auditoria, ruta, encabezado):
@@ -62,3 +69,43 @@ def test_vistas_exportan_csv_y_pdf(client_auditoria, ruta, encabezado):
     assert encabezado in _csv(csv)
     assert pdf.status_code == 200
     assert pdf.content.startswith(b"%PDF")
+
+
+def _producto(db, nombre, activo=True):
+    from src.productos.models import Producto
+    from src.unidadMedida.models import UnidadMedida
+
+    db.info["sin_auditoria"] = True
+    try:
+        unidad = db.query(UnidadMedida).filter_by(simbolo="kg").first()
+        if unidad is None:
+            unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg")
+            db.add(unidad)
+            db.flush()
+        db.add(Producto(nombre=nombre, unidad_medida_id=unidad.id, activo=activo))
+        db.commit()
+    finally:
+        db.info.pop("sin_auditoria", None)
+
+
+def test_vista_productos_respeta_busqueda_y_bajas(client_auditoria, db_session):
+    _producto(db_session, "Budín de vainilla")
+    _producto(db_session, "Pan de molde")
+    _producto(db_session, "Mermelada vieja", activo=False)
+
+    buscados = _csv(client_auditoria.get("/exportacion/vistas/productos?formato=csv&buscar=bud"))
+    bajas = _csv(client_auditoria.get("/exportacion/vistas/productos?formato=csv&incluir_inactivos=true"))
+    rotulado = _csv(client_auditoria.get("/exportacion/vistas/rotulado?formato=csv"))
+
+    assert "Budín de vainilla" in buscados and "Pan de molde" not in buscados
+    assert "Mermelada vieja" in bajas and "Pan de molde" not in bajas
+    assert "Pan de molde" in rotulado and "Mermelada vieja" not in rotulado
+
+
+def test_numero_en_formato_argentino():
+    from src.exportacion.vistas import _cantidad, _numero
+
+    assert _numero("1632.851") == "1.632,851"
+    assert _numero("4.000") == "4"
+    assert _cantidad("16.5", "kg") == "16,5 kg"
+    assert _numero(None) == "-"

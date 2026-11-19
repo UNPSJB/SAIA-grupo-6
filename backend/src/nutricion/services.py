@@ -455,6 +455,10 @@ def obtener_datos_insumo(db: Session, insumo_id: int) -> schemas.DatosNutriciona
         densidad_g_ml=_decimal(insumo.densidad_g_ml),
         aporta_energia_sodio=bool(perfil and perfil.aporta_energia_sodio),
         azucares_son_anadidos=bool(perfil and perfil.azucares_son_anadidos),
+        grasas_son_anadidas=bool(perfil and perfil.grasas_son_anadidas),
+        sodio_es_anadido=bool(perfil and perfil.sodio_es_anadido),
+        contiene_edulcorantes=bool(perfil and perfil.contiene_edulcorantes),
+        contiene_cafeina=bool(perfil and perfil.contiene_cafeina),
         nutrientes_admitidos=list(_admitidos(insumo)),
         valores=[
             schemas.ValorResponse(
@@ -510,7 +514,11 @@ def guardar_datos_insumo(
         perfil = PerfilNutricionalInsumo(insumo_id=insumo.id)
         db.add(perfil)
     perfil.aporta_energia_sodio = insumo.tipo == TIPO_ADITIVO and datos.aporta_energia_sodio
-    perfil.azucares_son_anadidos = insumo.tipo != TIPO_ADITIVO and datos.azucares_son_anadidos
+    perfil.azucares_son_anadidos = datos.azucares_son_anadidos
+    perfil.grasas_son_anadidas = datos.grasas_son_anadidas
+    perfil.sodio_es_anadido = datos.sodio_es_anadido
+    perfil.contiene_edulcorantes = datos.contiene_edulcorantes
+    perfil.contiene_cafeina = datos.contiene_cafeina
 
     usuario_id = usuario.id if usuario is not None else None
     momento = ahora()

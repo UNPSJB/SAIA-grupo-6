@@ -1,5 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -10,6 +11,8 @@ from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto
 from src.lotesInsumo import services as lotes_insumo_services
 from src.lotesInsumo.models import LoteInsumo
 from src.personal.models import Personal
+from src.salidas.constants import ESTADO_CANCELADO, ESTADO_ENTREGADO
+from src.salidas.models import Salida
 from src.trazabilidad import schemas
 
 _MILESIMA = Decimal("0.001")
@@ -149,3 +152,214 @@ def trazar_lote_insumo(db: Session, lote_insumo_id: int) -> schemas.Trazabilidad
         saldo=lotes_insumo_services.saldo_lote_insumo(db, lote_insumo),
         lotes_producto=lotes_producto,
     )
+
+
+def obtener_grafo_trazabilidad_lote(
+    db: Session, lote_id: int
+) -> schemas.GrafoTrazabilidadResponse:
+    """Construye el grafo/árbol de trazabilidad bidireccional (extremo a extremo)."""
+    lote = lotes_services.obtener_lote(db, lote_id)
+
+    # Insumos consumidos y sus proveedores
+    proveedores_map: dict[int, Any] = {}
+    lotes_insumo_map: dict[int, Any] = {}
+    consumo_por_lote_insumo: dict[int, Decimal] = defaultdict(lambda: CERO)
+    unidad_por_lote_insumo: dict[int, str] = {}
+
+    for item in lote.checklist:
+        for c in item.consumos:
+            li = c.lote_insumo
+            lotes_insumo_map[li.id] = li
+            prov = li.proveedor
+            proveedores_map[prov.id] = prov
+            consumo_por_lote_insumo[li.id] += _q(c.cantidad)
+            unidad_por_lote_insumo[li.id] = (
+                li.insumo.unidad_medida.simbolo
+                if li.insumo and li.insumo.unidad_medida
+                else ""
+            )
+
+    nodos: list[schemas.NodoGrafo] = []
+    conexiones: list[schemas.ConexionGrafo] = []
+
+    # A. COLUMNA 1 - PROVEEDORES
+    for p in proveedores_map.values():
+        nodos.append(
+            schemas.NodoGrafo(
+                id=f"prov_{p.id}",
+                columna="proveedor",
+                tipo="proveedor",
+                titulo=p.nombre,
+                subtitulo=f"Matrícula: {p.matricula}" if getattr(p, "matricula", None) else None,
+                badge="Homologado",
+                tono_badge="ok",
+                metadatos={
+                    "id": p.id,
+                    "nombre": p.nombre,
+                    "matricula": getattr(p, "matricula", None),
+                    "cuit": getattr(p, "cuit", None),
+                },
+            )
+        )
+
+    # B. COLUMNA 2 - LOTES DE INSUMO
+    for li_id, li in lotes_insumo_map.items():
+        vence_str = (
+            li.fecha_vencimiento.strftime("%d/%m/%Y")
+            if getattr(li, "fecha_vencimiento", None)
+            else None
+        )
+        nodos.append(
+            schemas.NodoGrafo(
+                id=f"ins_{li.id}",
+                columna="insumo",
+                tipo="materia_prima",
+                titulo=li.insumo.nombre if li.insumo else f"Insumo #{li.insumo_id}",
+                subtitulo=f"Lote: {li.numero_lote}",
+                badge=f"Vence {vence_str}" if vence_str else None,
+                tono_badge="info" if vence_str else "neutro",
+                metadatos={
+                    "lote_insumo_id": li.id,
+                    "numero_lote": li.numero_lote,
+                    "fecha_ingreso": str(li.fecha_ingreso) if getattr(li, "fecha_ingreso", None) else None,
+                    "vence": str(li.fecha_vencimiento) if getattr(li, "fecha_vencimiento", None) else None,
+                    "cantidad_usada": str(consumo_por_lote_insumo[li.id]),
+                },
+            )
+        )
+        conexiones.append(
+            schemas.ConexionGrafo(
+                id=f"c_prov{li.proveedor_id}_ins{li.id}",
+                origen_id=f"prov_{li.proveedor_id}",
+                destino_id=f"ins_{li.id}",
+            )
+        )
+
+    # C. COLUMNA 3 - NODO CENTRAL (LOTE DE PRODUCTO)
+    receta_sub = (
+        f"Receta v{lote.version_receta.numero}"
+        if lote.version_receta
+        else "Receta v1"
+    )
+    badge_lote = lote.estado.replace("_", " ").capitalize() if lote.estado else "En proceso"
+    nodos.append(
+        schemas.NodoGrafo(
+            id=f"lote_{lote.id}",
+            columna="lote_producto",
+            tipo="lote_elaboracion",
+            titulo=f"{lote.producto.nombre if lote.producto else 'Producto'} - Lote {lote.numero_lote}",
+            subtitulo=receta_sub,
+            badge=badge_lote,
+            tono_badge="ok" if lote.estado == "terminado" else ("peligro" if lote.estado == "cancelado" else "info"),
+            metadatos={
+                "producido": str(lote.cantidad_producida or lote.cantidad_objetivo or 0),
+                "inicio": str(lote.fecha_inicio) if lote.fecha_inicio else None,
+                "vencimiento": str(lote.fecha_vencimiento) if lote.fecha_vencimiento else None,
+                "version_receta": lote.version_receta.numero if lote.version_receta else None,
+                "operario": f"{lote.creado_por.nombre} {lote.creado_por.apellido or ''}".strip() if lote.creado_por else None,
+            },
+        )
+    )
+
+    for li_id, li in lotes_insumo_map.items():
+        cant = consumo_por_lote_insumo[li_id]
+        unidad = unidad_por_lote_insumo.get(li_id, "")
+        etiqueta = f"{cant} {unidad}".strip()
+        conexiones.append(
+            schemas.ConexionGrafo(
+                id=f"c_ins{li.id}_lote{lote.id}",
+                origen_id=f"ins_{li.id}",
+                destino_id=f"lote_{lote.id}",
+                etiqueta=etiqueta,
+            )
+        )
+
+    # D. COLUMNA 4 - DESPACHO / TRANSPORTE (Salidas) & E. COLUMNA 5 - CLIENTES
+    salidas_validas = [s for s in (lote.salidas or []) if s.estado != ESTADO_CANCELADO]
+    clientes_agregados: set[int] = set()
+
+    for s in salidas_validas:
+        transportista_nombre = s.transportista.razon_social if (s.transportista and hasattr(s.transportista, "razon_social")) else (
+            getattr(s.transportista, "nombre", None) if s.transportista else None
+        )
+        subtitulo_salida = transportista_nombre if transportista_nombre else "Retira cliente"
+
+        certificaciones_transportista = []
+        if hasattr(s, "certificaciones") and s.certificaciones:
+            for sc in s.certificaciones:
+                if hasattr(sc, "certificacion") and sc.certificacion:
+                    certificaciones_transportista.append(sc.certificacion.numero)
+
+        nodos.append(
+            schemas.NodoGrafo(
+                id=f"salida_{s.id}",
+                columna="despacho",
+                tipo="transporte",
+                titulo=f"Salida #{s.id} ({s.forma_entrega or 'Despacho'})",
+                subtitulo=subtitulo_salida,
+                badge=s.estado,
+                tono_badge="ok" if s.estado == ESTADO_ENTREGADO else ("info" if s.estado == "DESPACHADO" else "neutro"),
+                metadatos={
+                    "salida_id": s.id,
+                    "cantidad": str(s.cantidad),
+                    "fecha_despacho": str(s.fecha_despacho) if s.fecha_despacho else None,
+                    "transportista": transportista_nombre,
+                    "certificaciones_transportista": certificaciones_transportista,
+                },
+            )
+        )
+
+        conexiones.append(
+            schemas.ConexionGrafo(
+                id=f"c_lote{lote.id}_salida{s.id}",
+                origen_id=f"lote_{lote.id}",
+                destino_id=f"salida_{s.id}",
+                etiqueta=f"{s.cantidad} u",
+                cliente_id=s.cliente_id,
+            )
+        )
+
+        # E. COLUMNA 5 - CLIENTE
+        if s.cliente and s.cliente_id not in clientes_agregados:
+            clientes_agregados.add(s.cliente_id)
+            c = s.cliente
+            cuit_doc = getattr(c, "documento", None) or getattr(c, "cuit", None) or "Consumidor Final"
+            nodos.append(
+                schemas.NodoGrafo(
+                    id=f"cli_{c.id}",
+                    columna="cliente",
+                    tipo="cliente",
+                    titulo=c.nombre,
+                    subtitulo=f"CUIT: {cuit_doc}",
+                    badge="Entrega Conforme" if s.estado == ESTADO_ENTREGADO else s.estado,
+                    tono_badge="ok" if s.estado == ESTADO_ENTREGADO else "neutro",
+                    metadatos={
+                        "cliente_id": c.id,
+                        "nombre": c.nombre,
+                        "direccion": getattr(c, "domicilio", "") or getattr(c, "direccion", ""),
+                        "cuit": cuit_doc,
+                        "fecha_entrega": str(s.fecha_entrega) if s.fecha_entrega else None,
+                        "recibido_por": s.recibido_por,
+                        "estado_salida": s.estado,
+                    },
+                )
+            )
+
+        conexiones.append(
+            schemas.ConexionGrafo(
+                id=f"c_salida{s.id}_cli{s.cliente_id}",
+                origen_id=f"salida_{s.id}",
+                destino_id=f"cli_{s.cliente_id}",
+                cliente_id=s.cliente_id,
+            )
+        )
+
+    return schemas.GrafoTrazabilidadResponse(
+        lote_id=lote.id,
+        numero_lote=lote.numero_lote,
+        producto_nombre=lote.producto.nombre if lote.producto else "",
+        estado_lote=lote.estado,
+        nodos=nodos,
+        conexiones=conexiones,
+    )
+

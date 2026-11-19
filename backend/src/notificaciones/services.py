@@ -31,6 +31,12 @@ DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
 # referencia para marcar el reclamo como "fuera de plazo": no bloquea el alta.
 CLAVE_PLAZO_RECLAMO_DIAS = "plazo_reclamo_dias"
 PLAZO_RECLAMO_DIAS_POR_DEFECTO = 30
+# Meta de cumplimiento de las tareas de limpieza, en %. Por debajo, el inicio
+# marca Limpieza en ámbar. Por defecto 100: las BPM y los POES (CAA cap. II)
+# piden registrar todas las tareas programadas, así que cada tarea sin hacer
+# es un desvío. Cada planta puede bajarla a un umbral de aviso propio.
+CLAVE_META_CUMPLIMIENTO_LIMPIEZA = "meta_cumplimiento_limpieza"
+META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO = 100
 
 
 
@@ -56,6 +62,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
                     tipo="ELEMENTO_LIMPIEZA",
                     entidad_id=elem.id,
                     titulo="Recambio de Elemento Vencido",
+                    entidad_nombre=elem.nombre,
                     mensaje=f"El elemento '{elem.nombre}' superó su frecuencia de recambio ({elem.frecuencia_recambio_dias} días).",
                     nivel="VENCIDO",
                     link_destino="/elementos-limpieza",
@@ -70,6 +77,7 @@ def obtener_notificaciones_elementos_limpieza(db: Session) -> List[NotificacionR
                     tipo="ELEMENTO_LIMPIEZA",
                     entidad_id=elem.id,
                     titulo="Recambio Próximo a Vencer",
+                    entidad_nombre=elem.nombre,
                     mensaje=f"El elemento '{elem.nombre}' requiere recambio en {dias_restantes} día(s).",
                     nivel="PROXIMO_A_VENCER",
                     link_destino="/elementos-limpieza",
@@ -124,6 +132,7 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
                 id_notificacion=f"plan-calibracion-mantenimiento-{plan.id}",
                 tipo="PLAN_CALIBRACION" if es_calibracion else "PLAN_MANTENIMIENTO",
                 entidad_id=plan.id,
+                entidad_nombre=plan.equipo.nombre,
                 titulo=f"{tipo_intervencion} {sufijo}",
                 mensaje=mensaje,
                 nivel=nivel,
@@ -212,7 +221,8 @@ def obtener_notificaciones_vencimientos_personal(db: Session) -> List[Notificaci
             NotificacionResponse(
                 id_notificacion=f"vencimiento-personal-{venc.id}",
                 tipo="VENCIMIENTO_PERSONAL",
-                entidad_id=venc.id,          # <- id del vencimiento
+                entidad_id=venc.id,
+                entidad_nombre=f"'{aptitud}' de {persona}",
                 titulo=titulo,
                 mensaje=mensaje,
                 nivel=nivel,
@@ -310,6 +320,7 @@ def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]
             id_notificacion=f"stock-bajo-{fila.id}",
             tipo="STOCK_BAJO",
             entidad_id=fila.id,
+            entidad_nombre=fila.nombre,
             titulo="Stock bajo",
             mensaje=(
                 f"El insumo '{fila.nombre}' tiene {fila.cantidad_actual} {fila.simbolo} "
@@ -346,6 +357,7 @@ def _filas_a_respuestas(filas) -> List[NotificacionResponse]:
             id_notificacion=f.id_notificacion,
             tipo=f.tipo,
             entidad_id=f.entidad_id,
+            entidad_nombre=f.entidad_nombre,
             titulo=f.titulo,
             mensaje=f.mensaje,
             nivel=f.nivel,
@@ -403,6 +415,7 @@ def calcular_filas_notificaciones(db: Session) -> list[dict]:
                 "id_notificacion": original.id_notificacion if original else a.clave,
                 "tipo": original.tipo if original else a.origen,
                 "entidad_id": a.entidad_id,
+                "entidad_nombre": a.entidad_nombre,
                 "titulo": _recortar(a.titulo, 200),
                 "mensaje": _recortar(original.mensaje if original else a.detalle, 500),
                 "nivel": original.nivel if original else a.criticidad.upper(),
@@ -599,3 +612,19 @@ def obtener_notificaciones_paginadas(
     total = len(filtradas)
     inicio = (page - 1) * page_size
     return filtradas[inicio : inicio + page_size], total, contadores
+
+
+def obtener_meta_cumplimiento_limpieza(db: Session) -> int:
+    """Porcentaje de cumplimiento de limpieza esperado (ver la constante)."""
+    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    return config.valor if config else META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO
+
+
+def actualizar_meta_cumplimiento_limpieza(db: Session, porcentaje: int) -> int:
+    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    if config:
+        config.valor = porcentaje
+    else:
+        db.add(ConfiguracionAlerta(clave=CLAVE_META_CUMPLIMIENTO_LIMPIEZA, valor=porcentaje))
+    db.commit()
+    return porcentaje

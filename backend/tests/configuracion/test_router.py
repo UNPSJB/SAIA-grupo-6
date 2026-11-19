@@ -68,6 +68,7 @@ def test_actualizar_alertas_guarda_y_devuelve_el_valor(client, usuarios):
     esperado = {
         "dias_alerta_vencimiento_personal": 30,
         "plazo_reclamo_dias": antes["plazo_reclamo_dias"],
+        "meta_cumplimiento_limpieza": antes["meta_cumplimiento_limpieza"],
     }
     assert guardado.status_code == 200
     assert guardado.json() == esperado
@@ -103,6 +104,7 @@ def test_actualizar_solo_los_dias_de_alerta_no_pisa_el_plazo(client, usuarios):
     assert respuesta.json() == {
         "dias_alerta_vencimiento_personal": nuevos_dias,
         "plazo_reclamo_dias": antes["plazo_reclamo_dias"],
+        "meta_cumplimiento_limpieza": antes["meta_cumplimiento_limpieza"],
     }
 
 
@@ -132,6 +134,7 @@ def test_actualizar_solo_el_plazo_no_pisa_los_dias_de_alerta(client, usuarios):
             "dias_alerta_vencimiento_personal"
         ],
         "plazo_reclamo_dias": nuevo_plazo,
+        "meta_cumplimiento_limpieza": antes["meta_cumplimiento_limpieza"],
     }
 
 
@@ -215,3 +218,28 @@ def test_los_endpoints_viejos_de_notificaciones_ya_no_existen(client, usuarios):
 
     # Assert
     assert respuesta.status_code == 404
+
+
+def test_meta_de_limpieza_por_defecto_y_actualizable(client, usuarios):
+    # Arrange
+    antes = _configuracion(client, usuarios["admin"])
+
+    # Act
+    try:
+        guardado = client.put(URL, json={"meta_cumplimiento_limpieza": 90}, headers=usuarios["admin"])
+        fuera_de_rango = client.put(URL, json={"meta_cumplimiento_limpieza": 120}, headers=usuarios["admin"])
+        leido = _configuracion(client, usuarios["admin"])
+    finally:
+        client.put(
+            URL,
+            json={"meta_cumplimiento_limpieza": antes["meta_cumplimiento_limpieza"]},
+            headers=usuarios["admin"],
+        )
+
+    # Assert
+    assert antes["meta_cumplimiento_limpieza"] == 100
+    assert guardado.status_code == 200
+    assert fuera_de_rango.status_code == 422
+    assert leido["meta_cumplimiento_limpieza"] == 90
+    # Cambiar la meta no toca los otros ajustes.
+    assert leido["plazo_reclamo_dias"] == antes["plazo_reclamo_dias"]

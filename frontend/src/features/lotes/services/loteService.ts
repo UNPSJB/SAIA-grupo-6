@@ -9,11 +9,13 @@ import type {
   LoteDetalle,
   LoteResumen,
 } from "../types/lote";
+import type { LoteTimelineResponse } from "../types/timeline";
 
 function queryFiltros(filtros: FiltrosLotes = {}): string {
   const params = new URLSearchParams();
 
   if (filtros.estado) params.set("estado", filtros.estado);
+  if (filtros.productoId) params.set("producto_id", filtros.productoId);
   if (filtros.fechaDesde) params.set("fecha_desde", filtros.fechaDesde);
   if (filtros.fechaHasta) params.set("fecha_hasta", filtros.fechaHasta);
 
@@ -109,4 +111,9 @@ export async function obtenerDashboardLotes(
       cantidad_producida: Number(p.cantidad_producida),
     })),
   };
+}
+
+export async function getTimelineLote(loteId: number): Promise<LoteTimelineResponse> {
+  const response = await apiFetch(`${API_URL}/lotes/${loteId}/timeline`);
+  return pedir<LoteTimelineResponse>(response, "Error al obtener la línea de tiempo del lote");
 }

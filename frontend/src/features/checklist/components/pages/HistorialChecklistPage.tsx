@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { Badge, Box, Field, Table, Text } from "@chakra-ui/react";
+import { Box, Field, HStack, Table, Text } from "@chakra-ui/react";
 import { LuRefreshCw } from "react-icons/lu";
 import { useSearchParams } from "react-router-dom";
 import { useHistorialChecklists } from "../../hooks/useHistorialChecklists";
@@ -36,7 +36,9 @@ import {
   LabelFiltro,
   Paginacion,
   Tarjeta,
-  TextoTruncado,
+  DatoPrincipal,
+  EtiquetaEstado,
+  ProgresoTareas,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonesExportar } from "../../../../features/exportacion";
@@ -53,9 +55,9 @@ const ETIQUETAS_ORDEN: Record<ColumnaHistorial, string> = {
 
 /** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
 function colorPorcentaje(pct: number): string {
-  if (pct >= 80) return "green.600";
+  if (pct >= 80) return "green.fg";
   if (pct >= 50) return "orange.400";
-  return "red.700";
+  return "red.fg";
 }
 
 export function HistorialChecklistPage() {
@@ -88,8 +90,23 @@ export function HistorialChecklistPage() {
   const [checklistSeleccionado, setChecklistSeleccionado] =
     useState<HistorialChecklistItem | null>(null);
 
+  // Parámetros de llegada desde el panel de notificaciones (click en una
+  // notificación de checklist): filtrar por ese equipo y abrir el detalle.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const equipoIdDesdeUrl = searchParams.get("equipoId");
+  const abrirDetalleDesdeUrl = searchParams.get("abrirDetalle") === "true";
+  const [detalleAutoProcesado, setDetalleAutoProcesado] = useState(false);
+
   const equipoIdFiltro =
     equipoSeleccionado !== "" ? Number(equipoSeleccionado) : undefined;
+
+  // Al llegar desde una notificación de checklist, pre-seleccionar el equipo
+  // de la alerta en el filtro del historial. Se hace durante el render (no en
+  // un efecto) para seguir el mismo patrón que el ajuste de página fuera de
+  // rango más abajo y evitar la regla set-state-in-effect.
+  if (equipoIdDesdeUrl && equipoSeleccionado !== equipoIdDesdeUrl) {
+    setEquipoSeleccionado(equipoIdDesdeUrl);
+  }
 
   const { equipos } = useEquipos();
 
@@ -129,6 +146,26 @@ export function HistorialChecklistPage() {
   // `items` es la página actual; el cumplimiento general y el total vienen
   // calculados sobre TODO el período en el backend.
   const checklists = useMemo(() => historial?.items ?? [], [historial]);
+
+  // Al llegar desde una notificación de checklist con `abrirDetalle`, abrir
+  // el detalle del primer checklist una vez cargados los datos. Se hace
+  // durante el render (patrón igual al ajuste de página fuera de rango más
+  // abajo) para evitar set-state-in-effect. La bandera `detalleAutoProcesado`
+  // evita volver a abrir si el usuario cierra el diálogo. Los parámetros de
+  // la URL se limpian para no reprocesar en recargas.
+  if (
+    abrirDetalleDesdeUrl &&
+    !detalleAutoProcesado &&
+    checklists.length > 0
+  ) {
+    setDetalleAutoProcesado(true);
+    setChecklistSeleccionado(checklists[0]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("equipoId");
+    params.delete("abrirDetalle");
+    setSearchParams(params.toString(), { replace: true });
+  }
+
   const total = historial?.total ?? 0;
   const totalPaginas = historial?.total_paginas ?? 1;
   const hayVariasPaginas = totalPaginas > 1;
@@ -354,8 +391,8 @@ export function HistorialChecklistPage() {
                   <EncabezadoOrdenable columna="equipo" orden={orden} ancho="media">
                     Equipo
                   </EncabezadoOrdenable>
-                  <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-                  <EncabezadoOscuro numero center ancho="media">Cumplimiento</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="amplia">Cumplimiento</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="media">
                     Incumplidas
                   </EncabezadoOscuro>
@@ -368,31 +405,28 @@ export function HistorialChecklistPage() {
                 {checklists.map((cl) => (
                   <Fragment key={cl.checklist_id}>
                     <FilaClickeable onAbrir={() => setChecklistSeleccionado(cl)}>
-                      <Celda>{formatoFecha(cl.fecha)}</Celda>
+                      <Celda whiteSpace="nowrap">{formatoFecha(cl.fecha)}</Celda>
                       <Celda>
-                        <TextoTruncado texto={cl.equipo_nombre} />
+                        <DatoPrincipal titulo={cl.equipo_nombre} />
                       </Celda>
-                      <Celda>
-                        <Badge
-                          colorPalette={cl.estado === "cerrado" ? "green" : "orange"}
-                          rounded="md"
-                          px="2"
-                          py="1"
-                          textTransform="capitalize"
-                          maxW="100%"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                        >
-                          {cl.estado}
-                        </Badge>
+                      <Celda center>
+                        <EtiquetaEstado tono={cl.estado === "cerrado" ? "ok" : "alerta"}>
+                          {cl.estado.charAt(0).toUpperCase() + cl.estado.slice(1)}
+                        </EtiquetaEstado>
                       </Celda>
-                      <Celda numero center>
-                        <Text fontWeight="bold" color={colorPorcentaje(cl.porcentaje_cumplimiento)}>
-                          {formatoPorcentaje(cl.porcentaje_cumplimiento)}
-                        </Text>
-                        <Text fontSize="xs" color="fg.muted">
-                          {cl.tareas_completadas}/{cl.total_tareas}
-                        </Text>
+                      <Celda center>
+                        <HStack justify="center" gap="2">
+                          <ProgresoTareas hechas={cl.tareas_completadas} total={cl.total_tareas} />
+                          <Text
+                            as="span"
+                            fontSize="sm"
+                            fontWeight="semibold"
+                            fontVariantNumeric="tabular-nums"
+                            color={colorPorcentaje(cl.porcentaje_cumplimiento)}
+                          >
+                            {formatoPorcentaje(cl.porcentaje_cumplimiento)}
+                          </Text>
+                        </HStack>
                       </Celda>
                       <Celda center>
                         {cl.tareas_incumplidas.length === 0 ? (
@@ -421,7 +455,7 @@ export function HistorialChecklistPage() {
                           py="3"
                           borderBottomWidth="1px"
                           borderColor="border.subtle"
-                          bg="red.50"
+                          bg="red.subtle"
                         >
                           <Text fontSize="sm" fontWeight="bold" color="red.fg" mb="2">
                             Tareas incumplidas:

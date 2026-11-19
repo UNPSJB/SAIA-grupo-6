@@ -17,7 +17,11 @@ import {
   faltantes,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
-import { cantidadConUnidad } from "../../../common/utils/numeros";
+import {
+  cantidadConUnidad,
+  cantidadValidaParaUnidad,
+  propsCampoCantidad,
+} from "../../../common/utils/numeros";
 import { hoyISO, formatoFecha } from "../../../common/utils/fechas";
 import {
   listarClientesDisponibles,
@@ -235,9 +239,12 @@ export function ModalReservarLote({
     fecha_reserva: [!values.fecha_reserva.trim(), "la fecha"],
   });
 
+  const cantidadNoEntera =
+    values.cantidad.trim() !== "" &&
+    !cantidadValidaParaUnidad(values.cantidad, loteSeleccionado?.unidad);
   const cantidadInvalida =
     values.cantidad.trim() !== "" &&
-    (Number(values.cantidad) <= 0 || Number(values.cantidad) > saldoMax);
+    (Number(values.cantidad) <= 0 || Number(values.cantidad) > saldoMax || cantidadNoEntera);
 
   const fechaInvalida =
     values.fecha_reserva.trim() !== "" &&
@@ -364,7 +371,9 @@ export function ModalReservarLote({
                 (intentado && faltan.tiene("cantidad")) || cantidadInvalida
               }
               helper={
-                cantidadInvalida
+                cantidadNoEntera
+                  ? "El producto se vende por unidad: la cantidad tiene que ser un número entero."
+                  : cantidadInvalida
                   ? `La cantidad debe ser mayor a 0 y menor o igual al saldo (${cantidadConUnidad(saldoMax, loteSeleccionado?.unidad)}).`
                   : `Saldo disponible: ${cantidadConUnidad(saldoMax, loteSeleccionado?.unidad)}`
               }
@@ -380,7 +389,7 @@ export function ModalReservarLote({
               >
                 <FormInput
                   type="number"
-                  step={loteSeleccionado?.unidad === "un" ? "1" : "0.001"}
+                  {...propsCampoCantidad(loteSeleccionado?.unidad)}
                   min="0"
                   value={values.cantidad}
                   onChange={(e) => setValues({ ...values, cantidad: e.target.value })}

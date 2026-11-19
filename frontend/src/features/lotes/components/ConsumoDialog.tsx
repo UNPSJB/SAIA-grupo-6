@@ -111,10 +111,10 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
                 <Box
                   key={texto}
                   role="alert"
-                  bg="orange.50"
+                  bg="orange.subtle"
                   color="orange.fg"
                   borderWidth="1px"
-                  borderColor="orange.200"
+                  borderColor="orange.border"
                   rounded="md"
                   px="4"
                   py="3"

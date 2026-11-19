@@ -179,7 +179,7 @@ export function ElementosLimpiezaPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando elementos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando elementos...</EstadoCargando>}
 
       {!loading && !error && (
         <>

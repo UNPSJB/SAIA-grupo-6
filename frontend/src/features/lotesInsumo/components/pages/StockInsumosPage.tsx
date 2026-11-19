@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, HStack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { formatoFecha } from "../../../../common/utils/fechas";
@@ -28,6 +28,8 @@ import {
   Tarjeta,
   TextoTruncado,
   ToggleInactivos,
+  DatoPrincipal,
+  CantidadConUnidad,
 } from "../../../../components/ui/patrones";
 import { useInsumosActivos, useStockInsumos, useStockLotes } from "../../hooks/useStockInsumos";
 import { darDeBajaLoteInsumo } from "../../services/loteInsumoService";
@@ -98,7 +100,7 @@ function TabStockPorInsumo() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando stock...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando stock...</EstadoCargando>}
       {!loading && !error && stock.length === 0 && <EstadoVacio>No hay insumos registrados.</EstadoVacio>}
       {!loading && !error && stock.length > 0 && visibles.length === 0 && (
         <EstadoVacioFiltrado onLimpiar={limpiar}>No hay insumos que coincidan con los filtros aplicados.</EstadoVacioFiltrado>
@@ -122,15 +124,21 @@ function TabStockPorInsumo() {
                 {paginados.map((s) => (
                   <Table.Row key={s.insumo_id}>
                     <Celda>
-                      <TextoTruncado texto={s.insumo_nombre} lineClamp={1} />
+                      <DatoPrincipal titulo={s.insumo_nombre} />
                     </Celda>
-                    <Celda numero>{cantidadConUnidad(s.cantidad_recibida, s.unidad)}</Celda>
-                    <Celda numero>{cantidadConUnidad(s.consumo_real, s.unidad)}</Celda>
-                    <Celda numero>{cantidadConUnidad(s.desperdicio, s.unidad)}</Celda>
                     <Celda numero>
-                      <Text as="span" fontWeight="bold">
-                        {cantidadConUnidad(s.stock, s.unidad)}
-                      </Text>
+                      <CantidadConUnidad valor={s.cantidad_recibida} unidad={s.unidad} />
+                    </Celda>
+                    <Celda numero>
+                      <CantidadConUnidad valor={s.consumo_real} unidad={s.unidad} />
+                    </Celda>
+                    <Celda numero>
+                      <CantidadConUnidad valor={s.desperdicio} unidad={s.unidad} />
+                    </Celda>
+                    <Celda numero>
+                      <Box as="span" fontWeight="bold">
+                        <CantidadConUnidad valor={s.stock} unidad={s.unidad} />
+                      </Box>
                     </Celda>
                     <Celda numero>
                       {Number(s.stock_vencido) > 0 ? (
@@ -257,13 +265,13 @@ function TabLotes() {
               {paginados.map((l) => (
                 <FilaClickeable onAbrir={() => navigate(`/trazabilidad/lotes-insumo/${l.lote_insumo_id}`)} key={l.lote_insumo_id} opacity={l.activo ? 1 : 0.65}>
                   <Celda>
-                    <TextoTruncado texto={l.insumo_nombre} lineClamp={1} />
+                    <DatoPrincipal titulo={l.insumo_nombre} />
                   </Celda>
                   <Celda>
-                    <TextoTruncado texto={l.proveedor_nombre} lineClamp={1} />
+                    <TextoTruncado texto={l.proveedor_nombre} lineClamp={1} color="#64748B" />
                   </Celda>
                   <Celda>
-                    <Text fontFamily="mono" fontSize="sm">
+                    <Text fontFamily="mono" fontSize="sm" color="#64748B">
                       {l.numero_lote}
                     </Text>
                   </Celda>

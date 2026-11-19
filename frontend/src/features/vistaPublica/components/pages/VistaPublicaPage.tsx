@@ -147,7 +147,7 @@ export function VistaPublicaPage() {
             w="14"
             h="14"
             rounded="full"
-            bg="brand.600"
+            bg="brandLight.600"
             color="white"
             align="center"
             justify="center"
@@ -238,8 +238,8 @@ export function VistaPublicaPage() {
                             h="9"
                             flexShrink={0}
                             rounded="full"
-                            bg={`${paleta}.100`}
-                            color={`${paleta}.700`}
+                            bg={`${paleta}.muted`}
+                            color={`${paleta}.fg`}
                             align="center"
                             justify="center"
                           >

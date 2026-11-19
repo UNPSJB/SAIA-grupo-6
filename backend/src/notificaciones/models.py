@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Optional
 from sqlalchemy import DateTime, Date, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.models import ModeloBase
@@ -34,6 +35,7 @@ class NotificacionPersistida(ModeloBase):
     tipo: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     entidad_id: Mapped[int] = mapped_column(Integer, nullable=False)
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
+    entidad_nombre: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     mensaje: Mapped[str] = mapped_column(String(500), nullable=False)
     nivel: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     link_destino: Mapped[str] = mapped_column(String(200), nullable=False)

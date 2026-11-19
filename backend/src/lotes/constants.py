@@ -23,6 +23,12 @@ class ErrorCode:
     ITEM_YA_COMPLETADO = "El ítem del checklist ya fue completado."
     CHECKLIST_INCOMPLETO = "Faltan ítems del checklist por completar."
     CANTIDAD_PRODUCIDA_INVALIDA = "La cantidad producida debe ser mayor a cero."
+    CANTIDAD_PRODUCIDA_NO_ENTERA = (
+        "El producto se elabora por unidad: la cantidad producida tiene que ser un número entero."
+    )
+    CANTIDAD_OBJETIVO_NO_ENTERA = (
+        "El producto se elabora por unidad: la cantidad objetivo tiene que ser un número entero."
+    )
     MOTIVO_VACIO = "El motivo de cancelación no puede estar vacío."
     LOTE_INSUMO_NO_ENCONTRADO = "El lote de insumo no existe."
     LOTE_INSUMO_DADO_DE_BAJA = "El lote de insumo está dado de baja y no se puede consumir."

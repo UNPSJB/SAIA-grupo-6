@@ -1,16 +1,19 @@
-import { Badge, Box, Flex, Table, Text, VStack } from "@chakra-ui/react";
+import type { ReactNode } from "react";
+import { Badge, Flex, Table, VStack } from "@chakra-ui/react";
 import type { Salida } from "../types/salida";
 import { formatoFecha } from "@/common/utils/fechas";
-import { cantidadConUnidad } from "@/common/utils/numeros";
 import { useAuth } from "@/common/context/useAuth";
 import { puedeAdministrar } from "@/common/api/permissions";
 import {
   BotonAccion,
+  CantidadConUnidad,
   Celda,
+  DatoPrincipal,
   EncabezadoOscuro,
   EtiquetaEstado,
+  FilaClickeable,
   FilaEncabezado,
-  Tarjeta,
+  TarjetaTabla,
   type TonoEstado,
 } from "@/components/ui/patrones";
 
@@ -22,8 +25,18 @@ const TONO_ESTADO: Record<string, TonoEstado> = {
   RECHAZADA: "peligro",
 };
 
+const ETIQUETA_ESTADO: Record<string, string> = {
+  RESERVADO: "Reservado",
+  DESPACHADO: "Despachado",
+  ENTREGADO: "Entregado",
+  CANCELADO: "Cancelado",
+  RECHAZADA: "Rechazada",
+};
+
 interface SalidaTableProps {
   salidas: Salida[];
+  /** Pie de la tarjeta (resumen y paginación, `PieTabla`). */
+  pie?: ReactNode;
   onVerDetalle: (salidaId: number) => void;
   onDespachar?: (salidaId: number) => void;
   onCancelar?: (salidaId: number) => void;
@@ -47,11 +60,12 @@ interface SalidaTableProps {
  *   - ENTREGADO: "Registrar reclamo" (si el usuario puede operar)
  *   - CANCELADO / RECHAZADA resuelta: solo "Ver detalle"
  *
- * La fila NO es clickeable: la navegación al detalle se hace únicamente a
- * través del botón de la columna Acciones.
+ * Toda la fila abre el detalle (igual que el botón "Ver detalle"); los
+ * botones de acción no la activan.
  */
 export function SalidaTable({
   salidas,
+  pie,
   onVerDetalle,
   onDespachar,
   onCancelar,
@@ -67,47 +81,41 @@ export function SalidaTable({
   const puedeResolver = puedeAdministrar(user);
 
   return (
-    <Tarjeta overflowX="auto">
+    <TarjetaTabla pie={pie}>
       <Table.Root variant="outline" w="100%" minW="980px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro ancho="amplia">Lote / Producto</EncabezadoOscuro>
+            <EncabezadoOscuro>Producto / Lote</EncabezadoOscuro>
             <EncabezadoOscuro ancho="amplia">Cliente</EncabezadoOscuro>
             <EncabezadoOscuro numero ancho="media">Cantidad</EncabezadoOscuro>
             <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center width="18%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {salidas.map((salida) => (
-            <Table.Row key={salida.id}>
+            <FilaClickeable key={salida.id} onAbrir={() => onVerDetalle(salida.id)}>
               <Celda>
-                <Box>
-                  <Text fontWeight="bold" color="fg" fontSize="sm">
-                    {salida.producto_nombre}
-                  </Text>
-                  <Text fontSize="xs" color="gray.500">
-                    {salida.lote_numero}
-                  </Text>
-                </Box>
+                <DatoPrincipal titulo={salida.producto_nombre} codigo={salida.lote_numero} />
               </Celda>
               <Celda>{salida.cliente_nombre}</Celda>
               <Celda numero>
-                {cantidadConUnidad(salida.cantidad, salida.unidad_medida)}
+                <CantidadConUnidad valor={salida.cantidad} unidad={salida.unidad_medida} />
               </Celda>
-              <Celda>{formatoFecha(salida.fecha_reserva)}</Celda>
-              <Celda>
+              <Celda whiteSpace="nowrap">{formatoFecha(salida.fecha_reserva)}</Celda>
+              <Celda center>
                 {salida.estado === "RECHAZADA" ? (
-                  <VStack align="flex-start" gap="1">
+                  <VStack align="center" gap="1">
                     <EtiquetaEstado
                       tono={TONO_ESTADO[salida.estado] ?? "neutro"}
                     >
-                      {salida.estado}
+                      {ETIQUETA_ESTADO[salida.estado] ?? salida.estado}
                     </EtiquetaEstado>
                     <Badge
                       size="xs"
                       variant="subtle"
+                      rounded="full"
                       colorPalette={
                         salida.disposicion === "REINGRESADA"
                           ? "teal"
@@ -127,7 +135,7 @@ export function SalidaTable({
                   <EtiquetaEstado
                     tono={TONO_ESTADO[salida.estado] ?? "neutro"}
                   >
-                    {salida.estado}
+                    {ETIQUETA_ESTADO[salida.estado] ?? salida.estado}
                   </EtiquetaEstado>
                 )}
               </Celda>
@@ -193,10 +201,10 @@ export function SalidaTable({
                   )}
                 </Flex>
               </Celda>
-            </Table.Row>
+            </FilaClickeable>
           ))}
         </Table.Body>
       </Table.Root>
-    </Tarjeta>
+    </TarjetaTabla>
   );
 }

@@ -86,7 +86,7 @@ export function TablaNutricional({ info }: { info: InfoNutricional }) {
                 <chakra.td {...celda} style={separador} pl={sub ? "7" : "3"} fontWeight={sub ? "normal" : "semibold"}>
                   {f.nombre}
                   {f.faltan_datos && (
-                    <Text as="span" ml="2" fontSize="xs" fontWeight="normal" color="red.600">
+                    <Text as="span" ml="2" fontSize="xs" fontWeight="normal" color="red.fg">
                       faltan datos
                     </Text>
                   )}

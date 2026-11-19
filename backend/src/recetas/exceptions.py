@@ -87,3 +87,7 @@ class EscaladoParametroInvalido(BadRequest):
 
 class RecetaSinVersion(BadRequest):
     DETAIL = ErrorCode.SIN_VERSION
+
+
+class VidaUtilInvalida(BadRequest):
+    DETAIL = ErrorCode.VIDA_UTIL_INVALIDA

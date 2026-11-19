@@ -36,6 +36,14 @@ export function VersionDetalleView({ version }: { version: VersionDetalle }) {
           valor={cantidadConUnidad(version.rendimiento, version.unidad_medida.simbolo)}
         />
         <Dato etiqueta="Porción o unidad de venta" valor={porcion ?? "Sin indicar"} />
+        <Dato
+          etiqueta="Vida útil"
+          valor={
+            version.vida_util_dias !== null && version.vida_util_dias !== undefined
+              ? `${version.vida_util_dias} días`
+              : "Sin definir"
+          }
+        />
         <Dato etiqueta="Creada el" valor={formatoFechaHora(version.creado_en)} />
       </HStack>
 

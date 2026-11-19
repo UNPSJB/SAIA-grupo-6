@@ -31,6 +31,7 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuSprayCan,
+  LuTag,
   LuTruck,
   LuPackageX,
   LuTriangleAlert,
@@ -109,13 +110,14 @@ export const GRUPOS: GrupoMenu[] = [
     entradas: [
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
       { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackagePlus },
-      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquareWarning },
       { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuPackageX },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
       // E11: redondeo, valores diarios y base de composición de la tabla nutricional.
       { to: "/nutricion", label: "Parámetros nutricionales", rol: "administrar", icon: LuApple },
+      // E12.1: versiones de las reglas que deciden si aplica el rotulado frontal.
+      { to: "/rotulado-frontal", label: "Reglas de rotulado frontal", rol: "administrar", icon: LuTag },
       // E13: rotulado según CAA (Capítulo V).
       { to: "/rotulado", label: "Rotulado de productos", rol: "administrar", icon: LuFileText },
     ],
@@ -130,8 +132,6 @@ export const GRUPOS: GrupoMenu[] = [
       { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
       { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
-      { to: "/clientes", label: "Clientes", rol: "administrar", icon: LuHandshake },
-      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuContainer },
     ],
   },
   {
@@ -181,7 +181,7 @@ export const GRUPOS: GrupoMenu[] = [
   {
     id: "calidad",
     label: "Calidad",
-    ayuda: "Incidentes, documentos y vencimientos",
+    ayuda: "Incidentes, reclamos, documentos y vencimientos",
     icon: LuShieldCheck,
     entradas: [
       {
@@ -196,6 +196,7 @@ export const GRUPOS: GrupoMenu[] = [
         rol: "administrar",
         icon: LuClipboardList,
       },
+      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquareWarning },
       { to: "/vencimientos", label: "Vencimientos", rol: "administrar", icon: LuCalendarClock },
       {
         to: "/consulta-documentos",
@@ -210,11 +211,13 @@ export const GRUPOS: GrupoMenu[] = [
   {
     id: "personas",
     label: "Personas",
-    ayuda: "Personal y aptitudes",
+    ayuda: "Personal, clientes y transportistas",
     icon: LuContact,
     entradas: [
       { to: "/personal", label: "Personal", rol: "administrar", icon: LuUsers },
       { to: "/aptitudes", label: "Aptitudes", rol: "administrar", icon: LuBadgeCheck },
+      { to: "/clientes", label: "Clientes", rol: "administrar", icon: LuHandshake },
+      { to: "/transportistas", label: "Transportistas", rol: "administrar", icon: LuContainer },
     ],
   },
 ];
@@ -286,4 +289,38 @@ export function esVisibleEntrada(
   if (entrada.rol === "todos") return true;
   if (entrada.rol === "operar") return puedeOperar(user);
   return puedeAdministrar(user);
+}
+
+/**
+ * Orden de las pantallas tal como se leen en la barra, de izquierda a
+ * derecha: el Inicio, y por cada categoría su panel y después sus opciones;
+ * al final, Configuración y sus catálogos. Sale de los mismos datos del menú,
+ * así nunca se desincroniza. Lo usa la transición entre pantallas para saber
+ * hacia qué lado barrer.
+ */
+const ORDEN_RUTAS: string[] = [
+  ...MENU.map((e) => e.to),
+  ...GRUPOS.flatMap((g) => [rutaPanel(g), ...g.entradas.map((e) => e.to)]),
+  RUTA_CONFIGURACION,
+  ...CONFIGURACION.map((e) => e.to),
+];
+
+/**
+ * Posición de una ruta en `ORDEN_RUTAS`, o `null` si no es una pantalla del
+ * menú (el perfil, una ruta vieja). Una ficha cuenta como su listado
+ * (`/lotes/12` → `/lotes`); si dos entradas coinciden gana la más específica
+ * (`/checklist/historial` antes que `/checklist`). El Inicio solo coincide
+ * exacto.
+ */
+export function indiceRuta(pathname: string): number | null {
+  let mejor: number | null = null;
+  let largo = -1;
+  ORDEN_RUTAS.forEach((to, i) => {
+    const coincide = to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
+    if (coincide && to.length > largo) {
+      mejor = i;
+      largo = to.length;
+    }
+  });
+  return mejor;
 }

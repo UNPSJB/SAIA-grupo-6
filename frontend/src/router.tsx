@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
-import { lazy, Suspense, useRef, type ReactNode } from "react";
-import { createBrowserRouter, Navigate, Outlet, useParams } from "react-router-dom";
+import { Suspense, useCallback, useRef, type ReactNode } from "react";
+import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
@@ -14,352 +14,356 @@ import { Login } from "./features/Login";
 import { Breadcrumbs } from "./common/components/Breadcrumbs";
 import { RequireAuth, RequireRole } from "./common/components/RequireAuth";          
 import { BarraSuperior } from "./common/components/BarraSuperior";
+import { TransicionCarrusel } from "./common/components/TransicionCarrusel";
 import { useAuth } from "./common/context/useAuth";
 import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
+// `lazyPrecargable` es `lazy()` + la posibilidad de bajar el chunk antes del
+// clic (al pasar el puntero por el enlace): ver `usePrecargaRutas`.
+import { lazyPrecargable, usePrecargaRutas } from "./common/hooks/usePrecargaRutas";
+import { DEGRADADO_MARCA, FONDO_PESTANA } from "./theme";
 
 
 // 0. Panel principal
-const InicioPage = lazy(() =>
+const InicioPage = lazyPrecargable(() =>
   import("./features/dashboard/components/pages/InicioPage").then((mod) => ({ default: mod.InicioPage })),
 );
 
 // 0.a. Panel de cada categoría del menú (Producción, Inventario, ...)
-const PanelCategoriaPage = lazy(() =>
+const PanelCategoriaPage = lazyPrecargable(() =>
   import("./features/dashboard/components/pages/PanelCategoriaPage").then((mod) => ({ default: mod.PanelCategoriaPage })),
 );
 
 // 0.bis. Mi perfil: la ficha propia (datos de /auth/me), sin permisos extra
-const MiPerfilPage = lazy(() =>
+const MiPerfilPage = lazyPrecargable(() =>
   import("./features/personal/components/pages/MiPerfilPage").then((mod) => ({ default: mod.MiPerfilPage })),
 );
 
 // E13: rotulado de productos
-const RotuladoPage = lazy(() =>
+const RotuladoPage = lazyPrecargable(() =>
   import("./features/rotulado/components/pages/RotuladoPage").then((mod) => ({ default: mod.RotuladoPage })),
 );
-const RotuladoEditPage = lazy(() =>
+const RotuladoEditPage = lazyPrecargable(() =>
   import("./features/rotulado/components/pages/RotuladoEditPage").then((mod) => ({ default: mod.RotuladoEditPage })),
 );
 
 // 1. Personal
-const PersonalPage = lazy(() =>
+const PersonalPage = lazyPrecargable(() =>
   import("./features/personal/components/pages/PersonalPage").then((mod) => ({ default: mod.PersonalPage })),
 );
-const PersonalCreatePage = lazy(() =>
+const PersonalCreatePage = lazyPrecargable(() =>
   import("./features/personal/components/pages/PersonalCreatePage").then((mod) => ({ default: mod.PersonalCreatePage })),
 );
-const PersonalEditPage = lazy(() =>
+const PersonalEditPage = lazyPrecargable(() =>
   import("./features/personal/components/pages/PersonalEditPage").then((mod) => ({ default: mod.PersonalEditPage })),
 );
-const PersonalDetailPage = lazy(() =>
+const PersonalDetailPage = lazyPrecargable(() =>
   import("./features/personal/components/pages/PersonalDetailPage").then((mod) => ({ default: mod.PersonalDetailPage })),
 );
 
 // 2. Insumos
-const InsumosPage = lazy(() =>
+const InsumosPage = lazyPrecargable(() =>
   import("./features/insumos/components/pages/InsumosPage").then((mod) => ({ default: mod.InsumosPage })),
 );
-const InsumoCreatePage = lazy(() =>
+const InsumoCreatePage = lazyPrecargable(() =>
   import("./features/insumos/components/pages/InsumoCreatePage").then((mod) => ({ default: mod.InsumoCreatePage })),
 );
-const InsumoEditPage = lazy(() =>
+const InsumoEditPage = lazyPrecargable(() =>
   import("./features/insumos/components/pages/InsumoEditPage").then((mod) => ({ default: mod.InsumoEditPage })),
 );
 
 // Lotes de producción
-const LotesPage = lazy(() =>
+const LotesPage = lazyPrecargable(() =>
   import("./features/lotes/components/pages/LotesPage").then((mod) => ({ default: mod.LotesPage })),
 );
-const LoteCreatePage = lazy(() =>
+const LoteCreatePage = lazyPrecargable(() =>
   import("./features/lotes/components/pages/LoteCreatePage").then((mod) => ({ default: mod.LoteCreatePage })),
 );
-const LoteDetallePage = lazy(() =>
+const LoteDetallePage = lazyPrecargable(() =>
   import("./features/lotes/components/pages/LoteDetallePage").then((mod) => ({ default: mod.LoteDetallePage })),
 );
 // Salidas de producto
-const SalidasPage = lazy(() =>
+const SalidasPage = lazyPrecargable(() =>
   import("./features/salidas/components/pages/SalidasPage").then((mod) => ({ default: mod.SalidasPage })),
 );
-const SalidaDetallePage = lazy(() =>
+const SalidaDetallePage = lazyPrecargable(() =>
   import("./features/salidas/components/pages/SalidaDetallePage").then((mod) => ({ default: mod.SalidaDetallePage })),
 );
 // Historia 20: reclamos de clientes sobre entregas ya realizadas
-const ReclamosPage = lazy(() =>
+const ReclamosPage = lazyPrecargable(() =>
   import("./features/reclamos/components/pages/ReclamosPage").then((mod) => ({ default: mod.ReclamosPage })),
 );
-const ReclamoDetallePage = lazy(() =>
+const ReclamoDetallePage = lazyPrecargable(() =>
   import("./features/reclamos/components/pages/ReclamoDetallePage").then((mod) => ({ default: mod.ReclamoDetallePage })),
 );
 // Historia 21: retiros de lote del mercado
-const RetirosPage = lazy(() =>
+const RetirosPage = lazyPrecargable(() =>
   import("./features/retiros/components/pages/RetirosPage").then((mod) => ({ default: mod.RetirosPage })),
 );
-const RetiroDetallePage = lazy(() =>
+const RetiroDetallePage = lazyPrecargable(() =>
   import("./features/retiros/components/pages/RetiroDetallePage").then((mod) => ({ default: mod.RetiroDetallePage })),
 );
 
 // Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
-const ProductoPage = lazy(() =>
+const ProductoPage = lazyPrecargable(() =>
   import("./features/productos/components/pages/ProductoPage").then((mod) => ({ default: mod.ProductoPage })),
 );
-const ProductoCreatePage = lazy(() =>
+const ProductoCreatePage = lazyPrecargable(() =>
   import("./features/productos/components/pages/ProductoCreatePage").then((mod) => ({ default: mod.ProductoCreatePage })),
 );
-const ProductoEditPage = lazy(() =>
+const ProductoEditPage = lazyPrecargable(() =>
   import("./features/productos/components/pages/ProductoEditPage").then((mod) => ({ default: mod.ProductoEditPage })),
 );
-const RecetasPage = lazy(() =>
+const RecetasPage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetasPage").then((mod) => ({ default: mod.RecetasPage })),
 );
-const RecetaCreatePage = lazy(() =>
+const RecetaCreatePage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaCreatePage").then((mod) => ({ default: mod.RecetaCreatePage })),
 );
-const RecetaDetallePage = lazy(() =>
+const RecetaDetallePage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaDetallePage").then((mod) => ({ default: mod.RecetaDetallePage })),
 );
-const AditivosPage = lazy(() =>
+const AditivosPage = lazyPrecargable(() =>
   import("./features/aditivos/components/pages/AditivosPage").then((mod) => ({ default: mod.AditivosPage })),
 );
-const RecetaNuevaVersionPage = lazy(() =>
+const RecetaNuevaVersionPage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaNuevaVersionPage").then((mod) => ({ default: mod.RecetaNuevaVersionPage })),
 );
-const StockInsumosPage = lazy(() =>
-  import("./features/lotesInsumo/components/pages/StockInsumosPage").then((mod) => ({ default: mod.StockInsumosPage })),
+const StockInsumosPage = lazyPrecargable(() =>
+  import("./features/lotesInsumo/components/StockInsumosPage").then((mod) => ({ default: mod.StockInsumosPage })),
 );
-const LoteInsumoCreatePage = lazy(() =>
+const LoteInsumoCreatePage = lazyPrecargable(() =>
   import("./features/lotesInsumo/components/pages/LoteInsumoCreatePage").then((mod) => ({ default: mod.LoteInsumoCreatePage })),
 );
-const TrazabilidadLoteInsumoPage = lazy(() =>
+const TrazabilidadLoteInsumoPage = lazyPrecargable(() =>
   import("./features/trazabilidad/components/pages/TrazabilidadLoteInsumoPage").then((mod) => ({ default: mod.TrazabilidadLoteInsumoPage })),
 );
+const TrazabilidadLoteCompletoPage = lazyPrecargable(() =>
+  import("./features/trazabilidad/components/pages/TrazabilidadLoteCompletoPage").then((mod) => ({ default: mod.TrazabilidadLoteCompletoPage })),
+);
 
-const RecetaComposicionPage = lazy(() =>
+const RecetaComposicionPage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaComposicionPage").then((mod) => ({ default: mod.RecetaComposicionPage })),
 );
 
 // 3. Equipos
-const EquiposPage = lazy(() =>
+const EquiposPage = lazyPrecargable(() =>
   import("./features/equipo/components/pages/EquipoPage").then((mod) => ({ default: mod.EquiposPage })),
 );
-const EquipoCreatePage = lazy(() =>
+const EquipoCreatePage = lazyPrecargable(() =>
   import("./features/equipo/components/pages/EquipoCreatePage").then((mod) => ({ default: mod.EquipoCreatePage })),
 );
-const EquipoEditPage = lazy(() =>
+const EquipoEditPage = lazyPrecargable(() =>
   import("./features/equipo/components/pages/EquipoEditPage").then((mod) => ({ default: mod.EquipoEditPage })),
 );
-const EquipoDetailPage = lazy(() =>
+const EquipoDetailPage = lazyPrecargable(() =>
   import("./features/equipo/components/pages/EquipoDetailPage").then((mod) => ({ default: mod.EquipoDetailPage })),
 );
-const EquipoIntervencionPage = lazy(() =>
+const EquipoIntervencionPage = lazyPrecargable(() =>
   import("./features/equipo/components/pages/EquipoIntervencionPage").then((mod) => ({ default: mod.EquipoIntervencionPage })),
 );
 
 // Elementos de Limpieza
-const ElementosLimpiezaPage = lazy(() =>
+const ElementosLimpiezaPage = lazyPrecargable(() =>
   import("./features/elementoLimpieza/components/pages/ElementoLimpiezaPage").then((mod) => ({ default: mod.ElementosLimpiezaPage })),
 );
-const ElementoLimpiezaCreatePage = lazy(() =>
+const ElementoLimpiezaCreatePage = lazyPrecargable(() =>
   import("./features/elementoLimpieza/components/pages/ElementoLimpiezaCreatePage").then((mod) => ({ default: mod.ElementoLimpiezaCreatePage })),
 );
-const ElementoLimpiezaEditPage = lazy(() =>
+const ElementoLimpiezaEditPage = lazyPrecargable(() =>
   import("./features/elementoLimpieza/components/pages/ElementoLimpiezaEditPage").then((mod) => ({ default: mod.ElementoLimpiezaEditPage })),
 );
 
 // 4. Planes de Limpieza
-const PlanLimpiezaPage = lazy(() =>
+const PlanLimpiezaPage = lazyPrecargable(() =>
   import("./features/planLimpieza/components/pages/PlanLimpiezaPage").then((mod) => ({ default: mod.PlanLimpiezaPage })),
 );
-const PlanLimpiezaCreatePage = lazy(() =>
+const PlanLimpiezaCreatePage = lazyPrecargable(() =>
   import("./features/planLimpieza/components/pages/PlanLimpiezaCreatePage").then((mod) => ({ default: mod.PlanLimpiezaCreatePage })),
 );
-const PlanLimpiezaEditPage = lazy(() =>
+const PlanLimpiezaEditPage = lazyPrecargable(() =>
   import("./features/planLimpieza/components/pages/PlanLimpiezaEditPage").then((mod) => ({ default: mod.PlanLimpiezaEditPage })),
 );
 
 // Planes de Calibración/Mantenimiento
-const PlanCalibracionMantenimientoPage = lazy(() =>
+const PlanCalibracionMantenimientoPage = lazyPrecargable(() =>
   import("./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoPage").then((mod) => ({ default: mod.PlanCalibracionMantenimientoPage })),
 );
-const PlanCalibracionMantenimientoCreatePage = lazy(() =>
+const PlanCalibracionMantenimientoCreatePage = lazyPrecargable(() =>
   import("./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoCreatePage").then((mod) => ({ default: mod.PlanCalibracionMantenimientoCreatePage })),
 );
-const PlanCalibracionMantenimientoEditPage = lazy(() =>
+const PlanCalibracionMantenimientoEditPage = lazyPrecargable(() =>
   import("./features/planCalibracionMantenimiento/components/pages/PlanCalibracionMantenimientoEditPage").then((mod) => ({ default: mod.PlanCalibracionMantenimientoEditPage })),
 );
 
 // 5. Checklist
-const ChecklistPage = lazy(() =>
+const ChecklistPage = lazyPrecargable(() =>
   import("./features/checklist/components/pages/ChecklistPage").then((mod) => ({ default: mod.ChecklistPage })),
 );
-const HistorialChecklistPage = lazy(() =>
+const HistorialChecklistPage = lazyPrecargable(() =>
   import("./features/checklist/components/pages/HistorialChecklistPage").then((mod) => ({ default: mod.HistorialChecklistPage })),
-);
-const ConsumoInsumosPage = lazy(() =>
-  import("./features/checklist/components/pages/ConsumoInsumosPage").then((mod) => ({ default: mod.ConsumoInsumosPage })),
 );
 
 // 9. Documentos
-const DocumentosPage = lazy(() =>
+const DocumentosPage = lazyPrecargable(() =>
   import("./features/documentos/pages/documentosPages").then((mod) => ({ default: mod.DocumentosPage })),
 );
-const DocumentoCreatePage = lazy(() =>
+const DocumentoCreatePage = lazyPrecargable(() =>
   import("./features/documentos/pages/documentoCreatePage").then((mod) => ({ default: mod.DocumentoCreatePage })),
 );
-const DocumentoNuevaVersionPage = lazy(() =>
+const DocumentoNuevaVersionPage = lazyPrecargable(() =>
   import("./features/documentos/pages/documentoNuevaVersionPage").then((mod) => ({ default: mod.DocumentoNuevaVersionPage })),
 );
-const DocumentoHistorialPage = lazy(() =>
+const DocumentoHistorialPage = lazyPrecargable(() =>
   import("./features/documentos/pages/documentoHistorialPage").then((mod) => ({ default: mod.DocumentoHistorialPage })),
 );
-const ConsultaDocumentosPage = lazy(() =>
+const ConsultaDocumentosPage = lazyPrecargable(() =>
   import("./features/documentos/pages/consultaDocumentosPage").then((mod) => ({ default: mod.ConsultaDocumentosPage })),
 );
 
 // 6. Insumos Químicos
-const InsumosQuimicosPage = lazy(() =>
+const InsumosQuimicosPage = lazyPrecargable(() =>
   import("./features/insumoQuimico/components/pages/InsumosQuimicosPage").then((mod) => ({ default: mod.InsumosQuimicosPage })),
 );
-const InsumoQuimicoCreatePage = lazy(() =>
+const InsumoQuimicoCreatePage = lazyPrecargable(() =>
   import("./features/insumoQuimico/components/pages/InsumoQuimicoCreatePage").then((mod) => ({ default: mod.InsumoQuimicoCreatePage })),
 );
-const InsumoQuimicoEditPage = lazy(() =>
+const InsumoQuimicoEditPage = lazyPrecargable(() =>
   import("./features/insumoQuimico/components/pages/InsumoQuimicoEditPage").then((mod) => ({ default: mod.InsumoQuimicoEditPage })),
 );
-const GestionStockPage = lazy(() =>
+const GestionStockPage = lazyPrecargable(() =>
   import("./features/insumoQuimico/components/pages/GestionStockPage").then((mod) => ({ default: mod.GestionStockPage })),
-);
-const StockActualTab = lazy(() =>
-  import("./features/insumoQuimico/components/StockActualTab").then((mod) => ({ default: mod.StockActualTab })),
-);
-const MovimientosStockTab = lazy(() =>
-  import("./features/insumoQuimico/components/MovimientosStockTab").then((mod) => ({ default: mod.MovimientosStockTab })),
-);
-const LotesStockTab = lazy(() =>
-  import("./features/insumoQuimico/components/LotesStockTab").then((mod) => ({ default: mod.LotesStockTab })),
 );
 
 // Proveedores
-const ProveedorPage = lazy(() =>
+const ProveedorPage = lazyPrecargable(() =>
   import("./features/proveedores/components/pages/ProveedorPage").then((mod) => ({ default: mod.ProveedorPage })),
 );
-const ProveedorCreatePage = lazy(() =>
+const ProveedorCreatePage = lazyPrecargable(() =>
   import("./features/proveedores/components/pages/ProveedorCreatePage").then((mod) => ({ default: mod.ProveedorCreatePage })),
 );
-const ProveedorEditPage = lazy(() =>
+const ProveedorEditPage = lazyPrecargable(() =>
   import("./features/proveedores/components/pages/ProveedorEditPage").then((mod) => ({ default: mod.ProveedorEditPage })),
 );
 
 // Clientes
-const ClientesPage = lazy(() =>
+const ClientesPage = lazyPrecargable(() =>
   import("./features/clientes/components/pages/ClientesPage").then((mod) => ({ default: mod.ClientesPage })),
 );
 // Transportistas
-const TransportistasPage = lazy(() =>
+const TransportistasPage = lazyPrecargable(() =>
   import("./features/transportistas/components/pages/TransportistasPage").then((mod) => ({ default: mod.TransportistasPage })),
 );
-const TransportistaCreatePage = lazy(() =>
+const TransportistaCreatePage = lazyPrecargable(() =>
   import("./features/transportistas/components/pages/TransportistaCreatePage").then((mod) => ({ default: mod.TransportistaCreatePage })),
 );
-const TransportistaEditPage = lazy(() =>
+const TransportistaEditPage = lazyPrecargable(() =>
   import("./features/transportistas/components/pages/TransportistaEditPage").then((mod) => ({ default: mod.TransportistaEditPage })),
 );
-const TransportistaDetallePage = lazy(() =>
+const TransportistaDetallePage = lazyPrecargable(() =>
   import("./features/transportistas/components/pages/TransportistaDetallePage").then((mod) => ({ default: mod.TransportistaDetallePage })),
 );
-const ClienteCreatePage = lazy(() =>
+const ClienteCreatePage = lazyPrecargable(() =>
   import("./features/clientes/components/pages/ClienteCreatePage").then((mod) => ({ default: mod.ClienteCreatePage })),
 );
-const ClienteEditPage = lazy(() =>
+const ClienteEditPage = lazyPrecargable(() =>
   import("./features/clientes/components/pages/ClienteEditPage").then((mod) => ({ default: mod.ClienteEditPage })),
 );
-const ClienteDetailPage = lazy(() =>
+const ClienteDetailPage = lazyPrecargable(() =>
   import("./features/clientes/components/pages/ClienteDetailPage").then((mod) => ({ default: mod.ClienteDetailPage })),
 );
 
 // Notificaciones
-const NotificacionesPage = lazy(() =>
+const NotificacionesPage = lazyPrecargable(() =>
   import("./features/notificaciones/components/pages/NotificacionesPage").then((mod) => ({ default: mod.NotificacionesPage })),
 );
 
 // E11: tabla de información nutricional
-const DatosNutricionalesInsumoPage = lazy(() =>
+const DatosNutricionalesInsumoPage = lazyPrecargable(() =>
   import("./features/nutricion/components/pages/DatosNutricionalesInsumoPage").then((mod) => ({ default: mod.DatosNutricionalesInsumoPage })),
 );
-const InfoNutricionalProductoPage = lazy(() =>
+const InfoNutricionalProductoPage = lazyPrecargable(() =>
   import("./features/nutricion/components/pages/InfoNutricionalProductoPage").then((mod) => ({ default: mod.InfoNutricionalProductoPage })),
 );
-const ParametrosNutricionPage = lazy(() =>
+const ParametrosNutricionPage = lazyPrecargable(() =>
   import("./features/nutricion/components/pages/ParametrosNutricionPage").then((mod) => ({ default: mod.ParametrosNutricionPage })),
 );
 
+// E12.1: aplicabilidad del rotulado frontal
+const RotuladoFrontalProductoPage = lazyPrecargable(() =>
+  import("./features/rotuladoFrontal/components/pages/RotuladoFrontalProductoPage").then((mod) => ({ default: mod.RotuladoFrontalProductoPage })),
+);
+const ReglasRotuladoFrontalPage = lazyPrecargable(() =>
+  import("./features/rotuladoFrontal/components/pages/ReglasRotuladoFrontalPage").then((mod) => ({ default: mod.ReglasRotuladoFrontalPage })),
+);
+
 // Configuración: ajustes del sistema, desde el menú de usuario (solo administradores)
-const ConfiguracionPage = lazy(() =>
+const ConfiguracionPage = lazyPrecargable(() =>
   import("./features/configuracion/components/pages/ConfiguracionPage").then((mod) => ({ default: mod.ConfiguracionPage })),
 );
 
 // 7. Unidad de Medida
-const UnidadMedidaPage = lazy(() =>
+const UnidadMedidaPage = lazyPrecargable(() =>
   import("./features/unidadMedida/components/pages/UnidadMedidaPage").then((mod) => ({ default: mod.UnidadMedidaPage })),
 );
-const UnidadMedidaCreatePage = lazy(() =>
+const UnidadMedidaCreatePage = lazyPrecargable(() =>
   import("./features/unidadMedida/components/pages/UnidadMedidaCreatePage").then((mod) => ({ default: mod.UnidadMedidaCreatePage })),
 );
-const UnidadMedidaEditPage = lazy(() =>
+const UnidadMedidaEditPage = lazyPrecargable(() =>
   import("./features/unidadMedida/components/pages/UnidadMedidaEditPage").then(
     (mod) => ({ default: mod.UnidadMedidaEditPage }),
   ),
 );
 // 8. Importamos del modulo Aptitud
-const AptitudPage = lazy(() =>
+const AptitudPage = lazyPrecargable(() =>
   import("./features/aptitud/components/pages/AptitudPage").then((mod) => ({ default: mod.AptitudPage })),
 );
-const AptitudCreatePage = lazy(() =>
+const AptitudCreatePage = lazyPrecargable(() =>
   import("./features/aptitud/components/pages/AptitudCreatePage").then((mod) => ({ default: mod.AptitudCreatePage })),
 );
-const AptitudEditPage = lazy(() =>
+const AptitudEditPage = lazyPrecargable(() =>
   import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
 );
 
 //  Sector
-const SectorPage = lazy(() =>
+const SectorPage = lazyPrecargable(() =>
   import("./features/sector/components/pages/SectorPage").then((mod) => ({ default: mod.SectorPage })),
 );
-const SectorCreatePage = lazy(() =>
+const SectorCreatePage = lazyPrecargable(() =>
   import("./features/sector/components/pages/SectorCreatePage").then((mod) => ({ default: mod.SectorCreatePage })),
 );
-const SectorEditPage = lazy(() =>
+const SectorEditPage = lazyPrecargable(() =>
   import("./features/sector/components/pages/SectorEditPage").then((mod) => ({ default: mod.SectorEditPage })),
 );
 
 // Auditoría
-const AuditoriaPage = lazy(() =>
+const AuditoriaPage = lazyPrecargable(() =>
   import("./features/auditoria/components/pages/AuditoriaPage").then((mod) => ({ default: mod.AuditoriaPage })),
 );
 
 // Vista pública: configuración administrativa y página provisional anónima.
-const VistaPublicaSettingsPage = lazy(() =>
+const VistaPublicaSettingsPage = lazyPrecargable(() =>
   import("./features/vistaPublica/components/pages/VistaPublicaSettingsPage").then((mod) => ({
     default: mod.VistaPublicaSettingsPage,
   })),
 );
-const VistaPublicaPage = lazy(() =>
+const VistaPublicaPage = lazyPrecargable(() =>
   import("./features/vistaPublica/components/pages/VistaPublicaPage").then((mod) => ({
     default: mod.VistaPublicaPage,
   })),
 );
 
 // 9. Incidentes
-const IncidentesListPage = lazy(() =>
+const IncidentesListPage = lazyPrecargable(() =>
   import("./features/incidente/components/pages/IncidentesListPage").then((mod) => ({ default: mod.IncidentesListPage })),
 );
-const IncidenteDetailPage = lazy(() =>
+const IncidenteDetailPage = lazyPrecargable(() =>
   import("./features/incidente/components/pages/IncidenteDetailPage").then((mod) => ({ default: mod.IncidenteDetailPage })),
 );
-const ReportarIncidentePage = lazy(() =>
+const ReportarIncidentePage = lazyPrecargable(() =>
   import("./features/incidente/components/pages/ReportarIncidentePage").then((mod) => ({ default: mod.ReportarIncidentePage })),
 );
 
-const VencimientosPage = lazy(() =>
+const VencimientosPage = lazyPrecargable(() =>
   import("./features/vencimientos/components/pages/VencimientosPage").then((mod) => ({
     default: mod.VencimientosPage,
   })),
@@ -374,7 +378,9 @@ function ConSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <Flex p="40px" justify="center">
+        // Mismo alto que la carga de una pantalla (ver `EstadoCargando`): la
+        // página que entra con el barrido no pega un tirón al aparecer.
+        <Flex p="40px" justify="center" align="center" minH="420px">
           <Spinner size="lg" color="brand.500" />
         </Flex>
       }
@@ -384,50 +390,90 @@ function ConSuspense({ children }: { children: ReactNode }) {
   );
 }
 
+/** Rutas del router, leídas recién al usarlas (el router se declara más abajo). */
+const leerRutas = () => router.routes;
+
 // Layout principal: barra superior (con el menú de navegación) y migas de pan arriba,
 // y el contenido de la pantalla debajo.
 function LayoutPrincipal() {
   const { user } = useAuth();
   const contenidoRef = useRef<HTMLDivElement>(null);
   useTablasResponsivas(contenidoRef);
+  // Baja el código de cada pantalla cuando el puntero pasa por su enlace, así
+  // la primera visita no se queda esperando el chunk.
+  usePrecargaRutas(leerRutas);
+  // En el Inicio, toda la pantalla (barra superior y migas incluidas) va
+  // sobre el degradado teal de la marca, y las tarjetas blancas encima.
+  const { pathname } = useLocation();
+  const enInicio = pathname === "/";
+  // Para el barrido entre pantallas: el elemento cuyo fondo se copia en la
+  // vista que se va.
+  const fondoRef = useRef<HTMLDivElement>(null);
+  const fondoDe = useCallback(() => fondoRef.current, []);
 
   return (
     <Flex h="100vh" overflow="hidden" bg="brand.50">
-      <Flex flex={1} minW={0} direction="column" overflow="hidden">
+      <Flex
+        ref={fondoRef}
+        flex={1}
+        minW={0}
+        direction="column"
+        overflow="hidden"
+        // `bgColor` y no `bg`: `bg` es el atajo de `background` y borraría la
+        // imagen del degradado. El color queda de respaldo.
+        bgColor={enInicio ? "brand.700" : undefined}
+        backgroundImage={enInicio ? DEGRADADO_MARCA : undefined}
+      >
         <BarraSuperior />
         {/*
           Migas de pan debajo de la barra, en su propia franja: así no pisan las
           opciones de la barra. Son el texto más chico de los tres niveles.
           En celular se ocultan (no entran y el título de la página ya dice
-          dónde se está).
+          dónde se está). Quedan FIJAS, fuera del barrido entre pantallas: solo
+          su texto cambia con un fundido, y el color de la franja (transparente
+          en el Inicio, blanco en el resto) se funde al ritmo del barrido.
         */}
         <Box
           display={{ base: "none", md: "block" }}
           flexShrink={0}
           px="30px"
           py="2"
-          bg="white"
+          // Mismo color sólido que la pestaña seleccionada de la barra (se
+          // funden en una pieza). Sin transición de color: si la franja se
+          // fundiera mientras la pestaña ya está, se verían dos tonos.
+          bg={enInicio ? "transparent" : FONDO_PESTANA}
           borderBottomWidth="1px"
-          borderColor="border.subtle"
+          borderColor={enInicio ? "transparent" : "border.subtle"}
+          // Sube 1px por debajo de la barra (y queda por encima): tapa la
+          // línea de subpíxel que el navegador puede dibujar entre el pie de
+          // la pestaña y la franja. La pestaña no puede bajar ella: la lista
+          // de la barra scrollea de costado y recorta en vertical.
+          mt="-1px"
+          position="relative"
           overflowX="auto"
         >
-          <Breadcrumbs />
+          <Box key={pathname} animation="fade-in 220ms ease-out">
+            <Breadcrumbs claro={enInicio} />
+          </Box>
         </Box>
+        {/* La barra y las migas quedan fijas; lo de abajo (avisos y la
+            pantalla) barre de costado al cambiar de pantalla. */}
+        <TransicionCarrusel fondoDe={fondoDe}>
         {/* Banner: recordar al usuario que debe cambiar su contraseña temporal */}
         {user?.debe_cambiar_password && (
           <Box
             mb="4"
             p="3"
-            bg="orange.50"
+            bg="orange.subtle"
             borderWidth="1px"
-            borderColor="orange.300"
+            borderColor="orange.border"
             rounded="md"
             w="full"
           >
-            <Text fontSize="sm" fontWeight="bold" color="orange.800">
+            <Text fontSize="sm" fontWeight="bold" color="orange.fg">
               ⚠️ Debés cambiar tu contraseña
             </Text>
-            <Text fontSize="xs" color="orange.700" mt="1">
+            <Text fontSize="xs" color="orange.fg" mt="1">
               Iniciaste sesión con una contraseña temporal. Por seguridad, cambiála
               desde "Mi perfil" antes de seguir usando el sistema.
             </Text>
@@ -447,10 +493,16 @@ function LayoutPrincipal() {
           px={{ base: "2", md: "30px" }}
           py={{ base: "2", md: "15px" }}
           overflowY="auto"
+          // Sin scroll de costado: la pista del carrusel de sub-pestañas
+          // (`PestanasPagina`) mide `100vw` y, con la barra de scroll
+          // vertical de `main`, asoma unos px por la derecha. Las tablas
+          // anchas tienen su propio scroll horizontal adentro.
+          overflowX="hidden"
           direction="column"
         >
           <Outlet />
         </Flex>
+        </TransicionCarrusel>
       </Flex>
     </Flex>
   );
@@ -990,6 +1042,22 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/productos/:id/rotulado-frontal",
+                element: (
+                  <ConSuspense>
+                    <RotuladoFrontalProductoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/rotulado-frontal",
+                element: (
+                  <ConSuspense>
+                    <ReglasRotuladoFrontalPage />
+                  </ConSuspense>
+                ),
+              },
+              {
                 path: "/insumos/:id/nutricion",
                 element: (
                   <ConSuspense>
@@ -1065,10 +1133,13 @@ export const router = createBrowserRouter([
                 path: "/trazabilidad",
                 element: <Navigate to="/lotes" replace />,
               },
-              // La trazabilidad hacia atrás vive ahora en la ficha del lote.
               {
                 path: "/trazabilidad/lotes-producto/:id",
-                element: <RedirigirConId a={(id) => `/lotes/${id}`} />,
+                element: (
+                  <ConSuspense>
+                    <TrazabilidadLoteCompletoPage />
+                  </ConSuspense>
+                ),
               },
               {
                 path: "/trazabilidad/lotes-insumo/:id",
@@ -1080,7 +1151,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: "/consumo-productos",
-                element: <Navigate to="/gestion-stock/consumos" replace />,
+                element: <Navigate to="/gestion-stock?tab=consumos" replace />,
               },
 
               // ---------------- NOTIFICACIONES ----------------
@@ -1129,50 +1200,21 @@ export const router = createBrowserRouter([
               ),
               },
               {
+                // Las pestañas van en `?tab=` (ver `GestionStockPage`).
                 path: "/gestion-stock",
                 element: (
                   <ConSuspense>
                     <GestionStockPage />
                   </ConSuspense>
                 ),
-                children: [
-                  {
-                    index: true,
-                    element: <Navigate to="/gestion-stock/stock" replace />,
-                  },
-                  {
-                    path: "stock",
-                    element: (
-                      <ConSuspense>
-                        <StockActualTab />
-                      </ConSuspense>
-                    ),
-                  },
-                  {
-                    path: "movimientos",
-                    element: (
-                      <ConSuspense>
-                        <MovimientosStockTab />
-                      </ConSuspense>
-                    ),
-                  },
-                  {
-                    path: "lotes",
-                    element: (
-                      <ConSuspense>
-                        <LotesStockTab />
-                      </ConSuspense>
-                    ),
-                  },
-                  {
-                    path: "consumos",
-                    element: (
-                      <ConSuspense>
-                        <ConsumoInsumosPage />
-                      </ConSuspense>
-                    ),
-                  },
-                ],
+              },
+              {
+                // Direcciones de cuando cada pestaña era una ruta hija
+                // (`/gestion-stock/movimientos`): enlaces guardados y
+                // notificaciones ya enviadas. Una pestaña que no existe abre
+                // la primera.
+                path: "/gestion-stock/:id",
+                element: <RedirigirConId a={(tab) => `/gestion-stock?tab=${encodeURIComponent(tab)}`} />,
               },
 
               // ---------------- PROVEEDORES ----------------

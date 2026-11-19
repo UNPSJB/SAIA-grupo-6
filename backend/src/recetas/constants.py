@@ -48,6 +48,7 @@ class ErrorCode:
         "Indicá la cantidad objetivo o el factor multiplicador (uno de los dos)."
     )
     SIN_VERSION = "La receta todavía no tiene versiones."
+    VIDA_UTIL_INVALIDA = "La vida útil debe ser mayor a cero días."
 
 
 class MotivoFaltante:

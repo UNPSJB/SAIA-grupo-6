@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { LuRefreshCw } from "react-icons/lu";
 import {
@@ -16,7 +17,7 @@ import {
   BotonCancelar,
   EstadoCargando,
   EstadoVacio,
-  Paginacion,
+  PieTabla,
 } from "../../../../components/ui/patrones";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -68,7 +69,7 @@ export function SalidasPage() {
     );
   }, [salidas, estado, busqueda]);
 
-  const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
+  const { paginados, page, setPage } = usePaginas(
     filtrados,
     PAGE_SIZE,
     `${busqueda}|${estado}`
@@ -271,32 +272,39 @@ export function SalidasPage() {
           />
         }
         filtros={
-          <>
-            <FiltroSelect
-              label="Estado"
-              valor={estado}
-              onCambio={(v) => setEstado(v as EstadoSalida)}
-              opciones={ESTADOS_SALIDA.map((e) => ({
-                valor: e.valor,
-                etiqueta: e.etiqueta,
-              }))}
-              todos="Todos los estados"
-              minW="160px"
-            />
-          </>
+          <FiltroSelect
+            label="Estado"
+            valor={estado}
+            onCambio={(v) => setEstado(v as EstadoSalida | "")}
+            opciones={ESTADOS_SALIDA.map((e) => ({
+              valor: e.valor,
+              etiqueta: e.etiqueta,
+            }))}
+            todos="Todos los estados"
+            minW="180px"
+          />
         }
         herramientas={
-          <BotonCancelar onClick={recargarSalidas}>
-            <LuRefreshCw aria-hidden />
-            Actualizar
-          </BotonCancelar>
+          <>
+            {puedeResolverRechazo && (
+              <BotonesExportar
+                nombreTabla="salidas"
+                vista="salidas"
+                filtros={{ estado: estado || undefined, buscar: busqueda.trim() || undefined }}
+              />
+            )}
+            <BotonCancelar onClick={recargarSalidas}>
+              <LuRefreshCw aria-hidden />
+              Actualizar
+            </BotonCancelar>
+          </>
         }
       />
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando salidas...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando salidas...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 && (
         hayFiltros ? (
@@ -312,6 +320,15 @@ export function SalidasPage() {
         <>
           <SalidaTable
             salidas={paginados}
+            pie={
+              <PieTabla
+                count={filtrados.length}
+                page={page}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                unidad={filtrados.length === 1 ? "salida" : "salidas"}
+              />
+            }
             onVerDetalle={(salidaId) => {
               setLotePreseleccionado(null);
               navigate(`/salidas/${salidaId}/detalle`);
@@ -365,15 +382,6 @@ export function SalidasPage() {
                 : undefined
             }
           />
-
-          {hayVariasPaginas && (
-            <Paginacion
-              count={filtrados.length}
-              pageSize={PAGE_SIZE}
-              page={page}
-              onPageChange={setPage}
-            />
-          )}
         </>
       )}
     </Pagina>

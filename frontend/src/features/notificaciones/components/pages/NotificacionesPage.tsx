@@ -55,7 +55,7 @@ import {
   LabelFiltro,
   Paginacion,
   Tarjeta,
-  TextoTruncado,
+  DatoPrincipal,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 
@@ -115,6 +115,28 @@ function etiquetaCriticidad(criticidad: Criticidad) {
 
 function etiquetaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
   return nivel === "alto" ? "ALTO" : nivel === "medio" ? "MEDIO" : "BAJO";
+}
+
+/** Para vencimientos personales, el detalle trae oraciones largas como
+ * "'Manipulación de Alimentos B' de pepe pepe vence en 8 días". Acota en el
+ * nombre de la entidad (todo lo que está antes de " vence" / " venció").
+ *
+ * Para documento corta antes de " - versión".
+ * Para elemento de limpieza corta antes de " superó su frecuencia".
+ */
+function detalleCorto(detalle?: string | null): string {
+  if (!detalle) return "";
+  const recortes = [
+    detalle.indexOf(" vence"),
+    detalle.indexOf(" venció"),
+    detalle.indexOf(" · versión"),
+    detalle.indexOf(" superó su frecuencia"),
+  ];
+  const corte = Math.min(
+    ...recortes.map((i) => (i === -1 ? Infinity : i)),
+  );
+  if (corte === Infinity) return detalle;
+  return detalle.slice(0, corte).trimEnd();
 }
 
 function paletaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
@@ -220,6 +242,14 @@ export function NotificacionesPage() {
     // que recibe el id del documento (disponible en entidad_id).
     if (alerta.origen === "DOCUMENTO") {
       navigate(`/documentos/${alerta.entidad_id}/nueva-version`);
+      return;
+    }
+
+    // Las notificaciones de checklist no llevan al historial genérico: se
+    // navega al historial filtrado por el equipo de la alerta y se prepara
+    // para abrir el detalle del primer checklist (botón "ver" / icono de ojo).
+    if (alerta.origen === "CHECKLIST") {
+      navigate(`/checklist/historial?equipoId=${alerta.entidad_id}&abrirDetalle=true`);
       return;
     }
 
@@ -465,7 +495,7 @@ export function NotificacionesPage() {
               fontSize={{ base: "3xl", md: "4xl" }}
               lineHeight="1.1"
               fontWeight="extrabold"
-              color={`${nivelPaleta}.600`}
+              color={`${nivelPaleta}.fg`}
             >
               {nivelTexto}
             </Text>
@@ -483,13 +513,12 @@ export function NotificacionesPage() {
             px="6"
             py="4"
             borderRadius="xl"
-            bg="gray.50"
-            color="gray.800"
+            bg="bg.subtle"
+            color="fg"
             borderWidth="1px"
-            borderColor="gray.200"
+            borderColor="border"
             variant="solid"
-            _hover={{ bg: "gray.100", borderColor: "gray.300" }}
-            _dark={{ bg: "gray.800", color: "white", borderColor: "gray.700" }}
+            _hover={{ bg: "bg.muted", borderColor: "border.emphasized" }}
             onClick={mostrarTodasLasSituaciones}
             aria-label="Mostrar todas las situaciones y limpiar los filtros"
             title="Mostrar todas las situaciones"
@@ -621,7 +650,7 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Situación</EncabezadoOscuro>
+                  <EncabezadoOscuro width="24%">Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo
@@ -654,20 +683,20 @@ export function NotificacionesPage() {
                         }
                       }}
                       _hover={{
-                        bg: accionable ? "brand.50" : undefined,
+                        bg: accionable ? "#F0FDFA" : undefined,
                         cursor: accionable ? "pointer" : "default",
                       }}
-                      transition="background 0.2s"
+                      transition="background-color 0.15s ease"
                       cursor={accionable ? "pointer" : "default"}
                     >
                       <Celda>
                         <Badge
                           colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
                           variant="subtle"
-                          px="2"
+                          px="2.5"
                           py="1"
-                          borderRadius="md"
-                          fontWeight="bold"
+                          rounded="full"
+                          fontWeight="semibold"
                         >
                           {etiquetaCriticidad(alerta.criticidad)}
                         </Badge>
@@ -683,11 +712,18 @@ export function NotificacionesPage() {
                       </Celda>
 
                       <Celda>
-                        <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
-                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
+                        <DatoPrincipal
+                          titulo={alerta.titulo}
+                          secundario={
+                            alerta.entidad_nombre ??
+                            (alerta.origen === "INCIDENTE"
+                              ? alerta.detalle.split(" · ")[0]
+                              : detalleCorto(alerta.detalle))
+                          }
+                        />
                       </Celda>
 
-                      <Celda fontSize="sm">
+                      <Celda whiteSpace="nowrap">
                         {alerta.fecha_referencia
                           ? formatoFechaOCorta(alerta.fecha_referencia)
                           : alerta.plazo}

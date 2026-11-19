@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -16,7 +17,7 @@ import {
   BannerError,
   BotonAgregar,
   EstadoCargando,
-  Paginacion,
+  PieTabla,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { useProductoABM } from "../../hooks/useProductoABM";
@@ -42,7 +43,6 @@ export function ProductoPage() {
     totalFiltrados,
     page,
     setPage,
-    hayVariasPaginas,
   } = usePaginacion(productos, verInactivos, PAGE_SIZE);
 
   const [aEliminar, setAEliminar] = useState<Producto | null>(null);
@@ -102,22 +102,32 @@ export function ProductoPage() {
           />
         }
         herramientas={
-          <ToggleInactivos
-            enBarra
-            checked={verInactivos}
-            onChange={(checked: boolean) => {
-              setVerInactivos(checked);
-              setPage(1);
-            }}
-          >
-            Ver dados de baja
-          </ToggleInactivos>
+          <>
+            <ToggleInactivos
+              enBarra
+              checked={verInactivos}
+              onChange={(checked: boolean) => {
+                setVerInactivos(checked);
+                setPage(1);
+              }}
+            >
+              Ver dados de baja
+            </ToggleInactivos>
+            <BotonesExportar
+              nombreTabla="productos"
+              vista="productos"
+              filtros={{
+                incluir_inactivos: String(verInactivos),
+                buscar: busqueda.trim() || undefined,
+              }}
+            />
+          </>
         }
       />
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
-      {loading && <EstadoCargando>Cargando productos...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando productos...</EstadoCargando>}
 
       {!loading && !error && (
         <>
@@ -130,13 +140,19 @@ export function ProductoPage() {
               productos={paginados}
               onEdit={(p) => navigate(`/productos/${p.id}/editar`)}
               onNutricion={(p) => navigate(`/productos/${p.id}/informacion-nutricional`)}
+              onRotulado={(p) => navigate(`/productos/${p.id}/rotulado-frontal`)}
               onDelete={setAEliminar}
               onReactivar={setAReactivar}
+              pie={
+                <PieTabla
+                  count={totalFiltrados}
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  onPageChange={setPage}
+                  unidad={totalFiltrados === 1 ? "producto" : "productos"}
+                />
+              }
             />
-          )}
-
-          {hayVariasPaginas && (
-            <Paginacion count={totalFiltrados} pageSize={PAGE_SIZE} page={page} onPageChange={setPage} />
           )}
         </>
       )}

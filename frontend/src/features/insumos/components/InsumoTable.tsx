@@ -43,14 +43,14 @@ export function InsumoTable({
             <EncabezadoOrdenable columna="nombre" orden={orden}>
               Nombre
             </EncabezadoOrdenable>
-            <EncabezadoOscuro ancho="amplia">Tipo</EncabezadoOscuro>
-            <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media">
+            <EncabezadoOscuro width="12%">Tipo</EncabezadoOscuro>
+            <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media" center>
               Unidad Medida
             </EncabezadoOrdenable>
-            <EncabezadoOscuro ancho="angosta">Densidad g/ml</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="angosta">Peso unitario g</EncabezadoOscuro>
-            <EncabezadoOscuro>Proveedores</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="accionesAnchas">
+            <EncabezadoOscuro numero width="10%">Densidad g/ml</EncabezadoOscuro>
+            <EncabezadoOscuro numero width="10%">Peso unitario g</EncabezadoOscuro>
+            <EncabezadoOscuro width="18%">Proveedores</EncabezadoOscuro>
+            <EncabezadoOscuro center width="14%">
               Acciones
             </EncabezadoOscuro>
           </FilaEncabezado>

@@ -7,6 +7,11 @@ export interface ConfiguracionAlertas {
    * fuera de plazo. No bloquea el registro: solo lo etiqueta.
    */
   plazo_reclamo_dias: number;
+  /**
+   * Porcentaje de cumplimiento de las tareas de limpieza esperado. Por debajo,
+   * el inicio marca Limpieza en ámbar. Por defecto 100 (BPM/POES).
+   */
+  meta_cumplimiento_limpieza: number;
 }
 
 /** Vista mínima que puede leer cualquier usuario autenticado. */

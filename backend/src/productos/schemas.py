@@ -17,6 +17,8 @@ class ProductoBase(BaseModel):
     conservacion: ConservacionProducto | None = None
     nombre: str = Field(max_length=120)
     descripcion: str | None = Field(default=None, max_length=500)
+    categoria_rotulado: str | None = Field(default=None, max_length=80)
+    categoria_exceptuada_por_ley: bool = False
 
     @field_validator("nombre")
     @classmethod
@@ -37,6 +39,7 @@ class ProductoUpdate(ProductoBase):
     nombre: str | None = Field(default=None, max_length=120)
     unidad_medida_id: int | None = Field(default=None, gt=0)
     activo: bool | None = None
+    categoria_exceptuada_por_ley: bool | None = None
 
 
 class ProductoResponse(BaseModel):
@@ -45,6 +48,8 @@ class ProductoResponse(BaseModel):
     nombre: str
     descripcion: str | None
     activo: bool
+    categoria_rotulado: str | None
+    categoria_exceptuada_por_ley: bool
     unidad_medida: UnidadResumen
 
     model_config = ConfigDict(from_attributes=True)

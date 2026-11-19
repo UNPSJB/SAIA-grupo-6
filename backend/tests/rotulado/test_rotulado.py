@@ -4,6 +4,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import event, select
+from datetime import date
+from decimal import Decimal
 
 from src.auth.dependencies import require_admin
 from src.database import get_db
@@ -95,6 +97,52 @@ def test_guardar_fechas_y_autocompletar_preserva_manual(datos):
     salida = schemas.BorradorRotuladoOut.model_validate(resultado)
     assert salida.creado_en is not None
     assert services.calcular_completitud(db, borrador.id).campos[0].estado == "completo"
+
+
+def test_autocompletar_fecha_duracion_desde_lote(datos):
+    """Al autocompletar desde un lote con fecha_vencimiento, se copia a fecha_duracion."""
+    from src.lotes import schemas as lotes_schemas
+    from src.lotes import services as lotes_services
+    db, producto, _, version = datos
+
+    # Crear un lote terminado con fecha_vencimiento.
+    operador = None
+    from src.personal.models import Personal
+    op = Personal(nombre="Op", apellido="Test", dni="10000001", email="op@test.local", password="x", puede_operar=True)
+    db.info["sin_auditoria"] = True
+    try:
+        db.add(op)
+        db.commit()
+        db.refresh(op)
+    finally:
+        db.info.pop("sin_auditoria", None)
+
+    lote = lotes_services.crear_lote(
+        db,
+        lotes_schemas.LoteCreate(
+            producto_id=producto.id, cantidad_objetivo=Decimal("40")
+        ),
+        op,
+    )
+    for item in lote.checklist:
+        lotes_services.completar_item(db, lote.id, item.id, op)
+    fecha_vencimiento = date(2027, 6, 1)
+    lote.fecha_vencimiento = fecha_vencimiento
+    db.commit()
+
+    borrador = services.crear_borrador(
+        db, producto.id,
+        schemas.BorradorRotuladoCreate(
+            producto_id=producto.id,
+            version_receta_id=version.id,
+            lote_producto_id=lote.id,
+            denominacion_venta="Manual",
+        ),
+    )
+    resultado = services.autocompletar_borrador(
+        db, borrador.id, version.id, lote.id, forzar=False
+    )
+    assert resultado.fecha_duracion == fecha_vencimiento
 
 
 def test_producto_inexistente(datos):

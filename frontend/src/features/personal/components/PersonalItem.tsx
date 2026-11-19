@@ -1,9 +1,15 @@
-import { HStack, Text } from "@chakra-ui/react";
+import { HStack } from "@chakra-ui/react";
 import type { Persona } from "../types/personal";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../common/context/useAuth";
 import { esSuperAdmin as esSuperAdminDe, puedeDarDeBajaA, puedeEditarA } from "../../../common/api/permissions";
-import { BotonAccion, Celda, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  FilaClickeable,
+  DatoPrincipal,
+  PildoraNeutra,
+} from "../../../components/ui/patrones";
 
 interface PersonalItemProps {
   persona: Persona;
@@ -34,16 +40,14 @@ export function PersonalItem({ persona, onEdit, onDelete, onReactivar }: Persona
 
   return (
     <FilaClickeable onAbrir={() => navigate(`/personal/detalle/${persona.id}`)} borderBottomWidth="1px" borderColor="border.subtle" opacity={persona.activo ? 1 : 0.65}>
-      <Celda p="3">
-        <TextoTruncado texto={`${persona.nombre} ${persona.apellido || ""}`.trim()} />
+      <Celda>
+        <DatoPrincipal titulo={`${persona.nombre} ${persona.apellido || ""}`.trim()} />
       </Celda>
-      <Celda p="3">{persona.dni}</Celda>
-      <Celda p="3">
-        <Text as="span" bg="bg.muted" px="2" py="1" rounded="sm" fontSize="xs">
-          {resumenPermisos(persona)}
-        </Text>
+      <Celda fontVariantNumeric="tabular-nums">{persona.dni}</Celda>
+      <Celda>
+        <PildoraNeutra>{resumenPermisos(persona)}</PildoraNeutra>
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           <BotonAccion
             accion="ver"

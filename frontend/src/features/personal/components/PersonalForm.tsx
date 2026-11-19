@@ -169,7 +169,7 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
               <Box
                 mb="6"
                 p="4"
-                bg="yellow.50"
+                bg="yellow.subtle"
                 borderWidth="1px"
                 borderStyle="dashed"
                 borderColor="yellow.400"

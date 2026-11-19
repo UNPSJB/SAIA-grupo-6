@@ -1,6 +1,12 @@
-import { HStack, Table, Text } from "@chakra-ui/react";
+import { HStack, Table } from "@chakra-ui/react";
 import type { Proveedor } from "../types/proveedor";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  TextoTruncado,
+  DatoPrincipal,
+  EtiquetaEstado,
+} from "../../../components/ui/patrones";
 
 interface ProveedorItemProps {
   proveedor: Proveedor;
@@ -12,18 +18,24 @@ interface ProveedorItemProps {
 export function ProveedorItem({ proveedor, onEdit, onDelete, onReactivar }: ProveedorItemProps) {
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={proveedor.activo ? 1 : 0.65}>
-      <Celda p="3">
-        <TextoTruncado texto={proveedor.nombre} />
+      <Celda>
+        <DatoPrincipal titulo={proveedor.nombre} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={proveedor.cuit ?? proveedor.matricula} />
       </Celda>
-      <Celda p="3">
+      <Celda center>
         {proveedor.es_certificado ? (
-          <Text>{proveedor.estado_certificacion === "vigente" ? "Vigente" : "Vencida / sin certificado"}</Text>
-        ) : "No requiere"}
+          proveedor.estado_certificacion === "vigente" ? (
+            <EtiquetaEstado tono="ok">Vigente</EtiquetaEstado>
+          ) : (
+            <EtiquetaEstado tono="peligro">Vencida / sin certificado</EtiquetaEstado>
+          )
+        ) : (
+          <EtiquetaEstado tono="neutro">No requiere</EtiquetaEstado>
+        )}
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {proveedor.activo ? (
             <>

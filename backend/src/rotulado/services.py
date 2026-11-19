@@ -444,6 +444,9 @@ def autocompletar_borrador(
         if lote_producto.fecha_cierre is not None:
             if forzar or borrador.fecha_cierre is None:
                 borrador.fecha_cierre = lote_producto.fecha_cierre
+        if lote_producto.fecha_vencimiento is not None:
+            if forzar or borrador.fecha_duracion is None:
+                borrador.fecha_duracion = lote_producto.fecha_vencimiento
 
     if version_receta is not None:
         borrador.version_receta_id = version_receta.id

@@ -347,7 +347,7 @@ export function ReportarIncidentePage() {
               </Flex>
             )}
 
-            {loadingMis && <EstadoCargando>Cargando tus reportes...</EstadoCargando>}
+            {loadingMis && <EstadoCargando pagina>Cargando tus reportes...</EstadoCargando>}
             {errorMis && (
               <BannerError mb="0">Error al cargar: {errorMis}</BannerError>
             )}

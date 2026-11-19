@@ -199,7 +199,7 @@ export function ConsultaDocumentosPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {loading && documentos.length === 0 && (
-        <EstadoCargando>Cargando documentos...</EstadoCargando>
+        <EstadoCargando pagina>Cargando documentos...</EstadoCargando>
       )}
       {error && <BannerError>{error}</BannerError>}
       {errorApertura && <BannerError>{errorApertura}</BannerError>}

@@ -20,8 +20,10 @@ from .insumos_tipo import (
 from .lotes import migrar_lotes
 from .lotes_fecha_vencimiento import migrar_lotes_fecha_vencimiento
 from .notificaciones import migrar_notificaciones
+from .versiones_receta_vida_util import migrar_versiones_receta_vida_util
 from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
+from .rotulado_frontal import migrar_rotulado_frontal
 from .reclamos import migrar_reclamos
 from .retiros import migrar_retiros
 from .seguridad import migrar_seguridad
@@ -48,6 +50,7 @@ from .certificaciones_transportista import (
     migrar_certificaciones_transportista_trazabilidad,
 )
 from .proveedores import migrar_proveedores
+from .lotes_insumo_bajas import migrar_lotes_insumo_bajas
 
 
 def run_migrations() -> None:
@@ -59,12 +62,15 @@ def run_migrations() -> None:
     migrar_stock()
     migrar_lotes()
     migrar_lotes_fecha_vencimiento()
+    migrar_versiones_receta_vida_util()
     migrar_trazabilidad()
     migrar_aditivos_referencia()
     migrar_insumos_tipo()
     migrar_porcion_receta()
     # E11: parámetros de la tabla nutricional y base de composición de ejemplo.
     migrar_nutricion()
+    # E12.1: depende de las columnas del perfil nutricional de E11.
+    migrar_rotulado_frontal()
     migrar_equipos()
     bootstrap_super_admin()
     migrar_seguridad()
@@ -93,6 +99,7 @@ def run_migrations() -> None:
     # Retiros: después de reclamos, salidas y lotes porque depende de ellos.
     migrar_retiros()
     migrar_proveedores()
+    migrar_lotes_insumo_bajas()
 
 
 def crear_tablas_y_migrar() -> None:

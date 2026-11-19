@@ -12,6 +12,8 @@ import {
   FormInput,
   LabelFiltro,
   Tarjeta,
+  DatoPrincipal,
+  CantidadConUnidad,
 } from "../../../../components/ui/patrones";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 
@@ -82,7 +84,7 @@ export function ConsumoInsumosPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {loading && <EstadoCargando>Cargando consumo...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando consumo...</EstadoCargando>}
 
       {!loading && consumo && (
         <>
@@ -117,16 +119,18 @@ export function ConsumoInsumosPage() {
                 <Table.Header>
                   <FilaEncabezado>
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="amplia">Cantidad acumulada</EncabezadoOscuro>
+                    <EncabezadoOscuro numero ancho="amplia">Cantidad acumulada</EncabezadoOscuro>
                     <EncabezadoOscuro numero ancho="media">Registros</EncabezadoOscuro>
                   </FilaEncabezado>
                 </Table.Header>
                 <Table.Body>
                   {consumo.insumos.map((insumo) => (
                     <Table.Row key={insumo.insumo_quimico_id}>
-                      <Celda>{insumo.nombre}</Celda>
                       <Celda>
-                        {cantidadConUnidad(insumo.cantidad_total, insumo.unidad_simbolo)}
+                        <DatoPrincipal titulo={insumo.nombre} />
+                      </Celda>
+                      <Celda numero>
+                        <CantidadConUnidad valor={insumo.cantidad_total} unidad={insumo.unidad_simbolo} />
                       </Celda>
                       <Celda numero>{insumo.cantidad_registros}</Celda>
                     </Table.Row>
@@ -155,8 +159,12 @@ export function ConsumoInsumosPage() {
                   {consumo.por_producto_fecha.map((item) => (
                     <Table.Row key={`${item.fecha}-${item.insumo_quimico_id}`}>
                       <Celda>{item.fecha}</Celda>
-                      <Celda>{item.nombre}</Celda>
-                      <Celda numero>{cantidadConUnidad(item.cantidad_total, item.unidad_simbolo)}</Celda>
+                      <Celda>
+                        <DatoPrincipal titulo={item.nombre} />
+                      </Celda>
+                      <Celda numero>
+                        <CantidadConUnidad valor={item.cantidad_total} unidad={item.unidad_simbolo} />
+                      </Celda>
                     </Table.Row>
                   ))}
                 </Table.Body>

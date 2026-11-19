@@ -8,7 +8,7 @@ import type { ProduccionPorProducto } from "../types/lote";
  * para daltonismo verificados con el script del skill de visualización.
  */
 const COLOR_BARRA = "#009b8f";
-const COLOR_PISTA = "var(--chakra-colors-gray-100)";
+const COLOR_PISTA = "var(--chakra-colors-bg-muted)";
 
 interface GraficoProduccionProps {
   datos: ProduccionPorProducto[];
@@ -93,7 +93,7 @@ export function GraficoProduccion({ datos }: GraficoProduccionProps) {
                       py="1.5"
                       px="1"
                       rounded="md"
-                      _hover={{ bg: "gray.50" }}
+                      _hover={{ bg: "bg.subtle" }}
                       _focusVisible={{ outline: "2px solid", outlineColor: "brand.400" }}
                     >
                       <Text

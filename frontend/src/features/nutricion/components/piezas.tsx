@@ -81,13 +81,13 @@ export function Aviso({
       px="4"
       rounded="md"
       borderWidth="1px"
-      borderColor={`${paleta}.200`}
-      bg={`${paleta}.50`}
-      color={`${paleta}.900`}
+      borderColor={`${paleta}.border`}
+      bg={`${paleta}.subtle`}
+      color={`${paleta}.fg`}
       fontSize="sm"
       {...rest}
     >
-      <Box as="span" color={`${paleta}.600`} mt="0.5" flexShrink={0} display="inline-flex">
+      <Box as="span" color={`${paleta}.fg`} mt="0.5" flexShrink={0} display="inline-flex">
         <Icono size={18} aria-hidden />
       </Box>
       <Box flex="1" minW="0">

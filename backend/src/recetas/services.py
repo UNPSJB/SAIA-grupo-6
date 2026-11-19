@@ -38,6 +38,7 @@ def version_vigente(db: Session, receta_id: int) -> VersionReceta | None:
     return db.scalar(
         select(VersionReceta)
         .where(VersionReceta.receta_id == receta_id)
+        .options(selectinload(VersionReceta.creado_por))
         .order_by(VersionReceta.numero.desc())
         .limit(1)
     )
@@ -48,6 +49,7 @@ def obtener_version(db: Session, version_id: int) -> VersionReceta:
         select(VersionReceta)
         .where(VersionReceta.id == version_id)
         .options(
+            selectinload(VersionReceta.creado_por),
             selectinload(VersionReceta.unidad_medida),
             selectinload(VersionReceta.porcion_unidad_medida),
             selectinload(VersionReceta.insumos)
@@ -141,6 +143,7 @@ def _armar_version(
         porcion_descripcion=datos.porcion_descripcion,
         porcion_cantidad=datos.porcion_cantidad,
         porcion_unidad_medida_id=datos.porcion_unidad_medida_id,
+        vida_util_dias=datos.vida_util_dias,
         creado_por_id=usuario.id if usuario else None,
     )
     por_insumo = {
@@ -217,6 +220,7 @@ def listar_versiones(db: Session, receta_id: int) -> list[VersionReceta]:
             select(VersionReceta)
             .where(VersionReceta.receta_id == receta_id)
             .options(
+                selectinload(VersionReceta.creado_por),
                 selectinload(VersionReceta.unidad_medida),
                 selectinload(VersionReceta.porcion_unidad_medida),
             )
@@ -233,9 +237,19 @@ def a_respuesta(db: Session, receta: Receta) -> schemas.RecetaResponse:
         producto_nombre=receta.producto.nombre,
         activo=receta.activo,
         version_vigente=(
-            schemas.VersionResumen.model_validate(vigente) if vigente else None
+            schemas.VersionResumen(**_resumen_version(vigente)) if vigente else None
         ),
     )
+
+
+def nombre_personal(persona: Personal | None) -> str | None:
+    """Nombre y apellido para mostrar quién creó o modificó un registro."""
+    if persona is None:
+        return None
+    nombre = " ".join(
+        parte.strip() for parte in (persona.nombre, persona.apellido) if parte and parte.strip()
+    )
+    return nombre or None
 
 
 def _aditivo_de(receta_insumo: RecetaInsumo):
@@ -258,8 +272,10 @@ def _resumen_version(version: VersionReceta) -> dict:
             if version.porcion_unidad_medida
             else None
         ),
+        "vida_util_dias": version.vida_util_dias,
         "creado_en": version.creado_en,
         "creado_por_id": version.creado_por_id,
+        "creado_por_nombre": nombre_personal(version.creado_por),
     }
 
 

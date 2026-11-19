@@ -77,7 +77,7 @@ export function AnilloProgreso({
           cy={CENTRO}
           r={RADIO_TRAZO}
           fill="none"
-          stroke="var(--chakra-colors-gray-100)"
+          stroke="var(--chakra-colors-bg-muted)"
           strokeWidth={GROSOR}
         />
 

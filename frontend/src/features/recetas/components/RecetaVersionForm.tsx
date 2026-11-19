@@ -187,6 +187,20 @@ export function RecetaVersionForm({
               ))}
             </FormNativeSelect>
           </FormField>
+          <FormField
+            label="Vida útil (días)"
+            mb="0"
+            helper="Opcional. Días de vida útil para calcular automáticamente el vencimiento de los lotes elaborados con esta versión."
+          >
+            <FormInput
+              type="number"
+              min={1}
+              value={estado.vida_util_dias}
+              onChange={(e) => setEstado((prev) => ({ ...prev, vida_util_dias: e.target.value }))}
+              placeholder="Ej: 180"
+              maxW="220px"
+            />
+          </FormField>
         </HStack>
 
         <Seccion

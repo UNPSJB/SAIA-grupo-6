@@ -175,6 +175,7 @@ export function RecetaDetallePage() {
                       <EncabezadoOscuro ancho="angosta">Versión</EncabezadoOscuro>
                       <EncabezadoOscuro>Creada el</EncabezadoOscuro>
                       <EncabezadoOscuro numero ancho="media">Rendimiento</EncabezadoOscuro>
+                      <EncabezadoOscuro ancho="angosta">Vida útil</EncabezadoOscuro>
                       <EncabezadoOscuro center ancho="angosta">Ver</EncabezadoOscuro>
                     </FilaEncabezado>
                   </Table.Header>
@@ -187,6 +188,11 @@ export function RecetaDetallePage() {
                         </Celda>
                         <Celda>{formatoFechaHora(v.creado_en)}</Celda>
                         <Celda numero>{cantidadConUnidad(v.rendimiento, v.unidad_medida.simbolo)}</Celda>
+                        <Celda>
+                          {v.vida_util_dias !== null && v.vida_util_dias !== undefined
+                            ? `${v.vida_util_dias} días`
+                            : "Sin definir"}
+                        </Celda>
                         <Celda center>
                           <BotonAccion
                             accion="ver"

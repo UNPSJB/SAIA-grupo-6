@@ -1,7 +1,14 @@
 import { Badge, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import type { Insumo } from "../types/insumo";
+import { formatoCantidad } from "../../../common/utils/numeros";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  DatoPrincipal,
+  PildoraNeutra,
+  TextoTruncado,
+} from "../../../components/ui/patrones";
 
 interface InsumoItemProps {
   insumo: Insumo;
@@ -24,10 +31,10 @@ export function InsumoItem({
 
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={insumo.activo ? 1 : 0.65}>
-      <Celda p="3">
-        <TextoTruncado texto={insumo.nombre} />
+      <Celda>
+        <DatoPrincipal titulo={insumo.nombre} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <Stack gap="1" align="flex-start">
           <Badge
             colorPalette={insumo.tipo === "aditivo" ? "purple" : "gray"}
@@ -42,33 +49,38 @@ export function InsumoItem({
           )}
         </Stack>
       </Celda>
-      <Celda p="3">
-        <TextoTruncado texto={unidadLabel} />
+      <Celda center>
+        <span title={unidadLabel}>
+          <PildoraNeutra>{insumo.unidad_medida?.simbolo ?? unidadLabel}</PildoraNeutra>
+        </span>
       </Celda>
-      <Celda p="3">
+      <Celda numero>
         {insumo.densidad_g_ml != null ? (
-          <Text fontSize="sm">{insumo.densidad_g_ml}</Text>
+          <Text fontSize="sm">{formatoCantidad(insumo.densidad_g_ml)}</Text>
         ) : (
           <Text fontSize="sm" color="fg.subtle">—</Text>
         )}
       </Celda>
-      <Celda p="3">
+      <Celda numero>
         {insumo.peso_unitario_g != null ? (
-          <Text fontSize="sm">{insumo.peso_unitario_g}</Text>
+          <Text fontSize="sm">{formatoCantidad(insumo.peso_unitario_g)}</Text>
         ) : (
           <Text fontSize="sm" color="fg.subtle">—</Text>
         )}
       </Celda>
-      <Celda p="3">
+      <Celda>
         {insumo.proveedores?.length ? (
-          <Stack gap="1">
-            {insumo.proveedores.map((proveedor) => (
-              <Text key={proveedor.id} fontSize="sm">{proveedor.nombre}</Text>
-            ))}
-          </Stack>
+          // Un proveedor por renglón hacía filas de 8 renglones: van en una
+          // línea (dos como mucho) y la lista completa queda en el `title`.
+          <TextoTruncado
+            texto={insumo.proveedores.map((proveedor) => proveedor.nombre).join(", ")}
+            max={90}
+            color="#64748B"
+            title={insumo.proveedores.map((proveedor) => proveedor.nombre).join(", ")}
+          />
         ) : <Text fontSize="sm" color="fg.subtle">Sin asociar</Text>}
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo && (
             <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(insumo)} />

@@ -18,6 +18,7 @@ from src.lotes.constants import (
     TIPO_CONSUMO_DESPERDICIO,
     TIPO_CONSUMO_REAL,
 )
+from src.insumos.models import Insumo
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto
 from src.lotesInsumo.models import LoteInsumo
 from src.lotesInsumo.services import saldo_lote_insumo
@@ -30,8 +31,9 @@ from src.salidas.constants import (
     ESTADO_ENTREGADO,
 )
 from src.salidas.models import Salida, calcular_cantidades
-from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo
+from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo, VersionReceta
 from src.recetas.services import calcular_factor, version_vigente
+from src.unidadMedida.cantidades import es_cantidad_valida
 
 _MILESIMA = Decimal("0.001")
 CERO = Decimal("0.000")
@@ -139,6 +141,10 @@ def crear_lote(
     factor, cantidad_objetivo = calcular_factor(
         version.rendimiento, datos.cantidad_objetivo, datos.factor
     )
+    # Un producto que se cuenta por piezas no se elabora en fracciones, ni
+    # pidiendo la cantidad ni multiplicando la receta (10 panes × 1,33).
+    if not es_cantidad_valida(cantidad_objetivo, producto.unidad_medida):
+        raise exceptions.CantidadObjetivoNoEntera()
 
     for _ in range(5):
         lote = LoteProducto(
@@ -273,16 +279,31 @@ def registrar_consumo(
 def cerrar_lote(
     db: Session, lote_id: int, datos: schemas.LoteCierre
 ) -> LoteProducto:
-    """`terminado`: checklist completo y cantidad final producida cargada."""
+    """`terminado`: checklist completo y cantidad final producida cargada.
+
+    Si la versión de la receta tiene `vida_util_dias`, se calcula y guarda
+    automáticamente `fecha_vencimiento = fecha_cierre.date() + timedelta(days=vida_util_dias)`.
+    Si es `None`, `fecha_vencimiento` queda `None`.
+    """
     lote = obtener_lote(db, lote_id)
     _exigir_abierto(lote)
     if any(item.completado_en is None for item in lote.checklist):
         raise exceptions.ChecklistIncompleto()
     if datos.cantidad_producida <= 0:
         raise exceptions.CantidadProducidaInvalida()
+    if not es_cantidad_valida(datos.cantidad_producida, lote.producto.unidad_medida):
+        raise exceptions.CantidadProducidaNoEntera()
     lote.cantidad_producida = datos.cantidad_producida
     lote.estado = ESTADO_TERMINADO
     lote.fecha_cierre = ahora()
+
+    if lote.version_receta and lote.version_receta.vida_util_dias is not None:
+        lote.fecha_vencimiento = lote.fecha_cierre.date() + timedelta(
+            days=lote.version_receta.vida_util_dias
+        )
+    else:
+        lote.fecha_vencimiento = None
+
     db.commit()
     return obtener_lote(db, lote_id)
 
@@ -393,6 +414,7 @@ def resumen(
         estado_lote=lote.estado_lote,
         retiro_id=retiro_id,
         retiro_estado=retiro_estado,
+        vida_util_dias=lote.version_receta.vida_util_dias if lote.version_receta else None,
     )
 
 
@@ -584,4 +606,168 @@ def dashboard(
             schemas.LoteResumenEstado(estado=e, cantidad=conteos[e]) for e in ESTADOS_LOTE
         ],
         por_producto=por_producto,
+    )
+
+
+def obtener_timeline_lote(db: Session, lote_id: int) -> schemas.LoteTimelineResponse:
+    lote = db.scalar(
+        select(LoteProducto)
+        .where(LoteProducto.id == lote_id)
+        .options(
+            selectinload(LoteProducto.creado_por),
+            selectinload(LoteProducto.producto).selectinload(Producto.unidad_medida),
+            selectinload(LoteProducto.version_receta),
+            selectinload(LoteProducto.checklist).selectinload(ChecklistProduccion.tarea),
+            selectinload(LoteProducto.checklist).selectinload(ChecklistProduccion.completado_por),
+            selectinload(LoteProducto.checklist)
+            .selectinload(ChecklistProduccion.consumos)
+            .selectinload(ConsumoInsumo.lote_insumo)
+            .selectinload(LoteInsumo.insumo)
+            .selectinload(Insumo.unidad_medida),
+            selectinload(LoteProducto.checklist)
+            .selectinload(ChecklistProduccion.consumos)
+            .selectinload(ConsumoInsumo.lote_insumo)
+            .selectinload(LoteInsumo.proveedor),
+            selectinload(LoteProducto.salidas),
+        )
+    )
+    if lote is None:
+        raise exceptions.LoteNoEncontrado()
+
+    nodos: list[schemas.NodoTimelineResponse] = []
+
+    # 1. Nodo de Inicio (tipo='inicio')
+    numero_ver = None
+    if lote.version_receta:
+        numero_ver = getattr(lote.version_receta, "numero_version", None) or getattr(lote.version_receta, "numero", None)
+    subtitulo_inicio = f"Receta v{numero_ver}" if numero_ver is not None else None
+
+    nodo_inicio = schemas.NodoTimelineResponse(
+        id="inicio",
+        orden=1,
+        tipo="inicio",
+        titulo="Inicio de Producción",
+        subtitulo=subtitulo_inicio,
+        fecha_hora=lote.fecha_inicio,
+        estado="completado",
+        tiene_desvio=False,
+        detalle=schemas.DetalleNodoTimeline(
+            operario_nombre=_nombre(lote.creado_por),
+            rendimiento=schemas.RendimientoTimeline(
+                cantidad_objetivo=lote.cantidad_objetivo,
+                cantidad_producida=None,
+                porcentaje_rendimiento=None,
+            ),
+        ),
+    )
+    nodos.append(nodo_inicio)
+
+    # 2. Nodos Intermedios (tipo='tarea', uno por cada item en lote.checklist)
+    checklist_ordenado = sorted(
+        lote.checklist,
+        key=lambda item: (item.tarea.orden if item.tarea and item.tarea.orden is not None else item.id),
+    )
+
+    primera_no_completada_encontrada = False
+    for i, item in enumerate(checklist_ordenado, start=2):
+        if item.completado_en is not None:
+            estado_tarea: schemas.EstadoNodoTimeline = "completado"
+        elif not primera_no_completada_encontrada and lote.estado == ESTADO_EN_PROCESO:
+            estado_tarea = "en_proceso"
+            primera_no_completada_encontrada = True
+        else:
+            estado_tarea = "pendiente"
+
+        insumos_consumidos: list[schemas.ConsumoInsumoTimelineItem] = []
+        desperdicios: list[schemas.DesperdicioTimelineItem] = []
+
+        for consumo in item.consumos:
+            li = consumo.lote_insumo
+            insumo = li.insumo if li else None
+            unidad_simbolo = insumo.unidad_medida.simbolo if insumo and insumo.unidad_medida else ""
+            if consumo.tipo == TIPO_CONSUMO_REAL:
+                insumos_consumidos.append(
+                    schemas.ConsumoInsumoTimelineItem(
+                        insumo_nombre=insumo.nombre if insumo else "",
+                        cantidad=consumo.cantidad,
+                        unidad_medida=unidad_simbolo,
+                        lote_insumo_codigo=li.numero_lote if li else "",
+                        proveedor_nombre=li.proveedor.nombre if li and li.proveedor else None,
+                    )
+                )
+            elif consumo.tipo == TIPO_CONSUMO_DESPERDICIO:
+                desperdicios.append(
+                    schemas.DesperdicioTimelineItem(
+                        cantidad=consumo.cantidad,
+                        unidad_medida=unidad_simbolo,
+                        motivo=consumo.motivo,
+                    )
+                )
+
+        tiene_desvio = len(desperdicios) > 0
+        titulo_tarea = item.tarea.descripcion if item.tarea and item.tarea.descripcion else f"Tarea {item.id}"
+
+        nodo_tarea = schemas.NodoTimelineResponse(
+            id=f"tarea_{item.id}",
+            orden=i,
+            tipo="tarea",
+            titulo=titulo_tarea,
+            subtitulo=None,
+            fecha_hora=item.completado_en,
+            estado=estado_tarea,
+            tiene_desvio=tiene_desvio,
+            detalle=schemas.DetalleNodoTimeline(
+                operario_nombre=_nombre(item.completado_por),
+                descripcion=item.tarea.descripcion if item.tarea else None,
+                insumos_consumidos=insumos_consumidos,
+                desperdicios=desperdicios,
+                rendimiento=None,
+            ),
+        )
+        nodos.append(nodo_tarea)
+
+    # 3. Nodo Final (tipo='cierre')
+    estado_cierre: schemas.EstadoNodoTimeline = (
+        "completado" if lote.estado == ESTADO_TERMINADO else "pendiente"
+    )
+
+    rendimiento_cierre = None
+    if lote.estado == ESTADO_TERMINADO and lote.cantidad_producida is not None:
+        porcentaje = None
+        if lote.cantidad_objetivo and lote.cantidad_objetivo > 0:
+            porcentaje = (
+                (Decimal(lote.cantidad_producida) / Decimal(lote.cantidad_objetivo)) * Decimal("100")
+            ).quantize(Decimal("0.01"))
+        rendimiento_cierre = schemas.RendimientoTimeline(
+            cantidad_objetivo=lote.cantidad_objetivo,
+            cantidad_producida=lote.cantidad_producida,
+            porcentaje_rendimiento=porcentaje,
+        )
+
+    nodo_cierre = schemas.NodoTimelineResponse(
+        id="cierre",
+        orden=len(checklist_ordenado) + 2,
+        tipo="cierre",
+        titulo="Cierre y Liberación",
+        subtitulo=None,
+        fecha_hora=lote.fecha_cierre,
+        estado=estado_cierre,
+        tiene_desvio=False,
+        detalle=schemas.DetalleNodoTimeline(
+            operario_nombre=None,
+            descripcion=None,
+            insumos_consumidos=[],
+            desperdicios=[],
+            rendimiento=rendimiento_cierre,
+        ),
+    )
+    nodos.append(nodo_cierre)
+
+    estado_lote_calc = lote.estado_lote if hasattr(lote, "estado_lote") and lote.estado_lote else lote.estado
+
+    return schemas.LoteTimelineResponse(
+        lote_id=lote.id,
+        numero_lote=lote.numero_lote,
+        estado_lote=estado_lote_calc,
+        nodos=nodos,
     )

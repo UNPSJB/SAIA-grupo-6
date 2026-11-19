@@ -42,6 +42,7 @@ export interface LoteResumen {
   // Retiro asociado al lote (si existe).
   retiro_id: number | null;
   retiro_estado: string | null;
+  vida_util_dias: number | null;
 }
 
 export interface InsumoPlanificado {
@@ -116,6 +117,8 @@ export interface DashboardLotes {
 
 export interface FiltrosLotes {
   estado?: EstadoLote | "";
+  /** Id del producto; vacío = todos. */
+  productoId?: string;
   fechaDesde?: string;
   fechaHasta?: string;
 }

@@ -1,7 +1,14 @@
 import { HStack } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import type { Equipo } from "../types/equipo";
-import { BotonAccion, Celda, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  FilaClickeable,
+  TextoTruncado,
+  DatoPrincipal,
+  PildoraNeutra,
+} from "../../../components/ui/patrones";
 
 interface EquipoItemProps {
   equipo: Equipo;
@@ -27,16 +34,16 @@ export function EquipoItem({
       borderColor="border.subtle"
       opacity={equipo.activo ? 1 : 0.65}
     >
-      <Celda p="3">
-        <TextoTruncado texto={equipo.nombre} />
+      <Celda>
+        <DatoPrincipal titulo={equipo.nombre} />
       </Celda>
-      <Celda p="3">
-        <TextoTruncado texto={equipo.tipo} />
+      <Celda>
+        <PildoraNeutra>{equipo.tipo}</PildoraNeutra>
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={equipo.sector.nombre} />
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {equipo.activo && (
             <>

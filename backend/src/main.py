@@ -59,6 +59,7 @@ from src.productos.router import router as productos_router
 from src.aditivos.router import router as aditivos_router
 from src.recetas.router import router as recetas_router
 from src.nutricion.router import router as nutricion_router
+from src.rotulado_frontal.router import router as rotulado_frontal_router
 from src.lotesInsumo.router import router as lotes_insumo_router
 from src.lotesInsumo.router import stock_router as stock_insumos_router
 from src.trazabilidad.router import router as trazabilidad_router
@@ -73,6 +74,7 @@ from src.vistaPublica.router import router as vista_publica_router
 
 from src.exportacion.router import router as exportacion_router
 from src.rotulado.router import router as rotulado_router
+from src.paneles.router import router as paneles_router
 
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
@@ -183,6 +185,7 @@ app.include_router(productos_router)
 app.include_router(aditivos_router)
 app.include_router(recetas_router)
 app.include_router(nutricion_router)
+app.include_router(rotulado_frontal_router)
 app.include_router(lotes_insumo_router)
 app.include_router(stock_insumos_router)
 app.include_router(trazabilidad_router)
@@ -192,4 +195,5 @@ app.include_router(vencimientos_router)
 app.include_router(auditoria_router)
 app.include_router(exportacion_router)
 app.include_router(rotulado_router)
+app.include_router(paneles_router)
 app.include_router(vista_publica_router)

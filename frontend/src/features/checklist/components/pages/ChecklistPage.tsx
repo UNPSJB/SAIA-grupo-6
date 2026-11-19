@@ -129,7 +129,7 @@ const ESTILO_GRUPO: Record<
 > = {
   completo: { franja: "green.500", barra: "green.500", tono: "ok", texto: "Completo" },
   demorado: { franja: "orange.400", barra: "orange.400", tono: "alerta", texto: "Con demora" },
-  pendiente: { franja: "gray.300", barra: "brand.500", tono: "neutro", texto: "Pendiente" },
+  pendiente: { franja: "border", barra: "brand.500", tono: "neutro", texto: "Pendiente" },
 };
 
 function estadoGrupo(grupo: GrupoPlan, fecha: string, hoy: string): EstadoGrupo {
@@ -149,7 +149,7 @@ function BarraAvance({ hechas, total, color }: { hechas: number; total: number; 
       aria-label={`${hechas} de ${total} tareas`}
       h="2"
       w="100%"
-      bg="gray.100"
+      bg="bg.muted"
       rounded="full"
       overflow="hidden"
     >
@@ -1003,7 +1003,7 @@ export function ChecklistPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {loading && <EstadoCargando>Cargando tareas...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando tareas...</EstadoCargando>}
 
       {!loading && grupos.length === 0 && !error && (
         <EstadoVacio>
@@ -1147,7 +1147,7 @@ export function ChecklistPage() {
                     <Table.Root w="100%">
                       <Table.Header>
                         <Table.Row
-                          bg="gray.50"
+                          bg="bg.subtle"
                           borderBottomWidth="1px"
                           borderColor="border.subtle"
                         >

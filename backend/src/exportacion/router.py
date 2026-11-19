@@ -143,6 +143,83 @@ def exportar_vista_stock_consumo(
     vista = vistas.stock_consumo(db, fecha_desde, fecha_hasta)
     return _descarga(vista, formato, "stock_consumo")
 
+# --- Producción ------------------------------------------------------------
+# Mismos filtros que cada listado; `buscar` replica la búsqueda de texto que
+# la pantalla hace en el navegador.
+
+
+@router.get("/vistas/lotes-produccion")
+def exportar_vista_lotes_produccion(
+    formato: FormatoExportacion = "csv",
+    producto_id: Optional[int] = Query(None, ge=1),
+    estado: Optional[Literal["en_proceso", "terminado", "cancelado"]] = None,
+    fecha_desde: Optional[date] = None,
+    fecha_hasta: Optional[date] = None,
+    buscar: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    vista = vistas.lotes_produccion(db, producto_id, estado, fecha_desde, fecha_hasta, buscar)
+    return _descarga(vista, formato, "lotes_produccion")
+
+
+@router.get("/vistas/salidas")
+def exportar_vista_salidas(
+    formato: FormatoExportacion = "csv",
+    estado: Optional[Literal["RESERVADO", "DESPACHADO", "ENTREGADO", "CANCELADO", "RECHAZADA"]] = None,
+    buscar: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.salidas_producto(db, estado, buscar), formato, "salidas")
+
+
+@router.get("/vistas/retiros")
+def exportar_vista_retiros(
+    formato: FormatoExportacion = "csv",
+    estado: Optional[Literal["EN_CURSO", "CERRADO"]] = None,
+    buscar: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.retiros_lotes(db, estado, buscar), formato, "retiros")
+
+
+@router.get("/vistas/recetas")
+def exportar_vista_recetas(
+    formato: FormatoExportacion = "csv",
+    buscar: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.recetas(db, buscar), formato, "recetas")
+
+
+@router.get("/vistas/productos")
+def exportar_vista_productos(
+    formato: FormatoExportacion = "csv",
+    incluir_inactivos: bool = False,
+    buscar: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.productos(db, incluir_inactivos, buscar), formato, "productos")
+
+
+@router.get("/vistas/alimentos")
+def exportar_vista_alimentos(
+    formato: FormatoExportacion = "csv",
+    buscar: Optional[str] = Query(None, max_length=100),
+    base: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.alimentos_referencia(db, buscar, base), formato, "alimentos")
+
+
+@router.get("/vistas/rotulado")
+def exportar_vista_rotulado(
+    formato: FormatoExportacion = "csv",
+    buscar: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.rotulado_productos(db, buscar), formato, "rotulado")
+
+
 @router.get("/{nombre_tabla}")
 def exportar_tabla(
     request: Request,

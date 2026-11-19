@@ -10,14 +10,23 @@ Cada función devuelve `(titulo, encabezados, filas)` con las filas ya en texto.
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import date
 from typing import Callable, Optional
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.checklist import services as checklist_services
 from src.exportacion.formato import texto
 from src.insumoQuimico import stock_services
+from src.lotes import services as lotes_services
+from src.nutricion import services as nutricion_services
+from src.productos import services as productos_services
+from src.recetas import services as recetas_services
+from src.retiros import services as retiros_services
+from src.rotulado.models import BorradorRotulado
+from src.salidas import services as salidas_services
 from src.vencimientos import services as vencimientos_services
 
 Vista = tuple[str, list[str], list[list[str]]]
@@ -198,5 +207,247 @@ def stock_consumo(db: Session, fecha_desde: date, fecha_hasta: date) -> Vista:
     return (
         f"Consumo de insumos ({texto(consumo.fecha_desde)} al {texto(consumo.fecha_hasta)})",
         ["Producto", "Cantidad acumulada", "Registros"],
+        filas,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Producción: lotes, salidas, retiros, recetas, productos, alimentos y
+# rotulado. Cada vista reusa el servicio del listado y aplica los mismos
+# filtros que la pantalla, incluida la búsqueda de texto (que en el frontend
+# se hace en el navegador).
+# ---------------------------------------------------------------------------
+
+_ETIQUETA_ESTADO_LOTE = {
+    "en_proceso": "En proceso",
+    "terminado": "Terminado",
+    "cancelado": "Cancelado",
+}
+
+_ETIQUETA_ESTADO_SALIDA = {
+    "RESERVADO": "Reservado",
+    "DESPACHADO": "Despachado",
+    "ENTREGADO": "Entregado",
+    "CANCELADO": "Cancelado",
+    "RECHAZADA": "Rechazada",
+}
+
+_ETIQUETA_DISPOSICION = {
+    "REINGRESADA": "Reingresada",
+    "DESECHADA": "Desechada",
+}
+
+_ETIQUETA_ESTADO_RETIRO = {"EN_CURSO": "En curso", "CERRADO": "Cerrado"}
+
+
+def _numero(valor) -> str:
+    """Cantidad en formato es-AR, hasta 3 decimales y sin ceros de sobra."""
+    if valor is None or valor == "":
+        return "-"
+    numero = float(valor)
+    entero = f"{numero:,.3f}".rstrip("0").rstrip(".")
+    return entero.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _cantidad(valor, simbolo: Optional[str]) -> str:
+    numero = _numero(valor)
+    return f"{numero} {simbolo}" if simbolo and numero != "-" else numero
+
+
+def _normalizar(valor: Optional[str]) -> str:
+    """Minúsculas y sin tildes, como la búsqueda de Recetas en el frontend."""
+    if not valor:
+        return ""
+    descompuesto = unicodedata.normalize("NFD", valor)
+    return "".join(c for c in descompuesto if unicodedata.category(c) != "Mn").lower().strip()
+
+
+def _coincide(buscar: Optional[str], *campos: Optional[str]) -> bool:
+    texto_buscado = _normalizar(buscar)
+    if not texto_buscado:
+        return True
+    return any(texto_buscado in _normalizar(campo) for campo in campos)
+
+
+def lotes_produccion(
+    db: Session,
+    producto_id: Optional[int],
+    estado: Optional[str],
+    fecha_desde: Optional[date],
+    fecha_hasta: Optional[date],
+    buscar: Optional[str],
+) -> Vista:
+    lotes = [
+        lotes_services.resumen(lote)
+        for lote in lotes_services.listar_lotes(db, producto_id, estado, fecha_desde, fecha_hasta)
+    ]
+    filas = [
+        [
+            texto(l.fecha_inicio.date() if hasattr(l.fecha_inicio, "date") else l.fecha_inicio),
+            texto(l.numero_lote),
+            texto(l.producto_nombre),
+            f"v{l.version_numero}" if l.version_numero else "Sin receta",
+            _cantidad(l.cantidad_objetivo, l.unidad),
+            f"{l.items_completados} de {l.items_total}",
+            _ETIQUETA_ESTADO_LOTE.get(l.estado, l.estado),
+            texto(l.fecha_vencimiento) if l.fecha_vencimiento else "-",
+        ]
+        for l in lotes
+        if _coincide(buscar, l.numero_lote, l.producto_nombre)
+    ]
+    return (
+        "Lotes de producción",
+        ["Fecha", "Número de lote", "Producto", "Receta", "Objetivo", "Tareas", "Estado", "Vencimiento"],
+        filas,
+    )
+
+
+def salidas_producto(db: Session, estado: Optional[str], buscar: Optional[str]) -> Vista:
+    salidas = [
+        salidas_services.salida_a_resumen(s, db)
+        for s in salidas_services.listar_salidas(db, estado=estado, lote_id=None, cliente_id=None)
+    ]
+    filas = []
+    for s in salidas:
+        if estado and s.estado != estado:
+            continue
+        if not _coincide(buscar, s.lote_numero, s.producto_nombre, s.cliente_nombre):
+            continue
+        etiqueta = _ETIQUETA_ESTADO_SALIDA.get(s.estado, s.estado)
+        if s.estado == "RECHAZADA":
+            disposicion = getattr(s, "disposicion", None)
+            etiqueta += f" ({_ETIQUETA_DISPOSICION.get(disposicion, 'En revisión')})"
+        filas.append(
+            [
+                texto(s.producto_nombre),
+                texto(s.lote_numero),
+                texto(s.cliente_nombre),
+                _cantidad(s.cantidad, s.unidad_medida),
+                texto(s.fecha_reserva),
+                etiqueta,
+            ]
+        )
+    return (
+        "Salidas de producto",
+        ["Producto", "Lote", "Cliente", "Cantidad", "Fecha de reserva", "Estado"],
+        filas,
+    )
+
+
+def retiros_lotes(db: Session, estado: Optional[str], buscar: Optional[str]) -> Vista:
+    retiros = [
+        retiros_services.retiro_a_resumen(r)
+        for r in retiros_services.listar_retiros(db, lote_id=None, estado=estado, incidente_id=None)
+    ]
+    filas = [
+        [
+            texto(r.fecha_retiro),
+            texto(r.lote_producto_nombre),
+            texto(r.lote_codigo),
+            texto(r.motivo),
+            "Sin afectados" if r.total_afectados == 0 else f"{r.notificados} de {r.total_afectados}",
+            _ETIQUETA_ESTADO_RETIRO.get(r.estado, r.estado),
+        ]
+        for r in retiros
+        if (not estado or r.estado == estado)
+        and _coincide(buscar, r.lote_codigo, r.lote_producto_nombre, r.motivo)
+    ]
+    return (
+        "Retiros de lotes",
+        ["Fecha", "Producto", "Lote", "Motivo", "Notificados", "Estado"],
+        filas,
+    )
+
+
+def recetas(db: Session, buscar: Optional[str]) -> Vista:
+    filas = []
+    for receta in recetas_services.listar_recetas(db):
+        r = recetas_services.a_respuesta(db, receta)
+        if not _coincide(buscar, r.producto_nombre):
+            continue
+        v = r.version_vigente
+        filas.append(
+            [
+                texto(r.producto_nombre),
+                f"v{v.numero}" if v else "-",
+                _cantidad(v.rendimiento, v.unidad_medida.simbolo) if v else "-",
+                texto(v.creado_en.date()) if v else "-",
+            ]
+        )
+    return ("Recetas", ["Producto", "Versión vigente", "Rendimiento", "Vigente desde"], filas)
+
+
+def productos(db: Session, incluir_inactivos: bool, buscar: Optional[str]) -> Vista:
+    filas = [
+        [
+            texto(p.nombre),
+            p.descripcion or "-",
+            texto(p.unidad_medida.simbolo if p.unidad_medida else None),
+            "Activo" if p.activo else "Dado de baja",
+        ]
+        for p in productos_services.listar_productos(db, incluir_inactivos, buscar)
+        if not incluir_inactivos or not p.activo
+    ]
+    return (
+        "Productos dados de baja" if incluir_inactivos else "Productos",
+        ["Nombre", "Descripción", "Unidad", "Estado"],
+        filas,
+    )
+
+
+_COLUMNAS_ALIMENTO = [
+    ("energia", "Energía (kcal)"),
+    ("carbohidratos", "Carbohidratos (g)"),
+    ("azucares_totales", "Azúcares (g)"),
+    ("proteinas", "Proteínas (g)"),
+    ("grasas_totales", "Grasas totales (g)"),
+    ("grasas_saturadas", "Grasas saturadas (g)"),
+    ("fibra", "Fibra (g)"),
+    ("sodio", "Sodio (mg)"),
+]
+
+
+def alimentos_referencia(db: Session, buscar: Optional[str], base: Optional[str]) -> Vista:
+    # Mismo tope que la tabla de la pantalla (el máximo de la API).
+    alimentos = nutricion_services.listar_alimentos(db, buscar, base, 500)
+    filas = [
+        [texto(a.nombre), texto(a.base)]
+        + [_numero(getattr(a, clave)) for clave, _ in _COLUMNAS_ALIMENTO]
+        for a in alimentos
+    ]
+    return (
+        "Base de composición de alimentos (valores por 100 g)",
+        ["Alimento", "Base"] + [etiqueta for _, etiqueta in _COLUMNAS_ALIMENTO],
+        filas,
+    )
+
+
+def rotulado_productos(db: Session, buscar: Optional[str]) -> Vista:
+    borradores = dict(
+        db.execute(
+            select(BorradorRotulado.producto_id, func.count(BorradorRotulado.id)).group_by(
+                BorradorRotulado.producto_id
+            )
+        ).all()
+    )
+    ultimos = dict(
+        db.execute(
+            select(BorradorRotulado.producto_id, func.max(BorradorRotulado.actualizado_en)).group_by(
+                BorradorRotulado.producto_id
+            )
+        ).all()
+    )
+    filas = [
+        [
+            texto(p.nombre),
+            texto(p.unidad_medida.simbolo if p.unidad_medida else None),
+            str(borradores.get(p.id, 0)),
+            texto(ultimos[p.id]) if ultimos.get(p.id) else "-",
+        ]
+        for p in productos_services.listar_productos(db, False, buscar)
+    ]
+    return (
+        "Rotulado de productos",
+        ["Producto", "Unidad", "Borradores", "Último borrador actualizado"],
         filas,
     )

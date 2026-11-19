@@ -1,8 +1,9 @@
+import { useId } from "react";
 import { Box, Text } from "@chakra-ui/react";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -10,8 +11,9 @@ import {
 } from "recharts";
 import type { PuntoDiario } from "../types/cumplimiento";
 
-const COLOR_LINEA = "var(--chakra-colors-brand-500)";
-const COLOR_TEXTO = "var(--chakra-colors-gray-600)";
+/** brand.500 en hex (igual en claro y oscuro): el degradado del área (`<stop>`) necesita un color literal. */
+const COLOR_LINEA = "#468189";
+const COLOR_TEXTO = "var(--chakra-colors-fg-muted)";
 
 interface GraficoCumplimientoProps {
   datos: PuntoDiario[];
@@ -62,6 +64,8 @@ function TooltipDia({
  * puntos que sí tienen datos. Cada punto es un día con checklist.
  */
 export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoProps) {
+  // Id del degradado, único por gráfico.
+  const idDegradado = `cumplimiento-${useId().replace(/:/g, "")}`;
   return (
     <Box
       w="full"
@@ -70,10 +74,17 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
       aria-label="Evolución del porcentaje diario de cumplimiento de limpieza en el período elegido"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 6 }}>
+        <AreaChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 6 }}>
+          {/* Curva suavizada con un degradado debajo, como las áreas de los paneles. */}
+          <defs>
+            <linearGradient id={idDegradado} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={COLOR_LINEA} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={COLOR_LINEA} stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid
             vertical={false}
-            stroke="var(--chakra-colors-gray-100)"
+            stroke="var(--chakra-colors-bg-muted)"
             strokeDasharray="4 4"
           />
           <XAxis
@@ -96,19 +107,21 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
           />
           <Tooltip
             content={<TooltipDia />}
-            cursor={{ stroke: "var(--chakra-colors-gray-300)", strokeDasharray: "4 4" }}
+            cursor={{ stroke: "var(--chakra-colors-border-emphasized)", strokeDasharray: "4 4" }}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="porcentaje"
             name="Cumplimiento"
             stroke={COLOR_LINEA}
-            strokeWidth={2}
+            strokeWidth={2.25}
+            fill={`url(#${idDegradado})`}
+            fillOpacity={1}
             dot={{ r: 3, fill: COLOR_LINEA, strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </Box>
   );
