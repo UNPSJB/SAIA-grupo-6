@@ -21,6 +21,7 @@ class NotificacionResponse(BaseModel):
     id_notificacion: str
     tipo: str
     entidad_id: int
+    entidad_nombre: Optional[str] = None
     titulo: str
     mensaje: str
     nivel: str
@@ -35,6 +36,7 @@ class AlertaCriticidadResponse(BaseModel):
     clave: str
     origen: str
     entidad_id: int
+    entidad_nombre: Optional[str] = None
     grupo_clave: str
     icono: IconoCriticidad
     titulo: str

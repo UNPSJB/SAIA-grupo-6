@@ -117,6 +117,28 @@ function etiquetaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
   return nivel === "alto" ? "ALTO" : nivel === "medio" ? "MEDIO" : "BAJO";
 }
 
+/** Para vencimientos personales, el detalle trae oraciones largas como
+ * "'Manipulación de Alimentos B' de pepe pepe vence en 8 días". Acota en el
+ * nombre de la entidad (todo lo que está antes de " vence" / " venció").
+ *
+ * Para documento corta antes de " - versión".
+ * Para elemento de limpieza corta antes de " superó su frecuencia".
+ */
+function detalleCorto(detalle?: string | null): string {
+  if (!detalle) return "";
+  const recortes = [
+    detalle.indexOf(" vence"),
+    detalle.indexOf(" venció"),
+    detalle.indexOf(" · versión"),
+    detalle.indexOf(" superó su frecuencia"),
+  ];
+  const corte = Math.min(
+    ...recortes.map((i) => (i === -1 ? Infinity : i)),
+  );
+  if (corte === Infinity) return detalle;
+  return detalle.slice(0, corte).trimEnd();
+}
+
 function paletaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
   return nivel === "alto" ? "red" : nivel === "medio" ? "orange" : "green";
 }
@@ -220,6 +242,14 @@ export function NotificacionesPage() {
     // que recibe el id del documento (disponible en entidad_id).
     if (alerta.origen === "DOCUMENTO") {
       navigate(`/documentos/${alerta.entidad_id}/nueva-version`);
+      return;
+    }
+
+    // Las notificaciones de checklist no llevan al historial genérico: se
+    // navega al historial filtrado por el equipo de la alerta y se prepara
+    // para abrir el detalle del primer checklist (botón "ver" / icono de ojo).
+    if (alerta.origen === "CHECKLIST") {
+      navigate(`/checklist/historial?equipoId=${alerta.entidad_id}&abrirDetalle=true`);
       return;
     }
 
@@ -621,7 +651,7 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Situación</EncabezadoOscuro>
+                  <EncabezadoOscuro width="24%">Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo
@@ -683,8 +713,13 @@ export function NotificacionesPage() {
                       </Celda>
 
                       <Celda>
-                        <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
-                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
+                        <TextoTruncado fontWeight="bold" color="fg" mb="1" max={160} texto={alerta.titulo} />
+                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={
+                          alerta.entidad_nombre ??
+                          (alerta.origen === "INCIDENTE"
+                            ? alerta.detalle.split(" · ")[0]
+                            : detalleCorto(alerta.detalle))
+                        } />
                       </Celda>
 
                       <Celda fontSize="sm">
