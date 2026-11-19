@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { obtenerTareasDelDia, marcarTarea } from "../services/checklistService";
 import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
-import type { TareaDelDia } from "../types/checklist";
+import type { ConsumoTarea, TareaDelDia } from "../types/checklist";
 import { hoyISO } from "../../../common/utils/fechas";
 
 // Un solo fetch para todos los equipos: el backend ya arma la lista plana
@@ -13,13 +13,30 @@ export function useChecklist(fecha: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
+  /*
+   * Cambios locales hechos desde que arrancó cada recarga silenciosa. Si
+   * mientras viajaba la consulta se marcó otra tarea, su respuesta ya está
+   * vieja y se descarta: si no, pisaría la casilla recién tildada.
+   */
+  const versionRef = useRef(0);
 
-  const cargarTareas = useCallback(async () => {
+  /**
+   * Trae las tareas del día. `silencioso`: sin indicador de carga y sin
+   * vaciar la lista si falla. Es la que se usa después de marcar una tarea,
+   * para tomar lo que el servidor haya recalculado (estado del checklist) sin
+   * que la pantalla cambie los acordeones por esqueletos, salte arriba y
+   * pierda lo que se estaba cargando en otras tareas.
+   */
+  const cargarTareas = useCallback(async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
+    const version = versionRef.current;
     try {
-      setLoading(true);
-      setError(null);
+      if (!silencioso) {
+        setLoading(true);
+        setError(null);
+      }
 
       const datos = await obtenerTareasDelDia(fecha);
+      if (silencioso && version !== versionRef.current) return;
       /*
        * Un día anterior a hoy es de solo lectura, diga lo que diga el estado
        * guardado. El backend ya lo informa como "cerrado", pero se refuerza
@@ -38,6 +55,8 @@ export function useChecklist(fecha: string) {
       // notificaciones: avisamos a la campana para que refresque el contador.
       notificarCambioNotificaciones();
     } catch (err) {
+      // En una recarga silenciosa se conserva lo que ya está en pantalla.
+      if (silencioso) return;
       setError(
         err instanceof Error
           ? err.message
@@ -45,12 +64,15 @@ export function useChecklist(fecha: string) {
       );
       setTareas([]);
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   }, [fecha]);
 
+  /** Recarga completa (botón "Actualizar", cambio de fecha, cobertura). */
+  const recargar = useCallback(() => cargarTareas(), [cargarTareas]);
+
   useEffect(() => {
-    const timeoutId = window.setTimeout(cargarTareas, 0);
+    const timeoutId = window.setTimeout(() => void cargarTareas(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [cargarTareas]);
 
@@ -58,9 +80,8 @@ export function useChecklist(fecha: string) {
     tareaId: number,
     completadoActual: boolean,
     evidencia?: File,
-    insumoQuimicoId?: number,
-    cantidadConsumida?: number,
-    elementoLimpiezaId?: number
+    consumos?: ConsumoTarea[],
+    elementosLimpiezaIds?: number[]
   ) => {
     const tarea = tareas.find((t) => t.id === tareaId);
 
@@ -91,6 +112,7 @@ export function useChecklist(fecha: string) {
         )
       );
 
+    versionRef.current += 1;
     try {
       setActualizandoId(tareaId);
       setError(null);
@@ -103,18 +125,36 @@ export function useChecklist(fecha: string) {
       // - fecha
       // - insumo químico utilizado
       // - cantidad aproximada consumida
-      await marcarTarea(
+      const registro = await marcarTarea(
         tareaId,
         nuevoEstado,
         evidencia,
         fecha,
-        insumoQuimicoId,
-        cantidadConsumida,
-        elementoLimpiezaId
+        consumos,
+        elementosLimpiezaIds
       );
 
-      // Refrescamos los datos desde el servidor
-      await cargarTareas();
+      // Solo esta tarea, con lo que devolvió el servidor: quién la marcó, a
+      // qué hora, la foto y el consumo. El resto de la pantalla no se toca.
+      setTareas((prev) =>
+        prev.map((t) =>
+          t.id === tareaId
+            ? {
+                ...t,
+                completado: registro.completado,
+                fecha_completado: registro.fecha_completado ?? null,
+                usuario_id: registro.usuario_id ?? null,
+                evidencia_url: registro.evidencia_url ?? t.evidencia_url ?? null,
+                consumos: registro.consumos ?? [],
+                elementos_limpieza_ids: registro.elementos_limpieza_ids ?? [],
+              }
+            : t
+        )
+      );
+      setActualizandoId(null);
+
+      // Y en segundo plano, el resto de lo que el servidor haya recalculado.
+      void cargarTareas({ silencioso: true });
     } catch (err) {
       aplicarEstado(completadoActual);
 
@@ -134,6 +174,6 @@ export function useChecklist(fecha: string) {
     error,
     actualizandoId,
     toggleTarea,
-    recargar: cargarTareas,
+    recargar,
   };
 }

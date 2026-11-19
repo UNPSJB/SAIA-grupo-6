@@ -1,9 +1,7 @@
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
-  LuApple,
   LuArchive,
   LuBadgeCheck,
-  LuBeaker,
   LuBoxes,
   LuBrush,
   LuCalendarClock,
@@ -31,7 +29,6 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuSprayCan,
-  LuTag,
   LuTruck,
   LuPackageX,
   LuTriangleAlert,
@@ -114,10 +111,6 @@ export const GRUPOS: GrupoMenu[] = [
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
-      // E11: redondeo, valores diarios y base de composición de la tabla nutricional.
-      { to: "/nutricion", label: "Parámetros nutricionales", rol: "administrar", icon: LuApple },
-      // E12.1: versiones de las reglas que deciden si aplica el rotulado frontal.
-      { to: "/rotulado-frontal", label: "Reglas de rotulado frontal", rol: "administrar", icon: LuTag },
       // E13: rotulado según CAA (Capítulo V).
       { to: "/rotulado", label: "Rotulado de productos", rol: "administrar", icon: LuFileText },
     ],
@@ -130,7 +123,6 @@ export const GRUPOS: GrupoMenu[] = [
     entradas: [
       { to: "/stock-insumos", label: "Stock de insumos", rol: "administrar", icon: LuWarehouse },
       { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
-      { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
     ],
   },

@@ -355,7 +355,7 @@ export function RotuladoFrontalProductoPage() {
         ) : null
       }
       acciones={
-        <Button variant="outline" colorPalette="brand" onClick={() => navigate("/rotulado-frontal")}>
+        <Button variant="outline" colorPalette="brand" onClick={() => navigate("/rotulado?tab=reglas")}>
           <LuBookOpen aria-hidden /> Reglas de aplicabilidad
         </Button>
       }

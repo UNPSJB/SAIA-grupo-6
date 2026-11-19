@@ -212,20 +212,25 @@ export function DetalleChecklistDialog({
                           <Text>{valorRegistrado(tarea.usuario_nombre)}</Text>
                         </Box>
                         <Box>
-                          <Text color="fg.muted">Insumo químico</Text>
-                          <Text>{valorRegistrado(tarea.insumo_quimico_nombre)}</Text>
+                          <Text color="fg.muted">Productos químicos</Text>
+                          {tarea.consumos && tarea.consumos.length > 0 ? (
+                            tarea.consumos.map((c) => (
+                              <Text key={c.insumo_quimico_id}>
+                                {c.nombre}: {formatoCantidad(c.cantidad)}
+                                {c.unidad_medida_simbolo ? ` ${c.unidad_medida_simbolo}` : ""}
+                              </Text>
+                            ))
+                          ) : (
+                            <Text>{valorRegistrado(null)}</Text>
+                          )}
                         </Box>
                         <Box>
-                          <Text color="fg.muted">Cantidad consumida</Text>
-                          <Text>{formatoCantidad(tarea.cantidad_consumida, "No registrado")}</Text>
-                        </Box>
-                        <Box>
-                          <Text color="fg.muted">Unidad de medida</Text>
-                          <Text>{valorRegistrado(tarea.unidad_medida_simbolo)}</Text>
-                        </Box>
-                        <Box>
-                          <Text color="fg.muted">Elemento de limpieza</Text>
-                          <Text>{valorRegistrado(tarea.elemento_limpieza_nombre)}</Text>
+                          <Text color="fg.muted">Elementos de limpieza</Text>
+                          <Text>
+                            {tarea.elementos_limpieza_nombres && tarea.elementos_limpieza_nombres.length > 0
+                              ? tarea.elementos_limpieza_nombres.join(", ")
+                              : valorRegistrado(null)}
+                          </Text>
                         </Box>
                       </SimpleGrid>
 

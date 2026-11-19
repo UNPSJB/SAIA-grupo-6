@@ -244,7 +244,6 @@ def obtener_o_crear_checklists_del_dia(
                         descripcion=t.descripcion,
                         tipo=t.tipo,
                         observaciones=t.observaciones,
-                        elemento_limpieza_id=None,
                     )
                     for t in tareas_del_dia
                 ],
@@ -269,9 +268,11 @@ def obtener_o_crear_checklists_del_dia(
                     fecha_completado=reg.fecha_completado,
                     usuario_id=reg.usuario_id,
                     evidencia_url=reg.evidencia_url,
-                    insumo_quimico_id=reg.insumo_quimico_id,
-                    cantidad_consumida=reg.cantidad_consumida,
-                    elemento_limpieza_id=reg.elemento_limpieza_id,
+                    consumos=[
+                        schemas.ConsumoTareaItem(insumo_quimico_id=c.insumo_quimico_id, cantidad=c.cantidad)
+                        for c in reg.consumos
+                    ],
+                    elementos_limpieza_ids=reg.elementos_limpieza_ids,
                     descripcion=reg.descripcion_tarea_historico,
                     tipo=reg.tipo_tarea_historico,
                     observaciones=reg.observaciones_tarea_historico,

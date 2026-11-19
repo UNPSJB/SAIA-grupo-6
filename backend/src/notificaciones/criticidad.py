@@ -228,8 +228,8 @@ def _recurrencia_checklists(
             if registro.completado:
                 continue
 
-            if registro.elemento_limpieza_id is not None:
-                grupo = f"elemento:{registro.elemento_limpieza_id}"
+            if registro.elementos:
+                grupo = f"elemento:{registro.elementos[0].elemento_limpieza_id}"
             else:
                 grupo = f"equipo:{checklist.equipo_id}"
 

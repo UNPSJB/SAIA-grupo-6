@@ -26,13 +26,15 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { TabAditivos, TabClases } from "../../../aditivos/components/pages/AditivosPage";
 import { BotonesExportar } from "../../../../features/exportacion";
 import { useProveedores } from "../../../proveedores/hooks/useProveedores";
 
 const PAGE_SIZE = 10;
 
-export function InsumosPage() {
+/** Pestaña "Insumos": el catálogo de insumos y productos. */
+function TabInsumos() {
   const navigate = useNavigate();
   const [verInactivos, setVerInactivos] = useState(false);
 
@@ -182,17 +184,7 @@ export function InsumosPage() {
   };
 
   return (
-    <Pagina
-      titulo={
-        verInactivos
-          ? "Insumos y productos dados de baja"
-          : "Gestión de insumos y productos"
-      }
-      descripcion="Alta, modificación y baja de insumos y productos del laboratorio."
-      acciones={
-        <BotonAgregar onClick={() => navigate("/insumos/nuevo")}>Nuevo insumo</BotonAgregar>
-      }
-    >
+    <>
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -234,6 +226,8 @@ export function InsumosPage() {
         }
         herramientas={
           <>
+            {/* Dentro de una pestaña, el alta va en la barra (como en Aditivos). */}
+            <BotonAgregar onClick={() => navigate("/insumos/nuevo")}>Nuevo insumo</BotonAgregar>
             <ToggleInactivos
               enBarra
               checked={verInactivos}
@@ -310,6 +304,29 @@ export function InsumosPage() {
         isLoading={procesando}
         onCancel={handleCloseReactivarDialog}
         onConfirm={handleConfirmReactivar}
+      />
+    </>
+  );
+}
+
+/**
+ * Insumos, con los aditivos como sub-opción: antes "Aditivos" era una entrada
+ * aparte del menú de Inventario, aunque un aditivo es un tipo de insumo. Ahora
+ * son pestañas de esta pantalla, con la misma lengüeta y barrido que el resto
+ * de las sub-pestañas (`PestanasPagina`). `/aditivos` redirige acá.
+ */
+export function InsumosPage() {
+  return (
+    <Pagina
+      titulo="Insumos"
+      descripcion="Alta, modificación y baja de insumos y productos del laboratorio, y la lista de referencia de aditivos."
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "insumos", etiqueta: "Insumos", contenido: <TabInsumos /> },
+          { valor: "aditivos", etiqueta: "Aditivos", contenido: <TabAditivos /> },
+          { valor: "clases", etiqueta: "Clases funcionales", contenido: <TabClases /> },
+        ]}
       />
     </Pagina>
   );

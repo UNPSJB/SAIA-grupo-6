@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { Badge, HStack, Table, Text } from "@chakra-ui/react";
-import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { useLista } from "../../../../common/hooks/useLista";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
@@ -53,7 +52,7 @@ function useClases(incluirInactivas: boolean) {
   return { clases: items, loading, error, recargar };
 }
 
-function TabAditivos() {
+export function TabAditivos() {
   const [verBajas, setVerBajas] = useState(false);
   const [claseId, setClaseId] = useState("");
   const [buscar, setBuscar] = useState("");
@@ -230,7 +229,7 @@ function TabAditivos() {
   );
 }
 
-function TabClases() {
+export function TabClases() {
   const [verBajas, setVerBajas] = useState(false);
   const [editando, setEditando] = useState<ClaseFuncional | "nueva" | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
@@ -330,21 +329,5 @@ function TabClases() {
         />
       )}
     </>
-  );
-}
-
-export function AditivosPage() {
-  return (
-    <Pagina
-      titulo="Aditivos"
-      descripcion="Lista de referencia de aditivos alimentarios. Se actualiza desde acá, sin reprogramar."
-    >
-      <PestanasPagina
-        pestanas={[
-          { valor: "aditivos", etiqueta: "Aditivos", contenido: <TabAditivos /> },
-          { valor: "clases", etiqueta: "Clases funcionales", contenido: <TabClases /> },
-        ]}
-      />
-    </Pagina>
   );
 }

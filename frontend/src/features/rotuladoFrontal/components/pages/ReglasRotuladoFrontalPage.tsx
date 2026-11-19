@@ -3,7 +3,6 @@ import { Badge, Box, Button, Checkbox, HStack, Stack, Table, Text, Textarea } fr
 import { LuCheck, LuScale } from "react-icons/lu";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../../components/ui/dialog";
 import { DialogForm } from "../../../../common/components/DialogForm";
-import { Pagina } from "../../../../components/ui/plantillas";
 import {
   AccionesFormulario,
   BannerError,
@@ -384,7 +383,8 @@ function NuevaVersionDialog({
   );
 }
 
-export function ReglasRotuladoFrontalPage() {
+/** Pestaña "Reglas de rotulado frontal" de Rotulado de productos. */
+export function TabReglasRotuladoFrontal() {
   const [reglas, setReglas] = useState<ReglaRotulado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -460,12 +460,13 @@ export function ReglasRotuladoFrontalPage() {
   };
 
   return (
-    <Pagina
-      titulo="Reglas de rotulado frontal"
-      descripcion="Versiones de las reglas que deciden si corresponde el rotulado frontal. Las versiones anteriores no se editan."
-      acciones={<BotonAgregar onClick={() => setCreando(true)}>Nueva versión</BotonAgregar>}
-    >
+    <>
+      {/* La primera pieza es la tarjeta: la lengüeta de la pestaña se apoya sobre ella. */}
       <Tarjeta p="4" mb="4">
+        <Text fontSize="sm" color="fg.muted" mb="3" pb="3" borderBottomWidth="1px" borderColor="border.subtle">
+          Versiones de las reglas que deciden si corresponde el rotulado frontal. Las versiones
+          anteriores no se editan.
+        </Text>
         <HStack justify="space-between" align="center" gap="4" flexWrap="wrap">
           <Box>
             <HStack gap="2">
@@ -491,6 +492,8 @@ export function ReglasRotuladoFrontalPage() {
               {guardandoModulo ? "Guardando..." : "Módulo activo"}
             </Checkbox.Label>
           </Checkbox.Root>
+          {/* Dentro de una pestaña, el alta va en la tarjeta de arriba. */}
+          <BotonAgregar onClick={() => setCreando(true)}>Nueva versión</BotonAgregar>
         </HStack>
       </Tarjeta>
 
@@ -600,6 +603,6 @@ export function ReglasRotuladoFrontalPage() {
           }}
         />
       )}
-    </Pagina>
+    </>
   );
 }

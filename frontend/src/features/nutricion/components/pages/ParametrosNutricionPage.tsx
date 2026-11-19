@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, Box, Button, Checkbox, HStack, InputGroup, Stack, Table, Text } from "@chakra-ui/react";
 import { LuFileDown, LuFileUp, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
 import { BotonesExportar } from "../../../exportacion";
-import { Pagina, PestanasPagina, SeccionDetalle } from "../../../../components/ui/plantillas";
+import { SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -54,22 +54,6 @@ import { Aviso, Bloque } from "../piezas";
  * son parámetros y no constantes del código: la norma o el criterio del/la
  * profesional de referencia pueden cambiar.
  */
-export function ParametrosNutricionPage() {
-  return (
-    <Pagina
-      titulo="Parámetros nutricionales"
-      descripcion="Cómo se calcula y se expresa la tabla de información nutricional, y de dónde salen los datos de los insumos."
-    >
-      <PestanasPagina
-        pestanas={[
-          { valor: "parametros", etiqueta: "Redondeo y valores diarios", contenido: <PanelParametros /> },
-          { valor: "base", etiqueta: "Base de composición", contenido: <PanelBase /> },
-        ]}
-      />
-    </Pagina>
-  );
-}
-
 const vacioANull = (t: string | null) => (t === null || t.trim() === "" ? null : t.trim().replace(",", "."));
 /** "2000.000" -> "2000"; lo que la persona está escribiendo ("0,") queda igual. */
 const editable = (v: string | null) => (v === null ? "" : /^\d+\.\d*0$/.test(v) ? String(Number(v)) : v);
@@ -80,7 +64,8 @@ function ejemplo(valor: number, n: ParametroNutriente) {
   return valor.toLocaleString("es-AR", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
-function PanelParametros() {
+/** Pestaña "Parámetros nutricionales" de Recetas: redondeo, valores diarios y notas. */
+export function PanelParametros() {
   const [datos, setDatos] = useState<Parametros | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -293,7 +278,8 @@ function descargarPlantilla() {
   URL.revokeObjectURL(enlace);
 }
 
-function PanelBase() {
+/** Pestaña "Base de composición" de Recetas: importar y consultar alimentos. */
+export function PanelBase() {
   const [bases, setBases] = useState<string[]>([]);
   const [base, setBase] = useState("");
   const [texto, setTexto] = useState("");

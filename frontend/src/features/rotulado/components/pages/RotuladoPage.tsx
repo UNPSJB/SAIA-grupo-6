@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Box, Heading, HStack, Table, Text } from "@chakra-ui/react";
 import { LuArrowLeft, LuFileText, LuPencil, LuPlus } from "react-icons/lu";
 import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { TabReglasRotuladoFrontal } from "../../../rotuladoFrontal/components/pages/ReglasRotuladoFrontalPage";
 import {
   BannerError,
   BotonFila,
@@ -39,7 +40,8 @@ interface ProductoConBorradores extends Producto {
   borradores: BorradorRotuladoOut[];
 }
 
-export function RotuladoPage() {
+/** Pestaña "Rotulado de productos": productos y sus borradores. */
+function TabRotulado() {
   const navigate = useNavigate();
   const [errorBorradores, setErrorBorradores] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -101,25 +103,11 @@ export function RotuladoPage() {
   };
 
   if (loading) {
-    return (
-      <Pagina
-      titulo="Rotulado de productos"
-        descripcion="Listado de productos y sus borradores de rotulado."
-      >
-        <EstadoCargando pagina>Cargando productos...</EstadoCargando>
-      </Pagina>
-    );
+    return <EstadoCargando pagina>Cargando productos...</EstadoCargando>;
   }
 
   if (error || errorBorradores) {
-    return (
-      <Pagina
-      titulo="Rotulado de productos"
-        descripcion="Listado de productos y sus borradores de rotulado."
-      >
-        <BannerError>{error ?? errorBorradores}</BannerError>
-      </Pagina>
-    );
+    return <BannerError>{error ?? errorBorradores}</BannerError>;
   }
 
   const chips = chipsDeFiltros([
@@ -135,20 +123,17 @@ export function RotuladoPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Rotulado de productos"
-      descripcion="Completá los datos de rotulado de los productos según el Capítulo V del CAA."
-      acciones={
-        <>
-          {productoSeleccionado && (
-            <BotonVolver onClick={cerrarSeleccion}>
-              <LuArrowLeft aria-hidden />
-              Volver al listado
-            </BotonVolver>
-          )}
-        </>
-      }
-    >
+    <>
+      {/* "Volver" va dentro de la pestaña: el encabezado de la página es común
+          a las dos pestañas. */}
+      {productoSeleccionado && (
+        <HStack mb="4">
+          <BotonVolver onClick={cerrarSeleccion}>
+            <LuArrowLeft aria-hidden />
+            Volver al listado
+          </BotonVolver>
+        </HStack>
+      )}
       {productoSeleccionado ? (
         <VistaProductoSeleccionado
           producto={productoSeleccionado}
@@ -165,6 +150,27 @@ export function RotuladoPage() {
           onCrearBorrador={crearNuevo}
         />
       )}
+    </>
+  );
+}
+
+/**
+ * Rotulado de productos, con las reglas de rotulado frontal como sub-opción:
+ * antes eran una entrada aparte del menú de Producción. `/rotulado-frontal`
+ * redirige a la pestaña.
+ */
+export function RotuladoPage() {
+  return (
+    <Pagina
+      titulo="Rotulado de productos"
+      descripcion="Completá los datos de rotulado de los productos según el Capítulo V del CAA."
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "productos", etiqueta: "Rotulado de productos", contenido: <TabRotulado /> },
+          { valor: "reglas", etiqueta: "Reglas de rotulado frontal", contenido: <TabReglasRotuladoFrontal /> },
+        ]}
+      />
     </Pagina>
   );
 }

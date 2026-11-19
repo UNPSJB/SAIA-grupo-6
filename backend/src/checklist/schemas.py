@@ -7,6 +7,24 @@ from src.checklist.models import EstadoChecklist
 from src.common.paginacion import Pagina
 
 
+class ConsumoTareaItem(BaseModel):
+    """Un producto químico usado en una tarea, con su cantidad aproximada."""
+
+    insumo_quimico_id: int
+    cantidad: float = Field(gt=0)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConsumoTareaDetalle(BaseModel):
+    """Consumo de una tarea con el nombre y la unidad del producto (detalle histórico)."""
+
+    insumo_quimico_id: int
+    nombre: str
+    cantidad: float
+    unidad_medida_simbolo: Optional[str] = None
+
+
 class ChecklistTareaItem(BaseModel):
     id: int
     registro_id: int
@@ -19,10 +37,9 @@ class ChecklistTareaItem(BaseModel):
     descripcion: Optional[str] = None  # procedimiento vigente de la tarea
     tipo: Optional[str] = None  # tipo vigente de la tarea (preoperacional/...)
     observaciones: Optional[str] = None  # observaciones vigentes de la tarea
-    # Consumo aproximado del producto químico
-    insumo_quimico_id: Optional[int] = None
-    cantidad_consumida: Optional[float] = None
-    elemento_limpieza_id: Optional[int] = None
+    # Productos químicos usados (cada uno con su cantidad) y elementos de limpieza
+    consumos: List[ConsumoTareaItem] = []
+    elementos_limpieza_ids: List[int] = []
 
     # Asignación de operador y cobertura
     operador_id: Optional[int] = None
@@ -60,6 +77,10 @@ class RegistroTareaUpdate(BaseModel):
         gt=0
     )
 
+    # Varios productos con su cantidad y varios elementos por tarea.
+    consumos: Optional[List[ConsumoTareaItem]] = None
+    elementos_limpieza_ids: Optional[List[int]] = None
+
 
 class RegistroTareaResponse(BaseModel):
     id: int
@@ -75,10 +96,9 @@ class RegistroTareaResponse(BaseModel):
     usuario_id: Optional[int] = None
     evidencia_url: Optional[str] = None
 
-    # Consumo registrado para esta tarea
-    insumo_quimico_id: Optional[int] = None
-    cantidad_consumida: Optional[float] = None
-    elemento_limpieza_id: Optional[int] = None
+    # Consumo registrado para esta tarea: productos con su cantidad y elementos
+    consumos: List[ConsumoTareaItem] = []
+    elementos_limpieza_ids: List[int] = []
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -96,10 +116,9 @@ class TareaDelDiaItem(BaseModel):
     usuario_id: Optional[int] = None
     evidencia_url: Optional[str] = None
 
-    # Consumo aproximado registrado
-    insumo_quimico_id: Optional[int] = None
-    cantidad_consumida: Optional[float] = None
-    elemento_limpieza_id: Optional[int] = None
+    # Productos químicos usados (cada uno con su cantidad) y elementos de limpieza
+    consumos: List[ConsumoTareaItem] = []
+    elementos_limpieza_ids: List[int] = []
 
     # Asignación de operador y cobertura
     operador_id: Optional[int] = None
@@ -191,10 +210,8 @@ class DetalleChecklistTareaItem(BaseModel):
     fecha_completado: Optional[datetime] = None
     usuario_nombre: Optional[str] = None
     evidencia_url: Optional[str] = None
-    insumo_quimico_nombre: Optional[str] = None
-    cantidad_consumida: Optional[float] = None
-    unidad_medida_simbolo: Optional[str] = None
-    elemento_limpieza_nombre: Optional[str] = None
+    consumos: List[ConsumoTareaDetalle] = []
+    elementos_limpieza_nombres: List[str] = []
 
 
 class DetalleChecklistResponse(BaseModel):

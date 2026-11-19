@@ -29,6 +29,7 @@ from .retiros import migrar_retiros
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
+from .checklist_consumos import migrar_checklist_consumos
 from .trazabilidad import migrar_trazabilidad
 from .unidades_medida_tipo_factor import (
     asignar_equivalencias_conocidas,
@@ -58,6 +59,8 @@ def run_migrations() -> None:
     migrar_documentos()
     migrar_incidentes()
     migrar_tareas()
+    # Después de migrar_tareas: mueve el consumo de una columna a las tablas nuevas.
+    migrar_checklist_consumos()
     migrar_stock()
     migrar_lotes()
     migrar_lotes_fecha_vencimiento()

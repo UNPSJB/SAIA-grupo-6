@@ -122,9 +122,6 @@ const RecetaCreatePage = lazyPrecargable(() =>
 const RecetaDetallePage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaDetallePage").then((mod) => ({ default: mod.RecetaDetallePage })),
 );
-const AditivosPage = lazyPrecargable(() =>
-  import("./features/aditivos/components/pages/AditivosPage").then((mod) => ({ default: mod.AditivosPage })),
-);
 const RecetaNuevaVersionPage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaNuevaVersionPage").then((mod) => ({ default: mod.RecetaNuevaVersionPage })),
 );
@@ -284,16 +281,10 @@ const DatosNutricionalesInsumoPage = lazyPrecargable(() =>
 const InfoNutricionalProductoPage = lazyPrecargable(() =>
   import("./features/nutricion/components/pages/InfoNutricionalProductoPage").then((mod) => ({ default: mod.InfoNutricionalProductoPage })),
 );
-const ParametrosNutricionPage = lazyPrecargable(() =>
-  import("./features/nutricion/components/pages/ParametrosNutricionPage").then((mod) => ({ default: mod.ParametrosNutricionPage })),
-);
 
 // E12.1: aplicabilidad del rotulado frontal
 const RotuladoFrontalProductoPage = lazyPrecargable(() =>
   import("./features/rotuladoFrontal/components/pages/RotuladoFrontalProductoPage").then((mod) => ({ default: mod.RotuladoFrontalProductoPage })),
-);
-const ReglasRotuladoFrontalPage = lazyPrecargable(() =>
-  import("./features/rotuladoFrontal/components/pages/ReglasRotuladoFrontalPage").then((mod) => ({ default: mod.ReglasRotuladoFrontalPage })),
 );
 
 // Configuración: ajustes del sistema, desde el menú de usuario (solo administradores)
@@ -977,12 +968,9 @@ export const router = createBrowserRouter([
 
               // ---------------- PRODUCTOS Y RECETAS ----------------
               {
+                // Aditivos ahora es una pestaña de Insumos.
                 path: "/aditivos",
-                element: (
-                  <ConSuspense>
-                    <AditivosPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/insumos?tab=aditivos" replace />,
               },
               {
                 path: "/productos",
@@ -1050,12 +1038,9 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                // Las reglas son ahora una pestaña de Rotulado de productos.
                 path: "/rotulado-frontal",
-                element: (
-                  <ConSuspense>
-                    <ReglasRotuladoFrontalPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/rotulado?tab=reglas" replace />,
               },
               {
                 path: "/insumos/:id/nutricion",
@@ -1066,12 +1051,9 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                // Los parámetros nutricionales son ahora pestañas de Recetas.
                 path: "/nutricion",
-                element: (
-                  <ConSuspense>
-                    <ParametrosNutricionPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/recetas?tab=parametros" replace />,
               },
               {
                 path: "/recetas/nueva",
