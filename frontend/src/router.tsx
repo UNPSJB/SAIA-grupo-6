@@ -132,6 +132,9 @@ const LoteInsumoCreatePage = lazy(() =>
 const TrazabilidadLoteInsumoPage = lazy(() =>
   import("./features/trazabilidad/components/pages/TrazabilidadLoteInsumoPage").then((mod) => ({ default: mod.TrazabilidadLoteInsumoPage })),
 );
+const TrazabilidadLoteCompletoPage = lazy(() =>
+  import("./features/trazabilidad/components/pages/TrazabilidadLoteCompletoPage").then((mod) => ({ default: mod.TrazabilidadLoteCompletoPage })),
+);
 
 const RecetaComposicionPage = lazy(() =>
   import("./features/recetas/components/pages/RecetaComposicionPage").then((mod) => ({ default: mod.RecetaComposicionPage })),
@@ -1089,10 +1092,13 @@ export const router = createBrowserRouter([
                 path: "/trazabilidad",
                 element: <Navigate to="/lotes" replace />,
               },
-              // La trazabilidad hacia atrás vive ahora en la ficha del lote.
               {
                 path: "/trazabilidad/lotes-producto/:id",
-                element: <RedirigirConId a={(id) => `/lotes/${id}`} />,
+                element: (
+                  <ConSuspense>
+                    <TrazabilidadLoteCompletoPage />
+                  </ConSuspense>
+                ),
               },
               {
                 path: "/trazabilidad/lotes-insumo/:id",

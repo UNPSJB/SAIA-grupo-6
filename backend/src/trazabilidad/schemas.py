@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.lotes.schemas import InsumoPlanificado, LoteResumen
 
@@ -88,3 +89,35 @@ class TrazabilidadLoteInsumo(BaseModel):
     cantidad_recibida: Decimal
     saldo: Decimal
     lotes_producto: list[LoteProductoUsoInsumo]
+
+
+ColumnaGrafo = Literal['proveedor', 'insumo', 'lote_producto', 'despacho', 'cliente']
+
+
+class NodoGrafo(BaseModel):
+    id: str  # ej: "prov_1", "ins_5", "lote_10", "salida_3", "cli_2"
+    columna: ColumnaGrafo
+    tipo: str  # 'proveedor', 'materia_prima', 'lote_elaboracion', 'transporte', 'cliente'
+    titulo: str
+    subtitulo: str | None = None
+    badge: str | None = None  # ej: 'Homologado', 'Venc: 15/12/2026', 'ENTREGADO'
+    tono_badge: str | None = None  # 'ok', 'alerta', 'peligro', 'info', 'neutro'
+    metadatos: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConexionGrafo(BaseModel):
+    id: str  # ej: "c_prov1_ins5"
+    origen_id: str
+    destino_id: str
+    etiqueta: str | None = None  # ej: "25 kg", "300 u"
+    cliente_id: int | None = None  # Para filtrar la rama del cliente cuando se hace foco
+
+
+class GrafoTrazabilidadResponse(BaseModel):
+    lote_id: int
+    numero_lote: str
+    producto_nombre: str
+    estado_lote: str
+    nodos: list[NodoGrafo]
+    conexiones: list[ConexionGrafo]
+
