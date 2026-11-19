@@ -82,14 +82,14 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
               <Text fontSize="sm" color="fg">
                 <strong>{apt.nombre}</strong> — vence el {valores[apt.id]}
                 {!apt.activo && (
-                  <Text as="span" color="red.600" fontSize="xs" fontWeight="bold">
+                  <Text as="span" color="red.fg" fontSize="xs" fontWeight="bold">
                     {" "}
                     (aptitud dada de baja)
                   </Text>
                 )}
               </Text>
               <BotonTexto
-                color="red.700"
+                color="red.fg"
                 onClick={() => quitarVencimiento(apt.id)}
                 title={`Quitar el vencimiento de ${apt.nombre}`}
               >

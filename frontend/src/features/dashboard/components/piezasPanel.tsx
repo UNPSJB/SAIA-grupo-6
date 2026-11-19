@@ -186,7 +186,7 @@ export function BarrasHorizontales({ datos, unidad }: { datos: DatoBarra[]; unid
               {formatoCantidad(dato.valor)}
             </Text>
           </Flex>
-          <Box h="2" bg="gray.100" rounded="full" aria-hidden>
+          <Box h="2" bg="bg.muted" rounded="full" aria-hidden>
             <Box
               h="full"
               rounded="full"

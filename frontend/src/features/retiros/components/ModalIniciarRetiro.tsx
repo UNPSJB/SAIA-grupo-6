@@ -361,35 +361,35 @@ export function ModalIniciarRetiro({
                 </Text>
               </HStack>
               <SimpleGrid columns={2} gap="3">
-                <Box p="2" bg="orange.50" borderWidth="1px" borderColor="orange.200" rounded="md">
+                <Box p="2" bg="orange.subtle" borderWidth="1px" borderColor="orange.border" rounded="md">
                   <Text fontSize="xs" color="fg.muted" mb="1">
                     Reservas a cancelar
                   </Text>
-                  <Text fontSize="sm" fontWeight="bold" color="orange.700">
+                  <Text fontSize="sm" fontWeight="bold" color="orange.fg">
                     {impacto.reservas_a_cancelar}
                   </Text>
                 </Box>
-                <Box p="2" bg="blue.50" borderWidth="1px" borderColor="blue.200" rounded="md">
+                <Box p="2" bg="blue.subtle" borderWidth="1px" borderColor="blue.border" rounded="md">
                   <Text fontSize="xs" color="fg.muted" mb="1">
                     Clientes a notificar
                   </Text>
-                  <Text fontSize="sm" fontWeight="bold" color="blue.700">
+                  <Text fontSize="sm" fontWeight="bold" color="blue.fg">
                     {impacto.total_afectadas}
                   </Text>
                 </Box>
-                <Box p="2" bg="teal.50" borderWidth="1px" borderColor="teal.200" rounded="md">
+                <Box p="2" bg="teal.subtle" borderWidth="1px" borderColor="teal.border" rounded="md">
                   <Text fontSize="xs" color="fg.muted" mb="1">
                     Saldo en planta
                   </Text>
-                  <Text fontSize="sm" fontWeight="medium" color="teal.700">
+                  <Text fontSize="sm" fontWeight="medium" color="teal.fg">
                     {impacto.saldo_en_planta}
                   </Text>
                 </Box>
-                <Box p="2" bg="yellow.50" borderWidth="1px" borderColor="yellow.200" rounded="md">
+                <Box p="2" bg="yellow.subtle" borderWidth="1px" borderColor="yellow.border" rounded="md">
                   <Text fontSize="xs" color="fg.muted" mb="1">
                     En revisión
                   </Text>
-                  <Text fontSize="sm" fontWeight="medium" color="yellow.700">
+                  <Text fontSize="sm" fontWeight="medium" color="yellow.fg">
                     {impacto.en_revision}
                   </Text>
                 </Box>
@@ -397,7 +397,7 @@ export function ModalIniciarRetiro({
             </Box>
           )}
 
-          <Box p="3" bg="red.50" borderWidth="1px" borderColor="red.200" rounded="md" mb="5">
+          <Box p="3" bg="red.subtle" borderWidth="1px" borderColor="red.border" rounded="md" mb="5">
             <HStack gap="3" align="flex-start" mb="2">
               <Box as="span" mt="0.5" flexShrink={0} aria-hidden>
                 <LuTriangleAlert size={16} color="red.fg" />

@@ -22,8 +22,8 @@ import type { PuntoSerie } from "../types/dashboard";
  */
 const COLOR_INICIADOS = "#eb6834";
 const COLOR_RESUELTOS = "#009b8f";
-const COLOR_EJE = "var(--chakra-colors-gray-500)";
-const COLOR_GRILLA = "var(--chakra-colors-gray-100)";
+const COLOR_EJE = "var(--chakra-colors-fg-subtle)";
+const COLOR_GRILLA = "var(--chakra-colors-bg-muted)";
 
 /** Alto mínimo: el gráfico se estira para llenar la tarjeta. */
 const ALTO_MINIMO = 200;
@@ -133,7 +133,7 @@ export function GraficoBarras({ datos }: GraficoBarrasProps) {
             />
             <Tooltip
               content={<TooltipSemana />}
-              cursor={{ fill: "var(--chakra-colors-gray-50)" }}
+              cursor={{ fill: "var(--chakra-colors-bg-subtle)" }}
             />
             <Bar
               dataKey="iniciados"

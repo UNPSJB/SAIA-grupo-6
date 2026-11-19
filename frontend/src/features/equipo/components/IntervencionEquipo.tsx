@@ -42,7 +42,7 @@ function AvisoSinPlan({
         justifyContent="center"
         zIndex={1000}
       >
-        <Box bg="white" rounded="xl" p="6" maxW="420px" w="90vw" boxShadow="lg">
+        <Box bg="bg.panel" rounded="xl" p="6" maxW="420px" w="90vw" boxShadow="lg">
           <Text fontSize="lg" fontWeight="bold" mb="2">
             No se puede registrar la intervención
           </Text>
@@ -158,7 +158,7 @@ export function IntervencionEquipo({ equipo, onCerrar, onRegistrada }: Intervenc
           justifyContent="center"
           zIndex={1000}
         >
-          <Box bg="white" rounded="xl" p="6" maxW="420px" w="90vw" boxShadow="lg">
+          <Box bg="bg.panel" rounded="xl" p="6" maxW="420px" w="90vw" boxShadow="lg">
             <Text fontSize="lg" fontWeight="bold" mb="2">
               Seleccioná el tipo de intervención
             </Text>

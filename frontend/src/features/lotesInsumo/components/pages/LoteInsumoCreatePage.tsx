@@ -122,7 +122,7 @@ export function LoteInsumoCreatePage() {
             </FormNativeSelect>
           </FormField>
           {proveedores.find((p) => p.id === proveedorId)?.es_certificado && (
-            <Text fontSize="sm" color={proveedores.find((p) => p.id === proveedorId)?.estado_certificacion === "vigente" ? "green.600" : "red.600"} mb="3">
+            <Text fontSize="sm" color={proveedores.find((p) => p.id === proveedorId)?.estado_certificacion === "vigente" ? "green.fg" : "red.fg"} mb="3">
               Certificación del proveedor: {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion ?? "sin certificación vigente"}.
               {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion !== "vigente" && " No se podrá registrar la recepción hasta cargar una certificación vigente."}
             </Text>

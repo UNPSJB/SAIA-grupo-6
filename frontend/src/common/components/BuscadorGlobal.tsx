@@ -290,11 +290,11 @@ export function BuscadorGlobal(): ReactElement | null {
           h="10"
           px="3"
           gap="2"
-          bg="white"
+          bg="bg.panel"
           color="fg"
           rounded="md"
           borderWidth="1px"
-          borderColor="white"
+          borderColor="border"
         >
           <Box color="fg.muted" flexShrink={0} aria-hidden>
             <LuSearch />

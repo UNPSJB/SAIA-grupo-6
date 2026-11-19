@@ -283,9 +283,9 @@ export function IncidenteDetailPage() {
           <Box
             mb="6"
             p="4"
-            bg="green.50"
+            bg="green.subtle"
             borderWidth="1px"
-            borderColor="green.200"
+            borderColor="green.border"
             rounded="lg"
           >
             <Text

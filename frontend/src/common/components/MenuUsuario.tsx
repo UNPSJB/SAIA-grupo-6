@@ -93,7 +93,7 @@ export function MenuUsuario() {
             }}
           >
             {/* Iniciales del nombre (ej: "alan james" -> "AJ"). 40px, igual que el resto de la fila. */}
-            <Avatar.Root size="md" bg="white" color="brand.700">
+            <Avatar.Root size="md" bg="white" color="brandLight.700">
               <Avatar.Fallback name={nombreCompleto} />
             </Avatar.Root>
           </Menu.Trigger>

@@ -495,7 +495,7 @@ export function NotificacionesPage() {
               fontSize={{ base: "3xl", md: "4xl" }}
               lineHeight="1.1"
               fontWeight="extrabold"
-              color={`${nivelPaleta}.600`}
+              color={`${nivelPaleta}.fg`}
             >
               {nivelTexto}
             </Text>
@@ -513,13 +513,12 @@ export function NotificacionesPage() {
             px="6"
             py="4"
             borderRadius="xl"
-            bg="gray.50"
-            color="gray.800"
+            bg="bg.subtle"
+            color="fg"
             borderWidth="1px"
-            borderColor="gray.200"
+            borderColor="border"
             variant="solid"
-            _hover={{ bg: "gray.100", borderColor: "gray.300" }}
-            _dark={{ bg: "gray.800", color: "white", borderColor: "gray.700" }}
+            _hover={{ bg: "bg.muted", borderColor: "border.emphasized" }}
             onClick={mostrarTodasLasSituaciones}
             aria-label="Mostrar todas las situaciones y limpiar los filtros"
             title="Mostrar todas las situaciones"

@@ -53,9 +53,9 @@ const ETIQUETAS_ORDEN: Record<ColumnaHistorial, string> = {
 
 /** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
 function colorPorcentaje(pct: number): string {
-  if (pct >= 80) return "green.600";
+  if (pct >= 80) return "green.fg";
   if (pct >= 50) return "orange.400";
-  return "red.700";
+  return "red.fg";
 }
 
 export function HistorialChecklistPage() {
@@ -456,7 +456,7 @@ export function HistorialChecklistPage() {
                           py="3"
                           borderBottomWidth="1px"
                           borderColor="border.subtle"
-                          bg="red.50"
+                          bg="red.subtle"
                         >
                           <Text fontSize="sm" fontWeight="bold" color="red.fg" mb="2">
                             Tareas incumplidas:

@@ -396,7 +396,7 @@ export function ColumnaHeader({
  * lo usan; `EncabezadoTabla` es el alias con el nombre que corresponde.
  */
 export function FilaEncabezado({ children }: { children: ReactNode }) {
-  return <Table.Row bg="gray.100">{children}</Table.Row>;
+  return <Table.Row bg="bg.muted">{children}</Table.Row>;
 }
 
 export function EncabezadoOscuro({
@@ -418,12 +418,12 @@ export function EncabezadoOscuro({
     <Table.ColumnHeader
       px="4"
       py="3"
-      color="gray.700"
-      bg="gray.100"
+      color="fg.muted"
+      bg="bg.muted"
       fontWeight="semibold"
       fontSize="sm"
       borderBottomWidth="2px"
-      borderColor="gray.300"
+      borderColor="border"
       textAlign={numero ? "right" : center ? "center" : undefined}
       width={width ?? (ancho ? ANCHO_COLUMNA[ancho] : undefined)}
       /*
@@ -661,15 +661,15 @@ export function BotonAccion({
         minW={{ base: "11", md: "8" }}
         h={{ base: "11", md: "8" }}
         borderWidth="2px"
-        bg={esGris ? "gray.100" : `${paleta}.50`}
-        borderColor={esGris ? "gray.400" : `${paleta}.400`}
-        color={esGris ? "gray.700" : `${paleta}.600`}
+        bg={esGris ? "bg.muted" : `${paleta}.subtle`}
+        borderColor={esGris ? "border.emphasized" : `${paleta}.400`}
+        color={esGris ? "fg.muted" : `${paleta}.fg`}
         _hover={{
-          bg: esGris ? "gray.200" : `${paleta}.100`,
-          borderColor: esGris ? "gray.600" : `${paleta}.600`,
-          color: esGris ? "gray.900" : `${paleta}.700`,
+          bg: esGris ? "bg.emphasized" : `${paleta}.muted`,
+          borderColor: esGris ? "fg.muted" : `${paleta}.fg`,
+          color: esGris ? "fg" : `${paleta}.fg`,
         }}
-        _active={{ bg: esGris ? "gray.300" : `${paleta}.200` }}
+        _active={{ bg: esGris ? "border" : `${paleta}.border` }}
         aria-label={label}
         onClick={onClick}
         {...rest}
@@ -787,7 +787,7 @@ export function BadgeEstado({
       fontSize="xs"
       fontWeight="bold"
       color="white"
-      bg="brand.800"
+      bg="brandLight.800"
       px="3"
       py="1"
       rounded="full"
@@ -971,7 +971,7 @@ export function FormNativeSelect({
         _hover={!disabled ? { borderColor: "brand.400" } : undefined}
         _focusVisible={{
           borderColor: "brand.500",
-          boxShadow: "0 0 0 3px var(--chakra-colors-brand-100)",
+          boxShadow: "0 0 0 3px var(--chakra-colors-brand-300)",
         }}
         _disabled={{ opacity: 0.6, cursor: "not-allowed" }}
       >
@@ -1097,10 +1097,10 @@ export function BannerError({
   return (
     <Box
       role="alert"
-      bg="red.50"
+      bg="red.subtle"
       color="red.fg"
       borderWidth="1px"
-      borderColor="red.200"
+      borderColor="red.border"
       rounded="md"
       px="4"
       py="3"
@@ -1129,10 +1129,10 @@ export function BannerExito({
   return (
     <Box
       role="status"
-      bg="green.50"
+      bg="green.subtle"
       color="green.fg"
       borderWidth="1px"
-      borderColor="green.200"
+      borderColor="green.border"
       rounded="md"
       px="4"
       py="3"
@@ -1228,12 +1228,12 @@ export function Paginacion({
               return (
                 <IconButton
                   aria-label={`Página ${pageItem.value}`}
-                  bg={isSelected ? "brand.600" : "transparent"}
+                  bg={isSelected ? "brandLight.600" : "transparent"}
                   color={isSelected ? "white" : "brand.fg"}
                   borderWidth={isSelected ? "0" : "1px"}
                   borderColor="border"
                   rounded="md"
-                  _hover={{ bg: isSelected ? "brand.700" : "brand.subtle" }}
+                  _hover={{ bg: isSelected ? "brandLight.700" : "brand.subtle" }}
                 >
                   {pageItem.value}
                 </IconButton>

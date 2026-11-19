@@ -81,10 +81,10 @@ export function TarjetaEquiposCalibrados({
             w="9"
             h="9"
             rounded="full"
-            bg={todosAptos ? "brand.50" : "orange.50"}
+            bg={todosAptos ? "brand.50" : "orange.subtle"}
             color={todosAptos ? "brand.fg" : "orange.fg"}
             borderWidth="1px"
-            borderColor={todosAptos ? "brand.200" : "orange.200"}
+            borderColor={todosAptos ? "brand.200" : "orange.border"}
             flexShrink={0}
             aria-hidden
           >

@@ -150,8 +150,8 @@ export const Login = () => {
 
                 {error && (
                     <Box
-                        bg="red.100"
-                        color="red.800"
+                        bg="red.muted"
+                        color="red.fg"
                         p="3"
                         rounded="md"
                         textAlign="center"
@@ -288,13 +288,13 @@ export const Login = () => {
                                         }}
                                         title="Porque el sistema todavía no tiene administradores"
                                         fontWeight="bold"
-                                        color="yellow.700"
+                                        color="yellow.fg"
                                         size="lg"
                                         p="1 2"
                                         rounded="md"
                                         border="1px dashed"
                                         borderColor="yellow.400"
-                                        bg="yellow.50"
+                                        bg="yellow.subtle"
                                     >
                                         <Checkbox.HiddenInput />
                                         <Checkbox.Control />
