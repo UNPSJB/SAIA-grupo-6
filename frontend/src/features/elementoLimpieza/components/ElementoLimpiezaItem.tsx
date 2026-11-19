@@ -1,7 +1,12 @@
 import { HStack, Table } from "@chakra-ui/react";
 import { formatoFecha } from "../../../common/utils/fechas";
 import type { ElementoLimpieza } from "../types/elementoLimpieza";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  DatoPrincipal,
+  CantidadConUnidad,
+} from "../../../components/ui/patrones";
 
 interface ElementoLimpiezaItemProps {
   elemento: ElementoLimpieza;
@@ -22,16 +27,22 @@ export function ElementoLimpiezaItem({
       borderColor="border.subtle"
       opacity={elemento.activo ? 1 : 0.65}
     >
-      <Celda p="3">
-        <TextoTruncado texto={elemento.nombre} />
+      <Celda>
+        <DatoPrincipal titulo={elemento.nombre} />
       </Celda>
-      <Celda p="3">
+      <Celda whiteSpace="nowrap">
         {elemento.fecha_ultimo_recambio
           ? formatoFecha(elemento.fecha_ultimo_recambio)
           : "-"}
       </Celda>
-      <Celda p="3">{elemento.frecuencia_recambio_dias ?? "Sin definir"}</Celda>
-      <Celda p="3" center>
+      <Celda numero>
+        {elemento.frecuencia_recambio_dias != null ? (
+          <CantidadConUnidad valor={elemento.frecuencia_recambio_dias} unidad="días" />
+        ) : (
+          "Sin definir"
+        )}
+      </Celda>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {elemento.activo && (
             <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(elemento)} />

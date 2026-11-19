@@ -7,10 +7,12 @@ import { Tarjeta } from "../../../components/ui/patrones";
  *
  * Las tarjetas de indicadores (cumplimiento, equipos) llevan un título chico
  * que acompaña al número; las de gráficos uno intermedio, y la lista de
- * alertas uno grande porque es el bloque principal del panel. Son los mismos
- * tres pasos de la escala tipográfica del tema, no valores sueltos.
+ * alertas uno grande porque es el bloque principal del panel. Los bloques de
+ * los paneles de categoría usan `lg`: tienen que destacarse sobre la bajada y
+ * sobre las leyendas del gráfico. Son pasos de la escala tipográfica del tema,
+ * no valores sueltos.
  */
-type TamanoTitulo = "sm" | "md" | "xl";
+type TamanoTitulo = "sm" | "md" | "lg" | "xl";
 
 interface TarjetaPanelProps extends BoxProps {
   titulo: string;
@@ -44,6 +46,11 @@ export function TarjetaPanel({
 
   return (
     <Tarjeta
+      // `relative`: las tablas `srOnly` de los gráficos son `position:
+      // absolute`; sin un ancestro posicionado se ubican respecto de la
+      // página y, en los bloques de abajo, la estiran más allá del alto de
+      // la ventana (aparece un segundo scroll que corta el panel).
+      position="relative"
       p={chico ? "5" : "6"}
       h="full"
       display="flex"
@@ -54,13 +61,15 @@ export function TarjetaPanel({
         justify="space-between"
         align="center"
         gap="3"
-        mb={chico ? "2" : "4"}
+        mb={chico ? "2" : "5"}
         flexWrap="wrap"
       >
         {/* Ancho mínimo del título: si no entra junto a las acciones (p. ej.
             el Desde/Hasta en la columna angosta), las acciones bajan a otro
             renglón en vez de partir el título en dos. */}
-        <Flex direction="column" gap="4" flex="1" minW="0" flexBasis="220px">
+        {/* Bajada pegada al título (proximidad): se leen como una sola
+            unidad, separada del contenido por el margen de abajo. */}
+        <Flex direction="column" gap="1" flex="1" minW="0" flexBasis="220px">
           <Heading
             as="h3"
             fontSize={tamanoTitulo}
@@ -70,7 +79,7 @@ export function TarjetaPanel({
             {titulo}
           </Heading>
           {descripcion ? (
-            <Text fontSize="xs" color="fg.subtle">
+            <Text fontSize="xs" color="fg.muted" lineHeight="1.5">
               {descripcion}
             </Text>
           ) : null}

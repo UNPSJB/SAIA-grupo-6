@@ -9,6 +9,7 @@ import {
   FilaEncabezado,
   Tarjeta,
   TextoTruncado,
+  PildoraNeutra,
 } from "../../../components/ui/patrones";
 import { PaginaDetalle } from "../../../components/ui/plantillas";
 import { useHistorialDocumento } from "../hooks/useHistorialDocumento";
@@ -77,7 +78,7 @@ export function DocumentoHistorialPage() {
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Versión</EncabezadoOscuro>
-                <EncabezadoOscuro>Estado</EncabezadoOscuro>
+                <EncabezadoOscuro center>Estado</EncabezadoOscuro>
                 <EncabezadoOscuro>Vigente desde</EncabezadoOscuro>
                 <EncabezadoOscuro>Vigente hasta</EncabezadoOscuro>
                 <EncabezadoOscuro>Fecha de vencimiento</EncabezadoOscuro>
@@ -88,34 +89,34 @@ export function DocumentoHistorialPage() {
             <Table.Body>
               {historial.versiones.map((v) => (
                 <Table.Row key={v.id}>
-                  <Celda p="3" color="brand.fg" fontWeight="bold">
-                    v{v.numero_version}
+                  <Celda>
+                    <PildoraNeutra mono>v{v.numero_version}</PildoraNeutra>
                   </Celda>
-                  <Celda p="3">
+                  <Celda center>
                     <Badge
                       colorPalette={PALETA_ESTADO[v.estado]}
+                      variant="subtle"
                       rounded="full"
-                      px="2"
+                      px="2.5"
                       py="1"
-                      fontSize="xs"
-                      fontWeight="bold"
+                      fontWeight="medium"
                     >
                       {ETIQUETA_ESTADO[v.estado]}
                     </Badge>
                   </Celda>
-                  <Celda p="3">{fechaHora(v.vigente_desde)}</Celda>
-                  <Celda p="3">
+                  <Celda whiteSpace="nowrap">{fechaHora(v.vigente_desde)}</Celda>
+                  <Celda>
                     {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
                   </Celda>
-                  <Celda p="3">
+                  <Celda>
                     {v.fecha_vencimiento
                       ? fechaCorta(v.fecha_vencimiento)
                       : "Sin vencimiento"}
                   </Celda>
-                  <Celda p="3">
+                  <Celda>
                     {v.autor.nombre} {v.autor.apellido ?? ""}
                   </Celda>
-                  <Celda p="3">
+                  <Celda>
                     <BotonTexto
                       onClick={() =>
                         abrirArchivo(v.archivo_url).catch(() =>

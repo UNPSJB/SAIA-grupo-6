@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { Pagina, PestanasPagina } from "../../../components/ui/plantillas";
 import { formatoFecha } from "../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../common/utils/numeros";
@@ -27,6 +27,8 @@ import {
   Tarjeta,
   TextoTruncado,
   ToggleInactivos,
+  DatoPrincipal,
+  CantidadConUnidad,
 } from "../../../components/ui/patrones";
 import {
   useInsumosActivos,
@@ -118,7 +120,7 @@ function TabStockPorInsumo() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando stock...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando stock...</EstadoCargando>}
       {!loading && !error && stock.length === 0 && (
         <EstadoVacio>No hay insumos registrados.</EstadoVacio>
       )}
@@ -159,16 +161,16 @@ function TabStockPorInsumo() {
                 {paginados.map((s) => (
                   <Table.Row key={s.insumo_id}>
                     <Celda>
-                      <TextoTruncado texto={s.insumo_nombre} lineClamp={1} />
+                      <DatoPrincipal titulo={s.insumo_nombre} />
                     </Celda>
                     <Celda numero>
-                      {cantidadConUnidad(s.cantidad_recibida, s.unidad)}
+                      <CantidadConUnidad valor={s.cantidad_recibida} unidad={s.unidad} />
                     </Celda>
                     <Celda numero>
-                      {cantidadConUnidad(s.consumo_real, s.unidad)}
+                      <CantidadConUnidad valor={s.consumo_real} unidad={s.unidad} />
                     </Celda>
                     <Celda numero>
-                      {cantidadConUnidad(s.desperdicio, s.unidad)}
+                      <CantidadConUnidad valor={s.desperdicio} unidad={s.unidad} />
                     </Celda>
                     <Celda numero>
                       {Number(s.cantidad_baja) > 0 ? (
@@ -182,9 +184,9 @@ function TabStockPorInsumo() {
                       )}
                     </Celda>
                     <Celda numero>
-                      <Text as="span" fontWeight="bold">
-                        {cantidadConUnidad(s.stock, s.unidad)}
-                      </Text>
+                      <Box as="span" fontWeight="bold">
+                        <CantidadConUnidad valor={s.stock} unidad={s.unidad} />
+                      </Box>
                     </Celda>
                     <Celda numero>
                       {Number(s.stock_vencido) > 0 ? (
@@ -342,13 +344,13 @@ function TabLotes() {
                     opacity={l.activo ? 1 : 0.65}
                   >
                     <Celda>
-                      <TextoTruncado texto={l.insumo_nombre} lineClamp={1} />
+                      <DatoPrincipal titulo={l.insumo_nombre} />
                     </Celda>
                     <Celda>
-                      <TextoTruncado texto={l.proveedor_nombre} lineClamp={1} />
+                      <TextoTruncado texto={l.proveedor_nombre} lineClamp={1} color="tabla.textoSecundario" />
                     </Celda>
                     <Celda>
-                      <Text fontFamily="mono" fontSize="sm">
+                      <Text fontFamily="mono" fontSize="sm" color="tabla.textoSecundario">
                         {l.numero_lote}
                       </Text>
                     </Celda>

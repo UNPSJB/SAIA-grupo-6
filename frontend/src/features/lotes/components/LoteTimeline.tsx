@@ -68,7 +68,7 @@ export function LoteTimeline({
     <Tarjeta overflowX="auto">
       <Table.Root variant="outline" w="100%" minW="720px">
         <Table.Header>
-          <Table.Row bg="bg.muted">
+          <Table.Row>
             <Table.ColumnHeader px="4" py="3">Fecha y hora</Table.ColumnHeader>
             <Table.ColumnHeader px="4" py="3">Tipo de evento</Table.ColumnHeader>
             <Table.ColumnHeader px="4" py="3">Descripción</Table.ColumnHeader>

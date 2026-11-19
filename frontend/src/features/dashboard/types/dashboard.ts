@@ -1,14 +1,11 @@
 import {
   TIPOS_INCIDENTE,
   tipoLabel,
-  type EstadoIncidente,
   type Incidente,
   type TipoIncidente,
 } from "../../incidente/types/incidente";
-import type { Equipo } from "../../equipo/types/equipo";
-import type { PlanCalibracionMantenimiento } from "../../planCalibracionMantenimiento/types/planCalibracionMantenimiento";
 import type { Notificacion } from "../../notificaciones/types/notificacion";
-import { fechaLocalISO, hoyISO } from "../../../common/utils/fechas";
+import { hoyISO } from "../../../common/utils/fechas";
 
 /**
  * Cálculos del panel de inicio.
@@ -19,9 +16,6 @@ import { fechaLocalISO, hoyISO } from "../../../common/utils/fechas";
  * funciones puras: el porcentaje, las porciones de la torta, el estado de
  * calibración y la serie mensual se pueden leer (y probar) sin tocar el render.
  */
-
-/** Qué incidentes cuenta la torta: todos, solo abiertos o solo cerrados. */
-export type FiltroEstado = "todos" | EstadoIncidente;
 
 /** Una porción de la torta. */
 export interface ParteTorta {
@@ -81,8 +75,10 @@ const COLOR_TORTA: Record<TipoIncidente, string> = {
   devolucion_cliente: "#1baf7a",
   higiene_contaminacion: "#eda100",
   entrega_rechazada: "#c53030",
-  reclamo_cliente: "#2c7fb8",
-  retiro_lote: "#c53030",
+  // Antes "Reclamo" era casi el azul de "Plagas" y "Retiro lote" el mismo
+  // rojo que "Rechazo": en el anillo no se distinguían.
+  reclamo_cliente: "#8e5bd0",
+  retiro_lote: "#9c6b3c",
   otro: "#8a94a3",
 };
 
@@ -99,31 +95,20 @@ const ETIQUETA_CORTA: Record<TipoIncidente, string> = {
 };
 
 /**
- * Porcentaje de incidentes por categoría, listo para la torta.
- *
- * El filtro de estado se aplica acá y no en el request: la pantalla pide la
- * lista una sola vez y cambiar de "abiertos" a "cerrados" es instantáneo.
+ * Porcentaje de incidentes por categoría, listo para el anillo, a partir de
+ * los conteos por tipo que manda el panel de Calidad.
  *
  * El orden es el de `TIPOS_INCIDENTE` (el del formulario de reporte), no el
- * del primer incidente que llegó, así la torta no salta entre recargas. Las
- * categorías en cero no entran: una porción de 0% es ruido en el gráfico.
+ * que llega, así el anillo no salta entre recargas. Las categorías en cero no
+ * entran: una porción de 0% es ruido en el gráfico.
  */
-export function partesPorTipo(
-  incidentes: Incidente[],
-  filtro: FiltroEstado = "todos",
-  rango?: RangoFechas,
-): ParteTorta[] {
-  const considerados = incidentes.filter(
-    (i) =>
-      (filtro === "todos" || i.estado === filtro) &&
-      (!rango || dentroDelRango(i.fecha_reporte, rango)),
-  );
-
-  const total = considerados.length;
+export function partesDeConteos(conteos: { clave: string; valor: number }[]): ParteTorta[] {
+  const cantidades = new Map(conteos.map((c) => [c.clave, c.valor]));
+  const total = conteos.reduce((suma, c) => suma + c.valor, 0);
   if (total === 0) return [];
 
   return TIPOS_INCIDENTE.map(({ value }) => {
-    const cantidad = considerados.filter((i) => i.tipo === value).length;
+    const cantidad = cantidades.get(value) ?? 0;
 
     return {
       tipo: value,
@@ -131,7 +116,7 @@ export function partesPorTipo(
       etiquetaCorta: ETIQUETA_CORTA[value],
       color: COLOR_TORTA[value],
       cantidad,
-      // Entero: la torta muestra porciones, no centésimas.
+      // Entero: el anillo muestra porciones, no centésimas.
       porcentaje: Math.round((cantidad / total) * 100),
     };
   }).filter((parte) => parte.cantidad > 0);
@@ -340,81 +325,12 @@ export function alertasDelPanel(
     }));
 }
 
-/* ─────────────────────── Equipos calibrados ─────────────────────── */
-
-export interface EstadoCalibracion {
-  /** Equipos activos del laboratorio. */
-  total: number;
-  /** De esos, los que tienen su calibración vigente. */
-  aptos: number;
-  /** Nombres de los que no están aptos, para nombrarlos en la tarjeta. */
-  pendientes: string[];
-}
-
-/**
- * Qué equipos están aptos para operar.
- *
- * "Apto" = tiene al menos un plan de calibración/mantenimiento **vigente**
- * (`dias_restantes > 0`). Un equipo sin plan cuenta como pendiente: no hay
- * evidencia de que esté calibrado, que es distinto de estarlo y que la app no
- * puede afirmar.
- *
- * Un equipo puede tener más de un plan (calibración y mantenimiento): es apto
- * solo si **todos** los suyos están vigentes, así que de sus planes gana el que
- * vence antes.
- */
-export function calcularEquiposCalibrados(
-  equipos: Equipo[],
-  planes: PlanCalibracionMantenimiento[]
-): EstadoCalibracion {
-  const diasPorEquipo = new Map<number, number>();
-
-  for (const plan of planes) {
-    const previo = diasPorEquipo.get(plan.equipo_id);
-    diasPorEquipo.set(
-      plan.equipo_id,
-      previo === undefined ? plan.dias_restantes : Math.min(previo, plan.dias_restantes)
-    );
-  }
-
-  const activos = equipos.filter((equipo) => equipo.activo);
-  const pendientes = activos
-    .filter((equipo) => (diasPorEquipo.get(equipo.id) ?? -1) <= 0)
-    .map((equipo) => equipo.nombre);
-
-  return { total: activos.length, aptos: activos.length - pendientes.length, pendientes };
-}
-
-/* ────────────────── Incidentes iniciados vs resueltos ────────────────── */
-
-export interface PuntoSerie {
-  /** Etiqueta corta del eje: "Ene", "7/11", "Sem. 3/11"... */
-  etiqueta: string;
-  /** Clave única del tramo. */
-  clave: string;
-  /** Texto completo del tramo para el tooltip ("Semana del 3/11 al 9/11"). */
-  rotulo?: string;
-  iniciados: number;
-  resueltos: number;
-}
+/* ─────────────────────────── Rango de fechas ─────────────────────────── */
 
 /** Rango de fechas `YYYY-MM-DD`, ambos extremos incluidos. */
 export interface RangoFechas {
   desde: string;
   hasta: string;
-}
-
-/** Día calendario local (`YYYY-MM-DD`) de una fecha del backend. */
-function diaLocal(iso: string): string | null {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
-  const fecha = new Date(iso);
-  return Number.isNaN(fecha.getTime()) ? null : fechaLocalISO(fecha);
-}
-
-export function dentroDelRango(iso: string | null | undefined, rango: RangoFechas): boolean {
-  if (!iso) return false;
-  const dia = diaLocal(iso);
-  return dia !== null && dia >= rango.desde && dia <= rango.hasta;
 }
 
 /** "Desde" posterior a "Hasta": el rango no sirve. */
@@ -423,164 +339,3 @@ export function errorDeRangoFechas(rango: RangoFechas): string | null {
   if (rango.desde > rango.hasta) return "La fecha \"desde\" no puede ser posterior a \"hasta\".";
   return null;
 }
-
-export type Agrupacion = "dia" | "semana" | "mes";
-
-/**
- * Cómo se agrupa un período para que el gráfico tenga una cantidad de barras
- * legible: por día hasta 2 semanas, por semana hasta 3 meses, por mes desde
- * ahí. Así un rango de 7 días no queda en una sola barra y uno de un año no
- * queda en 365.
- */
-export function agrupacionPara(rango: RangoFechas): Agrupacion {
-  const dias =
-    (new Date(`${rango.hasta}T00:00:00`).getTime() -
-      new Date(`${rango.desde}T00:00:00`).getTime()) /
-      86_400_000 +
-    1;
-  if (dias <= 14) return "dia";
-  if (dias <= 92) return "semana";
-  return "mes";
-}
-
-const corto = (fecha: Date) => `${fecha.getDate()}/${fecha.getMonth() + 1}`;
-
-/**
- * Incidentes iniciados (por `fecha_reporte`) y resueltos (por `fecha_cierre`)
- * dentro de un rango, agrupados según `agrupacionPara`.
- *
- * Reemplaza a la serie semanal anterior, que estaba fija en las cuatro semanas
- * del mes en curso: ahora el período lo elige quien mira, igual que en
- * Producción.
- */
-export function incidentesPorPeriodo(incidentes: Incidente[], rango: RangoFechas): PuntoSerie[] {
-  const agrupacion = agrupacionPara(rango);
-  const inicio = new Date(`${rango.desde}T00:00:00`);
-  const fin = new Date(`${rango.hasta}T00:00:00`);
-  const variosAnios = inicio.getFullYear() !== fin.getFullYear();
-
-  // Tramos: [desde, hasta] en YYYY-MM-DD, consecutivos y sin huecos.
-  const tramos: { desde: string; hasta: string; punto: PuntoSerie }[] = [];
-  const cursor = new Date(inicio);
-  while (cursor <= fin) {
-    const desdeTramo = new Date(cursor);
-    let hastaTramo: Date;
-    if (agrupacion === "dia") {
-      hastaTramo = new Date(cursor);
-      cursor.setDate(cursor.getDate() + 1);
-    } else if (agrupacion === "semana") {
-      hastaTramo = new Date(cursor);
-      hastaTramo.setDate(hastaTramo.getDate() + 6);
-      cursor.setDate(cursor.getDate() + 7);
-    } else {
-      hastaTramo = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
-      cursor.setTime(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1).getTime());
-    }
-    if (hastaTramo > fin) hastaTramo = new Date(fin);
-
-    const mes = MESES_CORTOS[desdeTramo.getMonth()];
-    const etiqueta =
-      agrupacion === "dia"
-        ? corto(desdeTramo)
-        : agrupacion === "semana"
-          ? corto(desdeTramo)
-          : variosAnios
-            ? `${mes} ${String(desdeTramo.getFullYear()).slice(2)}`
-            : mes;
-    const rotulo =
-      agrupacion === "dia"
-        ? desdeTramo.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "numeric" })
-        : agrupacion === "semana"
-          ? `Semana del ${corto(desdeTramo)} al ${corto(hastaTramo)}`
-          : `${mes} ${desdeTramo.getFullYear()}`;
-
-    tramos.push({
-      desde: fechaLocalISO(desdeTramo),
-      hasta: fechaLocalISO(hastaTramo),
-      punto: { clave: fechaLocalISO(desdeTramo), etiqueta, rotulo, iniciados: 0, resueltos: 0 },
-    });
-  }
-
-  const tramoDe = (iso: string | null | undefined) => {
-    if (!iso) return null;
-    const dia = diaLocal(iso);
-    if (dia === null) return null;
-    return tramos.find((t) => dia >= t.desde && dia <= t.hasta) ?? null;
-  };
-
-  for (const incidente of incidentes) {
-    const abierto = tramoDe(incidente.fecha_reporte);
-    if (abierto) abierto.punto.iniciados += 1;
-    const cerrado = tramoDe(incidente.fecha_cierre);
-    if (cerrado) cerrado.punto.resueltos += 1;
-  }
-
-  return tramos.map((t) => t.punto);
-}
-
-const MESES_CORTOS = [
-  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
-];
-
-/** Clave `YYYY-MM` de una fecha ISO, en hora local. */
-function claveMes(iso: string): string | null {
-  // "YYYY-MM-DD" a medianoche local: parseado como UTC se corre un día (mismo
-  // criterio que `diasDesdeHoy`).
-  const fecha = new Date(`${iso.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(fecha.getTime())) return null;
-
-  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
-}
-
-/**
- * Serie mensual de incidentes iniciados contra resueltos, de los últimos
- * `meses` meses (incluido el actual).
- *
- * Se cuenta por `fecha_reporte` y por `fecha_cierre`, que es lo que ya manda el
- * listado de incidentes: no hace falta un endpoint de estadísticas. Los meses
- * sin movimiento salen en cero, porque un mes vacío en el eje es información
- * (no pasó nada) y no un hueco.
- */
-export function incidentesPorMes(incidentes: Incidente[], meses = 6): PuntoSerie[] {
-  const hoy = new Date();
-  const puntos: PuntoSerie[] = [];
-  const iniciadosPorMes = new Map<string, number>();
-  const resueltosPorMes = new Map<string, number>();
-
-  for (let i = meses - 1; i >= 0; i--) {
-    const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-    const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
-
-    puntos.push({
-      clave,
-      etiqueta: MESES_CORTOS[fecha.getMonth()],
-      iniciados: 0,
-      resueltos: 0,
-    });
-    iniciadosPorMes.set(clave, 0);
-    resueltosPorMes.set(clave, 0);
-  }
-
-  for (const incidente of incidentes) {
-    const abierto = claveMes(incidente.fecha_reporte);
-    if (abierto && iniciadosPorMes.has(abierto)) {
-      iniciadosPorMes.set(abierto, (iniciadosPorMes.get(abierto) ?? 0) + 1);
-    }
-
-    // Un incidente cerrado sin fecha de cierre no cuenta como resuelto en ningún
-    // mes: no se sabe cuándo pasó.
-    if (!incidente.fecha_cierre) continue;
-    const cerrado = claveMes(incidente.fecha_cierre);
-    if (cerrado && resueltosPorMes.has(cerrado)) {
-      resueltosPorMes.set(cerrado, (resueltosPorMes.get(cerrado) ?? 0) + 1);
-    }
-  }
-
-  return puntos.map((punto) => ({
-    ...punto,
-    iniciados: iniciadosPorMes.get(punto.clave) ?? 0,
-    resueltos: resueltosPorMes.get(punto.clave) ?? 0,
-  }));
-}
-

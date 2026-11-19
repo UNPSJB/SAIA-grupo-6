@@ -19,6 +19,7 @@ def _respuesta(db: Session) -> schemas.ConfiguracionAlertasResponse:
     return schemas.ConfiguracionAlertasResponse(
         dias_alerta_vencimiento_personal=services.obtener_dias_alerta_vencimiento_personal(db),
         plazo_reclamo_dias=services.obtener_plazo_reclamo_dias(db),
+        meta_cumplimiento_limpieza=services.obtener_meta_cumplimiento_limpieza(db),
     )
 
 
@@ -59,4 +60,6 @@ def actualizar_configuracion_alertas(
         )
     if "plazo_reclamo_dias" in cambios:
         services.actualizar_plazo_reclamo_dias(db, cambios["plazo_reclamo_dias"])
+    if "meta_cumplimiento_limpieza" in cambios:
+        services.actualizar_meta_cumplimiento_limpieza(db, cambios["meta_cumplimiento_limpieza"])
     return _respuesta(db)

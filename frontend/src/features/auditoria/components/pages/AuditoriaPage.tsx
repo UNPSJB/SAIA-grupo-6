@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Box, Button, Flex, Input, Spinner, Table, Text } from '@chakra-ui/react';
-import { BannerError, Paginacion, Tarjeta, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
+import { BannerError, Tarjeta, TarjetaTabla, PieTabla, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
 import { ChipsFiltros, chipsDeFiltros } from '../../../../components/ui/filtros';
 import { useAuditoria } from '../../hooks/useAuditoria';
 import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
@@ -645,8 +645,6 @@ export function AuditoriaPage() {
     },
   ]);
 
-  const primero = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const ultimo = Math.min(page * pageSize, total);
   const hayFiltrosAplicados = Object.values(filtros).some(Boolean);
 
   return (
@@ -747,18 +745,40 @@ export function AuditoriaPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
-      <Flex justify="space-between" align="center" mb="2" minH="6" gap="3">
-        <Text fontSize="sm" color="fg.muted">
-          {total > 0
-            ? `Mostrando ${primero}–${ultimo} de ${plural(total, 'registro', 'registros')}`
-            : loading
-              ? 'Cargando…'
-              : ''}
-        </Text>
-        {loading && items.length > 0 && <Spinner size="sm" />}
-      </Flex>
-
-      <Tarjeta overflowX="auto" opacity={loading && items.length > 0 ? 0.6 : 1} transition="opacity 0.15s">
+      {/* El resumen "Mostrando…", la paginación y el tamaño de página van en
+          el pie de la tarjeta, como en el resto de los listados. */}
+      <TarjetaTabla
+        opacity={loading && items.length > 0 ? 0.6 : 1}
+        transition="opacity 0.15s"
+        pie={
+          total > 0 ? (
+            <PieTabla
+              count={total}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              unidad={total === 1 ? 'registro' : 'registros'}
+              extra={
+                <FormNativeSelect
+                  w="140px"
+                  value={String(pageSize)}
+                  aria-label="Registros por página"
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n} por página
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              }
+            />
+          ) : undefined
+        }
+      >
         <Table.Root variant="outline" w="100%" minW="1000px" tableLayout="fixed">
           <colgroup>
             <col style={{ width: '56px' }} />
@@ -810,29 +830,7 @@ export function AuditoriaPage() {
             ))}
           </Table.Body>
         </Table.Root>
-      </Tarjeta>
-
-      {total > 0 && (
-        <Box mt="4">
-          <Flex justify="space-between" align="center" gap="4" flexWrap="wrap">
-            <Paginacion count={total} pageSize={pageSize} page={page} onPageChange={setPage} />
-            <FormNativeSelect
-              w="140px"
-              value={String(pageSize)}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n} por página
-                </option>
-              ))}
-            </FormNativeSelect>
-          </Flex>
-        </Box>
-      )}
+      </TarjetaTabla>
     </Pagina>
   );
 }

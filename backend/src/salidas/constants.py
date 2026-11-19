@@ -75,6 +75,7 @@ class ErrorCode:
     CLIENTE_NO_ENCONTRADO = "El cliente no existe."
     CLIENTE_INACTIVO = "El cliente está dado de baja y no se puede reservar."
     CANTIDAD_INVALIDA = "La cantidad debe ser mayor a cero."
+    CANTIDAD_NO_ENTERA = "El producto se vende por unidad: la cantidad tiene que ser un número entero."
     SALDO_INSUFICIENTE = "No hay saldo suficiente en el lote para esa reserva."
     FECHA_ANTERIOR_A_ELABORACION = (
         "La fecha de reserva no puede ser anterior a la fecha de elaboración del lote."

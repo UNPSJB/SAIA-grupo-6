@@ -12,6 +12,7 @@ from src.common.fechas import hoy
 from src.lotes.constants import ESTADO_TERMINADO
 from src.lotes.models import LoteProducto
 from src.notificaciones.services import (
+    MARGEN_DIAS_ALERTA,
     obtener_dias_alerta_vencimiento_personal,
 )
 from src.personal.models import Personal

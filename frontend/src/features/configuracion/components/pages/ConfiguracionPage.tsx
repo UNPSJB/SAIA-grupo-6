@@ -12,6 +12,7 @@ import { Pagina } from "../../../../components/ui/plantillas";
 import { useConfiguracionAlertas } from "../../hooks/useConfiguracionAlertas";
 import { AlertasVencimientoPersonalCard } from "../AlertasVencimientoPersonalCard";
 import { PlazoReclamoCard } from "../PlazoReclamoCard";
+import { MetaLimpiezaCard } from "../MetaLimpiezaCard";
 
 /** Título de cada bloque de la pantalla. */
 function TituloSeccion({ children }: { children: string }) {
@@ -109,7 +110,7 @@ export function ConfiguracionPage() {
       <TituloSeccion>Alertas</TituloSeccion>
 
       {cargando && !configuracion ? (
-        <EstadoCargando>Cargando configuración...</EstadoCargando>
+        <EstadoCargando pagina>Cargando configuración...</EstadoCargando>
       ) : null}
 
       {!cargando && errorCarga && !configuracion ? (
@@ -146,6 +147,18 @@ export function ConfiguracionPage() {
             onEditar={limpiarMensajes}
           />
         </Stack>
+      ) : null}
+
+      {configuracion ? (
+        <>
+          <TituloSeccion>Indicadores</TituloSeccion>
+          <MetaLimpiezaCard
+            metaGuardada={configuracion.meta_cumplimiento_limpieza}
+            guardando={guardando}
+            onGuardar={(porcentaje) => guardar({ meta_cumplimiento_limpieza: porcentaje })}
+            onEditar={limpiarMensajes}
+          />
+        </>
       ) : null}
     </Pagina>
   );

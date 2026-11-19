@@ -1,67 +1,66 @@
-import { Badge, Box, Flex, Table, Text } from "@chakra-ui/react";
+import type { ReactNode } from "react";
+import { Flex, Table, Text } from "@chakra-ui/react";
 import { formatoFecha } from "../../../common/utils/fechas";
 import {
   BotonAccion,
   Celda,
+  DatoPrincipal,
   EncabezadoOscuro,
+  EtiquetaEstado,
+  FilaClickeable,
   FilaEncabezado,
-  Tarjeta,
+  ProgresoTareas,
+  TarjetaTabla,
+  TextoTruncado,
 } from "../../../components/ui/patrones";
 import type { RetiroResumen } from "../types/retiro";
 
 interface RetirosTableProps {
   retiros: RetiroResumen[];
+  /** Pie de la tarjeta (resumen y paginación, `PieTabla`). */
+  pie?: ReactNode;
   onVerDetalle: (retiroId: number) => void;
 }
 
+/** Toda la fila abre el detalle; el botón "Ver detalle" queda para teclado y lectores. */
 export function RetirosTable({
   retiros,
+  pie,
   onVerDetalle,
 }: RetirosTableProps) {
   return (
-    <Tarjeta overflowX="auto">
-      <Table.Root variant="outline" w="100%" minW="1120px">
+    <TarjetaTabla pie={pie}>
+      <Table.Root variant="outline" w="100%" minW="980px">
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Lote</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Motivo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Notificados</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Estado</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro width="24%">Producto / Lote</EncabezadoOscuro>
+            <EncabezadoOscuro>Motivo</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="amplia">Notificados</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="media">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center width="10%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {retiros.map((retiro) => (
-            <Table.Row key={retiro.id}>
+            <FilaClickeable key={retiro.id} onAbrir={() => onVerDetalle(retiro.id)}>
               <Celda whiteSpace="nowrap">
                 {formatoFecha(retiro.fecha_retiro)}
               </Celda>
               <Celda>
-                <Box>
-                  <Text fontWeight="bold" color="fg" fontSize="sm">
-                    {retiro.lote_producto_nombre}
-                  </Text>
-                  <Text fontSize="xs" color="fg.subtle" whiteSpace="nowrap">
-                    {retiro.lote_codigo}
-                  </Text>
-                </Box>
+                <DatoPrincipal titulo={retiro.lote_producto_nombre} codigo={retiro.lote_codigo} />
               </Celda>
               <Celda>
-                <Text fontSize="sm" color="fg">
-                  {retiro.motivo}
-                </Text>
+                <TextoTruncado texto={retiro.motivo} />
               </Celda>
-              <Celda whiteSpace="nowrap">
+              <Celda center whiteSpace="nowrap">
                 {retiro.total_afectados === 0 ? (
                   <Text fontSize="sm" color="fg.muted">Sin afectados</Text>
                 ) : (
-                  <Text fontSize="sm" color="fg">
-                    {retiro.notificados} de {retiro.total_afectados}
-                  </Text>
+                  <ProgresoTareas hechas={retiro.notificados} total={retiro.total_afectados} />
                 )}
               </Celda>
-              <Celda whiteSpace="nowrap">
+              <Celda center whiteSpace="nowrap">
                 <BadgeEstadoRetiro estado={retiro.estado} />
               </Celda>
               <Celda center>
@@ -73,11 +72,11 @@ export function RetirosTable({
                   />
                 </Flex>
               </Celda>
-            </Table.Row>
+            </FilaClickeable>
           ))}
         </Table.Body>
       </Table.Root>
-    </Tarjeta>
+    </TarjetaTabla>
   );
 }
 
@@ -88,12 +87,8 @@ function BadgeEstadoRetiro({
 }) {
   const esCerrado = estado === "CERRADO";
   return (
-    <Badge
-      colorPalette={esCerrado ? "green" : "orange"}
-      variant="subtle"
-      whiteSpace="nowrap"
-    >
+    <EtiquetaEstado tono={esCerrado ? "ok" : "alerta"}>
       {esCerrado ? "Cerrado" : "En curso"}
-    </Badge>
+    </EtiquetaEstado>
   );
 }

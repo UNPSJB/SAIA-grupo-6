@@ -3,7 +3,6 @@ import {
   Button,
   Heading,
   HStack,
-  Tabs,
   Text,
   type BoxProps,
   type StackProps,
@@ -11,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 import { LuArrowLeft, LuLock } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
+import { DEGRADADO_MARCA } from "../../theme";
 import { BannerError, PageHeader, Tarjeta } from "./patrones";
 
 /**
@@ -122,6 +122,14 @@ interface PaginaProps {
   estado?: ReactNode;
   volver?: DestinoVolver;
   ancho?: AnchoPagina;
+  /**
+   * Título sobre una franja fina con el teal de la marca (el de la barra
+   * superior), en vez del encabezado liso; las tablas de la página toman el
+   * encabezado teal. Por defecto la llevan los listados (ancho completo y sin
+   * "Volver"); formularios y fichas quedan con el encabezado liso. Una
+   * pantalla de ancho completo que no es un listado pasa `banner={false}`.
+   */
+  banner?: boolean;
   children: ReactNode;
 }
 
@@ -136,12 +144,24 @@ export function Pagina({
   estado,
   volver,
   ancho = "completo",
+  banner: bannerPedido,
   children,
 }: PaginaProps) {
   const maxW = ANCHO_PAGINA[ancho];
+  const banner = bannerPedido ?? (ancho === "completo" && !volver);
   return (
-    <Box p={{ base: "3", md: "5" }} w="100%" maxW={maxW} mx={maxW ? "auto" : undefined}>
+    <Box
+      p={{ base: "3", md: "5" }}
+      w="100%"
+      maxW={maxW}
+      mx={maxW ? "auto" : undefined}
+      // Las tablas de la página pintan su encabezado en teal (ver `FilaEncabezado`).
+      data-pagina-banner={banner ? "" : undefined}
+    >
       {volver ? <EnlaceVolver {...volver} /> : null}
+      {banner ? (
+        <BannerTitulo titulo={titulo} descripcion={descripcion} acciones={acciones} estado={estado} />
+      ) : (
       <PageHeader
         title={
           estado ? (
@@ -158,7 +178,86 @@ export function Pagina({
         description={descripcion}
         actions={acciones}
       />
+      )}
       {children}
+    </Box>
+  );
+}
+
+/**
+ * Encabezado en franja teal: fina (poco relleno, título `xl`), con el mismo
+ * degradado de marca que la barra superior y el Inicio. Texto en blanco; los
+ * botones de `acciones` pasan a blanco con texto teal para no perderse sobre
+ * el fondo de su mismo color.
+ */
+function BannerTitulo({
+  titulo,
+  descripcion,
+  acciones,
+  estado,
+}: Pick<PaginaProps, "titulo" | "descripcion" | "acciones" | "estado">) {
+  return (
+    <Box
+      as="header"
+      display="flex"
+      flexDirection={{ base: "column", md: "row" }}
+      alignItems={{ base: "stretch", md: "center" }}
+      justifyContent="space-between"
+      gap="4"
+      mb="5"
+      px={{ base: "4", md: "6" }}
+      py={{ base: "3.5", md: "4" }}
+      rounded="lg"
+      bg="brand.700"
+      backgroundImage={DEGRADADO_MARCA}
+      color="white"
+      boxShadow="0 1px 2px rgba(15, 23, 42, 0.08)"
+    >
+      <Box minW="0">
+        <Heading
+          as="h2"
+          fontSize="xl"
+          fontWeight="bold"
+          lineHeight="1.25"
+          color="white"
+          display="flex"
+          alignItems="center"
+          gap="3"
+          flexWrap="wrap"
+        >
+          {titulo}
+          {estado ? (
+            <Box as="span" display="inline-flex" fontSize="md">
+              {estado}
+            </Box>
+          ) : null}
+        </Heading>
+        {descripcion ? (
+          <Text mt="1" fontSize="sm" color="rgba(255, 255, 255, 0.85)" maxW="90ch">
+            {descripcion}
+          </Text>
+        ) : null}
+      </Box>
+      {acciones ? (
+        <HStack
+          gap="3"
+          flexWrap="wrap"
+          flexShrink={0}
+          css={{
+            "& .chakra-button": {
+              background: "white",
+              color: "var(--chakra-colors-brand-light-700)",
+              borderColor: "white",
+              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.15)",
+            },
+            "& .chakra-button:hover": {
+              background: "var(--chakra-colors-brand-light-50)",
+            },
+          }}
+        >
+          {acciones}
+        </HStack>
+      ) : null}
     </Box>
   );
 }
@@ -319,47 +418,14 @@ export function GrillaDatos({ children, ...rest }: { children: ReactNode } & Box
 
 /* ────────────────────────────── Pestañas ───────────────────────────────── */
 
-export interface Pestana {
-  valor: string;
-  etiqueta: ReactNode;
-  contenido: ReactNode;
-}
-
-/**
- * Pestañas de una página (Stock, Aditivos...). Las tres páginas con pestañas
- * repetían el mismo `Tabs.Root` con variaciones mínimas de margen.
+/*
+ * Sub-pestañas de una página: viven en `pestanas.tsx` (forma y animación de
+ * las pestañas de la barra). Se reexportan acá porque son parte del esqueleto
+ * de un listado.
  *
  * Dentro de cada pestaña, la acción de alta va en `BarraFiltros` →
  * `herramientas`, a la derecha: depende de la pestaña, así que no puede
- * subir al encabezado de la página.
+ * subir al encabezado de la página. Y lo primero de cada pestaña es la
+ * tarjeta de filtros: la pestaña activa se apoya sobre ella.
  */
-export function PestanasPagina({
-  pestanas,
-  inicial,
-}: {
-  pestanas: Pestana[];
-  inicial?: string;
-}) {
-  return (
-    <Tabs.Root
-      defaultValue={inicial ?? pestanas[0]?.valor}
-      variant="line"
-      colorPalette="brand"
-      lazyMount
-    >
-      <Tabs.List overflowX="auto" overflowY="hidden" mb="6">
-        {pestanas.map((p) => (
-          <Tabs.Trigger key={p.valor} value={p.valor} flexShrink={0}>
-            {p.etiqueta}
-          </Tabs.Trigger>
-        ))}
-        <Tabs.Indicator />
-      </Tabs.List>
-      {pestanas.map((p) => (
-        <Tabs.Content key={p.valor} value={p.valor} p="0">
-          {p.contenido}
-        </Tabs.Content>
-      ))}
-    </Tabs.Root>
-  );
-}
+export { PestanasPagina, type Pestana } from "./pestanas";

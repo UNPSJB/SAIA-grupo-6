@@ -150,8 +150,12 @@ function construirMigas(pathname: string, user: Usuario): Miga[] {
   return migas;
 }
 
-/** Ruta de navegación de la página actual. No recibe props: lee la URL. */
-export function Breadcrumbs() {
+/**
+ * Ruta de navegación de la página actual: lee la URL. Con `claro`, el texto va
+ * en blanco, para cuando la franja descansa sobre un fondo oscuro (el
+ * degradado del Inicio).
+ */
+export function Breadcrumbs({ claro = false }: { claro?: boolean }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
@@ -168,21 +172,21 @@ export function Breadcrumbs() {
         {migas.map((miga, i) => (
           <Fragment key={miga.to}>
             {i > 0 && (
-              <Breadcrumb.Separator>
+              <Breadcrumb.Separator color={claro ? "whiteAlpha.700" : undefined}>
                 <LuChevronRight size={14} aria-hidden />
               </Breadcrumb.Separator>
             )}
             <Breadcrumb.Item>
               {miga.actual ? (
-                <Breadcrumb.CurrentLink fontWeight="bold" color="brand.700">
+                <Breadcrumb.CurrentLink fontWeight="bold" color={claro ? "white" : "brand.700"}>
                   {miga.label}
                 </Breadcrumb.CurrentLink>
               ) : miga.enlace ? (
-                <Breadcrumb.Link asChild>
+                <Breadcrumb.Link asChild color={claro ? "whiteAlpha.800" : undefined}>
                   <RouterLink to={miga.to}>{miga.label}</RouterLink>
                 </Breadcrumb.Link>
               ) : (
-                <Text as="span" color="fg.muted">
+                <Text as="span" color={claro ? "whiteAlpha.700" : "fg.muted"}>
                   {miga.label}
                 </Text>
               )}

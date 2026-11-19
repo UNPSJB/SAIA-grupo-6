@@ -22,6 +22,10 @@ class CantidadInvalida(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_INVALIDA
 
 
+class CantidadNoEntera(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_NO_ENTERA
+
+
 class SaldoInsuficiente(BadRequest):
     DETAIL = ErrorCode.SALDO_INSUFICIENTE
 

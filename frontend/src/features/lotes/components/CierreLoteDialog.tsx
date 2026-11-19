@@ -10,7 +10,11 @@ import {
   FormField,
   FormInput,
 } from "../../../components/ui/patrones";
-import { cantidadConUnidad } from "../../../common/utils/numeros";
+import {
+  cantidadConUnidad,
+  cantidadValidaParaUnidad,
+  propsCampoCantidad,
+} from "../../../common/utils/numeros";
 import { formatoFecha } from "../../../common/utils/fechas";
 import { cerrarLote } from "../services/loteService";
 import type { LoteDetalle } from "../types/lote";
@@ -41,6 +45,10 @@ export function CierreLoteDialog({ lote, onCerrado, onClose }: CierreLoteDialogP
     setError(null);
     if (!(Number(cantidad) > 0)) {
       setError("La cantidad producida debe ser mayor a cero.");
+      return;
+    }
+    if (!cantidadValidaParaUnidad(cantidad, lote.unidad)) {
+      setError("El producto se elabora por unidad: la cantidad producida tiene que ser un número entero.");
       return;
     }
     setGuardando(true);
@@ -82,8 +90,7 @@ export function CierreLoteDialog({ lote, onCerrado, onClose }: CierreLoteDialogP
             <FormInput
               type="number"
               min="0"
-              step="any"
-              inputMode="decimal"
+              {...propsCampoCantidad(lote.unidad)}
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
               autoFocus

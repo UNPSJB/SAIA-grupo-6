@@ -31,6 +31,12 @@ DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO = 15
 # referencia para marcar el reclamo como "fuera de plazo": no bloquea el alta.
 CLAVE_PLAZO_RECLAMO_DIAS = "plazo_reclamo_dias"
 PLAZO_RECLAMO_DIAS_POR_DEFECTO = 30
+# Meta de cumplimiento de las tareas de limpieza, en %. Por debajo, el inicio
+# marca Limpieza en ámbar. Por defecto 100: las BPM y los POES (CAA cap. II)
+# piden registrar todas las tareas programadas, así que cada tarea sin hacer
+# es un desvío. Cada planta puede bajarla a un umbral de aviso propio.
+CLAVE_META_CUMPLIMIENTO_LIMPIEZA = "meta_cumplimiento_limpieza"
+META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO = 100
 
 
 
@@ -606,3 +612,19 @@ def obtener_notificaciones_paginadas(
     total = len(filtradas)
     inicio = (page - 1) * page_size
     return filtradas[inicio : inicio + page_size], total, contadores
+
+
+def obtener_meta_cumplimiento_limpieza(db: Session) -> int:
+    """Porcentaje de cumplimiento de limpieza esperado (ver la constante)."""
+    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    return config.valor if config else META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO
+
+
+def actualizar_meta_cumplimiento_limpieza(db: Session, porcentaje: int) -> int:
+    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    if config:
+        config.valor = porcentaje
+    else:
+        db.add(ConfiguracionAlerta(clave=CLAVE_META_CUMPLIMIENTO_LIMPIEZA, valor=porcentaje))
+    db.commit()
+    return porcentaje

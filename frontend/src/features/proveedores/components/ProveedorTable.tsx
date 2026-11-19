@@ -30,7 +30,7 @@ export function ProveedorTable({ proveedores, onEdit, onDelete, onReactivar }: P
           <FilaEncabezado>
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
             <EncabezadoOscuro>CUIT</EncabezadoOscuro>
-            <EncabezadoOscuro>Certificación</EncabezadoOscuro>
+            <EncabezadoOscuro center>Certificación</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

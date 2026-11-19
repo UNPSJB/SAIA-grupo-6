@@ -46,6 +46,7 @@ from src.salidas.constants import (
 )
 from src.salidas.models import HitoLote, Salida, SalidaCertificacion, calcular_cantidades, formatear_cantidad
 from src.transportistas.models import Transportista
+from src.unidadMedida.cantidades import es_cantidad_valida
 
 # Máquina de estados: transiciones permitidas (estado actual -> estados destino).
 _TRANSICIONES_PERMITIDAS: dict[str, set[str]] = {
@@ -170,6 +171,9 @@ def reservar(
 
     if cantidad <= 0:
         raise exceptions.CantidadInvalida()
+
+    if not es_cantidad_valida(cantidad, lote.producto.unidad_medida):
+        raise exceptions.CantidadNoEntera()
 
     if cantidad > calculo["saldo"]:
         raise exceptions.SaldoInsuficiente()

@@ -220,7 +220,7 @@ export function PlanCalibracionMantenimientoPage() {
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando planes...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando planes...</EstadoCargando>}
       {!loading && !error && (
         <>
           {hayFiltros && planes.length === 0 ? (

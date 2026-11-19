@@ -3,7 +3,12 @@ import {
   TIPOS_QUIMICOS,
   type InsumoQuimico,
 } from "../types/insumoQuimico";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  DatoPrincipal,
+  PildoraNeutra,
+} from "../../../components/ui/patrones";
 
 interface InsumoQuimicoItemProps {
   insumo: InsumoQuimico;
@@ -32,17 +37,17 @@ export function InsumoQuimicoItem({
       opacity={insumo.activo ? 1 : 0.65}
     >
 
-      <Celda p="3">
-        <TextoTruncado texto={insumo.nombre} />
+      <Celda>
+        <DatoPrincipal titulo={insumo.nombre} />
       </Celda>
 
-      <Celda p="3">{tipoLabel}</Celda>
+      <Celda>{tipoLabel}</Celda>
 
-      <Celda p="3">
-        <TextoTruncado texto={unidadLabel} />
+      <Celda>
+        <PildoraNeutra>{unidadLabel}</PildoraNeutra>
       </Celda>
 
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {insumo.activo ? (
             <>

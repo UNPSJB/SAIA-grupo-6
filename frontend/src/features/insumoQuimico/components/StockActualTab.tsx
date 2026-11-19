@@ -23,6 +23,8 @@ import {
   FilaEncabezado,
   Paginacion,
   Tarjeta,
+  DatoPrincipal,
+  CantidadConUnidad,
 } from "../../../components/ui/patrones";
 import { BotonesExportar } from "../../exportacion";
 import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
@@ -160,20 +162,27 @@ export function StockActualTab() {
                   <EncabezadoOrdenable columna="nombre" orden={orden}>Producto</EncabezadoOrdenable>
                   <EncabezadoOrdenable numero columna="cantidad" orden={orden} ancho="angosta">Actual</EncabezadoOrdenable>
                   <EncabezadoOrdenable numero columna="minimo" orden={orden} ancho="angosta">Mínimo</EncabezadoOrdenable>
-                  <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
+                  <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
                   <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
                 {stock.map((insumo) => (
                   <Table.Row key={insumo.insumo_quimico_id}>
-                    <Celda fontWeight="medium">{insumo.nombre}</Celda>
-                    <Celda numero>{formatoCantidad(insumo.cantidad_actual)} {insumo.unidad_simbolo ?? ""}</Celda>
-                    <Celda numero>
-                      {formatoCantidad(insumo.stock_minimo, "Sin definir")}
-                      {insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}
-                    </Celda>
                     <Celda>
+                      <DatoPrincipal titulo={insumo.nombre} />
+                    </Celda>
+                    <Celda numero>
+                      <CantidadConUnidad valor={insumo.cantidad_actual} unidad={insumo.unidad_simbolo} />
+                    </Celda>
+                    <Celda numero>
+                      {insumo.stock_minimo !== null ? (
+                        <CantidadConUnidad valor={insumo.stock_minimo} unidad={insumo.unidad_simbolo} />
+                      ) : (
+                        "Sin definir"
+                      )}
+                    </Celda>
+                    <Celda center>
                       <EtiquetaEstado tono={insumo.stock_bajo ? "peligro" : "ok"}>
                         {insumo.stock_bajo ? "Stock bajo" : "Disponible"}
                       </EtiquetaEstado>

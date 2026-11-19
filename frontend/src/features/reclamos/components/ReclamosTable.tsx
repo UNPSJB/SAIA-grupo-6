@@ -7,6 +7,8 @@ import {
   EtiquetaEstado,
   FilaEncabezado,
   Tarjeta,
+  DatoPrincipal,
+  FilaClickeable,
 } from "../../../components/ui/patrones";
 import {
   MOTIVO_AFECTACION_SALUD,
@@ -35,21 +37,21 @@ export function ReclamosTable({
       <Table.Root variant="outline" w="100%" minW="1120px">
         <Table.Header>
           <FilaEncabezado>
-            <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Cliente</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Lote</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Entrega</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="amplia">Motivo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="media">Plazo</EncabezadoOscuro>
-            <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="accionesAnchas">
+            <EncabezadoOscuro width="9%">Fecha</EncabezadoOscuro>
+            <EncabezadoOscuro width="13%">Cliente</EncabezadoOscuro>
+            <EncabezadoOscuro width="16%">Producto / Lote</EncabezadoOscuro>
+            <EncabezadoOscuro width="9%">Entrega</EncabezadoOscuro>
+            <EncabezadoOscuro>Motivo</EncabezadoOscuro>
+            <EncabezadoOscuro center width="14%">Plazo</EncabezadoOscuro>
+            <EncabezadoOscuro center width="11%">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center width="10%">
               Acciones
             </EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
           {reclamos.map((reclamo) => (
-            <Table.Row key={reclamo.id}>
+            <FilaClickeable key={reclamo.id} onAbrir={() => onVerDetalle(reclamo.id)}>
               <Celda whiteSpace="nowrap">
                 {formatoFecha(reclamo.fecha_reclamo)}
               </Celda>
@@ -59,14 +61,7 @@ export function ReclamosTable({
                 </Text>
               </Celda>
               <Celda>
-                <Box>
-                  <Text fontWeight="bold" color="fg" fontSize="sm">
-                    {reclamo.producto_nombre}
-                  </Text>
-                  <Text fontSize="xs" color="fg.subtle" whiteSpace="nowrap">
-                    {reclamo.lote_numero}
-                  </Text>
-                </Box>
+                <DatoPrincipal titulo={reclamo.producto_nombre} codigo={reclamo.lote_numero} />
               </Celda>
               <Celda whiteSpace="nowrap">
                 {formatoFecha(reclamo.fecha_entrega)}
@@ -83,17 +78,18 @@ export function ReclamosTable({
                   )}
                 </HStack>
               </Celda>
-              <Celda whiteSpace="nowrap">
+              <Celda center whiteSpace="nowrap">
                 <Badge
                   colorPalette={reclamo.fuera_de_plazo ? "orange" : "green"}
                   variant="subtle"
+                  rounded="full"
                 >
                   {reclamo.fuera_de_plazo ? "Fuera de plazo" : "En plazo"} (
                   {reclamo.dias_desde_entrega}{" "}
                   {reclamo.dias_desde_entrega === 1 ? "día" : "días"})
                 </Badge>
               </Celda>
-              <Celda>
+              <Celda center>
                 <EtiquetaEstado
                   tono={reclamo.incidente_estado === "cerrado" ? "ok" : "alerta"}
                 >
@@ -116,7 +112,7 @@ export function ReclamosTable({
                   )}
                 </Flex>
               </Celda>
-            </Table.Row>
+            </FilaClickeable>
           ))}
         </Table.Body>
       </Table.Root>

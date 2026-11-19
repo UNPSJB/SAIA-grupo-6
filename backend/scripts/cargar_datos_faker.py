@@ -8,6 +8,7 @@ filtros y listados en general.
     .venv\\Scripts\\python.exe scripts\\cargar_datos_faker.py
     .venv\\Scripts\\python.exe scripts\\cargar_datos_faker.py --cantidad 40
     .venv\\Scripts\\python.exe scripts\\cargar_datos_faker.py --cantidad 200 --dias-checklist 30
+    .venv\\Scripts\\python.exe scripts\\cargar_datos_faker.py --dias-historia 180 --dias-checklist 30  # más rápido
     .venv\\Scripts\\python.exe scripts\\cargar_datos_faker.py --seed 7      # repetible
 
 Faker se usa para lo que le sobra: identidad de las personas (nombre, DNI,
@@ -15,6 +16,10 @@ teléfono, email), frases y horas. Para las entidades del dominio (equipos,
 productos químicos, tareas, incidentes) se usan vocabularios del rubro
 combinados al azar: `fake.word()` devolvería cosas como "Cocina warned" y la
 base quedaría inservible para probar la aplicación.
+
+El stock de insumos químicos se arma como un libro coherente: el saldo de cada
+producto es la suma de sus ingresos (cada uno con su lote de proveedor), sus
+ajustes por conteo y los consumos que informaron los checklists.
 
 También carga la trazabilidad de producción (materias primas, productos con
 recetas versionadas, unidades con su tipo y factor e insumos con densidad o
@@ -24,6 +29,23 @@ información nutricional (E11: datos por 100 g de cada materia prima con su
 fuente, porción y medida casera de cada producto y un análisis de
 laboratorio), la vista pública, sesiones de ejemplo (refresh tokens, revocaciones, intentos de
 login) y, al final, recalcula la caché de notificaciones.
+
+Y el circuito comercial: proveedores con CUIT, rubro, certificaciones y los
+insumos que abastecen; clientes; transportistas con sus certificaciones
+(habilitados, vencidos, sin certificar); salidas de producto en todos los
+estados (reservada, despachada, entregada, cancelada, rechazada con y sin
+resolver), reclamos de clientes, retiros de lote con sus notificaciones y
+borradores de rotulado. Las salidas, los reclamos, los retiros y el rotulado
+se generan llamando a los services de la aplicación, así los hitos del lote,
+los incidentes automáticos y las validaciones quedan igual que en la app.
+
+Los datos con fecha no se reparten parejos: los paneles de cada categoría
+grafican su evolución, y una historia uniforme deja todas las curvas planas.
+Lotes, incidentes, salidas y checklists siguen un ritmo (`dia_con_ritmo`): más
+actividad hacia hoy, olas de varias semanas y fines de semana flojos; y las
+categorías (productos, clientes, tipos de incidente, motivos) tienen
+favoritos en vez de salir todas por igual. `--dias-historia` y
+`--dias-checklist` regulan cuánto se extiende hacia atrás.
 
 Por defecto reemplaza los datos (igual que `cargar_datos.py`); con `--agregar`
 conserva lo que hay y agrega nuevas filas sin chocar con los UNIQUE.
@@ -36,6 +58,7 @@ lo saltea.
 """
 
 import argparse
+import math
 import os
 import random
 import re
@@ -51,6 +74,7 @@ from typing import Optional
 
 from faker import Faker
 from sqlalchemy import delete, func, inspect, select, text
+from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 
 # Permite correr el script desde cualquier directorio.
@@ -78,6 +102,7 @@ from src.sector.models import Sector  # noqa: E402
 from src.Equipo.models import Equipo, Calibracion  # noqa: E402
 from src.aptitud.models import Aptitud  # noqa: E402
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
+from src.unidadMedida.cantidades import admite_fracciones  # noqa: E402
 from src.unidadMedida.constants import equivalencia_conocida  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
 from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo  # noqa: E402
@@ -108,7 +133,11 @@ from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.documentos.constants import TipoDocumento  # noqa: E402
 from src.documentos.pdf_generator import ContextoDocumento, generar_pdf_documento  # noqa: E402
-from src.proveedores.models import Proveedor  # noqa: E402
+from src.proveedores.models import (  # noqa: E402
+    CertificacionProveedor,
+    Proveedor,
+    proveedores_insumos,
+)
 from src.config import CARPETA_UPLOADS  # noqa: E402
 from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida  # noqa: E402
 from src.notificaciones.invalidacion import (  # noqa: E402
@@ -153,6 +182,42 @@ from src.vistaPublica.models import (  # noqa: E402
 )
 from src.vistaPublica.constants import CATALOGO as CATALOGO_VISTA_PUBLICA  # noqa: E402
 from src.auth.models import IntentoLogin, RefreshToken, TokenRevocado  # noqa: E402
+from src.common.fechas import hoy as hoy_ar  # noqa: E402
+from src.clientes.models import Cliente  # noqa: E402
+from src.clientes.schemas import ClienteCreate  # noqa: E402
+from src.transportistas.models import Transportista  # noqa: E402
+from src.transportistas.schemas import TransportistaCreate  # noqa: E402
+from src.certificaciones_transportista.models import CertificacionTransportista  # noqa: E402
+from src.certificaciones_transportista.services import normalizar_tipo  # noqa: E402
+from src.certificaciones_transportista.estado import (  # noqa: E402
+    ESTADO_HABILITADO,
+    estado_habilitacion,
+)
+from src.salidas.models import HitoLote, Salida, SalidaCertificacion  # noqa: E402
+from src.salidas import services as salidas_services  # noqa: E402
+from src.salidas.constants import (  # noqa: E402
+    DISPOSICION_DESECHADA,
+    DISPOSICION_REINGRESADA,
+    FORMA_ENTREGA_CON_TRANSPORTISTA,
+    FORMA_ENTREGA_RETIRA_CLIENTE,
+    MOTIVO_RECHAZO_OTRO,
+    MOTIVOS_RECHAZO,
+)
+from src.reclamos.models import Reclamo  # noqa: E402
+from src.reclamos import services as reclamos_services  # noqa: E402
+from src.reclamos.constants import MOTIVO_RECLAMO_OTRO, MOTIVOS_RECLAMO  # noqa: E402
+from src.retiros.models import Retiro, RetiroAfectado  # noqa: E402
+from src.retiros import services as retiros_services  # noqa: E402
+from src.retiros.constants import (  # noqa: E402
+    ESTADO_NOTIFICACION_PENDIENTE,
+    MEDIOS_CONTACTO_RETIRO,
+    MOTIVOS_RETIRO,
+    ORIGEN_RETIRO_MANUAL,
+)
+from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: E402
+from src.rotulado import services as rotulado_services  # noqa: E402
+from src.rotulado.schemas import BorradorRotuladoCreate, BorradorRotuladoUpdate  # noqa: E402
+from src.rotulado.constants import ESTADO_COMPLETADO  # noqa: E402
 
 # Contraseña de TODO el personal. Valor acordado con el grupo de desarrollo.
 CONTRASENA_POR_DEFECTO = "12345678"
@@ -247,6 +312,49 @@ def hora_aleatoria(dias_atras_max: int = 180, hora_min: int = 6, hora_max: int =
         hour=random.randint(hora_min, hora_max),
         minute=random.randint(0, 59),
     )
+
+
+# Desfase de las olas de actividad. Se sortea al usarlo por primera vez, ya
+# con la semilla puesta, así cada corrida tiene sus picos en otro lugar.
+_FASE_RITMO: Optional[float] = None
+
+
+def _peso_ritmo(dias_atras: int, dias_max: int) -> float:
+    """Cuánta actividad le toca a un día: entre 0 y 1.
+
+    Tres efectos multiplicados: una tendencia que crece hacia hoy (la planta
+    produce más que hace un año), olas de unas siete semanas (temporadas) y
+    fines de semana con poca actividad.
+    """
+    global _FASE_RITMO
+    if _FASE_RITMO is None:
+        _FASE_RITMO = random.uniform(0, 2 * math.pi)
+    tendencia = 0.4 + 0.6 * (1 - dias_atras / max(dias_max, 1))
+    ola = 1 + 0.5 * math.sin(2 * math.pi * dias_atras / 47 + _FASE_RITMO)
+    dia_semana = (HOY - timedelta(days=dias_atras)).weekday()
+    semana = 0.2 if dia_semana == 6 else 0.45 if dia_semana == 5 else 1.0
+    return tendencia * ola * semana / 1.5
+
+
+def dia_con_ritmo(dias_max: int, dias_min: int = 0) -> int:
+    """Días atrás, sorteados con el ritmo de `_peso_ritmo` en vez de parejos."""
+    if dias_max <= dias_min:
+        return dias_min
+    while True:
+        dias = random.randint(dias_min, dias_max)
+        if random.random() < _peso_ritmo(dias, dias_max):
+            return dias
+
+
+def pesos_desparejos(n: int) -> list:
+    """Pesos para elegir entre `n` opciones con favoritos claros.
+
+    Decaen como una ley de potencias y se mezclan, para que el favorito no
+    sea siempre el primero de la lista. Sirven para `random.choices`.
+    """
+    pesos = [1 / (i + 1) ** 0.9 for i in range(n)]
+    random.shuffle(pesos)
+    return pesos
 
 
 def bernoulli(p: float) -> bool:
@@ -805,6 +913,105 @@ MOTIVOS_BAJA_LOTE_INSUMO = [
 IPS_INTENTOS_LOGIN = ["203.0.113.10", "203.0.113.25", "198.51.100.7", "198.51.100.42"]
 
 
+# --- Circuito comercial: proveedores, clientes, transportistas y salidas ---
+
+RUBROS_PROVEEDOR = [
+    "Harinas y cereales", "Lácteos", "Carnes y derivados", "Frutas y verduras",
+    "Aceites y grasas", "Aditivos alimentarios", "Envases y embalajes",
+    "Productos de limpieza", "Especias y condimentos", "Azúcares y endulzantes",
+]
+
+TIPOS_CERTIFICACION_PROVEEDOR = [
+    "RNE", "Habilitación municipal", "Certificado SENASA",
+    "Buenas Prácticas de Manufactura", "HACCP", "ISO 22000",
+]
+
+TIPOS_CERTIFICACION_TRANSPORTISTA = [
+    "Habilitación SENASA", "Habilitación municipal", "Verificación técnica vehicular",
+    "Seguro de carga", "Libreta sanitaria del chofer",
+]
+
+PREFIJOS_TRANSPORTISTA = ["Transportes", "Logística", "Fletes", "Expreso", "Distribuidora"]
+SUFIJOS_EMPRESA = ["SA", "SRL", "Hnos", "y Cía"]
+
+MOTIVOS_ANULACION_CERTIFICACION = [
+    "Se cargó con el número equivocado.",
+    "El comprobante corresponde a otro vehículo.",
+    "El organismo emisor la dejó sin efecto.",
+]
+
+MOTIVOS_CANCELACION_RESERVA = [
+    "El cliente canceló el pedido.",
+    "Se reprogramó la entrega para otro lote.",
+    "Error al cargar la cantidad reservada.",
+    "El cliente no confirmó la compra.",
+]
+
+OBSERVACIONES_ENTREGA = [
+    "Entrega sin novedades.",
+    "Recibido conforme, mercadería en condiciones.",
+    "Se entregó en el depósito del cliente.",
+    "Se controló la temperatura al recibir.",
+]
+
+DETALLES_RECHAZO = [
+    "Cajas aplastadas en la base del pallet.",
+    "La cámara del camión llegó fuera de temperatura.",
+    "El cliente pidió otra presentación.",
+    "Envases con pérdida de vacío.",
+]
+
+JUSTIFICACIONES_REINGRESO = [
+    "Se revisó la mercadería y está en condiciones: vuelve al stock.",
+    "El rechazo fue por un error de pedido, el producto no se abrió.",
+]
+
+JUSTIFICACIONES_DESECHO = [
+    "Se rompió la cadena de frío: no es apta para la venta.",
+    "Envases dañados, no se puede garantizar la inocuidad.",
+]
+
+DETALLES_RECLAMO = [
+    "El cliente informa olor ácido al abrir el envase.",
+    "Envase hinchado al momento de recibirlo.",
+    "Encontró un fragmento de plástico en el producto.",
+    "La etiqueta no indica la fecha de vencimiento.",
+    "Refiere malestar después de consumirlo.",
+    "La textura no es la habitual.",
+]
+
+DETALLES_RETIRO = [
+    "Se detectó un desvío en el control de proceso del lote.",
+    "Coincide con reclamos recibidos por el mismo lote.",
+    "El proveedor informó un problema en la materia prima utilizada.",
+    "La etiqueta omite un alérgeno declarado en la receta.",
+]
+
+OBSERVACIONES_NOTIFICACION = [
+    "Se le pidió que separe la mercadería y no la venda.",
+    "Confirmó la recepción del aviso.",
+    "Devuelve el producto en la próxima visita.",
+    "Informó que ya no tiene unidades en stock.",
+]
+
+ACCIONES_CORRECTIVAS = [
+    "Se reforzó el control de temperatura en el envasado y se capacitó al turno.",
+    "Se cambió de proveedor de la materia prima involucrada y se revisó el ingreso.",
+    "Se corrigió el arte de la etiqueta y se agregó una verificación antes de imprimir.",
+]
+
+DATOS_ROTULO = {
+    "razon_social": "Alimentos del Sur S.A.",
+    "domicilio": "Parque Industrial, Trelew, Chubut, Argentina",
+    "instrucciones": [
+        "Conservar refrigerado entre 2 °C y 8 °C. Una vez abierto, consumir dentro de las 48 horas.",
+        "Conservar en lugar fresco y seco. Mantener el envase cerrado.",
+        "Mantener congelado a -18 °C. No volver a congelar una vez descongelado.",
+    ],
+    "contenidos": ["250 g", "500 g", "1 kg", "750 ml", "6 unidades"],
+}
+
+
 def _descripcion_tarea(equipo_nombre: str) -> str:
     """Arma un procedimiento paso a paso creíble para la tarea."""
     pasos = [
@@ -897,6 +1104,21 @@ def borrar_todo(db) -> None:
         # Caché derivada: se recalcula al final con lo recién cargado.
         NotificacionPersistida,
         EstadoNotificaciones,
+        # Circuito comercial (hijos primero): cuelga de lotes, productos,
+        # incidentes y personal, así que se borra antes que todos ellos.
+        CampoRotuladoEditado,
+        BorradorRotulado,
+        RetiroAfectado,
+        Retiro,
+        Reclamo,
+        SalidaCertificacion,
+        HitoLote,
+        Salida,
+        CertificacionTransportista,
+        Transportista,
+        Cliente,
+        CertificacionProveedor,
+        proveedores_insumos,
         # Historial de evaluaciones de rotulado: los productos se recrean.
         EvaluacionRotulado,
         # Trazabilidad (hijos primero). El borrado masivo no dispara los
@@ -1307,10 +1529,24 @@ def crear_checklists(
     print(f"⏳ Cargando checklists de los últimos {dias} días...")
     total_registros = 0
 
+    # El cumplimiento no es parejo: mejora con el tiempo, afloja los lunes y
+    # los viernes, tiene días malos sueltos (faltó gente, hubo un corte) y
+    # cada plan arrastra su propio nivel. Sin esto la curva es una recta.
+    dias_malos = {d for d in range(1, dias) if bernoulli(0.06)}
+
     for plan in planes:
+        flojera_plan = random.choice([0.0, 0.0, 0.02, 0.05, 0.12])
         for delta in range(dias - 1, -1, -1):
             fecha = HOY - timedelta(days=delta)
             es_hoy = delta == 0
+            p_incumplir = min(
+                0.7,
+                0.03
+                + 0.12 * (delta / max(dias, 1))
+                + flojera_plan
+                + (0.06 if fecha.weekday() in (0, 4) else 0.0)
+                + (0.30 if delta in dias_malos else 0.0),
+            )
 
             if es_hoy:
                 estado = EstadoChecklist.ABIERTO
@@ -1345,7 +1581,7 @@ def crear_checklists(
                     completado = tarea is plan.tareas[0]
                 else:
                     # Pasado: casi todo hecho, con algún incumplimiento suelto.
-                    completado = not bernoulli(0.08)
+                    completado = not bernoulli(p_incumplir)
 
                 if not completado:
                     pendientes += 1
@@ -1419,7 +1655,10 @@ def crear_checklists(
     return total_registros
 
 
-def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, vistos: dict) -> int:
+def crear_incidentes(
+    db, cantidad: int, equipos, personal, admins, operadores, vistos: dict,
+    dias_historia: int = 365,
+) -> int:
     """Incidentes variados, con la mitad cerrados y con bitácora de cierre.
 
     Los primeros `CANTIDAD_INCIDENTES_SUPERADMIN` los reporta el superadmin
@@ -1433,28 +1672,41 @@ def crear_incidentes(db, cantidad: int, equipos, personal, admins, operadores, v
 
     superadmin = personal[0] if personal else None
     propios = min(CANTIDAD_INCIDENTES_SUPERADMIN, cantidad) if superadmin else 0
+    # Hay tipos de incidente y equipos que se repiten mucho más que otros.
+    pesos_vocabulario = pesos_desparejos(len(VOCAB_INCIDENTES))
+    pesos_equipos = pesos_desparejos(len(equipos))
 
     for indice in range(cantidad):
-        tipo, titulo_base, descripcion_base = random.choice(VOCAB_INCIDENTES)
+        tipo, titulo_base, descripcion_base = random.choices(
+            VOCAB_INCIDENTES, weights=pesos_vocabulario
+        )[0]
         titulo = unico(
             lambda: recortar(solo_letras(f"{titulo_base} {random.randint(1, 99)}"), 60),
             vistos["incidente"],
             largo=60,
         )
-        equipo = random.choice(equipos) if bernoulli(0.8) else None
+        equipo = random.choices(equipos, weights=pesos_equipos)[0] if bernoulli(0.8) else None
         if indice < propios:
             reportante = superadmin
         else:
             reportante = random.choice(operadores or personal)
 
-        fecha_reporte = datetime.combine(
-            HOY - timedelta(days=random.randint(0, 60)),
-            datetime.min.time(),
-        ).replace(hour=random.randint(6, 20), minute=random.randint(0, 59))
+        dias_atras = dia_con_ritmo(dias_historia)
+        # Los de hoy no pueden tener una hora que todavía no llegó.
+        fecha_reporte = min(
+            datetime.combine(
+                HOY - timedelta(days=dias_atras),
+                datetime.min.time(),
+            ).replace(hour=random.randint(6, 20), minute=random.randint(0, 59)),
+            datetime.now() - timedelta(minutes=random.randint(5, 120)),
+        )
 
-        cerrado = bernoulli(0.6)
+        # Los viejos están casi todos resueltos; los recientes, a medias. Y
+        # el cierre nunca cae en el futuro.
+        dias_hasta_cierre = random.choice([1, 1, 2, 3, 5, 8, 13, 21])
+        cerrado = dias_hasta_cierre <= dias_atras and bernoulli(0.92 if dias_atras > 30 else 0.6)
         fecha_cierre = (
-            fecha_reporte + timedelta(days=random.randint(1, 7))
+            fecha_reporte + timedelta(days=dias_hasta_cierre)
             if cerrado
             else None
         )
@@ -1655,147 +1907,458 @@ def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> list:
     return planes
 
 
+def cuit_aleatorio(vistos: set, empresa: bool = True) -> str:
+    """CUIT de 11 dígitos con su dígito verificador real, sin repetir."""
+    pesos = (5, 4, 3, 2, 7, 6, 5, 4, 3, 2)
+    while True:
+        prefijo = random.choice(["30", "33"] if empresa else ["20", "23", "27"])
+        cuerpo = f"{prefijo}{random.randint(10_000_000, 99_999_999)}"
+        resto = 11 - sum(int(d) * p for d, p in zip(cuerpo, pesos)) % 11
+        if resto == 10:
+            continue  # combinación sin dígito verificador válido
+        cuit = f"{cuerpo}{0 if resto == 11 else resto}"
+        if cuit not in vistos:
+            vistos.add(cuit)
+            return cuit
+
+
+def telefono_aleatorio() -> str:
+    # Sin "+": clientes y transportistas validan el teléfono con el patrón de
+    # texto genérico, que no lo admite.
+    return f"{random.choice([11, 280, 297, 351, 2965])} {random.randint(4_000_000, 4_999_999)}"
+
+
+def domicilio_aleatorio(fake: Faker) -> str:
+    """Domicilio en un solo renglón (Faker lo devuelve con saltos de línea)."""
+    return recortar(f"{fake.street_address()}, {fake.city()}".replace("\n", ", "), 200)
+
+
+def _pdf_certificado(
+    subcarpeta: str, prefijo: str, titulo: str, tipo: str, numero: str,
+    emision: Optional[date], vencimiento: date,
+) -> str:
+    """Escribe el comprobante de una certificación y devuelve su ruta relativa."""
+    carpeta = CARPETA_UPLOADS / subcarpeta
+    carpeta.mkdir(parents=True, exist_ok=True)
+    nombre_archivo = f"{prefijo}_{uuid.uuid4().hex}.pdf"
+    pdf_bytes = generar_pdf_documento(
+        ContextoDocumento(
+            nombre=titulo,
+            tipo=tipo,
+            numero_version=1,
+            identificador=numero,
+            fecha_emision=emision,
+            fecha_vencimiento=vencimiento,
+            estado="vigente" if vencimiento >= HOY else "vencido",
+        )
+    )
+    (carpeta / nombre_archivo).write_bytes(pdf_bytes)
+    return f"uploads/{subcarpeta}/{nombre_archivo}"
+
+
 def crear_proveedores(db, cantidad: int, fake: Faker, vistos: dict) -> list:
-    """Proveedores: catálogo de proveedores de insumos y servicios."""
+    """Proveedores con CUIT, contacto, rubro y, los certificados, sus certificaciones.
+
+    La matrícula repite el CUIT, igual que hace el service al dar de alta.
+    Entre los certificados quedan algunos con la certificación vencida, para
+    probar el aviso de proveedor no habilitado.
+    """
     print(f"⏳ Cargando {cantidad} proveedores...")
     proveedores = []
-    matriculas = vistos.setdefault("matricula", set())
+    cuits = vistos.setdefault("matricula", set())
     for _ in range(cantidad):
         nombre = unico(
             lambda: recortar(solo_letras(fake.company()), 120),
             vistos.setdefault("proveedor", set()),
             largo=120,
         )
-        matricula = unico(
-            lambda: f"MAT-{random.randint(1000, 99999)}",
-            matriculas,
-            largo=50,
-        )
-        matriculas.add(matricula)
+        cuit = cuit_aleatorio(cuits)
         proveedores.append(
             Proveedor(
                 nombre=nombre,
-                matricula=matricula,
+                matricula=cuit,
+                cuit=cuit,
+                contacto=recortar(f"{fake.name()} - {telefono_aleatorio()}", 150),
+                domicilio=domicilio_aleatorio(fake),
+                rubro=random.choice(RUBROS_PROVEEDOR),
+                es_certificado=bernoulli(0.6),
                 activo=not bernoulli(0.05),
             )
         )
     db.add_all(proveedores)
     db.flush()
+
+    for proveedor in proveedores:
+        if not proveedor.es_certificado:
+            continue
+        tipos = random.sample(TIPOS_CERTIFICACION_PROVEEDOR, random.randint(1, 2))
+        # Uno de cada cuatro quedó con todo vencido.
+        todo_vencido = bernoulli(0.25)
+        for tipo in tipos:
+            if todo_vencido:
+                vencimiento = HOY - timedelta(days=random.randint(5, 200))
+            else:
+                vencimiento = HOY + timedelta(days=random.randint(10, 500))
+            emision = vencimiento - timedelta(days=random.choice([365, 730]))
+            numero = f"{slug(tipo)[:4].upper()}-{random.randint(10000, 99999)}"
+            db.add(
+                CertificacionProveedor(
+                    proveedor_id=proveedor.id,
+                    tipo=tipo,
+                    numero=numero,
+                    fecha_emision=emision,
+                    fecha_vencimiento=vencimiento,
+                    archivo_url=_pdf_certificado(
+                        "certificaciones_proveedores", "certificacion_proveedor",
+                        f"{tipo} - {proveedor.nombre}", "Certificación de proveedor",
+                        numero, emision, vencimiento,
+                    ),
+                    fecha_carga=datetime.combine(emision, datetime.min.time())
+                    + timedelta(days=random.randint(1, 20), hours=10),
+                )
+            )
+    db.flush()
     return proveedores
 
 
-def crear_stock_insumos(db, quimicos: list) -> list:
-    """Stock inicial: un saldo por insumo químico."""
-    print("⏳ Cargando stock de insumos químicos...")
-    stocks = []
-    for q in quimicos:
-        if not q.activo:
-            continue
-        stocks.append(
-            StockInsumoQuimico(
-                insumo_quimico_id=q.id,
-                cantidad_actual=round(random.uniform(0, 500), 3),
-                stock_minimo=round(random.uniform(5, 50), 3)
-                if random.random() < 0.7
-                else None,
-                actualizado_en=hora_aleatoria(hora_max=12),
-            )
-        )
-    db.add_all(stocks)
-    db.flush()
-    return stocks
+def asociar_proveedores_insumos(db, proveedores: list, insumos: list) -> int:
+    """Qué insumos abastece cada proveedor.
 
-
-def crear_lotes_stock(
-    db, cantidad: int, proveedores: list, quimicos: list, vistos: dict
-) -> list:
-    """Lotes de stock: cada lote necesita un movimiento de ingreso asociado.
-
-    Devuelve los lotes creados. El lote y su movimiento de ingreso comparten la
-    cantidad: antes cada uno sorteaba la suya y el ingreso no coincidía con el
-    lote que lo originó.
+    Un proveedor abastece, como mínimo, los insumos de los que ya entregó un
+    lote; los insumos generales (sin lotes) reciben uno o dos al azar.
     """
-    print(f"⏳ Cargando {cantidad} lotes de stock...")
-    lotes = []
-    numeros_lote = vistos.setdefault("lote", set())
-    quimicos_activos = [q for q in quimicos if q.activo]
-    if not proveedores or not quimicos_activos:
-        print("   ⚠️  No hay proveedores o químicos activos para crear lotes.")
-        return lotes
-    for _ in range(min(cantidad, len(proveedores) * len(quimicos_activos))):
-        proveedor = random.choice(proveedores)
-        quimico = random.choice(quimicos_activos)
-        numero_lote = unico(
-            lambda: f"LOTE-{random.randint(10000, 999999)}",
-            numeros_lote,
-            largo=100,
-        )
-        cantidad_lote = round(random.uniform(10, 200), 3)
-        # Cada lote requiere un MovimientoStockInsumoQuimico (FK NOT NULL + UNIQUE).
-        movimiento = MovimientoStockInsumoQuimico(
-            insumo_quimico_id=quimico.id,
-            cantidad_variacion=cantidad_lote,
-            tipo=TipoMovimientoStock.INGRESO,
-            fecha=hora_aleatoria(hora_max=10),
-            motivo="Ingreso de lote de proveedor",
-            nombre_producto=quimico.nombre,
-            unidad_simbolo=quimico.unidad_medida.simbolo
-            if quimico.unidad_medida
-            else None,
-        )
-        db.add(movimiento)
-        db.flush()
-        lote = LoteStock(
-            proveedor_id=proveedor.id,
-            insumo_quimico_id=quimico.id,
-            numero_lote=numero_lote,
-            cantidad_producto=cantidad_lote,
-            fecha_ingreso=hora_aleatoria(hora_max=10),
-            creado_en=hora_aleatoria(hora_max=10),
-            movimiento_ingreso_id=movimiento.id,
-        )
-        db.add(lote)
-        lotes.append(lote)
+    print("⏳ Asociando proveedores con sus insumos...")
+    por_id = {p.id: p for p in proveedores}
+    pares = set(
+        db.execute(select(LoteInsumo.insumo_id, LoteInsumo.proveedor_id).distinct()).all()
+    )
+    activos = [p for p in proveedores if p.activo] or proveedores
+    for insumo in insumos:
+        for proveedor in random.sample(activos, min(len(activos), random.randint(1, 2))):
+            pares.add((insumo.id, proveedor.id))
+
+    ya = set(db.execute(select(proveedores_insumos.c.insumo_id, proveedores_insumos.c.proveedor_id)).all())
+    nuevas = 0
+    for insumo_id, proveedor_id in sorted(pares - ya):
+        proveedor = por_id.get(proveedor_id) or db.get(Proveedor, proveedor_id)
+        insumo = db.get(Insumo, insumo_id)
+        if proveedor is None or insumo is None:
+            continue
+        proveedor.insumos.append(insumo)
+        nuevas += 1
     db.flush()
-    return lotes
+    return nuevas
 
 
-def crear_calibraciones(db, equipos: list) -> list:
-    """Calibraciones: una por equipo de medición, con su certificado."""
+def crear_clientes(db, cantidad: int, fake: Faker, vistos: dict) -> list:
+    """Clientes: comercios (CUIT) y particulares (DNI). Pasan por el schema del alta."""
+    print(f"⏳ Cargando {cantidad} clientes...")
+    documentos = vistos.setdefault("cliente_doc", set())
+    nombres = vistos.setdefault("cliente", set())
+    clientes = []
+    for _ in range(cantidad):
+        if bernoulli(0.6):
+            nombre = unico(lambda: recortar(solo_letras(fake.company()), 120), nombres, largo=120)
+            documento = cuit_aleatorio(documentos)
+        else:
+            nombre = unico(
+                lambda: recortar(solo_letras(f"{fake.first_name()} {fake.last_name()}"), 120),
+                nombres, largo=120,
+            )
+            documento = unico(lambda: str(random.randint(20_000_000, 45_000_000)), documentos, largo=8)
+        datos = ClienteCreate(
+            nombre=nombre,
+            documento=documento,
+            telefono=telefono_aleatorio(),
+            email=None if bernoulli(0.2) else f"{(slug(nombre) or 'cliente')[:30]}@correo.com.ar",
+            domicilio=None if bernoulli(0.15) else domicilio_aleatorio(fake),
+        )
+        clientes.append(Cliente(**datos.model_dump(), activo=not bernoulli(0.06)))
+    db.add_all(clientes)
+    db.flush()
+    return clientes
+
+
+def crear_transportistas(db, cantidad: int, fake: Faker, vistos: dict, admins: list) -> dict:
+    """Transportistas con sus certificaciones, en todos los estados de habilitación.
+
+    El estado no se guarda: sale de las certificaciones. Por eso se arma un
+    reparto fijo (los dos primeros siempre habilitados, para que haya con quién
+    despachar) y el resto al azar entre habilitado, con una certificación
+    vencida, sin certificaciones y con la única certificación anulada.
+    """
+    total = max(4, cantidad // 2)
+    print(f"⏳ Cargando {total} transportistas con sus certificaciones...")
+    cuits = vistos.setdefault("transportista_cuit", set())
+    nombres = vistos.setdefault("transportista", set())
+    cuenta = {"transportistas": 0, "certificaciones": 0, "habilitados": 0}
+    escenarios = ["habilitado", "habilitado", "vencido", "sin_certificaciones"] + [
+        random.choices(
+            ["habilitado", "vencido", "sin_certificaciones", "anulada"], weights=[6, 2, 1, 1]
+        )[0]
+        for _ in range(total - 4)
+    ]
+
+    def certificacion(transportista, tipo, vencimiento, *, activa=True, anulada=False, comprobante=True):
+        emision = vencimiento - timedelta(days=365)
+        numero = f"{slug(tipo)[:3].upper()}-{random.randint(1000, 99999)}"
+        fila = CertificacionTransportista(
+            transportista_id=transportista.id,
+            tipo=tipo,
+            tipo_normalizado=normalizar_tipo(tipo),
+            numero=numero,
+            fecha_emision=emision,
+            fecha_vencimiento=vencimiento,
+            observaciones=None if bernoulli(0.7) else "Presentó el original en administración.",
+            archivo_url=_pdf_certificado(
+                "certificaciones_transportista", "certificacion_transportista",
+                f"{tipo} - {transportista.razon_social}", "Certificación de transportista",
+                numero, emision, vencimiento,
+            ) if comprobante else None,
+            activa=activa,
+            anulada=anulada,
+        )
+        if anulada:
+            fila.motivo_anulacion = random.choice(MOTIVOS_ANULACION_CERTIFICACION)
+            fila.anulada_por = random.choice(admins).id
+            fila.fecha_anulacion = _momento(random.randint(1, 60))
+        db.add(fila)
+        cuenta["certificaciones"] += 1
+
+    for indice, escenario in enumerate(escenarios):
+        razon_social = unico(
+            lambda: recortar(
+                f"{random.choice(PREFIJOS_TRANSPORTISTA)} {solo_letras(fake.last_name())} "
+                f"{random.choice(SUFIJOS_EMPRESA)}", 200,
+            ),
+            nombres, largo=200,
+        )
+        datos = TransportistaCreate(
+            razon_social=razon_social,
+            cuit=cuit_aleatorio(cuits),
+            telefono=telefono_aleatorio(),
+            email=None if bernoulli(0.2) else f"{(slug(razon_social) or 'transporte')[:30]}@correo.com.ar",
+            domicilio=None if bernoulli(0.2) else domicilio_aleatorio(fake),
+            observaciones=None if bernoulli(0.7) else "Trabaja con camión refrigerado.",
+        )
+        transportista = Transportista(
+            **datos.model_dump(),
+            # Los dos primeros quedan activos: son los que garantizan el despacho.
+            activo=indice < 2 or not bernoulli(0.08),
+        )
+        db.add(transportista)
+        db.flush()
+        cuenta["transportistas"] += 1
+
+        tipos = random.sample(TIPOS_CERTIFICACION_TRANSPORTISTA, random.randint(1, 3))
+        futuro = lambda: HOY + timedelta(days=random.randint(15, 400))  # noqa: E731
+        pasado = lambda: HOY - timedelta(days=random.randint(3, 200))  # noqa: E731
+        if escenario == "habilitado":
+            for tipo in tipos:
+                certificacion(transportista, tipo, futuro())
+            # Historial: una renovación deja la anterior como reemplazada.
+            if bernoulli(0.5):
+                certificacion(transportista, tipos[0], pasado(), activa=False, comprobante=False)
+            if transportista.activo:
+                cuenta["habilitados"] += 1
+        elif escenario == "vencido":
+            certificacion(transportista, tipos[0], pasado())
+            for tipo in tipos[1:]:
+                certificacion(transportista, tipo, futuro())
+        elif escenario == "anulada":
+            certificacion(
+                transportista, tipos[0], futuro(), activa=False, anulada=True, comprobante=False
+            )
+        # "sin_certificaciones": no se carga ninguna.
+    db.flush()
+    return cuenta
+
+
+def _movimiento_stock(
+    quimico, cantidad: Decimal, tipo, fecha: datetime, responsable=None,
+    motivo: Optional[str] = None, registro=None, checklist=None,
+) -> MovimientoStockInsumoQuimico:
+    """Renglón del libro de stock, con la foto del producto y del responsable."""
+    return MovimientoStockInsumoQuimico(
+        insumo_quimico_id=quimico.id,
+        cantidad_variacion=cantidad,
+        tipo=tipo,
+        fecha=fecha,
+        motivo=motivo,
+        responsable_id=responsable.id if responsable is not None else None,
+        responsable_nombre=(
+            f"{responsable.nombre} {responsable.apellido or ''}".strip()
+            if responsable is not None else None
+        ),
+        checklist_id=registro.checklist_id if registro is not None else None,
+        registro_tarea_id=registro.id if registro is not None else None,
+        checklist_fecha=checklist.fecha if checklist is not None else None,
+        tarea_nombre=registro.nombre_tarea_historico if registro is not None else None,
+        nombre_producto=quimico.nombre,
+        unidad_simbolo=quimico.unidad_medida.simbolo if quimico.unidad_medida else None,
+    )
+
+
+def crear_stock_y_movimientos(
+    db, quimicos: list, proveedores: list, admins: list, dias_checklist: int, vistos: dict
+) -> tuple:
+    """Libro de stock de insumos químicos, coherente de punta a punta.
+
+    El saldo de cada producto no se sortea: es la suma de sus movimientos.
+
+      * ingresos: uno o dos por producto, cada uno con su lote de proveedor,
+        anteriores a los checklists y suficientes para cubrir lo consumido;
+      * consumos automáticos: uno por cada registro de tarea completado que
+        informó producto, enlazado a su checklist y a su registro;
+      * ajustes por conteo físico, positivos y negativos, en algunos productos.
+
+    El stock mínimo se reparte para ejercitar las alertas: uno de cada cinco
+    queda por debajo del mínimo, otros sin mínimo y el resto holgados.
+
+    Tienen saldo los productos activos y los que, aun dados de baja, fueron
+    consumidos en un checklist. Devuelve (saldos, lotes, cantidad de movimientos).
+    """
+    print("⏳ Cargando saldos, ingresos, lotes y movimientos de stock...")
+    if not quimicos or not proveedores:
+        print("   ⚠️  No hay proveedores o químicos para armar el stock.")
+        return [], [], 0
+
+    por_id = {q.id: q for q in quimicos}
+    registros = db.scalars(
+        select(RegistroTarea)
+        .where(
+            RegistroTarea.completado.is_(True),
+            RegistroTarea.insumo_quimico_id.in_(list(por_id)),
+            RegistroTarea.cantidad_consumida.isnot(None),
+        )
+        .order_by(RegistroTarea.fecha_completado, RegistroTarea.id)
+    ).all()
+    consumido: dict = {}
+    for registro in registros:
+        consumido[registro.insumo_quimico_id] = (
+            consumido.get(registro.insumo_quimico_id, Decimal("0")) + _q(registro.cantidad_consumida)
+        )
+
+    numeros_lote = vistos.setdefault("lote", set())
+    activos = [p for p in proveedores if p.activo] or proveedores
+    con_stock = [q for q in quimicos if q.activo or q.id in consumido]
+    saldos: dict = {}
+    lotes: list = []
+    movimientos = 0
+
+    for indice, quimico in enumerate(con_stock):
+        stock = StockInsumoQuimico(insumo_quimico_id=quimico.id, cantidad_actual=Decimal("0"))
+        db.add(stock)
+        saldos[quimico.id] = stock
+
+        # Lo ingresado cubre todo lo que después consumen los checklists.
+        total = consumido.get(quimico.id, Decimal("0")) + _q(random.uniform(3, 60))
+        partes = random.choice([1, 2])
+        primera = _q(total / partes)
+        for cantidad in ([primera, total - primera] if partes == 2 else [total]):
+            fecha = _momento(dias_checklist + random.randint(2, 45), 8, 17)
+            movimiento = _movimiento_stock(
+                quimico, cantidad, TipoMovimientoStock.INGRESO, fecha,
+                responsable=random.choice(admins), motivo="Ingreso de lote de proveedor",
+            )
+            db.add(movimiento)
+            db.flush()  # el lote necesita el id de su movimiento de ingreso
+            lote = LoteStock(
+                proveedor_id=random.choice(activos).id,
+                insumo_quimico_id=quimico.id,
+                numero_lote=unico(
+                    lambda: f"LOTE-{random.randint(10000, 999999)}", numeros_lote, largo=100
+                ),
+                cantidad_producto=cantidad,
+                fecha_ingreso=fecha,
+                creado_en=fecha,
+                movimiento_ingreso_id=movimiento.id,
+            )
+            db.add(lote)
+            lotes.append(lote)
+            stock.cantidad_actual += cantidad
+            stock.actualizado_en = max(stock.actualizado_en or fecha, fecha)
+            movimientos += 1
+
+        # Ajustes por conteo físico: nunca dejan el saldo en negativo, porque
+        # lo ingresado ya supera lo consumido en al menos 3 unidades.
+        ajuste = {0: Decimal("1.000"), 1: Decimal("-0.500")}.get(indice % 5)
+        if ajuste is not None:
+            db.add(_movimiento_stock(
+                quimico, ajuste,
+                TipoMovimientoStock.AJUSTE_POSITIVO if ajuste > 0 else TipoMovimientoStock.AJUSTE_NEGATIVO,
+                _momento(1, 8, 17), responsable=random.choice(admins),
+                motivo="Ajuste por conteo físico.",
+            ))
+            stock.cantidad_actual += ajuste
+            movimientos += 1
+
+    for registro in registros:
+        quimico = por_id[registro.insumo_quimico_id]
+        cantidad = _q(registro.cantidad_consumida)
+        fecha = registro.fecha_completado or datetime.now()
+        db.add(_movimiento_stock(
+            quimico, -cantidad, TipoMovimientoStock.CONSUMO_AUTOMATICO, fecha,
+            responsable=db.get(Personal, registro.usuario_id) if registro.usuario_id else None,
+            motivo="Consumo informado en checklist.",
+            registro=registro, checklist=db.get(Checklist, registro.checklist_id),
+        ))
+        stock = saldos[quimico.id]
+        stock.cantidad_actual -= cantidad
+        stock.actualizado_en = max(stock.actualizado_en or fecha, fecha)
+        movimientos += 1
+
+    for indice, stock in enumerate(saldos.values()):
+        if indice % 5 == 0:
+            stock.stock_minimo = stock.cantidad_actual + Decimal("1.000")  # bajo mínimo
+        elif indice % 4 == 0:
+            stock.stock_minimo = None
+        else:
+            stock.stock_minimo = _q(max(Decimal("0.500"), stock.cantidad_actual / 2))
+
+    db.flush()
+    return list(saldos.values()), lotes, movimientos
+
+
+def crear_calibraciones(db, equipos: list, dias_historia: int = 365) -> list:
+    """Calibraciones de los equipos de medición, con su historial.
+
+    Además de la vigente, cada equipo trae las anteriores, separadas por su
+    frecuencia de calibración: así el panel de equipos tiene intervenciones
+    repartidas en el tiempo y no una sola por equipo.
+    """
     print("⏳ Cargando calibraciones de equipos...")
     calibraciones = []
     equipos_medicion = [e for e in equipos if e.tipo == "Medición" and e.activo]
     for equipo in equipos_medicion:
-        fecha_real = HOY - timedelta(days=random.randint(1, 180))
-        calibracion = Calibracion(
-            equipo_id=equipo.id,
-            fecha_realizacion=fecha_real,
-            proximo_vencimiento=fecha_real
-            + timedelta(days=equipo.frecuencia_calibracion_dias or 365),
-            certificado_url=f"uploads/certificados/cal_{equipo.id}_{uuid.uuid4().hex[:8]}.pdf",
-            tipo="calibracion",
-            activo=not bernoulli(0.05),
-        )
-        db.add(calibracion)
-        calibraciones.append(calibracion)
+        frecuencia = equipo.frecuencia_calibracion_dias or 365
+        fecha_real = HOY - timedelta(days=random.randint(1, min(180, frecuencia)))
+        primera = True
+        while (HOY - fecha_real).days <= dias_historia:
+            calibracion = Calibracion(
+                equipo_id=equipo.id,
+                fecha_realizacion=fecha_real,
+                proximo_vencimiento=fecha_real + timedelta(days=frecuencia),
+                certificado_url=f"uploads/certificados/cal_{equipo.id}_{uuid.uuid4().hex[:8]}.pdf",
+                tipo="calibracion",
+                activo=not bernoulli(0.05) if primera else True,
+            )
+            db.add(calibracion)
+            calibraciones.append(calibracion)
+            primera = False
+            # La anterior se hizo un ciclo antes, unos días más o menos.
+            fecha_real -= timedelta(days=frecuencia + random.randint(-10, 10))
     db.flush()
     return calibraciones
 
 
 def _tipo_movimiento_salida():
-    """Un tipo de movimiento de stock que NO sea ingreso (consumo, egreso, ajuste).
+    """Tipo con el que la actividad simulada registra una baja manual de stock.
 
-    Se busca por nombre y, si ninguno coincide, se toma el primero que no sea
-    INGRESO: así el seed no se rompe si el enum usa otro vocabulario. Devuelve
-    None si el enum solo tiene INGRESO (en ese caso no se simulan consumos).
+    Los consumos de checklist tienen su propio tipo (CONSUMO_AUTOMATICO); lo
+    que una persona descuenta a mano es un ajuste negativo.
     """
-    miembros = list(TipoMovimientoStock)
-    for nombre in ("EGRESO", "CONSUMO", "SALIDA", "AJUSTE"):
-        for miembro in miembros:
-            if miembro.name == nombre:
-                return miembro
-    otros = [m for m in miembros if m is not TipoMovimientoStock.INGRESO]
-    return otros[0] if otros else None
+    return TipoMovimientoStock.AJUSTE_NEGATIVO
 
 
 def crear_historial_registro_tarea(db) -> int:
@@ -1862,6 +2425,16 @@ def _q(valor) -> Decimal:
 def _variar(valor: Decimal, minimo: float, maximo: float) -> Decimal:
     """Multiplica por un factor al azar en [minimo, maximo]."""
     return _q(Decimal(valor) * Decimal(str(round(random.uniform(minimo, maximo), 4))))
+
+
+def _en_piezas_enteras(cantidad: Decimal, unidad) -> Decimal:
+    """La cantidad redondeada hacia abajo a piezas enteras si la unidad cuenta
+    piezas (no hay 66,1 panes; 1,5 docenas sí, son 18). Si no, sin cambios."""
+    if admite_fracciones(unidad):
+        return cantidad
+    factor = Decimal(str(unidad.factor_a_base or 1))
+    piezas = (Decimal(cantidad) * factor).to_integral_value(rounding="ROUND_FLOOR")
+    return _q(piezas / factor)
 
 
 def _momento(dias_atras: int, hora_min: int = 6, hora_max: int = 18) -> datetime:
@@ -2131,7 +2704,10 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
     return resumen
 
 
-def crear_lotes_insumo(db, ingredientes: dict, proveedores: list, admins: list, vistos: dict) -> list:
+def crear_lotes_insumo(
+    db, ingredientes: dict, proveedores: list, admins: list, vistos: dict,
+    dias_historia: int = 365,
+) -> list:
     """Entre 2 y 4 lotes recibidos por materia prima, de proveedores activos.
 
     Las cantidades son holgadas; si la producción simulada agota un lote, se
@@ -2146,8 +2722,8 @@ def crear_lotes_insumo(db, ingredientes: dict, proveedores: list, admins: list, 
         escala = {"gramo": (2000, 10000), "mililitro": (500, 3000), "unidad": (180, 720)}.get(
             clave_unidad, (25, 120)
         )
-        for _ in range(random.randint(2, 4)):
-            ingreso = HOY - timedelta(days=random.randint(5, 230))
+        for _ in range(random.randint(3, 6)):
+            ingreso = HOY - timedelta(days=dia_con_ritmo(dias_historia + 20, 5))
             lotes.append(
                 _nuevo_lote_insumo(
                     insumo, random.choice(activos), ingreso,
@@ -2223,6 +2799,7 @@ def _lote_para_consumir(
 def crear_lotes_produccion(
     db, cantidad: int, productos: list, versiones: dict, lotes_insumo: list,
     proveedores: list, admins: list, operadores: list, vistos: dict,
+    dias_historia: int = 365,
 ) -> dict:
     """Lotes de producto con checklist y consumos, en los tres estados.
 
@@ -2246,18 +2823,22 @@ def crear_lotes_produccion(
     con_receta = [p for p in productos if versiones.get(p.id)]
     if not con_receta:
         return cuenta
+    # Vida útil en días de cada producto: la misma para todos sus lotes.
+    vida_util: dict = {}
 
     # Fechas de más vieja a más nueva, así el FEFO consume en orden.
     # Los más recientes (últimos 3 días) quedan en proceso: siempre hay
     # algunos para probar el checklist y el registro de consumos.
-    recientes = min(cantidad, max(2, cantidad // 8))
+    recientes = min(cantidad, max(2, min(6, cantidad // 8)))
     dias = sorted(
-        [random.randint(4, 180) for _ in range(cantidad - recientes)]
+        [dia_con_ritmo(dias_historia, 4) for _ in range(cantidad - recientes)]
         + [random.randint(0, 3) for _ in range(recientes)],
         reverse=True,
     )
+    # Unos pocos productos concentran la mayor parte de la producción.
+    pesos_productos = pesos_desparejos(len(con_receta))
     for dias_atras in dias:
-        producto = random.choice(con_receta)
+        producto = random.choices(con_receta, weights=pesos_productos)[0]
         inicio = _momento(dias_atras, 6, 12)
         vigentes = [v for v in versiones[producto.id] if v.creado_en <= inicio]
         version = (vigentes or versiones[producto.id][:1])[-1]
@@ -2267,7 +2848,12 @@ def crear_lotes_produccion(
         else:
             estado = ESTADO_CANCELADO if bernoulli(0.1) else ESTADO_TERMINADO
 
-        objetivo = _q(Decimal(version.rendimiento) * Decimal(random.choice(["0.5", "1", "1.5", "2", "3"])))
+        objetivo = _en_piezas_enteras(
+            _q(Decimal(version.rendimiento) * Decimal(random.choice(["0.5", "1", "1.5", "2", "3"]))),
+            producto.unidad_medida,
+        )
+        if objetivo <= 0:
+            objetivo = _en_piezas_enteras(_q(version.rendimiento), producto.unidad_medida)
         factor = (objetivo / Decimal(version.rendimiento)).quantize(Decimal("0.000001"))
         # `LP-AAAAMMDD-NNN` con contador diario, como `generar_numero_lote`.
         correlativo = 1
@@ -2338,8 +2924,16 @@ def crear_lotes_produccion(
         # Cierre: recién ahora, con el checklist y los consumos ya en la base.
         if estado == ESTADO_TERMINADO:
             lote.estado = ESTADO_TERMINADO
-            lote.cantidad_producida = _variar(objetivo, 0.9, 1.02)
+            producida = _en_piezas_enteras(_variar(objetivo, 0.9, 1.02), producto.unidad_medida)
+            lote.cantidad_producida = producida if producida > 0 else objetivo
             lote.fecha_cierre = momento + timedelta(minutes=random.randint(10, 60))
+            # Se carga junto con el cierre: un lote terminado ya no se edita.
+            # Con vidas útiles cortas quedan lotes vencidos, que la app no
+            # deja reservar ni despachar.
+            dias_vida = vida_util.setdefault(
+                producto.id, random.choice([60, 120, 180, 365, 365, 540])
+            )
+            lote.fecha_vencimiento = lote.fecha_cierre.date() + timedelta(days=dias_vida)
         elif estado == ESTADO_CANCELADO:
             lote.estado = ESTADO_CANCELADO
             lote.motivo_cancelacion = random.choice(MOTIVOS_CANCELACION_LOTE)
@@ -2402,6 +2996,507 @@ def simular_actividad_trazabilidad(db, admins: list, productos: list, lotes_insu
 # ============================================================
 # VISTA PÚBLICA, NOTIFICACIONES Y SESIONES
 # ============================================================
+
+def simular_actividad_comercial(db, fake: Faker, admins: list, clientes: list, transportistas: list) -> dict:
+    """Historia en la bitácora para clientes y transportistas.
+
+    Corre ANTES del circuito de salidas, así que todavía nadie los referencia:
+    se pueden modificar, dar de baja, reactivar y hasta borrar.
+    """
+    cuenta = {"modificados": 0, "bajas": 0, "reactivados": 0, "eliminados": 0, "omitidos": 0}
+    if not admins:
+        return cuenta
+
+    def commit(clave: str) -> None:
+        db.info["usuario_id"] = random.choice(admins).id
+        db.commit()
+        cuenta[clave] += 1
+
+    def muestra(lista: list, n: int):
+        for objeto in random.sample(lista, min(n, len(lista))):
+            db.refresh(objeto)
+            yield objeto
+
+    n = max(1, len(clientes) // 5)
+    for cliente in muestra(clientes, n):
+        cliente.telefono = telefono_aleatorio()
+        cliente.domicilio = domicilio_aleatorio(fake)
+        commit("modificados")
+    dados_de_baja = []
+    for cliente in muestra([c for c in clientes if c.activo], n):
+        cliente.activo = False
+        commit("bajas")
+        dados_de_baja.append(cliente)
+    for cliente in dados_de_baja[: max(1, len(dados_de_baja) // 2)]:
+        db.refresh(cliente)
+        cliente.activo = True
+        commit("reactivados")
+    # Una carga errónea que se borra. Solo si sobran: el circuito los necesita.
+    if len(clientes) > 5:
+        victima = random.choice(clientes)
+        db.info["usuario_id"] = random.choice(admins).id
+        db.delete(victima)
+        db.commit()
+        clientes.remove(victima)
+        cuenta["eliminados"] += 1
+
+    # Los dos primeros transportistas no se tocan: garantizan el despacho.
+    resto = transportistas[2:]
+    for transportista in muestra(resto, max(1, len(resto) // 3)):
+        transportista.telefono = telefono_aleatorio()
+        transportista.observaciones = "Actualizó los datos de contacto."
+        commit("modificados")
+    for transportista in muestra([t for t in resto if t.activo], 1):
+        transportista.activo = False
+        commit("bajas")
+        if bernoulli(0.5):
+            db.refresh(transportista)
+            transportista.activo = True
+            commit("reactivados")
+    return cuenta
+
+
+def _fecha_entre(desde: date, hasta: date) -> date:
+    """Fecha al azar entre las dos, ambas incluidas (si se cruzan, `desde`)."""
+    return desde + timedelta(days=random.randint(0, max(0, (hasta - desde).days)))
+
+
+def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
+    """Salidas de producto, reclamos y retiros, generados con los services.
+
+    Se llama a los mismos services que usan los endpoints: cada paso valida lo
+    que valida la app y deja su hito en la línea de tiempo del lote, y los
+    rechazos, reclamos y retiros abren su incidente automático. Solo cambian
+    las fechas de negocio (reserva, despacho, entrega...), repartidas hacia
+    atrás; el momento de registro es el de la carga.
+
+    Los primeros destinos están fijados para que, aun con `--cantidad` chica,
+    haya al menos una salida en cada estado.
+    """
+    cuenta = {
+        "salidas": 0, "reservadas": 0, "despachadas": 0, "entregadas": 0,
+        "canceladas": 0, "rechazadas": 0, "resueltas": 0, "reclamos": 0,
+        "retiros": 0, "retiros_cerrados": 0, "notificados": 0,
+    }
+    hoy = hoy_ar()
+    admins = [
+        p for p in db.scalars(select(Personal).where(Personal.activo.is_(True))).all()
+        if p.puede_administrar
+    ]
+    clientes = list(db.scalars(select(Cliente).where(Cliente.activo.is_(True))).all())
+    habilitados = [
+        t for t in db.scalars(select(Transportista).where(Transportista.activo.is_(True))).all()
+        if estado_habilitacion(t.certificaciones, fecha_referencia=hoy) == ESTADO_HABILITADO
+    ]
+    lotes = list(db.scalars(
+        select(LoteProducto).where(
+            LoteProducto.estado == ESTADO_TERMINADO,
+            LoteProducto.retirado.is_(False),
+            LoteProducto.cantidad_producida > 0,
+        )
+    ).all())
+    # Lotes ya vencidos: también se vendieron, mientras estaban vigentes. Los
+    # services validan el vencimiento contra HOY y no dejarían reservarlos, así
+    # que durante la carga se les quita la fecha y al final se les devuelve.
+    # Sus salidas se fechan antes del vencimiento y nunca quedan pendientes.
+    vencidos = {
+        lote.id: lote.fecha_vencimiento for lote in lotes
+        if lote.fecha_vencimiento is not None and lote.fecha_vencimiento < hoy
+    }
+    if not (admins and clientes and lotes):
+        print("⚠️  Sin lotes vigentes, clientes o administradores: no se generan salidas.")
+        return cuenta
+    print("⏳ Generando salidas de producto, reclamos y retiros...")
+
+    def actor():
+        usuario = random.choice(admins)
+        db.info["usuario_id"] = usuario.id
+        return usuario
+
+    # Los services fechan todo "ahora": los hitos del lote, los incidentes
+    # automáticos y los momentos de auditoría de la salida. Con eso la línea
+    # de tiempo de cada lote y la curva de incidentes quedarían amontonadas en
+    # el día de la carga. Después de cada paso se llevan esos momentos a la
+    # fecha de negocio del paso (reserva, despacho, entrega, reclamo, retiro).
+    ahora_mismo = datetime.now()
+    ultimo = {
+        "hito": db.scalar(select(func.coalesce(func.max(HitoLote.id), 0))),
+        "incidente": db.scalar(select(func.coalesce(func.max(Incidente.id), 0))),
+        "historial": db.scalar(select(func.coalesce(func.max(HistorialIncidente.id), 0))),
+    }
+    sin_auditar = {"auditoria_omitir": True, "synchronize_session": False}
+
+    def momento_de(dia: date, despues_de: Optional[datetime] = None) -> datetime:
+        """Un momento de la jornada de `dia`, posterior a `despues_de` y no futuro."""
+        momento = datetime.combine(dia, datetime.min.time()) + timedelta(
+            hours=random.randint(8, 17), minutes=random.randint(0, 59)
+        )
+        if despues_de is not None and momento <= despues_de:
+            momento = despues_de + timedelta(minutes=random.randint(20, 90))
+        return min(momento, ahora_mismo)
+
+    def fechar(momento: datetime, tabla=None, fila_id=None, **campos) -> None:
+        """Lleva a `momento` lo que el último paso registró con la hora actual."""
+        db.execute(
+            sa_update(HitoLote).where(HitoLote.id > ultimo["hito"])
+            .values(fecha_hora=momento).execution_options(**sin_auditar)
+        )
+        db.execute(
+            sa_update(Incidente).where(Incidente.id > ultimo["incidente"])
+            .values(fecha_reporte=momento).execution_options(**sin_auditar)
+        )
+        db.execute(
+            sa_update(HistorialIncidente).where(HistorialIncidente.id > ultimo["historial"])
+            .values(fecha_evento=momento).execution_options(**sin_auditar)
+        )
+        if tabla is not None and campos:
+            db.execute(
+                sa_update(tabla).where(tabla.id == fila_id)
+                .values(**campos).execution_options(**sin_auditar)
+            )
+        db.commit()
+        db.expire_all()
+        ultimo["hito"] = db.scalar(select(func.coalesce(func.max(HitoLote.id), 0)))
+        ultimo["incidente"] = db.scalar(select(func.coalesce(func.max(Incidente.id), 0)))
+        ultimo["historial"] = db.scalar(select(func.coalesce(func.max(HistorialIncidente.id), 0)))
+
+    # Clientes y transportistas con habituales, motivos con favoritos.
+    pesos_clientes = pesos_desparejos(len(clientes))
+    pesos_transporte = pesos_desparejos(len(habilitados))
+    pesos_rechazo = pesos_desparejos(len(MOTIVOS_RECHAZO))
+    pesos_reclamo = pesos_desparejos(len(MOTIVOS_RECLAMO))
+
+    destinos_fijos = [
+        "entregada", "entregada", "reservada", "despachada", "cancelada",
+        "rechazada", "rechazada_reingresada", "rechazada_desechada", "entregada",
+    ]
+    entregadas: list = []   # (salida_id, lote_id, fecha_entrega)
+    con_salidas: set = set()
+
+    def quitar_vencimientos(valores: dict) -> None:
+        for lote_id, fecha in valores.items():
+            db.execute(
+                sa_update(LoteProducto).where(LoteProducto.id == lote_id)
+                .values(fecha_vencimiento=fecha).execution_options(**sin_auditar)
+            )
+        db.commit()
+        db.expire_all()
+
+    # Primero los vigentes: los destinos fijos incluyen reservas y despachos
+    # pendientes, que solo tienen sentido sobre un lote que no venció.
+    elegidos = random.sample(lotes, min(len(lotes), max(4, cantidad * 5)))
+    elegidos.sort(key=lambda lote: lote.id in vencidos)
+    elegidos = [
+        (lote.id, (lote.fecha_cierre or lote.fecha_inicio).date(), lote.producto.unidad_medida)
+        for lote in elegidos
+    ]
+    quitar_vencimientos({lote_id: None for lote_id in vencidos})
+
+    try:
+        for lote_id, cierre, unidad in elegidos:
+            vencimiento = vencidos.get(lote_id)
+            for _ in range(random.randint(1, 4)):
+                saldo = salidas_services.calcular_cantidades_lote(db, lote_id)["saldo"]
+                cantidad_salida = _en_piezas_enteras(
+                    _q(Decimal(saldo) * Decimal(random.choice(["0.1", "0.15", "0.2", "0.25"]))), unidad
+                )
+                if cantidad_salida <= 0:
+                    break
+                if vencimiento is not None:
+                    # Lote vencido: todo lo suyo ya terminó, de una forma u otra.
+                    destino = random.choices(
+                        ["entregada", "cancelada", "rechazada_desechada", "rechazada"],
+                        weights=[76, 10, 9, 5],
+                    )[0]
+                elif destinos_fijos:
+                    destino = destinos_fijos.pop(0)
+                else:
+                    destino = random.choices(
+                        ["entregada", "reservada", "despachada", "cancelada",
+                         "rechazada", "rechazada_reingresada", "rechazada_desechada"],
+                        weights=[60, 6, 7, 9, 5, 7, 6],
+                    )[0]
+                # Lo que queda pendiente (reservado o despachado) es reciente; el
+                # resto se vendió en las semanas siguientes a la elaboración, y no
+                # en cualquier momento hasta hoy.
+                if destino in ("reservada", "despachada"):
+                    reserva = max(cierre, hoy - timedelta(days=random.randint(0, 6)))
+                else:
+                    limite = min(hoy, cierre + timedelta(days=30))
+                    if vencimiento is not None:
+                        # Con margen para despachar y entregar antes de que venza.
+                        limite = max(cierre, min(limite, vencimiento - timedelta(days=10)))
+                    reserva = _fecha_entre(cierre, limite)
+                salida_id = salidas_services.reservar(
+                    db, lote_id, random.choices(clientes, weights=pesos_clientes)[0].id,
+                    cantidad_salida, reserva, actor(),
+                ).id
+                m_reserva = momento_de(reserva)
+                fechar(m_reserva, Salida, salida_id, creado_en=m_reserva)
+                cuenta["salidas"] += 1
+                con_salidas.add(lote_id)
+
+                if destino == "reservada":
+                    cuenta["reservadas"] += 1
+                    continue
+                if destino == "cancelada":
+                    salidas_services.cancelar(
+                        db, salida_id, random.choice(MOTIVOS_CANCELACION_RESERVA), actor()
+                    )
+                    m_cancelacion = momento_de(
+                        min(hoy, reserva + timedelta(days=random.randint(0, 4))), m_reserva
+                    )
+                    fechar(m_cancelacion, Salida, salida_id, fecha_cancelacion=m_cancelacion)
+                    cuenta["canceladas"] += 1
+                    continue
+
+                despacho = _fecha_entre(reserva, min(hoy, reserva + timedelta(days=5)))
+                if habilitados and bernoulli(0.65):
+                    forma = FORMA_ENTREGA_CON_TRANSPORTISTA
+                    transportista_id = random.choices(habilitados, weights=pesos_transporte)[0].id
+                else:
+                    forma, transportista_id = FORMA_ENTREGA_RETIRA_CLIENTE, None
+                salidas_services.despachar(db, salida_id, forma, transportista_id, despacho, actor())
+                m_despacho = momento_de(despacho, m_reserva)
+                fechar(m_despacho, Salida, salida_id, despachado_en=m_despacho)
+                if destino == "despachada":
+                    cuenta["despachadas"] += 1
+                    continue
+
+                llegada = _fecha_entre(despacho, min(hoy, despacho + timedelta(days=3)))
+                m_llegada = momento_de(llegada, m_despacho)
+                if destino == "entregada":
+                    salidas_services.entregar(
+                        db, salida_id, llegada,
+                        random.choice(OBSERVACIONES_ENTREGA) if bernoulli(0.5) else None,
+                        actor(),
+                        recibido_por=recortar(fake.name(), 100) if bernoulli(0.7) else None,
+                    )
+                    fechar(m_llegada, Salida, salida_id, entregado_en=m_llegada)
+                    cuenta["entregadas"] += 1
+                    entregadas.append((salida_id, lote_id, llegada))
+                    continue
+
+                motivo = random.choices(MOTIVOS_RECHAZO, weights=pesos_rechazo)[0]
+                detalle = (
+                    random.choice(DETALLES_RECHAZO)
+                    if motivo == MOTIVO_RECHAZO_OTRO or bernoulli(0.6) else None
+                )
+                salidas_services.rechazar(db, salida_id, motivo, detalle, llegada, actor())
+                fechar(m_llegada)
+                cuenta["rechazadas"] += 1
+                if destino in ("rechazada_reingresada", "rechazada_desechada"):
+                    reingresa = destino == "rechazada_reingresada"
+                    salida = salidas_services.resolver_rechazo(
+                        db, salida_id,
+                        DISPOSICION_REINGRESADA if reingresa else DISPOSICION_DESECHADA,
+                        random.choice(JUSTIFICACIONES_REINGRESO if reingresa else JUSTIFICACIONES_DESECHO),
+                        actor(),
+                    )
+                    incidente_id = salida.incidente_id
+                    m_decision = momento_de(
+                        min(hoy, llegada + timedelta(days=random.randint(0, 5))), m_llegada
+                    )
+                    fechar(m_decision, Salida, salida_id, fecha_disposicion=m_decision)
+                    # El incidente del rechazo se cerró al decidir, no al cargar.
+                    if incidente_id is not None:
+                        db.execute(
+                            sa_update(Incidente)
+                            .where(Incidente.id == incidente_id, Incidente.fecha_cierre.isnot(None))
+                            .values(fecha_cierre=m_decision).execution_options(**sin_auditar)
+                        )
+                        db.commit()
+                        db.expire_all()
+                    cuenta["resueltas"] += 1
+    finally:
+        # Pase lo que pase, los lotes vencidos recuperan su vencimiento.
+        db.rollback()
+        quitar_vencimientos(vencidos)
+
+    # Reclamos: sobre la primera entrega siempre, y sobre casi una de cada tres
+    # del resto. Las entregas viejas quedan fuera del plazo de referencia.
+    reclamos: list = []   # (reclamo_id, lote_id, fecha_reclamo)
+    for indice, (salida_id, lote_id, entrega) in enumerate(entregadas):
+        if indice and not bernoulli(0.3):
+            continue
+        motivo = random.choices(MOTIVOS_RECLAMO, weights=pesos_reclamo)[0]
+        # La mayoría reclama a los pocos días; alguno, mucho después (y queda
+        # fuera del plazo de referencia).
+        fecha = min(hoy, entrega + timedelta(days=random.choice([0, 1, 1, 2, 3, 5, 8, 15, 40])))
+        reclamo = reclamos_services.crear_reclamo(
+            db,
+            salida_id=salida_id,
+            motivo=motivo,
+            detalle=(
+                random.choice(DETALLES_RECLAMO)
+                if motivo == MOTIVO_RECLAMO_OTRO or bernoulli(0.7) else None
+            ),
+            fecha_reclamo=fecha,
+            usuario=actor(),
+        )
+        reclamo_id = reclamo.id
+        m_reclamo = momento_de(fecha)
+        fechar(m_reclamo, Reclamo, reclamo_id, fecha_registro=m_reclamo)
+        reclamos.append((reclamo_id, lote_id, fecha))
+        cuenta["reclamos"] += 1
+
+    # Retiros: uno nacido de un reclamo, con todos los afectados notificados y
+    # cerrado; y varios manuales repartidos en el tiempo: los primeros también
+    # cerrados, uno a medio notificar y el último recién iniciado.
+    def retirar(lote_id: int, motivo: str, desde: date, reclamo_id=None) -> tuple:
+        fecha_retiro = min(hoy, desde + timedelta(days=random.randint(0, 20)))
+        retiro_id = retiros_services.iniciar_retiro(
+            db, lote_id, motivo, random.choice(DETALLES_RETIRO), fecha_retiro,
+            actor(), ORIGEN_RETIRO_MANUAL, reclamo_id=reclamo_id,
+        ).id
+        db.commit()
+        m_retiro = momento_de(fecha_retiro)
+        fechar(m_retiro, Retiro, retiro_id, fecha_registro=m_retiro)
+        cuenta["retiros"] += 1
+        return retiro_id, fecha_retiro, m_retiro
+
+    def notificar(retiro_id: int, fecha_retiro: date, m_retiro: datetime, proporcion: float) -> datetime:
+        """Notifica esa proporción de afectados; devuelve el momento del último aviso."""
+        pendientes = list(db.scalars(
+            select(RetiroAfectado.id).where(
+                RetiroAfectado.retiro_id == retiro_id,
+                RetiroAfectado.estado_notificacion == ESTADO_NOTIFICACION_PENDIENTE,
+            )
+        ).all())
+        ultimo_aviso = m_retiro
+        for afectado_id in pendientes[: round(len(pendientes) * proporcion)]:
+            fecha_aviso = min(hoy, fecha_retiro + timedelta(days=random.randint(0, 4)))
+            retiros_services.notificar_afectado(
+                db, retiro_id, afectado_id, fecha_aviso,
+                random.choice(MEDIOS_CONTACTO_RETIRO),
+                random.choice(OBSERVACIONES_NOTIFICACION) if bernoulli(0.6) else None,
+                actor(),
+            )
+            db.commit()
+            m_aviso = momento_de(fecha_aviso, m_retiro)
+            fechar(m_aviso)
+            ultimo_aviso = max(ultimo_aviso, m_aviso)
+            cuenta["notificados"] += 1
+        return ultimo_aviso
+
+    def cerrar(retiro_id: int, ultimo_aviso: datetime) -> None:
+        retiros_services.cerrar_retiro(
+            db, retiro_id, random.choice(ACCIONES_CORRECTIVAS), actor()
+        )
+        db.commit()
+        m_cierre = min(ahora_mismo, ultimo_aviso + timedelta(days=random.randint(1, 6)))
+        fechar(m_cierre, Retiro, retiro_id, fecha_cierre=m_cierre)
+        cuenta["retiros_cerrados"] += 1
+
+    retirados: set = set()
+    if reclamos:
+        reclamo_id, lote_id, fecha = reclamos[0]
+        retiro_id, fecha_retiro, m_retiro = retirar(
+            lote_id, "Reclamos de clientes", fecha, reclamo_id=reclamo_id
+        )
+        retirados.add(lote_id)
+        cerrar(retiro_id, notificar(retiro_id, fecha_retiro, m_retiro, 1.0))
+
+    motivos_manuales = [m for m in MOTIVOS_RETIRO if m != "Reclamos de clientes"]
+    candidatos = sorted(con_salidas - retirados)
+    random.shuffle(candidatos)
+    manuales = candidatos[: max(2, cantidad // 4)]
+    for indice, lote_id in enumerate(manuales):
+        lote = db.get(LoteProducto, lote_id)
+        desde = (lote.fecha_cierre or lote.fecha_inicio).date() + timedelta(days=random.randint(3, 40))
+        retiro_id, fecha_retiro, m_retiro = retirar(
+            lote_id, random.choice(motivos_manuales), min(hoy, desde)
+        )
+        # El último queda recién iniciado y el anterior a medio notificar.
+        if indice == len(manuales) - 1:
+            continue
+        if indice == len(manuales) - 2:
+            notificar(retiro_id, fecha_retiro, m_retiro, 0.5)
+            continue
+        cerrar(retiro_id, notificar(retiro_id, fecha_retiro, m_retiro, 1.0))
+
+    db.info.pop("usuario_id", None)
+    return cuenta
+
+
+def crear_rotulado(db, cantidad: int) -> dict:
+    """Borradores de rotulado: autocompletados, a medio completar y completados.
+
+    También por los services: el autocompletado toma la denominación, los
+    ingredientes y la información nutricional de la receta y del lote, y cada
+    dato que se escribe a mano deja su rastro en el historial de ediciones.
+    """
+    cuenta = {"borradores": 0, "completados": 0}
+    admins = [
+        p for p in db.scalars(select(Personal).where(Personal.activo.is_(True))).all()
+        if p.puede_administrar
+    ]
+    productos = list(db.scalars(select(Producto).where(Producto.activo.is_(True))).all())
+    if not (admins and productos):
+        return cuenta
+    print("⏳ Generando borradores de rotulado...")
+
+    for producto in random.sample(productos, min(len(productos), max(3, cantidad // 2))):
+        producto_id = producto.id
+        version = db.scalar(
+            select(VersionReceta)
+            .join(Receta, Receta.id == VersionReceta.receta_id)
+            .where(Receta.producto_id == producto_id)
+            .order_by(VersionReceta.numero.desc())
+        )
+        if version is None:
+            continue
+        version_id = version.id
+        lote = db.scalar(
+            select(LoteProducto)
+            .where(
+                LoteProducto.producto_id == producto_id,
+                LoteProducto.version_receta_id == version_id,
+                LoteProducto.estado == ESTADO_TERMINADO,
+            )
+            .order_by(LoteProducto.fecha_inicio.desc())
+        )
+        lote_id = lote.id if lote is not None else None
+        vencimiento_lote = lote.fecha_vencimiento if lote is not None else None
+
+        usuario = random.choice(admins)
+        db.info["usuario_id"] = usuario.id
+        borrador_id = rotulado_services.crear_borrador(
+            db, producto_id,
+            BorradorRotuladoCreate(
+                producto_id=producto_id, version_receta_id=version_id, lote_producto_id=lote_id
+            ),
+            usuario,
+        ).id
+        rotulado_services.autocompletar_borrador(db, borrador_id, version_id, lote_id, False, usuario)
+        cuenta["borradores"] += 1
+
+        # Un tercio queda solo autocompletado; el resto recibe los datos que
+        # no salen de ningún lado (RNPA, elaborador, contenido neto...).
+        if bernoulli(0.33):
+            continue
+        completo = bernoulli(0.6)
+        cambios = {
+            "contenido_neto": random.choice(DATOS_ROTULO["contenidos"]),
+            "rnpa_rppa": f"RNPA 07-{random.randint(100000, 999999)}",
+            "razon_social": DATOS_ROTULO["razon_social"],
+            "domicilio": DATOS_ROTULO["domicilio"],
+            "instrucciones_uso": random.choice(DATOS_ROTULO["instrucciones"]),
+        }
+        # Solo los campos que se tocan: el service aplica todo lo que venga
+        # en el cuerpo, y un `estado=None` explícito pisaría el estado.
+        if completo:
+            cambios["fecha_duracion"] = vencimiento_lote or HOY + timedelta(days=180)
+            cambios["estado"] = ESTADO_COMPLETADO
+        rotulado_services.actualizar_borrador(
+            db, borrador_id, BorradorRotuladoUpdate(**cambios), usuario
+        )
+        if completo:
+            cuenta["completados"] += 1
+
+    db.info.pop("usuario_id", None)
+    return cuenta
+
 
 def crear_vista_publica(db) -> int:
     """Habilita la vista pública con un código y elige qué indicadores publicar.
@@ -2667,7 +3762,7 @@ def simular_actividad(
             persona.password = hash_nuevo
             como_admin_commit("modificados")
 
-        # Proveedores: cambia la razón social o se corrige la matrícula.
+        # Proveedores: cambia la razón social o los datos de contacto.
         for proveedor in muestra(proveedores):
             if bernoulli(0.5):
                 base = proveedor.nombre
@@ -2679,9 +3774,8 @@ def simular_actividad(
                     largo=120,
                 )
             else:
-                proveedor.matricula = unico(
-                    lambda: f"MAT-{random.randint(1000, 99999)}", vistos["matricula"], largo=50
-                )
+                proveedor.contacto = recortar(f"{fake.name()} - {telefono_aleatorio()}", 150)
+                proveedor.rubro = random.choice(RUBROS_PROVEEDOR)
             como_admin_commit("modificados")
 
         # Stock de insumos químicos: la mayoría de las veces es un consumo, que
@@ -2705,8 +3799,8 @@ def simular_actividad(
                     if quimico.unidad_medida
                     else None,
                 )
-                if hasattr(MovimientoStockInsumoQuimico, "responsable_id"):
-                    movimiento.responsable_id = actor.id
+                movimiento.responsable_id = actor.id
+                movimiento.responsable_nombre = f"{actor.nombre} {actor.apellido or ''}".strip()
                 db.add(movimiento)
             else:
                 stock.stock_minimo = round(random.uniform(5, 50), 3)
@@ -2984,8 +4078,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--dias-checklist",
         type=int,
-        default=7,
+        default=365,
         help="Días hacia atrás que se generan para cada plan de limpieza.",
+    )
+    p.add_argument(
+        "--dias-historia",
+        type=int,
+        default=365,
+        help=(
+            "Días hacia atrás que abarcan los lotes de producción, los ingresos "
+            "de insumos, los incidentes y las calibraciones."
+        ),
     )
     p.add_argument("--locale", default="es_AR", help="Locale de Faker.")
     p.add_argument(
@@ -3012,6 +4115,9 @@ def main(preparar_esquema: bool = True) -> int:
         return 1
     if args.dias_checklist < 1:
         print("❌ --dias-checklist tiene que ser mayor a cero.")
+        return 1
+    if args.dias_historia < 30:
+        print("❌ --dias-historia tiene que ser de al menos 30 días.")
         return 1
 
     random.seed(args.seed or None)
@@ -3062,6 +4168,10 @@ def main(preparar_esquema: bool = True) -> int:
             "producto": set(db.scalars(select(Producto.nombre)).all()),
             "lote_insumo": set(db.scalars(select(LoteInsumo.numero_lote)).all()),
             "lote_producto": set(db.scalars(select(LoteProducto.numero_lote)).all()),
+            "cliente": set(db.scalars(select(Cliente.nombre)).all()),
+            "cliente_doc": set(db.scalars(select(Cliente.documento)).all()),
+            "transportista": set(db.scalars(select(Transportista.razon_social)).all()),
+            "transportista_cuit": set(db.scalars(select(Transportista.cuit)).all()),
         }
 
         # Un solo hash para todo el personal: bcrypt es lento (~0,3 s por
@@ -3074,7 +4184,7 @@ def main(preparar_esquema: bool = True) -> int:
         personal = crear_personal(db, args.cantidad, fake, vistos, hash_password)
         proveedores = crear_proveedores(db, args.cantidad, fake, vistos)
         equipos = crear_equipos(db, args.cantidad, vistos)
-        calibraciones = crear_calibraciones(db, equipos)
+        calibraciones = crear_calibraciones(db, equipos, args.dias_historia)
         aptitudes = crear_aptitudes(db, args.cantidad, vistos)
 
         admins = [p for p in personal if p.puede_administrar]
@@ -3087,17 +4197,26 @@ def main(preparar_esquema: bool = True) -> int:
 
         vencimientos = crear_vencimientos(db, personal, aptitudes)
         quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
-        stocks = crear_stock_insumos(db, quimicos)
-        lotes = crear_lotes_stock(db, args.cantidad, proveedores, quimicos, vistos)
         elementos = crear_elementos(db, args.cantidad, vistos)
         insumos = crear_insumos(db, args.cantidad, unidades, vistos)
         planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
         registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
+        # Después de los checklists: el saldo descuenta lo que ellos consumieron.
+        stocks, lotes, movimientos_stock = crear_stock_y_movimientos(
+            db, quimicos, proveedores, admins, args.dias_checklist, vistos
+        )
         historial_registros = crear_historial_registro_tarea(db)
-        incidentes = crear_incidentes(db, args.cantidad, equipos, personal, admins, operadores, vistos)
+        # Cinco veces la cantidad: con menos, la evolución mensual por tipo
+        # queda en ceros y unos.
+        incidentes = crear_incidentes(
+            db, args.cantidad * 5, equipos, personal, admins, operadores, vistos,
+            args.dias_historia,
+        )
         historial_incidentes = crear_historial_incidente(db, admins)
         documentos = crear_documentos(db, args.cantidad, admins, vistos)
         cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
+        clientes = crear_clientes(db, args.cantidad, fake, vistos)
+        transporte = crear_transportistas(db, args.cantidad, fake, vistos, admins)
 
         # Trazabilidad: productos -> recetas versionadas -> lotes de insumo ->
         # lotes de producción con checklist y consumos.
@@ -3106,11 +4225,14 @@ def main(preparar_esquema: bool = True) -> int:
             db, args.cantidad, ingredientes, unidades, admins, vistos
         )
         nutricion = crear_datos_nutricionales(db, ingredientes, productos, admins)
-        lotes_insumo = crear_lotes_insumo(db, ingredientes, proveedores, admins, vistos)
-        produccion = crear_lotes_produccion(
-            db, args.cantidad * 2, productos, versiones, lotes_insumo,
-            proveedores, admins, operadores, vistos,
+        lotes_insumo = crear_lotes_insumo(
+            db, ingredientes, proveedores, admins, vistos, args.dias_historia
         )
+        produccion = crear_lotes_produccion(
+            db, args.cantidad * 8, productos, versiones, lotes_insumo,
+            proveedores, admins, operadores, vistos, args.dias_historia,
+        )
+        asociaciones = asociar_proveedores_insumos(db, proveedores, insumos)
         indicadores_vp = crear_vista_publica(db)
 
         db.commit()
@@ -3130,6 +4252,18 @@ def main(preparar_esquema: bool = True) -> int:
                 db, admins, productos, lotes_insumo
             ).items():
                 actividad[clave] += n
+            for clave, n in simular_actividad_comercial(
+                db, fake, admins, clientes,
+                list(db.scalars(select(Transportista).order_by(Transportista.id)).all()),
+            ).items():
+                actividad[clave] += n
+
+        # Circuito comercial y rotulado: van después de la actividad simulada
+        # (que reclasifica y borra incidentes al azar) porque sus incidentes
+        # automáticos no se pueden editar. Cada service hace su propio commit.
+        db.info.pop("usuario_id", None)
+        comercial = crear_circuito_comercial(db, fake, args.cantidad)
+        rotulado = crear_rotulado(db, args.cantidad)
 
         # Sesiones de ejemplo, después de la actividad (que puede borrar personas).
         sesiones = crear_sesiones_auth(db, list(db.scalars(select(Personal)).all()))
@@ -3149,7 +4283,10 @@ def main(preparar_esquema: bool = True) -> int:
         print(f"   Semilla: {args.seed or 'aleatoria'} · Locale: {args.locale}")
         print(f"   Personal: {len(personal)} · Equipos: {len(equipos)} · Aptitudes: {len(aptitudes)}")
         print(f"   Proveedores: {len(proveedores)} · Vencimientos: {vencimientos} · Planes de limpieza: {len(planes)}")
-        print(f"   Stock insumos: {len(stocks)} · Lotes stock: {len(lotes)} · Calibraciones: {len(calibraciones)}")
+        print(
+            f"   Stock insumos: {len(stocks)} · Lotes stock: {len(lotes)} · "
+            f"Movimientos de stock: {movimientos_stock} · Calibraciones: {len(calibraciones)}"
+        )
         print(f"   Registros de tarea: {registros} · Historial registros: {historial_registros} · Incidentes: {incidentes}")
         print(f"   Historial incidentes: {historial_incidentes} · Documentos: {documentos}")
         print(f"   Planes calibración/mantenimiento: {len(cal_mantenimiento)}")
@@ -3169,6 +4306,30 @@ def main(preparar_esquema: bool = True) -> int:
             f"{nutricion['valores']} valores ({nutricion['modificados']} corregidos a mano) · "
             f"{nutricion['productos']} productos con porción · "
             f"{nutricion['laboratorio']} valores de laboratorio"
+        )
+        print(
+            f"   Proveedores certificados: {sum(1 for p in proveedores if p.es_certificado)} · "
+            f"Insumos asociados a proveedores: {asociaciones}"
+        )
+        print(
+            f"   Clientes: {len(clientes)} · Transportistas: {transporte['transportistas']} "
+            f"({transporte['habilitados']} habilitados) · "
+            f"Certificaciones de transporte: {transporte['certificaciones']}"
+        )
+        # Estado final leído de la base: un retiro cancela las reservas de su
+        # lote, así que no coincide con lo que se fue generando.
+        salidas_por_estado = dict(
+            db.execute(select(Salida.estado, func.count()).group_by(Salida.estado)).all()
+        )
+        print(
+            f"   Salidas generadas: {comercial['salidas']} · En la base: "
+            + " · ".join(f"{estado} {n}" for estado, n in sorted(salidas_por_estado.items()))
+            + f" ({comercial['resueltas']} rechazos resueltos)"
+        )
+        print(
+            f"   Reclamos: {comercial['reclamos']} · Retiros de lote: {comercial['retiros']} "
+            f"({comercial['retiros_cerrados']} cerrados, {comercial['notificados']} afectados notificados) · "
+            f"Borradores de rotulado: {rotulado['borradores']} ({rotulado['completados']} completados)"
         )
         print(
             f"   Vista pública: {indicadores_vp} indicadores · Notificaciones: {notificaciones}"

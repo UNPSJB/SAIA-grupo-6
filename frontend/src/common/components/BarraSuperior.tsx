@@ -9,6 +9,7 @@ import { BuscadorGlobal } from "./BuscadorGlobal";
 import { LogoSaia } from "./LogoSaia";
 import { MenuUsuario } from "./MenuUsuario";
 import Navbar from "./Navbar";
+import { DEGRADADO_MARCA } from "../../theme";
 
 /**
  * Barra superior:
@@ -33,7 +34,16 @@ export function BarraSuperior(): ReactElement | null {
       h="16"
       px={{ base: "3", md: "4" }}
       flexShrink={0}
-      bg="brand.bar"
+      // Siempre con el degradado de la marca. En el Inicio la barra es
+      // transparente porque el layout ya pinta ese mismo degradado detrás de
+      // toda la pantalla; en el resto lo lleva la barra misma, así no cambia
+      // de color al salir del Inicio. `bgColor` (no `bg`, que borraría la
+      // imagen) queda de respaldo con `brand.bar` (teal en ambos modos).
+      bgColor={pathname === "/" ? "transparent" : "brand.bar"}
+      backgroundImage={pathname === "/" ? undefined : DEGRADADO_MARCA}
+      // En el Inicio, una línea apenas visible la separa del encabezado, que
+      // tiene el mismo degradado de fondo.
+      borderBottom={pathname === "/" ? "1px solid rgba(255, 255, 255, 0.1)" : undefined}
       color="white"
     >
       {/* Logo de la empresa con el nombre. Lleva al inicio. */}

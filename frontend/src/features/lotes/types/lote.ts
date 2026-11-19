@@ -117,6 +117,8 @@ export interface DashboardLotes {
 
 export interface FiltrosLotes {
   estado?: EstadoLote | "";
+  /** Id del producto; vacío = todos. */
+  productoId?: string;
   fechaDesde?: string;
   fechaHasta?: string;
 }

@@ -15,6 +15,7 @@ function queryFiltros(filtros: FiltrosLotes = {}): string {
   const params = new URLSearchParams();
 
   if (filtros.estado) params.set("estado", filtros.estado);
+  if (filtros.productoId) params.set("producto_id", filtros.productoId);
   if (filtros.fechaDesde) params.set("fecha_desde", filtros.fechaDesde);
   if (filtros.fechaHasta) params.set("fecha_hasta", filtros.fechaHasta);
 

@@ -118,7 +118,7 @@ function ItemCard({
         <Box overflowX="auto" mb={item.consumos.length > 0 ? "4" : "0"}>
           <Table.Root variant="outline" size="sm" w="100%" minW="520px">
             <Table.Header>
-              <Table.Row bg="bg.muted">
+              <Table.Row>
                 <Table.ColumnHeader fontSize="sm">Insumo</Table.ColumnHeader>
                 <Table.ColumnHeader fontSize="sm" textAlign="right">Planificado</Table.ColumnHeader>
                 <Table.ColumnHeader fontSize="sm" textAlign="right">Consumo real</Table.ColumnHeader>
@@ -641,7 +641,7 @@ export function LoteDetallePage() {
               <Tarjeta overflowX="auto">
                 <Table.Root variant="outline" w="100%" minW="720px">
                   <Table.Header>
-                    <Table.Row bg="bg.muted">
+                    <Table.Row>
                       <Table.ColumnHeader px="4" py="3">Fecha</Table.ColumnHeader>
                       <Table.ColumnHeader px="4" py="3">Cliente</Table.ColumnHeader>
                       <Table.ColumnHeader px="4" py="3" textAlign="right">

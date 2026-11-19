@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BotonesExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
   CampoBusqueda,
   ChipsFiltros,
+  EstadoVacioFiltrado,
   FiltroSelect,
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
@@ -14,6 +16,7 @@ import {
   BotonCancelar,
   EstadoCargando,
   EstadoVacio,
+  PieTabla,
 } from "../../../../components/ui/patrones";
 import { LuRefreshCw } from "react-icons/lu";
 import { useLista } from "../../../../common/hooks/useLista";
@@ -68,7 +71,7 @@ export function RetirosPage() {
     );
   }, [retiros, busqueda, filtroEstado]);
 
-  const { paginados } = usePaginas(
+  const { paginados, page, setPage } = usePaginas(
     filtrados,
     PAGE_SIZE,
     `${busqueda}|${filtroEstado}`
@@ -129,38 +132,45 @@ export function RetirosPage() {
           />
         }
         filtros={
-          <>
-            <FiltroSelect
-              label="Estado"
-              valor={filtroEstado}
-              onCambio={(valor) => setFiltroEstado(valor as FiltroEstado)}
-              opciones={[
-                { valor: "EN_CURSO", etiqueta: "En curso" },
-                { valor: "CERRADO", etiqueta: "Cerrado" },
-              ]}
-              todos="Todos los estados"
-              minW="200px"
-            />
-          </>
+          <FiltroSelect
+            label="Estado"
+            valor={filtroEstado}
+            onCambio={(valor) => setFiltroEstado(valor as FiltroEstado)}
+            opciones={[
+              { valor: "EN_CURSO", etiqueta: "En curso" },
+              { valor: "CERRADO", etiqueta: "Cerrado" },
+            ]}
+            todos="Todos los estados"
+            minW="200px"
+          />
         }
         herramientas={
-          <BotonCancelar onClick={() => void recargar()}>
-            <LuRefreshCw aria-hidden />
-            Actualizar
-          </BotonCancelar>
+          <>
+            {puedeRegistrar && (
+              <BotonesExportar
+                nombreTabla="retiros"
+                vista="retiros"
+                filtros={{ estado: filtroEstado || undefined, buscar: busqueda.trim() || undefined }}
+              />
+            )}
+            <BotonCancelar onClick={() => void recargar()}>
+              <LuRefreshCw aria-hidden />
+              Actualizar
+            </BotonCancelar>
+          </>
         }
       />
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
       {error && <BannerError>{error}</BannerError>}
-      {loading && <EstadoCargando>Cargando retiros...</EstadoCargando>}
+      {loading && <EstadoCargando pagina>Cargando retiros...</EstadoCargando>}
 
       {!loading && !error && filtrados.length === 0 && (
         hayFiltros ? (
-          <EstadoVacio>
+          <EstadoVacioFiltrado onLimpiar={limpiarTodo}>
             No hay retiros que coincidan con los filtros aplicados.
-          </EstadoVacio>
+          </EstadoVacioFiltrado>
         ) : (
           <EstadoVacio>
             Todavía no hay retiros de lotes registrados.
@@ -172,6 +182,15 @@ export function RetirosPage() {
         <>
           <RetirosTable
             retiros={paginados}
+            pie={
+              <PieTabla
+                count={filtrados.length}
+                page={page}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                unidad={filtrados.length === 1 ? "retiro" : "retiros"}
+              />
+            }
             onVerDetalle={(id) => navigate(`/retiros/${id}`)}
           />
         </>

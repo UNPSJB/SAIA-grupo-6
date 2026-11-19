@@ -1,7 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { HStack, Table } from "@chakra-ui/react";
+import { HStack } from "@chakra-ui/react";
 import type { Cliente } from "../types/cliente";
-import { BotonAccion, Celda, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  TextoTruncado,
+  DatoPrincipal,
+  FilaClickeable,
+} from "../../../components/ui/patrones";
 
 interface ClienteItemProps {
   cliente: Cliente;
@@ -29,20 +35,20 @@ export function ClienteItem({
   };
 
   return (
-    <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={cliente.activo ? 1 : 0.65}>
-      <Celda p="3">
-        <TextoTruncado texto={cliente.nombre} />
+    <FilaClickeable onAbrir={handleVer} borderBottomWidth="1px" borderColor="border.subtle" opacity={cliente.activo ? 1 : 0.65}>
+      <Celda>
+        <DatoPrincipal titulo={cliente.nombre} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={cliente.documento} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={cliente.telefono} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={cliente.domicilio ?? "-"} />
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {cliente.activo ? (
             <>
@@ -58,6 +64,6 @@ export function ClienteItem({
           )}
         </HStack>
       </Celda>
-    </Table.Row>
+    </FilaClickeable>
   );
 }

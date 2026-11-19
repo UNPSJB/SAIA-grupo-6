@@ -12,6 +12,7 @@ import { Navigate, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Box, Flex, Link } from "@chakra-ui/react";
 import { LuArrowLeft } from "react-icons/lu";
 import { useAuth } from "../context/useAuth";
+import { FONDO_PESTANA } from "../../theme";
 import {
   GRUPOS,
   MENU,
@@ -67,7 +68,7 @@ const ANCHO_BASE = 100;
  * de la barra. En escritorio es la franja blanca de las migas de pan; en
  * celular esa franja no está y debajo queda el fondo de la página.
  */
-const FONDO_FUSION = { base: "brand.50", md: "bg.panel" } as const;
+const FONDO_FUSION = { base: "brand.50", md: FONDO_PESTANA } as const;
 
 /** Curva cóncava al pie de la pestaña seleccionada, del lado indicado. */
 function curva(lado: "left" | "right") {
@@ -167,7 +168,9 @@ function Capas({
         {...capa}
         position="absolute"
         inset="0"
-        color="brand.700"
+        // Teal bien oscuro: se lee nítido sobre la pestaña clara. Mismo peso
+        // que la capa clara, para que las dos midan lo mismo.
+        color="brand.900"
         opacity={activa ? 1 : 0}
       >
         {children}
@@ -189,30 +192,33 @@ const CAPAS_CATEGORIA = { gap: "2.5", px: "4" } as const;
  * página esté ocupada dibujando la pantalla nueva. Nada cambia de ancho, alto
  * ni color durante una animación.
  *
- * Cada pieza animable lleva `data-pieza="<clave>"`. Después de cada cambio de
- * la barra se compara dónde estaba cada clave con dónde quedó:
+ * Cada pieza animable lleva `data-pieza="<clave>"`. Hay dos casos:
  *
- *   - la que sigue estando (la categoría elegida) se desplaza de su lugar
- *     viejo al nuevo;
- *   - la que es nueva (las opciones de la categoría, o las categorías al
- *     volver al inicio) aparece con un fundido;
- *   - las que se van se desvanecen antes del cambio (`ir`).
+ *   - Cambio de pestaña dentro del mismo nivel (entre las opciones de una
+ *     categoría, o de la categoría a una opción): se compara dónde estaba
+ *     cada clave con dónde quedó; lo que sigue estando se desplaza y el fondo
+ *     blanco se desliza de una pestaña a otra.
+ *   - Cambio de nivel (de las categorías a las opciones de una, o al volver
+ *     al Inicio): son dos listas distintas, así que nada viaja de costado.
+ *     Todas las pestañas del nivel nuevo están visibles desde el primer
+ *     momento y emergen apenas desde abajo en su lugar; el fondo blanco de la
+ *     nueva activa también emerge en su lugar. Al volver al Inicio (que no es
+ *     una pestaña), el fondo blanco baja y se desvanece donde estaba.
  *
- * El fondo blanco de la pestaña seleccionada es el `indicador`: se desliza de
- * una pestaña a otra. Para cambiar de ancho sin animar `width` está partido
+ * El fondo blanco de la pestaña seleccionada es el `indicador`. Para cambiar de ancho sin animar `width` está partido
  * en tres tramos: dos extremos de ancho fijo (con las esquinas y las curvas)
  * y un centro que se escala. Los tramos se pisan 1px, así nunca queda una
  * rendija entre ellos, y los tres llegan hasta el pie de la barra sin moverse
  * en vertical, así tampoco queda una línea entre la pestaña y la página.
  */
 
-/** Cambio de nivel: la categoría viaja de la fila centrada al borde, o vuelve. */
-const DURACION_NIVEL = 560;
-const CURVA_NIVEL = "cubic-bezier(0.4, 0, 0.2, 1)";
+/** Cambio de nivel: las pestañas nuevas emergen en su lugar; el fondo blanco sale hacia abajo. */
+const DURACION_APARECER = 220;
+const DURACION_OCULTAR = 180;
 /** Cambio de pestaña dentro de una categoría. */
 const DURACION_PESTANA = 300;
 const CURVA_PESTANA = "cubic-bezier(0.22, 0.8, 0.24, 1)";
-/** Fundido de las piezas que se van, antes de un cambio de nivel. */
+/** Fundido del fondo blanco cuando, en el mismo nivel, ya no hay pestaña activa. */
 const DURACION_SALIDA = 170;
 /**
  * Cuánto se espera para pedir la pantalla nueva después de mover la barra:
@@ -276,18 +282,7 @@ function tramos(caja: Caja) {
   };
 }
 
-/** Nombre de las animaciones de salida, para poder cortarlas después. */
-const SALIDA = "salida";
-
-function cortarSalidas(elementos: Iterable<Element>) {
-  for (const el of elementos) {
-    for (const animacion of el.getAnimations()) {
-      if (animacion.id === SALIDA) animacion.cancel();
-    }
-  }
-}
-
-type AlIr = (e: MouseEvent<HTMLAnchorElement>, destino: string, seQueda?: string) => void;
+type AlIr = (e: MouseEvent<HTMLAnchorElement>, destino: string) => void;
 
 /**
  * Categoría del primer nivel. Es la pestaña más grande de la barra: lleva al
@@ -318,7 +313,7 @@ function PestanaCategoria({
       <NavLink
         to={rutaPanel(grupo)}
         data-pieza={clave}
-        onClick={(e) => onIr(e, rutaPanel(grupo), clave)}
+        onClick={(e) => onIr(e, rutaPanel(grupo))}
       >
         <Capas activa={false} {...CAPAS_CATEGORIA}>
           <Icono size={20} aria-hidden style={{ flexShrink: 0 }} />
@@ -457,7 +452,6 @@ export default function Navbar() {
   const medidasRef = useRef<Map<string, Medida> | null>(null);
   const cajaRef = useRef<Caja | null>(null);
   const abiertaPreviaRef = useRef(abierta);
-  const saliendoRef = useRef(false);
 
   /** Deja el indicador en su lugar, sin animar. */
   const colocarIndicador = useCallback((caja: Caja | null) => {
@@ -483,8 +477,6 @@ export default function Navbar() {
     // animaciones en curso se dejan terminar: este efecto puede correr más de
     // una vez por navegación y no tiene que interrumpir lo que ya empezó.
     const piezas = piezasDe(lista);
-    cortarSalidas([...piezas, indicador]);
-    saliendoRef.current = false;
 
     const nuevas = medir(lista);
     const previas = medidasRef.current;
@@ -499,9 +491,44 @@ export default function Navbar() {
     // Primer render, o el usuario pidió menos movimiento: sin animación.
     if (!previas || sinMovimiento()) return;
 
-    const tiempo = cambioDeNivel
-      ? { duration: DURACION_NIVEL, easing: CURVA_NIVEL }
-      : { duration: DURACION_PESTANA, easing: CURVA_PESTANA };
+    if (cambioDeNivel) {
+      // Otra lista de pestañas: nada se arrastra de la posición vieja. Todo
+      // el nivel nuevo queda visible y emerge apenas desde abajo en su lugar.
+      for (const el of piezas) {
+        el.animate(
+          [
+            { opacity: 0, transform: "translateY(8px)" },
+            { opacity: 1, transform: "none" },
+          ],
+          { duration: DURACION_APARECER, easing: CURVA_PESTANA, fill: "backwards" },
+        );
+      }
+      if (caja) {
+        // La nueva activa: su fondo blanco emerge con ella, en su lugar.
+        const t = tramos(caja);
+        indicador.animate(
+          [
+            { opacity: 0, transform: `${t.todo} translateY(8px)` },
+            { opacity: 1, transform: t.todo },
+          ],
+          { duration: DURACION_APARECER, easing: CURVA_PESTANA },
+        );
+      } else if (cajaPrevia) {
+        // Al Inicio (no es una pestaña): el fondo blanco baja y se desvanece
+        // donde estaba, sin viajar hacia el logo.
+        const t = tramos(cajaPrevia);
+        indicador.animate(
+          [
+            { opacity: 1, transform: t.todo },
+            { opacity: 0, transform: `${t.todo} translateY(100%)` },
+          ],
+          { duration: DURACION_OCULTAR, easing: "ease-in" },
+        );
+      }
+      return;
+    }
+
+    const tiempo = { duration: DURACION_PESTANA, easing: CURVA_PESTANA };
 
     const activa = lista.querySelector<HTMLElement>("[data-activa]");
     let dxActiva = 0;
@@ -513,8 +540,7 @@ export default function Navbar() {
       const previa = previas.get(clave);
 
       if (!previa) {
-        // Pieza nueva: aparece, una detrás de otra. En un cambio de nivel
-        // espera a que la categoría haya hecho buena parte del viaje.
+        // Pieza nueva dentro del mismo nivel: aparece, una detrás de otra.
         el.animate(
           [
             { opacity: 0, transform: "translateX(12px)" },
@@ -522,7 +548,7 @@ export default function Navbar() {
           ],
           {
             duration: 280,
-            delay: (cambioDeNivel ? 180 : 0) + entrantes * 35,
+            delay: entrantes * 35,
             easing: CURVA_PESTANA,
             fill: "backwards",
           },
@@ -597,64 +623,22 @@ export default function Navbar() {
    * Clic en un enlace de la barra. Primero se mueve la barra (que pasa a
    * mostrar `destino` como ruta pendiente) y un instante después se pide la
    * pantalla.
-   *
-   * Con `seQueda` es un cambio de nivel (elegir una categoría, volver al
-   * inicio): antes de mover nada, las piezas que se van se desvanecen;
-   * `seQueda` es la clave de la que sigue en la barra.
    */
-  const ir: AlIr = (e, destino, seQueda) => {
+  const ir: AlIr = (e, destino) => {
     // Abrir en otra pestaña / ventana: lo resuelve el navegador.
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    if (destino === ruta || saliendoRef.current) return;
+    if (destino === ruta) return;
 
     const avanzar = () => {
       setPendiente(destino === pathname ? null : destino);
       window.setTimeout(() => navigate(destino), ESPERA_NAVEGAR);
     };
 
-    const lista = listaRef.current;
-    if (!seQueda || !lista || sinMovimiento()) {
-      avanzar();
-      return;
-    }
-
-    saliendoRef.current = true;
-    // Punto de partida exacto del desplazamiento (por si algo movió las
-    // pestañas desde la última medida, como la carga de la tipografía).
-    medidasRef.current = medir(lista);
-
-    const opciones = {
-      id: SALIDA,
-      duration: DURACION_SALIDA,
-      easing: "ease-out",
-      fill: "forwards",
-    } as const;
-    const animadas: Element[] = [];
-    for (const el of piezasDe(lista)) {
-      if (el.dataset.pieza === seQueda) continue;
-      el.animate([{ opacity: 1 }, { opacity: 0 }], opciones);
-      animadas.push(el);
-    }
-    // El fondo blanco se va con su pestaña, salvo que sea la que se queda.
-    const activa = lista.querySelector<HTMLElement>("[data-activa]");
-    const indicador = indicadorRef.current;
-    if (indicador && activa && activa.dataset.pieza !== seQueda) {
-      indicador.animate([{ opacity: 1 }, { opacity: 0 }], opciones);
-      animadas.push(indicador);
-      // Ya se desvaneció acá: que el efecto no lo vuelva a desvanecer.
-      cajaRef.current = null;
-    }
-
-    window.setTimeout(() => {
-      avanzar();
-      // Red de seguridad: si por lo que sea la barra no cambió, lo que se
-      // desvaneció vuelve a verse.
-      window.setTimeout(() => {
-        cortarSalidas(animadas);
-        saliendoRef.current = false;
-      }, 1500);
-    }, DURACION_SALIDA);
+    // También en un cambio de nivel se navega enseguida: las pestañas de la
+    // barra no se desvanecen antes (quedaba sola la categoría elegida, pegada
+    // al logo); el nivel nuevo emerge en su lugar (ver el efecto de arriba).
+    avanzar();
   };
 
   // Va después de los hooks a propósito (un return temprano antes rompe el
@@ -755,7 +739,7 @@ export default function Navbar() {
                 <NavLink
                   to="/"
                   data-pieza="flecha"
-                  onClick={(e) => ir(e, "/", clavePanel(grupoAbierto.id))}
+                  onClick={(e) => ir(e, "/")}
                 >
                   <LuArrowLeft size={20} aria-hidden />
                 </NavLink>

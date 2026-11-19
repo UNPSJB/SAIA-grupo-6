@@ -34,6 +34,14 @@ class CantidadProducidaInvalida(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_PRODUCIDA_INVALIDA
 
 
+class CantidadProducidaNoEntera(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_PRODUCIDA_NO_ENTERA
+
+
+class CantidadObjetivoNoEntera(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_OBJETIVO_NO_ENTERA
+
+
 class MotivoVacio(BadRequest):
     DETAIL = ErrorCode.MOTIVO_VACIO
 

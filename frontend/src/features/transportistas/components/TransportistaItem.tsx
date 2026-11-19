@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { HStack, Table } from "@chakra-ui/react";
+import { HStack } from "@chakra-ui/react";
 import type { EstadoHabilitacion } from "../types/certificacion";
 import type { Transportista } from "../types/transportista";
 import {
@@ -8,6 +8,8 @@ import {
   EtiquetaEstado,
   TextoTruncado,
   type TonoEstado,
+  DatoPrincipal,
+  FilaClickeable,
 } from "../../../components/ui/patrones";
 
 const TONO_HABILITACION: Record<EstadoHabilitacion, TonoEstado> = {
@@ -44,27 +46,27 @@ export function TransportistaItem({
   };
 
   return (
-    <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={transportista.activo ? 1 : 0.65}>
-      <Celda p="3">
-        <TextoTruncado texto={transportista.razon_social} />
+    <FilaClickeable onAbrir={handleVer} borderBottomWidth="1px" borderColor="border.subtle" opacity={transportista.activo ? 1 : 0.65}>
+      <Celda>
+        <DatoPrincipal titulo={transportista.razon_social} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={transportista.cuit} />
       </Celda>
-      <Celda p="3">
+      <Celda>
         <TextoTruncado texto={transportista.telefono} />
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <EtiquetaEstado
           tono={TONO_HABILITACION[transportista.estado_habilitacion] ?? "neutro"}
         >
           {transportista.estado_habilitacion}
         </EtiquetaEstado>
       </Celda>
-      <Celda p="3">
-        <TextoTruncado texto={transportista.observaciones ?? "-"} />
+      <Celda>
+        <TextoTruncado texto={transportista.observaciones ?? "-"} color="#64748B" />
       </Celda>
-      <Celda p="3" center>
+      <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
           {transportista.activo ? (
             <>
@@ -87,6 +89,6 @@ export function TransportistaItem({
           )}
         </HStack>
       </Celda>
-    </Table.Row>
+    </FilaClickeable>
   );
 }

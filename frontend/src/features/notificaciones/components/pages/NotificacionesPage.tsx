@@ -55,7 +55,7 @@ import {
   LabelFiltro,
   Paginacion,
   Tarjeta,
-  TextoTruncado,
+  DatoPrincipal,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 
@@ -683,20 +683,20 @@ export function NotificacionesPage() {
                         }
                       }}
                       _hover={{
-                        bg: accionable ? "brand.50" : undefined,
+                        bg: accionable ? "#F0FDFA" : undefined,
                         cursor: accionable ? "pointer" : "default",
                       }}
-                      transition="background 0.2s"
+                      transition="background-color 0.15s ease"
                       cursor={accionable ? "pointer" : "default"}
                     >
                       <Celda>
                         <Badge
                           colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
                           variant="subtle"
-                          px="2"
+                          px="2.5"
                           py="1"
-                          borderRadius="md"
-                          fontWeight="bold"
+                          rounded="full"
+                          fontWeight="semibold"
                         >
                           {etiquetaCriticidad(alerta.criticidad)}
                         </Badge>
@@ -712,16 +712,18 @@ export function NotificacionesPage() {
                       </Celda>
 
                       <Celda>
-                        <TextoTruncado fontWeight="bold" color="fg" mb="1" max={160} texto={alerta.titulo} />
-                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={
-                          alerta.entidad_nombre ??
-                          (alerta.origen === "INCIDENTE"
-                            ? alerta.detalle.split(" · ")[0]
-                            : detalleCorto(alerta.detalle))
-                        } />
+                        <DatoPrincipal
+                          titulo={alerta.titulo}
+                          secundario={
+                            alerta.entidad_nombre ??
+                            (alerta.origen === "INCIDENTE"
+                              ? alerta.detalle.split(" · ")[0]
+                              : detalleCorto(alerta.detalle))
+                          }
+                        />
                       </Celda>
 
-                      <Celda fontSize="sm">
+                      <Celda whiteSpace="nowrap">
                         {alerta.fecha_referencia
                           ? formatoFechaOCorta(alerta.fecha_referencia)
                           : alerta.plazo}

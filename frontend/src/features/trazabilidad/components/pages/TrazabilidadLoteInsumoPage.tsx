@@ -13,6 +13,7 @@ import {
   FilaClickeable,
   FilaEncabezado,
   Tarjeta,
+  DatoPrincipal,
 } from "../../../../components/ui/patrones";
 import { DatoDetalle, GrillaDatos, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { BadgeEstadoLote } from "../../../lotes/components/BadgeEstadoLote";
@@ -67,7 +68,7 @@ export function TrazabilidadLoteInsumoPage() {
                     <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
                     <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
+                    <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
                     <EncabezadoOscuro numero ancho="media">Consumo real</EncabezadoOscuro>
                     <EncabezadoOscuro numero ancho="media">Desperdicio</EncabezadoOscuro>
                     <EncabezadoOscuro center ancho="angosta">
@@ -79,13 +80,15 @@ export function TrazabilidadLoteInsumoPage() {
                   {traza.lotes_producto.map((l) => (
                     <FilaClickeable onAbrir={() => navigate(`/lotes/${l.lote_producto_id}`)} key={l.lote_producto_id}>
                       <Celda>
-                        <Text fontFamily="mono" fontSize="sm">
+                        <Text fontFamily="mono" fontSize="sm" color="#64748B">
                           {l.numero_lote}
                         </Text>
                       </Celda>
-                      <Celda>{l.producto_nombre}</Celda>
-                      <Celda>{formatoFechaHora(l.fecha_inicio)}</Celda>
                       <Celda>
+                        <DatoPrincipal titulo={l.producto_nombre} />
+                      </Celda>
+                      <Celda whiteSpace="nowrap">{formatoFechaHora(l.fecha_inicio)}</Celda>
+                      <Celda center>
                         <BadgeEstadoLote estado={l.estado} />
                       </Celda>
                       <Celda numero>{formatoCantidad(l.consumo_real)}</Celda>
