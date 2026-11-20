@@ -1,3 +1,4 @@
+import { ConservacionFields } from "../../rotulado/components/ConservacionFields";
 import { useEffect, useState } from "react";
 import { Box } from "@chakra-ui/react";
 import {
@@ -109,6 +110,7 @@ export function ProductoForm({
           </FormNativeSelect>
         </FormField>
 
+        <ConservacionFields value={values.conservacion ?? null} onChange={v => setValues(prev => ({ ...prev, conservacion: v }))} />
         <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
         <AccionesFormulario>
           <BotonGuardar

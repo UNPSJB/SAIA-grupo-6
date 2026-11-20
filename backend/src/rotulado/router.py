@@ -159,3 +159,50 @@ def consultar_historial_ediciones(
 ):
     """Devuelve la trazabilidad de modificaciones del borrador."""
     return services.obtener_historial_ediciones(db, borrador_id)
+
+
+# HU106: todo el router contin?a protegido por require_admin.
+from src.rotulado import declaraciones_services as declaraciones
+from src.rotulado.declaraciones_schemas import (
+    EditarDeclaraciones, RegenerarDeclaraciones, RevisionEsperada, DeclaracionesOut,
+)
+from src.rotulado.alergenos import catalogo, VERSION_REGLAS
+
+
+@router.get("/catalogo-alergenos")
+def catalogo_alergenos():
+    return {"version_reglas": VERSION_REGLAS, "sustancias": catalogo()}
+
+
+@router.get("/borradores/{borrador_id}/declaraciones", response_model=DeclaracionesOut)
+def consultar_declaraciones(borrador_id: int, db: Session = Depends(get_db)):
+    return declaraciones.consultar(db, borrador_id)
+
+
+@router.get("/borradores/{borrador_id}/declaraciones/historial", response_model=list[DeclaracionesOut])
+def historial_declaraciones(borrador_id: int, db: Session = Depends(get_db)):
+    from sqlalchemy import select
+    from src.rotulado.models import RevisionDeclaracionRotulado
+    borrador = declaraciones.borrador_por_id(db, borrador_id)
+    revisiones = db.scalars(select(RevisionDeclaracionRotulado).where(
+        RevisionDeclaracionRotulado.borrador_id == borrador_id
+    ).order_by(RevisionDeclaracionRotulado.numero.desc())).all()
+    return [declaraciones.revision_salida(db, borrador, revision) for revision in revisiones]
+
+
+@router.post("/borradores/{borrador_id}/declaraciones/regenerar", response_model=DeclaracionesOut)
+def regenerar_declaraciones(borrador_id: int, datos: RegenerarDeclaraciones,
+                           db: Session = Depends(get_db), usuario: Personal = Depends(require_admin)):
+    return declaraciones.regenerar(db, borrador_id, datos, usuario)
+
+
+@router.patch("/borradores/{borrador_id}/declaraciones", response_model=DeclaracionesOut)
+def editar_declaraciones(borrador_id: int, datos: EditarDeclaraciones,
+                        db: Session = Depends(get_db), usuario: Personal = Depends(require_admin)):
+    return declaraciones.editar(db, borrador_id, datos, usuario)
+
+
+@router.post("/borradores/{borrador_id}/declaraciones/confirmar", response_model=DeclaracionesOut)
+def confirmar_declaraciones(borrador_id: int, datos: RevisionEsperada,
+                           db: Session = Depends(get_db), usuario: Personal = Depends(require_admin)):
+    return declaraciones.confirmar(db, borrador_id, datos, usuario)

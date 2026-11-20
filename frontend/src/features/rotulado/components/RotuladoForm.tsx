@@ -1,3 +1,4 @@
+import { DeclaracionesSection } from "./DeclaracionesSection";
 import { useState, type ChangeEvent } from "react";
 import { Box, Button, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
 import {
@@ -34,6 +35,7 @@ interface RotuladoFormProps {
   isLoading: boolean;
   hayFaltantes: boolean;
   onCancel?: () => void;
+  onOrigenChange?: () => void;
 }
 
 export function RotuladoForm({
@@ -46,6 +48,7 @@ export function RotuladoForm({
   isLoading,
   hayFaltantes,
   onCancel,
+  onOrigenChange,
 }: RotuladoFormProps) {
   const valoresIniciales: Partial<BorradorRotuladoOut> = !borrador
     ? {
@@ -87,6 +90,10 @@ export function RotuladoForm({
         sellos_disponibles: borrador?.sellos_disponibles ?? false,
       };
 
+  const [formularioSucio, setFormularioSucio] = useState(false);
+  const [declaracionesSucias, setDeclaracionesSucias] = useState(false);
+  const [declaracionesPendientes, setDeclaracionesPendientes] = useState(true);
+  const [avisoDeclaraciones, setAvisoDeclaraciones] = useState(false);
   const [values, setValues] = useState<Partial<BorradorRotuladoOut>>(valoresIniciales);
 
   const [loteSeleccionado, setLoteSeleccionado] = useState<number | null>(
@@ -120,13 +127,18 @@ export function RotuladoForm({
   campos.push({ nombre: "sellos_advertencia", etiqueta: "Sellos de advertencia", estado: values.sellos_disponibles ? "completo" : "no_aplicable" });
   campos.push({ nombre: "datos_nutricionales_json", etiqueta: "Informaci\u00f3n nutricional", estado: values.datos_nutricionales_json?.trim() ? "completo" : "sin_datos_origen" });
 
+  campos.push({ nombre: "declaraciones", etiqueta: "Declaraciones", estado: declaracionesPendientes ? "pendiente" : "completo" });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (declaracionesSucias) { setAvisoDeclaraciones(true); return; }
     if (!puedeEnviar(faltan.lista)) return;
-    await onGuardar({ ...values, version_receta_id: borrador?.version_receta_id ?? null, lote_producto_id: loteSeleccionado, fecha_produccion: values.fecha_produccion || null, fecha_cierre: values.fecha_cierre || null, fecha_duracion: values.fecha_duracion || null });
+    const versionOrigen = lotes.find(l => l.id === loteSeleccionado)?.version_receta_id ?? borrador?.version_receta_id ?? null;
+    await onGuardar({ ...values, version_receta_id: versionOrigen, lote_producto_id: loteSeleccionado, fecha_produccion: values.fecha_produccion || null, fecha_cierre: values.fecha_cierre || null, fecha_duracion: values.fecha_duracion || null });
   };
 
   const handleAutocompletar = async (forzar: boolean) => {
+    if (formularioSucio || declaracionesSucias) return;
     await onAutocompletar(null, loteSeleccionado, forzar);
   };
 
@@ -154,7 +166,7 @@ export function RotuladoForm({
   }
 
   return (
-    <Box as="form" id="rotulado-form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
+    <Box as="form" id="rotulado-form" onSubmit={handleSubmit} onChangeCapture={e => { if (!(e.target as HTMLElement).closest("[data-declaraciones]")) setFormularioSucio(true); }} {...SIN_VALIDACION_NATIVA}>
       <TarjetaFormulario>
         <TituloFormulario>Datos del rótulo — {nombreParaMostrar}</TituloFormulario>
 
@@ -385,6 +397,12 @@ export function RotuladoForm({
           </FormField>
         </Seccion>
 
+        <DeclaracionesSection borradorId={esCreacion ? 0 : borrador?.id ?? 0}
+          productoId={borrador?.producto_id ?? 0} preview={borrador?.declaraciones}
+          formularioSucio={formularioSucio} onEstado={setDeclaracionesPendientes} onDirtyChange={setDeclaracionesSucias} onOrigenChange={onOrigenChange} />
+        {declaracionesPendientes && <Text color="orange.fg">Declaraciones pendientes de revisión o confirmación.</Text>}
+        {avisoDeclaraciones && declaracionesSucias && <Text role="alert">Guardá o descartá los cambios de declaraciones antes de guardar el formulario.</Text>}
+        {(formularioSucio || declaracionesSucias) && !esCreacion && <Text>Guardá los cambios antes de autocompletar.</Text>}
         <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
         <AccionesFormulario>
           <BotonGuardar loading={isLoading} disabled={hayFaltantes}>
@@ -397,7 +415,7 @@ export function RotuladoForm({
               size="md"
               mr="3"
               onClick={() => handleAutocompletar(false)}
-              disabled={isLoading}
+              disabled={isLoading || formularioSucio || declaracionesSucias}
             >
               Autocompletar
             </Button>

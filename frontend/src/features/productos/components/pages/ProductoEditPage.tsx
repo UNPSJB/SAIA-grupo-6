@@ -33,6 +33,7 @@ export function ProductoEditPage() {
         nombre: values.nombre.trim(),
         descripcion: values.descripcion.trim() || null,
         unidad_medida_id: values.unidad_medida_id,
+        conservacion: values.conservacion ?? null,
       });
       setExito(true);
       delayedNavigate("/productos");
@@ -52,6 +53,7 @@ export function ProductoEditPage() {
           <ProductoForm
             key={producto.id}
             initialValues={{
+              conservacion: producto.conservacion,
               nombre: producto.nombre,
               descripcion: producto.descripcion ?? "",
               unidad_medida_id: producto.unidad_medida.id,

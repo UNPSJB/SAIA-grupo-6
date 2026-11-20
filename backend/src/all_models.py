@@ -152,3 +152,5 @@ __all__ = [
     "BorradorRotulado",
     "CampoRotuladoEditado",
 ]
+
+from src.rotulado.models import RevisionDeclaracionRotulado  # noqa: F401

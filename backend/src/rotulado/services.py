@@ -1,4 +1,5 @@
 import logging
+from fastapi import HTTPException
 
 from datetime import date
 from decimal import Decimal
@@ -18,6 +19,7 @@ from src.recetas.services import (
     version_vigente as version_vigente_service,
 )
 from src.rotulado import exceptions, schemas
+from src.rotulado import declaraciones_services as declaraciones
 from src.rotulado.constants import (
     CAMPO_COMPLETO,
     CAMPO_NO_APLICABLE,
@@ -153,7 +155,7 @@ def _serializar_nutricion(info_nutricional) -> Optional[str]:
 
 def obtener_borrador(db: Session, borrador_id: int) -> BorradorRotulado:
     borrador = db.get(BorradorRotulado, borrador_id)
-    if borrador is None:
+    if borrador is None or borrador.archivado:
         raise exceptions.BorradorNoEncontrado()
     return borrador
 
@@ -166,6 +168,7 @@ def obtener_borradores_por_producto(
     consulta = (
         select(BorradorRotulado)
         .where(BorradorRotulado.producto_id == producto_id)
+        .where(BorradorRotulado.archivado.is_(False))
         .order_by(BorradorRotulado.actualizado_en.desc())
     )
     return list(db.scalars(consulta).all())
@@ -234,7 +237,11 @@ def crear_borrador(
         creado_por_id=usuario_id,
         actualizado_por_id=usuario_id,
     )
+    if datos.estado == "completado":
+        raise HTTPException(422, "Confirmá las declaraciones antes de completar el borrador.")
     db.add(borrador)
+    db.flush()
+    declaraciones.generar_revision(db, borrador, usuario)
     db.commit()
     db.refresh(borrador)
     return borrador
@@ -246,11 +253,21 @@ def actualizar_borrador(
     datos: schemas.BorradorRotuladoUpdate,
     usuario: Optional[object] = None,
 ) -> BorradorRotulado:
+    declaraciones._reservar_escritura(db)
     borrador = obtener_borrador(db, borrador_id)
     usuario_id = getattr(usuario, "id", None) if usuario is not None else None
     momento = ahora()
 
     campos = datos.model_dump(exclude_unset=True)
+    version_id = campos.get("version_receta_id", borrador.version_receta_id)
+    lote_id = campos.get("lote_producto_id", borrador.lote_producto_id)
+    version = declaraciones.resolver_version(db, borrador.producto_id, version_id, lote_id)
+    cambio_origen = (version.id if version else None) != borrador.version_receta_id or lote_id != borrador.lote_producto_id
+    if datos.estado == "completado":
+        evaluacion = declaraciones.consultar(db, borrador_id)
+        cambio_lista = "lista_ingredientes" in campos and campos["lista_ingredientes"] != borrador.lista_ingredientes
+        if cambio_origen or cambio_lista or evaluacion["estado"] != "confirmada" or evaluacion["pendientes"]:
+            raise HTTPException(422, "Confirmá declaraciones vigentes antes de completar.")
     for campo, valor in campos.items():
         valor_actual = getattr(borrador, campo, None)
         if _texto_si_cambio(valor_actual, valor):
@@ -266,6 +283,9 @@ def actualizar_borrador(
             )
         setattr(borrador, campo, valor)
 
+    if cambio_origen:
+        borrador.version_receta_id = version.id if version else None
+        declaraciones.generar_revision(db, borrador, usuario)
     borrador.actualizado_en = momento
     borrador.actualizado_por_id = usuario_id
     db.add(borrador)
@@ -276,7 +296,8 @@ def actualizar_borrador(
 
 def eliminar_borrador(db: Session, borrador_id: int) -> None:
     borrador = obtener_borrador(db, borrador_id)
-    db.delete(borrador)
+    # Se retira de los listados sin eliminar las revisiones históricas HU106.
+    borrador.archivado = True
     db.commit()
 
 
@@ -288,11 +309,13 @@ def autocompletar_borrador(
     forzar: bool,
     usuario: Optional[object] = None,
 ) -> BorradorRotulado:
+    declaraciones._reservar_escritura(db)
     borrador = obtener_borrador(db, borrador_id)
     producto = obtener_producto_service(db, borrador.producto_id)
     if producto is None:
         raise exceptions.ProductoNoEncontrado()
 
+    lote_id = lote_id if lote_id is not None else borrador.lote_producto_id
     usuario_id = getattr(usuario, "id", None) if usuario is not None else None
     cambios_registrados = False
 
@@ -430,6 +453,9 @@ def autocompletar_borrador(
     if lote_producto is not None:
         borrador.lote_producto_id = lote_producto.id
 
+    declaraciones.resolver_version(db, borrador.producto_id,
+                                  borrador.version_receta_id, borrador.lote_producto_id)
+    declaraciones.generar_revision(db, borrador, usuario)
     borrador.actualizado_en = ahora()
     borrador.actualizado_por_id = usuario_id
     db.add(borrador)
@@ -580,6 +606,15 @@ def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRo
             )
         )
 
+    evaluacion = declaraciones.consultar(db, borrador_id)
+    pendiente = evaluacion["estado"] != "confirmada" or bool(evaluacion["pendientes"])
+    campos.append(schemas.CampoCompletitud(
+        nombre="declaraciones", etiqueta="Alérgenos, gluten y conservación",
+        estado=CAMPO_PENDIENTE if pendiente else CAMPO_COMPLETO,
+        motivo="; ".join(evaluacion["pendientes"]) or ("Pendiente de confirmación" if pendiente else None),
+    ))
+    if pendiente:
+        estado_global = CAMPO_PENDIENTE
     return schemas.CompletitudRotulado(
         borrador_id=borrador.id,
         estado_global=estado_global,
@@ -622,6 +657,7 @@ def preview_autocompletado(
             producto_id=producto_id,
             producto_nombre=producto.nombre,
             denominacion_venta=producto.nombre,
+            declaraciones=declaraciones.generar_propuesta_declaraciones(db, producto_id),
             receta_encontrada=False,
             mensaje="El producto no tiene receta asociada.",
         )
@@ -686,6 +722,7 @@ def preview_autocompletado(
         sellos_disponibles=sellos_disponibles,
         version_receta_id=version_receta.id if version_receta else None,
         version_receta_numero=version_receta.numero if version_receta else None,
+        declaraciones=declaraciones.generar_propuesta_declaraciones(db, producto_id, version_receta.id if version_receta else None),
         receta_encontrada=version_receta is not None,
         mensaje=mensaje or None,
     )

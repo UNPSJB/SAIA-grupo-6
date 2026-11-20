@@ -16,6 +16,7 @@ from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
 from src.proveedores.models import Proveedor
 from src.insumos import schemas, exceptions
 from src.unidadMedida.models import UnidadMedida
+from src.common.fechas import ahora
 
 logger = logging.getLogger(__name__)
 
@@ -116,9 +117,12 @@ def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
         db, insumo.unidad_medida_id, insumo.densidad_g_ml, insumo.peso_unitario_g
     )
 
-    datos = insumo.model_dump()
+    datos = insumo.model_dump(mode="json")
     datos["aditivo_id"] = _normalizar_tipo(db, insumo.tipo, insumo.aditivo_id)
     _insumo = Insumo(**datos)
+    if insumo.perfil_declaracion is not None:
+        _insumo.perfil_actualizado_en = ahora()
+        _insumo.perfil_actualizado_por_id = db.info.get("usuario_id")
     db.add(_insumo)
     try:
         db.commit()
@@ -239,11 +243,11 @@ def modificar_insumo(
 
     # Solo actualizamos los campos que realmente vinieron en el request
     # (evita pisar 'activo' u otros campos con NULL cuando no se envían).
-    datos_a_actualizar = insumo.model_dump(exclude_unset=True)
+    datos_a_actualizar = insumo.model_dump(exclude_unset=True, mode="json")
     datos_a_actualizar = {
         campo: valor
         for campo, valor in datos_a_actualizar.items()
-        if valor is not None
+        if valor is not None or campo == "perfil_declaracion"
     }
 
     if not datos_a_actualizar:
@@ -280,6 +284,9 @@ def modificar_insumo(
 
     # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
     # disparan eventos del ORM, así que la auditoría no los vería.
+    if "perfil_declaracion" in datos_a_actualizar:
+        datos_a_actualizar["perfil_actualizado_en"] = ahora()
+        datos_a_actualizar["perfil_actualizado_por_id"] = db.info.get("usuario_id")
     return aplicar_cambios(db, db_insumo, datos_a_actualizar, _mapear_conflicto_insumo)
 
 

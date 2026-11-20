@@ -15,6 +15,7 @@ function aInput(values: ProductoFormValues): ProductoInput {
     nombre: values.nombre.trim(),
     descripcion: values.descripcion.trim() || null,
     unidad_medida_id: values.unidad_medida_id,
+        conservacion: values.conservacion ?? null,
   };
 }
 

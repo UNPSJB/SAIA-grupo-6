@@ -1,3 +1,4 @@
+import type { PropuestaDeclaraciones } from "./declaraciones";
 export interface CampoCompletitud {
   nombre: string;
   etiqueta: string;
@@ -44,6 +45,7 @@ export interface BorradorRotuladoBase {
 }
 
 export interface BorradorRotuladoOut extends BorradorRotuladoBase {
+  declaraciones?: PropuestaDeclaraciones | null;
   id: number;
   producto_id: number;
   version_receta_id: number | null;
@@ -73,6 +75,7 @@ export interface AutocompletarIn {
 }
 
 export interface VistaPreviaAutocompletado {
+  declaraciones?: PropuestaDeclaraciones | null;
   producto_id: number;
   producto_nombre: string;
   denominacion_venta: string | null;
@@ -109,6 +112,8 @@ export interface BorradorRotuladoCreate {
 }
 
 export interface BorradorRotuladoUpdate {
+  version_receta_id?: number | null;
+  lote_producto_id?: number | null;
   denominacion_venta?: string | null;
   lista_ingredientes?: string | null;
   contenido_neto?: string | null;

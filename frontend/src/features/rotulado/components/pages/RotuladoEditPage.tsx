@@ -65,16 +65,17 @@ function RotuladoEditor() {
 
   useEffect(() => {
     let montado = true;
-    if (!productoId) return;
+    const origenProducto = productoId ?? borrador?.producto_id;
+    if (!origenProducto) return;
     listarLotes()
       .then((data: LoteSimple[]) => {
-        if (montado) setLotes(data.filter((l) => l.producto_id === productoId));
+        if (montado) setLotes(data.filter((l) => l.producto_id === origenProducto));
       })
       .catch((err: unknown) => { if (montado) setPreviewError(err instanceof Error ? err.message : "Error al consultar lotes"); });
     return () => {
       montado = false;
     };
-  }, [productoId, reintento]);
+  }, [productoId, borrador?.producto_id, reintento]);
 
   // En modo creación, cargar la vista previa de autocompletado al montar
   useEffect(() => {
@@ -101,6 +102,8 @@ function RotuladoEditor() {
     try {
       if (borradorId) {
         const actualizado = await actualizarBorrador(borradorId, {
+          version_receta_id: datos.version_receta_id,
+          lote_producto_id: datos.lote_producto_id,
           denominacion_venta: datos.denominacion_venta ?? undefined,
           lista_ingredientes: datos.lista_ingredientes ?? undefined,
           contenido_neto: datos.contenido_neto ?? undefined,
@@ -188,6 +191,7 @@ function RotuladoEditor() {
 
   const valoresIniciales: BorradorRotuladoOut | null = esCreacion && vistaPrevia && productoId
     ? {
+        declaraciones: vistaPrevia.declaraciones,
         id: 0,
         producto_id: productoId,
         version_receta_id: vistaPrevia.version_receta_id,
@@ -238,6 +242,7 @@ function RotuladoEditor() {
         esCreacion={esCreacion}
         productoNombre={esCreacion ? productoNombre : undefined}
         onGuardar={handleGuardar}
+        onOrigenChange={() => { if (borradorId) void obtenerBorradorHook(borradorId); }}
         onAutocompletar={
           borradorId
             ? async (versionId, loteId, forzar) => {

@@ -1,3 +1,4 @@
+from src.rotulado.declaraciones_schemas import ConservacionProducto
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.common.validators import texto_no_vacio, texto_opcional
@@ -13,6 +14,7 @@ class UnidadResumen(BaseModel):
 
 
 class ProductoBase(BaseModel):
+    conservacion: ConservacionProducto | None = None
     nombre: str = Field(max_length=120)
     descripcion: str | None = Field(default=None, max_length=500)
     categoria_rotulado: str | None = Field(default=None, max_length=80)
@@ -41,6 +43,7 @@ class ProductoUpdate(ProductoBase):
 
 
 class ProductoResponse(BaseModel):
+    conservacion: ConservacionProducto | None = None
     id: int
     nombre: str
     descripcion: str | None
