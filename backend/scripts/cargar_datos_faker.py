@@ -73,6 +73,7 @@ from pathlib import Path
 from typing import Optional
 
 from faker import Faker
+from fastapi import HTTPException
 from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
@@ -223,6 +224,8 @@ from src.retiros.constants import (  # noqa: E402
 )
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: E402
 from src.rotulado import services as rotulado_services  # noqa: E402
+from src.rotulado import declaraciones_services as rotulado_declaraciones  # noqa: E402
+from src.rotulado.declaraciones_schemas import RevisionEsperada  # noqa: E402
 from src.rotulado.schemas import BorradorRotuladoCreate, BorradorRotuladoUpdate  # noqa: E402
 from src.rotulado.constants import ESTADO_COMPLETADO  # noqa: E402
 
@@ -1017,6 +1020,48 @@ DATOS_ROTULO = {
     ],
     "contenidos": ["250 g", "500 g", "1 kg", "750 ml", "6 unidades"],
 }
+
+# Perfiles completos para que las declaraciones se puedan confirmar. Se evita
+# sulfitos porque exige una evaluación con fundamento y respaldo.
+PERFILES_DECLARACION_ROTULO = [
+    {"evaluacion": "evaluada", "gluten": "ausencia_declarada", "marcas": []},
+    {
+        "evaluacion": "evaluada",
+        "gluten": "presente",
+        "marcas": [{"codigo": "leche", "forma": "derivado"}],
+    },
+    {
+        "evaluacion": "evaluada",
+        "gluten": "ausencia_declarada",
+        "marcas": [{"codigo": "soja", "forma": "directa"}],
+    },
+    {
+        "evaluacion": "evaluada",
+        "gluten": "ausencia_declarada",
+        "marcas": [{"codigo": "mani", "forma": "directa"}],
+    },
+]
+
+CONSERVACIONES_ROTULO = [
+    {"instrucciones": "Conservar en lugar fresco y seco. Mantener el envase cerrado."},
+    {
+        "instrucciones": "Conservar refrigerado entre 2 °C y 8 °C.",
+        "temperatura_aplicable": True,
+        "temperatura_minima": 2,
+        "temperatura_maxima": 8,
+    },
+    {"instrucciones": "Mantener congelado a -18 °C. No volver a congelar una vez descongelado."},
+]
+
+
+def _preparar_declaraciones_rotulado(db, producto, version) -> None:
+    """Completa los maestros mínimos que exige la confirmación de declaraciones."""
+    if not producto.conservacion:
+        producto.conservacion = random.choice(CONSERVACIONES_ROTULO)
+    for linea in version.insumos:
+        if not linea.insumo.perfil_declaracion:
+            linea.insumo.perfil_declaracion = random.choice(PERFILES_DECLARACION_ROTULO)
+    db.commit()
 
 
 def _descripcion_tarea(equipo_nombre: str) -> str:
@@ -3550,6 +3595,7 @@ def crear_rotulado(db, cantidad: int) -> dict:
 
         usuario = random.choice(admins)
         db.info["usuario_id"] = usuario.id
+        _preparar_declaraciones_rotulado(db, producto, version)
         borrador_id = rotulado_services.crear_borrador(
             db, producto_id,
             BorradorRotuladoCreate(
@@ -3576,12 +3622,23 @@ def crear_rotulado(db, cantidad: int) -> dict:
         # en el cuerpo, y un `estado=None` explícito pisaría el estado.
         if completo:
             cambios["fecha_duracion"] = vencimiento_lote or HOY + timedelta(days=180)
-            cambios["estado"] = ESTADO_COMPLETADO
         rotulado_services.actualizar_borrador(
             db, borrador_id, BorradorRotuladoUpdate(**cambios), usuario
         )
         if completo:
-            cuenta["completados"] += 1
+            # Desde HU106 no se puede completar sin confirmar las declaraciones.
+            revision = rotulado_declaraciones.consultar(db, borrador_id)["revision"]
+            try:
+                rotulado_declaraciones.confirmar(
+                    db, borrador_id, RevisionEsperada(revision=revision), usuario
+                )
+            except HTTPException:
+                pass
+            else:
+                rotulado_services.actualizar_borrador(
+                    db, borrador_id, BorradorRotuladoUpdate(estado=ESTADO_COMPLETADO), usuario
+                )
+                cuenta["completados"] += 1
 
     db.info.pop("usuario_id", None)
     return cuenta
