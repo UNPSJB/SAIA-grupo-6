@@ -45,6 +45,7 @@ def _sembrar_regla_inicial(db) -> None:
                     dict(parametro)
                     for parametro in c.FORMULAS_NUTRICIONALES_INICIALES
                 ],
+                sellos=[dict(sello) for sello in c.SELLOS_INICIALES],
                 reglas_aplicabilidad=deepcopy(c.REGLAS_APLICABILIDAD_INICIALES),
             )
         )
@@ -57,6 +58,14 @@ def _sembrar_interruptor_modulo(db) -> None:
     if db.get(ConfiguracionModuloRotulado, 1) is not None:
         return
     db.add(ConfiguracionModuloRotulado(id=1, modulo_activo=True))
+    db.commit()
+
+
+def _completar_sellos(db) -> None:
+    """Carga la lista inicial en reglas creadas antes de versionar los sellos."""
+    for regla in db.scalars(select(ReglaRotuladoFrontal)).all():
+        if not regla.sellos:
+            regla.sellos = [dict(sello) for sello in c.SELLOS_INICIALES]
     db.commit()
 
 
@@ -159,6 +168,15 @@ def migrar_rotulado_frontal() -> None:
             "formulas_nutricionales",
             f"TEXT NOT NULL DEFAULT '{formulas_iniciales}'",
         )
+        sellos_iniciales = json.dumps(
+            [dict(sello) for sello in c.SELLOS_INICIALES],
+            ensure_ascii=False,
+        )
+        agregar_columna(
+            "reglas_rotulado_frontal",
+            "sellos",
+            f"TEXT NOT NULL DEFAULT '{sellos_iniciales}'",
+        )
         aplicabilidad_inicial = json.dumps(
             c.REGLAS_APLICABILIDAD_INICIALES, ensure_ascii=False
         )
@@ -192,4 +210,5 @@ def migrar_rotulado_frontal() -> None:
     with SessionLocal() as db:
         db.info["sin_auditoria"] = True
         _sembrar_regla_inicial(db)
+        _completar_sellos(db)
         _completar_resultado_por_defecto(db)

@@ -69,6 +69,12 @@ class ReglaRotuladoFrontal(ModeloBase):
             dict(parametro) for parametro in c.FORMULAS_NUTRICIONALES_INICIALES
         ],
     )
+    # Definiciones de sellos que evalúa esta versión. Antes vivían en el
+    # código; ahora son datos versionados como los umbrales y las fórmulas.
+    sellos: Mapped[list[dict]] = mapped_column(
+        JSON,
+        default=lambda: [dict(sello) for sello in c.SELLOS_INICIALES],
+    )
     # Motor de aplicabilidad: canales de consumo final, categorías exceptuadas
     # y condiciones ordenadas que el servicio evalúa sin conocer los casos.
     reglas_aplicabilidad: Mapped[dict] = mapped_column(

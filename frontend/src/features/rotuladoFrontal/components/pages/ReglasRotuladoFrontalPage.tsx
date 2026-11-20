@@ -169,6 +169,7 @@ function NuevaVersionDialog({
           .filter(Boolean),
         umbrales_sellos: umbrales,
         formulas_nutricionales: formulas,
+        sellos: reglaBase?.sellos,
         reglas_aplicabilidad: reglasAplicabilidad,
       };
       await crearRegla(datos);
@@ -531,6 +532,7 @@ export function ReglasRotuladoFrontalPage() {
                         {regla.requiere_envasado ? "Requiere envasado" : "No requiere envasado"}
                       </Text>
                       <Text fontSize="xs" color="fg.muted">
+                        {regla.sellos.length} sellos ·{" "}
                         {regla.umbrales_sellos.length} umbrales ·{" "}
                         {regla.formulas_nutricionales.length} fórmulas
                       </Text>

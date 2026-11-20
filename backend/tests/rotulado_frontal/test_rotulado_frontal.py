@@ -1076,7 +1076,7 @@ def test_el_historial_conserva_el_snapshot_de_cada_version(
         fila for fila in guardadas if fila["regla_version"] == nueva.json()["version"]
     )
 
-    assert vieja["instantanea"]["version_esquema"] == 5
+    assert vieja["instantanea"]["version_esquema"] == 6
     assert vieja["instantanea"]["sellos"]["regla_version"] == regla.version
     assert vieja["instantanea"]["norma_origen"] == regla.norma_origen
     assert len(vieja["instantanea"]["parametros"]["umbrales_sellos"]) == 6
@@ -1170,6 +1170,49 @@ def test_calcula_sellos_con_pasos_y_version_de_la_regla(
     assert resultados["sodio"]["exceso"] is False
     assert sellos["excesos"] == ["Exceso en azúcares", "Exceso en calorías"]
     assert cuerpo["instantanea"]["sellos"] == sellos
+
+
+def test_los_sellos_se_leen_de_la_version_vigente(
+    client, usuarios, regla, producto_sellos
+):
+    definiciones = [
+        sello
+        for sello in deepcopy(list(rotulado_constants.SELLOS_INICIALES))
+        if sello["clave"] == "azucares"
+    ]
+    nueva = client.post(
+        "/rotulado-frontal/reglas",
+        headers=usuarios["admin"],
+        json={
+            "vigencia_desde": "2020-08-01",
+            "norma_origen": "Norma con un solo sello",
+            "sellos": definiciones,
+        },
+    )
+    assert nueva.status_code == 201
+    assert [sello["clave"] for sello in nueva.json()["sellos"]] == ["azucares"]
+    client.post(
+        f"/rotulado-frontal/reglas/{nueva.json()['id']}/activar",
+        headers=usuarios["admin"],
+    )
+
+    respuesta = _guardar(
+        client,
+        producto_sellos.id,
+        usuarios["admin"],
+        envasado_sin_cliente=True,
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert [resultado["clave"] for resultado in cuerpo["sellos"]["resultados"]] == [
+        "azucares"
+    ]
+    assert cuerpo["sellos"]["excesos"] == ["Exceso en azúcares"]
+    guardados = cuerpo["instantanea"]["parametros"]["sellos"]
+    assert [sello["clave"] for sello in guardados] == ["azucares"]
+    assert guardados[0]["umbral"] == "azucares_energia"
+    assert guardados[0]["formula"] == "kcal_por_g_azucares"
 
 
 def test_los_sellos_leen_los_umbrales_de_la_version_vigente(
