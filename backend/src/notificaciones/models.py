@@ -1,6 +1,5 @@
 from datetime import date, datetime
-from typing import Optional
-from sqlalchemy import DateTime, Date, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Date, Float, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.models import ModeloBase
 
@@ -12,6 +11,54 @@ class ConfiguracionAlerta(ModeloBase):
 
     clave: Mapped[str] = mapped_column(String(60), primary_key=True)
     valor: Mapped[int] = mapped_column(Integer)
+
+
+class ConfiguracionImpacto(ModeloBase):
+    """Impacto base (1 bajo, 2 medio, 3 alto) que el administrador de este
+    establecimiento le asigna a un tipo de situación.
+
+    Solo se guardan los tipos que se modificaron: lo que no figura usa el
+    impacto sugerido por SAIA (`riesgo.TIPOS_SITUACION`). Borrar la fila
+    restaura el valor sugerido.
+    """
+
+    __tablename__ = "configuracion_impacto"
+
+    tipo: Mapped[str] = mapped_column(String(40), primary_key=True)
+    impacto: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class SituacionRiesgo(ModeloBase):
+    """Historial de situaciones del motor de riesgos.
+
+    Una situación es una instancia concreta: tipo + elemento + fecha de
+    detección. Está PRESENTE mientras el motor la detecta (`resuelta_en` es
+    NULL). Cuando el motor deja de detectarla se completa `resuelta_en` y queda
+    en el historial: sigue contando para la recurrencia hasta salir de la
+    ventana. Si el problema vuelve, se registra una situación NUEVA.
+
+    Es información derivada de las fuentes, pero NO se puede reconstruir desde
+    ellas (cuándo empezó y cuándo terminó cada cosa), por eso se conserva.
+    """
+
+    __tablename__ = "situaciones_riesgo"
+    __audit__ = False  # Bitácora propia del motor: no requiere auditoría
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    #: Tipo de situación (clave de `riesgo.TIPOS_SITUACION`).
+    tipo: Mapped[str] = mapped_column(String(40), nullable=False)
+    #: Identifica la cosa concreta que se detecta (la `clave` de la alerta).
+    clave: Mapped[str] = mapped_column(String(100), nullable=False)
+    #: Elemento sobre el que se detecta (`grupo_clave`: "equipo:3", ...).
+    elemento: Mapped[str] = mapped_column(String(100), nullable=False)
+    detectada_en: Mapped[date] = mapped_column(Date, nullable=False)
+    resuelta_en: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    __table_args__ = (
+        Index("ix_situaciones_tipo_clave", "tipo", "clave"),
+        Index("ix_situaciones_tipo_elemento_detectada", "tipo", "elemento", "detectada_en"),
+        Index("ix_situaciones_resuelta", "resuelta_en"),
+    )
 
 
 class NotificacionPersistida(ModeloBase):
@@ -35,7 +82,6 @@ class NotificacionPersistida(ModeloBase):
     tipo: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     entidad_id: Mapped[int] = mapped_column(Integer, nullable=False)
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
-    entidad_nombre: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     mensaje: Mapped[str] = mapped_column(String(500), nullable=False)
     nivel: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     link_destino: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -45,6 +91,16 @@ class NotificacionPersistida(ModeloBase):
     motivo: Mapped[str] = mapped_column(String(300), nullable=False)
     plazo: Mapped[str | None] = mapped_column(String(60), nullable=True)
     recambio_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Evaluación de riesgo de la situación (ver `riesgo.py`).
+    impacto: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    recurrencia: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    persistencia: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    probabilidad: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    #: Riesgo individual: impacto × probabilidad, de 1 a 9.
+    puntaje: Mapped[float] = mapped_column(Float, nullable=False, default=1.0, index=True)
+    detectada_en: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False

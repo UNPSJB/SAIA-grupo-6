@@ -158,7 +158,7 @@ def registrar_invalidacion_automatica() -> None:
     from src.elementoLimpieza.models import ElementoLimpieza
     from src.incidente.models import Incidente
     from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
-    from src.notificaciones.models import ConfiguracionAlerta
+    from src.notificaciones.models import ConfiguracionAlerta, ConfiguracionImpacto
     from src.personal.models import Personal
     from src.lotesInsumo.models import LoteInsumo
     from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
@@ -173,7 +173,7 @@ def registrar_invalidacion_automatica() -> None:
         ElementoLimpieza, PlanCalibracionMantenimiento, Equipo, VencimientoPersonal,
         Personal, Aptitud, InsumoQuimico, StockInsumoQuimico, Documento,
         VersionDocumento, Incidente, Checklist, registro_checklist, ConfiguracionAlerta,
-        LoteInsumo,
+        ConfiguracionImpacto, LoteInsumo,
     )
 
     global _instalado
