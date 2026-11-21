@@ -73,6 +73,7 @@ from pathlib import Path
 from typing import Optional
 
 from faker import Faker
+from fastapi import HTTPException
 from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
@@ -152,7 +153,8 @@ from src.recetas.models import (  # noqa: E402
     TareaRecetaInsumo,
     VersionReceta,
 )
-from src.lotesInsumo.models import LoteInsumo  # noqa: E402
+from src.lotesInsumo.models import BajaLoteInsumo, LoteInsumo  # noqa: E402
+from src.lotesInsumo.constants import MOTIVOS_BAJA_INSUMO  # noqa: E402
 from src.nutricion.models import (  # noqa: E402
     AlimentoReferencia,
     InfoNutricionalProducto,
@@ -167,7 +169,13 @@ from src.nutricion.constants import (  # noqa: E402
     FUENTE_PROVEEDOR,
 )
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: E402
-from src.rotulado_frontal.models import EvaluacionRotulado  # noqa: E402
+from src.rotulado_frontal.models import (  # noqa: E402
+    ConfiguracionRotuladoProducto,
+    EvaluacionRotulado,
+)
+from src.rotulado_frontal import constants as rotulado_frontal_constants  # noqa: E402
+from src.rotulado_frontal import services as rotulado_frontal_services  # noqa: E402
+from src.rotulado_frontal.schemas import ConfiguracionRotuladoIn  # noqa: E402
 from src.lotes.constants import (  # noqa: E402
     ESTADO_CANCELADO,
     ESTADO_EN_PROCESO,
@@ -216,6 +224,8 @@ from src.retiros.constants import (  # noqa: E402
 )
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: E402
 from src.rotulado import services as rotulado_services  # noqa: E402
+from src.rotulado import declaraciones_services as rotulado_declaraciones  # noqa: E402
+from src.rotulado.declaraciones_schemas import RevisionEsperada  # noqa: E402
 from src.rotulado.schemas import BorradorRotuladoCreate, BorradorRotuladoUpdate  # noqa: E402
 from src.rotulado.constants import ESTADO_COMPLETADO  # noqa: E402
 
@@ -901,11 +911,11 @@ MOTIVOS_CANCELACION_LOTE = [
     "Contaminación cruzada sospechada",
 ]
 
-MOTIVOS_BAJA_LOTE_INSUMO = [
-    "Vencido sin consumir",
-    "Descarte por rotura de envase",
-    "Descarte por cadena de frío interrumpida",
-    "Ajuste de inventario",
+OBSERVACIONES_BAJA_INSUMO = [
+    "Detectado durante el control de stock.",
+    "Producto apartado para descarte.",
+    "Baja informada por el proveedor.",
+    "Se encontró dañado al revisar el depósito.",
 ]
 
 # IPs de documentación (RFC 5737): nunca coinciden con quien prueba en local,
@@ -1010,6 +1020,48 @@ DATOS_ROTULO = {
     ],
     "contenidos": ["250 g", "500 g", "1 kg", "750 ml", "6 unidades"],
 }
+
+# Perfiles completos para que las declaraciones se puedan confirmar. Se evita
+# sulfitos porque exige una evaluación con fundamento y respaldo.
+PERFILES_DECLARACION_ROTULO = [
+    {"evaluacion": "evaluada", "gluten": "ausencia_declarada", "marcas": []},
+    {
+        "evaluacion": "evaluada",
+        "gluten": "presente",
+        "marcas": [{"codigo": "leche", "forma": "derivado"}],
+    },
+    {
+        "evaluacion": "evaluada",
+        "gluten": "ausencia_declarada",
+        "marcas": [{"codigo": "soja", "forma": "directa"}],
+    },
+    {
+        "evaluacion": "evaluada",
+        "gluten": "ausencia_declarada",
+        "marcas": [{"codigo": "mani", "forma": "directa"}],
+    },
+]
+
+CONSERVACIONES_ROTULO = [
+    {"instrucciones": "Conservar en lugar fresco y seco. Mantener el envase cerrado."},
+    {
+        "instrucciones": "Conservar refrigerado entre 2 °C y 8 °C.",
+        "temperatura_aplicable": True,
+        "temperatura_minima": 2,
+        "temperatura_maxima": 8,
+    },
+    {"instrucciones": "Mantener congelado a -18 °C. No volver a congelar una vez descongelado."},
+]
+
+
+def _preparar_declaraciones_rotulado(db, producto, version) -> None:
+    """Completa los maestros mínimos que exige la confirmación de declaraciones."""
+    if not producto.conservacion:
+        producto.conservacion = random.choice(CONSERVACIONES_ROTULO)
+    for linea in version.insumos:
+        if not linea.insumo.perfil_declaracion:
+            linea.insumo.perfil_declaracion = random.choice(PERFILES_DECLARACION_ROTULO)
+    db.commit()
 
 
 def _descripcion_tarea(equipo_nombre: str) -> str:
@@ -1121,6 +1173,8 @@ def borrar_todo(db) -> None:
         proveedores_insumos,
         # Historial de evaluaciones de rotulado: los productos se recrean.
         EvaluacionRotulado,
+        # Configuración manual por producto (cuelga de productos).
+        ConfiguracionRotuladoProducto,
         # Trazabilidad (hijos primero). El borrado masivo no dispara los
         # eventos del ORM que protegen versiones de receta y lotes cerrados.
         # Información nutricional (E11). La base de composición y los
@@ -1130,6 +1184,7 @@ def borrar_todo(db) -> None:
         ValorNutricionalInsumo,
         PerfilNutricionalInsumo,
         ConsumoInsumo,
+        BajaLoteInsumo,
         ChecklistProduccion,
         LoteProducto,
         LoteInsumo,
@@ -2947,12 +3002,91 @@ def crear_lotes_produccion(
         vencido = lote.fecha_vencimiento is not None and lote.fecha_vencimiento < HOY
         if (vencido and bernoulli(0.6)) or bernoulli(0.04):
             lote.activo = False
-            lote.motivo_baja = "Vencido sin consumir" if vencido else random.choice(MOTIVOS_BAJA_LOTE_INSUMO)
-            lote.fecha_baja = datetime.combine(
-                max(lote.fecha_vencimiento or lote.fecha_ingreso, lote.fecha_ingreso), datetime.min.time()
-            ) + timedelta(days=1, hours=10)
+            lote.motivo_baja = "vencido" if vencido else random.choice(MOTIVOS_BAJA_INSUMO)
+            if vencido:
+                lote.fecha_baja = datetime.combine(
+                    lote.fecha_vencimiento, datetime.min.time()
+                ) + timedelta(days=1, hours=10)
+            else:
+                lote.fecha_baja = _momento(dia_con_ritmo(60, 1), 8, 17)
     db.flush()
     cuenta["lotes_insumo"] = len(lotes_insumo)
+    return cuenta
+
+
+def crear_bajas_lote_insumo(db, lotes_insumo: list, admins: list) -> dict:
+    """Historial de bajas de lotes de insumo.
+
+    Acompaña a los lotes que la simulación dejó inactivos (baja total del
+    saldo restante) y agrega algunas bajas parciales sobre lotes activos,
+    para que la pantalla muestre ambos casos.
+    """
+    cuenta = {"totales": 0, "parciales": 0, "cantidad": Decimal("0")}
+    if not admins or not lotes_insumo:
+        return cuenta
+    print("⏳ Cargando bajas de lotes de insumo...")
+
+    ids = [lote.id for lote in lotes_insumo]
+    consumos = dict(
+        db.execute(
+            select(ConsumoInsumo.lote_insumo_id, func.sum(ConsumoInsumo.cantidad))
+            .where(ConsumoInsumo.lote_insumo_id.in_(ids))
+            .group_by(ConsumoInsumo.lote_insumo_id)
+        ).all()
+    )
+    bajas_previas = dict(
+        db.execute(
+            select(BajaLoteInsumo.lote_insumo_id, func.sum(BajaLoteInsumo.cantidad))
+            .where(BajaLoteInsumo.lote_insumo_id.in_(ids))
+            .group_by(BajaLoteInsumo.lote_insumo_id)
+        ).all()
+    )
+
+    for lote in lotes_insumo:
+        saldo = (
+            _q(lote.cantidad_recibida)
+            - _q(consumos.get(lote.id, 0))
+            - _q(bajas_previas.get(lote.id, 0))
+        )
+        if saldo <= 0:
+            continue
+        if lote.activo:
+            if not bernoulli(0.08):
+                continue
+            cantidad = _q(saldo * Decimal(random.choice(["0.05", "0.1", "0.2"])))
+            if cantidad <= 0:
+                continue
+            motivo = random.choice(MOTIVOS_BAJA_INSUMO)
+            registrado_en = _momento(dia_con_ritmo(180, 1), 8, 17)
+            cuenta["parciales"] += 1
+        else:
+            if lote.id in bajas_previas:
+                continue
+            cantidad = saldo
+            motivo = (
+                lote.motivo_baja
+                if lote.motivo_baja in MOTIVOS_BAJA_INSUMO
+                else random.choice(MOTIVOS_BAJA_INSUMO)
+            )
+            lote.motivo_baja = motivo
+            registrado_en = lote.fecha_baja or _momento(30, 8, 17)
+            cuenta["totales"] += 1
+
+        db.add(
+            BajaLoteInsumo(
+                lote_insumo_id=lote.id,
+                motivo=motivo,
+                observaciones=random.choice(OBSERVACIONES_BAJA_INSUMO)
+                if bernoulli(0.5)
+                else None,
+                cantidad=cantidad,
+                registrado_por_id=random.choice(admins).id,
+                registrado_en=registrado_en,
+            )
+        )
+        cuenta["cantidad"] += cantidad
+
+    db.flush()
     return cuenta
 
 
@@ -2987,7 +3121,7 @@ def simular_actividad_trazabilidad(db, admins: list, productos: list, lotes_insu
     for lote in random.sample(disponibles, min(2, len(disponibles))):
         db.refresh(lote)
         lote.activo = False
-        lote.motivo_baja = random.choice(MOTIVOS_BAJA_LOTE_INSUMO)
+        lote.motivo_baja = random.choice(MOTIVOS_BAJA_INSUMO)
         lote.fecha_baja = datetime.now().replace(microsecond=0)
         commit("bajas")
     return cuenta
@@ -3461,6 +3595,7 @@ def crear_rotulado(db, cantidad: int) -> dict:
 
         usuario = random.choice(admins)
         db.info["usuario_id"] = usuario.id
+        _preparar_declaraciones_rotulado(db, producto, version)
         borrador_id = rotulado_services.crear_borrador(
             db, producto_id,
             BorradorRotuladoCreate(
@@ -3487,14 +3622,152 @@ def crear_rotulado(db, cantidad: int) -> dict:
         # en el cuerpo, y un `estado=None` explícito pisaría el estado.
         if completo:
             cambios["fecha_duracion"] = vencimiento_lote or HOY + timedelta(days=180)
-            cambios["estado"] = ESTADO_COMPLETADO
         rotulado_services.actualizar_borrador(
             db, borrador_id, BorradorRotuladoUpdate(**cambios), usuario
         )
         if completo:
-            cuenta["completados"] += 1
+            # Desde HU106 no se puede completar sin confirmar las declaraciones.
+            revision = rotulado_declaraciones.consultar(db, borrador_id)["revision"]
+            try:
+                rotulado_declaraciones.confirmar(
+                    db, borrador_id, RevisionEsperada(revision=revision), usuario
+                )
+            except HTTPException:
+                pass
+            else:
+                rotulado_services.actualizar_borrador(
+                    db, borrador_id, BorradorRotuladoUpdate(estado=ESTADO_COMPLETADO), usuario
+                )
+                cuenta["completados"] += 1
 
     db.info.pop("usuario_id", None)
+    return cuenta
+
+
+def _fechar_evaluaciones_rotulado(db, producto_id: int) -> None:
+    """Reparte las evaluaciones viejas en el último año y deja la más nueva."""
+    filas = list(
+        db.scalars(
+            select(EvaluacionRotulado)
+            .where(EvaluacionRotulado.producto_id == producto_id)
+            .order_by(EvaluacionRotulado.id)
+        ).all()
+    )
+    if len(filas) <= 1:
+        return
+    dias = sorted(random.sample(range(1, 360), len(filas) - 1))
+    for fila, dias_atras in zip(filas[:-1], dias):
+        fecha = _momento(dias_atras, 8, 17)
+        fila.evaluado_en = fecha
+        instantanea = dict(fila.instantanea)
+        instantanea["evaluado_en"] = fecha.isoformat()
+        fila.instantanea = instantanea
+    db.commit()
+
+
+def crear_rotulado_frontal(db, cantidad: int) -> dict:
+    """Configuración por producto e historial de evaluaciones de octógonos.
+
+    Cubre los estados de la pantalla: aplica, corregido a mano, canal no
+    minorista, sin envasado, categoría exceptuada, sin definir y módulo
+    inactivo. Usa los services para que el snapshot quede igual que en la app.
+    """
+    cuenta = {
+        "configurados": 0,
+        "evaluaciones": 0,
+        "omitidos": 0,
+        "estados": set(),
+    }
+    admins = [
+        p for p in db.scalars(select(Personal).where(Personal.activo.is_(True))).all()
+        if p.puede_administrar
+    ]
+    productos = list(db.scalars(select(Producto).where(Producto.activo.is_(True))).all())
+    if not (admins and productos):
+        return cuenta
+    print("⏳ Generando configuración y evaluaciones de rotulado frontal...")
+
+    escenarios = [
+        {"nombre": "aplica", "canal": rotulado_frontal_constants.CANAL_MINORISTA, "envasado": True},
+        {
+            "nombre": "corregido",
+            "canal": rotulado_frontal_constants.CANAL_MINORISTA,
+            "envasado": True,
+            "marcas": {
+                "azucares_agregados": True,
+                "grasas_agregadas": False,
+                "sodio_agregado": True,
+            },
+        },
+        {
+            "nombre": "industrial",
+            "canal": rotulado_frontal_constants.CANAL_MAYORISTA_INDUSTRIAL,
+            "envasado": True,
+        },
+        {
+            "nombre": "mayorista",
+            "canal": rotulado_frontal_constants.CANAL_MAYORISTA,
+            "envasado": True,
+        },
+        {
+            "nombre": "no_envasado",
+            "canal": rotulado_frontal_constants.CANAL_MINORISTA,
+            "envasado": False,
+        },
+        {
+            "nombre": "exceptuado",
+            "canal": rotulado_frontal_constants.CANAL_MINORISTA,
+            "envasado": True,
+            "categoria": "azucar_comun",
+        },
+        {"nombre": "sin_definir"},
+    ]
+    elegidos = random.sample(
+        productos, min(len(productos), max(len(escenarios), cantidad // 2))
+    )
+
+    for indice, producto in enumerate(elegidos):
+        escenario = escenarios[indice % len(escenarios)]
+        try:
+            if escenario["nombre"] != "sin_definir":
+                datos = {
+                    "envasado_sin_cliente": escenario["envasado"],
+                    "canal_comercializacion": escenario["canal"],
+                }
+                datos.update(escenario.get("marcas", {}))
+                if escenario.get("categoria"):
+                    datos["categoria_rotulado"] = escenario["categoria"]
+                respuesta = rotulado_frontal_services.guardar_configuracion(
+                    db, producto.id, ConfiguracionRotuladoIn(**datos)
+                )
+                cuenta["configurados"] += 1
+                cuenta["evaluaciones"] += 1
+                cuenta["estados"].add(respuesta.estado)
+            for _ in range(random.randint(1, 2)):
+                respuesta = rotulado_frontal_services.evaluar(db, producto.id)
+                cuenta["evaluaciones"] += 1
+                cuenta["estados"].add(respuesta.estado)
+            _fechar_evaluaciones_rotulado(db, producto.id)
+        except Exception:
+            db.rollback()
+            cuenta["omitidos"] += 1
+
+    objetivo = elegidos[0]
+    try:
+        rotulado_frontal_services.actualizar_modulo(db, False)
+        respuesta = rotulado_frontal_services.evaluar(db, objetivo.id)
+        cuenta["evaluaciones"] += 1
+        cuenta["estados"].add(respuesta.estado)
+        _fechar_evaluaciones_rotulado(db, objetivo.id)
+    except Exception:
+        db.rollback()
+        cuenta["omitidos"] += 1
+    finally:
+        try:
+            rotulado_frontal_services.actualizar_modulo(db, True)
+        except Exception:
+            db.rollback()
+
     return cuenta
 
 
@@ -4258,12 +4531,15 @@ def main(preparar_esquema: bool = True) -> int:
             ).items():
                 actividad[clave] += n
 
+        bajas_insumo = crear_bajas_lote_insumo(db, lotes_insumo, admins)
+
         # Circuito comercial y rotulado: van después de la actividad simulada
         # (que reclasifica y borra incidentes al azar) porque sus incidentes
         # automáticos no se pueden editar. Cada service hace su propio commit.
         db.info.pop("usuario_id", None)
         comercial = crear_circuito_comercial(db, fake, args.cantidad)
         rotulado = crear_rotulado(db, args.cantidad)
+        rotulado_frontal = crear_rotulado_frontal(db, args.cantidad)
 
         # Sesiones de ejemplo, después de la actividad (que puede borrar personas).
         sesiones = crear_sesiones_auth(db, list(db.scalars(select(Personal)).all()))
@@ -4299,6 +4575,10 @@ def main(preparar_esquema: bool = True) -> int:
             f"Lotes de producción: {produccion['lotes']} · Ítems de checklist: {produccion['items']}"
         )
         print(
+            f"   Bajas de lotes de insumo: {bajas_insumo['totales']} totales · "
+            f"{bajas_insumo['parciales']} parciales"
+        )
+        print(
             f"   Consumos reales: {produccion['consumos']} · Desperdicios: {produccion['desperdicios']}"
         )
         print(
@@ -4330,6 +4610,11 @@ def main(preparar_esquema: bool = True) -> int:
             f"   Reclamos: {comercial['reclamos']} · Retiros de lote: {comercial['retiros']} "
             f"({comercial['retiros_cerrados']} cerrados, {comercial['notificados']} afectados notificados) · "
             f"Borradores de rotulado: {rotulado['borradores']} ({rotulado['completados']} completados)"
+        )
+        print(
+            f"   Rotulado frontal: {rotulado_frontal['configurados']} productos configurados · "
+            f"{rotulado_frontal['evaluaciones']} evaluaciones · estados: "
+            f"{', '.join(sorted(rotulado_frontal['estados'])) or 'sin evaluaciones'}"
         )
         print(
             f"   Vista pública: {indicadores_vp} indicadores · Notificaciones: {notificaciones}"

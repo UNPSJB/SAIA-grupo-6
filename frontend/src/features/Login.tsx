@@ -3,8 +3,13 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { login, register, getBootstrapStatus } from '../common/api/authService';
 import { useAuth } from '../common/context/useAuth';
 import { DialogForm } from '../common/components/DialogForm';
+import { LogoSaia } from '../common/components/LogoSaia';
 import { Box, Button, Checkbox, Flex, Heading, Input, Text, Link } from '@chakra-ui/react';
 import { LuTriangleAlert } from 'react-icons/lu';
+import { brand } from '../theme';
+import './Login.css';
+
+const DEGRADADO_CABECERA_LOGIN = `radial-gradient(ellipse at 100% 0%, rgba(255, 255, 255, 0.24), transparent 50%), linear-gradient(115deg, ${brand[700]} 0%, ${brand[500]} 55%, ${brand[400]} 100%)`;
 
 export const Login = () => {
     const navigate = useNavigate();
@@ -123,31 +128,99 @@ export const Login = () => {
 
     return (
         <Flex
-            minH="100vh"
-            bg="brand.500"
+            className="saia-login"
+            minH="100dvh"
+            position="relative"
+            overflow="hidden"
             align="center"
             justify="center"
             p="5"
         >
+            <Box className="saia-login__aura saia-login__aura--uno" aria-hidden />
+            <Box className="saia-login__aura saia-login__aura--dos" aria-hidden />
+            <Box className="saia-login__orbits" aria-hidden>
+                <Box className="saia-login__orbit saia-login__orbit--uno" />
+                <Box className="saia-login__orbit saia-login__orbit--dos" />
+            </Box>
+            <Box className="saia-login__line saia-login__line--uno" aria-hidden />
+            <Box className="saia-login__line saia-login__line--dos" aria-hidden />
             <Box
+                className="saia-login__card"
                 bg="bg.panel"
-                p="10"
-                rounded="lg"
-                boxShadow="card"
+                rounded="2xl"
+                overflow="hidden"
+                boxShadow="0 30px 70px rgba(0, 0, 0, 0.35)"
+                borderWidth="1px"
+                borderColor="whiteAlpha.300"
                 w="100%"
-                maxW="500px"
+                maxW="560px"
             >
-                <Heading
-                    as="h2"
-                    size="xl"
-                    color="brand.500"
-                    textAlign="center"
-                    mt={0}
-                    mb="6"
+                <Box
+                    className="saia-login__header"
+                    position="relative"
+                    overflow="hidden"
+                    px={{ base: '6', md: '8' }}
+                    pt={{ base: '7', md: '8' }}
+                    pb={{ base: '6', md: '7' }}
+                    color="white"
+                    backgroundImage={DEGRADADO_CABECERA_LOGIN}
                 >
-                    {isLoginView ? 'Iniciar Sesión en SAIA' : 'Registrar Nuevo Usuario'}
-                </Heading>
+                    <Box className="saia-login__header-glow" aria-hidden />
+                    <Flex align="center" gap="3" mb="5">
+                        <Flex
+                            boxSize="11"
+                            rounded="xl"
+                            align="center"
+                            justify="center"
+                            bg="whiteAlpha.200"
+                            borderWidth="1px"
+                            borderColor="whiteAlpha.300"
+                            backdropFilter="blur(6px)"
+                            flexShrink={0}
+                        >
+                            <LogoSaia size={24} soloIcono />
+                        </Flex>
+                        <Box>
+                            <Text
+                                fontSize="2xl"
+                                fontWeight="extrabold"
+                                letterSpacing="0.2em"
+                                lineHeight="1"
+                            >
+                                SAIA
+                            </Text>
+                            <Text
+                                fontSize="xs"
+                                letterSpacing="0.14em"
+                                textTransform="uppercase"
+                                color="whiteAlpha.800"
+                                mt="1"
+                            >
+                                Inocuidad alimentaria
+                            </Text>
+                        </Box>
+                    </Flex>
+                    <Heading
+                        as="h2"
+                        fontSize="xl"
+                        fontWeight="bold"
+                        color="white"
+                        lineHeight="1.2"
+                    >
+                        {isLoginView ? 'Bienvenido de nuevo' : 'Creá tu cuenta'}
+                    </Heading>
+                    <Text fontSize="sm" color="whiteAlpha.800" mt="1">
+                        {isLoginView
+                            ? 'Ingresá con tu DNI y contraseña para continuar.'
+                            : 'Completá tus datos para empezar a usar SAIA.'}
+                    </Text>
+                </Box>
 
+                <Box
+                    className="saia-login__form"
+                    px={{ base: '6', md: '8' }}
+                    py={{ base: '6', md: '7' }}
+                >
                 {error && (
                     <Box
                         bg="red.muted"
@@ -332,20 +405,30 @@ export const Login = () => {
                     </Box>
                 </DialogForm>
 
-                <Box mt="5" textAlign="center">
-                    <Link
-                        href="#"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setIsLoginView(!isLoginView);
-                            setError('');
-                        }}
-                        color="brand.500"
-                        fontWeight="bold"
-                        cursor="pointer"
+                    <Box
+                        mt="5"
+                        pt="5"
+                        borderTopWidth="1px"
+                        borderColor="border"
+                        textAlign="center"
                     >
-                        {isLoginView ? '¿No tenés usuario? Registrate acá' : 'Volver a Iniciar Sesión'}
-                    </Link>
+                        <Text as="span" fontSize="sm" color="fg.muted">
+                            {isLoginView ? '¿No tenés usuario?' : '¿Ya tenés una cuenta?'}
+                        </Text>{' '}
+                        <Link
+                            href="#"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setIsLoginView(!isLoginView);
+                                setError('');
+                            }}
+                            color="brand.500"
+                            fontWeight="bold"
+                            cursor="pointer"
+                        >
+                            {isLoginView ? 'Registrate acá' : 'Iniciá sesión'}
+                        </Link>
+                    </Box>
                 </Box>
             </Box>
         </Flex>

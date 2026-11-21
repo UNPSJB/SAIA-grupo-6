@@ -208,13 +208,14 @@ FORMULAS_NUTRICIONALES_INICIALES = (
     },
 )
 
-# Definición estructural de cada sello. Los valores numéricos (umbrales y
-# factores) NO viven acá: se leen de `umbrales_sellos` y
-# `formulas_nutricionales` de la versión vigente. Esta lista solo dice qué
-# nutriente compara cada sello y con qué tipo de cálculo.
+# Definición estructural inicial de cada sello. Los valores numéricos (umbrales
+# y factores) NO viven acá: se leen de `umbrales_sellos` y
+# `formulas_nutricionales` de la versión vigente. En tiempo de ejecución la
+# lista de sellos también se lee de la versión de la regla, no de esta
+# constante: acá solo queda la carga inicial.
 TIPOS_CALCULO_SELLO = ("proporcion_energia", "mg_por_kcal", "valor_absoluto")
 
-SELLOS = (
+SELLOS_INICIALES = (
     {
         "clave": "azucares",
         "etiqueta": "Exceso en azúcares",
