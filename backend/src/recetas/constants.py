@@ -50,6 +50,16 @@ class ErrorCode:
     SIN_VERSION = "La receta todavía no tiene versiones."
     VIDA_UTIL_INVALIDA = "La vida útil debe ser mayor a cero días."
 
+    DESCRIPCION_VACIA = "La descripción de la tarea no puede estar vacía."
+    VERSION_INMUTABLE = "Las versiones de receta son de solo lectura."
+    ORDEN_EMPATE_INVALIDO = (
+        "Solo se puede decidir el orden entre insumos que pesan lo mismo: "
+        "indicá todos los de un grupo, sin repetir.")
+    ORDEN_EMPATE_SIN_COMPOSICION = (
+        "No se puede decidir el orden: faltan datos para calcular la composición de la versión.")
+    SIN_INGREDIENTES = (
+         "La receta necesita al menos un ingrediente: no puede tener solo aditivos.")
+
 
 class MotivoFaltante:
     """Por qué un insumo no se pudo convertir a gramos en la composición (E10)."""

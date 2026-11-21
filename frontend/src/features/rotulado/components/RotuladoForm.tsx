@@ -20,6 +20,8 @@ import { IndicadorCompletitud } from "./IndicadorCompletitud";
 import { CampoOrigen } from "./CampoOrigen";
 import { ResumenNutricional } from "./ResumenNutricional";
 import type { BorradorRotuladoOut } from "../types/rotulado";
+import { OrdenListaIngredientes } from "../../recetas/components/OrdenListaIngredientes";
+import { previewAutocompletado } from "../services/rotuladoService";
 
 interface RotuladoFormProps {
   borrador: BorradorRotuladoOut | null;
@@ -141,6 +143,15 @@ export function RotuladoForm({
     if (formularioSucio || declaracionesSucias) return;
     await onAutocompletar(null, loteSeleccionado, forzar);
   };
+  
+    const regenerarLista = async () => {
+    if (!borrador) return;
+    const vista = await previewAutocompletado(borrador.producto_id, borrador.version_receta_id);
+    if (vista.lista_ingredientes) {
+      setValues((prev) => ({ ...prev, lista_ingredientes: vista.lista_ingredientes }));
+    }
+  };
+
 
   const handleCambioEsImportado = (e: ChangeEvent<HTMLInputElement>) => {
     setValues((prev) => ({
@@ -192,20 +203,40 @@ export function RotuladoForm({
           </FormField>
         </Seccion>
 
-        {/* Sección 2: Ingredientes */}
+       {/* Sección 2: Ingredientes */}
         <Seccion titulo="Lista de ingredientes (Capítulo V CAA)">
-          <FormField label="Ingredientes y aditivos" required mb="4">
+          <FormField
+            label="Ingredientes y aditivos"
+            required
+            mb="4"
+            helper="Se arma sola con la receta. Lo único que se decide a mano es el orden entre insumos que pesan lo mismo."
+          >
             <Textarea
               value={values.lista_ingredientes ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, lista_ingredientes: e.target.value }))
-              }
-              placeholder="Ingredientes y aditivos"
+              readOnly
+              placeholder="Se completa sola cuando el producto tiene receta"
               maxW="500px"
               minH="100px"
+              bg="bg.subtle"
+              cursor="default"
             />
             <CampoOrigen origen="receta" version={borrador?.version_receta_numero} />
           </FormField>
+          <Button
+            size="xs"
+            variant="outline"
+            alignSelf="flex-start"
+            disabled={isLoading || !borrador}
+            onClick={() => {
+              void regenerarLista();
+            }}
+          >
+            Volver a armar la lista con la receta
+          </Button>
+          <OrdenListaIngredientes
+            versionId={borrador?.version_receta_id ?? null}
+            onOrdenCambiado={regenerarLista}
+          />
         </Seccion>
 
         {/* Sección 3: Contenido neto */}

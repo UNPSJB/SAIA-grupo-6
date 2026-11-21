@@ -80,3 +80,13 @@ def ver_composicion(
 ):
     
     return composicion_services.calcular_composicion(db, version_id)
+
+
+@router.put("/versiones/{version_id}/orden-empate", response_model=schemas.Composicion)
+def decidir_orden_empate(
+    version_id: int,
+    datos: schemas.OrdenEmpateIn,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    return composicion_services.decidir_orden_empate(db, version_id, datos.insumo_ids, usuario)

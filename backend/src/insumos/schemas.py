@@ -81,6 +81,7 @@ class Insumo(InsumoBase):
             nombre=valor.nombre,
             numero_ins=valor.numero_ins,
             clase_funcional=valor.clase_funcional.nombre,
+            ins_opcional=valor.clase_funcional.ins_opcional,
         )
 
 

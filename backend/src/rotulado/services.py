@@ -75,27 +75,35 @@ def _texto_si_cambio(valor_actual: Optional[str], valor_nuevo: Optional[str]) ->
     return valor_actual != valor_nuevo
 
 
-def _formatear_ingredientes(composicion) -> str:
+def _declarar_aditivo(aditivo) -> str:
+    """Cómo se declara un aditivo en el rótulo: su clase funcional y su nombre o INS.
+
+    Los aromatizantes (clase con `ins_opcional`) sin INS se declaran solo por
+    su función.
+    """
+    clase = aditivo.clase_funcional
+    if aditivo.numero_ins is None:
+        if aditivo.ins_opcional:
+            return clase
+        return f"{clase}: {aditivo.nombre}"
+    return f"{clase}: {aditivo.nombre} (INS {aditivo.numero_ins})"
+
+def _formatear_ingredientes(composicion) -> Optional[str]:
     """Construye la lista de ingredientes a partir del resultado de E10.
 
-    Ingredientes y aditivos se declaran separados, con nombre, cantidad y
-    porcentaje cuando están disponibles. El orden es el que devuelve
-    `calcular_composicion` (orden de la versión de receta).
+    Primero los ingredientes, de mayor a menor masa, y a continuación los
+    aditivos agrupados por función. No lleva porcentajes: el orden ya lo
+    refleja y en el rótulo no se declaran. `calcular_composicion` entrega los
+    items ya ordenados. Devuelve `None` si no hay nada que declarar.
     """
-    lineas: list[str] = []
-    if composicion.ingredientes:
-        for item in composicion.ingredientes:
-            linea = item.insumo.nombre
-            if item.porcentaje is not None:
-                linea += f" ({item.porcentaje} %)"
-            lineas.append(linea)
-    if composicion.aditivos:
-        for item in composicion.aditivos:
-            linea = item.insumo.nombre
-            if item.porcentaje is not None:
-                linea += f" ({item.porcentaje} %)"
-            lineas.append(linea)
-    return "; ".join(lineas) if lineas else None
+    partes = [item.insumo.nombre for item in composicion.ingredientes]
+    for item in composicion.aditivos:
+        if item.aditivo is None:
+            partes.append(item.insumo.nombre)
+        else:
+            partes.append(_declarar_aditivo(item.aditivo))
+    return "; ".join(partes) if partes else None
+
 
 
 def _serializar_nutricion(info_nutricional) -> Optional[str]:

@@ -138,6 +138,35 @@ class RecetaInsumo(ModeloBase):
     unidad_medida: Mapped["UnidadMedida"] = relationship()
 
 
+class OrdenManualInsumo(ModeloBase):
+    """Decisión de quién va primero entre insumos de una versión que pesan lo mismo.
+
+    Las versiones son de solo lectura, así que la decisión vive en su propia tabla:
+    no toca la receta, solo fija el orden de la lista de ingredientes y deja
+    constancia de quién la tomó y cuándo.
+    """
+
+    __tablename__ = "receta_orden_manual"
+    __table_args__ = (
+        UniqueConstraint(
+            "version_receta_id", "insumo_id", name="uq_receta_orden_manual_version_insumo"
+        ),
+        CheckConstraint("posicion > 0", name="ck_receta_orden_manual_posicion_positiva"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    version_receta_id: Mapped[int] = mapped_column(
+        ForeignKey("versiones_receta.id", ondelete="RESTRICT"), index=True
+    )
+    insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"), index=True)
+    # Lugar dentro del grupo empatado: 1 va primero.
+    posicion: Mapped[int] = mapped_column(Integer)
+    decidido_por_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))
+    decidido_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
+
+    decidido_por: Mapped["Personal"] = relationship()
+
+
 class TareaRecetaInsumo(ModeloBase):
     """Reparto explícito: cuánto de cada insumo se usa en cada tarea."""
 

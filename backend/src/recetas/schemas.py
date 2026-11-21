@@ -187,7 +187,10 @@ class ComposicionItem(BaseModel):
     cantidad: Decimal
     gramos: Decimal
     porcentaje: Decimal
-
+    aditivo: AditivoResumen | None = None
+    grupo_empate: int | None = None
+    orden_decidido_por: str | None = None
+    orden_decidido_en: datetime | None = None
 
 class ComposicionFaltante(BaseModel):
     """Insumo al que le falta una equivalencia: por eso no se puede calcular."""
@@ -209,3 +212,11 @@ class Composicion(BaseModel):
     suma_porcentajes: Decimal | None = None
     suma_correcta: bool | None = None
     faltantes: list[ComposicionFaltante] = Field(default_factory=list)
+
+
+
+
+class OrdenEmpateIn(BaseModel):
+    """Orden elegido para un grupo de insumos que pesan lo mismo, del primero al último."""
+
+    insumo_ids: list[int] = Field(min_length=2)

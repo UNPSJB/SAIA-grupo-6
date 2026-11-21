@@ -174,6 +174,10 @@ export interface ComposicionItem {
   cantidad: string;
   gramos: string;
   porcentaje: string;
+  aditivo: AditivoResumen | null;
+  grupo_empate: number | null;
+  orden_decidido_por: string | null;
+  orden_decidido_en: string | null;
 }
 
 export interface ComposicionFaltante {
