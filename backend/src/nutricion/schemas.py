@@ -199,6 +199,18 @@ class ConfiguracionProducto(ConfiguracionProductoIn):
     configurada: bool
 
 
+class FuenteCalculo(BaseModel):
+    insumo: str
+    nutriente: str
+    valor_por_100_g: Decimal
+    gramos: Decimal
+    aporte: Decimal
+    fuente: str
+    referencia: str | None
+    valor_fuente: Decimal
+    nutriente_fuente: str
+
+
 class IngredienteCalculo(BaseModel):
     insumo_id: int
     nombre: str

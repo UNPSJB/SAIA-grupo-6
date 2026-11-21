@@ -30,6 +30,7 @@ const COLOR_ACCION: Record<AccionAuditoria, string> = {
   BAJA: 'orange',
   REACTIVAR: 'teal',
   ELIMINAR: 'red',
+  EXPORTAR: 'blue',
 };
 
 const ETIQUETA_ACCION: Record<AccionAuditoria, string> = {
@@ -38,6 +39,7 @@ const ETIQUETA_ACCION: Record<AccionAuditoria, string> = {
   BAJA: 'Baja',
   REACTIVAR: 'Reactivación',
   ELIMINAR: 'Eliminación',
+  EXPORTAR: 'Exportación',
 };
 
 type ItemAuditoria = ReturnType<typeof useAuditoria>['items'][number];
@@ -210,6 +212,8 @@ function resumenCambios(
       const id = etiqueta ?? identificador(cambios, 1) ?? nombresRelacionados(cambios, 1);
       return `Alta${id ? ` de ${id}` : ''} · ${plural(campos.length, 'campo', 'campos')}`;
     }
+    case 'EXPORTAR':
+      return 'Exportación de borrador de rótulo en PDF';
     case 'ELIMINAR': {
       const id = etiqueta ?? identificador(cambios, 0) ?? nombresRelacionados(cambios, 0);
       return `Eliminación${id ? ` de ${id}` : ''} · ${plural(campos.length, 'campo', 'campos')}`;
@@ -707,6 +711,7 @@ export function AuditoriaPage() {
                   <option value="BAJA">Baja</option>
                   <option value="REACTIVAR">Reactivación</option>
                   <option value="ELIMINAR">Eliminación</option>
+                  <option value="EXPORTAR">Exportación</option>
                 </FormNativeSelect>
               </FormField>
             </Box>

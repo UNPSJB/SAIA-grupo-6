@@ -22,8 +22,12 @@ function json(method: string, datos: unknown): RequestInit {
 export async function evaluarRotulado(
   productoId: number,
   versionId?: number,
+  soloLectura = false,
 ): Promise<EvaluacionRotulado> {
-  const query = versionId ? `?version_id=${versionId}` : "";
+  const params = new URLSearchParams();
+  if (versionId) params.set("version_id", String(versionId));
+  if (soloLectura) params.set("solo_lectura", "true");
+  const query = params.size ? `?${params}` : "";
   return pedir<EvaluacionRotulado>(
     await apiFetch(`${BASE}/productos/${productoId}${query}`),
     "No se pudo evaluar el rotulado frontal",

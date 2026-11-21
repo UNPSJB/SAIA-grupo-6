@@ -154,6 +154,7 @@ export function RotuladoPage() {
           producto={productoSeleccionado}
           onCrearBorrador={crearNuevo}
           onEditarBorrador={abrirEdicion}
+          onPrevisualizar={(id) => navigate(`/rotulado/borradores/${id}/previsualizar`)}
         />
       ) : (
         <VistaListadoProductos
@@ -324,10 +325,12 @@ function VistaProductoSeleccionado({
   producto,
   onCrearBorrador,
   onEditarBorrador,
+  onPrevisualizar,
 }: {
   producto: ProductoConBorradores;
   onCrearBorrador: (productoId: number) => void;
   onEditarBorrador: (borradorId: number) => void;
+  onPrevisualizar: (borradorId: number) => void;
 }) {
   return (
     <>
@@ -382,6 +385,7 @@ function VistaProductoSeleccionado({
                     {b.actualizado_en ? formatoFechaHora(b.actualizado_en) : "-"}
                   </Celda>
                   <Celda center>
+                    <BotonFila onClick={() => onPrevisualizar(b.id)}>Previsualizar</BotonFila>
                     <BotonFila onClick={() => onEditarBorrador(b.id)}>
                       <LuPencil aria-hidden />
                       Editar

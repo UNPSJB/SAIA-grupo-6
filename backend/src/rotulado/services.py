@@ -1,13 +1,14 @@
 import logging
-from fastapi import HTTPException
-
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.fechas import ahora
+from src.lotes.models import LoteProducto
 from src.lotes.services import obtener_lote as obtener_lote_service
 from src.nutricion.services import calcular_info_nutricional as calcular_nutricion_service
 from src.productos.models import Producto
@@ -36,6 +37,8 @@ from src.rotulado.constants import (
     TIPO_AUTOCOMPLETADO,
     TIPO_EDICION_MANUAL,
 )
+from src.rotulado_frontal import exceptions as frontal_exceptions
+from src.rotulado_frontal import services as frontal
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado
 
 
@@ -466,7 +469,10 @@ def autocompletar_borrador(
 
 def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRotulado:
     borrador = obtener_borrador(db, borrador_id)
+    return _completitud(borrador, declaraciones.consultar(db, borrador_id))
 
+
+def _completitud(borrador: BorradorRotulado, evaluacion: dict) -> schemas.CompletitudRotulado:
     campos: list[schemas.CampoCompletitud] = []
     estado_global = CAMPO_COMPLETO
 
@@ -595,18 +601,6 @@ def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRo
         aplicable=importador_aplicable,
     )
 
-    # Sellos de advertencia: informativo, no bloqueante
-    if not borrador.sellos_disponibles:
-        campos.append(
-            schemas.CampoCompletitud(
-                nombre="sellos_advertencia",
-                etiqueta="Sellos de advertencia",
-                estado=CAMPO_NO_APLICABLE,
-                motivo="Módulo E12 no disponible o sin datos para este producto",
-            )
-        )
-
-    evaluacion = declaraciones.consultar(db, borrador_id)
     pendiente = evaluacion["estado"] != "confirmada" or bool(evaluacion["pendientes"])
     campos.append(schemas.CampoCompletitud(
         nombre="declaraciones", etiqueta="Alérgenos, gluten y conservación",
@@ -619,6 +613,163 @@ def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRo
         borrador_id=borrador.id,
         estado_global=estado_global,
         campos=campos,
+    )
+
+
+def _origen_previsualizacion(
+    db: Session, borrador: BorradorRotulado
+) -> schemas.OrigenPrevisualizacion:
+    lote_id = borrador.lote_producto_id
+    lote = db.get(LoteProducto, lote_id) if lote_id is not None else None
+    version_id = borrador.version_receta_id
+    if lote_id is not None and (
+        lote is None or lote.producto_id != borrador.producto_id
+        or (version_id is not None and lote.version_receta_id not in (None, version_id))
+    ):
+        return schemas.OrigenPrevisualizacion(
+            estado="incompatible", lote_id=lote_id, motivo="El lote y la receta no son compatibles."
+        )
+    version_id = version_id or (lote.version_receta_id if lote else None)
+    if version_id is None:
+        return schemas.OrigenPrevisualizacion(
+            estado="sin_version", lote_id=lote_id, motivo="No hay una versión de receta verificable."
+        )
+    version = db.get(VersionReceta, version_id)
+    if version is None or version.receta.producto_id != borrador.producto_id:
+        return schemas.OrigenPrevisualizacion(
+            estado="incompatible", lote_id=lote_id, motivo="La versión no pertenece al producto."
+        )
+    return schemas.OrigenPrevisualizacion(
+        estado="verificado", lote_id=lote_id, version_id=version.id, version_numero=version.numero,
+        motivo="El lote histórico no tiene versión propia." if lote and lote.version_receta_id is None else None,
+    )
+
+
+def recalcular_nutricion_borrador(
+    db: Session, borrador_id: int, usuario: object | None = None,
+) -> BorradorRotulado:
+    declaraciones._reservar_escritura(db)
+    borrador = obtener_borrador(db, borrador_id)
+    origen = _origen_previsualizacion(db, borrador)
+    if origen.version_id is None:
+        raise exceptions.NutricionBorradorNoDisponible(origen.motivo)
+
+    try:
+        info = calcular_nutricion_service(
+            db, borrador.producto_id, origen.version_id, inicializar_parametros=False,
+        )
+        valor = _serializar_nutricion(info)
+        revision = _nutricion_previsualizacion(valor, origen.version_id)
+    except Exception as error:
+        logging.getLogger(__name__).exception("No se pudo recalcular la nutrición del borrador")
+        raise exceptions.NutricionBorradorNoDisponible() from error
+    if revision.tabla is None or not revision.tabla.filas:
+        motivo = next(iter(revision.problemas), None)
+        raise exceptions.NutricionBorradorNoDisponible(motivo)
+
+    anterior = borrador.datos_nutricionales_json
+    if anterior != valor:
+        usuario_id = getattr(usuario, "id", None)
+        _registrar_edicion(
+            db, borrador, "datos_nutricionales_json", anterior, valor,
+            ORIGEN_NUTRICION, TIPO_AUTOCOMPLETADO, usuario_id,
+        )
+        borrador.datos_nutricionales_json = valor
+        borrador.actualizado_en = ahora()
+        borrador.actualizado_por_id = usuario_id
+        db.commit()
+        db.refresh(borrador)
+    return borrador
+
+
+def _nutricion_previsualizacion(
+    valor: str | None, version_id: int | None
+) -> schemas.NutricionPrevisualizacion:
+    if not valor or not valor.strip():
+        return schemas.NutricionPrevisualizacion(
+            estado="ausente", problemas=["No hay tabla nutricional guardada."]
+        )
+    try:
+        tabla = schemas.InstantaneaNutricional.model_validate_json(valor)
+    except ValidationError:
+        return schemas.NutricionPrevisualizacion(
+            estado="ilegible", problemas=["La tabla guardada no se pudo leer."]
+        )
+    if version_id is None:
+        problema = "No hay una versión de receta verificable para el borrador."
+        estado = "origen_no_verificable"
+    elif tabla.version_id is None:
+        problema = "La tabla guardada no registra su versión de receta."
+        estado = "origen_no_verificable"
+    elif tabla.version_id != version_id:
+        problema = f"La tabla guardada pertenece a la versión de receta (ID {tabla.version_id}); el borrador usa ID {version_id}."
+        estado = "version_distinta"
+    else:
+        problema = None
+    if problema:
+        return schemas.NutricionPrevisualizacion(
+            estado=estado, version_id=tabla.version_id, problemas=[problema],
+        )
+    completa = (
+        tabla.estado == "completa" and bool(tabla.filas) and not tabla.problemas
+        and not any(fila.faltan_datos for fila in tabla.filas)
+    )
+    return schemas.NutricionPrevisualizacion(
+        estado="completa" if completa else "incompleta",
+        version_id=version_id, tabla=tabla, problemas=tabla.problemas,
+    )
+
+
+def _frontal_previsualizacion(
+    db: Session, producto_id: int, origen: schemas.OrigenPrevisualizacion,
+    nutricion: schemas.NutricionPrevisualizacion,
+) -> schemas.FrontalPrevisualizacion:
+    if not frontal.modulo_activo_solo_lectura(db):
+        return schemas.FrontalPrevisualizacion(
+            estado="modulo_inactivo", mensaje="El módulo de octógonos está desactivado."
+        )
+    if origen.version_id is None:
+        return schemas.FrontalPrevisualizacion(
+            estado="no_disponible", mensaje=origen.motivo or "Evaluación frontal no disponible."
+        )
+    try:
+        resultado, info = frontal.evaluar_solo_lectura(db, producto_id, origen.version_id)
+    except (frontal_exceptions.SinReglaVigente, frontal_exceptions.VersionNoEncontrada) as error:
+        return schemas.FrontalPrevisualizacion(estado="no_disponible", mensaje=error.detail)
+    if info is not None and nutricion.tabla is not None:
+        actual = schemas.InstantaneaNutricional.model_validate_json(_serializar_nutricion(info))
+        nutricion.difiere_de_e12 = (
+            actual.model_dump(exclude={"calculado_en"})
+            != nutricion.tabla.model_dump(exclude={"calculado_en"})
+        )
+    return schemas.FrontalPrevisualizacion(
+        estado=resultado.estado, mensaje=resultado.mensaje, faltantes=resultado.faltantes,
+        advertencias=resultado.advertencias, version_id=origen.version_id,
+        evaluado_en=resultado.evaluado_en, regla_version=resultado.regla.version,
+        sellos=resultado.sellos,
+    )
+
+
+def previsualizar_borrador(db: Session, borrador_id: int) -> schemas.PrevisualizacionRotulado:
+    borrador = obtener_borrador(db, borrador_id)
+    origen = _origen_previsualizacion(db, borrador)
+    nutricion = _nutricion_previsualizacion(borrador.datos_nutricionales_json, origen.version_id)
+    evaluacion = _frontal_previsualizacion(db, borrador.producto_id, origen, nutricion)
+    revision = declaraciones.consultar(db, borrador_id) if origen.estado == "verificado" and not origen.motivo else None
+    completitud = _completitud(borrador, revision if revision is not None else {
+        "estado": "sugerida", "pendientes": ["No se pudo verificar el origen de las declaraciones."],
+    })
+    for campo in completitud.campos:
+        if campo.nombre == "datos_nutricionales_json":
+            campo.estado = CAMPO_COMPLETO if nutricion.estado == "completa" else CAMPO_PENDIENTE
+            if campo.estado == CAMPO_PENDIENTE:
+                campo.motivo = " ".join(nutricion.problemas) or "Tabla nutricional incompleta."
+    if any(campo.estado in (CAMPO_PENDIENTE, CAMPO_SIN_DATOS_ORIGEN) for campo in completitud.campos):
+        completitud.estado_global = CAMPO_PENDIENTE
+    return schemas.PrevisualizacionRotulado(
+        borrador=schemas.BorradorRotuladoOut.model_validate(borrador), origen=origen,
+        nutricion=nutricion, completitud=completitud, declaraciones=revision,
+        rotulado_frontal=evaluacion,
     )
 
 

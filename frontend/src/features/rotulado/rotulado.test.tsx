@@ -41,9 +41,10 @@ describe("Rotulado", () => {
     const borrador = { ...preview(1), id: 0 } as unknown as BorradorRotuladoOut;
     envolver(<RotuladoForm borrador={borrador} esCreacion onGuardar={guardar} onAutocompletar={vi.fn()} lotes={[]} isLoading={false} hayFaltantes={false} />);
     expect(screen.getAllByDisplayValue("Producto 1").length).toBeGreaterThan(0);
-    expect(screen.getByText("2 completos")).toBeTruthy();
+    expect(screen.getByText(/2 completos ·/)).toBeTruthy();
+    expect(screen.getByText("Consultar Octogonos en la previsualizacion del borrador")).toBeTruthy();
     fireEvent.change(screen.getByPlaceholderText("Ej: 450 g"), { target: { value: "450 g" } });
-    expect(screen.getByText("3 completos")).toBeTruthy();
+    expect(screen.getByText(/3 completos ·/)).toBeTruthy();
   });
   it("ambos botones guardan los valores editados con la misma validaci?n", async () => {
     const guardar = vi.fn().mockResolvedValue(undefined);

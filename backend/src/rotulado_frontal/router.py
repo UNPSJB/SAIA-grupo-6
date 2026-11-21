@@ -22,7 +22,11 @@ def evaluar_producto(
     producto_id: int,
     version_id: Optional[int] = Query(default=None, ge=1),
     db: Session = Depends(get_db),
+    solo_lectura: bool = False,
 ):
+    if solo_lectura:
+        respuesta, _ = services.evaluar_solo_lectura(db, producto_id, version_id)
+        return respuesta
     return services.evaluar(db, producto_id, version_id)
 
 

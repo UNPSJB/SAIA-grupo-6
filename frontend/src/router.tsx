@@ -42,6 +42,9 @@ const MiPerfilPage = lazyPrecargable(() =>
 const RotuladoPage = lazyPrecargable(() =>
   import("./features/rotulado/components/pages/RotuladoPage").then((mod) => ({ default: mod.RotuladoPage })),
 );
+const RotuladoPreviewPage = lazyPrecargable(() =>
+  import("./features/rotulado/components/pages/RotuladoPreviewPage").then((mod) => ({ default: mod.RotuladoPreviewPage })),
+);
 const RotuladoEditPage = lazyPrecargable(() =>
   import("./features/rotulado/components/pages/RotuladoEditPage").then((mod) => ({ default: mod.RotuladoEditPage })),
 );
@@ -1032,6 +1035,10 @@ export const router = createBrowserRouter([
                     <RotuladoEditPage />
                   </ConSuspense>
                 ),
+              },
+              {
+                path: "/rotulado/borradores/:id/previsualizar",
+                element: <ConSuspense><RotuladoPreviewPage /></ConSuspense>,
               },
               {
                 path: "/rotulado/borradores/:id",

@@ -874,6 +874,7 @@ export function LabelFiltro({ children }: { children: ReactNode }) {
 }
 
 interface FormFieldProps {
+  id?: string;
   label: ReactNode;
   required?: boolean;
   invalid?: boolean;
@@ -884,6 +885,7 @@ interface FormFieldProps {
 
 /** Campo con label. El label se asocia al control (accesibilidad). */
 export function FormField({
+  id,
   label,
   required = false,
   invalid,
@@ -892,7 +894,7 @@ export function FormField({
   children,
 }: FormFieldProps) {
   return (
-    <Field.Root required={required} invalid={invalid} mb={mb}>
+    <Field.Root id={id} required={required} invalid={invalid} mb={mb}>
       <Field.Label color="fg.muted" fontWeight="medium">
         {label}
         {/* Asterisco en todos los campos obligatorios: antes no lo tenía ninguno. */}

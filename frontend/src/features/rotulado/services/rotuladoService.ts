@@ -7,6 +7,7 @@ import type {
   BorradorRotuladoUpdate,
   CampoEditadoOut,
   CompletitudRotulado,
+  PrevisualizacionRotulado,
   VistaPreviaAutocompletado,
 } from "../types/rotulado";
 
@@ -123,4 +124,38 @@ export async function previewAutocompletado(
     response,
     "Error al obtener la vista previa de autocompletado",
   );
+}
+
+export async function previsualizarBorrador(id: number, signal: AbortSignal) {
+  const response = await apiFetch(`${BASE}/borradores/${id}/previsualizacion`, { signal });
+  try {
+    return await pedir<PrevisualizacionRotulado>(response, "Error al previsualizar el borrador");
+  } catch (error) {
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), { status: response.status });
+  }
+}
+
+export async function recalcularNutricionBorrador(id: number) {
+  const response = await apiFetch(`${BASE}/borradores/${id}/nutricion/recalcular`, {
+    method: "POST",
+  });
+  return pedir<BorradorRotuladoOut>(response, "Error al recalcular la tabla nutricional");
+}
+
+
+export async function exportarBorradorPdf(id: number) {
+  const response = await apiFetch(`${BASE}/borradores/${id}/exportar-pdf`, { method: "POST" });
+  if (!response.ok) {
+    const error = await response.json().catch(() => null) as { detail?: unknown } | null;
+    throw new Error(typeof error?.detail === "string" ? error.detail : "No se pudo exportar el borrador.");
+  }
+
+  const url = URL.createObjectURL(await response.blob());
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = `borrador-rotulo-${id}.pdf`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

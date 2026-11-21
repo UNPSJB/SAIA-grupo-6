@@ -779,7 +779,9 @@ def _a_laboratorio(
 
 
 def calcular_info_nutricional(
-    db: Session, producto_id: int, version_id: int | None = None, *, inicializar_parametros: bool = True
+    db: Session, producto_id: int, version_id: int | None = None, *,
+    inicializar_parametros: bool = True,
+    fuentes: list[schemas.FuenteCalculo] | None = None,
 ) -> schemas.InfoNutricionalResponse:
     """Tabla del producto a partir de la receta, los datos de cada insumo y el rendimiento.
 
@@ -847,12 +849,29 @@ def calcular_info_nutricional(
                 sin_datos.update(k for k in requeridos_de(insumo, perfil) if k not in datos)
         if incluido:
             aportes = {clave: fila.valor for clave, fila in datos.items()}
-            if _azucares_son_anadidos(insumo, perfil):
+            azucar_anadida = _azucares_son_anadidos(insumo, perfil)
+            if azucar_anadida:
                 # Todo su azúcar es añadido: se toma el total (guía de rotulado).
                 aportes[c.AZUCARES_ANADIDOS] = aportes.get(c.AZUCARES_TOTALES, Decimal(0))
             for clave, valor in aportes.items():
                 if clave in totales:
-                    totales[clave] += gramos / calculo.CIEN * valor
+                    aporte = gramos / calculo.CIEN * valor
+                    totales[clave] += aporte
+                    if fuentes is not None and clave not in cubiertos:
+                        clave_fuente = c.AZUCARES_TOTALES if azucar_anadida and clave == c.AZUCARES_ANADIDOS else clave
+                        fila = datos.get(clave_fuente)
+                        if fila is not None:
+                            fuentes.append(schemas.FuenteCalculo(
+                                insumo=insumo.nombre, nutriente=reglas[clave].nombre,
+                                valor_por_100_g=valor, gramos=gramos, aporte=aporte,
+                                fuente=c.FUENTES.get(fila.fuente, fila.fuente),
+                                referencia=fila.referencia or (
+                                    f"Alimento de referencia #{fila.alimento_referencia_id}"
+                                    if fila.alimento_referencia_id is not None else None
+                                ),
+                                valor_fuente=fila.valor_fuente,
+                                nutriente_fuente=reglas[clave_fuente].nombre if clave_fuente in reglas else clave_fuente,
+                            ))
         ingredientes.append(
             schemas.IngredienteCalculo(
                 insumo_id=insumo.id,

@@ -1,12 +1,12 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin
 from src.database import get_db
 from src.personal.models import Personal
-from src.rotulado import schemas, services
+from src.rotulado import exportacion, schemas, services
 from src.rotulado.exceptions import (
     BorradorNoEncontrado,
     LoteNoEncontrado,
@@ -137,6 +137,18 @@ def autocompletar_borrador(
     )
 
 
+@router.post(
+    "/borradores/{borrador_id}/nutricion/recalcular",
+    response_model=schemas.BorradorRotuladoOut,
+)
+def recalcular_nutricion_borrador(
+    borrador_id: int,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    return services.recalcular_nutricion_borrador(db, borrador_id, usuario)
+
+
 @router.get(
     "/borradores/{borrador_id}/completitud",
     response_model=schemas.CompletitudRotulado,
@@ -206,3 +218,31 @@ def editar_declaraciones(borrador_id: int, datos: EditarDeclaraciones,
 def confirmar_declaraciones(borrador_id: int, datos: RevisionEsperada,
                            db: Session = Depends(get_db), usuario: Personal = Depends(require_admin)):
     return declaraciones.confirmar(db, borrador_id, datos, usuario)
+
+
+
+@router.get("/borradores/{borrador_id}/previsualizacion", response_model=schemas.PrevisualizacionRotulado)
+def previsualizar_borrador(borrador_id: int, response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    return services.previsualizar_borrador(db, borrador_id)
+
+
+@router.post(
+    "/borradores/{borrador_id}/exportar-pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def exportar_borrador_pdf(
+    borrador_id: int,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    contenido = exportacion.exportar_borrador_pdf(db, borrador_id, usuario.id)
+    return Response(
+        content=contenido,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="borrador-rotulo-{borrador_id}.pdf"',
+            "Cache-Control": "private, no-store",
+        },
+    )

@@ -87,9 +87,10 @@ export async function guardarDatosInsumo(
 
 // ── Productos ──────────────────────────────────────────────────────────────
 
-export async function obtenerInfoNutricional(productoId: number): Promise<InfoNutricional> {
+export async function obtenerInfoNutricional(productoId: number, versionId?: number): Promise<InfoNutricional> {
+  const query = versionId ? `?version_id=${versionId}` : "";
   return pedir<InfoNutricional>(
-    await apiFetch(`${BASE}/productos/${productoId}`),
+    await apiFetch(`${BASE}/productos/${productoId}${query}`),
     "Error al calcular la información nutricional",
   );
 }
@@ -114,8 +115,9 @@ export async function guardarLaboratorio(
   );
 }
 
-export async function descargarPdf(productoId: number, nombre: string): Promise<void> {
-  const response = await apiFetch(`${BASE}/productos/${productoId}/pdf`);
+export async function descargarPdf(productoId: number, nombre: string, versionId?: number): Promise<void> {
+  const query = versionId ? `?version_id=${versionId}` : "";
+  const response = await apiFetch(`${BASE}/productos/${productoId}/pdf${query}`);
   if (!response.ok) {
     const detalle = await response.json().catch(() => null);
     throw new Error((detalle as { detail?: string })?.detail || "No se pudo generar el PDF");

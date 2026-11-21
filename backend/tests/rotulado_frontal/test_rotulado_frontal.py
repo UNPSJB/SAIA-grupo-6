@@ -1172,6 +1172,39 @@ def test_calcula_sellos_con_pasos_y_version_de_la_regla(
     assert cuerpo["instantanea"]["sellos"] == sellos
 
 
+def test_evaluacion_solo_lectura_reutiliza_sellos_sin_registrar(
+    client, usuarios, regla, producto_sellos, db_session, monkeypatch
+):
+    guardada = _guardar(
+        client, producto_sellos.id, usuarios["admin"], envasado_sin_cliente=True,
+    ).json()
+    db_session.expire_all()
+
+    def rechazar_commit():
+        pytest.fail("La evaluación de solo lectura no debe hacer commit")
+
+    monkeypatch.setattr(db_session, "commit", rechazar_commit)
+    respuesta, nutricion = rotulado_services.evaluar_solo_lectura(
+        db_session, producto_sellos.id, guardada["version"]["id"],
+    )
+    assert nutricion.version.id == guardada["version"]["id"]
+    assert respuesta.sellos.model_dump(mode="json") == guardada["sellos"]
+
+
+def test_acceso_a_completar_rotulado_frontal_no_registra_evaluacion(
+    client, usuarios, regla, producto_sellos,
+):
+    ruta = f"/rotulado-frontal/productos/{producto_sellos.id}"
+    headers = usuarios["admin"]
+    antes = client.get(f"{ruta}/evaluaciones", headers=headers).json()
+
+    respuesta = client.get(ruta, params={"solo_lectura": True}, headers=headers)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["configuracion"]["envasado_sin_cliente"] is None
+    assert client.get(f"{ruta}/evaluaciones", headers=headers).json() == antes
+
+
 def test_los_sellos_leen_los_umbrales_de_la_version_vigente(
     client, usuarios, regla, producto_sellos
 ):

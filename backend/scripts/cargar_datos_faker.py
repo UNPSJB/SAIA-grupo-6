@@ -218,6 +218,14 @@ from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: 
 from src.rotulado import services as rotulado_services  # noqa: E402
 from src.rotulado.schemas import BorradorRotuladoCreate, BorradorRotuladoUpdate  # noqa: E402
 from src.rotulado.constants import ESTADO_COMPLETADO  # noqa: E402
+from src.rotulado import declaraciones_services  # noqa: E402
+from src.rotulado.declaraciones_schemas import (  # noqa: E402
+    ConservacionProducto,
+    MarcaAlergeno,
+    PerfilInsumoDeclaracion,
+    RevisionEsperada,
+)
+from src.rotulado.models import RevisionDeclaracionRotulado  # noqa: E402
 
 # Contraseña de TODO el personal. Valor acordado con el grupo de desarrollo.
 CONTRASENA_POR_DEFECTO = "12345678"
@@ -1107,6 +1115,7 @@ def borrar_todo(db) -> None:
         # Circuito comercial (hijos primero): cuelga de lotes, productos,
         # incidentes y personal, así que se borra antes que todos ellos.
         CampoRotuladoEditado,
+        RevisionDeclaracionRotulado,
         BorradorRotulado,
         RetiroAfectado,
         Retiro,
@@ -2459,6 +2468,23 @@ def _conversion_ingrediente(nombre: str) -> dict:
     return conversion
 
 
+def perfil_declaracion_ficticio(nombre: str) -> dict:
+    alergenos = {
+        "Harina 000": ("trigo", "directa"),
+        "Huevo fresco": ("huevo", "directa"),
+        "Leche entera": ("leche", "directa"),
+        "Manteca": ("leche", "derivado"),
+        "Dulce de leche repostero": ("leche", "derivado"),
+    }
+    marca = alergenos.get(nombre)
+    return PerfilInsumoDeclaracion(
+        evaluacion="evaluada",
+        marcas=[MarcaAlergeno(codigo=marca[0], forma=marca[1])] if marca else [],
+        gluten="presente" if nombre == "Harina 000" else "ausencia_declarada",
+        respaldo="Ficha técnica ficticia para datos de desarrollo.",
+    ).model_dump(mode="json")
+
+
 def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
     """Materias primas alimentarias que usan las recetas.
 
@@ -2490,6 +2516,7 @@ def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
             # Sin la referencia cargada (base sin migrar) queda como ingrediente.
             tipo=TIPO_ADITIVO if referencia else TIPO_INGREDIENTE,
             aditivo=referencia,
+            perfil_declaracion=perfil_declaracion_ficticio(nombre),
             **conversion,
         )
         db.add(insumo)
@@ -2563,6 +2590,9 @@ def crear_productos_y_recetas(
         vistos["producto"].add(nombre)
         producto = Producto(
             nombre=nombre,
+            conservacion=ConservacionProducto(
+                instrucciones="Conservar en lugar fresco y seco.",
+            ).model_dump(mode="json"),
             descripcion=f"Elaborado según la receta de {base.lower()}.",
             unidad_medida_id=unidades[plantilla["unidad"]].id,
             activo=not bernoulli(0.07),
@@ -3419,7 +3449,7 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
     return cuenta
 
 
-def crear_rotulado(db, cantidad: int) -> dict:
+def crear_rotulado(db, cantidad: int, productos: list) -> dict:
     """Borradores de rotulado: autocompletados, a medio completar y completados.
 
     También por los services: el autocompletado toma la denominación, los
@@ -3431,7 +3461,7 @@ def crear_rotulado(db, cantidad: int) -> dict:
         p for p in db.scalars(select(Personal).where(Personal.activo.is_(True))).all()
         if p.puede_administrar
     ]
-    productos = list(db.scalars(select(Producto).where(Producto.activo.is_(True))).all())
+    productos = [producto for producto in productos if producto.activo]
     if not (admins and productos):
         return cuenta
     print("⏳ Generando borradores de rotulado...")
@@ -3487,12 +3517,19 @@ def crear_rotulado(db, cantidad: int) -> dict:
         # en el cuerpo, y un `estado=None` explícito pisaría el estado.
         if completo:
             cambios["fecha_duracion"] = vencimiento_lote or HOY + timedelta(days=180)
-            cambios["estado"] = ESTADO_COMPLETADO
         rotulado_services.actualizar_borrador(
             db, borrador_id, BorradorRotuladoUpdate(**cambios), usuario
         )
         if completo:
-            cuenta["completados"] += 1
+            declaracion = declaraciones_services.consultar(db, borrador_id)
+            if declaracion["vigencia"] == "vigente" and not declaracion["pendientes"]:
+                declaraciones_services.confirmar(
+                    db, borrador_id, RevisionEsperada(revision=declaracion["revision"]), usuario
+                )
+                rotulado_services.actualizar_borrador(
+                    db, borrador_id, BorradorRotuladoUpdate(estado=ESTADO_COMPLETADO), usuario
+                )
+                cuenta["completados"] += 1
 
     db.info.pop("usuario_id", None)
     return cuenta
@@ -4263,7 +4300,7 @@ def main(preparar_esquema: bool = True) -> int:
         # automáticos no se pueden editar. Cada service hace su propio commit.
         db.info.pop("usuario_id", None)
         comercial = crear_circuito_comercial(db, fake, args.cantidad)
-        rotulado = crear_rotulado(db, args.cantidad)
+        rotulado = crear_rotulado(db, args.cantidad, productos)
 
         # Sesiones de ejemplo, después de la actividad (que puede borrar personas).
         sesiones = crear_sesiones_auth(db, list(db.scalars(select(Personal)).all()))

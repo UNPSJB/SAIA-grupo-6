@@ -1,3 +1,4 @@
+import { useEnfocarFragmento } from "../../../../common/hooks/useEnfocarFragmento";
 import { Button } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -11,7 +12,7 @@ import { toaster } from "../../../../components/ui/toaster";
 import { useRotulado } from "../../hooks/useRotulado";
 import { RotuladoForm } from "../RotuladoForm";
 import { listarLotes } from "../../../lotes/services/loteService";
-import { previewAutocompletado } from "../../services/rotuladoService";
+import { previewAutocompletado, recalcularNutricionBorrador } from "../../services/rotuladoService";
 import type {
   BorradorRotuladoOut,
   VistaPreviaAutocompletado,
@@ -159,6 +160,27 @@ function RotuladoEditor() {
     }
   };
 
+  const handleRecalcularNutricion = async () => {
+    if (!borradorId) return;
+    setGuardando(true);
+    try {
+      await recalcularNutricionBorrador(borradorId);
+      if (!activo.current) return;
+      await obtenerBorradorHook(borradorId);
+      toaster.create({ type: "success", title: "Tabla nutricional actualizada" });
+    } catch (error) {
+      toaster.create({
+        type: "error",
+        title: "No se pudo recalcular la tabla",
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  useEnfocarFragmento(!!borrador && !loading && !error && !previewError);
+
   if (loading || (!borradorId && !previewCargada)) {
     return (
       <PaginaDetalle
@@ -228,6 +250,13 @@ function RotuladoEditor() {
       titulo={esCreacion ? "Nuevo borrador de rotulado" : `Rotulado — ${productoNombre}`}
       acciones={
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {!esCreacion && borrador && (
+            <Button asChild variant="outline">
+              <a href={`/rotulado/borradores/${borrador.id}/previsualizar`} target="_blank" rel="noopener noreferrer">
+                Previsualizar versión guardada
+              </a>
+            </Button>
+          )}
           <Button type="submit" form="rotulado-form" loading={guardando}>
             Guardar borrador
           </Button>
@@ -247,10 +276,10 @@ function RotuladoEditor() {
           borradorId
             ? async (versionId, loteId, forzar) => {
                 await autocompletarBorrador(borradorId, versionId, loteId, forzar);
-                obtenerBorradorHook(borradorId);
               }
             : async () => {}
         }
+        onRecalcularNutricion={borradorId ? handleRecalcularNutricion : undefined}
         lotes={lotes}
         isLoading={guardando}
         hayFaltantes={false}
