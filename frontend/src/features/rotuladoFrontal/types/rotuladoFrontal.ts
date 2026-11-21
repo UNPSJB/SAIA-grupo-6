@@ -10,6 +10,23 @@ export type EstadoRotulado =
   | "modulo_inactivo";
 export type OrigenMarca = "receta" | "correccion";
 export type CanalComercializacion = "MINORISTA" | "MAYORISTA" | "MAYORISTA_INDUSTRIAL";
+export type TipoCalculoSello =
+  | "proporcion_energia"
+  | "mg_por_kcal"
+  | "valor_absoluto";
+
+export interface SelloDefinicion {
+  clave: string;
+  etiqueta: string;
+  tipo: TipoCalculoSello;
+  nutriente: string;
+  unidad_nutriente: string;
+  umbral: string | null;
+  formula: string | null;
+  umbral_solido: string | null;
+  umbral_liquido: string | null;
+  criterio: string;
+}
 
 export const CANALES_COMERCIALIZACION: {
   valor: CanalComercializacion;
@@ -280,14 +297,17 @@ export interface ReglaRotulado {
   ingredientes_cafeina: string[];
   umbrales_sellos: ParametroNormativo[];
   formulas_nutricionales: ParametroNormativo[];
+  sellos: SelloDefinicion[];
   reglas_aplicabilidad: ReglasAplicabilidad;
   creado_en: string;
 }
 
 export type ReglaRotuladoInput = Omit<
   ReglaRotulado,
-  "id" | "version" | "vigente" | "programada" | "creado_en"
->;
+  "id" | "version" | "vigente" | "programada" | "creado_en" | "sellos"
+> & {
+  sellos?: SelloDefinicion[];
+};
 
 export interface ConfiguracionRotulado {
   configurada: boolean;
@@ -321,11 +341,6 @@ export interface MarcaRotulado {
   resuelta: boolean;
   fuentes: FuenteMarca[];
 }
-
-export type TipoCalculoSello =
-  | "proporcion_energia"
-  | "mg_por_kcal"
-  | "valor_absoluto";
 
 export interface PasoCalculoSello {
   descripcion: string;
@@ -402,6 +417,7 @@ export interface InstantaneaParametrosRotulado {
   ingredientes_cafeina: string[];
   umbrales_sellos: ParametroNormativo[];
   formulas_nutricionales: ParametroNormativo[];
+  sellos?: SelloDefinicion[] | null;
   reglas_aplicabilidad: ReglasAplicabilidad;
 }
 

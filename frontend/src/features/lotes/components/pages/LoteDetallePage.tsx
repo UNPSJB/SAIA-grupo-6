@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -48,6 +48,8 @@ import {
 import { useSalidas } from "../../../salidas/hooks/useSalidas";
 import { ModalReservarLote } from "../../../salidas/components/ModalReservarLote";
 import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
+import { obtenerRetiro } from "../../../retiros/services/retiroService";
+import type { RetiroDetalle } from "../../../retiros/types/retiro";
 import { LoteProgressTracker } from "../LoteProgressTracker";
 import type { ItemChecklist, LoteDetalle } from "../../types/lote";
 import { esLoteCerrado } from "../../types/lote";
@@ -332,6 +334,27 @@ export function LoteDetallePage() {
   const [modalReservar, setModalReservar] = useState(false);
   const [modalRetirar, setModalRetirar] = useState(false);
 
+  // Retiro asociado (si el lote está retirado) para mostrar motivo y detalles
+  const [retiroAsociado, setRetiroAsociado] = useState<RetiroDetalle | null>(null);
+
+  useEffect(() => {
+    if (!lote?.retiro_id) {
+      setRetiroAsociado(null);
+      return;
+    }
+    let vigente = true;
+    obtenerRetiro(lote.retiro_id)
+      .then((data) => {
+        if (vigente) setRetiroAsociado(data);
+      })
+      .catch(() => {
+        if (vigente) setRetiroAsociado(null);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [lote?.retiro_id]);
+
   const checklistCompleto = lote
     ? lote.checklist.every((i) => i.completado)
     : false;
@@ -413,7 +436,8 @@ export function LoteDetallePage() {
                 <Alert.Content>
                   <Alert.Title>Lote retirado del mercado</Alert.Title>
                   <Alert.Description>
-                    Este lote fue retirado del mercado (retiro #{lote.retiro_id}, estado: {lote.retiro_estado}). No se pueden hacer nuevas reservas ni despachos sobre él.
+                    Este lote fue retirado del mercado (Retiro #{lote.retiro_id}
+                    {retiroAsociado?.motivo ? ` - Motivo: ${retiroAsociado.motivo}` : ""}, estado: {lote.retiro_estado}). No se pueden hacer nuevas reservas ni despachos sobre él.
                   </Alert.Description>
                   <HStack gap="3" flexWrap="wrap" mt="3">
                     <BotonTexto

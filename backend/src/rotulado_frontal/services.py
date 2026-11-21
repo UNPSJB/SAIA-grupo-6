@@ -531,6 +531,10 @@ def _parametros_congelados(
             schemas.ParametroNormativo.model_validate(parametro)
             for parametro in regla.formulas_nutricionales
         ],
+        sellos=[
+            schemas.SelloDefinicion.model_validate(sello)
+            for sello in regla.sellos
+        ],
         reglas_aplicabilidad=_reglas_de(regla),
     )
 
@@ -572,14 +576,12 @@ def _umbral_de(
     expresar_en: str,
 ) -> schemas.ParametroNormativo | None:
     if definicion["tipo"] == "valor_absoluto":
-        clave = (
-            definicion["umbral_liquido"]
-            if expresar_en == "ml"
-            else definicion["umbral_solido"]
+        clave = definicion.get(
+            "umbral_liquido" if expresar_en == "ml" else "umbral_solido"
         )
     else:
-        clave = definicion["umbral"]
-    return umbrales.get(clave)
+        clave = definicion.get("umbral")
+    return umbrales.get(clave) if clave else None
 
 
 def _resultado_sin_evaluar(
@@ -647,7 +649,7 @@ def _evaluar_sello(
             )
 
     if definicion["tipo"] == "proporcion_energia":
-        formula = formulas.get(definicion["formula"])
+        formula = formulas.get(definicion.get("formula") or "")
         if formula is None:
             return _resultado_sin_evaluar(
                 definicion,
@@ -793,9 +795,13 @@ def _calcular_sellos(
 ) -> schemas.SellosRotulado:
     umbrales, formulas = _parametros_de_regla(regla)
     filas = {fila.clave: fila for fila in info.filas}
+    definiciones = [
+        schemas.SelloDefinicion.model_validate(sello).model_dump()
+        for sello in regla.sellos
+    ]
     resultados = [
         _evaluar_sello(definicion, filas, umbrales, formulas, info.expresar_en)
-        for definicion in c.SELLOS
+        for definicion in definiciones
     ]
     completo = all(resultado.evaluado for resultado in resultados)
     return schemas.SellosRotulado(

@@ -14,18 +14,14 @@ from sqlalchemy.orm import Session, selectinload
 
 from src.clientes.models import Cliente
 from src.common.fechas import ahora, hoy
+from src.exceptions import BadRequest, NotFound
 from src.incidente import services as incidente_services
 from src.incidente.constants import TipoIncidente
 from src.incidente.models import Incidente
 from src.lotes.models import LoteProducto
+from src.lotesInsumo.models import LoteInsumo
 from src.personal.models import Personal
 from src.reclamos.models import Reclamo
-from src.retiros import exceptions, schemas
-from src.incidente import services as incidente_services
-from src.incidente.constants import TipoIncidente
-from src.incidente.models import Incidente
-from src.lotes.models import LoteProducto
-from src.personal.models import Personal
 from src.retiros import exceptions, schemas
 from src.retiros.constants import (
     ESTADO_NOTIFICACION_NOTIFICADO,
@@ -34,6 +30,7 @@ from src.retiros.constants import (
     ESTADO_RETIRO_EN_CURSO,
     MEDIOS_CONTACTO_RETIRO,
     MOTIVOS_RETIRO,
+    ORIGEN_RETIRO_INSUMO,
     ORIGEN_RETIRO_MANUAL,
     ORIGEN_RETIRO_RECLAMO,
     TIPO_EVENTO_CIERRE_RETIRO,
@@ -68,7 +65,7 @@ def iniciar_retiro(
     detalle: Optional[str],
     fecha_retiro: date,
     usuario: Personal,
-    origen: str,
+    origen: Optional[str] = None,
     reclamo_id: Optional[int] = None,
 ) -> Retiro:
     """Inicia un retiro de lote del mercado en una sola transacción (sin commit).
@@ -106,16 +103,20 @@ def iniciar_retiro(
     if lote.fecha_inicio is not None and fecha_retiro < lote.fecha_inicio.date():
         raise exceptions.RetiroFechaInvalida()
 
-    # 6. Validar reclamo_id si viene
+    # 6. Determinar origen y validar reclamo_id si viene
     if reclamo_id is not None:
         reclamo = db.scalar(select(Reclamo).where(Reclamo.id == reclamo_id))
         if reclamo is None:
             raise exceptions.ReclamoNoCorrespondeAlLote()
         if reclamo.lote_id != lote_id:
             raise exceptions.ReclamoNoCorrespondeAlLote()
-        origen = ORIGEN_RETIRO_RECLAMO
+
+    if origen:
+        origen_retiro = origen
+    elif reclamo_id is not None:
+        origen_retiro = ORIGEN_RETIRO_RECLAMO
     else:
-        origen = ORIGEN_RETIRO_MANUAL
+        origen_retiro = ORIGEN_RETIRO_MANUAL
 
     # 7. Marcar el lote como retirado (irreversible)
     lote.retirado = True
@@ -138,7 +139,7 @@ def iniciar_retiro(
         iniciado_por_id=usuario.id,
         fecha_registro=ahora(),
         estado=ESTADO_RETIRO_EN_CURSO,
-        origen=origen,
+        origen=origen_retiro,
         reclamo_id=reclamo_id,
     )
     db.add(retiro)
@@ -420,6 +421,8 @@ def retiro_a_resumen(retiro: Retiro) -> schemas.RetiroResumen:
         lote_codigo=retiro.lote.numero_lote,
         lote_producto_nombre=retiro.lote.producto.nombre,
         motivo=retiro.motivo,
+        detalle=retiro.detalle,
+        origen=retiro.origen,
         fecha_retiro=retiro.fecha_retiro,
         estado=retiro.estado,
         iniciado_por_nombre=_nombre_completo(retiro.iniciado_por),
@@ -470,3 +473,62 @@ def retiro_a_detalle(retiro: Retiro) -> schemas.RetiroDetalle:
         en_revision=_cantidad_con_unidad(calculo["en_revision"], unidad),
         afectados=[afectado_a_resumen(a) for a in (retiro.afectados or [])],
     )
+
+
+def iniciar_retiro_masivo_insumo(
+    db: Session,
+    datos: schemas.RetiroMasivoInsumoCreate,
+    usuario: Personal,
+) -> schemas.RetiroMasivoResponse:
+    # 1. Validar que exista el lote de insumo
+    lote_insumo = db.get(LoteInsumo, datos.lote_insumo_id)
+    if not lote_insumo:
+        raise NotFound("El lote de insumo especificado no existe.")
+
+    # 2. Desactivar el insumo si corresponde
+    if datos.desactivar_insumo:
+        lote_insumo.activo = False
+
+    # 3. Iterar y ejecutar iniciar_retiro para cada lote_producto_id
+    resultados = []
+    detalle_extendido = (
+        f"[Insumo: {lote_insumo.insumo.nombre} Lote #{lote_insumo.numero_lote}] "
+        + (datos.detalle or "")
+    ).strip()
+
+    for lp_id in datos.lotes_producto_ids:
+        # Verificar que el lote_producto exista y no esté ya retirado
+        lote_prod = db.get(LoteProducto, lp_id)
+        if not lote_prod:
+            raise BadRequest(f"El lote de producto ID {lp_id} no existe.")
+        if lote_prod.retirado or getattr(lote_prod, "retiro_id", None):
+            raise BadRequest(f"El lote {lote_prod.numero_lote} ya se encuentra retirado del mercado.")
+
+        # Reutilizar el servicio existente iniciar_retiro (que no hace commit interno)
+        retiro = iniciar_retiro(
+            db=db,
+            lote_id=lp_id,
+            motivo=datos.motivo,
+            detalle=detalle_extendido,
+            fecha_retiro=datos.fecha_retiro,
+            usuario=usuario,
+            origen=ORIGEN_RETIRO_INSUMO,
+        )
+        # Contar afectados
+        afectados_count = len(retiro.afectados)
+        resultados.append(
+            schemas.RetiroMasivoResultadoItem(
+                lote_id=lote_prod.id,
+                numero_lote=lote_prod.numero_lote,
+                retiro_id=retiro.id,
+                clientes_afectados_count=afectados_count,
+            )
+        )
+
+    return schemas.RetiroMasivoResponse(
+        mensaje=f"Se iniciaron exitosamente {len(resultados)} retiros de producto.",
+        lote_insumo_id=datos.lote_insumo_id,
+        insumo_desactivado=datos.desactivar_insumo,
+        retiros_creados=resultados,
+    )
+

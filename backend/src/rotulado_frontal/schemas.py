@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.rotulado_frontal import constants as c
 
@@ -176,6 +176,60 @@ def _parametros_iniciales(valores: tuple[dict, ...]) -> list[ParametroNormativo]
 TipoCalculoSello = Literal["proporcion_energia", "mg_por_kcal", "valor_absoluto"]
 
 
+class SelloDefinicion(BaseModel):
+    """Definición versionada de un sello de advertencia.
+
+    Dice qué nutriente se compara y con qué tipo de cálculo. Las claves de
+    umbral y fórmula apuntan a los parámetros de la misma versión de la regla.
+    """
+
+    clave: str = Field(min_length=1, max_length=80)
+    etiqueta: str = Field(min_length=1, max_length=120)
+    tipo: TipoCalculoSello
+    nutriente: str = Field(min_length=1, max_length=80)
+    unidad_nutriente: str = Field(default="", max_length=40)
+    umbral: str | None = Field(default=None, max_length=80)
+    formula: str | None = Field(default=None, max_length=80)
+    umbral_solido: str | None = Field(default=None, max_length=80)
+    umbral_liquido: str | None = Field(default=None, max_length=80)
+    criterio: str = Field(min_length=1, max_length=240)
+
+    @field_validator(
+        "clave",
+        "etiqueta",
+        "nutriente",
+        "unidad_nutriente",
+        "umbral",
+        "formula",
+        "umbral_solido",
+        "umbral_liquido",
+        "criterio",
+    )
+    @classmethod
+    def limpiar_texto(cls, valor: str | None) -> str | None:
+        return valor.strip() if valor is not None else None
+
+    @model_validator(mode="after")
+    def validar_referencias(self) -> "SelloDefinicion":
+        if self.tipo == "proporcion_energia" and not (self.umbral and self.formula):
+            raise ValueError(
+                f"El sello '{self.clave}' necesita umbral y fórmula energética."
+            )
+        if self.tipo == "mg_por_kcal" and not self.umbral:
+            raise ValueError(f"El sello '{self.clave}' necesita un umbral.")
+        if self.tipo == "valor_absoluto" and not (
+            self.umbral_solido and self.umbral_liquido
+        ):
+            raise ValueError(
+                f"El sello '{self.clave}' necesita umbral para sólidos y líquidos."
+            )
+        return self
+
+
+def _sellos_iniciales(valores: tuple[dict, ...]) -> list[SelloDefinicion]:
+    return [SelloDefinicion(**sello) for sello in valores]
+
+
 class PasoCalculoSello(BaseModel):
     """Un renglón del cálculo que se muestra al usuario."""
 
@@ -242,6 +296,10 @@ class ReglaRotuladoIn(BaseModel):
             c.FORMULAS_NUTRICIONALES_INICIALES
         )
     )
+    sellos: list[SelloDefinicion] = Field(
+        default_factory=lambda: _sellos_iniciales(c.SELLOS_INICIALES),
+        min_length=1,
+    )
     reglas_aplicabilidad: ReglasAplicabilidad = Field(
         default_factory=_reglas_aplicabilidad_iniciales
     )
@@ -282,6 +340,18 @@ class ReglaRotuladoIn(BaseModel):
         cls, valores: list[ParametroNormativo]
     ) -> list[ParametroNormativo]:
         return _validar_parametros(valores, "Fórmulas nutricionales")
+
+    @field_validator("sellos")
+    @classmethod
+    def validar_sellos(
+        cls, valores: list[SelloDefinicion]
+    ) -> list[SelloDefinicion]:
+        claves: set[str] = set()
+        for sello in valores:
+            if sello.clave in claves:
+                raise ValueError(f"El sello '{sello.clave}' está repetido.")
+            claves.add(sello.clave)
+        return valores
 
 
 class ReglaRotuladoResponse(ReglaRotuladoIn):
@@ -393,6 +463,7 @@ class InstantaneaParametrosRotulado(BaseModel):
     ingredientes_cafeina: list[str]
     umbrales_sellos: list[ParametroNormativo]
     formulas_nutricionales: list[ParametroNormativo]
+    sellos: list[SelloDefinicion] | None = None
     reglas_aplicabilidad: ReglasAplicabilidad
 
 
@@ -407,7 +478,7 @@ class InstantaneaRotulado(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    version_esquema: int = 5
+    version_esquema: int = 6
     evaluado_en: datetime
     estado: EstadoRotulado
     mensaje: str

@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.common.fechas import hoy
 from src.retiros import exceptions
 from src.retiros.constants import (
     ESTADO_NOTIFICACION_NOTIFICADO,
@@ -11,6 +12,7 @@ from src.retiros.constants import (
     ESTADO_RETIRO_EN_CURSO,
     MEDIOS_CONTACTO_RETIRO,
     MOTIVOS_RETIRO,
+    ORIGEN_RETIRO_INSUMO,
     ORIGEN_RETIRO_MANUAL,
     ORIGEN_RETIRO_RECLAMO,
 )
@@ -106,6 +108,8 @@ class RetiroResumen(BaseModel):
     lote_codigo: str
     lote_producto_nombre: str
     motivo: str
+    detalle: Optional[str] = None
+    origen: Optional[str] = None
     fecha_retiro: date
     estado: str
     iniciado_por_nombre: str
@@ -168,3 +172,27 @@ class ImpactoRetiro(BaseModel):
     en_revision: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RetiroMasivoInsumoCreate(BaseModel):
+    lote_insumo_id: int = Field(..., ge=1, description="ID del lote de insumo afectado")
+    lotes_producto_ids: list[int] = Field(..., min_length=1, description="IDs de los lotes de producto a retirar")
+    motivo: str = Field(..., min_length=3, max_length=100)
+    detalle: str | None = Field(None, max_length=500)
+    fecha_retiro: date = Field(default_factory=hoy)
+    desactivar_insumo: bool = Field(True, description="Si es True, marca activo=False en el LoteInsumo")
+
+
+class RetiroMasivoResultadoItem(BaseModel):
+    lote_id: int
+    numero_lote: str
+    retiro_id: int
+    clientes_afectados_count: int
+
+
+class RetiroMasivoResponse(BaseModel):
+    mensaje: str
+    lote_insumo_id: int
+    insumo_desactivado: bool
+    retiros_creados: list[RetiroMasivoResultadoItem]
+

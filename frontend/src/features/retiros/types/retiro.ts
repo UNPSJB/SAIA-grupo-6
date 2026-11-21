@@ -41,6 +41,8 @@ export interface RetiroResumen {
   lote_codigo: string;
   lote_producto_nombre: string;
   motivo: string;
+  detalle?: string | null;
+  origen?: OrigenRetiro | string;
   fecha_retiro: string;
   estado: EstadoRetiro;
   iniciado_por_nombre: string;
@@ -121,6 +123,27 @@ export interface RetiroCreateValues {
   detalle: string | null;
   fecha_retiro: string;
   reclamo_id?: number;
+}
+
+export interface RetiroMasivoInsumoPayload {
+  lote_insumo_id: number;
+  lotes_producto_ids: number[];
+  motivo: string;
+  detalle?: string;
+  fecha_retiro: string;
+  desactivar_insumo: boolean;
+}
+
+export interface RetiroMasivoResponse {
+  mensaje: string;
+  lote_insumo_id: number;
+  insumo_desactivado: boolean;
+  retiros_creados: Array<{
+    lote_id: number;
+    numero_lote: string;
+    retiro_id: number;
+    clientes_afectados_count: number;
+  }>;
 }
 
 /** Valores para cerrar un retiro (POST /retiros/{id}/cerrar). */
