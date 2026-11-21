@@ -25,7 +25,7 @@ import type { OrdenTransportista } from "../../services/transportistaService";
 import type { Transportista } from "../../types/transportista";
 import { TransportistaTable } from "../TransportistaTable";
 import { ModalNuevaCertificacion } from "../ModalNuevaCertificacion";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -197,7 +197,7 @@ export function TransportistasPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="transportistas"
               filtros={{
                 activo: String(!verInactivos),

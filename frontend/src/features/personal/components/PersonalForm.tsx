@@ -1,15 +1,17 @@
 import { useState, type ReactNode } from "react";
-import { Box, Checkbox, HStack, Stack, Text } from "@chakra-ui/react";
+import { Checkbox, HStack, Text } from "@chakra-ui/react";
 import {
-  AccionesFormulario,
   BannerError,
-  BotonCancelar,
-  BotonGuardar,
   FormField,
   FormInput,
-  TarjetaFormulario,
-  TituloFormulario,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  CeldaCompleta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 import type { PersonaInput } from "../types/personal";
 
 // Alias local por compatibilidad con la firma del form; la forma real la
@@ -22,9 +24,11 @@ interface PersonalFormProps {
   onSubmit: (values: PersonalFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
-  /** Contenido extra antes de la barra de acciones (ej. vencimientos). */
+  /**
+   * Contenido extra antes de la barra de acciones (ej. vencimientos). Va
+   * directo en el formulario: que sea una `SeccionFormulario`.
+   */
   extra?: ReactNode;
   esMiPerfil?: boolean; // Muestra la sección de cambiar la contraseña propia
   // Jerarquía de roles: solo quien puede tocar capacidades las ve, y el flag
@@ -35,7 +39,7 @@ interface PersonalFormProps {
 
 const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false };
 
-export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", title = "Formulario de Personal", onCancel, extra, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", onCancel, extra, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
   const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
   
@@ -88,86 +92,86 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
-
-        <Stack direction={{ base: "column", md: "row" }} gap="4" mb="6" align="start">
-          <FormField label="Nombre" required mb="0">
+    <FormularioAlta onSubmit={handleSubmit}>
+      <SeccionFormulario titulo="Datos personales">
+        <GrillaFormulario>
+          <FormField label="Nombre" required>
             <FormInput
               value={values.nombre}
               onChange={(e) => setValues({ ...values, nombre: e.target.value })}
-              w="100%"
             />
           </FormField>
-          <FormField label="Apellido" mb="0">
+          <FormField label="Apellido">
             <FormInput
               value={values.apellido || ""}
               onChange={(e) => setValues({ ...values, apellido: e.target.value })}
-              w="100%"
             />
           </FormField>
-        </Stack>
 
-        <Stack direction={{ base: "column", md: "row" }} gap="4" mb="6" align="start">
-          <FormField label="DNI (7 u 8 dígitos)" required mb="0">
+          <FormField label="DNI" required helper="7 u 8 dígitos, sin puntos.">
             <FormInput
               value={values.dni}
               maxLength={8}
               onChange={(e) => setValues({ ...values, dni: e.target.value })}
-              w="100%"
             />
           </FormField>
-          <FormField label="Email" required mb="0">
+          <FormField label="Email" required>
             <FormInput
               type="email"
               value={values.email}
               onChange={(e) => setValues({ ...values, email: e.target.value })}
-              w="100%"
             />
           </FormField>
-        </Stack>
 
-        <FormField label="Teléfono" mb="6">
-          <FormInput
-            value={values.telefono || ""}
-            onChange={(e) => setValues({ ...values, telefono: e.target.value })}
-            w="100%"
-          />
-        </FormField>
+          <FormField label="Teléfono">
+            <FormInput
+              value={values.telefono || ""}
+              onChange={(e) => setValues({ ...values, telefono: e.target.value })}
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
 
-        {errorCapacidades && <BannerError>{errorCapacidades}</BannerError>}
+      {/* Capacidades y rol: solo visibles para quien puede modificarlos */}
+      {(puedeEditarCapacidades || errorCapacidades) && (
+        <SeccionFormulario titulo="Permisos" ayuda="Qué puede hacer esta persona en el sistema.">
+          <GrillaFormulario>
+            {errorCapacidades && (
+              <CeldaCompleta>
+                <BannerError mb="0">{errorCapacidades}</BannerError>
+              </CeldaCompleta>
+            )}
 
-        {/* Capacidades y rol: solo visibles para quien puede modificarlos */}
-        {puedeEditarCapacidades && (
-          <>
-            <HStack gap="6" mb="6">
-              <Checkbox.Root
-                checked={Boolean(values.puede_operar)}
-                onCheckedChange={(e) => setValues({ ...values, puede_operar: !!e.checked })}
-                fontWeight="medium"
-                color="fg.muted"
-              >
-                <Checkbox.HiddenInput />
-                <Checkbox.Control />
-                <Checkbox.Label>Operar</Checkbox.Label>
-              </Checkbox.Root>
-              <Checkbox.Root
-                checked={Boolean(values.puede_administrar)}
-                onCheckedChange={(e) => setValues({ ...values, puede_administrar: !!e.checked })}
-                fontWeight="medium"
-                color="fg.muted"
-              >
-                <Checkbox.HiddenInput />
-                <Checkbox.Control />
-                <Checkbox.Label>Administrar</Checkbox.Label>
-              </Checkbox.Root>
-            </HStack>
+            {puedeEditarCapacidades && (
+              <CeldaCompleta>
+                <HStack gap="6">
+                  <Checkbox.Root
+                    checked={Boolean(values.puede_operar)}
+                    onCheckedChange={(e) => setValues({ ...values, puede_operar: !!e.checked })}
+                    fontWeight="medium"
+                    color="fg"
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                    <Checkbox.Label>Operar</Checkbox.Label>
+                  </Checkbox.Root>
+                  <Checkbox.Root
+                    checked={Boolean(values.puede_administrar)}
+                    onCheckedChange={(e) => setValues({ ...values, puede_administrar: !!e.checked })}
+                    fontWeight="medium"
+                    color="fg"
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                    <Checkbox.Label>Administrar</Checkbox.Label>
+                  </Checkbox.Root>
+                </HStack>
+              </CeldaCompleta>
+            )}
 
             {/* El super admin es el nivel más alto: solo otro super admin lo asigna */}
-            {puedeAsignarSuperAdmin && (
-              <Box
-                mb="6"
+            {puedeEditarCapacidades && puedeAsignarSuperAdmin && (
+              <CeldaCompleta
                 p="4"
                 bg="yellow.subtle"
                 borderWidth="1px"
@@ -185,48 +189,39 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
                   <Checkbox.Control />
                   <Checkbox.Label>Super administrador</Checkbox.Label>
                 </Checkbox.Root>
-                <Text fontSize="xs" color="fg.muted" fontStyle="italic" mt="1">
+                <Text fontSize="xs" color="fg.muted" mt="1">
                   Un super administrador puede editar a cualquier persona del sistema y
                   asignar ese mismo rol.
                 </Text>
-              </Box>
+              </CeldaCompleta>
             )}
-          </>
-        )}
+          </GrillaFormulario>
+        </SeccionFormulario>
+      )}
 
-        {/* SECCIÓN ESPECIAL: Solo visible si estás editando tu propio perfil */}
-        {esMiPerfil && (
-          <Box
-            mb="6"
-            p="4"
-            bg="bg.subtle"
-            borderWidth="1px"
-            borderStyle="dashed"
-            borderColor="border"
-            rounded="lg"
-          >
-            <FormField label="Cambiar mi contraseña" mb="2">
+      {/* SECCIÓN ESPECIAL: Solo visible si estás editando tu propio perfil */}
+      {esMiPerfil && (
+        <SeccionFormulario titulo="Contraseña">
+          <GrillaFormulario>
+            <FormField
+              label="Cambiar mi contraseña"
+              opcional
+              helper="Dejá este campo vacío para mantener tu contraseña actual."
+            >
               <FormInput
                 type="password"
                 placeholder="Escribí una nueva si querés cambiarla..."
                 value={nuevaPassword}
                 onChange={(e) => setNuevaPassword(e.target.value)}
-                w="100%"
               />
             </FormField>
-            <Text fontSize="xs" color="fg.subtle" fontStyle="italic">
-              Dejá este campo vacío para mantener tu contraseña actual.
-            </Text>
-          </Box>
-        )}
+          </GrillaFormulario>
+        </SeccionFormulario>
+      )}
 
-        {extra}
+      {extra}
 
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
-          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+      <AccionesAlta etiqueta={submitLabel} guardando={isLoading} onCancelar={onCancel} />
+    </FormularioAlta>
   );
 }

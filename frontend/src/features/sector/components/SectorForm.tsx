@@ -1,26 +1,24 @@
 import { useState } from "react";
-import { Box, Textarea } from "@chakra-ui/react";
+import { Textarea } from "@chakra-ui/react";
 import type { SectorFormValues } from "../types/sector";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
-  SIN_VALIDACION_NATIVA,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface SectorFormProps {
   initialValues?: SectorFormValues;
   onSubmit: (values: SectorFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -31,7 +29,6 @@ export function SectorForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Sector",
   onCancel,
 }: SectorFormProps) {
   const [values, setValues] = useState<SectorFormValues>(initialValues);
@@ -47,43 +44,33 @@ export function SectorForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario columnas={1}>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required>
+            <FormInput
+              value={values.nombre}
+              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Ej: Cocina"
+            />
+          </FormField>
 
-        <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
-          <FormInput
-            value={values.nombre}
-            onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-            placeholder="Ej: Cocina"
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField
-          label="Descripción"
-          helper="Opcional: qué se hace en este sector."
-          mb="0"
-        >
-          <Textarea
-            value={values.descripcion || ""}
-            onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
-            placeholder="Opcional: qué se hace en este sector"
-            minH="80px"
-            maxW="500px"
-          />
-        </FormField>
-
-        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>
-            {submitLabel}
-          </BotonGuardar>
-          {onCancel && (
-            <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>
-          )}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+          <FormField label="Descripción" opcional helper="Qué se hace en este sector.">
+            <Textarea
+              value={values.descripcion || ""}
+              onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
+              placeholder="Qué se hace en este sector."
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

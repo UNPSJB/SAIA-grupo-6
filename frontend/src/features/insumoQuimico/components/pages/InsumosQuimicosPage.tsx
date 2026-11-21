@@ -32,7 +32,7 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -239,7 +239,7 @@ export function InsumosQuimicosPage() {
               onChange={handleToggleInactivos}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="insumos_quimicos"
               filtros={{
                 activo: String(!verInactivos),

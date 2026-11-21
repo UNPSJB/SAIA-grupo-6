@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBookOpen } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import {
@@ -61,9 +62,10 @@ export function RecetaNuevaVersionPage() {
   const fallo = errorReceta ?? errorVersion ?? errorInsumos;
 
   return (
-    <PaginaFormulario
-      ancho="ancho"
+    <PaginaAlta
+      ancho="extenso"
       volver={{ a: volver, etiqueta: "la receta" }}
+      icono={LuBookOpen}
       titulo={receta ? `Nueva versión de ${receta.producto_nombre}` : "Nueva versión"}
       descripcion="Parte de la versión vigente. Al guardar se crea la versión siguiente; la actual queda de solo lectura."
       error={error}
@@ -86,6 +88,6 @@ export function RecetaNuevaVersionPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Nueva versión guardada correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

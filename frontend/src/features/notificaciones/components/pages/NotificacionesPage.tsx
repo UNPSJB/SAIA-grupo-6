@@ -58,6 +58,9 @@ import {
   DatoPrincipal,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
+import { BotonExportar } from "../../../exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -167,6 +170,7 @@ function normalizar(texto: string) {
 
 export function NotificacionesPage() {
   const navigate = useNavigate();
+  const esAdmin = puedeAdministrar(useAuth().user);
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
@@ -613,6 +617,27 @@ export function NotificacionesPage() {
               />
             </Field.Root>
           </Box>
+
+          {/* Exportar es de administración (el backend lo exige). */}
+          {esAdmin && (
+            <BotonExportar
+              nombreTabla="las notificaciones"
+              disabled={alertasFiltradas.length === 0}
+              datos={() => ({
+                titulo: "Centro de notificaciones",
+                nombre: "notificaciones",
+                encabezados: ["Criticidad", "Origen", "Situación", "Detalle", "Plazo", "Motivo"],
+                filas: alertasFiltradas.map((alerta) => [
+                  etiquetaCriticidad(alerta.criticidad),
+                  ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen,
+                  alerta.titulo,
+                  alerta.detalle,
+                  alerta.fecha_referencia ? formatoFechaOCorta(alerta.fecha_referencia) : alerta.plazo,
+                  alerta.motivo,
+                ]),
+              })}
+            />
+          )}
         </HStack>
       </Tarjeta>
 
@@ -638,7 +663,7 @@ export function NotificacionesPage() {
             <Table.Root variant="outline" size="md" w="100%" minW="1100px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro ancho="angosta" onClick={() => handleSort("criticidad")}>
+                  <EncabezadoOscuro width="10%" onClick={() => handleSort("criticidad")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Criticidad
                       <SortIcon column="criticidad" sortColumn={sortColumn} sortDirection={sortDirection} />
@@ -650,7 +675,9 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro width="24%">Situación</EncabezadoOscuro>
+                  {/* Situación es el dato principal: lleva más ancho que el motivo, que
+                      se acomoda en dos renglones. La criticidad es una sola palabra. */}
+                  <EncabezadoOscuro width="32%">Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo

@@ -22,7 +22,7 @@ export function SectorItem({ sector, onEdit, onDelete, onReactivar }: SectorItem
       </Celda>
       <Celda>
         {sector.descripcion ? (
-          <TextoTruncado texto={sector.descripcion} max={60} color="#64748B" />
+          <TextoTruncado texto={sector.descripcion} max={60} color="tabla.textoSecundario" />
         ) : (
           <Text as="span" color="fg.subtle" fontStyle="italic">
             Sin descripción

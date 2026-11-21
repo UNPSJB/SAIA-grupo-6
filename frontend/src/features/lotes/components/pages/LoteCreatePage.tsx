@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Box, Text } from "@chakra-ui/react";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { Text } from "@chakra-ui/react";
+import { LuFactory } from "react-icons/lu";
 import {
   cantidadConUnidad,
   cantidadValidaParaUnidad,
@@ -9,17 +9,22 @@ import {
   propsCampoCantidad,
 } from "../../../../common/utils/numeros";
 import {
-  AccionesFormulario,
   BannerError,
   BotonCancelar,
   BotonGuardar,
   FormField,
-  FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  TarjetaFormulario,
-  TituloFormulario,
 } from "../../../../components/ui/patrones";
+import {
+  CeldaCompleta,
+  FormularioAlta,
+  GrillaFormulario,
+  InputUnidad,
+  PaginaAlta,
+  PieFormulario,
+  SeccionFormulario,
+} from "../../../../components/ui/formularios";
 import { useEscalado } from "../../../recetas/hooks/useEscalado";
 import { useRecetas } from "../../../recetas/hooks/useRecetas";
 import type { ModoEscalado } from "../../../recetas/types/receta";
@@ -87,100 +92,102 @@ export function LoteCreatePage() {
   };
 
   return (
-    <PaginaFormulario
-      ancho="ancho"
+    <PaginaAlta
+      ancho="extenso"
       // Se llega desde la lista de lotes o desde una receta.
       volver={{ a: "/lotes", etiqueta: "Lotes", historial: true }}
+      icono={LuFactory}
       titulo="Nuevo lote de producción"
       descripcion="Calculá las cantidades de cada insumo para lo que vas a elaborar. El lote se crea recién al confirmar, con la versión vigente de la receta y su checklist."
       error={error}
     >
       {errorRecetas && <BannerError>{errorRecetas}</BannerError>}
 
-      <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-        <TituloFormulario>Datos del lote</TituloFormulario>
+      <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+        <SeccionFormulario titulo="Datos del lote">
+          <GrillaFormulario>
+            <FormField
+              label="Producto"
+              required
+              completo
+              helper={
+                !cargando && disponibles.length === 0
+                  ? "No hay productos con receta. La receta se crea desde el menú Recetas."
+                  : undefined
+              }
+            >
+              <FormNativeSelect
+                value={recetaId}
+                onChange={(e) => setRecetaId(Number(e.target.value))}
+                disabled={cargando}
+              >
+                <SelectPlaceholder>{cargando ? "Cargando..." : "Seleccioná un producto"}</SelectPlaceholder>
+                {disponibles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.producto_nombre}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
 
-        <FormField
-          label="Producto"
-          required
-          helper={
-            !cargando && disponibles.length === 0
-              ? "No hay productos con receta. La receta se crea desde el menú Recetas."
-              : undefined
-          }
-        >
-          <FormNativeSelect
-            value={recetaId}
-            onChange={(e) => setRecetaId(Number(e.target.value))}
-            disabled={cargando}
-            maxW="500px"
-          >
-            <SelectPlaceholder>{cargando ? "Cargando..." : "Seleccioná un producto"}</SelectPlaceholder>
-            {disponibles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.producto_nombre}
-              </option>
-            ))}
-          </FormNativeSelect>
-        </FormField>
+            <FormField label="Indicar por" required>
+              <FormNativeSelect
+                value={modo}
+                onChange={(e) => {
+                  setModo(e.target.value as ModoEscalado);
+                  setValor("");
+                }}
+              >
+                <option value="cantidad">Cantidad objetivo de producto terminado</option>
+                <option value="factor">Factor multiplicador de la receta</option>
+              </FormNativeSelect>
+            </FormField>
 
-        <FormField label="Indicar por" required>
-          <FormNativeSelect
-            value={modo}
-            onChange={(e) => {
-              setModo(e.target.value as ModoEscalado);
-              setValor("");
-            }}
-            maxW="500px"
-          >
-            <option value="cantidad">Cantidad objetivo de producto terminado</option>
-            <option value="factor">Factor multiplicador de la receta</option>
-          </FormNativeSelect>
-        </FormField>
+            <FormField
+              label={modo === "cantidad" ? "Cantidad objetivo" : "Factor"}
+              required
+              helper={
+                vigente
+                  ? `La receta v${vigente.numero} rinde ${cantidadConUnidad(vigente.rendimiento, simbolo)}.`
+                  : undefined
+              }
+            >
+              <InputUnidad
+                unidad={modo === "cantidad" ? simbolo || undefined : "×"}
+                type="number"
+                min="0"
+                {...(modo === "cantidad"
+                  ? propsCampoCantidad(simbolo)
+                  : { step: "any", inputMode: "decimal" as const })}
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                placeholder={modo === "cantidad" ? "Ej: 40" : "Ej: 2"}
+              />
+            </FormField>
 
-        <FormField
-          label={modo === "cantidad" ? `Cantidad objetivo${simbolo ? ` (${simbolo})` : ""}` : "Factor (×)"}
-          required
-          mb="0"
-          helper={
-            vigente
-              ? `La receta v${vigente.numero} rinde ${cantidadConUnidad(vigente.rendimiento, simbolo)}.`
-              : undefined
-          }
-        >
-          <FormInput
-            type="number"
-            min="0"
-            {...(modo === "cantidad"
-              ? propsCampoCantidad(simbolo)
-              : { step: "any", inputMode: "decimal" as const })}
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            placeholder={modo === "cantidad" ? "Ej: 40" : "Ej: 2"}
-            maxW="220px"
-          />
-        </FormField>
+            {escalado && (
+              <CeldaCompleta>
+                <Text fontSize="sm" color="fg.muted" mb="4">
+                  Se elaborará a escala ×{formatoCantidad(escalado.factor)} de la receta (
+                  {cantidadConUnidad(escalado.cantidad_objetivo, simbolo)}). Estas son las cantidades
+                  planificadas:
+                </Text>
+                <TablaEscalado escalado={escalado} />
+              </CeldaCompleta>
+            )}
+          </GrillaFormulario>
+        </SeccionFormulario>
 
-        {escalado && (
-          <Box mt="6">
-            <Text fontSize="sm" color="fg.muted" mb="4">
-              Se elaborará a escala ×{formatoCantidad(escalado.factor)} de la receta (
-              {cantidadConUnidad(escalado.cantidad_objetivo, simbolo)}). Estas son las cantidades
-              planificadas:
-            </Text>
-            <TablaEscalado escalado={escalado} />
-          </Box>
-        )}
-
-        <AccionesFormulario>
-          <BotonGuardar loading={guardando} disabled={guardando}>
-            Crear lote
-          </BotonGuardar>
+        <PieFormulario>
           <BotonCancelar onClick={() => navigate(-1)} disabled={guardando}>
             Cancelar
           </BotonCancelar>
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </PaginaFormulario>
+          <BotonGuardar loading={guardando} loadingText="Guardando..." disabled={guardando}>
+            <LuFactory aria-hidden />
+            Crear lote
+          </BotonGuardar>
+        </PieFormulario>
+      </FormularioAlta>
+    </PaginaAlta>
   );
 }

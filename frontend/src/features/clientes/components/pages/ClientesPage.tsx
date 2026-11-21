@@ -24,7 +24,7 @@ import { useClientes } from "../../hooks/useClientes";
 import type { OrdenCliente } from "../../services/clienteService";
 import type { Cliente } from "../../types/cliente";
 import { ClienteTable } from "../ClienteTable";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -161,7 +161,7 @@ export function ClientesPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="clientes"
               filtros={{
                 activo: String(!verInactivos),

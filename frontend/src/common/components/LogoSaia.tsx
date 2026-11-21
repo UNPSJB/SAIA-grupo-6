@@ -6,6 +6,11 @@ interface LogoSaiaProps {
   size?: number;
   /** Solo el escudo, sin el texto "SAIA" . */
   soloIcono?: boolean;
+  /**
+   * En el celular muestra solo el escudo: en la barra superior, el texto se
+   * comía el lugar de las pestañas y la activa quedaba en "St…".
+   */
+  compactoEnCelular?: boolean;
 }
 
 /**
@@ -14,7 +19,7 @@ interface LogoSaiaProps {
  * Es el único lugar donde vive el escudo de la barra superior. Si más adelante
  * hay un logo propio (SVG/PNG), se cambia acá adentro.
  */
-export function LogoSaia({ size = 28, soloIcono = false }: LogoSaiaProps) {
+export function LogoSaia({ size = 28, soloIcono = false, compactoEnCelular = false }: LogoSaiaProps) {
   return (
     <Flex as="span" display="inline-flex" align="center" gap="2">
       <LuShieldCheck size={size} aria-hidden style={{ flexShrink: 0 }} />
@@ -25,6 +30,7 @@ export function LogoSaia({ size = 28, soloIcono = false }: LogoSaiaProps) {
           fontWeight="bold"
           letterSpacing="wider"
           lineHeight="1"
+          display={compactoEnCelular ? { base: "none", sm: "inline" } : undefined}
         >
           SAIA
         </Text>

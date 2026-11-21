@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Text } from "@chakra-ui/react";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  CeldaCompleta,
+  FormularioAlta,
+  GrillaFormulario,
+  InputUnidad,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 import {
   TIPOS_INSUMO,
   type InsumoFormValues,
@@ -30,7 +32,6 @@ interface InsumoFormProps {
   onSubmit: (values: InsumoInput) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -48,7 +49,6 @@ export function InsumoForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de insumo",
   onCancel,
 }: InsumoFormProps) {
   const [values, setValues] = useState<InsumoFormValues>(initialValues);
@@ -123,150 +123,156 @@ export function InsumoForm({
   };
 
   return (
-    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-      <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario titulo="Identificación">
+        <GrillaFormulario>
+          <FormField label="Nombre" required completo invalid={intentado && faltan.tiene("nombre")}>
+            <FormInput
+              value={values.nombre}
+              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Ej: Harina 000"
+            />
+          </FormField>
 
-      <FormField label="Nombre" required invalid={intentado && faltan.tiene("nombre")}>
-        <FormInput
-          value={values.nombre}
-          onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-          placeholder="Ej: Harina 000"
-          maxW="500px"
-        />
-      </FormField>
-
-      <FormField
-        label="Unidad de medida"
-        required
-        invalid={intentado && faltan.tiene("unidad")}
-      >
-        <FormNativeSelect
-          invalid={intentado && faltan.tiene("unidad")}
-          value={values.unidad_medida_id}
-          onChange={(e) =>
-            setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }))
-          }
-          disabled={cargandoUnidades}
-          maxW="500px"
-        >
-          <SelectPlaceholder>
-            {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
-          </SelectPlaceholder>
-          {unidades.map((unidad) => (
-            <option key={unidad.id} value={unidad.id}>
-              {unidad.nombre} ({unidad.simbolo})
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
-
-      <FormField
-        label="Tipo"
-        required
-        mb={esAditivo ? undefined : "0"}
-        helper="Define cómo se clasifica en las recetas. Los aditivos se declaran por su clase funcional y número INS."
-      >
-        <FormNativeSelect
-          value={values.tipo}
-          onChange={(e) =>
-            setValues((prev) => ({ ...prev, tipo: e.target.value as TipoInsumo }))
-          }
-          maxW="500px"
-        >
-          {TIPOS_INSUMO.map((t) => (
-            <option key={t.valor} value={t.valor}>
-              {t.etiqueta}
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
-
-      {esAditivo && (
-        <FormField
-          label="Aditivo de la lista de referencia"
-          required
-          invalid={intentado && faltan.tiene("aditivo")}
-          mb="0"
-          helper="Clase funcional, nombre completo y número INS. Si no está, agregalo en Inventario → Aditivos."
-        >
-          <FormNativeSelect
-            value={values.aditivo_id ?? 0}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, aditivo_id: Number(e.target.value) || null }))
-            }
-            disabled={cargandoUnidades}
-            maxW="500px"
+          <FormField
+            label="Unidad de medida"
+            required
+            invalid={intentado && faltan.tiene("unidad")}
           >
-            <SelectPlaceholder>Seleccioná un aditivo</SelectPlaceholder>
-            {porClase.map(([clase, lista]) => (
-              <optgroup key={clase} label={clase}>
-                {lista.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre}
-                    {a.numero_ins ? ` (INS ${a.numero_ins})` : ""}
-                  </option>
+            <FormNativeSelect
+              invalid={intentado && faltan.tiene("unidad")}
+              value={values.unidad_medida_id}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }))
+              }
+              disabled={cargandoUnidades}
+            >
+              <SelectPlaceholder>
+                {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+              </SelectPlaceholder>
+              {unidades.map((unidad) => (
+                <option key={unidad.id} value={unidad.id}>
+                  {unidad.nombre} ({unidad.simbolo})
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
+
+          <FormField label="Tipo" required>
+            <FormNativeSelect
+              value={values.tipo}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, tipo: e.target.value as TipoInsumo }))
+              }
+            >
+              {TIPOS_INSUMO.map((t) => (
+                <option key={t.valor} value={t.valor}>
+                  {t.etiqueta}
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
+
+          <CeldaCompleta mt="-3">
+            <Text fontSize="xs" color="fg.subtle">
+              El tipo define cómo se clasifica en las recetas. Los aditivos se declaran por su clase funcional y número INS.
+            </Text>
+          </CeldaCompleta>
+
+          {esAditivo && (
+            <FormField
+              label="Aditivo de la lista de referencia"
+              required
+              completo
+              invalid={intentado && faltan.tiene("aditivo")}
+              helper="Clase funcional, nombre completo y número INS. Si no está, agregalo en Inventario → Aditivos."
+            >
+              <FormNativeSelect
+                value={values.aditivo_id ?? 0}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, aditivo_id: Number(e.target.value) || null }))
+                }
+                disabled={cargandoUnidades}
+              >
+                <SelectPlaceholder>Seleccioná un aditivo</SelectPlaceholder>
+                {porClase.map(([clase, lista]) => (
+                  <optgroup key={clase} label={clase}>
+                    {lista.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre}
+                        {a.numero_ins ? ` (INS ${a.numero_ins})` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
-              </optgroup>
-            ))}
-          </FormNativeSelect>
-        </FormField>
-      )}
+              </FormNativeSelect>
+            </FormField>
+          )}
 
-      {faltaAditivo && (
-        <Text fontSize="sm" color="orange.fg" mt="3">
-          Un aditivo no se puede guardar sin su clase funcional: elegilo de la lista.
-        </Text>
-      )}
+          {faltaAditivo && (
+            <CeldaCompleta>
+              <Text fontSize="sm" color="orange.fg">
+                Un aditivo no se puede guardar sin su clase funcional: elegilo de la lista.
+              </Text>
+            </CeldaCompleta>
+          )}
+        </GrillaFormulario>
+      </SeccionFormulario>
 
-      {/* Densidad: obligatoria si la unidad es Volumen */}
-      {esVolumen && (
-        <FormField
-          label="Densidad (g/ml)"
-          required
-          invalid={intentado && faltan.tiene("densidad")}
-          helper="Densidad del insumo en gramos por mililitro. Usá punto o coma decimal."
-        >
-          <FormInput
-            type="text"
-            inputMode="decimal"
-            value={values.densidad_g_ml}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, densidad_g_ml: e.target.value }))
-            }
-            placeholder="Ej: 1.2000"
-            maxW="500px"
-          />
-        </FormField>
-      )}
+      {(esVolumen || esUnidad) && (
+        <SeccionFormulario titulo="Conversión a gramos">
+          <GrillaFormulario>
+            {/* Densidad: obligatoria si la unidad es Volumen */}
+            {esVolumen && (
+              <FormField
+                label="Densidad"
+                required
+                invalid={intentado && faltan.tiene("densidad")}
+                helper="Gramos por mililitro. Usá punto o coma decimal."
+              >
+                <InputUnidad
+                  unidad="g/ml"
+                  type="text"
+                  inputMode="decimal"
+                  value={values.densidad_g_ml}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, densidad_g_ml: e.target.value }))
+                  }
+                  placeholder="Ej: 1.2000"
+                />
+              </FormField>
+            )}
 
-      {/* Peso unitario: obligatorio si la unidad es Unidad */}
-      {esUnidad && (
-        <FormField
-          label="Peso unitario (g)"
-          required
-          invalid={intentado && faltan.tiene("peso")}
-          helper="Peso de una unidad del insumo en gramos. Usá punto o coma decimal."
-        >
-          <FormInput
-            type="text"
-            inputMode="decimal"
-            value={values.peso_unitario_g}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, peso_unitario_g: e.target.value }))
-            }
-            placeholder="Ej: 500"
-            maxW="500px"
-          />
-        </FormField>
+            {/* Peso unitario: obligatorio si la unidad es Unidad */}
+            {esUnidad && (
+              <FormField
+                label="Peso unitario"
+                required
+                invalid={intentado && faltan.tiene("peso")}
+                helper="Peso de una unidad en gramos. Usá punto o coma decimal."
+              >
+                <InputUnidad
+                  unidad="g"
+                  type="text"
+                  inputMode="decimal"
+                  value={values.peso_unitario_g}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, peso_unitario_g: e.target.value }))
+                  }
+                  placeholder="Ej: 500"
+                />
+              </FormField>
+            )}
+          </GrillaFormulario>
+        </SeccionFormulario>
       )}
-
-      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>
-          {submitLabel}
-        </BotonGuardar>
-        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-      </AccionesFormulario>
-    </TarjetaFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

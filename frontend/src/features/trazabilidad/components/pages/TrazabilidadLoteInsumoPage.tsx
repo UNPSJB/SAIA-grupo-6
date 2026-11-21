@@ -67,11 +67,11 @@ export function TrazabilidadLoteInsumoPage() {
                   <FilaEncabezado>
                     <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
                     <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+                    <EncabezadoOscuro ancho="amplia">Fecha</EncabezadoOscuro>
                     <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
                     <EncabezadoOscuro numero ancho="media">Consumo real</EncabezadoOscuro>
                     <EncabezadoOscuro numero ancho="media">Desperdicio</EncabezadoOscuro>
-                    <EncabezadoOscuro center ancho="angosta">
+                    <EncabezadoOscuro center width="8%">
                       Ver
                     </EncabezadoOscuro>
                   </FilaEncabezado>
@@ -80,14 +80,16 @@ export function TrazabilidadLoteInsumoPage() {
                   {traza.lotes_producto.map((l) => (
                     <FilaClickeable onAbrir={() => navigate(`/lotes/${l.lote_producto_id}`)} key={l.lote_producto_id}>
                       <Celda>
-                        <Text fontFamily="mono" fontSize="sm" color="#64748B">
+                        <Text fontFamily="mono" fontSize="sm" color="tabla.textoSecundario">
                           {l.numero_lote}
                         </Text>
                       </Celda>
                       <Celda>
                         <DatoPrincipal titulo={l.producto_nombre} />
                       </Celda>
-                      <Celda whiteSpace="nowrap">{formatoFechaHora(l.fecha_inicio)}</Celda>
+                      {/* Sin `nowrap`: en una columna angosta la hora pasa al
+                          renglón de abajo en vez de salirse de la celda. */}
+                      <Celda>{formatoFechaHora(l.fecha_inicio)}</Celda>
                       <Celda center>
                         <BadgeEstadoLote estado={l.estado} />
                       </Celda>

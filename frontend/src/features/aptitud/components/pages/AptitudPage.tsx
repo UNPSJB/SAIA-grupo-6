@@ -24,7 +24,7 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -154,7 +154,7 @@ export function AptitudPage() {
               }}
               children="Ver dadas de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="aptituds"
               filtros={{
                 activo: String(!verInactivos),

@@ -140,7 +140,7 @@ export const Login = () => {
                 <Heading
                     as="h2"
                     size="xl"
-                    color="brand.500"
+                    color="brand.fg"
                     textAlign="center"
                     mt={0}
                     mb="6"
@@ -340,7 +340,7 @@ export const Login = () => {
                             setIsLoginView(!isLoginView);
                             setError('');
                         }}
-                        color="brand.500"
+                        color="brand.fg"
                         fontWeight="bold"
                         cursor="pointer"
                     >

@@ -32,7 +32,7 @@ export function TablaEscalado({
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Clasificación</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="angosta">Clasificación</EncabezadoOscuro>
                 <EncabezadoOscuro numero ancho="media">Receta (v{escalado.version.numero})</EncabezadoOscuro>
                 <EncabezadoOscuro numero ancho="media">Para tu lote</EncabezadoOscuro>
               </FilaEncabezado>

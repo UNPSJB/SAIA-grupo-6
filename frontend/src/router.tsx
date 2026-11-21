@@ -81,10 +81,7 @@ const LoteCreatePage = lazyPrecargable(() =>
 const LoteDetallePage = lazyPrecargable(() =>
   import("./features/lotes/components/pages/LoteDetallePage").then((mod) => ({ default: mod.LoteDetallePage })),
 );
-// Salidas de producto
-const SalidasPage = lazyPrecargable(() =>
-  import("./features/salidas/components/pages/SalidasPage").then((mod) => ({ default: mod.SalidasPage })),
-);
+// Salidas de producto (el listado es una pestaña de LotesPage)
 const SalidaDetallePage = lazyPrecargable(() =>
   import("./features/salidas/components/pages/SalidaDetallePage").then((mod) => ({ default: mod.SalidaDetallePage })),
 );
@@ -641,12 +638,9 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                // Las salidas son ahora una pestaña de Lotes de producción.
                 path: "/salidas",
-                element: (
-                  <ConSuspense>
-                    <SalidasPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/lotes?tab=salidas" replace />,
               },
               {
                 path: "/salidas/:id/detalle",

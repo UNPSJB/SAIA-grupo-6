@@ -28,7 +28,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { TabAditivos, TabClases } from "../../../aditivos/components/pages/AditivosPage";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import { useProveedores } from "../../../proveedores/hooks/useProveedores";
 
 const PAGE_SIZE = 10;
@@ -234,7 +234,7 @@ function TabInsumos() {
               onChange={handleToggleInactivos}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="insumos"
               filtros={{
                 activo: String(!verInactivos),

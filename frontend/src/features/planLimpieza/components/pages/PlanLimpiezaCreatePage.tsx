@@ -8,7 +8,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuSparkles } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function PlanLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -27,8 +28,10 @@ export function PlanLimpiezaCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/planes-limpieza", etiqueta: "Planes de limpieza" }}
+      icono={LuSparkles}
+      ancho="extenso"
       titulo="Nuevo Plan de Limpieza"
       descripcion="Definí las tareas, con qué frecuencia se repiten y a qué equipo aplican."
     >
@@ -42,10 +45,9 @@ export function PlanLimpiezaCreatePage() {
       <PlanLimpiezaForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Plan de Limpieza"
         submitLabel="Crear plan"
         onCancel={() => navigate("/planes-limpieza")}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

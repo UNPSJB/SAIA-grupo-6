@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Heading, HStack, Table, Text } from "@chakra-ui/react";
-import { LuArrowLeft, LuFileText, LuPencil, LuPlus } from "react-icons/lu";
-import { BotonesExportar } from "../../../exportacion";
+import { LuArrowLeft, LuPlus } from "react-icons/lu";
+import { BotonExportar } from "../../../exportacion";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { TabReglasRotuladoFrontal } from "../../../rotuladoFrontal/components/pages/ReglasRotuladoFrontalPage";
 import {
   BannerError,
+  BotonAccion,
   BotonFila,
   BotonVolver,
   COLOR_TABLA,
@@ -19,6 +20,7 @@ import {
   EncabezadoOscuro,
   PieTabla,
   PildoraNeutra,
+  Tarjeta,
   TarjetaTabla,
 } from "../../../../components/ui/patrones";
 import {
@@ -124,19 +126,10 @@ function TabRotulado() {
 
   return (
     <>
-      {/* "Volver" va dentro de la pestaña: el encabezado de la página es común
-          a las dos pestañas. */}
-      {productoSeleccionado && (
-        <HStack mb="4">
-          <BotonVolver onClick={cerrarSeleccion}>
-            <LuArrowLeft aria-hidden />
-            Volver al listado
-          </BotonVolver>
-        </HStack>
-      )}
       {productoSeleccionado ? (
         <VistaProductoSeleccionado
           producto={productoSeleccionado}
+          onVolver={cerrarSeleccion}
           onCrearBorrador={crearNuevo}
           onEditarBorrador={abrirEdicion}
         />
@@ -201,7 +194,7 @@ function VistaListadoProductos({
           />
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="rotulado"
             vista="rotulado"
             filtros={{ buscar: busqueda.trim() || undefined }}
@@ -256,7 +249,7 @@ function TablaProductosRotulado({
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
             <EncabezadoOscuro center width="12%">Unidad</EncabezadoOscuro>
             <EncabezadoOscuro center width="13%">Borradores</EncabezadoOscuro>
-            <EncabezadoOscuro width="28%">Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro width="14%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
@@ -277,19 +270,20 @@ function TablaProductosRotulado({
               <Celda>
                 {/* Alineadas a la izquierda: "Nuevo borrador" queda siempre en
                     el mismo lugar, haya o no "Ver borradores" al lado. */}
-                <HStack gap="2" flexWrap="wrap">
-                  <BotonFila
-                    variante="primario"
+                <HStack gap="2">
+                  <BotonAccion
+                    accion="agregar"
+                    label={`Nuevo borrador de ${producto.nombre}`}
+                    tooltip="Nuevo borrador"
                     onClick={() => onCrearBorrador(producto.id)}
-                  >
-                    <LuPlus aria-hidden />
-                    Nuevo borrador
-                  </BotonFila>
+                  />
                   {producto.borradores.length > 0 && (
-                    <BotonFila onClick={() => onSeleccionarProducto(producto)}>
-                      <LuFileText aria-hidden />
-                      Ver borradores
-                    </BotonFila>
+                    <BotonAccion
+                      accion="ver"
+                      label={`Ver borradores de ${producto.nombre}`}
+                      tooltip="Ver borradores"
+                      onClick={() => onSeleccionarProducto(producto)}
+                    />
                   )}
                 </HStack>
               </Celda>
@@ -316,7 +310,7 @@ function BadgeBorradores({ count }: { count: number }) {
       fontWeight="semibold"
       fontVariantNumeric="tabular-nums"
       bg={count > 0 ? "green.subtle" : COLOR_TABLA.fondoEncabezado}
-      color={count > 0 ? "green.fg" : COLOR_TABLA.textoSecundario}
+      color={count > 0 ? "green.fg" : COLOR_TABLA.textoEncabezado}
       borderWidth="1px"
       borderColor={count > 0 ? "green.muted" : COLOR_TABLA.bordeEncabezado}
       aria-label={`${count} borrador${count === 1 ? "" : "es"}`}
@@ -328,30 +322,44 @@ function BadgeBorradores({ count }: { count: number }) {
 
 function VistaProductoSeleccionado({
   producto,
+  onVolver,
   onCrearBorrador,
   onEditarBorrador,
 }: {
   producto: ProductoConBorradores;
+  onVolver: () => void;
   onCrearBorrador: (productoId: number) => void;
   onEditarBorrador: (borradorId: number) => void;
 }) {
   return (
     <>
-      <HStack justify="space-between" align="flex-end" gap="4" mb="6" flexWrap="wrap">
-        <Box>
-          <Heading as="h3" size="lg" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal} mb="1">
-            {producto.nombre}
-          </Heading>
-          <HStack gap="2">
-            <Text fontSize="sm" color={COLOR_TABLA.textoSecundario}>Unidad</Text>
-            <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>
+      {/* Lo primero de la pestaña es una tarjeta, igual que la barra de
+          filtros del listado: la lengüeta de la pestaña se apoya sobre ella.
+          "Volver" va acá dentro porque el encabezado de la página es común a
+          las dos pestañas. */}
+      <Tarjeta p="4" mb="4">
+        <HStack justify="space-between" align="center" gap="4" flexWrap="wrap">
+          <HStack gap="4" align="center" flexWrap="wrap" minW="0">
+            <BotonVolver onClick={onVolver}>
+              <LuArrowLeft aria-hidden />
+              Volver al listado
+            </BotonVolver>
+            <Box minW="0">
+              <Heading as="h3" size="lg" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal} mb="1">
+                {producto.nombre}
+              </Heading>
+              <HStack gap="2">
+                <Text fontSize="sm" color={COLOR_TABLA.textoSecundario}>Unidad</Text>
+                <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>
+              </HStack>
+            </Box>
           </HStack>
-        </Box>
-        <BotonFila variante="primario" onClick={() => onCrearBorrador(producto.id)}>
-          <LuPlus aria-hidden />
-          Crear nuevo borrador
-        </BotonFila>
-      </HStack>
+          <BotonFila variante="primario" onClick={() => onCrearBorrador(producto.id)}>
+            <LuPlus aria-hidden />
+            Crear nuevo borrador
+          </BotonFila>
+        </HStack>
+      </Tarjeta>
 
       {producto.borradores.length === 0 ? (
         <EstadoVacio>
@@ -388,10 +396,12 @@ function VistaProductoSeleccionado({
                     {b.actualizado_en ? formatoFechaHora(b.actualizado_en) : "-"}
                   </Celda>
                   <Celda center>
-                    <BotonFila onClick={() => onEditarBorrador(b.id)}>
-                      <LuPencil aria-hidden />
-                      Editar
-                    </BotonFila>
+                    <BotonAccion
+                      accion="editar"
+                      label={`Editar borrador #${b.id}`}
+                      tooltip="Editar"
+                      onClick={() => onEditarBorrador(b.id)}
+                    />
                   </Celda>
                 </FilaClickeable>
               ))}

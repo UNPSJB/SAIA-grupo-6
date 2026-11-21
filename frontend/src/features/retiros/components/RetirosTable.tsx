@@ -37,7 +37,7 @@ export function RetirosTable({
             <EncabezadoOscuro width="24%">Producto / Lote</EncabezadoOscuro>
             <EncabezadoOscuro>Motivo</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="amplia">Notificados</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="media">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
             <EncabezadoOscuro center width="10%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

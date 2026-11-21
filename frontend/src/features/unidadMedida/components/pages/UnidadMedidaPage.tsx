@@ -24,7 +24,7 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -165,7 +165,7 @@ export function UnidadMedidaPage() {
               checked={verInactivos}
               onChange={handleToggleInactivos}
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="unidades_medida"
                filtros={{
               activo: String(!verInactivos),

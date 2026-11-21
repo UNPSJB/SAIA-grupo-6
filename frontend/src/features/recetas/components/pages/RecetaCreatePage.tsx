@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBookOpen } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
@@ -61,10 +62,12 @@ export function RecetaCreatePage() {
   const cargando = cargandoInsumos || cargandoRecetas;
 
   return (
-    <PaginaFormulario
-      ancho="ancho"
+    <PaginaAlta
+      ancho="extenso"
       volver={{ a: "/recetas", etiqueta: "Recetas" }}
+      icono={LuBookOpen}
       titulo="Nueva receta"
+      descripcion="Definí los insumos y las tareas de elaboración de un producto."
       error={error}
     >
       {errorInsumos && <BannerError>{errorInsumos}</BannerError>}
@@ -85,6 +88,7 @@ export function RecetaCreatePage() {
             <FormField
               label="Producto"
               required
+              completo
               helper={
                 disponibles.length === 0
                   ? "No hay productos sin receta. Creá primero el producto en Producción → Productos."
@@ -94,7 +98,6 @@ export function RecetaCreatePage() {
               <FormNativeSelect
                 value={productoId}
                 onChange={(e) => setProductoId(Number(e.target.value))}
-                maxW="500px"
               >
                 <SelectPlaceholder>Seleccioná un producto</SelectPlaceholder>
                 {disponibles.map((p) => (
@@ -109,6 +112,6 @@ export function RecetaCreatePage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Receta creada correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

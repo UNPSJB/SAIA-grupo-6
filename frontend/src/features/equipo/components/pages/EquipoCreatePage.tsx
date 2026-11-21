@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuWrench } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { EquipoForm } from "../EquipoForm";
 import { useEquipoABM } from "../../hooks/useEquipoABM";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
@@ -25,8 +26,9 @@ export function EquipoCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/equipos", etiqueta: "Equipos" }}
+      icono={LuWrench}
       titulo="Nuevo equipo"
       descripcion="Cargá el equipo con su tipo y sector para poder asignarle planes de limpieza y calibraciones."
       error={error}
@@ -35,12 +37,11 @@ export function EquipoCreatePage() {
       <EquipoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Equipo"
         submitLabel="Crear Equipo"
         onCancel={() => navigate("/equipos")}
       />
 
       <DialogoExito isOpen={exito} mensaje="Equipo agregado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

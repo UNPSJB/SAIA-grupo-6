@@ -10,7 +10,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuLayoutGrid } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function SectorEditPage() {
   const navigate = useNavigate();
@@ -33,9 +34,11 @@ export function SectorEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/sectores", etiqueta: "Sectores" }}
+      icono={LuLayoutGrid}
       titulo="Editar sector"
+      descripcion="Modificá los datos del sector."
     >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
@@ -54,7 +57,6 @@ export function SectorEditPage() {
             initialValues={{ nombre: sector.nombre, descripcion: sector.descripcion || "" }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar sector"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/sectores")}
           />
@@ -62,6 +64,6 @@ export function SectorEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Sector modificado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

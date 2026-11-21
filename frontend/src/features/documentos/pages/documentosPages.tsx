@@ -33,7 +33,7 @@ import { abrirArchivo } from "../services/documentoService";
 import { ESTADOS_DOCUMENTO, TIPOS_DOCUMENTO } from "../types/documento";
 import type { EstadoDocumentoFiltro, TipoDocumento } from "../types/documento";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
-import { BotonesExportar } from "../../../features/exportacion";
+import { BotonExportar } from "../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -164,7 +164,7 @@ export function DocumentosPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="documentos"
             filtros={{ buscar: busquedaAplicada, tipo }}
           />

@@ -46,10 +46,10 @@ export function IncidenteTable({
       <Table.Root variant="outline" w="100%" minW="800px">
         <Table.Header>
 {/*
-            "Título" y "Reportado por" no llevan ancho a propósito: son las
-            columnas que se reparten lo que sobra. El título quedó sin ancho
-            porque ahora muestra también la descripción y la resolución del
-            incidente, no solo el nombre.
+            "Título" no lleva ancho a propósito: es la columna que se queda
+            con lo que sobra, porque muestra también la resolución del
+            incidente. "Reportado por" (un nombre) va en `angosta`: antes
+            repartía el sobrante con el título y le quitaba la mitad.
           */}
           <FilaEncabezado>
             {orden ? (
@@ -60,24 +60,24 @@ export function IncidenteTable({
               <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
             )}
             <EncabezadoOscuro>Título</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="angosta">
+            <EncabezadoOscuro center width="8%">
               Foto
             </EncabezadoOscuro>
             {orden ? (
-              <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
+              <EncabezadoOrdenable columna="tipo" orden={orden} ancho="amplia">
                 Tipo
               </EncabezadoOrdenable>
             ) : (
-              <EncabezadoOscuro ancho="media">Tipo</EncabezadoOscuro>
+              <EncabezadoOscuro ancho="amplia">Tipo</EncabezadoOscuro>
             )}
             {orden ? (
-              <EncabezadoOrdenable columna="estado" orden={orden} ancho="media">
+              <EncabezadoOrdenable columna="estado" orden={orden} ancho="angosta">
                 Estado
               </EncabezadoOrdenable>
             ) : (
-              <EncabezadoOscuro ancho="media">Estado</EncabezadoOscuro>
+              <EncabezadoOscuro ancho="angosta">Estado</EncabezadoOscuro>
             )}
-            <EncabezadoOscuro>Reportado por</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="angosta">Reportado por</EncabezadoOscuro>
             {showActions && <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>}
           </FilaEncabezado>
         </Table.Header>

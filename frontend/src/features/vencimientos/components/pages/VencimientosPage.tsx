@@ -46,7 +46,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { Table } from "@chakra-ui/react";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import { LuCircleCheck } from "react-icons/lu";
 
 /** Tamaño de página de todos los listados de la app. */
@@ -321,7 +321,7 @@ export function VencimientosPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="vencimientos"
             vista="vencimientos"
             filtros={{
@@ -377,7 +377,7 @@ export function VencimientosPage() {
             <Table.Root variant="outline" size="md" w="100%" minW="900px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
+                  <EncabezadoOrdenable columna="tipo" orden={orden} ancho="amplia">
                     Tipo
                   </EncabezadoOrdenable>
                   <EncabezadoOscuro>Detalle</EncabezadoOscuro>
@@ -385,11 +385,11 @@ export function VencimientosPage() {
                   <EncabezadoOrdenable
                     columna="vencimiento"
                     orden={orden}
-                    ancho="media"
+                    ancho="amplia"
                   >
                     Vencimiento
                   </EncabezadoOrdenable>
-                  <EncabezadoOrdenable columna="estado" orden={orden} ancho="media" center>
+                  <EncabezadoOrdenable columna="estado" orden={orden} ancho="angosta" center>
                     Estado
                   </EncabezadoOrdenable>
                   <EncabezadoOscuro center ancho="acciones">

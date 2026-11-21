@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuPackage } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
@@ -49,9 +50,11 @@ export function ProductoCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/productos", etiqueta: "Productos" }}
+      icono={LuPackage}
       titulo="Nuevo producto"
+      descripcion="Cargá el producto terminado y la unidad en que se produce."
       error={!conflicto ? error : null}
     >
       <ProductoForm
@@ -73,6 +76,6 @@ export function ProductoCreatePage() {
         }}
         onConfirm={confirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

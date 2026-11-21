@@ -55,11 +55,11 @@ export function ClienteTable({
               <EncabezadoOscuro ancho="amplia">Nombre</EncabezadoOscuro>
             )}
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="documento" orden={orden as any} ancho="media">
+              <EncabezadoOrdenable columna="documento" orden={orden as any} ancho="angosta">
                 Documento
               </EncabezadoOrdenable>
             ) : (
-              <EncabezadoOscuro ancho="media">Documento</EncabezadoOscuro>
+              <EncabezadoOscuro ancho="angosta">Documento</EncabezadoOscuro>
             )}
             <EncabezadoOscuro ancho="media">Teléfono</EncabezadoOscuro>
             <EncabezadoOscuro>Domicilio</EncabezadoOscuro>

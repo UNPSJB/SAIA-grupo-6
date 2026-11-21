@@ -66,7 +66,7 @@ export function ProductoTable({
                 <DatoPrincipal titulo={producto.nombre} />
               </Celda>
               <Celda>
-                <TextoTruncado texto={producto.descripcion ?? "-"} color="#64748B" />
+                <TextoTruncado texto={producto.descripcion ?? "-"} color="tabla.textoSecundario" />
               </Celda>
               <Celda center>
                 <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Box, Flex, HStack, Stack, Text } from "@chakra-ui/react";
 import {
   Area,
@@ -107,7 +107,133 @@ export interface SerieGrafico {
   color: string;
 }
 
-const TITULO_TRAMO = { dia: "Día", semana: "Semana del", mes: "Mes" } as const;
+const TITULO_TRAMO = { dia: "Día", semana: "Semana del" } as const;
+
+/**
+ * `true` si una serie diaria de `dias` puntos es la del período de 30 días
+ * (29 a 31 según cómo se cuenten los extremos). Solo ahí las fechas del eje
+ * van en diagonal.
+ */
+export function esPeriodoDeUnMes(dias: number): boolean {
+  return dias >= 28 && dias <= 32;
+}
+
+/** Ancho de un elemento, al día cuando cambia el tamaño de la pantalla. */
+function useAncho<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [ancho, setAncho] = useState(0);
+  // Antes de pintar: se mide ya, sin esperar el primer aviso del observador
+  // (que puede tardar y dejar el eje con dos fechas mientras tanto).
+  useLayoutEffect(() => {
+    const elemento = ref.current;
+    if (!elemento) return;
+    setAncho(elemento.getBoundingClientRect().width);
+    const observador = new ResizeObserver(([entrada]) => {
+      if (entrada.contentRect.width > 0) setAncho(entrada.contentRect.width);
+    });
+    observador.observe(elemento);
+    return () => observador.disconnect();
+  }, []);
+  return [ref, ancho] as const;
+}
+
+/** Si todavía no se pudo medir, un ancho típico de gráfico: mejor que dos fechas. */
+const ANCHO_SUPUESTO = 600;
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MESES_LARGOS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/** `YYYY-MM-DD` → "Noviembre de 2026": el título del cartel de un mes. */
+function mesLargo(iso: string): string {
+  const mes = MESES_LARGOS[Number(iso.slice(5, 7)) - 1];
+  return `${mes.charAt(0).toUpperCase()}${mes.slice(1)} de ${iso.slice(0, 4)}`;
+}
+
+/** Desde cuántos días una serie diaria se rotula por mes (la de 12 meses). */
+const DIAS_PARA_ROTULAR_POR_MES = 120;
+
+/**
+ * Qué fechas se escriben en un eje X sin rotar. Las que entran en el ancho
+ * del gráfico, a intervalos iguales contados DESDE LA ÚLTIMA: así la última
+ * fecha siempre está y no queda un hueco antes de ella (recharts, al forzar
+ * la primera y la última, ocultaba la anteúltima).
+ *
+ * `claves` es el `YYYY-MM-DD` de cada punto. Los meses se escriben con el
+ * nombre del mes y, donde cambia el año, con el año entero: "nov · ene 2026
+ * · mar…". Nunca "dic 25", que se lee como el día 25. Se
+ * rotula por mes una serie por mes (`porMes`) y una serie diaria larga, como
+ * la de 12 meses: ahí se marca el día 1 de cada mes.
+ *
+ * `ref` va en el contenedor del gráfico; `tick` dibuja cada fecha centrada
+ * en su día, también la última: así queda a la misma distancia que las demás
+ * (el gráfico deja margen a la derecha para que no se corte).
+ */
+export function useFechasEje(
+  etiquetas: string[],
+  tamanoLetra: number,
+  color: string,
+  claves?: string[],
+  porMes = false,
+) {
+  const [ref, ancho] = useAncho<HTMLDivElement>();
+  /** Etiqueta del punto → su mes, si ese punto se rotula con el mes. */
+  const meses = new Map<string, { mes: string; anio: string }>();
+  if (claves && (porMes || claves.length >= DIAS_PARA_ROTULAR_POR_MES)) {
+    claves.forEach((clave, i) => {
+      if (porMes || clave.endsWith("-01")) {
+        meses.set(etiquetas[i], { mes: MESES[Number(clave.slice(5, 7)) - 1], anio: clave.slice(0, 4) });
+      }
+    });
+  }
+  const candidatas = meses.size ? etiquetas.filter((e) => meses.has(e)) : etiquetas;
+
+  // Ancho aproximado de una fecha más el aire mínimo entre dos. Un mes se
+  // cuenta como "dic 25": algunos llevan el año entero, la mayoría no.
+  const largo = meses.size ? 6 : Math.max(1, ...candidatas.map((e) => e.length));
+  const porEtiqueta = largo * tamanoLetra * 0.62 + 20;
+  const entran = Math.max(2, Math.floor(((ancho || ANCHO_SUPUESTO) - 40) / porEtiqueta));
+  const paso = Math.max(1, Math.ceil(candidatas.length / entran));
+  const ultima = candidatas.length - 1;
+  const ticks = candidatas.filter((_, i) => (ultima - i) % paso === 0);
+
+  /**
+   * Texto de cada fecha visible: el año va donde cambia ("nov · ene 2026 ·
+   * mar"). En la primera solo si no cambia en todo el eje: así dos fechas con
+   * año no quedan juntas al principio, donde se pisarían.
+   */
+  const cambiaAnio = (i: number) => i > 0 && meses.get(ticks[i])?.anio !== meses.get(ticks[i - 1])?.anio;
+  const algunCambio = ticks.some((_, i) => cambiaAnio(i));
+  const textos = new Map<string, string>();
+  ticks.forEach((etiqueta, i) => {
+    const mes = meses.get(etiqueta);
+    if (!mes) return textos.set(etiqueta, etiqueta);
+    const conAnio = cambiaAnio(i) || (i === 0 && !algunCambio);
+    textos.set(etiqueta, conAnio ? `${mes.mes} ${mes.anio}` : mes.mes);
+  });
+
+  const tick = (props: { x?: number | string; y?: number | string; payload?: { value?: unknown } }) => {
+    const valor = String(props.payload?.value ?? "");
+    return (
+      <text x={props.x} y={props.y} dy="0.71em" fontSize={tamanoLetra} fill={color} textAnchor="middle">
+        {textos.get(valor) ?? valor}
+      </text>
+    );
+  };
+  return { ref, ticks, tick };
+}
 
 function fechaCorta(iso: string): string {
   const [anio, mes, dia] = iso.split("-");
@@ -161,12 +287,27 @@ export function GraficoSerie({
   extraTooltip,
 }: GraficoSerieProps) {
   const esPorcentaje = unidad === "%";
+  /** Período de 30 días mostrado día por día (no 7 días, ni 90, ni 12 meses). */
+  const diasDelMes = serie.granularidad === "dia" && esPeriodoDeUnMes(serie.puntos.length);
+  // En diagonal, la primera y la última fecha asoman unos píxeles por los
+  // costados y por abajo: un poco de margen para que no se corten.
+  const margen = diasDelMes
+    ? { top: 6, right: 12, bottom: 4, left: 6 }
+    : // A la derecha, lugar para media fecha: la última va centrada en su día.
+      { top: 6, right: 22, bottom: 0, left: 0 };
   // Ids de los degradados del área: únicos por gráfico, puede haber varios en pantalla.
   const idDegradado = `degradado-${useId().replace(/:/g, "")}`;
   const claves = series.map((s) => s.clave);
   const datos = serie.puntos.map((p) => ({ clave: p.clave, etiqueta: p.etiqueta, ...p.valores }));
   const formato = (valor: number | null | undefined) =>
     valor === null || valor === undefined ? "Sin datos" : `${formatoCantidad(valor)}${unidad ?? ""}`;
+  const fechas = useFechasEje(
+    serie.puntos.map((p) => p.etiqueta),
+    12,
+    COLOR_EJE,
+    serie.granularidad === "semana" ? undefined : serie.puntos.map((p) => p.clave),
+    serie.granularidad === "mes",
+  );
 
   const contenidoTooltip = ({
     active,
@@ -181,9 +322,11 @@ export function GraficoSerie({
     const extra = extraTooltip?.(valores, String(punto.clave));
     return (
       <CajaTooltip
-        titulo={`${TITULO_TRAMO[serie.granularidad]} ${
-          serie.granularidad === "mes" ? String(punto.etiqueta) : fechaCorta(String(punto.clave))
-        }`}
+        titulo={
+          serie.granularidad === "mes"
+            ? mesLargo(String(punto.clave))
+            : `${TITULO_TRAMO[serie.granularidad]} ${fechaCorta(String(punto.clave))}`
+        }
       >
         {series.map((s) => (
           <FilaTooltip key={s.clave} color={s.color} texto={s.etiqueta} valor={formato(valores[s.clave])} />
@@ -204,15 +347,32 @@ export function GraficoSerie({
   const ejes = (
     <>
       <CartesianGrid vertical={false} stroke={COLOR_GRILLA} strokeWidth={1} />
-      <XAxis
-        dataKey="etiqueta"
-        tickLine={false}
-        axisLine={false}
-        tick={{ fontSize: 12, fill: COLOR_EJE }}
-        tickMargin={10}
-        minTickGap={24}
-        interval="preserveStartEnd"
-      />
+      {/* Período de un mes, día por día: fechas en diagonal y todas visibles
+          (si no, se saltea un día de por medio). Con 7 días entran derechas y
+          con 90 días o 12 meses son demasiadas: ahí se dejan sin rotar. */}
+      {diasDelMes ? (
+        <XAxis
+          dataKey="etiqueta"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 11, fill: COLOR_EJE }}
+          angle={-45}
+          textAnchor="end"
+          height={50}
+          tickMargin={4}
+          interval={0}
+        />
+      ) : (
+        <XAxis
+          dataKey="etiqueta"
+          tickLine={false}
+          axisLine={false}
+          ticks={fechas.ticks}
+          tick={fechas.tick}
+          tickMargin={8}
+          interval={0}
+        />
+      )}
       <YAxis
         allowDecimals={false}
         tickLine={false}
@@ -251,6 +411,7 @@ export function GraficoSerie({
       ) : null}
 
       <Box
+        ref={fechas.ref}
         w="full"
         {...(llenar ? { flex: "1", minH: `${alto}px` } : { h: `${alto}px` })}
         role="img"
@@ -258,7 +419,7 @@ export function GraficoSerie({
       >
         <ResponsiveContainer width="100%" height="100%">
           {tipo === "area" ? (
-            <AreaChart data={datos} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <AreaChart data={datos} margin={margen}>
               {/* Debajo de cada curva, un degradado del color de la serie que
                   se desvanece hacia el eje: marca el volumen sin tapar la
                   grilla ni la otra serie. */}
@@ -294,7 +455,7 @@ export function GraficoSerie({
               ))}
             </AreaChart>
           ) : tipo === "lineas" ? (
-            <LineChart data={datos} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <LineChart data={datos} margin={margen}>
               {ejes}
               <Tooltip content={contenidoTooltip} cursor={{ stroke: COLOR_EJE, strokeWidth: 1 }} />
               {series.map((s) => (
@@ -313,12 +474,7 @@ export function GraficoSerie({
               ))}
             </LineChart>
           ) : (
-            <BarChart
-              data={datos}
-              margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
-              barGap={2}
-              barCategoryGap="25%"
-            >
+            <BarChart data={datos} margin={margen} barGap={2} barCategoryGap="25%">
               {ejes}
               <Tooltip content={contenidoTooltip} cursor={{ fill: "var(--chakra-colors-gray-50)" }} />
               {series.map((s) => (
@@ -340,7 +496,9 @@ export function GraficoSerie({
                             payload?: Record<string, unknown>;
                           };
                           const tope = esTopeDePila(forma.payload, s.clave, claves);
-                          return <Rectangle {...forma} radius={tope ? [RADIO_BARRA, RADIO_BARRA, 0, 0] : 0} />;
+                          return (
+                            <Rectangle {...forma} radius={tope ? [RADIO_BARRA, RADIO_BARRA, 0, 0] : 0} />
+                          );
                         }
                       : undefined
                   }
@@ -378,7 +536,6 @@ export function GraficoSerie({
   );
 }
 
-
 /* ───────────────────────────────── Dona ───────────────────────────────── */
 
 const LADO = 160;
@@ -388,8 +545,6 @@ const RADIO = 76 - GROSOR / 2;
 const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
 /** Aire entre porciones: separa sin dibujar bordes. */
 const HUECO = 1.8;
-
-
 
 /**
  * Reparto de un total entre pocas partes: anillo con el total en el centro y
@@ -407,8 +562,7 @@ export function GraficoDona({ partes, unidad }: { partes: ParteDona[]; unidad: s
   const tramos = visibles.map((parte, i) => ({
     parte,
     largo: (parte.valor / total) * CIRCUNFERENCIA,
-    desplazamiento:
-      (visibles.slice(0, i).reduce((t, p) => t + p.valor, 0) / total) * CIRCUNFERENCIA,
+    desplazamiento: (visibles.slice(0, i).reduce((t, p) => t + p.valor, 0) / total) * CIRCUNFERENCIA,
   }));
 
   const resumen = `${partes.map((p) => `${p.etiqueta}: ${p.valor} (${porcentaje(p.valor)}%)`).join(", ")}. Total: ${total} ${unidad}.`;
@@ -679,8 +833,7 @@ function conOpacidad(hex: string, opacidad: number): string {
 }
 
 const TEXTO_TRAMO = { dia: "día ", semana: "semana del ", mes: "" } as const;
-const RAYADO =
-  "repeating-linear-gradient(45deg, var(--chakra-colors-gray-200) 0 2px, transparent 2px 6px)";
+const RAYADO = "repeating-linear-gradient(45deg, var(--chakra-colors-gray-200) 0 2px, transparent 2px 6px)";
 
 interface MapaCalorProps {
   mapa: DatosMapa;
@@ -841,13 +994,7 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
             <Text fontSize="sm" color="fg">
               {dato.etiqueta}
             </Text>
-            <Box
-              position="relative"
-              h="3"
-              gridColumn="1 / -1"
-              gridRow="2"
-              aria-hidden
-            >
+            <Box position="relative" h="3" gridColumn="1 / -1" gridRow="2" aria-hidden>
               {/* Eje: dónde está el cero y hasta dónde llega el máximo. */}
               <Box position="absolute" insetX="0" top="50%" h="1px" bg="bg.muted" />
               {/* El punto se corre medio diámetro para que el del máximo no se

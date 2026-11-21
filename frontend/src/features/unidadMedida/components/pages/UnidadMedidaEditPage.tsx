@@ -10,7 +10,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuRuler } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function UnidadMedidaEditPage() {
   const navigate = useNavigate();
@@ -46,9 +47,11 @@ export function UnidadMedidaEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/unidades-medida", etiqueta: "Unidades de medida" }}
+      icono={LuRuler}
       titulo="Editar unidad de medida"
+      descripcion="Modificá la unidad y su factor de conversión a la unidad base."
     >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
@@ -80,12 +83,11 @@ export function UnidadMedidaEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar unidad de medida"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/unidades-medida")}
           />
         </>
       )}
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

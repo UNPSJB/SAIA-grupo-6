@@ -24,7 +24,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuUserPen } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
@@ -121,9 +122,11 @@ export function PersonalEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/personal", etiqueta: "Personal" }}
+      icono={LuUserPen}
       titulo="Editar personal"
+      descripcion="Modificá los datos, permisos y vencimientos de aptitud de la persona."
     >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
@@ -159,7 +162,6 @@ export function PersonalEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Personal"
             puedeEditarCapacidades={puedeEditarCapacidades}
             puedeAsignarSuperAdmin={puedeAsignarSuperAdmin}
             submitLabel="Guardar cambios"
@@ -179,6 +181,6 @@ export function PersonalEditPage() {
         isOpen={exito}
         mensaje="Personal modificado correctamente."
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

@@ -56,7 +56,7 @@ export function VersionDetalleView({ version }: { version: VersionDetalle }) {
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Clasificación</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="angosta">Clasificación</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="amplia">Clase funcional e INS</EncabezadoOscuro>
                 <EncabezadoOscuro numero ancho="media">Cantidad</EncabezadoOscuro>
               </FilaEncabezado>

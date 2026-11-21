@@ -10,7 +10,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuWheat } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function InsumoEditPage() {
   const navigate = useNavigate();
@@ -43,9 +44,11 @@ export function InsumoEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/insumos", etiqueta: "Insumos" }}
+      icono={LuWheat}
       titulo="Editar insumo"
+      descripcion="Modificá la materia prima, su unidad de medida y su tipo."
     >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
@@ -74,7 +77,6 @@ export function InsumoEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar insumo"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/insumos")}
           />
@@ -85,6 +87,6 @@ export function InsumoEditPage() {
         isOpen={exito}
         mensaje="Insumo modificado correctamente."
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

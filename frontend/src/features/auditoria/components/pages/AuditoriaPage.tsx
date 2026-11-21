@@ -6,6 +6,7 @@ import { useAuditoria } from '../../hooks/useAuditoria';
 import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
 import type { AccionAuditoria } from '../../types/auditoria';
 import { Pagina } from "../../../../components/ui/plantillas";
+import { BotonExportar } from "../../../exportacion";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -509,30 +510,19 @@ export function AuditoriaPage() {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [entidades, setEntidades] = useState<string[]>([]);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
-  const [exportando, setExportando] = useState<FormatoExportacion | null>(null);
-  const [errorExport, setErrorExport] = useState<string | null>(null);
-
-  const exportar = async (formato: FormatoExportacion) => {
-    setExportando(formato);
-    setErrorExport(null);
-    try {
-      await exportarAuditoria(
-        {
-          accion: filtros.accion || undefined,
-          entidad: filtros.entidad || undefined,
-          entidad_id: filtros.entidadId || undefined,
-          usuario_id: filtros.usuarioId ? Number(filtros.usuarioId) : undefined,
-          desde: filtros.desde || undefined,
-          hasta: filtros.hasta || undefined,
-        },
-        formato,
-      );
-    } catch (e) {
-      setErrorExport(e instanceof Error ? e.message : 'Error al exportar la auditoría');
-    } finally {
-      setExportando(null);
-    }
-  };
+  // El estado de carga y el aviso de error los maneja `BotonExportar`.
+  const exportar = (formato: FormatoExportacion) =>
+    exportarAuditoria(
+      {
+        accion: filtros.accion || undefined,
+        entidad: filtros.entidad || undefined,
+        entidad_id: filtros.entidadId || undefined,
+        usuario_id: filtros.usuarioId ? Number(filtros.usuarioId) : undefined,
+        desde: filtros.desde || undefined,
+        hasta: filtros.hasta || undefined,
+      },
+      formato,
+    );
 
   useEffect(() => {
     listarEntidades().then(setEntidades).catch(() => setEntidades([]));
@@ -653,7 +643,6 @@ export function AuditoriaPage() {
       descripcion="Bitácora de cambios de todas las entidades del sistema. Requiere rol de administrador."
     >
       {error && <BannerError mb="4">{error}</BannerError>}
-      {errorExport && <BannerError mb="4">{errorExport}</BannerError>}
 
       <Tarjeta p="4" mb="4">
         <Box
@@ -720,20 +709,9 @@ export function AuditoriaPage() {
                 <Input type="date" value={borrador.hasta} onChange={(e) => actualizar('hasta', e.target.value)} />
               </FormField>
             </Box>
-            <Flex gap="2" mb="4">
-              {(['csv', 'pdf'] as const).map((f) => (
-                <Button
-                  key={f}
-                  type="button"
-                  variant="outline"
-                  onClick={() => exportar(f)}
-                  loading={exportando === f}
-                  disabled={total === 0 || exportando !== null}
-                >
-                  Exportar {f === 'csv' ? 'CSV' : 'PDF'}
-                </Button>
-              ))}
-            </Flex>
+            <Box mb="4">
+              <BotonExportar nombreTabla="la auditoría" exportar={exportar} disabled={total === 0} />
+            </Box>
           </Flex>
           {rangoInvalido && (
             <Text fontSize="sm" color="red.fg">

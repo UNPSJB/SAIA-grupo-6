@@ -6,7 +6,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBuilding2 } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useProveedor } from "../../hooks/useProveedor";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
 import type { ProveedorFormValues } from "../../types/proveedor";
@@ -36,9 +37,11 @@ export function ProveedorEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/proveedores", etiqueta: "Proveedores" }}
+      icono={LuBuilding2}
       titulo="Editar proveedor"
+      descripcion="Modificá los datos fiscales y de contacto del proveedor."
     >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
@@ -52,20 +55,21 @@ export function ProveedorEditPage() {
         <>
           {errorGuardado && <BannerError>{errorGuardado}</BannerError>}
 
+          {/* Claves distintas por componente: las dos se reinician al cambiar de
+              proveedor, pero como hermanas no pueden compartir la misma. */}
           <ProveedorForm
-            key={proveedor.id}
+            key={`form-${proveedor.id}`}
             initialValues={{ nombre: proveedor.nombre, cuit: proveedor.cuit ?? proveedor.matricula, contacto: proveedor.contacto ?? "", domicilio: proveedor.domicilio ?? "", rubro: proveedor.rubro ?? "", es_certificado: proveedor.es_certificado }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar proveedor"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/proveedores")}
           />
-          <ProveedorComplementos key={proveedor.id} proveedor={proveedor} onActualizado={() => { void recargarProveedor(); }} />
+          <ProveedorComplementos key={`complementos-${proveedor.id}`} proveedor={proveedor} onActualizado={() => { void recargarProveedor(); }} />
         </>
       )}
 
       <DialogoExito isOpen={exito} mensaje="Proveedor modificado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

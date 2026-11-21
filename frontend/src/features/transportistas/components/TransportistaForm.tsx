@@ -1,19 +1,17 @@
 import { useState } from "react";
-import { Box } from "@chakra-ui/react";
 import type { TransportistaFormValues } from "../types/transportista";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
-  SIN_VALIDACION_NATIVA,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 import { Textarea } from "@chakra-ui/react";
 
 interface TransportistaFormProps {
@@ -21,7 +19,6 @@ interface TransportistaFormProps {
   onSubmit: (values: TransportistaFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -39,7 +36,6 @@ export function TransportistaForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de transportista",
   onCancel,
 }: TransportistaFormProps) {
   const [values, setValues] = useState<TransportistaFormValues>(initialValues);
@@ -57,79 +53,57 @@ export function TransportistaForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField invalid={intentado && faltan.tiene("razon_social")} label="Razón social" required completo>
+            <FormInput
+              value={values.razon_social}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, razon_social: e.target.value }))
+              }
+              placeholder="Ej: Transporte del Norte S.A."
+            />
+          </FormField>
 
-        <FormField
-          invalid={intentado && faltan.tiene("razon_social")}
-          label="Razón Social"
-          required
-          mb="4"
-        >
-          <FormInput
-            value={values.razon_social}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, razon_social: e.target.value }))
-            }
-            placeholder="Ej: Transporte del Norte S.A."
-            maxW="500px"
-          />
-        </FormField>
+          <FormField invalid={intentado && faltan.tiene("cuit")} label="CUIT" required>
+            <FormInput
+              value={values.cuit}
+              onChange={(e) => setValues((prev) => ({ ...prev, cuit: e.target.value }))}
+              placeholder="Ej: 20-12345678-9"
+            />
+          </FormField>
 
-        <FormField
-          invalid={intentado && faltan.tiene("cuit")}
-          label="CUIT"
-          required
-          mb="4"
-        >
-          <FormInput
-            value={values.cuit}
-            onChange={(e) => setValues((prev) => ({ ...prev, cuit: e.target.value }))}
-            placeholder="Ej: 20-12345678-9"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField invalid={intentado && faltan.tiene("telefono")} label="Teléfono" required>
+            <FormInput
+              value={values.telefono}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, telefono: e.target.value }))
+              }
+              placeholder="Ej: 11-2233-4455"
+            />
+          </FormField>
 
-        <FormField
-          invalid={intentado && faltan.tiene("telefono")}
-          label="Teléfono"
-          required
-          mb="4"
-        >
-          <FormInput
-            value={values.telefono}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, telefono: e.target.value }))
-            }
-            placeholder="Ej: 11-2233-4455"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField label="Email">
+            <FormInput
+              value={values.email ?? ""}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, email: e.target.value || null }))
+              }
+              placeholder="Ej: choferes@transportista.com"
+            />
+          </FormField>
 
-        <FormField label="Email" mb="4">
-          <FormInput
-            value={values.email ?? ""}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, email: e.target.value || null }))
-            }
-            placeholder="Ej: choferes@transportista.com"
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField label="Domicilio" mb="4">
-          <FormInput
-            value={values.domicilio ?? ""}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, domicilio: e.target.value || null }))
-            }
-            placeholder="Ej: Av. Ruta 9 Km 123, CABA"
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField label="Observaciones" mb="0">
+          <FormField label="Domicilio">
+            <FormInput
+              value={values.domicilio ?? ""}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, domicilio: e.target.value || null }))
+              }
+              placeholder="Ej: Av. Ruta 9 Km 123, CABA"
+            />
+          </FormField>
+          <FormField label="Observaciones" opcional completo>
           <Textarea
             value={values.observaciones ?? ""}
             onChange={(e) =>
@@ -139,19 +113,17 @@ export function TransportistaForm({
               }))
             }
             placeholder="Ej: Solo circula de día, vehículo con GPS"
-            maxW="500px"
-            h="16"
           />
-        </FormField>
-
-        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>
-            {submitLabel}
-          </BotonGuardar>
-          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

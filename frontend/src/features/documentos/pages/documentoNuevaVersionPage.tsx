@@ -10,7 +10,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../components/ui/plantillas";
+import { LuFilePlus } from "react-icons/lu";
+import { PaginaAlta } from "../../../components/ui/formularios";
 
 export function DocumentoNuevaVersionPage() {
   const { id } = useParams();
@@ -35,8 +36,9 @@ export function DocumentoNuevaVersionPage() {
   const vigente = documento?.version_vigente;
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/documentos", etiqueta: "Documentos" }}
+      icono={LuFilePlus}
       titulo={`Nueva versión${documento ? `: ${documento.nombre}` : ""}`}
       descripcion="La versión anterior queda archivada: no se borra ni se sobrescribe."
     >
@@ -68,12 +70,11 @@ export function DocumentoNuevaVersionPage() {
             conDatosDelDocumento={false}
             onSubmit={handleSubmit}
             isLoading={loading}
-            title="Subir nueva versión"
             submitLabel="Subir versión"
             onCancel={() => navigate("/documentos")}
           />
         </>
       )}
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

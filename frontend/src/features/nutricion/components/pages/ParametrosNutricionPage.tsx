@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, Box, Button, Checkbox, HStack, InputGroup, Stack, Table, Text } from "@chakra-ui/react";
 import { LuFileDown, LuFileUp, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import { SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
@@ -456,7 +456,7 @@ export function PanelBase() {
             />
           }
           herramientas={
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="alimentos"
               vista="alimentos"
               filtros={{ buscar: texto.trim() || undefined, base: base || undefined }}

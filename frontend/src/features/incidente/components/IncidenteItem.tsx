@@ -8,7 +8,14 @@ import {
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
 import { formatoFecha as formatoFechaDia } from "../../../common/utils/fechas";
-import { BotonAccion, Celda, EtiquetaEstado, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  COLOR_TABLA,
+  EtiquetaEstado,
+  FilaClickeable,
+  TextoTruncado,
+} from "../../../components/ui/patrones";
 import { Tooltip } from "../../../components/ui/tooltip";
 
 interface IncidenteItemProps {
@@ -84,12 +91,12 @@ export function IncidenteItem({
         {formatoFechaDia(incidente.fecha_reporte)}
       </Celda>
 
-      <Celda maxW="220px">
+      <Celda>
         <Text
           fontWeight="semibold"
           fontSize="sm"
           lineClamp={1}
-          color={esViejo ? "red.fg" : "#1E293B"}
+          color={esViejo ? "red.fg" : COLOR_TABLA.textoPrincipal}
           title={incidente.titulo}
         >
           {incidente.titulo}
@@ -145,6 +152,7 @@ export function IncidenteItem({
           maxW="100%"
           overflow="hidden"
           textOverflow="ellipsis"
+          title={tipoLabel(incidente.tipo)}
         >
           {tipoLabel(incidente.tipo)}
         </Badge>

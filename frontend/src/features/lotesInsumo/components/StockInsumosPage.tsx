@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { Pagina, PestanasPagina } from "../../../components/ui/plantillas";
+import { BotonExportar } from "../../exportacion";
 import { formatoFecha } from "../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../common/utils/numeros";
 import {
@@ -116,6 +117,26 @@ function TabStockPorInsumo() {
             todos="Todos"
           />
         }
+        herramientas={
+          <BotonExportar
+            nombreTabla="el stock de insumos"
+            disabled={visibles.length === 0}
+            datos={() => ({
+              titulo: "Stock por insumo",
+              nombre: "stock-insumos",
+              encabezados: ["Insumo", "Recibido", "Consumo real", "Desperdicio", "Bajas", "Stock actual", "Vencido"],
+              filas: visibles.map((s) => [
+                s.insumo_nombre,
+                cantidadConUnidad(s.cantidad_recibida, s.unidad),
+                cantidadConUnidad(s.consumo_real, s.unidad),
+                cantidadConUnidad(s.desperdicio, s.unidad),
+                Number(s.cantidad_baja) > 0 ? cantidadConUnidad(s.cantidad_baja, s.unidad) : "-",
+                cantidadConUnidad(s.stock, s.unidad),
+                Number(s.stock_vencido) > 0 ? cantidadConUnidad(s.stock_vencido, s.unidad) : "-",
+              ]),
+            })}
+          />
+        }
       />
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
@@ -133,26 +154,26 @@ function TabStockPorInsumo() {
       {!loading && !error && visibles.length > 0 && (
         <>
           <Tarjeta overflowX="auto">
-            <Table.Root variant="outline" w="100%" minW="860px">
+            <Table.Root variant="outline" w="100%" minW="1040px">
               <Table.Header>
                 <FilaEncabezado>
                   <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Recibido
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Consumo real
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Desperdicio
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Bajas
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Stock actual
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Vencido
                   </EncabezadoOscuro>
                 </FilaEncabezado>
@@ -288,9 +309,33 @@ function TabLotes() {
           />
         }
         herramientas={
-          <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
-            Ver dados de baja
-          </ToggleInactivos>
+          <>
+            <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
+              Ver dados de baja
+            </ToggleInactivos>
+            <BotonExportar
+              nombreTabla="los lotes recibidos"
+              disabled={visibles.length === 0}
+              datos={() => ({
+                titulo: verBajas ? "Lotes de insumo recibidos (con bajas)" : "Lotes de insumo recibidos",
+                nombre: "lotes-insumo",
+                encabezados: ["Insumo", "Proveedor", "Lote", "Vencimiento", "Recibido", "Saldo", "Estado"],
+                filas: visibles.map((l) => [
+                  l.insumo_nombre,
+                  l.proveedor_nombre,
+                  l.numero_lote,
+                  formatoFecha(l.fecha_vencimiento),
+                  cantidadConUnidad(l.cantidad_recibida, l.unidad),
+                  cantidadConUnidad(l.saldo, l.unidad),
+                  !l.activo
+                    ? `Baja${l.motivo_baja ? `: ${l.motivo_baja}` : ""}${l.dado_de_baja_por_nombre ? ` (por ${l.dado_de_baja_por_nombre})` : ""}`
+                    : l.vencido
+                      ? "Vencido"
+                      : "Vigente",
+                ]),
+              })}
+            />
+          </>
         }
       />
 
@@ -321,7 +366,7 @@ function TabLotes() {
                 <FilaEncabezado>
                   <EncabezadoOscuro>Insumo</EncabezadoOscuro>
                   <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Lote</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="amplia">Lote</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
                   <EncabezadoOscuro numero ancho="media">
                     Recibido
@@ -355,7 +400,9 @@ function TabLotes() {
                       </Text>
                     </Celda>
                     <Celda>
-                      <HStack gap="2" flexWrap="nowrap">
+                      {/* Si la fecha y "Vencido" no entran juntos, la etiqueta baja
+                          al renglón de abajo en vez de salirse de la celda. */}
+                      <HStack gap="1.5" flexWrap="wrap">
                         <Text as="span" whiteSpace="nowrap">
                           {formatoFecha(l.fecha_vencimiento)}
                         </Text>
@@ -371,7 +418,7 @@ function TabLotes() {
                     </Celda>
                     <Celda numero>
                       <Stack gap="0.5" align="flex-end">
-                        <HStack gap="2" justify="flex-end" flexWrap="nowrap">
+                        <HStack gap="2" justify="flex-end" flexWrap="wrap">
                           {!l.activo && (
                             <Badge colorPalette="red" variant="subtle" size="sm">
                               Baja{l.motivo_baja ? `: ${l.motivo_baja}` : ""}

@@ -30,7 +30,7 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 
 const PAGE_SIZE = 10;
@@ -199,7 +199,7 @@ export function EquiposPage() {
             >
               Ver dadas de baja
             </ToggleInactivos>
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="equipos"
               filtros={{
                 activo: String(!verInactivos),

@@ -75,7 +75,7 @@ export function InsumoItem({
           <TextoTruncado
             texto={insumo.proveedores.map((proveedor) => proveedor.nombre).join(", ")}
             max={90}
-            color="#64748B"
+            color="tabla.textoSecundario"
             title={insumo.proveedores.map((proveedor) => proveedor.nombre).join(", ")}
           />
         ) : <Text fontSize="sm" color="fg.subtle">Sin asociar</Text>}

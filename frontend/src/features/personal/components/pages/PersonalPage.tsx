@@ -6,7 +6,7 @@ import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePersonales } from "../../hooks/usePersonales";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import {
   ROLES_PERSONAL,
   type Persona,
@@ -197,7 +197,7 @@ export function PersonalPage() {
               onChange={handleToggleInactivos}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
             nombreTabla="personal"
             filtros={{
                activo: String(!verInactivos),

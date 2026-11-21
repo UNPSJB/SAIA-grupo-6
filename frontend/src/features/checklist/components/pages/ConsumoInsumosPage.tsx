@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Box, Button, Field, HStack, SimpleGrid, Table, Text } from "@chakra-ui/react";
 import { LuSearch } from "react-icons/lu";
 import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import {
   BannerError,
   Celda,
@@ -70,7 +70,7 @@ export function ConsumoInsumosPage() {
           </Button>
 
           {consumo && (
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="stock_consumo"
               vista="stock-consumo"
               filtros={{

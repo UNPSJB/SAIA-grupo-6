@@ -114,7 +114,7 @@ export function SalidaDetallePage() {
   if (loading) {
     return (
       <PaginaDetalle
-        volver={{ a: "/salidas", etiqueta: "Salidas" }}
+        volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
         titulo="Salida de producto"
       >
         <EstadoCargando>Cargando salida...</EstadoCargando>
@@ -125,7 +125,7 @@ export function SalidaDetallePage() {
   if (error || !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/salidas", etiqueta: "Salidas" }}
+        volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
         titulo="Salida de producto"
       >
         <BannerError>{error || "No se encontró la salida"}</BannerError>
@@ -208,7 +208,7 @@ export function SalidaDetallePage() {
 
   return (
     <PaginaDetalle
-      volver={{ a: "/salidas", etiqueta: "Salidas" }}
+      volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
       titulo={tituloPagina}
       estado={
         <EtiquetaEstado

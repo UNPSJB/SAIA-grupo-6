@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Badge, HStack, Table, Text } from "@chakra-ui/react";
 import { useLista } from "../../../../common/hooks/useLista";
+import { BotonExportar } from "../../../exportacion";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
   BarraFiltros,
@@ -125,10 +126,26 @@ export function TabAditivos() {
         }
         herramientas={
           <>
+            {/* Orden de las sub-opciones: alta, ver bajas y exportar. */}
+            <BotonAgregar onClick={() => setEditando("nuevo")}>Nuevo aditivo</BotonAgregar>
             <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
               Ver dados de baja
             </ToggleInactivos>
-            <BotonAgregar onClick={() => setEditando("nuevo")}>Nuevo aditivo</BotonAgregar>
+            <BotonExportar
+              nombreTabla="los aditivos"
+              disabled={filtrados.length === 0}
+              datos={() => ({
+                titulo: verBajas ? "Aditivos (con dados de baja)" : "Aditivos",
+                nombre: "aditivos",
+                encabezados: ["Clase funcional", "Nombre completo", "INS", "Estado"],
+                filas: filtrados.map((a) => [
+                  a.clase_funcional.nombre,
+                  a.nombre,
+                  a.numero_ins || "No aplica",
+                  a.activo ? "Activo" : "Dado de baja",
+                ]),
+              })}
+            />
           </>
         }
       />
@@ -250,10 +267,25 @@ export function TabClases() {
       <BarraFiltros
         herramientas={
           <>
+            {/* Orden de las sub-opciones: alta, ver bajas y exportar. */}
+            <BotonAgregar onClick={() => setEditando("nueva")}>Nueva clase</BotonAgregar>
             <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
               Ver dadas de baja
             </ToggleInactivos>
-            <BotonAgregar onClick={() => setEditando("nueva")}>Nueva clase</BotonAgregar>
+            <BotonExportar
+              nombreTabla="las clases funcionales"
+              disabled={clases.length === 0}
+              datos={() => ({
+                titulo: verBajas ? "Clases funcionales (con dadas de baja)" : "Clases funcionales",
+                nombre: "clases-funcionales",
+                encabezados: ["Clase funcional", "Número INS", "Estado"],
+                filas: clases.map((c) => [
+                  c.nombre,
+                  c.ins_opcional ? "Opcional (solo por su función)" : "Obligatorio",
+                  c.activo ? "Activa" : "Dada de baja",
+                ]),
+              })}
+            />
           </>
         }
       />

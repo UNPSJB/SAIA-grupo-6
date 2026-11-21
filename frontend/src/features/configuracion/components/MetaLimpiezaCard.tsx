@@ -98,7 +98,7 @@ export function MetaLimpiezaCard({ metaGuardada, guardando, onGuardar, onEditar 
             </MensajeError>
           ) : null}
           {!invalido && porcentaje < MAXIMO ? (
-            <Text mt="2" fontSize="sm" color="#8a5a12">
+            <Text mt="2" fontSize="sm" color="aviso.ambarTexto">
               Con una meta menor a 100%, un período con tareas sin hacer puede
               figurar como al día. Cada tarea sin hacer sigue siendo un desvío
               para las BPM.

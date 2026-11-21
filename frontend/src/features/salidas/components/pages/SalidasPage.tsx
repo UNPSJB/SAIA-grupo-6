@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
-import { Button } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { BotonExportar } from "../../../exportacion";
 import { LuRefreshCw } from "react-icons/lu";
 import {
   BarraFiltros,
@@ -14,6 +12,7 @@ import {
 } from "../../../../components/ui/filtros";
 import {
   BannerError,
+  BotonAgregar,
   BotonCancelar,
   EstadoCargando,
   EstadoVacio,
@@ -44,7 +43,13 @@ import type { Salida } from "../../types/salida";
 
 const PAGE_SIZE = 10;
 
-export function SalidasPage() {
+/**
+ * Pestaña "Salidas de producto" de Lotes de producción (`/lotes?tab=salidas`).
+ * Antes era una entrada aparte del menú de Producción, aunque cada salida es
+ * una parte de un lote: ahora es una sub-opción del listado de lotes.
+ * `/salidas` redirige acá.
+ */
+export function TabSalidas() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const puedeRegistrarRechazo = puedeOperar(user);
@@ -127,21 +132,7 @@ export function SalidasPage() {
   }>({ open: false, salida: null });
 
   return (
-    <Pagina
-      titulo="Salidas de producto"
-      descripcion="Reserva de partes de lotes para clientes. Cada salida pasa por los estados Reservado → Despachado → Entregado, o termina en Cancelado o Rechazada."
-      acciones={
-        <>
-          <Button
-            colorPalette="brand"
-            size="md"
-            onClick={() => {
-              setLotePreseleccionado(null);
-              setModalReservar(true);
-            }}
-          >
-            Nueva reserva
-          </Button>
+    <>
           <ModalReservarLote
             isOpen={modalReservar}
             loteIdInicial={lotePreseleccionado}
@@ -260,9 +251,6 @@ export function SalidasPage() {
               notificarCambioIncidentes();
             }}
           />
-        </>
-      }
-    >
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -286,8 +274,17 @@ export function SalidasPage() {
         }
         herramientas={
           <>
+            {/* Dentro de una pestaña, el alta va en la barra. */}
+            <BotonAgregar
+              onClick={() => {
+                setLotePreseleccionado(null);
+                setModalReservar(true);
+              }}
+            >
+              Nueva reserva
+            </BotonAgregar>
             {puedeResolverRechazo && (
-              <BotonesExportar
+              <BotonExportar
                 nombreTabla="salidas"
                 vista="salidas"
                 filtros={{ estado: estado || undefined, buscar: busqueda.trim() || undefined }}
@@ -384,6 +381,6 @@ export function SalidasPage() {
           />
         </>
       )}
-    </Pagina>
+    </>
   );
 }

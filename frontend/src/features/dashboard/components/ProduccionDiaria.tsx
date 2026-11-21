@@ -74,14 +74,18 @@ function serieDiaria(
         valores[claveLotes(i)] = fila?.cantidad_lotes ?? 0;
       });
     }
-    puntos.push({ clave, etiqueta: `${cursor.getDate()}/${cursor.getMonth() + 1}`, valores });
+    puntos.push({
+      clave,
+      etiqueta: `${cursor.getDate()}/${cursor.getMonth() + 1}`,
+      valores,
+    });
     cursor.setDate(cursor.getDate() + 1);
   }
   return { granularidad: "dia", puntos };
 }
 
 /** Unidades con producción, de la de mayor volumen a la menor. */
-function unidadesDe(porDia: ProduccionDelDia[]): string[] {
+export function unidadesDe(porDia: ProduccionDelDia[]): string[] {
   const totales = new Map<string, number>();
   for (const p of porDia) totales.set(p.unidad, (totales.get(p.unidad) ?? 0) + p.cantidad);
   return [...totales.entries()].sort((a, b) => b[1] - a[1]).map(([unidad]) => unidad);
@@ -211,54 +215,59 @@ function ChipProducto({
 export function ProduccionDiaria({
   porDia,
   periodo,
+  unidad,
+  onUnidad,
 }: {
   porDia: ProduccionDelDia[];
   periodo: Periodo;
+  /**
+   * Unidad graficada. La decide el panel porque "Elaborado por producto" va
+   * en la misma: cambiarla acá cambia los dos gráficos.
+   */
+  unidad: string | null;
+  onUnidad: (unidad: string) => void;
 }) {
   /**
    * Productos agregados, en orden, cada uno con su color: el color se fija
    * al agregarlo, así quitar otro chip no le cambia el color a los que quedan.
    */
   const [agregados, setAgregados] = useState<Agregado[]>([]);
-  const [elegida, setElegida] = useState<string | null>(null);
 
   const productos = productosDe(porDia);
   const unidadDe = (nombre: string) => productos.find((p) => p.nombre === nombre)?.unidad ?? null;
-  const unidadElegidos = agregados.length ? unidadDe(agregados[0].nombre) : null;
   /** Para agregar: los que no están, y de la unidad de los ya elegidos. */
   const opcionesAgregar = productos.filter(
-    (p) =>
-      !agregados.some((a) => a.nombre === p.nombre) &&
-      (agregados.length === 0 || p.unidad === unidadElegidos),
+    (p) => !agregados.some((a) => a.nombre === p.nombre) && (agregados.length === 0 || p.unidad === unidad),
   );
   const lleno = agregados.length >= MAXIMO_PRODUCTOS;
 
   const agregar = (nombre: string) => {
     if (!nombre || lleno) return;
+    // El primer producto fija la unidad del gráfico (y la del panel).
+    const suya = unidadDe(nombre);
+    if (agregados.length === 0 && suya) onUnidad(suya);
     setAgregados((actuales) => {
       // El primer color libre: el de un chip quitado vuelve a usarse.
-      const color =
-        COLORES_PRODUCTO.find((c) => !actuales.some((a) => a.color === c)) ?? COLORES_PRODUCTO[0];
+      const color = COLORES_PRODUCTO.find((c) => !actuales.some((a) => a.color === c)) ?? COLORES_PRODUCTO[0];
       return [...actuales, { nombre, color }];
     });
   };
-  const quitar = (nombre: string) =>
-    setAgregados((actuales) => actuales.filter((a) => a.nombre !== nombre));
+  const quitar = (nombre: string) => setAgregados((actuales) => actuales.filter((a) => a.nombre !== nombre));
 
   const unidades = unidadesDe(porDia);
-  const unidad =
-    agregados.length > 0
-      ? (unidadElegidos ?? unidades[0] ?? null)
-      : elegida && unidades.includes(elegida)
-        ? elegida
-        : (unidades[0] ?? null);
 
   const serie = unidad ? serieDiaria(porDia, unidad, agregados, periodo) : null;
   const delDia = new Map(porDia.filter((p) => p.unidad === unidad).map((p) => [p.fecha, p]));
 
   const series: SerieGrafico[] =
     agregados.length === 0
-      ? [{ clave: "producido", etiqueta: `Producido (${unidad})`, color: COLORES_PRODUCTO[0] }]
+      ? [
+          {
+            clave: "producido",
+            etiqueta: `Producido (${unidad})`,
+            color: COLORES_PRODUCTO[0],
+          },
+        ]
       : agregados.map((p, i) => ({
           clave: claveProducto(i),
           etiqueta: `${p.nombre} (${unidad})`,
@@ -266,8 +275,7 @@ export function ProduccionDiaria({
         }));
   const claves = series.map((s) => s.clave);
 
-  const sumar = (clave: string) =>
-    serie?.puntos.reduce((t, p) => t + (p.valores[clave] ?? 0), 0) ?? 0;
+  const sumar = (clave: string) => serie?.puntos.reduce((t, p) => t + (p.valores[clave] ?? 0), 0) ?? 0;
   /** Lo del día entre todas las curvas visibles. */
   const delPunto = (valores: Record<string, number | null>) =>
     claves.reduce((t, c) => t + (valores[c] ?? 0), 0);
@@ -333,7 +341,7 @@ export function ProduccionDiaria({
                 colorPalette="brand"
                 variant={u === unidad ? "solid" : "outline"}
                 aria-pressed={u === unidad}
-                onClick={() => setElegida(u)}
+                onClick={() => onUnidad(u)}
               >
                 {u}
               </Button>

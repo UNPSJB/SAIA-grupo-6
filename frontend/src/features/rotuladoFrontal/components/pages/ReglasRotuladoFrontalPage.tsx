@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Badge, Box, Button, Checkbox, HStack, Stack, Table, Text, Textarea } from "@chakra-ui/react";
-import { LuCheck, LuScale } from "react-icons/lu";
+import { Badge, Box, Checkbox, HStack, Stack, Table, Text, Textarea } from "@chakra-ui/react";
+import { LuScale } from "react-icons/lu";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../../components/ui/dialog";
 import { DialogForm } from "../../../../common/components/DialogForm";
+import { BotonExportar } from "../../../exportacion";
 import {
   AccionesFormulario,
   BannerError,
+  BotonAccion,
   BotonAgregar,
   BotonCancelar,
   BotonGuardar,
@@ -493,7 +495,29 @@ export function TabReglasRotuladoFrontal() {
             </Checkbox.Label>
           </Checkbox.Root>
           {/* Dentro de una pestaña, el alta va en la tarjeta de arriba. */}
-          <BotonAgregar onClick={() => setCreando(true)}>Nueva versión</BotonAgregar>
+          <HStack gap="2">
+            <BotonAgregar onClick={() => setCreando(true)}>Nueva versión</BotonAgregar>
+            <BotonExportar
+              nombreTabla="las reglas de rotulado frontal"
+              disabled={reglas.length === 0}
+              datos={() => ({
+                titulo: "Reglas de rotulado frontal",
+                nombre: "reglas-rotulado-frontal",
+                encabezados: ["Versión", "Norma", "Envasado", "Vigencia", "Marcas obligatorias", "Estado"],
+                filas: reglas.map((regla) => {
+                  const obligatorias = reglasObligatorias(regla);
+                  return [
+                    `v${regla.version}`,
+                    regla.norma_origen,
+                    regla.requiere_envasado ? "Requiere envasado" : "No requiere envasado",
+                    formatoFecha(regla.vigencia_desde),
+                    obligatorias.length ? obligatorias.join(", ") : "Ninguna",
+                    regla.vigente ? "Vigente" : regla.programada ? "Programada" : "Histórica",
+                  ];
+                }),
+              })}
+            />
+          </HStack>
         </HStack>
       </Tarjeta>
 
@@ -574,15 +598,13 @@ export function TabReglasRotuladoFrontal() {
                           Se activa el {formatoFecha(regla.vigencia_desde)}
                         </Text>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          colorPalette="green"
+                        <BotonAccion
+                          accion="activar"
+                          label={`Activar la versión ${regla.version}`}
+                          tooltip="Activar esta versión"
                           loading={activando === regla.id}
                           onClick={() => void activar(regla)}
-                        >
-                          <LuCheck aria-hidden /> Activar
-                        </Button>
+                        />
                       )}
                     </Celda>
                   </Table.Row>

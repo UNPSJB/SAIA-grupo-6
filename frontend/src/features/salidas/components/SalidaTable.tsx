@@ -89,7 +89,7 @@ export function SalidaTable({
             <EncabezadoOscuro ancho="amplia">Cliente</EncabezadoOscuro>
             <EncabezadoOscuro numero ancho="media">Cantidad</EncabezadoOscuro>
             <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="amplia">Estado</EncabezadoOscuro>
             <EncabezadoOscuro center width="18%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

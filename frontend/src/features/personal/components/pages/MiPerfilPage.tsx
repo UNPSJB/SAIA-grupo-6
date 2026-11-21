@@ -213,7 +213,6 @@ export function MiPerfilPage() {
         }}
         onSubmit={handleGuardar}
         isLoading={guardando}
-        title="Mis datos"
         submitLabel="Guardar cambios"
         esMiPerfil
       />

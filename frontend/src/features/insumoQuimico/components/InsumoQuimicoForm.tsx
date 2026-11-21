@@ -7,26 +7,25 @@ import {
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface InsumoQuimicoFormProps {
   initialValues?: InsumoQuimicoFormValues;
   onSubmit: (values: InsumoQuimicoFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -41,7 +40,6 @@ export function InsumoQuimicoForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de insumo químico",
   onCancel,
 }: InsumoQuimicoFormProps) {
   const [values, setValues] = useState<InsumoQuimicoFormValues>(initialValues);
@@ -92,58 +90,53 @@ export function InsumoQuimicoForm({
   };
 
   return (
-    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-      <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo>
+            <FormInput
+              value={values.nombre}
+              onChange={handleNombreChange}
+              placeholder="Ej: Detergente industrial concentrado"
+            />
+          </FormField>
 
-      <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required>
-        <FormInput
-          value={values.nombre}
-          onChange={handleNombreChange}
-          placeholder="Ej: Detergente industrial concentrado"
-          maxW="500px"
-        />
-      </FormField>
+          <FormField label="Tipo de producto químico" required>
+            <FormNativeSelect value={values.tipo} onChange={handleTipoChange}>
+              {TIPOS_QUIMICOS.map((tipo) => (
+                <option key={tipo.value} value={tipo.value}>
+                  {tipo.label}
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
 
-      <FormField label="Tipo de producto químico" required>
-        <FormNativeSelect
-          value={values.tipo}
-          onChange={handleTipoChange}
-          maxW="500px"
-        >
-          {TIPOS_QUIMICOS.map((tipo) => (
-            <option key={tipo.value} value={tipo.value}>
-              {tipo.label}
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
-
-      <FormField invalid={intentado && faltan.tiene("unidad")} label="Unidad de medida" required mb="0">
-        <FormNativeSelect
-          invalid={intentado && faltan.tiene("unidad")}
-          value={values.unidad_medida_id}
-          onChange={handleUnidadChange}
-          disabled={cargandoUnidades}
-          maxW="500px"
-        >
-          <SelectPlaceholder>
-            {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
-          </SelectPlaceholder>
-          {unidades.map((unidad) => (
-            <option key={unidad.id} value={unidad.id}>
-              {unidad.nombre} ({unidad.simbolo})
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
-
-      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>
-          {submitLabel}
-        </BotonGuardar>
-        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-      </AccionesFormulario>
-    </TarjetaFormulario>
+          <FormField invalid={intentado && faltan.tiene("unidad")} label="Unidad de medida" required>
+            <FormNativeSelect
+              invalid={intentado && faltan.tiene("unidad")}
+              value={values.unidad_medida_id}
+              onChange={handleUnidadChange}
+              disabled={cargandoUnidades}
+            >
+              <SelectPlaceholder>
+                {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+              </SelectPlaceholder>
+              {unidades.map((unidad) => (
+                <option key={unidad.id} value={unidad.id}>
+                  {unidad.nombre} ({unidad.simbolo})
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

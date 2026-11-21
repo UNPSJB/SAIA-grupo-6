@@ -194,6 +194,13 @@ const config = defineConfig({
           contrast: { value: "{colors.white}" },
         },
 
+        /* Lo mismo con el teal de Chakra (`colorPalette="teal"`, p. ej. el
+         * filtro "Todas" del checklist): blanco sobre teal.600 daba 3.7:1. */
+        teal: {
+          solid: { value: "{colors.teal.700}" },
+          contrast: { value: "{colors.white}" },
+        },
+
         /*
          * Escala de texto neutra. Tres niveles, todos por encima de 4.5:1
          * sobre superficie blanca:

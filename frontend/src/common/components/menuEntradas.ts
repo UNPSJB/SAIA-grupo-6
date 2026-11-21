@@ -35,7 +35,6 @@ import {
   LuUsers,
   LuWarehouse,
   LuWrench,
-  LuPackagePlus,
   LuHandshake,
 } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
@@ -105,8 +104,8 @@ export const GRUPOS: GrupoMenu[] = [
     ayuda: "Lotes, recetas y productos",
     icon: LuChefHat,
     entradas: [
+      // Las salidas de producto son una pestaña de Lotes (`/lotes?tab=salidas`).
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
-      { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackagePlus },
       { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuPackageX },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },

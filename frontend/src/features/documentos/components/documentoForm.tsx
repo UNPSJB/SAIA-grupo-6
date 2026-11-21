@@ -1,17 +1,19 @@
 import { useState } from "react";
+import { LuUpload } from "react-icons/lu";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  InputFecha,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 import { TIPOS_DOCUMENTO } from "../types/documento";
 import type { DocumentoFormValues, TipoDocumento } from "../types/documento";
 
@@ -20,7 +22,6 @@ interface DocumentoFormProps {
   onSubmit: (values: DocumentoFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -37,7 +38,6 @@ export function DocumentoForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Subir documento",
   onCancel,
 }: DocumentoFormProps) {
   const [values, setValues] = useState<DocumentoFormValues>(emptyValues);
@@ -55,79 +55,77 @@ export function DocumentoForm({
   };
 
   return (
-    <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
-      <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa mb="0">
+      <SeccionFormulario>
+        <GrillaFormulario>
+          {conDatosDelDocumento && (
+            <>
+              <FormField label="Nombre del documento" required invalid={intentado && faltan.tiene("nombre")} completo>
+                <FormInput
+                  value={values.nombre}
+                  onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+                  placeholder="Ej: Manual de BPM"
+                />
+              </FormField>
 
-      {conDatosDelDocumento && (
-        <>
-          <FormField label="Nombre del documento" required invalid={intentado && faltan.tiene("nombre")}>
-            <FormInput
-              value={values.nombre}
-              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-              placeholder="Ej: Manual de BPM"
-              maxW="500px"
+              <FormField label="Tipo" required>
+                <FormNativeSelect
+                  value={values.tipo}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, tipo: e.target.value as TipoDocumento }))
+                  }
+                >
+                  {TIPOS_DOCUMENTO.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+            </>
+          )}
+          <FormField
+            label="Fecha de vencimiento"
+            opcional
+            helper="El documento se marcará como vencido después de esta fecha."
+          >
+            <InputFecha
+              value={values.fecha_vencimiento}
+              onChange={(e) =>
+                setValues((prev) => ({
+                  ...prev,
+                  fecha_vencimiento: e.target.value,
+                }))
+              }
             />
           </FormField>
 
-          <FormField label="Tipo" required>
-            <FormNativeSelect
-              value={values.tipo}
+          <FormField
+            label="Archivo"
+            required
+            invalid={intentado && faltan.tiene("archivo")}
+            helper="Formatos admitidos: PDF, Word, Excel, PNG y JPG."
+            completo
+          >
+            <FormInput
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
               onChange={(e) =>
-                setValues((prev) => ({ ...prev, tipo: e.target.value as TipoDocumento }))
+                setValues((prev) => ({ ...prev, archivo: e.target.files?.[0] ?? null }))
               }
-              maxW="500px"
-            >
-              {TIPOS_DOCUMENTO.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </FormNativeSelect>
+              p="2"
+            />
           </FormField>
-        </>
-      )}
-      <FormField
-        label="Fecha de vencimiento"
-        helper="Opcional. El documento se marcará como vencido después de esta fecha."
-      >
-        <FormInput
-          type="date"
-          value={values.fecha_vencimiento}
-          onChange={(e) =>
-            setValues((prev) => ({
-              ...prev,
-              fecha_vencimiento: e.target.value,
-            }))
-          }
-          maxW="500px"
-        />
-      </FormField>
-      
-      <FormField
-        label="Archivo"
-        required
-        invalid={intentado && faltan.tiene("archivo")}
-        helper="Formatos admitidos: PDF, Word, Excel, PNG y JPG."
-        mb="0"
-      >
-        <FormInput
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-          onChange={(e) =>
-            setValues((prev) => ({ ...prev, archivo: e.target.files?.[0] ?? null }))
-          }
-          p="2"
-          maxW="500px"
-        />
-      </FormField>
-
-      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>
-          {submitLabel}
-        </BotonGuardar>
-        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-      </AccionesFormulario>
-    </TarjetaFormulario>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        icono={LuUpload}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

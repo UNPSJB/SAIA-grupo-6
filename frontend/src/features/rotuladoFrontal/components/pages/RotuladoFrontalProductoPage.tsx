@@ -5,6 +5,7 @@ import { LuBookOpen, LuHistory, LuInfo, LuTriangleAlert } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BannerError,
+  BotonAccion,
   BotonGuardar,
   Celda,
   EncabezadoOscuro,
@@ -895,13 +896,11 @@ export function RotuladoFrontalProductoPage() {
                             )}
                           </Celda>
                           <Celda py="3" px="4" center>
-                            <Button
-                              size="xs"
-                              variant="outline"
+                            <BotonAccion
+                              accion="ver"
+                              label="Ver snapshot"
                               onClick={() => setSeleccionada(item)}
-                            >
-                              Ver snapshot
-                            </Button>
+                            />
                           </Celda>
                         </Table.Row>
                       );

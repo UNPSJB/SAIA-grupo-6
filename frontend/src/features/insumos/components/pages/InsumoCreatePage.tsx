@@ -9,7 +9,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuWheat } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function InsumoCreatePage() {
   const navigate = useNavigate();
@@ -54,16 +55,17 @@ export function InsumoCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/insumos", etiqueta: "Insumos" }}
+      icono={LuWheat}
       titulo="Nuevo insumo"
+      descripcion="Cargá la materia prima con su unidad de medida y su tipo."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <InsumoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de insumo"
         submitLabel="Crear insumo"
         onCancel={() => navigate("/insumos")}
       />
@@ -80,6 +82,6 @@ export function InsumoCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HStack, Table } from "@chakra-ui/react";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { PanelBase, PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
 import { puedeAdministrar } from "../../../../common/api/permissions";
@@ -66,7 +66,7 @@ function TabRecetas() {
             <>
               {/* Dentro de una pestaña, el alta va en la barra. */}
               <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
-              <BotonesExportar
+              <BotonExportar
                 nombreTabla="recetas"
                 vista="recetas"
                 filtros={{ buscar: busqueda.trim() || undefined }}

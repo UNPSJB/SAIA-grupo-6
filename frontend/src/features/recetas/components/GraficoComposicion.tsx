@@ -27,7 +27,10 @@ export function GraficoComposicion({ composicion, alto = 320 }: { composicion: C
             ))}
           </Pie>
           <Tooltip formatter={(v) => formatoPorcentajeFino(Array.isArray(v) ? v[0] : v)} />
-          <Legend />
+          {/* El color de cada porción queda en el ícono; el texto va en el
+              color de texto del tema (en oscuro, el verde o el violeta de la
+              porción sobre la tarjeta no llegaba a 3:1). */}
+          <Legend formatter={(valor) => <span style={{ color: "var(--chakra-colors-fg)" }}>{valor}</span>} />
         </PieChart>
       </ResponsiveContainer>
     </Box>

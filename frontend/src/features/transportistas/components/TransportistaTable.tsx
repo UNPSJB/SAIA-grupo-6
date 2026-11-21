@@ -50,21 +50,21 @@ export function TransportistaTable({
         <Table.Header>
           <FilaEncabezado>
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="razon_social" orden={orden as any} ancho="amplia">
+              <EncabezadoOrdenable columna="razon_social" orden={orden as any}>
                 Razón Social
               </EncabezadoOrdenable>
             ) : (
-              <EncabezadoOscuro ancho="amplia">Razón Social</EncabezadoOscuro>
+              <EncabezadoOscuro>Razón Social</EncabezadoOscuro>
             )}
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="cuit" orden={orden as any} ancho="media">
+              <EncabezadoOrdenable columna="cuit" orden={orden as any} ancho="angosta">
                 CUIT
               </EncabezadoOrdenable>
             ) : (
-              <EncabezadoOscuro ancho="media">CUIT</EncabezadoOscuro>
+              <EncabezadoOscuro ancho="angosta">CUIT</EncabezadoOscuro>
             )}
             <EncabezadoOscuro ancho="media">Teléfono</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="media">Habilitación</EncabezadoOscuro>
+            <EncabezadoOscuro center width="18%">Habilitación</EncabezadoOscuro>
             <EncabezadoOscuro ancho="amplia">Observaciones</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>

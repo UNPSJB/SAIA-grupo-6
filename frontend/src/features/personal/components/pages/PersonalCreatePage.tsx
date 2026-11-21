@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Text } from "@chakra-ui/react";
 import { PersonalForm } from "../PersonalForm";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -15,7 +14,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuUserPlus } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 
 
@@ -68,9 +68,11 @@ export function PersonalCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/personal", etiqueta: "Personal" }}
+      icono={LuUserPlus}
       titulo="Nuevo personal"
+      descripcion='La contraseña inicial es su DNI; puede cambiarla desde "Mi perfil" al iniciar sesión.'
     >
       {/* El conflicto de "inactivo" no se muestra acá como cartel de error:
           se resuelve con el diálogo de reactivación de abajo */}
@@ -80,20 +82,11 @@ export function PersonalCreatePage() {
       <PersonalForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Personal"
         submitLabel="Crear personal"
         puedeEditarCapacidades
         puedeAsignarSuperAdmin={esSuperAdmin(user)}
         onCancel={() => navigate("/personal")}
-        extra={
-          <>
-            <Text fontSize="xs" color="fg.subtle" fontStyle="italic" mt="4" mb="4">
-              La contraseña inicial de la persona es su DNI. Puede cambiarla desde
-              "Mi perfil" al iniciar sesión.
-            </Text>
-            <VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />
-          </>
-        }
+        extra={<VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />}
       />
       <ConfirmarReactivacionDialog
         isOpen={conflicto !== null}
@@ -107,6 +100,6 @@ export function PersonalCreatePage() {
         isOpen={exito}
         mensaje="Personal agregado correctamente. Su contraseña inicial es su DNI."
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

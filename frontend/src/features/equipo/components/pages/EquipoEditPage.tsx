@@ -10,7 +10,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuWrench } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function EquipoEditPage() {
   const navigate = useNavigate();
@@ -43,8 +44,9 @@ export function EquipoEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/equipos", etiqueta: "Equipos" }}
+      icono={LuWrench}
       titulo="Editar Equipo"
       descripcion="Modificá los datos del equipo. La baja lo saca de los listados y por eso pide confirmación."
     >
@@ -72,7 +74,6 @@ export function EquipoEditPage() {
             sectorActual={equipo.sector}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Equipo"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/equipos")}
           />
@@ -83,6 +84,6 @@ export function EquipoEditPage() {
         isOpen={exito}
         mensaje="Equipo modificado correctamente."
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

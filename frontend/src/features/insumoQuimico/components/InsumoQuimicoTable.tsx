@@ -44,7 +44,7 @@ export function InsumoQuimicoTable({
             <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
               Tipo
             </EncabezadoOrdenable>
-            <EncabezadoOrdenable columna="unidad" orden={orden} ancho="media">
+            <EncabezadoOrdenable columna="unidad" orden={orden} ancho="amplia">
               Unidad Medida
             </EncabezadoOrdenable>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
