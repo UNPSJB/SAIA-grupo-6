@@ -7,6 +7,8 @@ import type {
   RetiroDetalle,
   RetiroNotificarValues,
   RetiroResumen,
+  RetiroMasivoInsumoPayload,
+  RetiroMasivoResponse,
 } from "../types/retiro";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -108,6 +110,20 @@ export interface LoteDisponible {
   fecha_vencimiento: string | null;
   retirado: boolean;
   retiro_id: number | null;
+}
+
+export async function iniciarRetiroMasivoInsumo(
+  payload: RetiroMasivoInsumoPayload
+): Promise<RetiroMasivoResponse> {
+  const response = await apiFetch(`${API_URL}/retiros/masivo-insumo`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+  });
+  return pedir<RetiroMasivoResponse>(
+    response,
+    "Error al iniciar el retiro masivo por insumo"
+  );
 }
 
 /** Lotes con saldo disponible para reservar (puede_operar). */

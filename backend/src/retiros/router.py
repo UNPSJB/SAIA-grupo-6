@@ -141,4 +141,26 @@ def cerrar_retiro(
     return detalle
 
 
+@router.post(
+    "/masivo-insumo",
+    response_model=schemas.RetiroMasivoResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
+def iniciar_retiro_masivo_insumo(
+    datos: schemas.RetiroMasivoInsumoCreate,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(get_current_user),
+):
+    try:
+        resultado = services.iniciar_retiro_masivo_insumo(db, datos, usuario)
+        db.commit()
+        return resultado
+    except Exception:
+        db.rollback()
+        raise
+
+
+
+
 

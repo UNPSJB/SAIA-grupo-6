@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Flex, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Flex, HStack, Table, Text, VStack } from "@chakra-ui/react";
+import { LuTriangleAlert } from "react-icons/lu";
 import { formatoFecha } from "../../../common/utils/fechas";
 import {
   BotonAccion,
@@ -20,6 +21,7 @@ interface RetirosTableProps {
   /** Pie de la tarjeta (resumen y paginación, `PieTabla`). */
   pie?: ReactNode;
   onVerDetalle: (retiroId: number) => void;
+  onSearchChange?: (text: string) => void;
 }
 
 /** Toda la fila abre el detalle; el botón "Ver detalle" queda para teclado y lectores. */
@@ -27,6 +29,7 @@ export function RetirosTable({
   retiros,
   pie,
   onVerDetalle,
+  onSearchChange,
 }: RetirosTableProps) {
   return (
     <TarjetaTabla pie={pie}>
@@ -34,46 +37,113 @@ export function RetirosTable({
         <Table.Header>
           <FilaEncabezado>
             <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-            <EncabezadoOscuro width="24%">Producto / Lote</EncabezadoOscuro>
-            <EncabezadoOscuro>Motivo</EncabezadoOscuro>
+            <EncabezadoOscuro width="22%">Producto / Lote</EncabezadoOscuro>
+            <EncabezadoOscuro width="16%">Origen</EncabezadoOscuro>
+            <EncabezadoOscuro width="24%">Motivo</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="amplia">Notificados</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="media">Estado</EncabezadoOscuro>
             <EncabezadoOscuro center width="10%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
-          {retiros.map((retiro) => (
-            <FilaClickeable key={retiro.id} onAbrir={() => onVerDetalle(retiro.id)}>
-              <Celda whiteSpace="nowrap">
-                {formatoFecha(retiro.fecha_retiro)}
-              </Celda>
-              <Celda>
-                <DatoPrincipal titulo={retiro.lote_producto_nombre} codigo={retiro.lote_codigo} />
-              </Celda>
-              <Celda>
-                <TextoTruncado texto={retiro.motivo} />
-              </Celda>
-              <Celda center whiteSpace="nowrap">
-                {retiro.total_afectados === 0 ? (
-                  <Text fontSize="sm" color="fg.muted">Sin afectados</Text>
-                ) : (
-                  <ProgresoTareas hechas={retiro.notificados} total={retiro.total_afectados} />
-                )}
-              </Celda>
-              <Celda center whiteSpace="nowrap">
-                <BadgeEstadoRetiro estado={retiro.estado} />
-              </Celda>
-              <Celda center>
-                <Flex justify="center" gap="2" flexWrap="wrap">
-                  <BotonAccion
-                    accion="ver"
-                    label="Ver detalle"
-                    onClick={() => onVerDetalle(retiro.id)}
-                  />
-                </Flex>
-              </Celda>
-            </FilaClickeable>
-          ))}
+          {retiros.map((retiro) => {
+            const detalleTexto = retiro.detalle || "";
+            const motivoTexto = retiro.motivo || "";
+            const esInsumo =
+              retiro.origen === "INSUMO" ||
+              motivoTexto.toLowerCase().includes("insumo") ||
+              detalleTexto.includes("[Insumo:") ||
+              motivoTexto.includes("[Insumo:");
+
+            const esReclamo =
+              !esInsumo &&
+              (retiro.origen === "RECLAMO" ||
+                motivoTexto.toLowerCase().includes("reclamo") ||
+                motivoTexto === "Reclamos de clientes");
+
+            // Extraer el texto de insumo si está en formato "[Insumo: ...]"
+            const matchInsumo = retiro.detalle
+              ? retiro.detalle.match(/\[Insumo:\s*(.*?)\]/)
+              : retiro.motivo
+              ? retiro.motivo.match(/\[Insumo:\s*(.*?)\]/)
+              : null;
+            const textoInsumo = matchInsumo ? matchInsumo[1] : null;
+
+            return (
+              <FilaClickeable key={retiro.id} onAbrir={() => onVerDetalle(retiro.id)}>
+                <Celda verticalAlign="top" whiteSpace="nowrap">
+                  {formatoFecha(retiro.fecha_retiro)}
+                </Celda>
+                <Celda verticalAlign="top">
+                  <DatoPrincipal titulo={retiro.lote_producto_nombre} codigo={retiro.lote_codigo} />
+                </Celda>
+                <Celda verticalAlign="top" whiteSpace="nowrap">
+                  {esInsumo ? (
+                    <VStack align="start" gap={0}>
+                      <Badge colorPalette="orange" variant="subtle" size="sm">
+                        <HStack gap="1" as="span">
+                          <LuTriangleAlert size={12} />
+                          <span>Por Insumo</span>
+                        </HStack>
+                      </Badge>
+                      {textoInsumo && (
+                        <Text
+                          color="blue.600"
+                          _hover={{ color: "blue.800", textDecoration: "underline" }}
+                          cursor="pointer"
+                          fontSize="xs"
+                          mt={1}
+                          noOfLines={1}
+                          maxWidth="250px"
+                          title={`Filtrar por insumo: ${textoInsumo}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onSearchChange) {
+                              onSearchChange(textoInsumo);
+                            }
+                          }}
+                        >
+                          {textoInsumo}
+                        </Text>
+                      )}
+                    </VStack>
+                  ) : esReclamo ? (
+                    <Badge colorPalette="purple" variant="subtle" size="sm">
+                      Por Reclamo
+                    </Badge>
+                  ) : (
+                    <Badge colorPalette="gray" variant="subtle" size="sm">
+                      Manual
+                    </Badge>
+                  )}
+                </Celda>
+                <Celda verticalAlign="top">
+                  <TextoTruncado texto={retiro.motivo} />
+                </Celda>
+                <Celda verticalAlign="top" center whiteSpace="nowrap">
+                  {retiro.total_afectados === 0 ? (
+                    <Text color="gray.500" fontSize="sm">
+                      Sin afectados
+                    </Text>
+                  ) : (
+                    <ProgresoTareas hechas={retiro.notificados} total={retiro.total_afectados} />
+                  )}
+                </Celda>
+                <Celda verticalAlign="top" center whiteSpace="nowrap">
+                  <BadgeEstadoRetiro estado={retiro.estado} />
+                </Celda>
+                <Celda verticalAlign="top" center>
+                  <Flex justify="center" gap="2" flexWrap="wrap">
+                    <BotonAccion
+                      accion="ver"
+                      label="Ver detalle"
+                      onClick={() => onVerDetalle(retiro.id)}
+                    />
+                  </Flex>
+                </Celda>
+              </FilaClickeable>
+            );
+          })}
         </Table.Body>
       </Table.Root>
     </TarjetaTabla>

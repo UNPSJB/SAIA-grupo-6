@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Table, Text } from "@chakra-ui/react";
+import { Button, Table, Text } from "@chakra-ui/react";
+import { LuTriangleAlert } from "react-icons/lu";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { formatoCantidad } from "../../../../common/utils/numeros";
@@ -17,98 +21,136 @@ import {
 } from "../../../../components/ui/patrones";
 import { DatoDetalle, GrillaDatos, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { BadgeEstadoLote } from "../../../lotes/components/BadgeEstadoLote";
+import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import { trazarLoteInsumo } from "../../services/trazabilidadService";
 
 export function TrazabilidadLoteInsumoPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const loteInsumoId = Number(id);
+  const { user } = useAuth();
+  const esAdmin = puedeAdministrar(user);
+  const [modalRetiroOpen, setModalRetiroOpen] = useState(false);
 
-  const { registro: traza, loading, error } = useRegistro({
+  const { registro: traza, loading, error, recargar } = useRegistro({
     cargar: trazarLoteInsumo,
     id: Number.isFinite(loteInsumoId) ? loteInsumoId : null,
     etiqueta: "la trazabilidad del lote de insumo",
   });
 
+  const hayLotesDisponiblesParaRetiro = Boolean(
+    traza &&
+    traza.lotes_producto.length > 0 &&
+    traza.lotes_producto.some(
+      (l) =>
+        !(l as { retirado?: boolean }).retirado &&
+        !(l as { retiro_id?: number | null }).retiro_id
+    )
+  );
+
   return (
-    <PaginaDetalle
-      // Se llega desde Stock de insumos o desde la ficha de un lote: "Volver"
-      // regresa a la pantalla de origen (Stock de insumos si se entró por URL).
-      volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos", historial: true }}
-      titulo={traza ? `Lote de insumo ${traza.lote_insumo.numero_lote}` : "Lote de insumo"}
-      descripcion="Lotes de producto que consumieron este lote de insumo."
-    >
-      {loading && <EstadoCargando>Cargando trazabilidad...</EstadoCargando>}
-      {error && <BannerError>{error}</BannerError>}
+    <>
+      <PaginaDetalle
+        // Se llega desde Stock de insumos o desde la ficha de un lote: "Volver"
+        // regresa a la pantalla de origen (Stock de insumos si se entró por URL).
+        volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos", historial: true }}
+        titulo={traza ? `Lote de insumo ${traza.lote_insumo.numero_lote}` : "Lote de insumo"}
+        descripcion="Lotes de producto que consumieron este lote de insumo."
+        acciones={
+          esAdmin && hayLotesDisponiblesParaRetiro ? (
+            <Button
+              colorPalette="red"
+              variant="solid"
+              onClick={() => setModalRetiroOpen(true)}
+            >
+              <LuTriangleAlert aria-hidden />
+              Iniciar retiro de elaborados
+            </Button>
+          ) : undefined
+        }
+      >
+        {loading && <EstadoCargando>Cargando trazabilidad...</EstadoCargando>}
+        {error && <BannerError>{error}</BannerError>}
 
-      {traza && (
-        <>
-          <SeccionDetalle titulo="Datos del lote">
-            <GrillaDatos>
-              <DatoDetalle etiqueta="Insumo">{traza.lote_insumo.insumo_nombre}</DatoDetalle>
-              <DatoDetalle etiqueta="Proveedor">
-                {traza.lote_insumo.proveedor.nombre} (matrícula {traza.lote_insumo.proveedor.matricula})
-              </DatoDetalle>
-              <DatoDetalle etiqueta="Ingreso">{formatoFecha(traza.lote_insumo.fecha_ingreso)}</DatoDetalle>
-              <DatoDetalle etiqueta="Vencimiento">{formatoFecha(traza.lote_insumo.fecha_vencimiento)}</DatoDetalle>
-              <DatoDetalle etiqueta="Recibido">{formatoCantidad(traza.cantidad_recibida)}</DatoDetalle>
-              <DatoDetalle etiqueta="Saldo">{formatoCantidad(traza.saldo)}</DatoDetalle>
-              <DatoDetalle etiqueta="Estado">{traza.lote_insumo.activo ? "Activo" : "Dado de baja"}</DatoDetalle>
-            </GrillaDatos>
-          </SeccionDetalle>
+        {traza && (
+          <>
+            <SeccionDetalle titulo="Datos del lote">
+              <GrillaDatos>
+                <DatoDetalle etiqueta="Insumo">{traza.lote_insumo.insumo_nombre}</DatoDetalle>
+                <DatoDetalle etiqueta="Proveedor">
+                  {traza.lote_insumo.proveedor.nombre} (matrícula {traza.lote_insumo.proveedor.matricula})
+                </DatoDetalle>
+                <DatoDetalle etiqueta="Ingreso">{formatoFecha(traza.lote_insumo.fecha_ingreso)}</DatoDetalle>
+                <DatoDetalle etiqueta="Vencimiento">{formatoFecha(traza.lote_insumo.fecha_vencimiento)}</DatoDetalle>
+                <DatoDetalle etiqueta="Recibido">{formatoCantidad(traza.cantidad_recibida)}</DatoDetalle>
+                <DatoDetalle etiqueta="Saldo">{formatoCantidad(traza.saldo)}</DatoDetalle>
+                <DatoDetalle etiqueta="Estado">{traza.lote_insumo.activo ? "Activo" : "Dado de baja"}</DatoDetalle>
+              </GrillaDatos>
+            </SeccionDetalle>
 
-          <SeccionDetalle sinMarco titulo="Lotes de producto que lo usaron">
-          {traza.lotes_producto.length === 0 ? (
-            <EstadoVacio>Este lote de insumo todavía no se usó en ningún lote de producto.</EstadoVacio>
-          ) : (
-            <Tarjeta overflowX="auto">
-              <Table.Root variant="outline" w="100%" minW="760px">
-                <Table.Header>
-                  <FilaEncabezado>
-                    <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
-                    <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                    <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-                    <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
-                    <EncabezadoOscuro numero ancho="media">Consumo real</EncabezadoOscuro>
-                    <EncabezadoOscuro numero ancho="media">Desperdicio</EncabezadoOscuro>
-                    <EncabezadoOscuro center ancho="angosta">
-                      Ver
-                    </EncabezadoOscuro>
-                  </FilaEncabezado>
-                </Table.Header>
-                <Table.Body>
-                  {traza.lotes_producto.map((l) => (
-                    <FilaClickeable onAbrir={() => navigate(`/lotes/${l.lote_producto_id}`)} key={l.lote_producto_id}>
-                      <Celda>
-                        <Text fontFamily="mono" fontSize="sm" color="#64748B">
-                          {l.numero_lote}
-                        </Text>
-                      </Celda>
-                      <Celda>
-                        <DatoPrincipal titulo={l.producto_nombre} />
-                      </Celda>
-                      <Celda whiteSpace="nowrap">{formatoFechaHora(l.fecha_inicio)}</Celda>
-                      <Celda center>
-                        <BadgeEstadoLote estado={l.estado} />
-                      </Celda>
-                      <Celda numero>{formatoCantidad(l.consumo_real)}</Celda>
-                      <Celda numero>{formatoCantidad(l.desperdicio)}</Celda>
-                      <Celda center>
-                        <BotonAccion
-                          accion="ver"
-                          label="Abrir el lote (incluye su trazabilidad)"
-                          onClick={() => navigate(`/lotes/${l.lote_producto_id}`)}
-                        />
-                      </Celda>
-                    </FilaClickeable>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            </Tarjeta>
-          )}
-          </SeccionDetalle>
-        </>
-      )}
-    </PaginaDetalle>
+            <SeccionDetalle sinMarco titulo="Lotes de producto que lo usaron">
+            {traza.lotes_producto.length === 0 ? (
+              <EstadoVacio>Este lote de insumo todavía no se usó en ningún lote de producto.</EstadoVacio>
+            ) : (
+              <Tarjeta overflowX="auto">
+                <Table.Root variant="outline" w="100%" minW="760px">
+                  <Table.Header>
+                    <FilaEncabezado>
+                      <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
+                      <EncabezadoOscuro>Producto</EncabezadoOscuro>
+                      <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
+                      <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+                      <EncabezadoOscuro numero ancho="media">Consumo real</EncabezadoOscuro>
+                      <EncabezadoOscuro numero ancho="media">Desperdicio</EncabezadoOscuro>
+                      <EncabezadoOscuro center ancho="angosta">
+                        Ver
+                      </EncabezadoOscuro>
+                    </FilaEncabezado>
+                  </Table.Header>
+                  <Table.Body>
+                    {traza.lotes_producto.map((l) => (
+                      <FilaClickeable onAbrir={() => navigate(`/lotes/${l.lote_producto_id}`)} key={l.lote_producto_id}>
+                        <Celda>
+                          <Text fontFamily="mono" fontSize="sm" color="#64748B">
+                            {l.numero_lote}
+                          </Text>
+                        </Celda>
+                        <Celda>
+                          <DatoPrincipal titulo={l.producto_nombre} />
+                        </Celda>
+                        <Celda whiteSpace="nowrap">{formatoFechaHora(l.fecha_inicio)}</Celda>
+                        <Celda center>
+                          <BadgeEstadoLote estado={l.estado} />
+                        </Celda>
+                        <Celda numero>{formatoCantidad(l.consumo_real)}</Celda>
+                        <Celda numero>{formatoCantidad(l.desperdicio)}</Celda>
+                        <Celda center>
+                          <BotonAccion
+                            accion="ver"
+                            label="Abrir el lote (incluye su trazabilidad)"
+                            onClick={() => navigate(`/lotes/${l.lote_producto_id}`)}
+                          />
+                        </Celda>
+                      </FilaClickeable>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </Tarjeta>
+            )}
+            </SeccionDetalle>
+          </>
+        )}
+      </PaginaDetalle>
+
+      <ModalIniciarRetiro
+        isOpen={modalRetiroOpen}
+        loteInsumoInicialId={loteInsumoId}
+        onClose={() => setModalRetiroOpen(false)}
+        onRetiroIniciado={() => {
+          setModalRetiroOpen(false);
+          void recargar();
+        }}
+      />
+    </>
   );
 }
