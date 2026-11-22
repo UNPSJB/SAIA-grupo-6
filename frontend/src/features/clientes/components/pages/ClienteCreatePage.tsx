@@ -6,7 +6,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuStore } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useClienteABM } from "../../hooks/useClienteABM";
 import type { ClienteFormValues } from "../../types/cliente";
 import { ClienteForm } from "../ClienteForm";
@@ -46,16 +47,17 @@ export function ClienteCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/clientes", etiqueta: "Clientes" }}
+      icono={LuStore}
       titulo="Nuevo cliente"
+      descripcion="Cargá los datos de identificación y contacto del cliente."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <ClienteForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de cliente"
         submitLabel="Crear cliente"
         onCancel={() => navigate("/clientes")}
       />
@@ -69,6 +71,6 @@ export function ClienteCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

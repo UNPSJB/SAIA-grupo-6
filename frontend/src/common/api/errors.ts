@@ -5,7 +5,7 @@
 // de simplemente mostrar un cartel de error.
 //
 // Reutilizable por cualquier feature con baja lógica (Personal, Equipo,
-// Insumos): solo se necesita que el service de esa entidad detecte el 409
+// Ingredientes): solo se necesita que el service de esa entidad detecte el 409
 // y lance esta misma clase.
 export class ConflictoInactivoError extends Error {
   entidadId: number;

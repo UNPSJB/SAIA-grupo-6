@@ -290,11 +290,12 @@ def obtener_detalle_checklist(
                 models.RegistroTarea.usuario
             ),
             selectinload(models.Checklist.registros)
-            .selectinload(models.RegistroTarea.insumo_quimico)
+            .selectinload(models.RegistroTarea.consumos)
+            .selectinload(models.RegistroTareaConsumo.insumo_quimico)
             .selectinload(InsumoQuimico.unidad_medida),
-            selectinload(models.Checklist.registros).selectinload(
-                models.RegistroTarea.elemento_limpieza
-            ),
+            selectinload(models.Checklist.registros)
+            .selectinload(models.RegistroTarea.elementos)
+            .selectinload(models.RegistroTareaElemento.elemento_limpieza),
         )
     )
     if checklist is None:
@@ -311,10 +312,19 @@ def obtener_detalle_checklist(
                 f"{registro.usuario.nombre} {registro.usuario.apellido or ''}".strip()
             )
 
-        insumo = registro.insumo_quimico
-        unidad_medida_simbolo = None
-        if insumo is not None and insumo.unidad_medida is not None:
-            unidad_medida_simbolo = insumo.unidad_medida.simbolo
+        consumos = [
+            schemas.ConsumoTareaDetalle(
+                insumo_quimico_id=c.insumo_quimico_id,
+                nombre=c.insumo_quimico.nombre,
+                cantidad=c.cantidad,
+                unidad_medida_simbolo=(
+                    c.insumo_quimico.unidad_medida.simbolo
+                    if c.insumo_quimico.unidad_medida is not None
+                    else None
+                ),
+            )
+            for c in registro.consumos
+        ]
 
         tareas.append(
             schemas.DetalleChecklistTareaItem(
@@ -325,14 +335,10 @@ def obtener_detalle_checklist(
                 fecha_completado=registro.fecha_completado,
                 usuario_nombre=usuario_nombre,
                 evidencia_url=registro.evidencia_url,
-                insumo_quimico_nombre=insumo.nombre if insumo is not None else None,
-                cantidad_consumida=registro.cantidad_consumida,
-                unidad_medida_simbolo=unidad_medida_simbolo,
-                elemento_limpieza_nombre=(
-                    registro.elemento_limpieza.nombre
-                    if registro.elemento_limpieza is not None
-                    else None
-                ),
+                consumos=consumos,
+                elementos_limpieza_nombres=[
+                    e.elemento_limpieza.nombre for e in registro.elementos
+                ],
             )
         )
 

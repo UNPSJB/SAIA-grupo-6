@@ -10,7 +10,8 @@ import {
   DialogoExito,
   EstadoCargando,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuSprayCan } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function ElementoLimpiezaEditPage() {
   const navigate = useNavigate();
@@ -44,9 +45,11 @@ export function ElementoLimpiezaEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/elementos-limpieza", etiqueta: "Elementos de limpieza" }}
+      icono={LuSprayCan}
       titulo="Editar elemento de limpieza"
+      descripcion="Modificá el elemento y cada cuánto se recambia."
     >
       {cargando && (
         <EstadoCargando>
@@ -70,7 +73,6 @@ export function ElementoLimpiezaEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar elemento de limpieza"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/elementos-limpieza")}
           />
@@ -81,6 +83,6 @@ export function ElementoLimpiezaEditPage() {
         isOpen={exito}
         mensaje="Elemento modificado correctamente."
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

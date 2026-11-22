@@ -7,12 +7,22 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy.orm import selectinload
+
+from src.alergenos.constants import (
+    EVALUACION_EVALUADA,
+    GLUTEN_DESCONOCIDO,
+    GLUTEN_PRESENTE,
+    NIVEL_CONTIENE,
+    VERSION_REGLAS,
+)
+from src.alergenos.models import IngredienteAlergeno
+from src.alergenos.services import catalogo_por_codigo
 from src.common.fechas import ahora
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.recetas.models import Receta, VersionReceta
-from src.rotulado.alergenos import NOMBRES, VERSION_REGLAS
-from src.rotulado.declaraciones_schemas import ConservacionProducto, PerfilInsumoDeclaracion
+from src.rotulado.declaraciones_schemas import ConservacionProducto
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado, RevisionDeclaracionRotulado
 
 
@@ -68,42 +78,79 @@ def resolver_version(db, producto_id, version_id=None, lote_id=None):
     return version
 
 
+def _alergenos_por_ingrediente(db, ingrediente_ids):
+    """{ingrediente_id: [IngredienteAlergeno]} en el orden del catálogo."""
+    por_ingrediente = {i: [] for i in ingrediente_ids}
+    if not ingrediente_ids:
+        return por_ingrediente
+    filas = db.scalars(
+        select(IngredienteAlergeno)
+        .where(IngredienteAlergeno.ingrediente_id.in_(ingrediente_ids))
+        .options(selectinload(IngredienteAlergeno.alergeno))
+    ).all()
+    for fila in sorted(filas, key=lambda f: f.alergeno_id):
+        por_ingrediente[fila.ingrediente_id].append(fila)
+    return por_ingrediente
+
+
 def generar_propuesta_declaraciones(db, producto_id, version_id=None, lote_id=None, texto_ingredientes=None):
+    """Arma la propuesta con los alérgenos de los ingredientes de la versión.
+
+    Los datos salen del maestro de ingredientes (`ingredientes_alergenos` y la
+    evaluación de cada uno). Si un ingrediente contiene un alérgeno, el
+    producto lo contiene aunque otro diga que solo puede contenerlo.
+    """
     producto = db.get(Producto, producto_id)
     if producto is None:
         raise HTTPException(404, "Producto no encontrado.")
     version = resolver_version(db, producto_id, version_id, lote_id)
-    fuentes, detectados, pendientes = [], {}, []
+    fuentes, detectados, posibles, pendientes = [], {}, {}, []
     gluten_presente, gluten_desconocido = False, False
-    if version is None or not version.insumos:
-        pendientes.append("No hay una versión de receta con insumos para evaluar.")
+    lineas = sorted(version.ingredientes if version else [], key=lambda l: l.ingrediente_id)
+    if not lineas:
+        pendientes.append("No hay una versión de receta con ingredientes para evaluar.")
         gluten_desconocido = True
-    for linea in sorted(version.insumos if version else [], key=lambda l: l.insumo_id):
-        insumo = linea.insumo
-        perfil = PerfilInsumoDeclaracion.model_validate(insumo.perfil_declaracion or {})
-        fuente = {"insumo_id": insumo.id, "nombre": insumo.nombre,
-                  "clasificacion": linea.clasificacion, "aditivo_id": insumo.aditivo_id,
-                  "perfil": perfil.model_dump(mode="json")}
-        fuentes.append(fuente)
-        if perfil.evaluacion != "evaluada":
-            pendientes.append(f"{insumo.nombre}: evaluación de alérgenos {perfil.evaluacion}.")
-        if perfil.gluten == "desconocido":
-            pendientes.append(f"{insumo.nombre}: información de gluten insuficiente.")
+    alergenos = _alergenos_por_ingrediente(db, [l.ingrediente_id for l in lineas])
+    for linea in lineas:
+        ingrediente = linea.ingrediente
+        propios = alergenos[ingrediente.id]
+        perfil = {
+            "evaluacion": ingrediente.evaluacion_alergenos,
+            "gluten": ingrediente.gluten,
+            "respaldo": ingrediente.respaldo_alergenos,
+            "contiene": [{"codigo": f.alergeno.codigo, "forma": f.forma}
+                         for f in propios if f.nivel == NIVEL_CONTIENE],
+            "puede_contener": [f.alergeno.codigo for f in propios if f.nivel != NIVEL_CONTIENE],
+        }
+        fuentes.append({"ingrediente_id": ingrediente.id, "nombre": ingrediente.nombre,
+                        "es_aditivo": linea.es_aditivo, "perfil": perfil})
+        if ingrediente.evaluacion_alergenos != EVALUACION_EVALUADA:
+            estado = ingrediente.evaluacion_alergenos.replace("_", " ")
+            pendientes.append(f"{ingrediente.nombre}: evaluación de alérgenos {estado}.")
+        if ingrediente.gluten == GLUTEN_DESCONOCIDO:
+            pendientes.append(f"{ingrediente.nombre}: información de gluten insuficiente.")
             gluten_desconocido = True
-        gluten_presente |= perfil.gluten == "presente"
-        for marca in perfil.marcas:
-            item = detectados.setdefault(marca.codigo, {
-                "codigo": marca.codigo, "nombre": NOMBRES[marca.codigo], "fuentes": [],
+        gluten_presente |= ingrediente.gluten == GLUTEN_PRESENTE
+        for fila in propios:
+            destino = detectados if fila.nivel == NIVEL_CONTIENE else posibles
+            item = destino.setdefault(fila.alergeno.codigo, {
+                "codigo": fila.alergeno.codigo, "nombre": fila.alergeno.nombre,
+                "condicionada": fila.alergeno.condicionada, "fuentes": [],
             })
-            item["fuentes"].append({"insumo_id": insumo.id, "nombre": insumo.nombre,
-                                    "forma": marca.forma})
-    sustancias = sorted(detectados.values(), key=lambda d: list(NOMBRES).index(d["codigo"]))
+            fuente = {"ingrediente_id": ingrediente.id, "nombre": ingrediente.nombre}
+            if fila.nivel == NIVEL_CONTIENE:
+                fuente["forma"] = fila.forma
+            item["fuentes"].append(fuente)
+    # Gana "contiene": lo que ya se declara presente no va como "puede contener".
+    for codigo in detectados:
+        posibles.pop(codigo, None)
     gluten = "presente" if gluten_presente else "informacion_insuficiente" if gluten_desconocido else "sin_presencia_declarada"
     origen = {"version_receta_id": version.id if version else None,
               "reglas": VERSION_REGLAS, "fuentes": fuentes,
               "conservacion_producto": producto.conservacion,
               "lista_ingredientes_declarada": texto_ingredientes}
-    return {**origen, "detectados": sustancias, "gluten": gluten,
+    return {**origen, "detectados": list(detectados.values()),
+            "puede_contener": list(posibles.values()), "gluten": gluten,
             "pendientes_origen": pendientes, "huella_origen": _huella(origen),
             "conservacion": copy.deepcopy(producto.conservacion),
             "conservacion_origen": "producto", "contaminacion_cruzada": [], "evaluaciones": []}
@@ -115,7 +162,16 @@ def ultima_revision(db, borrador_id):
     ).order_by(RevisionDeclaracionRotulado.numero.desc()))
 
 
-def pendientes_contenido(contenido):
+def _es_condicionada(item):
+    # Las revisiones anteriores a la unificación no guardaban la marca.
+    return item.get("condicionada", item["codigo"] == "sulfitos")
+
+
+def _nombres(db):
+    return {codigo: a.nombre for codigo, a in catalogo_por_codigo(db).items()}
+
+
+def pendientes_contenido(contenido, nombres):
     pendientes = list(contenido["pendientes_origen"])
     if contenido["conservacion"] is None:
         pendientes.append("Indicá condiciones de conservación.")
@@ -124,14 +180,14 @@ def pendientes_contenido(contenido):
                           ConservacionProducto.model_validate(contenido["conservacion"]).pendientes())
     evaluaciones = {e["codigo"]: e for e in contenido["evaluaciones"]}
     for item in contenido["detectados"]:
-        if item["codigo"] == "sulfitos" and "sulfitos" not in evaluaciones:
-            pendientes.append("Sulfitos: evaluá concentración en el producto final y documentá el respaldo.")
+        if _es_condicionada(item) and item["codigo"] not in evaluaciones:
+            pendientes.append(f"{item['nombre']}: evaluá la concentración en el producto final y documentá el respaldo.")
     presentes = {d["codigo"] for d in contenido["detectados"]}
     for item in contenido["contaminacion_cruzada"]:
         if not item.get("respaldo"):
-            pendientes.append(f"Contaminación cruzada de {NOMBRES[item['codigo']]}: falta respaldo de autorización sanitaria.")
+            pendientes.append(f"Contaminación cruzada de {nombres.get(item['codigo'], item['codigo'])}: falta respaldo de autorización sanitaria.")
         if item["codigo"] in presentes:
-            pendientes.append(f"{NOMBRES[item['codigo']]} ya está presente: revisá la declaración cruzada.")
+            pendientes.append(f"{nombres.get(item['codigo'], item['codigo'])} ya está presente: revisá la declaración cruzada.")
     return pendientes
 
 
@@ -140,7 +196,7 @@ def _texto(contenido):
     directos, derivados = [], []
     for item in contenido["detectados"]:
         codigo = item["codigo"]
-        if codigo == "sulfitos" and codigo not in evaluaciones:
+        if _es_condicionada(item) and codigo not in evaluaciones:
             continue
         if codigo in evaluaciones and not evaluaciones[codigo]["declarar"]:
             continue
@@ -165,7 +221,8 @@ def revision_salida(db, borrador, revision):
                                              borrador.version_receta_id, borrador.lote_producto_id,
                                              borrador.lista_ingredientes)
     vigente = revision.huella_origen == actual["huella_origen"]
-    pendientes = pendientes_contenido(contenido)
+    nombres = _nombres(db)
+    pendientes = pendientes_contenido(contenido, nombres)
     if not vigente:
         pendientes.append("Los datos de origen cambiaron. Regenerá y revisá la propuesta.")
     return {"revision": revision.numero,
@@ -176,8 +233,17 @@ def revision_salida(db, borrador, revision):
                                       if revision.confirmado_por else None),
             "confirmado_en": revision.confirmado_en,
             "declaracion": _texto(contenido),
-            "declaracion_cruzada": ("PUEDE CONTENER " + ", ".join(NOMBRES[c["codigo"]].upper()
-                for c in contenido["contaminacion_cruzada"]) if contenido["contaminacion_cruzada"] else "")}
+            "declaracion_cruzada": _texto_cruzado(contenido, nombres)}
+
+
+def _texto_cruzado(contenido, nombres):
+    """PUEDE CONTENER: lo que declaran los ingredientes y la contaminación
+    cruzada de la planta, sin repetir."""
+    codigos = [p["codigo"] for p in contenido.get("puede_contener", [])]
+    codigos += [c["codigo"] for c in contenido["contaminacion_cruzada"] if c["codigo"] not in codigos]
+    if not codigos:
+        return ""
+    return "PUEDE CONTENER " + ", ".join(nombres.get(c, c).upper() for c in codigos)
 
 
 def consultar(db, borrador_id):
@@ -283,6 +349,12 @@ def editar(db, borrador_id, datos, usuario):
             codigos = [v["codigo"] for v in valor]
             if len(codigos) != len(set(codigos)):
                 raise HTTPException(422, "Hay sustancias duplicadas.")
+            if campo == "contaminacion_cruzada":
+                catalogo = catalogo_por_codigo(db)
+                previos = {c["codigo"] for c in contenido[campo]}
+                # Uno dado de baja solo se acepta si ya estaba declarado.
+                if any(c not in catalogo or (not catalogo[c].activo and c not in previos) for c in codigos):
+                    raise HTTPException(422, "Sustancia desconocida.")
             if campo == "evaluaciones" and any(c not in {d["codigo"] for d in contenido["detectados"]} for c in codigos):
                 raise HTTPException(422, "Solo se pueden evaluar sustancias detectadas.")
         contenido[campo] = valor

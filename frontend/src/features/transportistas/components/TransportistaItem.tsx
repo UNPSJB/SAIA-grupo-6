@@ -64,7 +64,7 @@ export function TransportistaItem({
         </EtiquetaEstado>
       </Celda>
       <Celda>
-        <TextoTruncado texto={transportista.observaciones ?? "-"} color="#64748B" />
+        <TextoTruncado texto={transportista.observaciones ?? "-"} color="tabla.textoSecundario" />
       </Celda>
       <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">

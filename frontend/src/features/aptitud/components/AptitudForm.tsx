@@ -1,26 +1,24 @@
 import { useState } from "react";
-import { Box, Textarea } from "@chakra-ui/react";
+import { Textarea } from "@chakra-ui/react";
 import type { AptitudFormValues } from "../types/aptitud";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
-  SIN_VALIDACION_NATIVA,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface AptitudFormProps {
   initialValues?: AptitudFormValues;
   onSubmit: (values: AptitudFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -28,14 +26,13 @@ const emptyValues: AptitudFormValues = { nombre: "", descripcion: "" };
 
 /**
  * El aspecto de los controles lo dan `FormInput` y la receta del tema; acá no
- * hay objetos de estilo. El ancho (`maxW="500px"`) es una decisión de layout.
+ * hay objetos de estilo. El layout lo dan las piezas de `formularios.tsx`.
  */
 export function AptitudForm({
   initialValues = emptyValues,
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Aptitud",
   onCancel,
 }: AptitudFormProps) {
   const [values, setValues] = useState<AptitudFormValues>(initialValues);
@@ -51,43 +48,33 @@ export function AptitudForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario columnas={1}>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required>
+            <FormInput
+              value={values.nombre}
+              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Ej: Carnet de Manipulador"
+            />
+          </FormField>
 
-        <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
-          <FormInput
-            value={values.nombre}
-            onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-            placeholder="Ej: Carnet de Manipulador"
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField
-          label="Descripción"
-          helper="Opcional: qué certifica esta aptitud."
-          mb="0"
-        >
-          <Textarea
-            value={values.descripcion || ""}
-            onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
-            placeholder="Opcional: qué certifica esta aptitud"
-            minH="80px"
-            maxW="500px"
-          />
-        </FormField>
-
-        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>
-            {submitLabel}
-          </BotonGuardar>
-          {onCancel && (
-            <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>
-          )}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+          <FormField label="Descripción" opcional helper="Qué certifica esta aptitud.">
+            <Textarea
+              value={values.descripcion || ""}
+              onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
+              placeholder="Qué certifica esta aptitud."
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

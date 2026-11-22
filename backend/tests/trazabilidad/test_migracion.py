@@ -12,15 +12,23 @@ from src.migrations.trazabilidad import migrar_trazabilidad
 def base_legacy(db):
     with engine.begin() as conexion:
         conexion.execute(text("INSERT INTO unidades_medida (nombre, simbolo, activo) VALUES ('Kilo', 'kg', 1)"))
-        # Fila del esquema viejo: hoy el CHECK de `insumos` ya no admite 'producto'.
-        conexion.execute(text("PRAGMA ignore_check_constraints = ON"))
+        # `insumos` con el esquema viejo (hoy el maestro es `ingredientes`),
+        # con un producto guardado como insumo.
+        # Hoy `insumos` es otra tabla (la marca comprada): se reemplaza por la vieja.
+        conexion.execute(text("DROP TABLE IF EXISTS proveedores_insumos"))
+        conexion.execute(text("DROP TABLE IF EXISTS insumos"))
+        conexion.execute(
+            text(
+                "CREATE TABLE insumos (id INTEGER PRIMARY KEY, nombre VARCHAR NOT NULL, "
+                "unidad_medida_id INTEGER NOT NULL, activo BOOLEAN NOT NULL, tipo VARCHAR(20))"
+            )
+        )
         conexion.execute(
             text(
                 "INSERT INTO insumos (nombre, unidad_medida_id, activo, tipo) "
                 "VALUES ('Pan', 1, 1, 'producto')"
             )
         )
-        conexion.execute(text("PRAGMA ignore_check_constraints = OFF"))
         conexion.execute(
             text(
                 "CREATE TABLE lotes (id INTEGER PRIMARY KEY, codigo_lote VARCHAR(50), "
@@ -40,6 +48,7 @@ def base_legacy(db):
     yield
     with engine.begin() as conexion:
         conexion.execute(text("DROP TABLE lotes"))
+        conexion.execute(text("DROP TABLE IF EXISTS insumos"))
         conexion.execute(text("DROP TABLE schema_migrations"))
 
 

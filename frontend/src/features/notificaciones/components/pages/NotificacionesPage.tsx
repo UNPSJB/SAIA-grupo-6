@@ -63,6 +63,9 @@ import {
   TextoTruncado,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
+import { BotonExportar } from "../../../exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -72,6 +75,7 @@ type FiltroOrigen =
   | "VENCIMIENTO_PERSONAL"
   | "PLAN_CALIBRACION"
   | "PLAN_MANTENIMIENTO"
+  | "HOMOLOGACION_INSUMO"
   | "DOCUMENTO"
   | "CHECKLIST"
   | "INCIDENTE";
@@ -99,6 +103,7 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
   VENCIMIENTO_PERSONAL: "Vencimiento de personal",
   PLAN_CALIBRACION: "Calibración",
   PLAN_MANTENIMIENTO: "Mantenimiento",
+  HOMOLOGACION_INSUMO: "Homologación de insumo",
   DOCUMENTO: "Documento",
   CHECKLIST: "Checklist",
   INCIDENTE: "Incidente",
@@ -168,6 +173,7 @@ function normalizar(texto: string) {
 
 export function NotificacionesPage() {
   const navigate = useNavigate();
+  const esAdmin = puedeAdministrar(useAuth().user);
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
@@ -338,6 +344,7 @@ export function NotificacionesPage() {
       personal: base.filter((a) => a.origen === "VENCIMIENTO_PERSONAL").length,
       calibracion: base.filter((a) => a.origen === "PLAN_CALIBRACION").length,
       mantenimiento: base.filter((a) => a.origen === "PLAN_MANTENIMIENTO").length,
+      homologaciones: base.filter((a) => a.origen === "HOMOLOGACION_INSUMO").length,
       documentos: base.filter((a) => a.origen === "DOCUMENTO").length,
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
@@ -595,6 +602,7 @@ export function NotificacionesPage() {
                 <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
                 <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
                 <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
+                <option value="HOMOLOGACION_INSUMO">Homologaciones ({contadores.homologaciones})</option>
                 <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
                 <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
                 <option value="INCIDENTE">Incidentes ({contadores.incidentes})</option>
@@ -616,6 +624,27 @@ export function NotificacionesPage() {
               />
             </Field.Root>
           </Box>
+
+          {/* Exportar es de administración (el backend lo exige). */}
+          {esAdmin && (
+            <BotonExportar
+              nombreTabla="las notificaciones"
+              disabled={alertasFiltradas.length === 0}
+              datos={() => ({
+                titulo: "Centro de notificaciones",
+                nombre: "notificaciones",
+                encabezados: ["Criticidad", "Origen", "Situación", "Detalle", "Plazo", "Motivo"],
+                filas: alertasFiltradas.map((alerta) => [
+                  etiquetaCriticidad(alerta.criticidad),
+                  ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen,
+                  alerta.titulo,
+                  alerta.detalle,
+                  alerta.fecha_referencia ? formatoFechaOCorta(alerta.fecha_referencia) : alerta.plazo,
+                  alerta.motivo,
+                ]),
+              })}
+            />
+          )}
         </HStack>
       </Tarjeta>
 
@@ -641,7 +670,7 @@ export function NotificacionesPage() {
             <Table.Root variant="outline" size="md" w="100%" minW="1100px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro ancho="angosta" onClick={() => handleSort("criticidad")}>
+                  <EncabezadoOscuro width="10%" onClick={() => handleSort("criticidad")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Criticidad
                       <SortIcon column="criticidad" sortColumn={sortColumn} sortDirection={sortDirection} />

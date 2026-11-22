@@ -56,6 +56,7 @@ ICONOS = {
     "PLAN_CALIBRACION": "calibracion",
     "PLAN_MANTENIMIENTO": "calibracion",
     "STOCK_BAJO": "stock",
+    "HOMOLOGACION_INSUMO": "documento",
     "VENCIMIENTO_PERSONAL": "personal",
     "DOCUMENTO": "documento",
     "CHECKLIST": "checklist",
@@ -114,6 +115,13 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
 
     if tipo == "STOCK_BAJO":
         return "STOCK_BAJO"
+
+    if tipo == "HOMOLOGACION_INSUMO":
+        return (
+            "HOMOLOGACION_INSUMO_VENCIDA"
+            if nivel == "VENCIDO"
+            else "HOMOLOGACION_INSUMO_PROXIMA"
+        )
 
     if tipo == "DOCUMENTO":
         return (
@@ -588,6 +596,7 @@ def calcular_criticidad_dashboard(
     notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_planes_calibracion_mantenimiento(db))
     notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_vencimientos_personal(db))
     notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_stock_bajo(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_homologacion_insumos(db))
     notificaciones_vivas.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
 
     for notificacion in notificaciones_vivas:

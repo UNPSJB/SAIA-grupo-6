@@ -23,7 +23,7 @@ import { useProveedorABM } from "../../hooks/useProveedorABM";
 import { useProveedores } from "../../hooks/useProveedores";
 import type { Proveedor } from "../../types/proveedor";
 import { ProveedorTable } from "../ProveedorTable";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -136,7 +136,7 @@ export function ProveedorPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="proveedores"
               filtros={{
                 activo: String(!verInactivos),

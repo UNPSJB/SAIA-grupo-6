@@ -149,8 +149,8 @@ class PanelProduccion(BaseModel):
 
 class PanelInventario(BaseModel):
     periodo: Periodo
-    insumos_activos: int
-    insumos_sin_stock: int
+    ingredientes_activos: int
+    ingredientes_sin_stock: int
     lotes_vencidos: int
     lotes_por_vencer: int
     lotes_recibidos: int
@@ -158,7 +158,7 @@ class PanelInventario(BaseModel):
     proveedores_certificacion_vencida: int
     serie_movimientos: Serie
     lotes_por_vencimiento: list[Conteo]
-    insumos_por_tipo: list[Conteo]
+    ingredientes_segun_aditivo: list[Conteo]
     estado_stock: list[Conteo]
     mas_movimiento: list[Conteo]
     recepciones_por_proveedor: list[Conteo]
@@ -325,6 +325,20 @@ class ChecklistHoy(BaseModel):
     pendientes_total: int
 
 
+class TareaProduccionHoy(BaseModel):
+    """Una tarea pendiente de un lote en proceso, para quien opera."""
+
+    lote_id: int
+    numero_lote: str
+    producto: str
+    orden: int
+    descripcion: str
+    # True: asignada a quien pide; False: sin asignar (la puede hacer cualquiera).
+    asignada: bool
+    # False mientras alguna etapa anterior del lote siga pendiente (va en orden).
+    habilitada: bool = True
+
+
 class PanelInicio(BaseModel):
     """Solo lo del día de hoy."""
 
@@ -334,3 +348,5 @@ class PanelInicio(BaseModel):
     grupos: list[GrupoHoy]
     # Lo que vence hoy; solo para quien administra.
     vencen_hoy: Optional[list[FilaAtencion]] = None
+    # Tareas de producción pendientes; solo para quien opera (sin administrar).
+    tareas_produccion: Optional[list[TareaProduccionHoy]] = None

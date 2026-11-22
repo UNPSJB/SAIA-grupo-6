@@ -178,12 +178,20 @@ from src.rotulado import declaraciones_services as declaraciones
 from src.rotulado.declaraciones_schemas import (
     EditarDeclaraciones, RegenerarDeclaraciones, RevisionEsperada, DeclaracionesOut,
 )
-from src.rotulado.alergenos import catalogo, VERSION_REGLAS
+from src.alergenos.constants import VERSION_REGLAS
+from src.alergenos.services import listar_alergenos
 
 
 @router.get("/catalogo-alergenos")
-def catalogo_alergenos():
-    return {"version_reglas": VERSION_REGLAS, "sustancias": catalogo()}
+def catalogo_alergenos(db: Session = Depends(get_db)):
+    """Sustancias que se pueden declarar: el catálogo de alérgenos activos."""
+    return {
+        "version_reglas": VERSION_REGLAS,
+        "sustancias": [
+            {"codigo": a.codigo, "nombre": a.nombre, "condicionada": a.condicionada}
+            for a in listar_alergenos(db)
+        ],
+    }
 
 
 @router.get("/borradores/{borrador_id}/declaraciones", response_model=DeclaracionesOut)

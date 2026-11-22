@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.fechas import ahora
@@ -99,10 +100,10 @@ def _formatear_ingredientes(composicion) -> Optional[str]:
     refleja y en el rótulo no se declaran. `calcular_composicion` entrega los
     items ya ordenados. Devuelve `None` si no hay nada que declarar.
     """
-    partes = [item.insumo.nombre for item in composicion.ingredientes]
+    partes = [item.ingrediente.nombre for item in composicion.ingredientes]
     for item in composicion.aditivos:
         if item.aditivo is None:
-            partes.append(item.insumo.nombre)
+            partes.append(item.ingrediente.nombre)
         else:
             partes.append(_declarar_aditivo(item.aditivo))
     return "; ".join(partes) if partes else None
@@ -473,6 +474,23 @@ def autocompletar_borrador(
     db.commit()
     db.refresh(borrador)
     return borrador
+
+
+def borrador_completo_del_lote(db: Session, lote_id: int) -> Optional[int]:
+    """Id de un borrador de rotulado del lote con todos los campos obligatorios; None si no hay.
+
+    Sin rotulado completo el lote no se vende (lo exige la reserva de salidas):
+    los datos del lote (identificación, fechas) son parte obligatoria del rótulo.
+    """
+    ids = db.scalars(
+        select(BorradorRotulado.id)
+        .where(BorradorRotulado.lote_producto_id == lote_id)
+        .order_by(BorradorRotulado.id.desc())
+    ).all()
+    for borrador_id in ids:
+        if calcular_completitud(db, borrador_id).estado_global == CAMPO_COMPLETO:
+            return borrador_id
+    return None
 
 
 def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRotulado:
@@ -863,7 +881,7 @@ def preview_autocompletado(
 
         if not composicion.completa:
             faltantes = ", ".join(
-                f.insumo.nombre for f in (composicion.faltantes or [])
+                f.ingrediente.nombre for f in (composicion.faltantes or [])
             )
             if faltantes:
                 mensaje = (

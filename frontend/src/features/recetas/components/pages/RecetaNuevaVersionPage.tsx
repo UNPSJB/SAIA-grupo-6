@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBookOpen } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import {
@@ -10,7 +11,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { listarUnidadesMedida } from "../../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../../unidadMedida/types/unidadMedida";
-import { useInsumosParaReceta } from "../../hooks/useRecetas";
+import { useIngredientesParaReceta } from "../../hooks/useRecetas";
 import { crearVersion, obtenerReceta, obtenerVersion } from "../../services/recetaService";
 import type { VersionInput } from "../../types/receta";
 import { desdeDetalle } from "../../utils/versionForm";
@@ -33,7 +34,7 @@ export function RecetaNuevaVersionPage() {
     id: receta?.version_vigente?.id ?? null,
     etiqueta: "la versión vigente",
   });
-  const { insumos, loading: cargandoInsumos, error: errorInsumos } = useInsumosParaReceta();
+  const { ingredientes, loading: cargandoIngredientes, error: errorIngredientes } = useIngredientesParaReceta();
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,13 +58,14 @@ export function RecetaNuevaVersionPage() {
     }
   };
 
-  const cargando = cargandoReceta || cargandoVersion || cargandoInsumos;
-  const fallo = errorReceta ?? errorVersion ?? errorInsumos;
+  const cargando = cargandoReceta || cargandoVersion || cargandoIngredientes;
+  const fallo = errorReceta ?? errorVersion ?? errorIngredientes;
 
   return (
-    <PaginaFormulario
-      ancho="ancho"
+    <PaginaAlta
+      ancho="extenso"
       volver={{ a: volver, etiqueta: "la receta" }}
+      icono={LuBookOpen}
       titulo={receta ? `Nueva versión de ${receta.producto_nombre}` : "Nueva versión"}
       descripcion="Parte de la versión vigente. Al guardar se crea la versión siguiente; la actual queda de solo lectura."
       error={error}
@@ -76,7 +78,7 @@ export function RecetaNuevaVersionPage() {
           key={vigente.id}
           titulo={`Versión ${vigente.numero + 1}`}
           inicial={desdeDetalle(vigente)}
-          insumos={insumos}
+          ingredientes={ingredientes}
           unidades={unidades}
           onSubmit={guardar}
           isLoading={guardando}
@@ -86,6 +88,6 @@ export function RecetaNuevaVersionPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Nueva versión guardada correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

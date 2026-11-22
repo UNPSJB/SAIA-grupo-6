@@ -338,7 +338,7 @@ check(
 )
 
 print("== catálogos: LIMIT en SQL, sin repetidos, total correcto ==")
-recorrer_paginas("/insumos", "id", tabla="insumos")
+recorrer_paginas("/ingredientes", "id", tabla="ingredientes")
 recorrer_paginas("/aptitudes", "id", tabla="aptitudes", extra_params="&incluir_inactivos=true")
 recorrer_paginas("/unidades-medida", "id", tabla="unidades_medida")
 recorrer_paginas("/personal", "id", tabla="personal")
@@ -438,7 +438,7 @@ recorrer_paginas("/notificaciones", "id_notificacion", tabla=None, espera_limit=
 recorrer_paginas("/vencimientos/pagina", "id_vencimiento", tabla=None, espera_limit=False)
 
 print("== página fuera de rango: contrato que corrige el frontend ==")
-fuera = pedir(f"/insumos?page=999999&page_size={PAGE_SIZE}", H_ADMIN)
+fuera = pedir(f"/ingredientes?page=999999&page_size={PAGE_SIZE}", H_ADMIN)
 check(
     "page fuera de rango: items vacíos y total intacto (el frontend vuelve a total_paginas)",
     fuera["items"] == [] and fuera["total"] > 0,

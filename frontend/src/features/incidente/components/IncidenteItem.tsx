@@ -8,7 +8,14 @@ import {
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
 import { formatoFecha as formatoFechaDia } from "../../../common/utils/fechas";
-import { BotonAccion, Celda, EtiquetaEstado, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  COLOR_TABLA,
+  EtiquetaEstado,
+  FilaClickeable,
+  TextoTruncado,
+} from "../../../components/ui/patrones";
 import { Tooltip } from "../../../components/ui/tooltip";
 
 interface IncidenteItemProps {
@@ -37,11 +44,13 @@ export function IncidenteItem({
 }: IncidenteItemProps) {
   const navigate = useNavigate();
   const cerrado = incidente.estado === "cerrado";
+  // Respuestas viejas traían el tipo en `tipo_incidente` o con su etiqueta.
+  const tipoViejo = (incidente as Incidente & { tipo_incidente?: string }).tipo_incidente;
   const esEntregaRechazada =
     incidente.tipo === "entrega_rechazada" ||
     (incidente.tipo as string) === "Entrega rechazada" ||
-    (incidente as any).tipo_incidente === "entrega_rechazada" ||
-    (incidente as any).tipo_incidente === "Entrega rechazada";
+    tipoViejo === "entrega_rechazada" ||
+    tipoViejo === "Entrega rechazada";
   // El retiro de lote también se resuelve desde su circuito (cerrar el retiro),
   // igual que el rechazo de mercadería: acá no se ofrece el cierre manual.
   const esRetiroLote = incidente.tipo === "retiro_lote";
@@ -84,12 +93,12 @@ export function IncidenteItem({
         {formatoFechaDia(incidente.fecha_reporte)}
       </Celda>
 
-      <Celda maxW="220px">
+      <Celda>
         <Text
           fontWeight="semibold"
           fontSize="sm"
           lineClamp={1}
-          color={esViejo ? "red.fg" : "#1E293B"}
+          color={esViejo ? "red.fg" : COLOR_TABLA.textoPrincipal}
           title={incidente.titulo}
         >
           {incidente.titulo}
@@ -145,6 +154,7 @@ export function IncidenteItem({
           maxW="100%"
           overflow="hidden"
           textOverflow="ellipsis"
+          title={tipoLabel(incidente.tipo)}
         >
           {tipoLabel(incidente.tipo)}
         </Badge>

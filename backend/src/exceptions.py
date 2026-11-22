@@ -56,7 +56,7 @@ class ConflictoRegistroInactivo(HTTPException):
     en vez de simplemente rechazar la operación.
 
     Reutilizable por cualquier entidad con baja lógica (Personal, Equipo,
-    Insumos), ya que no depende de ningún campo específico de una entidad.
+    Ingredientes), ya que no depende de ningún campo específico de una entidad.
     """
 
     def __init__(self, mensaje: str, entidad_id: int, campo: str) -> None:

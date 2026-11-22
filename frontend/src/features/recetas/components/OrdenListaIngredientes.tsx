@@ -13,10 +13,10 @@ function letraDeGrupo(grupo: number): string {
 }
 
 function nombreEnLista(item: ComposicionItem): string {
-  return item.aditivo ? etiquetaAditivo(item.aditivo) : item.insumo.nombre;
+  return item.aditivo ? etiquetaAditivo(item.aditivo) : item.ingrediente.nombre;
 }
 
-/** Los grupos de insumos que pesan lo mismo, cada uno en el orden actual de la lista. */
+/** Los grupos de ingredientes que pesan lo mismo, cada uno en el orden actual de la lista. */
 function gruposDeEmpate(composicion: Composicion): ComposicionItem[][] {
   const grupos = new Map<number, ComposicionItem[]>();
   for (const item of [...composicion.ingredientes, ...composicion.aditivos]) {
@@ -47,11 +47,11 @@ function GrupoEmpatado({ grupo, ocupado, onMover }: GrupoProps) {
       </Text>
       <HStack gap="1" wrap="wrap">
         {grupo.map((item, indice) => (
-          <HStack key={item.insumo.id} gap="0">
+          <HStack key={item.ingrediente.id} gap="0">
             <Button
               size="2xs"
               variant="ghost"
-              aria-label={`Mover ${item.insumo.nombre} hacia adelante`}
+              aria-label={`Mover ${item.ingrediente.nombre} hacia adelante`}
               disabled={ocupado || indice === 0}
               onClick={() => onMover(grupo, indice, indice - 1)}
             >
@@ -63,7 +63,7 @@ function GrupoEmpatado({ grupo, ocupado, onMover }: GrupoProps) {
             <Button
               size="2xs"
               variant="ghost"
-              aria-label={`Mover ${item.insumo.nombre} hacia atrás`}
+              aria-label={`Mover ${item.ingrediente.nombre} hacia atrás`}
               disabled={ocupado || indice === grupo.length - 1}
               onClick={() => onMover(grupo, indice, indice + 1)}
             >
@@ -91,7 +91,7 @@ interface OrdenListaIngredientesProps {
 }
 
 /**
- * Decisión del orden entre insumos que pesan lo mismo, sin repetir la lista.
+ * Decisión del orden entre ingredientes que pesan lo mismo, sin repetir la lista.
  *
  * La lista en sí es la cadena del campo de ingredientes. Este componente solo aparece
  * cuando hay algo que decidir (empates) o algo que avisar (composición incompleta).
@@ -111,7 +111,7 @@ export function OrdenListaIngredientes({ versionId, onOrdenCambiado }: OrdenList
   if (versionId === null) return null;
 
   const mover = async (grupo: ComposicionItem[], desde: number, hacia: number) => {
-    const ids = grupo.map((i) => i.insumo.id);
+    const ids = grupo.map((i) => i.ingrediente.id);
     [ids[desde], ids[hacia]] = [ids[hacia], ids[desde]];
     setGuardando(true);
     setErrorGuardar(null);
@@ -140,11 +140,11 @@ export function OrdenListaIngredientes({ versionId, onOrdenCambiado }: OrdenList
             No se puede ordenar la lista todavía
           </Text>
           <Text fontSize="xs" color="fg.subtle">
-            Faltan datos para calcular la masa de estos insumos:
+            Faltan datos para calcular la masa de estos ingredientes:
           </Text>
           {composicion.faltantes.map((f) => (
-            <Text key={f.insumo.id} fontSize="sm">
-              {f.insumo.nombre}: {f.motivo}
+            <Text key={f.ingrediente.id} fontSize="sm">
+              {f.ingrediente.nombre}: {f.motivo}
             </Text>
           ))}
         </Stack>

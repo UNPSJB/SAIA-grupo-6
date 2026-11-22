@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
@@ -206,7 +206,7 @@ export function RetirosPage() {
         herramientas={
           <>
             {puedeRegistrar && (
-              <BotonesExportar
+              <BotonExportar
                 nombreTabla="retiros"
                 vista="retiros"
                 filtros={{ estado: filtroEstado || undefined, buscar: busqueda.trim() || undefined }}

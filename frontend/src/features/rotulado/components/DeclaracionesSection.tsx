@@ -99,13 +99,17 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
     <Text>Versión de receta de origen: {contenido?.version_receta_id ?? "sin versión"}</Text>
     {contenido?.detectados.map(d => <Box key={d.codigo}>
       <Text fontWeight="medium">{d.nombre}</Text>
-      {d.fuentes.map((f, i) => <Text key={`${f.insumo_id}-${i}`} fontSize="sm">{f.nombre}: {f.forma}</Text>)}
+      {d.fuentes.map((f, i) => <Text key={`${f.ingrediente_id}-${i}`} fontSize="sm">{f.nombre}: {f.forma}</Text>)}
     </Box>)}
-    {contenido && !contenido.detectados.length && <Text>Sin sustancias registradas en los insumos evaluados. Revisá los pendientes antes de confirmar.</Text>}
-    <Text>Gluten: {contenido?.gluten === "presente" ? "presencia declarada" : contenido?.gluten === "sin_presencia_declarada" ? "sin presencia declarada en los insumos evaluados" : "información insuficiente"}.</Text>
+    {contenido && !contenido.detectados.length && <Text>Sin sustancias registradas en los ingredientes evaluados. Revisá los pendientes antes de confirmar.</Text>}
+    {!!contenido?.puede_contener?.length && <Box>
+      <Text fontWeight="medium">Puede contener (declarado en los ingredientes)</Text>
+      {contenido.puede_contener.map(p => <Text key={p.codigo} fontSize="sm">{p.nombre}: {p.fuentes.map(f => f.nombre).join(", ")}</Text>)}
+    </Box>}
+    <Text>Gluten: {contenido?.gluten === "presente" ? "presencia declarada" : contenido?.gluten === "sin_presencia_declarada" ? "sin presencia declarada en los ingredientes evaluados" : "información insuficiente"}.</Text>
     <Text fontSize="sm" color="fg.muted">Esta evaluación no certifica ni habilita declaraciones de producto libre de gluten.</Text>
     {datos?.declaracion && <Text fontWeight="bold">Propuesta: {datos.declaracion}</Text>}
-    {contenido?.fuentes.map(f => <Text key={f.insumo_id} fontSize="sm"><Link to={`/insumos/${f.insumo_id}/editar`}>Revisar {f.nombre}</Link></Text>)}
+    {contenido?.fuentes.map(f => <Text key={f.ingrediente_id} fontSize="sm"><Link to={`/ingredientes/${f.ingrediente_id}/editar`}>Revisar alérgenos de {f.nombre}</Link></Text>)}
     <IndicadorCompletitud completitud={{ estado_global: pendientes.length ? "pendiente" : "completo",
       campos: [...pendientes.map((motivo, i) => ({ nombre: `declaracion-${i}`, etiqueta: motivo, estado: "pendiente" })),
         { nombre: "confirmacion", etiqueta: "Confirmación administrativa vigente", estado: datos?.estado === "confirmada" && datos.vigencia === "vigente" && !sucio ? "completo" : "pendiente" }] }} />

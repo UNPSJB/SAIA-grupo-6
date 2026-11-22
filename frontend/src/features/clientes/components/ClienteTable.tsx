@@ -1,4 +1,5 @@
 import { Table, Text } from "@chakra-ui/react";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
 import type { Cliente } from "../types/cliente";
 import { ClienteItem } from "./ClienteItem";
 import { EncabezadoOrdenable } from "../../../components/ui/filtros";
@@ -10,14 +11,7 @@ import {
 
 interface ClienteTableProps {
   clientes: Cliente[];
-  orden?: {
-    columna: string | null;
-    direccion: "asc" | "desc";
-    orden: string;
-    esPorDefecto: boolean;
-    ordenar: (columna: string) => void;
-    reiniciar: () => void;
-  };
+  orden?: OrdenTabla<string, string>;
   onEdit: (cliente: Cliente) => void;
   onDelete: (cliente: Cliente) => void;
   onReactivar: (cliente: Cliente) => void;
@@ -48,18 +42,18 @@ export function ClienteTable({
         <Table.Header>
           <FilaEncabezado>
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="nombre" orden={orden as any} ancho="amplia">
+              <EncabezadoOrdenable columna="nombre" orden={orden} ancho="amplia">
                 Nombre
               </EncabezadoOrdenable>
             ) : (
               <EncabezadoOscuro ancho="amplia">Nombre</EncabezadoOscuro>
             )}
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="documento" orden={orden as any} ancho="media">
+              <EncabezadoOrdenable columna="documento" orden={orden} ancho="angosta">
                 Documento
               </EncabezadoOrdenable>
             ) : (
-              <EncabezadoOscuro ancho="media">Documento</EncabezadoOscuro>
+              <EncabezadoOscuro ancho="angosta">Documento</EncabezadoOscuro>
             )}
             <EncabezadoOscuro ancho="media">Teléfono</EncabezadoOscuro>
             <EncabezadoOscuro>Domicilio</EncabezadoOscuro>

@@ -7,6 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.fechas import ahora, hoy
+from src.ingredientes.models import Ingrediente
+from src.insumos.homologacion import motivo_no_utilizable, vigencia_meses
 from src.insumos.models import Insumo
 from src.lotes.constants import TIPO_CONSUMO_DESPERDICIO, TIPO_CONSUMO_REAL
 from src.lotes.models import ConsumoInsumo
@@ -36,7 +38,8 @@ def obtener_lote_insumo(db: Session, lote_insumo_id: int) -> LoteInsumo:
         select(LoteInsumo)
         .where(LoteInsumo.id == lote_insumo_id)
         .options(
-            selectinload(LoteInsumo.insumo).selectinload(Insumo.unidad_medida),
+            selectinload(LoteInsumo.ingrediente).selectinload(Ingrediente.unidad_medida),
+            selectinload(LoteInsumo.insumo),
             selectinload(LoteInsumo.proveedor),
             selectinload(LoteInsumo.dado_de_baja_por),
         )
@@ -49,7 +52,8 @@ def obtener_lote_insumo(db: Session, lote_insumo_id: int) -> LoteInsumo:
 def lote_a_respuesta(lote: LoteInsumo) -> schemas.LoteInsumoResponse:
     return schemas.LoteInsumoResponse(
         id=lote.id,
-        insumo=schemas.InsumoResumen(id=lote.insumo.id, nombre=lote.insumo.nombre),
+        insumo=schemas.InsumoResumen(id=lote.insumo.id, marca=lote.insumo.marca, nombre=lote.insumo.nombre),
+        ingrediente=schemas.IngredienteResumen(id=lote.ingrediente.id, nombre=lote.ingrediente.nombre),
         proveedor=schemas.ProveedorResumen(
             id=lote.proveedor.id,
             nombre=lote.proveedor.nombre,
@@ -73,9 +77,17 @@ def crear_lote_insumo(
     insumo = db.get(Insumo, datos.insumo_id)
     if insumo is None or not insumo.activo:
         raise exceptions.InsumoNoEncontrado()
+    motivo = motivo_no_utilizable(db, insumo)
+    if motivo is not None:
+        raise exceptions.InsumoNoHomologado(motivo)
+    ingrediente = insumo.ingrediente
+    if not ingrediente.activo:
+        raise exceptions.IngredienteNoEncontrado()
     proveedor = db.get(Proveedor, datos.proveedor_id)
     if proveedor is None or not proveedor.activo:
         raise exceptions.ProveedorNoEncontrado()
+    if proveedor not in insumo.proveedores:
+        raise exceptions.ProveedorNoVendeInsumo()
 
     fecha_ingreso = datos.fecha_ingreso or hoy()
     if datos.fecha_vencimiento is not None and datos.fecha_vencimiento < fecha_ingreso:
@@ -87,6 +99,7 @@ def crear_lote_insumo(
 
     lote = LoteInsumo(
         insumo=insumo,
+        ingrediente=ingrediente,
         proveedor=proveedor,
         numero_lote=datos.numero_lote,
         cantidad_recibida=datos.cantidad_recibida,
@@ -183,17 +196,18 @@ def listar_bajas_lote_insumo(
 
 def listar_lotes_insumo(
     db: Session,
-    insumo_id: int | None = None,
+    ingrediente_id: int | None = None,
     proveedor_id: int | None = None,
     incluir_inactivos: bool = False,
 ) -> list[LoteInsumo]:
     consulta = select(LoteInsumo).options(
+        selectinload(LoteInsumo.ingrediente),
         selectinload(LoteInsumo.insumo),
         selectinload(LoteInsumo.proveedor),
         selectinload(LoteInsumo.dado_de_baja_por),
     )
-    if insumo_id is not None:
-        consulta = consulta.where(LoteInsumo.insumo_id == insumo_id)
+    if ingrediente_id is not None:
+        consulta = consulta.where(LoteInsumo.ingrediente_id == ingrediente_id)
     if proveedor_id is not None:
         consulta = consulta.where(LoteInsumo.proveedor_id == proveedor_id)
     if not incluir_inactivos:
@@ -250,17 +264,18 @@ def saldo_lote_insumo(db: Session, lote: LoteInsumo) -> Decimal:
 
 def stock_por_lote(
     db: Session,
-    insumo_id: int | None = None,
+    ingrediente_id: int | None = None,
     incluir_inactivos: bool = False,
 ) -> list[schemas.StockLoteInsumo]:
     """Stock de cada lote de insumo, ordenado por vencimiento (FEFO)."""
     consulta = select(LoteInsumo).options(
-        selectinload(LoteInsumo.insumo).selectinload(Insumo.unidad_medida),
+        selectinload(LoteInsumo.ingrediente).selectinload(Ingrediente.unidad_medida),
+        selectinload(LoteInsumo.insumo),
         selectinload(LoteInsumo.proveedor),
         selectinload(LoteInsumo.dado_de_baja_por),
     )
-    if insumo_id is not None:
-        consulta = consulta.where(LoteInsumo.insumo_id == insumo_id)
+    if ingrediente_id is not None:
+        consulta = consulta.where(LoteInsumo.ingrediente_id == ingrediente_id)
     if not incluir_inactivos:
         consulta = consulta.where(LoteInsumo.activo.is_(True))
     lotes = list(
@@ -277,6 +292,7 @@ def stock_por_lote(
     consumos = _consumos_por_lote(db, lote_ids)
     bajas = _bajas_por_lote(db, lote_ids)
     hoy_ = hoy()
+    meses = vigencia_meses(db)
     resultado = []
     for lote in lotes:
         real = consumos[lote.id][TIPO_CONSUMO_REAL] if lote.id in consumos else CERO
@@ -289,13 +305,16 @@ def stock_por_lote(
                 lote_insumo_id=lote.id,
                 insumo_id=lote.insumo_id,
                 insumo_nombre=lote.insumo.nombre,
-                unidad=lote.insumo.unidad_medida.simbolo,
+                ingrediente_id=lote.ingrediente_id,
+                ingrediente_nombre=lote.ingrediente.nombre,
+                unidad=lote.ingrediente.unidad_medida.simbolo,
                 proveedor_id=lote.proveedor_id,
                 proveedor_nombre=lote.proveedor.nombre,
                 numero_lote=lote.numero_lote,
                 fecha_vencimiento=lote.fecha_vencimiento,
                 activo=lote.activo,
                 vencido=_vencido(lote.fecha_vencimiento, hoy_),
+                marca_no_utilizable=motivo_no_utilizable(db, lote.insumo, meses),
                 motivo_baja=ETIQUETAS_MOTIVO_BAJA.get(lote.motivo_baja, lote.motivo_baja)
                 if lote.motivo_baja
                 else None,
@@ -316,39 +335,39 @@ def _vencido(fecha_vencimiento: date | None, referencia: date) -> bool:
 
 
 def lotes_sugeridos(
-    db: Session, insumo_id: int, todos: bool = False
+    db: Session, ingrediente_id: int, todos: bool = False
 ) -> list[schemas.StockLoteInsumo]:
     """Solo devuelve lotes activos (`activo=True`), por lo que un lote dado de baja nunca aparece."""
-    lotes = stock_por_lote(db, insumo_id=insumo_id, incluir_inactivos=False)
+    lotes = stock_por_lote(db, ingrediente_id=ingrediente_id, incluir_inactivos=False)
     if todos:
         return lotes
-    return [lote for lote in lotes if lote.saldo > 0 and not lote.vencido]
+    return [lote for lote in lotes if lote.saldo > 0 and not lote.vencido and lote.marca_no_utilizable is None]
 
 
-def stock_por_insumo(
-    db: Session, insumo_id: int | None = None
-) -> list[schemas.StockInsumo]:
-    consulta = select(Insumo).where(Insumo.activo.is_(True))
-    if insumo_id is not None:
-        consulta = consulta.where(Insumo.id == insumo_id)
-    insumos = list(
+def stock_por_ingrediente(
+    db: Session, ingrediente_id: int | None = None
+) -> list[schemas.StockIngrediente]:
+    consulta = select(Ingrediente).where(Ingrediente.activo.is_(True))
+    if ingrediente_id is not None:
+        consulta = consulta.where(Ingrediente.id == ingrediente_id)
+    ingredientes = list(
         db.scalars(
-            consulta.options(selectinload(Insumo.unidad_medida)).order_by(Insumo.nombre)
+            consulta.options(selectinload(Ingrediente.unidad_medida)).order_by(Ingrediente.nombre)
         ).all()
     )
 
-    por_insumo: dict[int, list[schemas.StockLoteInsumo]] = defaultdict(list)
-    for lote in stock_por_lote(db, insumo_id=insumo_id, incluir_inactivos=False):
-        por_insumo[lote.insumo_id].append(lote)
+    por_ingrediente: dict[int, list[schemas.StockLoteInsumo]] = defaultdict(list)
+    for lote in stock_por_lote(db, ingrediente_id=ingrediente_id, incluir_inactivos=False):
+        por_ingrediente[lote.ingrediente_id].append(lote)
 
     resultado = []
-    for insumo in insumos:
-        lotes = por_insumo.get(insumo.id, [])
+    for ingrediente in ingredientes:
+        lotes = por_ingrediente.get(ingrediente.id, [])
         resultado.append(
-            schemas.StockInsumo(
-                insumo_id=insumo.id,
-                insumo_nombre=insumo.nombre,
-                unidad=insumo.unidad_medida.simbolo,
+            schemas.StockIngrediente(
+                ingrediente_id=ingrediente.id,
+                ingrediente_nombre=ingrediente.nombre,
+                unidad=ingrediente.unidad_medida.simbolo,
                 cantidad_recibida=sum((l.cantidad_recibida for l in lotes), CERO),
                 consumo_real=sum((l.consumo_real for l in lotes), CERO),
                 desperdicio=sum((l.desperdicio for l in lotes), CERO),

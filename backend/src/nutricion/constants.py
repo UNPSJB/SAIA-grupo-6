@@ -69,6 +69,12 @@ PARAMETROS_INICIALES: dict[str, tuple[Decimal | None, Decimal | None, int, int]]
 
 MOSTRAR_POR_100 = "mostrar_por_100"
 FRASE_NO_SIGNIFICATIVO = "frase_no_significativo"
+# Cuánto puede apartarse (en %) cada nutriente del rótulo de un insumo (marca)
+# del valor de referencia de su ingrediente para homologarlo sin observaciones.
+TOLERANCIA_HOMOLOGACION = "tolerancia_homologacion_pct"
+# Meses que dura una homologación aprobada: después hay que revisar el rótulo
+# de la marca (avisa una notificación y, vencida, no se reciben ni consumen lotes).
+VIGENCIA_HOMOLOGACION = "vigencia_homologacion_meses"
 
 PARAMETROS_GENERALES_INICIALES: dict[str, str] = {
     # La norma exige "por porción" y %VD; la columna por 100 g/ml es optativa.
@@ -77,6 +83,11 @@ PARAMETROS_GENERALES_INICIALES: dict[str, str] = {
     # nutrientes como "0,0" (rótulo de la cátedra) y la frase los nombra al pie
     # (Guía de Rotulado): así se cumplen las dos referencias.
     FRASE_NO_SIGNIFICATIVO: "1",
+    # Criterio interno de la empresa (la tolerancia legal, ±20 %, es sobre lo
+    # que declara el producto terminado): si cada ingrediente está dentro, el
+    # producto también, porque la tabla es una suma ponderada.
+    TOLERANCIA_HOMOLOGACION: "20",
+    VIGENCIA_HOMOLOGACION: "12",
 }
 CLAVES_GENERALES: tuple[str, ...] = tuple(PARAMETROS_GENERALES_INICIALES)
 
@@ -163,7 +174,7 @@ ESTADO_SIN_RECETA = "sin_receta"
 # ── Unidades: conversión a gramos / mililitros ─────────────────────────────
 #
 # El tipo y el factor salen de cada `UnidadMedida` (se editan en la pantalla de
-# unidades); la densidad y el peso por unidad, del `Insumo`. Acá solo quedan
+# unidades); la densidad y el peso por unidad, del `Ingrediente`. Acá solo quedan
 # los nombres de los tipos, para leer el cálculo.
 
 MASA = TIPO_MASA
@@ -179,7 +190,7 @@ POR_UNIDAD = TIPO_UNIDAD
 #   * Carbohidratos = HCdisp (disponibles, sin la fibra), que es lo que se
 #     declara en el rótulo; HCtotal no se usa.
 #   * SARA 1 no trae azúcares ni grasas trans: quedan vacíos y se completan en
-#     cada insumo con otra fuente.
+#     cada ingrediente con otra fuente.
 COLUMNAS_IMPORTACION: dict[str, tuple[str, ...]] = {
     "nombre": ("nombre", "alimento"),
     "codigo": ("codigo", "código"),
@@ -225,7 +236,7 @@ ALIMENTOS_EJEMPLO: tuple[tuple, ...] = (
 
 
 class ErrorCode:
-    INSUMO_NO_ENCONTRADO = "El insumo no fue encontrado."
+    INGREDIENTE_NO_ENCONTRADO = "El ingrediente no fue encontrado."
     PRODUCTO_NO_ENCONTRADO = "El producto no fue encontrado."
     VERSION_NO_ENCONTRADA = "La versión de receta no corresponde a este producto."
     NUTRIENTE_DESCONOCIDO = "Nutriente desconocido."

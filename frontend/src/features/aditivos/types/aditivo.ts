@@ -6,15 +6,16 @@ export interface ClaseFuncional {
   activo: boolean;
 }
 
-export interface Aditivo {
-  id: number;
+/** Entrada de la lista de referencia (Codex / CAA) para completar un ingrediente aditivo. */
+export interface SugerenciaAditivo {
   nombre: string;
   numero_ins: string | null;
-  activo: boolean;
-  clase_funcional: ClaseFuncional;
+  clase_funcional: string;
+  /** null si la clase no existe o está dada de baja en la app. */
+  clase_funcional_id: number | null;
 }
 
-/** Lo que muestran el insumo y la receta de un aditivo. */
+/** Lo que muestran el ingrediente y la receta de un aditivo. */
 export interface AditivoResumen {
   id: number;
   nombre: string;
@@ -22,20 +23,16 @@ export interface AditivoResumen {
   clase_funcional: string;
 }
 
-export interface AditivoInput {
-  clase_funcional_id: number;
-  nombre: string;
-  numero_ins: string | null;
-}
-
 export interface ClaseFuncionalInput {
   nombre: string;
   ins_opcional: boolean;
 }
 
-/** "Conservante: Sorbato de potasio (INS 202)". */
+/**
+ * "Conservante · INS 202". El nombre no va: es el del propio ingrediente, que
+ * ya se muestra al lado.
+ */
 export function etiquetaAditivo(aditivo: AditivoResumen | null | undefined): string {
   if (!aditivo) return "-";
-  const ins = aditivo.numero_ins ? ` (INS ${aditivo.numero_ins})` : "";
-  return `${aditivo.clase_funcional}: ${aditivo.nombre}${ins}`;
+  return aditivo.numero_ins ? `${aditivo.clase_funcional} · INS ${aditivo.numero_ins}` : aditivo.clase_funcional;
 }

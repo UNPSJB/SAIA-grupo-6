@@ -8,6 +8,7 @@ import src.all_models  # noqa: F401  (registra todos los modelos)
 from src.database import engine
 from src.models import ModeloBase
 
+from .alergenos import migrar_alergenos
 from .base import crear_bitacora
 from .documentos import migrar_documentos
 from .equipos import migrar_equipos
@@ -29,6 +30,7 @@ from .retiros import migrar_retiros
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
+from .checklist_consumos import migrar_checklist_consumos
 from .trazabilidad import migrar_trazabilidad
 from .unidades_medida_tipo_factor import (
     asignar_equivalencias_conocidas,
@@ -59,6 +61,8 @@ def run_migrations() -> None:
     migrar_documentos()
     migrar_incidentes()
     migrar_tareas()
+    # Después de migrar_tareas: mueve el consumo de una columna a las tablas nuevas.
+    migrar_checklist_consumos()
     migrar_stock()
     migrar_lotes()
     migrar_lotes_fecha_vencimiento()
@@ -83,6 +87,8 @@ def run_migrations() -> None:
     migrar_vista_publica()
     migrar_rotulado()
     migrar_declaraciones_rotulado()
+    # Después de rotulado: agrega la columna de alérgenos a los borradores.
+    migrar_alergenos()
     migrar_clientes()
     migrar_transportistas()
     migrar_certificaciones_transportista()

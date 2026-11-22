@@ -9,4 +9,4 @@ class ErrorCode:
 
     NOMBRE_DUPLICADO = "Ya existe un proveedor registrado con ese nombre."
     CUIT_INVALIDO = "El CUIT debe contener 11 dígitos numéricos."
-    INSUMOS_NO_VALIDOS = "Uno o más insumos no existen o están inactivos."
+    INSUMOS_NO_VALIDOS = "Uno o más insumos no existen o están dados de baja."

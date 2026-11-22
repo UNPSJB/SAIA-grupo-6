@@ -6,7 +6,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuTruck } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useTransportista } from "../../hooks/useTransportista";
 import { useTransportistaABM } from "../../hooks/useTransportistaABM";
 import type { TransportistaFormValues } from "../../types/transportista";
@@ -35,9 +36,11 @@ export function TransportistaEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/transportistas", etiqueta: "Transportistas" }}
+      icono={LuTruck}
       titulo="Editar transportista"
+      descripcion="Modificá los datos fiscales y de contacto del transportista."
     >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
@@ -63,7 +66,6 @@ export function TransportistaEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar transportista"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/transportistas")}
           />
@@ -71,6 +73,6 @@ export function TransportistaEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Transportista modificado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

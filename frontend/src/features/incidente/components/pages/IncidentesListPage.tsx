@@ -42,7 +42,7 @@ import {
   Paginacion,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -305,7 +305,7 @@ export function IncidentesListPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="incidentes"
             filtros={{ estado: filtroEstado, tipo: filtroTipo }}
           />

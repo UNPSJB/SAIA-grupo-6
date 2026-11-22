@@ -34,8 +34,16 @@ class LoteInsumo(ModeloBase):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # La marca que se recibió.
     insumo_id: Mapped[int] = mapped_column(
         ForeignKey("insumos.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    # El ingrediente de ese insumo, copiado al recibir el lote. Es lo que usan
+    # el stock por ingrediente, los paneles y el consumo en producción (la
+    # receta pide ingredientes, no marcas). El servicio garantiza que coincide
+    # con `insumo.ingrediente_id`.
+    ingrediente_id: Mapped[int] = mapped_column(
+        ForeignKey("ingredientes.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     proveedor_id: Mapped[int] = mapped_column(
         ForeignKey("proveedores.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -59,6 +67,7 @@ class LoteInsumo(ModeloBase):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     insumo: Mapped["Insumo"] = relationship()
+    ingrediente: Mapped["Ingrediente"] = relationship()
     proveedor: Mapped["Proveedor"] = relationship()
     certificacion: Mapped["CertificacionProveedor | None"] = relationship()
     dado_de_baja_por: Mapped["Personal | None"] = relationship(

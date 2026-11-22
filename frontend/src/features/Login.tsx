@@ -422,7 +422,7 @@ export const Login = () => {
                                 setIsLoginView(!isLoginView);
                                 setError('');
                             }}
-                            color="brand.500"
+                            color="brand.fg"
                             fontWeight="bold"
                             cursor="pointer"
                         >

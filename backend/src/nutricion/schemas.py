@@ -45,6 +45,10 @@ class ParametroNutrienteUpdate(BaseModel):
 class ParametrosGenerales(BaseModel):
     mostrar_por_100: bool = True
     frase_no_significativo: bool = False
+    # Tolerancia (%) para homologar el rótulo de un insumo contra su ingrediente.
+    tolerancia_homologacion_pct: Decimal = Field(default=Decimal("20"), gt=0, le=100)
+    # Meses de vigencia de una homologación aprobada (avisa al vencer).
+    vigencia_homologacion_meses: int = Field(default=12, ge=1, le=60)
 
 
 class LeyendasFijas(BaseModel):
@@ -97,7 +101,7 @@ class ResultadoImportacion(BaseModel):
     avisos: list[str] = []
 
 
-# ── Datos nutricionales del insumo ─────────────────────────────────────────
+# ── Datos nutricionales del ingrediente ─────────────────────────────────────────
 
 
 class ValorIn(BaseModel):
@@ -114,7 +118,7 @@ class ValorIn(BaseModel):
 
 
 class DatosNutricionalesIn(BaseModel):
-    # Se guardan en el insumo (`peso_unitario_g` / `densidad_g_ml`, NUMERIC(10,4)).
+    # Se guardan en el ingrediente (`peso_unitario_g` / `densidad_g_ml`, NUMERIC(10,4)).
     peso_unidad_g: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=4)
     densidad_g_ml: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=4)
     aporta_energia_sodio: bool = False
@@ -146,15 +150,15 @@ class ValorResponse(BaseModel):
 
 class Completitud(BaseModel):
     completo: bool
-    # Si el insumo no entra en la exigencia (aditivo sin aporte), se aclara.
+    # Si el ingrediente no entra en la exigencia (aditivo sin aporte), se aclara.
     exige_datos: bool
     faltantes: list[str]
 
 
 class DatosNutricionalesResponse(BaseModel):
-    insumo_id: int
+    ingrediente_id: int
     nombre: str
-    tipo: str
+    es_aditivo: bool
     unidad: str
     unidad_tipo: str | None
     peso_unidad_g: Decimal | None
@@ -170,10 +174,10 @@ class DatosNutricionalesResponse(BaseModel):
     completitud: Completitud
 
 
-class InsumoNutricionResumen(BaseModel):
-    insumo_id: int
+class IngredienteNutricionResumen(BaseModel):
+    ingrediente_id: int
     nombre: str
-    tipo: str
+    es_aditivo: bool
     completo: bool
     exige_datos: bool
     faltantes: list[str]
@@ -212,9 +216,9 @@ class FuenteCalculo(BaseModel):
 
 
 class IngredienteCalculo(BaseModel):
-    insumo_id: int
+    ingrediente_id: int
     nombre: str
-    tipo: str
+    es_aditivo: bool
     cantidad: Decimal
     unidad: str
     gramos: Decimal | None
@@ -237,7 +241,7 @@ class FilaTabla(BaseModel):
     vd_texto: str
     no_significativo: bool
     vd_establecido: bool
-    # Algún insumo no tiene este nutriente: la fila se muestra sin valores.
+    # Algún ingrediente no tiene este nutriente: la fila se muestra sin valores.
     faltan_datos: bool = False
     # El valor sale de un análisis del producto, no de los ingredientes.
     de_laboratorio: bool = False

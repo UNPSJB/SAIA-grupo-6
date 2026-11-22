@@ -11,7 +11,7 @@ import { listarLotes } from "../../features/lotes/services/loteService";
 import { listarRecetas } from "../../features/recetas/services/recetaService";
 import { listarEquiposPaginados } from "../../features/equipo/services/equipoService";
 import { listarPersonal } from "../../features/personal/services/personalService";
-import { listarInsumos } from "../../features/insumos/services/insumoService";
+import { listarIngredientes } from "../../features/ingredientes/services/ingredienteService";
 import { listarProveedores } from "../../features/proveedores/services/proveedorService";
 import { listarIncidentesPaginados } from "../../features/incidente/services/incidenteService";
 
@@ -88,13 +88,13 @@ async function buscar(consulta: string, esAdmin: boolean, esOperador: boolean): 
           destino: `/personal/detalle/${persona.id}`,
         })),
       ),
-      listarInsumos(1, POR_GRUPO, { buscar: consulta }).then((p) =>
+      listarIngredientes(1, POR_GRUPO, { buscar: consulta }).then((p) =>
         p.items.map((i) => ({
-          clave: `insumo-${i.id}`,
-          grupo: "Insumos",
+          clave: `ingrediente-${i.id}`,
+          grupo: "Ingredientes",
           titulo: i.nombre,
           detalle: i.unidad_medida?.nombre,
-          destino: `/insumos/${i.id}/editar`,
+          destino: `/ingredientes/${i.id}/editar`,
         })),
       ),
       listarProveedores(false, consulta).then((lista) =>

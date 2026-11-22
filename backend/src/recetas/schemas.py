@@ -10,27 +10,33 @@ from src.recetas import exceptions
 Cantidad = Decimal
 
 
-class InsumoRecetaIn(BaseModel):
+class IngredienteRecetaIn(BaseModel):
     """Renglón de la receta.
 
-    La clasificación (ingrediente o aditivo) ya no se elige acá: sale del
-    maestro de insumos y se copia en la versión al guardarla. Si un cliente
-    viejo todavía manda `clasificacion`, se ignora.
+    Si es aditivo no se elige acá: sale del maestro de ingredientes y se copia
+    en la versión al guardarla. Si un cliente viejo todavía manda
+    `clasificacion`, se ignora.
     """
 
-    insumo_id: int = Field(gt=0)
+    ingrediente_id: int = Field(gt=0)
     cantidad: Cantidad = Field(gt=0, max_digits=14, decimal_places=3)
     unidad_medida_id: int = Field(gt=0)
 
 
-class TareaInsumoIn(BaseModel):
-    insumo_id: int = Field(gt=0)
+class TareaIngredienteIn(BaseModel):
+    ingrediente_id: int = Field(gt=0)
     cantidad: Cantidad = Field(gt=0, max_digits=14, decimal_places=3)
 
 
 class TareaRecetaIn(BaseModel):
     descripcion: str = Field(max_length=300)
-    insumos: list[TareaInsumoIn] = Field(default_factory=list)
+    procedimiento: str | None = Field(default=None, max_length=4000)
+    ingredientes: list[TareaIngredienteIn] = Field(default_factory=list)
+
+    @field_validator("procedimiento")
+    @classmethod
+    def limpiar_procedimiento(cls, valor: str | None) -> str | None:
+        return (valor or "").strip() or None
 
     @field_validator("descripcion")
     @classmethod
@@ -46,7 +52,7 @@ class VersionRecetaIn(BaseModel):
     porcion_cantidad: Cantidad | None = Field(default=None, gt=0, max_digits=14, decimal_places=3)
     porcion_unidad_medida_id: int | None = Field(default=None, gt=0)
     vida_util_dias: int | None = Field(default=None)
-    insumos: list[InsumoRecetaIn] = Field(min_length=1)
+    ingredientes: list[IngredienteRecetaIn] = Field(min_length=1)
     tareas: list[TareaRecetaIn] = Field(min_length=1)
 
     @field_validator("porcion_descripcion")
@@ -75,16 +81,16 @@ class UnidadResumen(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class InsumoResumen(BaseModel):
+class IngredienteResumen(BaseModel):
     id: int
     nombre: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class TareaInsumoResponse(BaseModel):
-    receta_insumo_id: int
-    insumo: InsumoResumen
+class TareaIngredienteResponse(BaseModel):
+    receta_ingrediente_id: int
+    ingrediente: IngredienteResumen
     cantidad: Decimal
 
 
@@ -92,15 +98,16 @@ class TareaRecetaResponse(BaseModel):
     id: int
     orden: int
     descripcion: str
-    insumos: list[TareaInsumoResponse]
+    procedimiento: str | None = None
+    ingredientes: list[TareaIngredienteResponse]
 
 
-class RecetaInsumoResponse(BaseModel):
+class RecetaIngredienteResponse(BaseModel):
     id: int
-    insumo: InsumoResumen
+    ingrediente: IngredienteResumen
     cantidad: Decimal
     unidad_medida: UnidadResumen
-    clasificacion: str
+    es_aditivo: bool
     # Clase funcional, nombre completo e INS, del maestro (solo aditivos).
     aditivo: AditivoResumen | None = None
 
@@ -123,7 +130,7 @@ class VersionResumen(BaseModel):
 
 class VersionDetalle(VersionResumen):
     receta_id: int
-    insumos: list[RecetaInsumoResponse]
+    ingredientes: list[RecetaIngredienteResponse]
     tareas: list[TareaRecetaResponse]
 
 
@@ -139,17 +146,17 @@ class RecetaResponse(BaseModel):
 # Escalado (vista de cálculo: no modifica la receta)
 # --------------------------------------------------------------------------
 
-class InsumoEscalado(BaseModel):
-    insumo: InsumoResumen
-    clasificacion: str
+class IngredienteEscalado(BaseModel):
+    ingrediente: IngredienteResumen
+    es_aditivo: bool
     aditivo: AditivoResumen | None = None
     unidad_medida: UnidadResumen
     cantidad_receta: Decimal
     cantidad_escalada: Decimal
 
 
-class TareaInsumoEscalado(BaseModel):
-    insumo: InsumoResumen
+class TareaIngredienteEscalado(BaseModel):
+    ingrediente: IngredienteResumen
     unidad_medida: UnidadResumen
     cantidad_receta: Decimal
     cantidad_escalada: Decimal
@@ -158,7 +165,7 @@ class TareaInsumoEscalado(BaseModel):
 class TareaEscalada(BaseModel):
     orden: int
     descripcion: str
-    insumos: list[TareaInsumoEscalado]
+    ingredientes: list[TareaIngredienteEscalado]
 
 
 class RecetaEscalada(BaseModel):
@@ -168,21 +175,21 @@ class RecetaEscalada(BaseModel):
     version: VersionResumen
     factor: Decimal
     cantidad_objetivo: Decimal
-    insumos: list[InsumoEscalado]
+    ingredientes: list[IngredienteEscalado]
     tareas: list[TareaEscalada]
 
 
 # --------------------------------------------------------------------------
 # Composición porcentual (E10)
 # --------------------------------------------------------------------------
-# Van al final porque usan `InsumoResumen` y `UnidadResumen`: definidas antes
+# Van al final porque usan `IngredienteResumen` y `UnidadResumen`: definidas antes
 # de ellas, el módulo solo cargaba en Python 3.14 (anotaciones diferidas) y en
 # 3.13 o anterior el backend no arrancaba (NameError).
 
 class ComposicionItem(BaseModel):
-    """Lo que representa un insumo de la versión: cantidad, gramos y porcentaje."""
+    """Lo que representa un ingrediente de la versión: cantidad, gramos y porcentaje."""
 
-    insumo: InsumoResumen
+    ingrediente: IngredienteResumen
     unidad_medida: UnidadResumen
     cantidad: Decimal
     gramos: Decimal
@@ -193,10 +200,10 @@ class ComposicionItem(BaseModel):
     orden_decidido_en: datetime | None = None
 
 class ComposicionFaltante(BaseModel):
-    """Insumo al que le falta una equivalencia: por eso no se puede calcular."""
+    """Ingrediente al que le falta una equivalencia: por eso no se puede calcular."""
 
-    insumo: InsumoResumen
-    clasificacion: str
+    ingrediente: IngredienteResumen
+    es_aditivo: bool
     motivo: str
 
 
@@ -217,6 +224,6 @@ class Composicion(BaseModel):
 
 
 class OrdenEmpateIn(BaseModel):
-    """Orden elegido para un grupo de insumos que pesan lo mismo, del primero al último."""
+    """Orden elegido para un grupo de ingredientes que pesan lo mismo, del primero al último."""
 
-    insumo_ids: list[int] = Field(min_length=2)
+    ingrediente_ids: list[int] = Field(min_length=2)

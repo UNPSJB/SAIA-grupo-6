@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, HStack, Table } from "@chakra-ui/react";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
+import { BotonExportar } from "../../../exportacion";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { TabSalidas } from "../../../salidas/components/pages/SalidasPage";
 import { LuRefreshCw } from "react-icons/lu";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
@@ -42,7 +43,8 @@ import { BadgeEstadoLote } from "../BadgeEstadoLote";
 
 const PAGE_SIZE = 10;
 
-export function LotesPage() {
+/** Pestaña "Lotes de producción": el listado de lotes. */
+function TabLotes() {
   const navigate = useNavigate();
   // Exportar es de administración (el backend lo exige).
   const esAdmin = puedeAdministrar(useAuth().user);
@@ -131,14 +133,7 @@ export function LotesPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Lotes de producción"
-      descripcion="Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos."
-      // Quien opera también inicia lotes (la ruta es de "operar"). Antes el
-      // botón era solo de administración y el operador llegaba por la entrada
-      // "Registrar Lote" del menú, que ya no existe.
-      acciones={<BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>}
-    >
+    <>
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -156,14 +151,17 @@ export function LotesPage() {
               opciones={productos}
               todos="Todos los productos"
             />
-            <FiltroSelect
-              label="Estado"
-              valor={estado}
-              onCambio={(v) => setEstado(v as EstadoLote | "")}
-              opciones={ESTADOS_LOTE.map((e) => ({ valor: e.valor, etiqueta: e.etiqueta }))}
-              todos="Todos los estados"
-              minW="180px"
-            />
+            {/* Quien opera solo ve lotes en proceso: el estado no filtra nada. */}
+            {esAdmin && (
+              <FiltroSelect
+                label="Estado"
+                valor={estado}
+                onCambio={(v) => setEstado(v as EstadoLote | "")}
+                opciones={ESTADOS_LOTE.map((e) => ({ valor: e.valor, etiqueta: e.etiqueta }))}
+                todos="Todos los estados"
+                minW="180px"
+              />
+            )}
             <Box minW="150px">
               <LabelFiltro>Desde</LabelFiltro>
               <FormInput
@@ -186,8 +184,13 @@ export function LotesPage() {
         }
         herramientas={
           <>
+            {/*
+              Dentro de una pestaña, el alta va en la barra. Quien opera
+              también inicia lotes (la ruta es de "operar").
+            */}
+            <BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>
             {esAdmin && (
-              <BotonesExportar
+              <BotonExportar
                 nombreTabla="lotes de producción"
                 vista="lotes-produccion"
                 filtros={{
@@ -209,6 +212,13 @@ export function LotesPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
+      {!esAdmin && (
+        <Text fontSize="sm" color="fg.muted">
+          Ves los lotes en proceso con tareas asignadas a vos o sin asignar. Los lotes cerrados se
+          consultan desde sus salidas, reclamos o retiros.
+        </Text>
+      )}
+
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando pagina>Cargando lotes...</EstadoCargando>}
 
@@ -218,7 +228,11 @@ export function LotesPage() {
             No hay lotes que coincidan con los filtros aplicados.
           </EstadoVacioFiltrado>
         ) : (
-          <EstadoVacio>Todavía no hay lotes de producción registrados.</EstadoVacio>
+          <EstadoVacio>
+            {esAdmin
+              ? "Todavía no hay lotes de producción registrados."
+              : "No hay lotes en proceso con tareas para vos."}
+          </EstadoVacio>
         ))}
 
       {!loading && !error && filtrados.length > 0 && (
@@ -309,6 +323,27 @@ export function LotesPage() {
           </Table.Root>
         </TarjetaTabla>
       )}
+    </>
+  );
+}
+
+/**
+ * Lotes de producción, con las salidas de producto como sub-opción: antes
+ * "Salidas de producto" era una entrada aparte del menú de Producción, aunque
+ * cada salida reserva una parte de un lote. `/salidas` redirige acá.
+ */
+export function LotesPage() {
+  return (
+    <Pagina
+      titulo="Lotes de producción"
+      descripcion="Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos; desde Salidas se reservan y despachan partes de los lotes a clientes."
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "lotes", etiqueta: "Lotes de producción", contenido: <TabLotes /> },
+          { valor: "salidas", etiqueta: "Salidas de producto", contenido: <TabSalidas /> },
+        ]}
+      />
     </Pagina>
   );
 }

@@ -116,8 +116,8 @@ export interface PanelProduccion {
 
 export interface PanelInventario {
   periodo: Periodo;
-  insumos_activos: number;
-  insumos_sin_stock: number;
+  ingredientes_activos: number;
+  ingredientes_sin_stock: number;
   lotes_vencidos: number;
   lotes_por_vencer: number;
   lotes_recibidos: number;
@@ -125,7 +125,7 @@ export interface PanelInventario {
   proveedores_certificacion_vencida: number;
   serie_movimientos: Serie;
   lotes_por_vencimiento: Conteo[];
-  insumos_por_tipo: Conteo[];
+  ingredientes_segun_aditivo: Conteo[];
   estado_stock: Conteo[];
   mas_movimiento: Conteo[];
   recepciones_por_proveedor: Conteo[];
@@ -303,6 +303,21 @@ export interface PanelInicio {
   grupos: GrupoHoy[];
   /** Lo que vence hoy; null para quien no administra. */
   vencen_hoy: FilaAtencion[] | null;
+  /** Tareas pendientes de lotes en proceso (suyas o sin asignar); null para quien administra. */
+  tareas_produccion?: TareaProduccionHoy[] | null;
+}
+
+/** Una tarea pendiente de un lote en proceso, para quien opera. */
+export interface TareaProduccionHoy {
+  lote_id: number;
+  numero_lote: string;
+  producto: string;
+  orden: number;
+  descripcion: string;
+  /** true: asignada a quien pide; false: sin asignar (la puede hacer cualquiera). */
+  asignada: boolean;
+  /** false mientras alguna etapa anterior del lote siga pendiente. */
+  habilitada: boolean;
 }
 
 /** `1 lote` / `3 lotes`. */

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
 
 import { useOrdenTabla } from "../../../common/hooks/useOrdenTabla";
 import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
@@ -26,7 +26,7 @@ import {
   DatoPrincipal,
   CantidadConUnidad,
 } from "../../../components/ui/patrones";
-import { BotonesExportar } from "../../exportacion";
+import { BotonExportar } from "../../exportacion";
 import { notificarCambioNotificaciones } from "../../notificaciones/eventoNotificaciones";
 import { useProveedores } from "../../proveedores/hooks/useProveedores";
 import { useStockAcciones } from "../hooks/useStockAcciones";
@@ -128,7 +128,7 @@ export function StockActualTab() {
           />
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="stock_actual"
             vista="stock-actual"
             filtros={{
@@ -211,10 +211,11 @@ export function StockActualTab() {
                   <EtiquetaEstado tono={insumo.stock_bajo ? "peligro" : "ok"}>{insumo.stock_bajo ? "Stock bajo" : "Disponible"}</EtiquetaEstado>
                 </HStack>
                 <Text color="fg.muted" fontSize="sm" mb="3">Mínimo: {formatoCantidad(insumo.stock_minimo, "Sin definir")}{insumo.stock_minimo !== null ? ` ${insumo.unidad_simbolo ?? ""}` : ""}</Text>
+                {/* Los mismos botones de ícono que la tabla de escritorio. */}
                 <Stack direction="row" gap="2" flexWrap="wrap">
-                  <Button size="sm" colorPalette="brand" onClick={() => setDialogo({ tipo: "ingreso", insumo })}>Ingreso</Button>
-                  <Button size="sm" variant="outline" colorPalette="neutral" onClick={() => setDialogo({ tipo: "ajuste", insumo })}>Ajuste</Button>
-                  <Button size="sm" variant="plain" color="brand.fg" onClick={() => setDialogo({ tipo: "minimo", insumo })}>Mínimo</Button>
+                  <BotonAccion accion="ingreso" label="Registrar ingreso" onClick={() => setDialogo({ tipo: "ingreso", insumo })} />
+                  <BotonAccion accion="ajuste" label="Ajustar stock" onClick={() => setDialogo({ tipo: "ajuste", insumo })} />
+                  <BotonAccion accion="minimo" label="Configurar stock mínimo" onClick={() => setDialogo({ tipo: "minimo", insumo })} />
                 </Stack>
               </Tarjeta>
             ))}

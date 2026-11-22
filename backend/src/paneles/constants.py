@@ -38,9 +38,10 @@ ETIQUETA_ESTADO_SALIDA = {
     "RECHAZADA": "Rechazadas",
 }
 
-ETIQUETA_TIPO_INSUMO = {
-    "ingrediente": "Ingredientes",
+# Clave del conteo de ingredientes según sean aditivos o no.
+ETIQUETA_ADITIVO = {
     "aditivo": "Aditivos",
+    "otro": "No aditivos",
 }
 
 ETIQUETA_ESTADO_CHECKLIST = {

@@ -311,11 +311,10 @@ export function ReportarIncidentePage() {
       </Flex>
 
       {activeTab === "nuevo-incidente" && (
-        <Box maxW="600px" mx="auto">
+        <Box maxW="3xl" mx="auto">
           <IncidenteForm
             onSubmit={handleSubmit}
             isLoading={loadingAlta}
-            title="Registrar nuevo incidente"
             submitLabel="Reportar incidente"
           />
         </Box>

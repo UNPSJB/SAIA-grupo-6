@@ -5,16 +5,18 @@ import pytest
 
 from src.auth.dependencies import require_operador
 from src.database import get_db
+from src.ingredientes.models import Ingrediente
 from src.insumos.models import Insumo
 from src.lotes import schemas, services
 from src.lotes.constants import TIPO_CONSUMO_DESPERDICIO, TIPO_CONSUMO_REAL
 from src.lotes.models import ConsumoInsumo
+from tests.produccion_helpers import completar_tarea
 from src.lotesInsumo.models import LoteInsumo
 from src.main import app
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.proveedores.models import Proveedor
-from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo, VersionReceta
+from src.recetas.models import Receta, RecetaIngrediente, TareaReceta, TareaRecetaIngrediente, VersionReceta
 from src.unidadMedida.models import UnidadMedida
 from tests.database import db_session
 
@@ -73,13 +75,18 @@ def _crear_escenario_dos_tareas(db, operario, cantidad_objetivo=Decimal("100")):
         db.add(kg)
         db.commit()
 
-        insumo = Insumo(nombre=f"Harina {_seq}", unidad_medida_id=kg.id, tipo="ingrediente")
+        ingrediente = Ingrediente(nombre=f"Harina {_seq}", unidad_medida_id=kg.id)
         proveedor = Proveedor(nombre=f"Molino {_seq}", matricula=f"MAT-TL2-{_seq}")
-        db.add_all([insumo, proveedor])
+        db.add_all([ingrediente, proveedor])
+        db.commit()
+
+        insumo = Insumo(ingrediente_id=ingrediente.id, marca=f"Marca {_seq}", proveedores=[proveedor])
+        db.add(insumo)
         db.commit()
 
         lote_ins = LoteInsumo(
             insumo_id=insumo.id,
+            ingrediente_id=ingrediente.id,
             proveedor_id=proveedor.id,
             numero_lote=f"LOT-INS2-{_seq}",
             cantidad_recibida=Decimal("500"),
@@ -105,12 +112,12 @@ def _crear_escenario_dos_tareas(db, operario, cantidad_objetivo=Decimal("100")):
         db.add(version)
         db.commit()
 
-        r_ins = RecetaInsumo(
+        r_ins = RecetaIngrediente(
             version_receta_id=version.id,
-            insumo_id=insumo.id,
+            ingrediente_id=ingrediente.id,
             cantidad=Decimal("10"),
             unidad_medida_id=kg.id,
-            clasificacion="ingrediente",
+            es_aditivo=False,
         )
         db.add(r_ins)
         db.commit()
@@ -120,7 +127,7 @@ def _crear_escenario_dos_tareas(db, operario, cantidad_objetivo=Decimal("100")):
         db.add_all([t1, t2])
         db.commit()
 
-        ti1 = TareaRecetaInsumo(tarea_receta_id=t1.id, receta_insumo_id=r_ins.id, cantidad=Decimal("10"))
+        ti1 = TareaRecetaIngrediente(tarea_receta_id=t1.id, receta_ingrediente_id=r_ins.id, cantidad=Decimal("10"))
         db.add(ti1)
         db.commit()
 
@@ -135,7 +142,7 @@ def _crear_escenario_dos_tareas(db, operario, cantidad_objetivo=Decimal("100")):
             "operario": operario,
             "lote": lote,
             "lote_insumo": lote_ins,
-            "insumo": insumo,
+            "ingrediente": ingrediente,
             "proveedor": proveedor,
             "receta": receta,
             "version": version,
@@ -157,14 +164,15 @@ def test_obtener_timeline_lote_en_proceso_estructura_correcta(auth_client, db_se
     db = db_session
     lote = e["lote"]
 
-    # Registrar consumo de insumo en la tarea 1 y completarla
+    # Registrar consumo de ingrediente en la tarea 1 y completarla
     item1 = lote.checklist[0]
     db.info["sin_auditoria"] = True
     try:
         consumo = ConsumoInsumo(
             checklist_produccion_id=item1.id,
             lote_insumo_id=e["lote_insumo"].id,
-            cantidad=Decimal("10"),
+            # Lo que pide la receta (10 por unidad de rendimiento, lote x10).
+            cantidad=Decimal("100"),
             tipo=TIPO_CONSUMO_REAL,
             registrado_por_id=operario.id,
         )
@@ -192,14 +200,14 @@ def test_obtener_timeline_lote_en_proceso_estructura_correcta(auth_client, db_se
     assert nodo_inicio["tipo"] == "inicio"
     assert nodo_inicio["estado"] == "completado"
 
-    # * Primer tarea en estado 'completado' con su lista de insumos_consumidos.
+    # * Primer tarea en estado 'completado' con su lista de ingredientes_consumidos.
     nodo_t1 = nodos[1]
     assert nodo_t1["id"] == f"tarea_{item1.id}"
     assert nodo_t1["tipo"] == "tarea"
     assert nodo_t1["estado"] == "completado"
-    assert len(nodo_t1["detalle"]["insumos_consumidos"]) == 1
-    assert nodo_t1["detalle"]["insumos_consumidos"][0]["insumo_nombre"] == e["insumo"].nombre
-    assert float(nodo_t1["detalle"]["insumos_consumidos"][0]["cantidad"]) == 10.0
+    assert len(nodo_t1["detalle"]["ingredientes_consumidos"]) == 1
+    assert nodo_t1["detalle"]["ingredientes_consumidos"][0]["ingrediente_nombre"] == e["ingrediente"].nombre
+    assert float(nodo_t1["detalle"]["ingredientes_consumidos"][0]["cantidad"]) == 100.0
 
     # * Segunda tarea en estado 'en_proceso'.
     item2 = lote.checklist[1]
@@ -257,7 +265,7 @@ def test_obtener_timeline_lote_terminado_calcula_rendimiento(auth_client, db_ses
 
     # Completar todas las tareas del checklist
     for item in lote.checklist:
-        services.completar_item(db, lote.id, item.id, operario)
+        completar_tarea(db, lote.id, item.id, operario)
 
     # Cerrar lote (estado 'terminado', cantidad_objetivo=100, cantidad_producida=95)
     services.cerrar_lote(

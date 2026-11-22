@@ -6,8 +6,7 @@ import { useState } from "react";
 import { AuthContext, type User } from "../../common/context/auth-context";
 import { DeclaracionesSection } from "./components/DeclaracionesSection";
 import { ConservacionFields } from "./components/ConservacionFields";
-import { PerfilDeclaracionFields } from "./components/PerfilDeclaracionFields";
-import type { Conservacion, DeclaracionesOut, PerfilDeclaracion } from "./types/declaraciones";
+import type { Conservacion, DeclaracionesOut } from "./types/declaraciones";
 import * as api from "./services/declaracionesService";
 
 vi.mock("./services/declaracionesService", () => ({
@@ -23,7 +22,7 @@ function salida(): DeclaracionesOut {
     confirmado_por_id: null, confirmado_por_nombre: null, confirmado_en: null,
     declaracion: "CONTIENE LECHE", declaracion_cruzada: "", contenido: {
       version_receta_id: 1, reglas: "test", fuentes: [], pendientes_origen: [],
-      detectados: [{ codigo: "leche", nombre: "Leche", fuentes: [{ insumo_id: 1, nombre: "Leche en polvo", forma: "directa" }] }],
+      detectados: [{ codigo: "leche", nombre: "Leche", fuentes: [{ ingrediente_id: 1, nombre: "Leche en polvo", forma: "directa" }] }],
       gluten: "sin_presencia_declarada", conservacion: { instrucciones: "Refrigerar" }, conservacion_origen: "producto",
       contaminacion_cruzada: [], evaluaciones: [],
     } };
@@ -104,19 +103,4 @@ describe("HU106", () => {
     expect(datos.despues_abrir.instrucciones).toBe("Consumir refrigerado");
   });
 
-  it("el perfil diferencia evaluación pendiente, presencia y gluten", async () => {
-    function Formulario() {
-      const [value, setValue] = useState<PerfilDeclaracion | null>(null);
-      return <><PerfilDeclaracionFields value={value} onChange={setValue} /><output>{JSON.stringify(value)}</output></>;
-    }
-    envolver(<Formulario />);
-    fireEvent.click(screen.getByText("Ver catálogo completo de alérgenos"));
-    await screen.findByLabelText("Presencia de Maní");
-    fireEvent.change(screen.getByLabelText("Presencia de Maní"), { target: { value: "derivado" } });
-    fireEvent.change(screen.getByLabelText("Información de gluten"), { target: { value: "presente" } });
-    const datos = JSON.parse(screen.getByRole("status").textContent ?? "{}");
-    expect(datos.evaluacion).toBe("sin_evaluar");
-    expect(datos.marcas).toEqual([{ codigo: "mani", forma: "derivado" }]);
-    expect(datos.gluten).toBe("presente");
-  });
 });

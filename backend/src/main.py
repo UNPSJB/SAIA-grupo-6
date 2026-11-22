@@ -32,7 +32,9 @@ import src.exportacion.tablas  # noqa: F401
 from src.personal.router import router as personal_router
 from src.auth.router import router as auth_router
 from src.Equipo.router import router as equipo_router
+from src.ingredientes.router import router as ingredientes_router
 from src.insumos.router import router as insumos_router
+from src.alergenos.router import router as alergenos_router
 from src.elementoLimpieza.router import router as elementosLimpieza_router
 from src.PlanLimpieza.router import router as plan_limpieza_router
 from src.PlanCalibracionMantenimiento.router import (
@@ -156,7 +158,9 @@ app.add_middleware(LimiteTamanoSubidaMiddleware)
 app.include_router(auth_router)
 app.include_router(uploads_router)
 app.include_router(personal_router)
+app.include_router(ingredientes_router)
 app.include_router(insumos_router)
+app.include_router(alergenos_router)
 app.include_router(equipo_router)
 app.include_router(elementosLimpieza_router)
 

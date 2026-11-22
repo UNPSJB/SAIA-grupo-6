@@ -52,6 +52,42 @@ export async function completarItem(loteId: number, itemId: number): Promise<Lot
   return pedir<LoteDetalle>(response, "Error al completar la tarea");
 }
 
+/** Asigna una tarea pendiente a una persona que opera, o la deja libre (null). */
+export async function asignarTarea(
+  loteId: number,
+  itemId: number,
+  asignadoAId: number | null,
+): Promise<LoteDetalle> {
+  const response = await apiFetch(
+    `${API_URL}/lotes/${loteId}/checklist/${itemId}/asignacion`,
+    { method: "PUT", headers: JSON_HEADERS, body: JSON.stringify({ asignado_a_id: asignadoAId }) },
+  );
+  return pedir<LoteDetalle>(response, "Error al asignar la tarea");
+}
+
+/** Corrige la cantidad (y el motivo, si es desperdicio) de un consumo de una etapa pendiente. */
+export async function modificarConsumo(
+  loteId: number,
+  consumoId: number,
+  cantidad: string,
+  motivo: string | null,
+): Promise<LoteDetalle> {
+  const response = await apiFetch(`${API_URL}/lotes/${loteId}/consumos/${consumoId}`, {
+    method: "PUT",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ cantidad, motivo }),
+  });
+  return pedir<LoteDetalle>(response, "Error al corregir el consumo");
+}
+
+/** Borra un consumo mal cargado de una etapa pendiente (vuelve al saldo del lote de insumo). */
+export async function eliminarConsumo(loteId: number, consumoId: number): Promise<LoteDetalle> {
+  const response = await apiFetch(`${API_URL}/lotes/${loteId}/consumos/${consumoId}`, {
+    method: "DELETE",
+  });
+  return pedir<LoteDetalle>(response, "Error al borrar el consumo");
+}
+
 /** Devuelve el consumo con sus `advertencias` (por ejemplo, stock insuficiente). */
 export async function registrarConsumo(
   loteId: number,

@@ -9,7 +9,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuLayoutGrid } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function SectorCreatePage() {
   const navigate = useNavigate();
@@ -45,16 +46,17 @@ export function SectorCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/sectores", etiqueta: "Sectores" }}
+      icono={LuLayoutGrid}
       titulo="Nuevo sector"
+      descripcion="Cargá un sector de la planta."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <SectorForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de sector"
         submitLabel="Crear sector"
         onCancel={() => navigate("/sectores")}
       />
@@ -68,6 +70,6 @@ export function SectorCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

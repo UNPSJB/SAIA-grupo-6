@@ -148,6 +148,9 @@ CAUSAS_DE_CONTAMINACION: dict[str, frozenset[str]] = {
 #: de riesgo (reclamos, retiros y rechazos con otra causa, devoluciones).
 ETIQUETAS_SIN_RIESGO: dict[str, str] = {
     "INCIDENTE_ABIERTO": "Incidente abierto",
+    # Vigencia de la homologación de una marca: por ahora solo avisa.
+    "HOMOLOGACION_INSUMO_VENCIDA": "Homologación vencida",
+    "HOMOLOGACION_INSUMO_PROXIMA": "Homologación próxima a vencer",
 }
 
 

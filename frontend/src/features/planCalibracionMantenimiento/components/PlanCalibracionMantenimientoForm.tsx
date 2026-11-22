@@ -7,27 +7,28 @@ import type {
   TipoPlanCalibracionMantenimiento,
 } from "../types/planCalibracionMantenimiento";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
   BannerError,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
-  FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  CeldaCompleta,
+  FormularioAlta,
+  GrillaFormulario,
+  InputFecha,
+  InputUnidad,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface PlanCalibracionMantenimientoFormProps {
   initialValues?: PlanCalibracionMantenimientoFormValues;
   onSubmit: (values: PlanCalibracionMantenimientoFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -45,7 +46,6 @@ export function PlanCalibracionMantenimientoForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Plan de Calibración/Mantenimiento",
   onCancel,
 }: PlanCalibracionMantenimientoFormProps) {
   const [values, setValues] = useState<PlanCalibracionMantenimientoFormValues>(
@@ -98,67 +98,66 @@ export function PlanCalibracionMantenimientoForm({
   };
 
   return (
-    <TarjetaFormulario as="form" onSubmit={handleSubmit} mb="0">
-      <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa mb="0">
+      <SeccionFormulario>
+        <GrillaFormulario>
+          {errorEquipos && (
+            <CeldaCompleta>
+              <BannerError mb="0">{errorEquipos}</BannerError>
+            </CeldaCompleta>
+          )}
 
-      {errorEquipos && <BannerError>{errorEquipos}</BannerError>}
+          <FormField label="Equipo" required completo helper="Sólo se muestran equipos activos." invalid={intentado && faltan.tiene("equipo")}>
+            <FormNativeSelect
+              value={values.equipo_id}
+              onChange={handleEquipoChange}
+              disabled={cargandoEquipos}
+            >
+              <SelectPlaceholder>
+                {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
+              </SelectPlaceholder>
+              {equipos.map((equipo) => (
+                <option key={equipo.id} value={equipo.id}>
+                  {equipo.nombre} - {equipo.tipo} ({equipo.sector.nombre})
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
 
-      <FormField label="Equipo" required helper="Sólo se muestran equipos activos." invalid={intentado && faltan.tiene("equipo")}>
-        <FormNativeSelect
-          value={values.equipo_id}
-          onChange={handleEquipoChange}
-          disabled={cargandoEquipos}
-          maxW="500px"
-        >
-          <SelectPlaceholder>
-            {cargandoEquipos ? "Cargando equipos..." : "Seleccioná un equipo"}
-          </SelectPlaceholder>
-          {equipos.map((equipo) => (
-            <option key={equipo.id} value={equipo.id}>
-              {equipo.nombre} - {equipo.tipo} ({equipo.sector.nombre})
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
+          <FormField label="Tipo de plan" required completo>
+            <FormNativeSelect value={values.tipo} onChange={handleTipoChange}>
+              <option value="calibracion">Calibración</option>
+              <option value="mantenimiento">Mantenimiento</option>
+            </FormNativeSelect>
+          </FormField>
 
-      <FormField label="Tipo de plan" required>
-        <FormNativeSelect
-          value={values.tipo}
-          onChange={handleTipoChange}
-          maxW="500px"
-        >
-          <option value="calibracion">Calibración</option>
-          <option value="mantenimiento">Mantenimiento</option>
-        </FormNativeSelect>
-      </FormField>
+          <FormField label="Fecha de la última intervención" required invalid={intentado && faltan.tiene("fecha")}>
+            <InputFecha
+              value={values.fecha_ultima_intervencion}
+              onChange={handleFechaChange}
+            />
+          </FormField>
 
-      <FormField label="Fecha de la última intervención" required invalid={intentado && faltan.tiene("fecha")}>
-        <FormInput
-          type="date"
-          value={values.fecha_ultima_intervencion}
-          onChange={handleFechaChange}
-          maxW="500px"
-        />
-      </FormField>
-
-      <FormField label="Periodicidad (días)" required mb="0" invalid={intentado && faltan.tiene("periodicidad")}>
-        <FormInput
-          type="number"
-          min={1}
-          value={values.periodicidad_dias}
-          onChange={handlePeriodicidadChange}
-          placeholder="Ej: 30"
-          maxW="500px"
-        />
-      </FormField>
-
-      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading} disabled={cargandoEquipos}>
-          {submitLabel}
-        </BotonGuardar>
-        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-      </AccionesFormulario>
-    </TarjetaFormulario>
+          <FormField label="Periodicidad" required invalid={intentado && faltan.tiene("periodicidad")}>
+            <InputUnidad
+              unidad="días"
+              type="number"
+              min={1}
+              value={values.periodicidad_dias}
+              onChange={handlePeriodicidadChange}
+              placeholder="Ej: 30"
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        deshabilitado={cargandoEquipos}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

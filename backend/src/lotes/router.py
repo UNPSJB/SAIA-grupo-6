@@ -30,7 +30,6 @@ def crear_lote(
 @router.get(
     "",
     response_model=list[schemas.LoteResumen],
-    dependencies=[Depends(require_operador)],
 )
 def listar_lotes(
     producto_id: int | None = Query(None, ge=1),
@@ -38,8 +37,9 @@ def listar_lotes(
     fecha_desde: date | None = None,
     fecha_hasta: date | None = None,
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_operador),
 ):
-    lotes = services.listar_lotes(db, producto_id, estado, fecha_desde, fecha_hasta)
+    lotes = services.listar_lotes(db, producto_id, estado, fecha_desde, fecha_hasta, usuario)
     return [services.resumen(lote) for lote in lotes]
 
 
@@ -60,18 +60,21 @@ def obtener_dashboard(
 @router.get(
     "/{lote_id}",
     response_model=schemas.LoteDetalle,
-    dependencies=[Depends(require_operador)],
 )
-def obtener_lote(lote_id: int, db: Session = Depends(get_db)):
-    return services.detalle(db, services.obtener_lote(db, lote_id))
+def obtener_lote(
+    lote_id: int, db: Session = Depends(get_db), usuario: Personal = Depends(require_operador)
+):
+    return services.detalle(db, services.lote_visible(db, lote_id, usuario))
 
 
 @router.get(
     "/{lote_id}/timeline",
     response_model=schemas.LoteTimelineResponse,
-    dependencies=[Depends(require_operador)],
 )
-def obtener_timeline_lote(lote_id: int, db: Session = Depends(get_db)):
+def obtener_timeline_lote(
+    lote_id: int, db: Session = Depends(get_db), usuario: Personal = Depends(require_operador)
+):
+    services.lote_visible(db, lote_id, usuario)
     return services.obtener_timeline_lote(db, lote_id)
 
 
@@ -99,6 +102,21 @@ def completar_item(
     return services.detalle(db, lote)
 
 
+@router.put(
+    "/{lote_id}/checklist/{item_id}/asignacion",
+    response_model=schemas.LoteDetalle,
+)
+def asignar_tarea(
+    lote_id: int,
+    item_id: int,
+    datos: schemas.AsignacionTarea,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Asigna una tarea pendiente a una persona que opera (o la deja libre)."""
+    return services.detalle(db, services.asignar_tarea(db, lote_id, item_id, datos, usuario))
+
+
 @router.post(
     "/{lote_id}/checklist/{item_id}/consumos",
     response_model=schemas.ConsumoResponse,
@@ -115,12 +133,46 @@ def registrar_consumo(
     return services.consumo_a_respuesta(consumo, advertencias)
 
 
+@router.put(
+    "/{lote_id}/consumos/{consumo_id}",
+    response_model=schemas.LoteDetalle,
+)
+def modificar_consumo(
+    lote_id: int,
+    consumo_id: int,
+    datos: schemas.ConsumoUpdate,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_operador),
+):
+    """Corrige la cantidad de un consumo mientras su etapa está pendiente."""
+    return services.detalle(db, services.modificar_consumo(db, lote_id, consumo_id, datos, usuario))
+
+
+@router.delete(
+    "/{lote_id}/consumos/{consumo_id}",
+    response_model=schemas.LoteDetalle,
+)
+def eliminar_consumo(
+    lote_id: int,
+    consumo_id: int,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_operador),
+):
+    """Borra un consumo mal cargado mientras su etapa está pendiente."""
+    return services.detalle(db, services.eliminar_consumo(db, lote_id, consumo_id, usuario))
+
+
 @router.post(
     "/{lote_id}/cerrar",
     response_model=schemas.LoteDetalle,
-    dependencies=[Depends(require_operador)],
 )
-def cerrar_lote(lote_id: int, datos: schemas.LoteCierre, db: Session = Depends(get_db)):
+def cerrar_lote(
+    lote_id: int,
+    datos: schemas.LoteCierre,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_operador),
+):
+    services.lote_visible(db, lote_id, usuario)
     return services.detalle(db, services.cerrar_lote(db, lote_id, datos))
 
 

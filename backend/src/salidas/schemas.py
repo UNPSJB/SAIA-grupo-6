@@ -172,5 +172,7 @@ class LoteDisponible(BaseModel):
     fecha_vencimiento: date | None
     retirado: bool
     retiro_id: int | None
+    # Sin rotulado completo del lote no se puede reservar.
+    rotulado_completo: bool = True
 
     model_config = ConfigDict(from_attributes=True)

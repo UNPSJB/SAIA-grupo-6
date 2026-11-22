@@ -102,6 +102,29 @@ def test_vista_productos_respeta_busqueda_y_bajas(client_auditoria, db_session):
     assert "Pan de molde" in rotulado and "Mermelada vieja" not in rotulado
 
 
+def test_exportar_filas_del_frontend(client_auditoria):
+    datos = {
+        "titulo": "Reclamos de clientes",
+        "nombre": "reclamos",
+        "encabezados": ["Cliente", "Estado"],
+        "filas": [["Almacén Ñandú", "Abierto"], ["Kiosco Sur", "Cerrado"]],
+    }
+
+    csv = client_auditoria.post("/exportacion/filas?formato=csv", json=datos)
+    pdf = client_auditoria.post("/exportacion/filas?formato=pdf", json=datos)
+
+    texto_csv = _csv(csv)
+    assert "Cliente" in texto_csv and "Almacén Ñandú" in texto_csv
+    assert 'filename="reclamos_' in csv.headers["content-disposition"]
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+
+
+def test_exportar_filas_rechaza_filas_desparejas(client_auditoria):
+    datos = {"titulo": "X", "nombre": "x", "encabezados": ["A", "B"], "filas": [["solo una"]]}
+
+    assert client_auditoria.post("/exportacion/filas", json=datos).status_code == 422
+
+
 def test_numero_en_formato_argentino():
     from src.exportacion.vistas import _cantidad, _numero
 

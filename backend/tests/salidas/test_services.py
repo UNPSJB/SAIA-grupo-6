@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from tests.produccion_helpers import rotular_lote
 from src.clientes.models import Cliente
 from src.lotes.models import LoteProducto
 from src.personal.models import Personal
@@ -111,6 +112,7 @@ def _lote(
         db.refresh(fila)
     finally:
         db.info.pop("sin_auditoria", None)
+    rotular_lote(db, fila)
     return fila
 
 
@@ -576,3 +578,30 @@ def test_salida_a_resumen_incluye_elaboracion_y_momentos(db_session):
     assert resumen.fecha_elaboracion == date(2026, 1, 1)
     assert resumen.despachado_en is not None
     assert resumen.entregado_en is None
+
+
+
+def test_reservar_exige_un_rotulado_completo_del_lote(db_session):
+    from src.rotulado.models import BorradorRotulado
+    from src.salidas import exceptions as salidas_exceptions
+
+    lote = _lote(db_session, cantidad_producida=Decimal("100.000"))
+    cliente = _cliente(db_session)
+    usuario = _personal(db_session)
+    borrador = db_session.query(BorradorRotulado).filter_by(lote_producto_id=lote.id).one()
+    borrador.rnpa_rppa = None
+    db_session.commit()
+
+    with pytest.raises(salidas_exceptions.LoteSinRotulado):
+        services.reservar(
+            db_session, lote_id=lote.id, cliente_id=cliente.id, cantidad=Decimal("10"),
+            fecha_reserva=date(2026, 1, 5), usuario=usuario,
+        )
+
+    borrador.rnpa_rppa = "RNPA 07-654321"
+    db_session.commit()
+    assert services.reservar(
+        db_session, lote_id=lote.id, cliente_id=cliente.id, cantidad=Decimal("10"),
+        fecha_reserva=date(2026, 1, 5), usuario=usuario,
+    ).id
+

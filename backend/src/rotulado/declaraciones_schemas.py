@@ -1,7 +1,8 @@
 """Contratos de evaluación de alérgenos y conservación (HU106).
 
-La ausencia declarada de gluten es un dato del insumo, no una autorización
-para rotular el producto como libre de gluten.
+La ausencia declarada de gluten es un dato del ingrediente, no una autorización
+para rotular el producto como libre de gluten. Los alérgenos de cada
+ingrediente están en `src.alergenos` (catálogo e `ingredientes_alergenos`).
 """
 
 from decimal import Decimal
@@ -75,29 +76,6 @@ class ConservacionProducto(CondicionConservacion):
         return resultado
 
 
-class MarcaAlergeno(ContratoDeclaracion):
-    codigo: str = Field(min_length=1, max_length=80)
-    forma: Literal["directa", "derivado"]
-
-
-class PerfilInsumoDeclaracion(ContratoDeclaracion):
-    evaluacion: Literal["sin_evaluar", "incompleta", "evaluada"] = "sin_evaluar"
-    marcas: list[MarcaAlergeno] = Field(default_factory=list)
-    gluten: Literal["desconocido", "presente", "ausencia_declarada"] = "desconocido"
-    respaldo: str | None = Field(default=None, max_length=2000)
-    observaciones: str | None = Field(default=None, max_length=2000)
-
-    @model_validator(mode="after")
-    def validar_marcas(self):
-        from src.rotulado.alergenos import NOMBRES
-        if any(marca.codigo not in NOMBRES for marca in self.marcas):
-            raise ValueError("Sustancia no registrada en el catálogo de alérgenos.")
-        claves = [(marca.codigo, marca.forma) for marca in self.marcas]
-        if len(claves) != len(set(claves)):
-            raise ValueError("Hay marcas duplicadas.")
-        return self
-
-
 class ContaminacionCruzada(ContratoDeclaracion):
     codigo: str
     fundamento: str = Field(min_length=1, max_length=2000)
@@ -105,9 +83,7 @@ class ContaminacionCruzada(ContratoDeclaracion):
 
     @model_validator(mode="after")
     def validar(self):
-        from src.rotulado.alergenos import NOMBRES
-        if self.codigo not in NOMBRES:
-            raise ValueError("Sustancia desconocida.")
+        # Que el código exista en el catálogo lo comprueba el servicio.
         self.fundamento = self.fundamento.strip()
         self.respaldo = (self.respaldo or "").strip() or None
         if not self.fundamento:

@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from src.lotes.schemas import InsumoPlanificado, LoteResumen
+from src.lotes.schemas import IngredientePlanificado, LoteResumen
 
 
 class UsuarioResumen(BaseModel):
@@ -20,6 +20,9 @@ class ProveedorTraza(BaseModel):
 
 class LoteInsumoTraza(BaseModel):
     id: int
+    ingrediente_id: int
+    ingrediente_nombre: str
+    # Marca del insumo recibido en este lote.
     insumo_id: int
     insumo_nombre: str
     numero_lote: str
@@ -46,7 +49,7 @@ class TareaTraza(BaseModel):
     descripcion: str
     completado_por: UsuarioResumen | None
     completado_en: datetime | None
-    planificado: list[InsumoPlanificado]
+    planificado: list[IngredientePlanificado]
     consumos: list[ConsumoTraza]
 
 
@@ -61,7 +64,7 @@ class RecetaTraza(BaseModel):
 
 
 class TrazabilidadLoteProducto(BaseModel):
-    """Hacia atrás: del lote producido hasta el proveedor de cada insumo."""
+    """Hacia atrás: del lote producido hasta el proveedor de cada ingrediente."""
 
     lote: LoteResumen
     elaborado_por: UsuarioResumen | None
@@ -71,13 +74,19 @@ class TrazabilidadLoteProducto(BaseModel):
     proveedores: list[ProveedorTraza]
 
 
-class LoteProductoUsoInsumo(BaseModel):
+class LoteProductoUsoIngrediente(BaseModel):
     lote_producto_id: int
     numero_lote: str
     producto_id: int
     producto_nombre: str
     estado: str
     fecha_inicio: datetime
+    # Tamaño del lote: sin esto, dos lotes de la misma receta parecen haber
+    # consumido cantidades incoherentes cuando solo difieren en la escala.
+    unidad: str
+    cantidad_objetivo: Decimal
+    factor_escala: Decimal | None
+    cantidad_producida: Decimal | None
     consumo_real: Decimal
     desperdicio: Decimal
 
@@ -88,7 +97,7 @@ class TrazabilidadLoteInsumo(BaseModel):
     lote_insumo: LoteInsumoTraza
     cantidad_recibida: Decimal
     saldo: Decimal
-    lotes_producto: list[LoteProductoUsoInsumo]
+    lotes_producto: list[LoteProductoUsoIngrediente]
 
 
 ColumnaGrafo = Literal['proveedor', 'insumo', 'lote_producto', 'despacho', 'cliente']

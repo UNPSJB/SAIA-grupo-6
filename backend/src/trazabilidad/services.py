@@ -11,6 +11,7 @@ from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto
 from src.lotesInsumo import services as lotes_insumo_services
 from src.lotesInsumo.models import LoteInsumo
 from src.personal.models import Personal
+from src.productos.models import Producto
 from src.salidas.constants import ESTADO_CANCELADO, ESTADO_ENTREGADO
 from src.salidas.models import Salida
 from src.trazabilidad import schemas
@@ -36,6 +37,8 @@ def _usuario(db: Session, usuario_id: int | None) -> schemas.UsuarioResumen | No
 def _lote_insumo_traza(lote: LoteInsumo) -> schemas.LoteInsumoTraza:
     return schemas.LoteInsumoTraza(
         id=lote.id,
+        ingrediente_id=lote.ingrediente_id,
+        ingrediente_nombre=lote.ingrediente.nombre,
         insumo_id=lote.insumo_id,
         insumo_nombre=lote.insumo.nombre,
         numero_lote=lote.numero_lote,
@@ -54,7 +57,7 @@ def trazar_lote_producto(db: Session, lote_id: int) -> schemas.TrazabilidadLoteP
     """Hacia atrás: receta y versión, quién lo elaboró, tareas, consumos, lotes de insumo y proveedores."""
     lote = lotes_services.obtener_lote(db, lote_id)
     detalle = lotes_services.detalle(db, lote)
-    planificado_por_item = {item.id: item.insumos for item in detalle.checklist}
+    planificado_por_item = {item.id: item.ingredientes for item in detalle.checklist}
 
     receta = None
     version = lote.version_receta
@@ -81,7 +84,7 @@ def trazar_lote_producto(db: Session, lote_id: int) -> schemas.TrazabilidadLoteP
                     id=consumo.id,
                     tipo=consumo.tipo,
                     cantidad=_q(consumo.cantidad),
-                    unidad=consumo.lote_insumo.insumo.unidad_medida.simbolo,
+                    unidad=consumo.lote_insumo.ingrediente.unidad_medida.simbolo,
                     motivo=consumo.motivo,
                     registrado_por=_usuario(db, consumo.registrado_por_id),
                     registrado_en=consumo.registrado_en,
@@ -123,7 +126,7 @@ def trazar_lote_insumo(db: Session, lote_insumo_id: int) -> schemas.Trazabilidad
         .join(ChecklistProduccion, ChecklistProduccion.lote_producto_id == LoteProducto.id)
         .join(ConsumoInsumo, ConsumoInsumo.checklist_produccion_id == ChecklistProduccion.id)
         .where(ConsumoInsumo.lote_insumo_id == lote_insumo_id)
-        .options(selectinload(LoteProducto.producto))
+        .options(selectinload(LoteProducto.producto).selectinload(Producto.unidad_medida))
         .order_by(LoteProducto.fecha_inicio, LoteProducto.id)
     ).all()
 
@@ -134,13 +137,17 @@ def trazar_lote_insumo(db: Session, lote_insumo_id: int) -> schemas.Trazabilidad
         totales[lote.id][tipo] += _q(cantidad)
 
     lotes_producto = [
-        schemas.LoteProductoUsoInsumo(
+        schemas.LoteProductoUsoIngrediente(
             lote_producto_id=lote.id,
             numero_lote=lote.numero_lote,
             producto_id=lote.producto_id,
             producto_nombre=lote.producto.nombre,
             estado=lote.estado,
             fecha_inicio=lote.fecha_inicio,
+            unidad=lote.producto.unidad_medida.simbolo,
+            cantidad_objetivo=lote.cantidad_objetivo,
+            factor_escala=lote.factor_escala,
+            cantidad_producida=lote.cantidad_producida,
             consumo_real=totales[lote.id][TIPO_CONSUMO_REAL],
             desperdicio=totales[lote.id][TIPO_CONSUMO_DESPERDICIO],
         )
@@ -160,7 +167,7 @@ def obtener_grafo_trazabilidad_lote(
     """Construye el grafo/árbol de trazabilidad bidireccional (extremo a extremo)."""
     lote = lotes_services.obtener_lote(db, lote_id)
 
-    # Insumos consumidos y sus proveedores
+    # Ingredientes consumidos y sus proveedores
     proveedores_map: dict[int, Any] = {}
     lotes_insumo_map: dict[int, Any] = {}
     consumo_por_lote_insumo: dict[int, Decimal] = defaultdict(lambda: CERO)
@@ -174,8 +181,8 @@ def obtener_grafo_trazabilidad_lote(
             proveedores_map[prov.id] = prov
             consumo_por_lote_insumo[li.id] += _q(c.cantidad)
             unidad_por_lote_insumo[li.id] = (
-                li.insumo.unidad_medida.simbolo
-                if li.insumo and li.insumo.unidad_medida
+                li.ingrediente.unidad_medida.simbolo
+                if li.ingrediente and li.ingrediente.unidad_medida
                 else ""
             )
 
@@ -191,13 +198,17 @@ def obtener_grafo_trazabilidad_lote(
                 tipo="proveedor",
                 titulo=p.nombre,
                 subtitulo=f"Matrícula: {p.matricula}" if getattr(p, "matricula", None) else None,
-                badge="Homologado",
-                tono_badge="ok",
+                # Los proveedores no se homologan (se homologan las marcas):
+                # se informa si tiene certificación requerida y si sigue activo.
+                badge="Certificado" if p.es_certificado else None,
+                tono_badge="ok" if p.es_certificado else "neutro",
                 metadatos={
                     "id": p.id,
                     "nombre": p.nombre,
                     "matricula": getattr(p, "matricula", None),
                     "cuit": getattr(p, "cuit", None),
+                    "es_certificado": bool(p.es_certificado),
+                    "activo": bool(p.activo),
                 },
             )
         )
@@ -214,13 +225,14 @@ def obtener_grafo_trazabilidad_lote(
                 id=f"ins_{li.id}",
                 columna="insumo",
                 tipo="materia_prima",
-                titulo=li.insumo.nombre if li.insumo else f"Insumo #{li.insumo_id}",
-                subtitulo=f"Lote: {li.numero_lote}",
+                titulo=li.ingrediente.nombre if li.ingrediente else f"Ingrediente #{li.ingrediente_id}",
+                subtitulo=f"{li.insumo.nombre} · Lote: {li.numero_lote}" if li.insumo else f"Lote: {li.numero_lote}",
                 badge=f"Vence {vence_str}" if vence_str else None,
                 tono_badge="info" if vence_str else "neutro",
                 metadatos={
                     "lote_insumo_id": li.id,
                     "numero_lote": li.numero_lote,
+                    "marca": li.insumo.nombre if li.insumo else None,
                     "fecha_ingreso": str(li.fecha_ingreso) if getattr(li, "fecha_ingreso", None) else None,
                     "vence": str(li.fecha_vencimiento) if getattr(li, "fecha_vencimiento", None) else None,
                     "cantidad_usada": str(consumo_por_lote_insumo[li.id]),

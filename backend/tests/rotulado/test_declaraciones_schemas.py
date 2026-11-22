@@ -1,7 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from src.rotulado.declaraciones_schemas import ConservacionProducto, PerfilInsumoDeclaracion
+from src.alergenos import exceptions as alergenos_exceptions
+from src.alergenos.schemas import AlergenoDeIngredienteIn, AlergenosDeIngredienteIn
+from src.rotulado.declaraciones_schemas import ConservacionProducto
 
 
 def test_temperaturas_negativas_y_duracion():
@@ -33,6 +35,14 @@ def test_faltantes_no_impiden_guardar():
     assert set(datos.pendientes()) == {"temperatura", "instrucciones", "despues_abrir"}
 
 
-def test_lista_vacia_evaluada_es_distinta_de_desconocida():
-    assert PerfilInsumoDeclaracion().evaluacion == "sin_evaluar"
-    assert PerfilInsumoDeclaracion(evaluacion="evaluada").marcas == []
+def test_lista_vacia_no_cambia_la_evaluacion():
+    # Una lista vacía no afirma ausencia de alérgenos: la evaluación que no
+    # viene queda como estaba (la del ingrediente arranca "sin_evaluar").
+    datos = AlergenosDeIngredienteIn(alergenos=[])
+    assert datos.evaluacion is None and datos.gluten is None
+
+
+def test_derivado_solo_para_lo_que_contiene():
+    assert AlergenoDeIngredienteIn(alergeno_id=1, nivel="contiene", forma="derivado").forma == "derivado"
+    with pytest.raises(alergenos_exceptions.DerivadoSoloContiene):
+        AlergenoDeIngredienteIn(alergeno_id=1, nivel="puede_contener", forma="derivado")

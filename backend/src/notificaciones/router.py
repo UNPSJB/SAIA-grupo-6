@@ -40,6 +40,7 @@ OrigenNotificacion = Literal[
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
+    "HOMOLOGACION_INSUMO",
     "DOCUMENTO",
     "CHECKLIST",
     "INCIDENTE",

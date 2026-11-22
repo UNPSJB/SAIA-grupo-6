@@ -1,12 +1,7 @@
 import type { AditivoResumen } from "../../aditivos/types/aditivo";
 
-/** Sale del tipo del insumo en el maestro; la versión guarda una copia. */
-export type Clasificacion = "ingrediente" | "aditivo";
-
-export const ETIQUETA_CLASIFICACION: Record<Clasificacion, string> = {
-  ingrediente: "Ingrediente",
-  aditivo: "Aditivo",
-};
+/** Texto de la columna "Aditivo" de la receta. */
+export const etiquetaEsAditivo = (esAditivo: boolean) => (esAditivo ? "Sí" : "No");
 
 export interface UnidadResumen {
   id: number;
@@ -14,7 +9,7 @@ export interface UnidadResumen {
   simbolo: string;
 }
 
-export interface InsumoResumen {
+export interface IngredienteResumen {
   id: number;
   nombre: string;
 }
@@ -42,18 +37,19 @@ export interface Receta {
   version_vigente: VersionResumen | null;
 }
 
-export interface RecetaInsumoDetalle {
+export interface RecetaIngredienteDetalle {
   id: number;
-  insumo: InsumoResumen;
+  ingrediente: IngredienteResumen;
   cantidad: string;
   unidad_medida: UnidadResumen;
-  clasificacion: Clasificacion;
+  /** Copia de la marca del maestro al guardar la versión. */
+  es_aditivo: boolean;
   aditivo: AditivoResumen | null;
 }
 
-export interface TareaInsumoDetalle {
-  receta_insumo_id: number;
-  insumo: InsumoResumen;
+export interface TareaIngredienteDetalle {
+  receta_ingrediente_id: number;
+  ingrediente: IngredienteResumen;
   cantidad: string;
 }
 
@@ -61,12 +57,14 @@ export interface TareaDetalle {
   id: number;
   orden: number;
   descripcion: string;
-  insumos: TareaInsumoDetalle[];
+  /** Cómo se hace la etapa, paso a paso (opcional). */
+  procedimiento: string | null;
+  ingredientes: TareaIngredienteDetalle[];
 }
 
 export interface VersionDetalle extends VersionResumen {
   receta_id: number;
-  insumos: RecetaInsumoDetalle[];
+  ingredientes: RecetaIngredienteDetalle[];
   tareas: TareaDetalle[];
 }
 
@@ -78,14 +76,15 @@ export interface VersionInput {
   porcion_cantidad: string | null;
   porcion_unidad_medida_id: number | null;
   vida_util_dias?: number | null;
-  insumos: {
-    insumo_id: number;
+  ingredientes: {
+    ingrediente_id: number;
     cantidad: string;
     unidad_medida_id: number;
   }[];
   tareas: {
     descripcion: string;
-    insumos: { insumo_id: number; cantidad: string }[];
+    procedimiento: string | null;
+    ingredientes: { ingrediente_id: number; cantidad: string }[];
   }[];
 }
 
@@ -95,21 +94,22 @@ export interface RecetaCreateInput {
 }
 
 /** Estado editable del formulario (todo texto, como lo escribe la persona). */
-export interface FilaInsumoForm {
+export interface FilaIngredienteForm {
   clave: string;
-  insumo_id: number;
+  ingrediente_id: number;
   cantidad: string;
 }
 
 export interface FilaUsoForm {
   clave: string;
-  insumo_id: number;
+  ingrediente_id: number;
   cantidad: string;
 }
 
 export interface FilaTareaForm {
   clave: string;
   descripcion: string;
+  procedimiento: string;
   usos: FilaUsoForm[];
 }
 
@@ -120,16 +120,16 @@ export interface VersionFormState {
   porcion_cantidad: string;
   porcion_unidad_medida_id: number;
   vida_util_dias: string;
-  insumos: FilaInsumoForm[];
+  ingredientes: FilaIngredienteForm[];
   tareas: FilaTareaForm[];
 }
 
-export interface InsumoOpcion {
+export interface IngredienteOpcion {
   id: number;
   nombre: string;
   unidad_medida_id: number;
   unidad_medida: UnidadResumen;
-  tipo: Clasificacion;
+  es_aditivo: boolean;
   aditivo: AditivoResumen | null;
 }
 
@@ -137,9 +137,10 @@ export interface InsumoOpcion {
 // Escalado (vista de cálculo: no modifica la receta)
 // ------------------------------------------------------------------
 
-export interface InsumoEscalado {
-  insumo: InsumoResumen;
-  clasificacion: Clasificacion;
+export interface IngredienteEscalado {
+  ingrediente: IngredienteResumen;
+  /** Copia de la marca del maestro al guardar la versión. */
+  es_aditivo: boolean;
   aditivo: AditivoResumen | null;
   unidad_medida: UnidadResumen;
   cantidad_receta: string;
@@ -149,8 +150,8 @@ export interface InsumoEscalado {
 export interface TareaEscalada {
   orden: number;
   descripcion: string;
-  insumos: {
-    insumo: InsumoResumen;
+  ingredientes: {
+    ingrediente: IngredienteResumen;
     unidad_medida: UnidadResumen;
     cantidad_receta: string;
     cantidad_escalada: string;
@@ -164,12 +165,12 @@ export interface RecetaEscalada {
   version: VersionResumen;
   factor: string;
   cantidad_objetivo: string;
-  insumos: InsumoEscalado[];
+  ingredientes: IngredienteEscalado[];
   tareas: TareaEscalada[];
 }
 
 export interface ComposicionItem {
-  insumo: InsumoResumen;
+  ingrediente: IngredienteResumen;
   unidad_medida: UnidadResumen;
   cantidad: string;
   gramos: string;
@@ -181,8 +182,9 @@ export interface ComposicionItem {
 }
 
 export interface ComposicionFaltante {
-  insumo: InsumoResumen;
-  clasificacion: Clasificacion;
+  ingrediente: IngredienteResumen;
+  /** Copia de la marca del maestro al guardar la versión. */
+  es_aditivo: boolean;
   motivo: string;
 }
 

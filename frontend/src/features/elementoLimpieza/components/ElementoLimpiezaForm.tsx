@@ -1,23 +1,24 @@
 import { useState } from "react";
-import { Box } from "@chakra-ui/react";
 import type { ElementoLimpiezaFormValues } from "../types/elementoLimpieza";
 import { hoyISO } from "../../../common/utils/fechas";
 import {
-  AccionesFormulario,
-  BotonCancelar,
-  BotonGuardar,
   FormField,
   FormInput,
-  TarjetaFormulario,
-  TituloFormulario,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  InputFecha,
+  InputUnidad,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface ElementoLimpiezaFormProps {
   initialValues?: ElementoLimpiezaFormValues;
   onSubmit: (values: ElementoLimpiezaFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -32,14 +33,13 @@ const emptyValues: ElementoLimpiezaFormValues = {
 
 /**
  * El aspecto de los controles lo da `FormInput`; acá no hay objetos de estilo.
- * El ancho (`maxW="500px"`) es una decisión de layout.
+ * El layout lo dan las piezas de `formularios.tsx`.
  */
 export function ElementoLimpiezaForm({
   initialValues = emptyValues,
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de elemento de limpieza",
   onCancel,
 }: ElementoLimpiezaFormProps) {
   const [values, setValues] = useState<ElementoLimpiezaFormValues>(initialValues);
@@ -64,48 +64,41 @@ export function ElementoLimpiezaForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit}>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField label="Nombre" required completo>
+            <FormInput
+              value={values.nombre}
+              onChange={handleNombreChange}
+              placeholder="Ej: Detergente multiuso"
+            />
+          </FormField>
 
-        <FormField label="Nombre" required>
-          <FormInput
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Detergente multiuso"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField label="Fecha del último recambio" required>
+            <InputFecha
+              value={values.fecha_ultimo_recambio ?? ""}
+              onChange={handleFechaChange}
+            />
+          </FormField>
 
-        <FormField label="Fecha del último recambio" required>
-          <FormInput
-            type="date"
-            value={values.fecha_ultimo_recambio ?? ""}
-            onChange={handleFechaChange}
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField
-          label="Frecuencia de recambio (días)"
-          helper="Dejalo vacío si no querés calcular el vencimiento."
-          mb="0"
-        >
-          <FormInput
-            type="number"
-            min={1}
-            value={values.frecuencia_recambio_dias ?? ""}
-            onChange={handleFrecuenciaChange}
-            placeholder="Ej: 30"
-            maxW="500px"
-          />
-        </FormField>
-
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
-          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+          <FormField
+            label="Frecuencia de recambio"
+            opcional
+            helper="Dejalo vacío si no querés calcular el vencimiento."
+          >
+            <InputUnidad
+              unidad="días"
+              type="number"
+              min={1}
+              value={values.frecuencia_recambio_dias ?? ""}
+              onChange={handleFrecuenciaChange}
+              placeholder="Ej: 30"
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta etiqueta={submitLabel} guardando={isLoading} onCancelar={onCancel} />
+    </FormularioAlta>
   );
 }

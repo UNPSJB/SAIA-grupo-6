@@ -22,7 +22,9 @@ import {
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
 import { useAuth } from "../../../../common/context/useAuth";
-import { puedeOperar } from "../../../../common/api/permissions";
+import { puedeAdministrar, puedeOperar } from "../../../../common/api/permissions";
+import { formatoFecha } from "../../../../common/utils/fechas";
+import { BotonExportar } from "../../../exportacion";
 import { notificarCambioIncidentes, escucharCambioIncidentes } from "../../../incidente/eventoIncidentes";
 import { useReclamos } from "../../hooks/useReclamos";
 import { ReclamosTable } from "../ReclamosTable";
@@ -37,6 +39,7 @@ export function ReclamosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const puedeRegistrar = puedeOperar(user);
+  const esAdmin = puedeAdministrar(user);
 
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"" | "abierto" | "cerrado">(
@@ -182,10 +185,34 @@ export function ReclamosPage() {
           </>
         }
         herramientas={
-          <BotonCancelar onClick={() => void recargarReclamos()}>
-            <LuRefreshCw aria-hidden />
-            Actualizar
-          </BotonCancelar>
+          <>
+            {/* Exportar es de administración (el backend lo exige). */}
+            {esAdmin && (
+              <BotonExportar
+                nombreTabla="los reclamos"
+                disabled={filtrados.length === 0}
+                datos={() => ({
+                  titulo: "Reclamos de clientes",
+                  nombre: "reclamos",
+                  encabezados: ["Fecha", "Cliente", "Producto", "Lote", "Entrega", "Motivo", "Plazo", "Estado"],
+                  filas: filtrados.map((r) => [
+                    formatoFecha(r.fecha_reclamo),
+                    r.cliente_nombre,
+                    r.producto_nombre,
+                    r.lote_numero,
+                    formatoFecha(r.fecha_entrega),
+                    r.motivo_label,
+                    `${r.fuera_de_plazo ? "Fuera de plazo" : "En plazo"} (${r.dias_desde_entrega} ${r.dias_desde_entrega === 1 ? "día" : "días"})`,
+                    r.incidente_estado === "cerrado" ? "Cerrado" : "Abierto",
+                  ]),
+                })}
+              />
+            )}
+            <BotonCancelar onClick={() => void recargarReclamos()}>
+              <LuRefreshCw aria-hidden />
+              Actualizar
+            </BotonCancelar>
+          </>
         }
       />
 

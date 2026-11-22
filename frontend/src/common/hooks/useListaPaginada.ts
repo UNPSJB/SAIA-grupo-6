@@ -24,10 +24,10 @@ import type { Pagina } from "../api/paginacion";
  * ```
  * const { items, total, page, setPage, hayVariasPaginas, loading, error } =
  *   useListaPaginada({
- *     cargar: listarInsumosPaginados,
+ *     cargar: listarIngredientesPaginados,
  *     dependencias: [verInactivos],
  *     valorInicial: [],
- *     mensajeError: "No se pudieron cargar los insumos",
+ *     mensajeError: "No se pudieron cargar los ingredientes",
  *   });
  * ```
  */

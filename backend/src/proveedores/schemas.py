@@ -54,9 +54,11 @@ class ProveedorUpdate(BaseModel):
         return v.strip() if isinstance(v, str) and v.strip() else None
 
 class InsumoResumen(BaseModel):
+    """Insumo (marca) que vende el proveedor, con su ingrediente."""
     id: int
     nombre: str
-    model_config = ConfigDict(from_attributes=True)
+    ingrediente_id: int
+    ingrediente_nombre: str
 
 class CertificacionCreate(BaseModel):
     tipo: str = Field(min_length=1, max_length=120)

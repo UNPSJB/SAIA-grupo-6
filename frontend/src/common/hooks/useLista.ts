@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Carga de un listado genérica: el `useEffect` + `useState` + `try/catch` que
- * estaba copiado en los 13 hooks de listado (insumos, equipos, personales,
+ * estaba copiado en los 13 hooks de listado (ingredientes, equipos, personales,
  * aptitudes, incidentes, notificaciones, ...).
  *
  * Se mantiene el `setTimeout(..., 0)` de siempre: sin él, el estado se setea

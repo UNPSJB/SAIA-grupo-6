@@ -35,7 +35,7 @@ from src.all_models import (  # noqa: F401  (garantiza que los modelos estén ma
     HistorialRegistroTarea,
     Incidente,
     IndicadorVistaPublica,
-    Insumo,
+    Ingrediente,
     InsumoQuimico,
     LoteStock,
     NotificacionPersistida,
@@ -122,7 +122,7 @@ TABLAS_DOMINIO: list[tuple[type, str, str, OpcionesTabla]] = [
     (Calibracion, "calibraciones", "Calibraciones", OpcionesTabla(
         column_order=["id", "equipo_id", "fecha_realizacion", "proximo_vencimiento", "tipo", "activo", "certificado_url"],
     )),
-    (Insumo, "insumos", "Insumos", OpcionesTabla(
+    (Ingrediente, "ingredientes", "Ingredientes", OpcionesTabla(
         column_order=["id", "nombre", "unidad_medida_id", "activo"],
     )),
     (Proveedor, "proveedores", "Proveedores", OpcionesTabla(

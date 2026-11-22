@@ -1,9 +1,7 @@
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
-  LuApple,
   LuArchive,
   LuBadgeCheck,
-  LuBeaker,
   LuBoxes,
   LuBrush,
   LuCalendarClock,
@@ -31,14 +29,12 @@ import {
   LuShieldCheck,
   LuSparkles,
   LuSprayCan,
-  LuTag,
   LuTruck,
   LuPackageX,
   LuTriangleAlert,
   LuUsers,
   LuWarehouse,
   LuWrench,
-  LuPackagePlus,
   LuHandshake,
 } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
@@ -108,16 +104,12 @@ export const GRUPOS: GrupoMenu[] = [
     ayuda: "Lotes, recetas y productos",
     icon: LuChefHat,
     entradas: [
+      // Las salidas de producto son una pestaña de Lotes (`/lotes?tab=salidas`).
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
-      { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackagePlus },
       { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuPackageX },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
-      // E11: redondeo, valores diarios y base de composición de la tabla nutricional.
-      { to: "/nutricion", label: "Parámetros nutricionales", rol: "administrar", icon: LuApple },
-      // E12.1: versiones de las reglas que deciden si aplica el rotulado frontal.
-      { to: "/rotulado-frontal", label: "Reglas de rotulado frontal", rol: "administrar", icon: LuTag },
       // E13: rotulado según CAA (Capítulo V).
       { to: "/rotulado", label: "Rotulado de productos", rol: "administrar", icon: LuFileText },
     ],
@@ -129,8 +121,7 @@ export const GRUPOS: GrupoMenu[] = [
     icon: LuArchive,
     entradas: [
       { to: "/stock-insumos", label: "Stock de insumos", rol: "administrar", icon: LuWarehouse },
-      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
-      { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
+      { to: "/ingredientes", label: "Ingredientes", rol: "administrar", icon: LuPackage },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
     ],
   },
@@ -265,7 +256,7 @@ export const CONFIGURACION: EntradaMenu[] = [
     label: "Unidades de medida",
     rol: "administrar",
     icon: LuRuler,
-    ayuda: "Unidades con las que se miden insumos, recetas y productos.",
+    ayuda: "Unidades con las que se miden ingredientes, recetas y productos.",
   },
   {
     to: "/vista-publica",
@@ -289,6 +280,24 @@ export function esVisibleEntrada(
   if (entrada.rol === "todos") return true;
   if (entrada.rol === "operar") return puedeOperar(user);
   return puedeAdministrar(user);
+}
+
+/** Los paneles de indicadores de cada área son solo para quien administra. */
+export function vePaneles(user: Parameters<typeof puedeOperar>[0]): boolean {
+  return puedeAdministrar(user);
+}
+
+/**
+ * A dónde lleva una categoría de la barra: a su panel, para quien administra;
+ * para quien solo opera, a la primera pantalla de esa categoría que puede ver
+ * (Producción → Lotes, Limpieza → Checklist, Calidad → Reportar incidente).
+ */
+export function destinoCategoria(
+  grupo: Pick<GrupoMenu, "id" | "entradas">,
+  user: Parameters<typeof puedeOperar>[0],
+): string {
+  if (vePaneles(user)) return rutaPanel(grupo);
+  return grupo.entradas.find((e) => esVisibleEntrada(e, user))?.to ?? "/";
 }
 
 /**

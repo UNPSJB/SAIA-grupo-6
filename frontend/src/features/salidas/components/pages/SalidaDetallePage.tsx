@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
+import { useLista } from "../../../../common/hooks/useLista";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -64,9 +65,21 @@ export function SalidaDetallePage() {
 
   const idValido = Number.isFinite(salidaId) ? salidaId : null;
 
-  const [salida, setSalida] = useState<Salida | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cargarSalida = useCallback(async () => {
+    if (!idValido) throw new Error("ID de salida inválido.");
+    return obtenerSalida(idValido);
+  }, [idValido]);
+  const { items: cargada, loading, error } = useLista<Salida | null>({
+    cargar: cargarSalida,
+    dependencias: [idValido],
+    valorInicial: null,
+    mensajeError: "No se pudo obtener la salida.",
+    preferirMensajeDelBackend: true,
+  });
+  // Después de cada acción se trae la salida de nuevo sin volver a mostrar
+  // "Cargando...": la versión actualizada pisa a la cargada (si es la misma).
+  const [actualizada, setSalida] = useState<Salida | null>(null);
+  const salida = actualizada && actualizada.id === idValido ? actualizada : cargada;
 
   // Modales de acciones
   const [modalDespachar, setModalDespachar] = useState(false);
@@ -82,39 +95,10 @@ export function SalidaDetallePage() {
     setSalida(actualizada);
   };
 
-  useEffect(() => {
-    if (!idValido) {
-      setError("ID de salida inválido.");
-      setLoading(false);
-      return;
-    }
-
-    let vigente = true;
-    obtenerSalida(idValido)
-      .then((s) => {
-        if (vigente) {
-          setSalida(s);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (vigente) {
-          setError(
-            err instanceof Error ? err.message : "No se pudo obtener la salida."
-          );
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, [idValido]);
-
-  if (loading) {
+  if (loading && !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/salidas", etiqueta: "Salidas" }}
+        volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
         titulo="Salida de producto"
       >
         <EstadoCargando>Cargando salida...</EstadoCargando>
@@ -125,7 +109,7 @@ export function SalidaDetallePage() {
   if (error || !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/salidas", etiqueta: "Salidas" }}
+        volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
         titulo="Salida de producto"
       >
         <BannerError>{error || "No se encontró la salida"}</BannerError>
@@ -135,7 +119,8 @@ export function SalidaDetallePage() {
 
   const puedeDespachar = salida.estado === "RESERVADO";
   const puedeEntregar = salida.estado === "DESPACHADO";
-  const puedeCancelar = salida.estado === "RESERVADO";
+  // Cancelar una reserva es comercial: solo quien administra.
+  const puedeCancelar = salida.estado === "RESERVADO" && puedeResolverRechazo;
   const rechazoPendiente =
     salida.estado === "RECHAZADA" && salida.disposicion === null;
   const puedeRechazar = salida.estado === "DESPACHADO" && puedeRegistrarRechazo;
@@ -167,7 +152,7 @@ export function SalidaDetallePage() {
   const textoSeguimiento: string = (() => {
     switch (salida.estado) {
       case "RESERVADO":
-        return "Despachar la reserva o cancelarla.";
+        return puedeResolverRechazo ? "Despachar la reserva o cancelarla." : "Despachar la reserva.";
       case "DESPACHADO":
         if (esRetiraCliente) {
           return "El cliente retira en planta. Pendiente confirmar el retiro o registrar un rechazo.";
@@ -208,7 +193,7 @@ export function SalidaDetallePage() {
 
   return (
     <PaginaDetalle
-      volver={{ a: "/salidas", etiqueta: "Salidas" }}
+      volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
       titulo={tituloPagina}
       estado={
         <EtiquetaEstado

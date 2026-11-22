@@ -15,7 +15,7 @@ export async function listarUnidadesMedida(incluirInactivos = false): Promise<Un
 /**
  * Página de unidades para la tabla (paginación server-side). La lista
  * completa de arriba sigue existiendo para los dropdowns de los formularios
- * de insumos, que necesitan todas las opciones de una vez.
+ * de ingredientes, que necesitan todas las opciones de una vez.
  */
 
 export type ColumnaOrdenUnidadMedida = "nombre" | "simbolo" | "tipo" | "factor_a_base";

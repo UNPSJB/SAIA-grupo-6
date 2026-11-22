@@ -1,104 +1,191 @@
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
-from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from src.aditivos.schemas import AditivoResumen
-from src.common.paginacion import Pagina
+
+from src.common.validators import texto_no_vacio, texto_opcional
 from src.insumos import exceptions
 
-from src.rotulado.declaraciones_schemas import PerfilInsumoDeclaracion
 
-TipoInsumo = Literal["ingrediente", "aditivo"]
+class InsumoCreate(BaseModel):
+    ingrediente_id: int = Field(gt=0)
+    marca: str = Field(max_length=120)
+    descripcion: str | None = Field(default=None, max_length=200)
+    codigo_fabricante: str | None = Field(default=None, max_length=60)
+    proveedor_ids: list[int] = Field(default_factory=list)
 
-
-class InsumoBase(BaseModel):
-    perfil_declaracion: PerfilInsumoDeclaracion | None = None
-    nombre: str
-    unidad_medida_id: int
-    densidad_g_ml: float | None = None
-    peso_unitario_g: float | None = None
-
-    @field_validator("nombre")
+    @field_validator("marca")
     @classmethod
-    def validar_nombre(cls, v):
-        if not v.strip():
-            raise exceptions.NombreVacio()
-        return v.strip()
+    def validar_marca(cls, valor: str) -> str:
+        return texto_no_vacio(valor, vacio=exceptions.MarcaVacia)
 
-
-class InsumoCreate(InsumoBase):
-    tipo: TipoInsumo = "ingrediente"
-    aditivo_id: int | None = Field(default=None, gt=0)
+    @field_validator("descripcion", "codigo_fabricante")
+    @classmethod
+    def limpiar_opcionales(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor)
 
 
 class InsumoUpdate(BaseModel):
-    perfil_declaracion: PerfilInsumoDeclaracion | None = None
-    nombre: str | None = None
-    unidad_medida_id: int | None = None
-    activo: bool | None = None
-    tipo: TipoInsumo | None = None
-    aditivo_id: int | None = Field(default=None, gt=0)
-    densidad_g_ml: float | None = None
-    peso_unitario_g: float | None = None
+    """El ingrediente no se cambia: los lotes ya recibidos quedarían incoherentes."""
 
-    # Igual que el alta: sin esto se podían guardar nombres vacíos al editar.
-    @field_validator("nombre")
+    marca: str | None = Field(default=None, max_length=120)
+    descripcion: str | None = Field(default=None, max_length=200)
+    codigo_fabricante: str | None = Field(default=None, max_length=60)
+    proveedor_ids: list[int] | None = None
+    activo: bool | None = None
+
+    @field_validator("marca")
     @classmethod
-    def validar_nombre(cls, v):
-        if v is None:
-            return None
-        if not v.strip():
-            raise exceptions.NombreVacio()
-        return v.strip()
+    def validar_marca(cls, valor: str | None) -> str | None:
+        return None if valor is None else texto_no_vacio(valor, vacio=exceptions.MarcaVacia)
+
+    @field_validator("descripcion", "codigo_fabricante")
+    @classmethod
+    def limpiar_opcionales(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor)
+
 
 class ProveedorResumen(BaseModel):
     id: int
     nombre: str
 
     model_config = ConfigDict(from_attributes=True)
-    
-class Insumo(InsumoBase):
-    perfil_actualizado_en: datetime | None = None
-    perfil_actualizado_por_id: int | None = None
+
+
+class InsumoResumen(BaseModel):
+    """Lo que se muestra de un insumo dentro de un lote, un consumo o un proveedor."""
+
     id: int
-    activo: bool
-    tipo: str
-    aditivo_id: int | None = None
-    aditivo: AditivoResumen | None = None
-    proveedores: list[ProveedorResumen] = []
-    unidad_medida: "UnidadMedidaResponse"
-
-    model_config = ConfigDict(from_attributes=True)
-
-    @field_validator("aditivo", mode="before")
-    @classmethod
-    def resumir_aditivo(cls, valor):
-        """El modelo trae el `Aditivo` del ORM; la respuesta, su resumen plano."""
-        if valor is None or isinstance(valor, (dict, AditivoResumen)):
-            return valor
-        return AditivoResumen(
-            id=valor.id,
-            nombre=valor.nombre,
-            numero_ins=valor.numero_ins,
-            clase_funcional=valor.clase_funcional.nombre,
-            ins_opcional=valor.clase_funcional.ins_opcional,
-        )
-
-
-class UnidadMedidaResponse(BaseModel):
-    id: int
+    marca: str
+    descripcion: str | None = None
     nombre: str
-    simbolo: str
-    tipo: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class InsumoPagina(Pagina[Insumo]):
-    """Página de insumos: la respuesta del listado paginado en el servidor."""
+class InsumoResponse(BaseModel):
+    id: int
+    ingrediente_id: int
+    ingrediente_nombre: str
+    unidad: str
+    marca: str
+    descripcion: str | None
+    codigo_fabricante: str | None
+    nombre: str
+    activo: bool
+    proveedores: list[ProveedorResumen] = []
+    # pendiente / aprobada / rechazada / requiere_revision. Solo "aprobada" recibe lotes.
+    estado_homologacion: str
+    # Solo de una aprobada: hasta cuándo vale y si ya venció (vencida no se usa).
+    homologacion_vigente_hasta: date | None = None
+    homologacion_vencida: bool = False
 
-    pass
 
-ProveedorResumen.model_rebuild()
-Insumo.model_rebuild()
-InsumoPagina.model_rebuild()
+# ── Homologación ───────────────────────────────────────────────────────────
+
+Nivel = Literal["contiene", "puede_contener"]
+
+
+class ValorRotuloIn(BaseModel):
+    nutriente: str
+    # Tal como figura en el rótulo: por la porción, o por 100 g/ml si no hay.
+    valor: Decimal = Field(ge=0, max_digits=14, decimal_places=4)
+
+
+class AlergenoRotuloIn(BaseModel):
+    alergeno_id: int = Field(gt=0)
+    nivel: Nivel
+
+
+class RotuloInsumoIn(BaseModel):
+    """Rótulo completo del fabricante: lo que no viene se borra."""
+
+    referencia: str | None = Field(default=None, max_length=300)
+    # Porción (g o ml) por la que declara el rótulo; sin porción, por 100.
+    porcion: Decimal | None = Field(default=None, gt=0, le=10000, max_digits=10, decimal_places=2)
+    valores: list[ValorRotuloIn] = Field(default_factory=list)
+    alergenos: list[AlergenoRotuloIn] = Field(default_factory=list)
+
+    @field_validator("referencia")
+    @classmethod
+    def limpiar_referencia(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor)
+
+
+class ValorRotulo(BaseModel):
+    nutriente: str
+    valor: Decimal
+    valor_100: Decimal
+
+
+class AlergenoRotulo(BaseModel):
+    alergeno_id: int
+    nombre: str
+    nivel: Nivel
+
+
+class RotuloInsumo(BaseModel):
+    referencia: str | None
+    porcion: Decimal | None
+    valores: list[ValorRotulo]
+    alergenos: list[AlergenoRotulo]
+
+
+class FilaComparacion(BaseModel):
+    nutriente: str
+    nombre: str
+    unidad: str
+    referencia: Decimal | None
+    rotulo: Decimal | None
+    desvio_pct: Decimal | None
+    # ok / fuera_de_tolerancia / sin_dato / sin_referencia / bajo_umbral
+    estado: str
+
+
+class FilaAlergeno(BaseModel):
+    alergeno_id: int
+    nombre: str
+    nivel_ingrediente: Nivel | None
+    nivel_insumo: Nivel | None
+    cumple: bool
+
+
+class ComparacionHomologacion(BaseModel):
+    # apta / observada / rechazada
+    resultado: str
+    tolerancia_pct: Decimal
+    nutrientes: list[FilaComparacion]
+    alergenos: list[FilaAlergeno]
+    problemas: list[str]
+
+
+class HomologacionInsumo(BaseModel):
+    insumo_id: int
+    insumo_nombre: str
+    ingrediente_id: int
+    ingrediente_nombre: str
+    es_aditivo: bool
+    estado: str
+    resultado_al_decidir: str | None
+    justificacion: str | None
+    homologado_por: str | None
+    homologado_en: datetime | None
+    # Hasta cuándo vale la aprobación (Parámetros nutricionales → vigencia).
+    vigente_hasta: date | None = None
+    vencida: bool = False
+    # Tolerancia (%) con que se comparó al decidir (la actual puede ser otra).
+    tolerancia_al_decidir: Decimal | None = None
+    rotulo: RotuloInsumo
+    comparacion: ComparacionHomologacion
+
+
+class DecisionHomologacionIn(BaseModel):
+    decision: Literal["aprobar", "rechazar"]
+    # Obligatoria para aprobar una comparación observada.
+    justificacion: str | None = Field(default=None, max_length=500)
+
+    @field_validator("justificacion")
+    @classmethod
+    def limpiar_justificacion(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor)

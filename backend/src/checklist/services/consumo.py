@@ -26,13 +26,17 @@ def listar_consumo_insumos(
     if fecha_desde > fecha_hasta:
         raise FechaInvalida()
 
+    # Una tarea puede usar varios productos: cada fila de consumo cuenta para
+    # su producto, y "registros" son las tareas distintas que lo usaron.
+    Consumo = models.RegistroTareaConsumo
     filas = db.execute(
         select(
-            models.RegistroTarea.insumo_quimico_id.label("insumo_quimico_id"),
+            Consumo.insumo_quimico_id.label("insumo_quimico_id"),
             models.Checklist.fecha.label("fecha"),
-            func.sum(models.RegistroTarea.cantidad_consumida).label("cantidad_total"),
-            func.count(models.RegistroTarea.id).label("cantidad_registros"),
+            func.sum(Consumo.cantidad).label("cantidad_total"),
+            func.count(func.distinct(Consumo.registro_tarea_id)).label("cantidad_registros"),
         )
+        .join(models.RegistroTarea, models.RegistroTarea.id == Consumo.registro_tarea_id)
         .join(
             models.Checklist,
             models.Checklist.id == models.RegistroTarea.checklist_id,
@@ -40,12 +44,10 @@ def listar_consumo_insumos(
         .where(
             models.Checklist.fecha >= fecha_desde,
             models.Checklist.fecha <= fecha_hasta,
-            models.RegistroTarea.insumo_quimico_id.isnot(None),
-            models.RegistroTarea.cantidad_consumida.isnot(None),
-            models.RegistroTarea.cantidad_consumida > 0,
+            Consumo.cantidad > 0,
             models.RegistroTarea.completado.is_(True),
         )
-        .group_by(models.RegistroTarea.insumo_quimico_id, models.Checklist.fecha)
+        .group_by(Consumo.insumo_quimico_id, models.Checklist.fecha)
     ).all()
 
     # Acumulamos por producto. Las fechas se mantienen por producto, porque

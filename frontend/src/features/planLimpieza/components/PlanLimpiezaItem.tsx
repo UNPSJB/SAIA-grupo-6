@@ -36,7 +36,7 @@ export function PlanLimpiezaItem({
          */}
         <TextoTruncado
           max={60}
-          color="#64748B"
+          color="tabla.textoSecundario"
           texto={plan.tareas
             .map(
               (tarea) =>

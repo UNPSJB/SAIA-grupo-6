@@ -2,7 +2,7 @@ export type EstadoNodoTimeline = "completado" | "en_proceso" | "pendiente";
 export type TipoNodoTimeline = "inicio" | "tarea" | "cierre";
 
 export interface ConsumoInsumoTimelineItem {
-  insumo_nombre: string;
+  ingrediente_nombre: string;
   cantidad: string | number;
   unidad_medida: string;
   lote_insumo_codigo: string;
@@ -24,7 +24,7 @@ export interface RendimientoTimeline {
 export interface DetalleNodoTimeline {
   operario_nombre: string | null;
   descripcion: string | null;
-  insumos_consumidos: ConsumoInsumoTimelineItem[];
+  ingredientes_consumidos: ConsumoInsumoTimelineItem[];
   desperdicios: DesperdicioTimelineItem[];
   rendimiento: RendimientoTimeline | null;
 }

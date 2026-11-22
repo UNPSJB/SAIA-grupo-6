@@ -235,7 +235,9 @@ export function IncidentesPorTipoPanel({
                   fontWeight={estaSeleccionado ? "bold" : "normal"}
                   outline={estaSeleccionado ? "2px solid" : "none"}
                   outlineColor={COLOR_TIPO[value]}
-                  opacity={cantidad === 0 ? 0.5 : estaAtenuado ? 0.4 : 1}
+                  // Atenuado, pero legible: con 0.5/0.4 el nombre del tipo
+                  // ("Plagas", "Otro") casi no se leía, sobre todo en oscuro.
+                  opacity={cantidad === 0 ? 0.7 : estaAtenuado ? 0.6 : 1}
                 >
                   {label}
                 </Badge>
@@ -290,7 +292,7 @@ export function IncidentesPorTipoPanel({
                     fontWeight={estaSeleccionado ? "bold" : "normal"}
                     fontSize="sm"
                     color={estaSeleccionado ? COLOR_TIPO[value] : undefined}
-                    opacity={cantidad === 0 ? 0.5 : estaAtenuado ? 0.4 : 1}
+                    opacity={cantidad === 0 ? 0.7 : estaAtenuado ? 0.6 : 1}
                   >
                     {cantidad}
                   </Text>

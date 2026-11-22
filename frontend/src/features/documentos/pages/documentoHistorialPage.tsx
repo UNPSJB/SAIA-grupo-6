@@ -74,14 +74,17 @@ export function DocumentoHistorialPage() {
 
       {historial && (
         <Tarjeta overflowX="auto">
-          <Table.Root variant="outline" w="100%">
+          {/* Siete columnas sin ancho se repartían en partes iguales: la
+              versión ("v3") ocupaba lo mismo que el nombre del archivo, y la
+              fecha con hora y el archivo se salían de su celda. */}
+          <Table.Root variant="outline" w="100%" minW="900px">
             <Table.Header>
               <FilaEncabezado>
-                <EncabezadoOscuro>Versión</EncabezadoOscuro>
-                <EncabezadoOscuro center>Estado</EncabezadoOscuro>
-                <EncabezadoOscuro>Vigente desde</EncabezadoOscuro>
-                <EncabezadoOscuro>Vigente hasta</EncabezadoOscuro>
-                <EncabezadoOscuro>Fecha de vencimiento</EncabezadoOscuro>
+                <EncabezadoOscuro width="9%">Versión</EncabezadoOscuro>
+                <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Vigente desde</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Vigente hasta</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="media">Fecha de vencimiento</EncabezadoOscuro>
                 <EncabezadoOscuro>Subida por</EncabezadoOscuro>
                 <EncabezadoOscuro>Archivo</EncabezadoOscuro>
               </FilaEncabezado>
@@ -104,7 +107,7 @@ export function DocumentoHistorialPage() {
                       {ETIQUETA_ESTADO[v.estado]}
                     </Badge>
                   </Celda>
-                  <Celda whiteSpace="nowrap">{fechaHora(v.vigente_desde)}</Celda>
+                  <Celda>{fechaHora(v.vigente_desde)}</Celda>
                   <Celda>
                     {v.vigente_hasta ? fechaHora(v.vigente_hasta) : "Actual"}
                   </Celda>
@@ -118,6 +121,13 @@ export function DocumentoHistorialPage() {
                   </Celda>
                   <Celda>
                     <BotonTexto
+                      title={v.nombre_archivo}
+                      maxW="100%"
+                      display="block"
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                      textAlign="left"
                       onClick={() =>
                         abrirArchivo(v.archivo_url).catch(() =>
                           alert("No se pudo abrir el documento"),

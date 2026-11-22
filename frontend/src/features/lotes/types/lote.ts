@@ -45,9 +45,9 @@ export interface LoteResumen {
   vida_util_dias: number | null;
 }
 
-export interface InsumoPlanificado {
-  insumo_id: number;
-  insumo_nombre: string;
+export interface IngredientePlanificado {
+  ingrediente_id: number;
+  ingrediente_nombre: string;
   unidad: string;
   cantidad_planificada: string;
   consumo_real: string;
@@ -58,7 +58,9 @@ export interface Consumo {
   id: number;
   checklist_produccion_id: number;
   lote_insumo_id: number;
-  insumo_id: number;
+  ingrediente_id: number;
+  ingrediente_nombre: string;
+  /** Marca del insumo del lote consumido. */
   insumo_nombre: string;
   numero_lote_insumo: string;
   proveedor_nombre: string;
@@ -76,16 +78,23 @@ export interface ItemChecklist {
   tarea_receta_id: number;
   orden: number;
   descripcion: string;
+  /** Cómo se hace la etapa, según la versión de la receta del lote. */
+  procedimiento: string | null;
   completado: boolean;
   completado_por_id: number | null;
   completado_por_nombre: string | null;
   completado_en: string | null;
-  insumos: InsumoPlanificado[];
+  /** Persona que opera a la que se asignó la tarea; null = la hace cualquiera. */
+  asignado_a_id: number | null;
+  asignado_a_nombre: string | null;
+  ingredientes: IngredientePlanificado[];
   consumos: Consumo[];
 }
 
 export interface LoteDetalle extends LoteResumen {
   checklist: ItemChecklist[];
+  /** Solo en lotes terminados: si tiene rotulado completo (sin él no se vende). */
+  rotulado_completo?: boolean | null;
 }
 
 export interface ProduccionPorProducto {
@@ -128,6 +137,8 @@ export interface LoteCreateValues {
   producto_id: number;
   cantidad_objetivo?: string;
   factor?: string;
+  /** Solo quien administra: queda asignado a todas las tareas del lote. */
+  responsable_id?: number | null;
 }
 
 export interface ConsumoInput {

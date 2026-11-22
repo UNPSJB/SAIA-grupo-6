@@ -86,7 +86,7 @@ function FilaPendiente({ tarea }: { tarea: FilaAtencion }) {
         ) : null}
       </Box>
       {operador ? (
-        <Text color="fg.muted" fontSize="xs" flexShrink={0} w="28" textAlign="right" truncate title={operador}>
+        <Text color="fg.muted" fontSize="xs" flexShrink={0} w="36" textAlign="right" truncate title={operador}>
           {operador}
         </Text>
       ) : null}

@@ -18,6 +18,7 @@ import type { TonoEstado } from "../../../components/ui/patrones";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import type { Conteo, MapaCalor as DatosMapa, Serie } from "../types/paneles";
 import { COLOR_ESTADO, type ParteDona } from "../types/coloresGraficos";
+import { esPeriodoDeUnMes, useFechasEje } from "./ejeFechas";
 
 /*
  * Gráficos de los paneles de categoría. Cada forma responde a una pregunta:
@@ -107,7 +108,28 @@ export interface SerieGrafico {
   color: string;
 }
 
-const TITULO_TRAMO = { dia: "Día", semana: "Semana del", mes: "Mes" } as const;
+const TITULO_TRAMO = { dia: "Día", semana: "Semana del" } as const;
+
+const MESES_LARGOS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/** `YYYY-MM-DD` → "Noviembre de 2026": el título del cartel de un mes. */
+function mesLargo(iso: string): string {
+  const mes = MESES_LARGOS[Number(iso.slice(5, 7)) - 1];
+  return `${mes.charAt(0).toUpperCase()}${mes.slice(1)} de ${iso.slice(0, 4)}`;
+}
 
 function fechaCorta(iso: string): string {
   const [anio, mes, dia] = iso.split("-");
@@ -140,6 +162,11 @@ interface GraficoSerieProps {
    * (p. ej. una lista) se muestra tal cual, debajo de una línea divisoria.
    */
   extraTooltip?: (valores: Record<string, number | null>, clave: string) => React.ReactNode;
+  /**
+   * Con 30 días, escribir cada fecha en diagonal (por defecto). En un gráfico
+   * angosto se pisan: con `false` se escriben solo las que entran, derechas.
+   */
+  fechasEnDiagonal?: boolean;
 }
 
 /**
@@ -159,14 +186,31 @@ export function GraficoSerie({
   alto = 240,
   llenar = false,
   extraTooltip,
+  fechasEnDiagonal = true,
 }: GraficoSerieProps) {
   const esPorcentaje = unidad === "%";
+  /** Período de 30 días mostrado día por día (no 7 días, ni 90, ni 12 meses). */
+  const diasDelMes =
+    fechasEnDiagonal && serie.granularidad === "dia" && esPeriodoDeUnMes(serie.puntos.length);
+  // En diagonal, la primera y la última fecha asoman unos píxeles por los
+  // costados y por abajo: un poco de margen para que no se corten.
+  const margen = diasDelMes
+    ? { top: 6, right: 12, bottom: 4, left: 6 }
+    : // A la derecha, lugar para media fecha: la última va centrada en su día.
+      { top: 6, right: 22, bottom: 0, left: 0 };
   // Ids de los degradados del área: únicos por gráfico, puede haber varios en pantalla.
   const idDegradado = `degradado-${useId().replace(/:/g, "")}`;
   const claves = series.map((s) => s.clave);
   const datos = serie.puntos.map((p) => ({ clave: p.clave, etiqueta: p.etiqueta, ...p.valores }));
   const formato = (valor: number | null | undefined) =>
     valor === null || valor === undefined ? "Sin datos" : `${formatoCantidad(valor)}${unidad ?? ""}`;
+  const { ref: refEjeFechas, ticks: ticksFechas, tick: tickFecha } = useFechasEje(
+    serie.puntos.map((p) => p.etiqueta),
+    12,
+    COLOR_EJE,
+    serie.granularidad === "semana" ? undefined : serie.puntos.map((p) => p.clave),
+    serie.granularidad === "mes",
+  );
 
   const contenidoTooltip = ({
     active,
@@ -181,9 +225,11 @@ export function GraficoSerie({
     const extra = extraTooltip?.(valores, String(punto.clave));
     return (
       <CajaTooltip
-        titulo={`${TITULO_TRAMO[serie.granularidad]} ${
-          serie.granularidad === "mes" ? String(punto.etiqueta) : fechaCorta(String(punto.clave))
-        }`}
+        titulo={
+          serie.granularidad === "mes"
+            ? mesLargo(String(punto.clave))
+            : `${TITULO_TRAMO[serie.granularidad]} ${fechaCorta(String(punto.clave))}`
+        }
       >
         {series.map((s) => (
           <FilaTooltip key={s.clave} color={s.color} texto={s.etiqueta} valor={formato(valores[s.clave])} />
@@ -204,15 +250,32 @@ export function GraficoSerie({
   const ejes = (
     <>
       <CartesianGrid vertical={false} stroke={COLOR_GRILLA} strokeWidth={1} />
-      <XAxis
-        dataKey="etiqueta"
-        tickLine={false}
-        axisLine={false}
-        tick={{ fontSize: 12, fill: COLOR_EJE }}
-        tickMargin={10}
-        minTickGap={24}
-        interval="preserveStartEnd"
-      />
+      {/* Período de un mes, día por día: fechas en diagonal y todas visibles
+          (si no, se saltea un día de por medio). Con 7 días entran derechas y
+          con 90 días o 12 meses son demasiadas: ahí se dejan sin rotar. */}
+      {diasDelMes ? (
+        <XAxis
+          dataKey="etiqueta"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 11, fill: COLOR_EJE }}
+          angle={-45}
+          textAnchor="end"
+          height={50}
+          tickMargin={4}
+          interval={0}
+        />
+      ) : (
+        <XAxis
+          dataKey="etiqueta"
+          tickLine={false}
+          axisLine={false}
+          ticks={ticksFechas}
+          tick={tickFecha}
+          tickMargin={8}
+          interval={0}
+        />
+      )}
       <YAxis
         allowDecimals={false}
         tickLine={false}
@@ -251,6 +314,7 @@ export function GraficoSerie({
       ) : null}
 
       <Box
+        ref={refEjeFechas}
         w="full"
         {...(llenar ? { flex: "1", minH: `${alto}px` } : { h: `${alto}px` })}
         role="img"
@@ -258,7 +322,7 @@ export function GraficoSerie({
       >
         <ResponsiveContainer width="100%" height="100%">
           {tipo === "area" ? (
-            <AreaChart data={datos} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <AreaChart data={datos} margin={margen}>
               {/* Debajo de cada curva, un degradado del color de la serie que
                   se desvanece hacia el eje: marca el volumen sin tapar la
                   grilla ni la otra serie. */}
@@ -294,7 +358,7 @@ export function GraficoSerie({
               ))}
             </AreaChart>
           ) : tipo === "lineas" ? (
-            <LineChart data={datos} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <LineChart data={datos} margin={margen}>
               {ejes}
               <Tooltip content={contenidoTooltip} cursor={{ stroke: COLOR_EJE, strokeWidth: 1 }} />
               {series.map((s) => (
@@ -313,12 +377,7 @@ export function GraficoSerie({
               ))}
             </LineChart>
           ) : (
-            <BarChart
-              data={datos}
-              margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
-              barGap={2}
-              barCategoryGap="25%"
-            >
+            <BarChart data={datos} margin={margen} barGap={2} barCategoryGap="25%">
               {ejes}
               <Tooltip content={contenidoTooltip} cursor={{ fill: "var(--chakra-colors-gray-50)" }} />
               {series.map((s) => (
@@ -340,7 +399,9 @@ export function GraficoSerie({
                             payload?: Record<string, unknown>;
                           };
                           const tope = esTopeDePila(forma.payload, s.clave, claves);
-                          return <Rectangle {...forma} radius={tope ? [RADIO_BARRA, RADIO_BARRA, 0, 0] : 0} />;
+                          return (
+                            <Rectangle {...forma} radius={tope ? [RADIO_BARRA, RADIO_BARRA, 0, 0] : 0} />
+                          );
                         }
                       : undefined
                   }
@@ -378,7 +439,6 @@ export function GraficoSerie({
   );
 }
 
-
 /* ───────────────────────────────── Dona ───────────────────────────────── */
 
 const LADO = 160;
@@ -388,8 +448,6 @@ const RADIO = 76 - GROSOR / 2;
 const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
 /** Aire entre porciones: separa sin dibujar bordes. */
 const HUECO = 1.8;
-
-
 
 /**
  * Reparto de un total entre pocas partes: anillo con el total en el centro y
@@ -407,8 +465,7 @@ export function GraficoDona({ partes, unidad }: { partes: ParteDona[]; unidad: s
   const tramos = visibles.map((parte, i) => ({
     parte,
     largo: (parte.valor / total) * CIRCUNFERENCIA,
-    desplazamiento:
-      (visibles.slice(0, i).reduce((t, p) => t + p.valor, 0) / total) * CIRCUNFERENCIA,
+    desplazamiento: (visibles.slice(0, i).reduce((t, p) => t + p.valor, 0) / total) * CIRCUNFERENCIA,
   }));
 
   const resumen = `${partes.map((p) => `${p.etiqueta}: ${p.valor} (${porcentaje(p.valor)}%)`).join(", ")}. Total: ${total} ${unidad}.`;
@@ -679,8 +736,7 @@ function conOpacidad(hex: string, opacidad: number): string {
 }
 
 const TEXTO_TRAMO = { dia: "día ", semana: "semana del ", mes: "" } as const;
-const RAYADO =
-  "repeating-linear-gradient(45deg, var(--chakra-colors-gray-200) 0 2px, transparent 2px 6px)";
+const RAYADO = "repeating-linear-gradient(45deg, var(--chakra-colors-gray-200) 0 2px, transparent 2px 6px)";
 
 interface MapaCalorProps {
   mapa: DatosMapa;
@@ -841,13 +897,7 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
             <Text fontSize="sm" color="fg">
               {dato.etiqueta}
             </Text>
-            <Box
-              position="relative"
-              h="3"
-              gridColumn="1 / -1"
-              gridRow="2"
-              aria-hidden
-            >
+            <Box position="relative" h="3" gridColumn="1 / -1" gridRow="2" aria-hidden>
               {/* Eje: dónde está el cero y hasta dónde llega el máximo. */}
               <Box position="absolute" insetX="0" top="50%" h="1px" bg="bg.muted" />
               {/* El punto se corre medio diámetro para que el del máximo no se

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { Box, Button, HStack, SimpleGrid, Table, Text, VStack } from "@chakra-ui/react";
-import { LuCircleCheck, LuDownload, LuFileBadge, LuMinus } from "react-icons/lu";
+import { LuCircleCheck, LuFileBadge, LuMinus } from "react-icons/lu";
 import { useTransportista } from "../../hooks/useTransportista";
 import { useCertificaciones } from "../../hooks/useCertificaciones";
 import {
   BannerError,
+  BotonAccion,
   BotonTexto,
   EstadoCargando,
   EtiquetaEstado,
@@ -63,24 +64,23 @@ function AccionesComprobante({
   }
 
   return (
-    <HStack gap="3" justify="center" flexWrap="wrap">
-      <BotonTexto
+    <HStack gap="2" justify="center">
+      <BotonAccion
+        accion="ver"
+        label="Ver comprobante"
+        tooltip="Abrir el comprobante en una pestaña nueva"
         onClick={() => void verArchivoCertificacion(certificacion.id)}
-        title="Abrir el comprobante en una pestaña nueva"
-      >
-        Ver
-      </BotonTexto>
-      <BotonTexto
+      />
+      <BotonAccion
+        accion="descargar"
+        label="Descargar comprobante"
         onClick={() =>
           void descargarArchivoCertificacion(
             certificacion.id,
             certificacion.archivo_url,
           )
         }
-        title="Descargar el comprobante adjunto"
-      >
-        <LuDownload size={14} aria-hidden /> Descargar
-      </BotonTexto>
+      />
     </HStack>
   );
 }
@@ -164,19 +164,22 @@ function TablaCertificaciones({
             </Table.Cell>
             {!historial && (
               <Table.Cell px="4" py="3" textAlign="center">
-                <HStack justify="center" gap="3" flexWrap="wrap">
+                <HStack justify="center" gap="2">
                   {certificacion.activa && onRenovar && (
-                    <BotonTexto onClick={() => onRenovar(certificacion)}>
-                      Renovar
-                    </BotonTexto>
+                    <BotonAccion
+                      accion="renovar"
+                      label={`Renovar ${certificacion.tipo}`}
+                      tooltip="Renovar"
+                      onClick={() => onRenovar(certificacion)}
+                    />
                   )}
                   {certificacion.activa && onAnular && (
-                    <BotonTexto
-                      color="red.fg"
+                    <BotonAccion
+                      accion="anular"
+                      label={`Anular ${certificacion.tipo}`}
+                      tooltip="Anular"
                       onClick={() => onAnular(certificacion)}
-                    >
-                      Anular
-                    </BotonTexto>
+                    />
                   )}
                 </HStack>
               </Table.Cell>

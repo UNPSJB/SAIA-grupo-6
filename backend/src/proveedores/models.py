@@ -1,13 +1,7 @@
 from datetime import date, datetime
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, String, Table
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.models import ModeloBase
-
-proveedores_insumos = Table(
-    "proveedores_insumos", ModeloBase.metadata,
-    Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
-    Column("insumo_id", ForeignKey("insumos.id", ondelete="CASCADE"), primary_key=True),
-)
 
 class Proveedor(ModeloBase):
     __tablename__ = "proveedores"
@@ -20,7 +14,10 @@ class Proveedor(ModeloBase):
     rubro: Mapped[str | None] = mapped_column(String(120), nullable=True)
     es_certificado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    insumos: Mapped[list["Insumo"]] = relationship(secondary=proveedores_insumos, back_populates="proveedores")
+    # Los insumos (marcas) que vende. La tabla de asociación está en `src.insumos.models`.
+    insumos: Mapped[list["Insumo"]] = relationship(
+        secondary="proveedores_insumos", back_populates="proveedores", order_by="Insumo.marca"
+    )
     certificaciones: Mapped[list["CertificacionProveedor"]] = relationship(
         back_populates="proveedor", cascade="all, delete-orphan",
         order_by="desc(CertificacionProveedor.fecha_carga)"

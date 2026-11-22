@@ -16,8 +16,10 @@ import { FONDO_PESTANA } from "../../theme";
 import {
   GRUPOS,
   MENU,
+  destinoCategoria,
   esVisibleEntrada,
   rutaPanel,
+  vePaneles,
   type EntradaMenu,
   type GrupoMenu,
 } from "./menuEntradas";
@@ -290,10 +292,13 @@ type AlIr = (e: MouseEvent<HTMLAnchorElement>, destino: string) => void;
  */
 function PestanaCategoria({
   grupo,
+  destino,
   contieneRutaActual,
   onIr,
 }: {
   grupo: GrupoMenu;
+  /** Su panel, o su primera pantalla para quien no ve los paneles. */
+  destino: string;
   contieneRutaActual: boolean;
   onIr: AlIr;
 }) {
@@ -311,9 +316,9 @@ function PestanaCategoria({
       roundedBottom={contieneRutaActual ? "none" : "md"}
     >
       <NavLink
-        to={rutaPanel(grupo)}
+        to={destino}
         data-pieza={clave}
-        onClick={(e) => onIr(e, rutaPanel(grupo))}
+        onClick={(e) => onIr(e, destino)}
       >
         <Capas activa={false} {...CAPAS_CATEGORIA}>
           <Icono size={20} aria-hidden style={{ flexShrink: 0 }} />
@@ -604,6 +609,27 @@ export default function Navbar() {
     }
   }, [abierta, ruta, grupos, colocarIndicador]);
 
+  /*
+   * Desborde de la barra: las pestañas que no entran se alcanzan
+   * desplazando de costado, con la barra de scroll oculta. Sin una pista, la
+   * última quedaba cortada al ras ("Consultar docume") y no se notaba que
+   * había más. Se desvanece el borde por el que sigue habiendo pestañas.
+   */
+  const [desborde, setDesborde] = useState({ izq: false, der: false });
+  const medirDesborde = useCallback(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    const izq = lista.scrollLeft > 1;
+    const der = lista.scrollLeft + lista.clientWidth < lista.scrollWidth - 1;
+    setDesborde((p) => (p.izq === izq && p.der === der ? p : { izq, der }));
+  }, []);
+  const mascara =
+    desborde.izq || desborde.der
+      ? `linear-gradient(to right, ${desborde.izq ? "transparent, black 40px" : "black"}, ${
+          desborde.der ? "black calc(100% - 40px), transparent" : "black"
+        })`
+      : undefined;
+
   // Si cambia el ancho (ventana, buscador desplegado), el indicador se
   // reacomoda sin animar y las medidas se toman de nuevo.
   useLayoutEffect(() => {
@@ -614,10 +640,28 @@ export default function Navbar() {
       cajaRef.current = caja;
       colocarIndicador(caja);
       medidasRef.current = medir(lista);
+      medirDesborde();
     });
     observador.observe(lista);
     return () => observador.disconnect();
-  }, [colocarIndicador]);
+  }, [colocarIndicador, medirDesborde]);
+
+  // Al cambiar de pantalla, si la pestaña activa quedó fuera de la parte
+  // visible (barra con más opciones de las que entran), se la trae a la vista.
+  useEffect(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    const activa = lista.querySelector<HTMLElement>('[aria-current="page"]');
+    if (activa) {
+      const izq = activa.offsetLeft - RADIO;
+      const der = activa.offsetLeft + activa.offsetWidth + RADIO;
+      if (izq < lista.scrollLeft) lista.scrollLeft = izq;
+      else if (der > lista.scrollLeft + lista.clientWidth) {
+        lista.scrollLeft = der - lista.clientWidth;
+      }
+    }
+    medirDesborde();
+  }, [abierta, ruta, medirDesborde]);
 
   /**
    * Clic en un enlace de la barra. Primero se mueve la barra (que pasa a
@@ -673,7 +717,13 @@ export default function Navbar() {
         px={`${RADIO}px`}
         overflowX="auto"
         overflowY="hidden"
-        css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+        onScroll={medirDesborde}
+        css={{
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+          maskImage: mascara,
+          WebkitMaskImage: mascara,
+        }}
       >
         {/*
           Fondo de la pestaña seleccionada, como la de un navegador: llega
@@ -718,6 +768,7 @@ export default function Navbar() {
             <Box as="li" key={grupo.id}>
               <PestanaCategoria
                 grupo={grupo}
+                destino={destinoCategoria(grupo, user)}
                 contieneRutaActual={grupo.id === grupoDeRuta}
                 onIr={ir}
               />
@@ -753,29 +804,31 @@ export default function Navbar() {
               que en la fila de categorías (ícono incluido) para que la
               animación la traslade sin deformarla.
             */}
-            <Box as="li" flexShrink={0}>
-              <Link
-                asChild
-                aria-current={enPanel ? "page" : undefined}
-                title={`Panel de ${grupoAbierto.label}`}
-                {...pestana(enPanel)}
-                {...CATEGORIA}
-              >
-                <NavLink
-                  to={rutaPanel(grupoAbierto)}
-                  data-pieza={clavePanel(grupoAbierto.id)}
-                  data-activa={enPanel ? "" : undefined}
-                  onClick={(e) => ir(e, rutaPanel(grupoAbierto))}
+            {vePaneles(user) && (
+              <Box as="li" flexShrink={0}>
+                <Link
+                  asChild
+                  aria-current={enPanel ? "page" : undefined}
+                  title={`Panel de ${grupoAbierto.label}`}
+                  {...pestana(enPanel)}
+                  {...CATEGORIA}
                 >
-                  <Capas activa={enPanel} {...CAPAS_CATEGORIA}>
-                    {IconoAbierto && (
-                      <IconoAbierto size={20} aria-hidden style={{ flexShrink: 0 }} />
-                    )}
-                    {grupoAbierto.label}
-                  </Capas>
-                </NavLink>
-              </Link>
-            </Box>
+                  <NavLink
+                    to={rutaPanel(grupoAbierto)}
+                    data-pieza={clavePanel(grupoAbierto.id)}
+                    data-activa={enPanel ? "" : undefined}
+                    onClick={(e) => ir(e, rutaPanel(grupoAbierto))}
+                  >
+                    <Capas activa={enPanel} {...CAPAS_CATEGORIA}>
+                      {IconoAbierto && (
+                        <IconoAbierto size={20} aria-hidden style={{ flexShrink: 0 }} />
+                      )}
+                      {grupoAbierto.label}
+                    </Capas>
+                  </NavLink>
+                </Link>
+              </Box>
+            )}
 
             <Box
               as="li"

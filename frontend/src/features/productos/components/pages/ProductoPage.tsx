@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
@@ -113,7 +113,7 @@ export function ProductoPage() {
             >
               Ver dados de baja
             </ToggleInactivos>
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="productos"
               vista="productos"
               filtros={{

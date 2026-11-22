@@ -19,6 +19,7 @@ export interface ContadoresNotificaciones {
     PLAN_CALIBRACION: number;
     PLAN_MANTENIMIENTO: number;
     STOCK_BAJO: number;
+    HOMOLOGACION_INSUMO: number;
   };
 }
 
@@ -46,7 +47,8 @@ export type OrigenNotificacion =
   | "VENCIMIENTO_PERSONAL"
   | "PLAN_CALIBRACION"
   | "PLAN_MANTENIMIENTO"
-  | "STOCK_BAJO";
+  | "STOCK_BAJO"
+  | "HOMOLOGACION_INSUMO";
 
 /** El listado completo (lo usa la campana del navbar, no la tabla). */
 export async function obtenerNotificaciones(): Promise<Notificacion[]> {

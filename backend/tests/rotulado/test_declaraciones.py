@@ -1,4 +1,3 @@
-from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -6,14 +5,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, select, text
 
+from src.alergenos import schemas as alergenos_schemas, services as alergenos_services
+from src.alergenos.models import Alergeno, IngredienteAlergeno
 from src.auth.dependencies import require_admin
 from src.auth.services import crear_access_token
 from src.database import get_db
-from src.insumos import schemas as insumos_schemas, services as insumos_services
-from src.insumos.models import Insumo
+from src.ingredientes.models import Ingrediente
 from src.personal.models import Personal
 from src.productos import schemas as productos_schemas, services as productos_services
-from src.recetas.models import VersionReceta, RecetaInsumo
+from src.recetas.models import VersionReceta, RecetaIngrediente
 from src.rotulado import declaraciones_services as servicio, schemas, services
 from src.rotulado.declaraciones_schemas import EditarDeclaraciones, RegenerarDeclaraciones, RevisionEsperada
 from src.rotulado.models import RevisionDeclaracionRotulado
@@ -21,21 +21,42 @@ from src.rotulado.router import router
 from tests.rotulado.test_rotulado import datos  # noqa: F401
 
 
-PERFIL = {"evaluacion": "evaluada", "gluten": "ausencia_declarada", "marcas": []}
 CONSERVACION = {"instrucciones": "Conservar refrigerado", "temperatura_aplicable": True,
                 "temperatura_minima": 2, "temperatura_maxima": 8,
                 "duracion_aplicable": True, "duracion": 5, "unidad_duracion": "dias"}
 
 
+def _evaluar(ingrediente, evaluacion="evaluada", gluten="ausencia_declarada"):
+    """Lo que antes era el perfil del insumo: la evaluación de alérgenos del ingrediente."""
+    ingrediente.evaluacion_alergenos = evaluacion
+    ingrediente.gluten = gluten
+
+
+def _marcar(db, ingrediente, codigo, nivel="contiene", forma="directa"):
+    """Alérgeno del ingrediente, en `ingredientes_alergenos`."""
+    alergeno = db.scalar(select(Alergeno).where(Alergeno.codigo == codigo))
+    db.add(ingrediente)
+    db.flush()
+    db.add(IngredienteAlergeno(ingrediente_id=ingrediente.id, alergeno_id=alergeno.id, nivel=nivel, forma=forma))
+
+
+def _nueva_version(receta, version, ingredientes, es_aditivo=False):
+    nueva = VersionReceta(receta=receta, numero=2, rendimiento=10, unidad_medida=version.unidad_medida)
+    nueva.ingredientes = [RecetaIngrediente(ingrediente=i, cantidad=1, unidad_medida=version.unidad_medida,
+                                            es_aditivo=es_aditivo) for i in ingredientes]
+    return nueva
+
+
 @pytest.fixture
 def escenario(datos):
     db, producto, receta, version = datos
+    alergenos_services.cargar_alergenos_iniciales(db)
     admin = Personal(nombre="Admin", dni="11000111", email="admin@hu106.test", password="hash",
                      puede_administrar=True, activo=True)
     operador = Personal(nombre="Operador", dni="11000112", email="operador@hu106.test", password="hash",
                         puede_operar=True, activo=True)
-    version.insumos[0].insumo.perfil_declaracion = deepcopy(PERFIL)
-    producto.conservacion = deepcopy(CONSERVACION)
+    _evaluar(version.ingredientes[0].ingrediente)
+    producto.conservacion = dict(CONSERVACION)
     db.add_all([admin, operador])
     db.commit()
     borrador = services.crear_borrador(db, producto.id, schemas.BorradorRotuladoCreate(
@@ -45,18 +66,18 @@ def escenario(datos):
 
 def test_presencia_deduplicacion_y_fuentes(escenario):
     db, producto, receta, version, _, _, _ = escenario
-    perfil = {**PERFIL, "marcas": [{"codigo": "leche", "forma": "derivado"}]}
-    primero = version.insumos[0].insumo
-    primero.perfil_declaracion = perfil
-    segundo = Insumo(nombre="Segundo", unidad_medida_id=primero.unidad_medida_id, perfil_declaracion=perfil)
-    nueva = VersionReceta(receta=receta, numero=2, rendimiento=10, unidad_medida=version.unidad_medida)
-    nueva.insumos = [RecetaInsumo(insumo=i, cantidad=1, unidad_medida=version.unidad_medida,
-                                 clasificacion="ingrediente") for i in (primero, segundo)]
+    primero = version.ingredientes[0].ingrediente
+    segundo = Ingrediente(nombre="Segundo", unidad_medida_id=primero.unidad_medida_id)
+    _evaluar(segundo)
+    for ingrediente in (primero, segundo):
+        _marcar(db, ingrediente, "leche", forma="derivado")
+    nueva = _nueva_version(receta, version, [primero, segundo])
     db.add(nueva)
     db.commit()
     propuesta = servicio.generar_propuesta_declaraciones(db, producto.id, nueva.id)
     assert len(propuesta["detectados"]) == 1
     assert len(propuesta["detectados"][0]["fuentes"]) == 2
+    assert {f["forma"] for f in propuesta["detectados"][0]["fuentes"]} == {"derivado"}
 
 
 def test_sin_marcas_no_certifica_gluten(escenario):
@@ -69,12 +90,31 @@ def test_sin_marcas_no_certifica_gluten(escenario):
 
 def test_incompleta_bloquea_confirmacion(escenario):
     db, _, _, version, borrador, admin, _ = escenario
-    version.insumos[0].insumo.perfil_declaracion = None
+    _evaluar(version.ingredientes[0].ingrediente, evaluacion="sin_evaluar", gluten="desconocido")
     db.commit()
     servicio.regenerar(db, borrador.id, RegenerarDeclaraciones(revision=1), admin)
     with pytest.raises(HTTPException) as error:
         servicio.confirmar(db, borrador.id, RevisionEsperada(revision=2), admin)
     assert error.value.status_code == 422
+
+
+def test_puede_contener_del_ingrediente_va_al_rotulo_y_gana_contiene(escenario):
+    db, producto, receta, version, _, _, _ = escenario
+    primero = version.ingredientes[0].ingrediente
+    segundo = Ingrediente(nombre="Cacao", unidad_medida_id=primero.unidad_medida_id)
+    _evaluar(segundo)
+    _marcar(db, primero, "leche")
+    _marcar(db, segundo, "leche", nivel="puede_contener")
+    _marcar(db, segundo, "avellana", nivel="puede_contener")
+    nueva = _nueva_version(receta, version, [primero, segundo])
+    db.add(nueva)
+    db.commit()
+    propuesta = servicio.generar_propuesta_declaraciones(db, producto.id, nueva.id)
+    # La leche la contiene la frutilla: no se declara como "puede contener".
+    assert [d["codigo"] for d in propuesta["detectados"]] == ["leche"]
+    assert [p["codigo"] for p in propuesta["puede_contener"]] == ["avellana"]
+    nombres = {a.codigo: a.nombre for a in db.scalars(select(Alergeno))}
+    assert servicio._texto_cruzado(propuesta, nombres) == "PUEDE CONTENER AVELLANA"
 
 
 def test_cruzada_alta_edicion_baja_y_preservacion(escenario):
@@ -89,6 +129,15 @@ def test_cruzada_alta_edicion_baja_y_preservacion(escenario):
     assert salida["contenido"]["contaminacion_cruzada"][0]["fundamento"] == cruzada["fundamento"]
     salida = servicio.editar(db, borrador.id, EditarDeclaraciones(revision=3, contaminacion_cruzada=[]), admin)
     assert salida["declaracion_cruzada"] == ""
+
+
+def test_cruzada_con_sustancia_fuera_del_catalogo(escenario):
+    db, _, _, _, borrador, admin, _ = escenario
+    with pytest.raises(HTTPException) as error:
+        servicio.editar(db, borrador.id, EditarDeclaraciones(revision=1, contaminacion_cruzada=[{
+            "codigo": "inventado", "fundamento": "Equipo compartido", "respaldo": "Autorización 123",
+        }]), admin)
+    assert error.value.status_code == 422
 
 
 def test_conservacion_manual_no_se_pisa_y_se_puede_reponer(escenario):
@@ -120,7 +169,7 @@ def test_confirmar_y_cambio_de_fuentes_conserva_historia(escenario):
     salida = servicio.confirmar(db, borrador.id, RevisionEsperada(revision=1), admin)
     assert salida["estado"] == "confirmada" and salida["confirmado_por_id"] == admin.id
     assert salida["confirmado_en"]
-    version.insumos[0].insumo.perfil_declaracion = {**PERFIL, "gluten": "presente"}
+    _evaluar(version.ingredientes[0].ingrediente, gluten="presente")
     db.commit()
     assert servicio.consultar(db, borrador.id)["vigencia"] == "desactualizada"
     with pytest.raises(HTTPException) as error:
@@ -129,6 +178,14 @@ def test_confirmar_y_cambio_de_fuentes_conserva_historia(escenario):
     salida = servicio.regenerar(db, borrador.id, RegenerarDeclaraciones(revision=1), admin)
     assert salida["estado"] == "sugerida"
     assert db.scalar(select(RevisionDeclaracionRotulado).where(RevisionDeclaracionRotulado.numero == 1)).confirmado_por_id == admin.id
+
+
+def test_un_alergeno_nuevo_en_el_ingrediente_desactualiza_la_confirmacion(escenario):
+    db, _, _, version, borrador, admin, _ = escenario
+    servicio.confirmar(db, borrador.id, RevisionEsperada(revision=1), admin)
+    _marcar(db, version.ingredientes[0].ingrediente, "huevo")
+    db.commit()
+    assert servicio.consultar(db, borrador.id)["vigencia"] == "desactualizada"
 
 
 def test_guardar_no_confirma_y_editar_confirmada_crea_revision(escenario):
@@ -153,9 +210,7 @@ def test_permiso_servicio_y_revision_obsoleta(escenario):
 
 def test_cambio_version_explicito(escenario):
     db, _, receta, version, borrador, admin, _ = escenario
-    nueva = VersionReceta(receta=receta, numero=2, rendimiento=1, unidad_medida=version.unidad_medida)
-    nueva.insumos = [RecetaInsumo(insumo=version.insumos[0].insumo, cantidad=1,
-                                unidad_medida=version.unidad_medida, clasificacion="ingrediente")]
+    nueva = _nueva_version(receta, version, [version.ingredientes[0].ingrediente])
     db.add(nueva)
     db.commit()
     assert servicio.consultar(db, borrador.id)["vigencia"] == "vigente"
@@ -166,9 +221,7 @@ def test_cambio_version_explicito(escenario):
 
 def test_guardar_cambio_version_crea_propuesta_sin_confirmar(escenario):
     db, _, receta, version, borrador, admin, _ = escenario
-    nueva = VersionReceta(receta=receta, numero=2, rendimiento=1, unidad_medida=version.unidad_medida)
-    nueva.insumos = [RecetaInsumo(insumo=version.insumos[0].insumo, cantidad=1,
-                                unidad_medida=version.unidad_medida, clasificacion="ingrediente")]
+    nueva = _nueva_version(receta, version, [version.ingredientes[0].ingrediente])
     db.add(nueva)
     db.commit()
     servicio.confirmar(db, borrador.id, RevisionEsperada(revision=1), admin)
@@ -179,16 +232,21 @@ def test_guardar_cambio_version_crea_propuesta_sin_confirmar(escenario):
 
 
 def test_maestros_persisten_y_se_limpian(escenario):
-    db, producto, _, version, *_ = escenario
-    insumo = version.insumos[0].insumo
-    perfil = insumos_schemas.InsumoUpdate(perfil_declaracion=PERFIL)
-    insumos_services.modificar_insumo(db, insumo.id, perfil)
-    assert insumos_schemas.Insumo.model_validate(insumo).perfil_declaracion.evaluacion == "evaluada"
+    db, producto, _, version, _, admin, _ = escenario
+    ingrediente = version.ingredientes[0].ingrediente
+    alergenos_services.guardar_alergenos_de_ingrediente(db, ingrediente.id, alergenos_schemas.AlergenosDeIngredienteIn(
+        evaluacion="incompleta", gluten="presente", respaldo="Ficha técnica 12"), admin.id)
+    guardado = alergenos_services.alergenos_de_ingrediente(db, ingrediente.id)
+    assert (guardado.evaluacion, guardado.gluten, guardado.respaldo) == ("incompleta", "presente", "Ficha técnica 12")
+    assert guardado.actualizado_por == "Admin"
     productos_services.actualizar_producto(db, producto.id, productos_schemas.ProductoUpdate(conservacion=None))
     db.expire_all()
     assert producto.conservacion is None
-    insumos_services.modificar_insumo(db, insumo.id, insumos_schemas.InsumoUpdate(perfil_declaracion=None))
-    assert insumo.perfil_declaracion is None
+    # El respaldo se borra mandándolo en null; lo que no viene queda como estaba.
+    alergenos_services.guardar_alergenos_de_ingrediente(
+        db, ingrediente.id, alergenos_schemas.AlergenosDeIngredienteIn(respaldo=None))
+    guardado = alergenos_services.alergenos_de_ingrediente(db, ingrediente.id)
+    assert guardado.respaldo is None and guardado.evaluacion == "incompleta"
 
 
 def test_http_permisos_y_flujo(escenario):
@@ -205,51 +263,49 @@ def test_http_permisos_y_flujo(escenario):
     assert client.post(url + "/confirmar", json={"revision": 1}).json()["estado"] == "confirmada"
     assert client.post(url + "/confirmar", json={"revision": 1, "confirmado_por_id": operador.id}).status_code == 422
     assert len(client.get(url + "/historial").json()) == 1
+    catalogo = client.get("/rotulado/catalogo-alergenos").json()["sustancias"]
+    assert {"codigo": "sulfitos", "nombre": "Dióxido de azufre y sulfitos", "condicionada": True} in catalogo
 
 
 def test_migracion_aditiva_idempotente():
     from src.migrations.declaraciones_rotulado import migrar_declaraciones_rotulado
     motor = create_engine("sqlite://")
     with motor.begin() as conn:
-        conn.execute(text("CREATE TABLE insumos (id INTEGER PRIMARY KEY, nombre TEXT)"))
         conn.execute(text("CREATE TABLE productos (id INTEGER PRIMARY KEY, nombre TEXT)"))
-        conn.execute(text("INSERT INTO insumos VALUES (1, 'Anterior')"))
+        conn.execute(text("INSERT INTO productos VALUES (1, 'Anterior')"))
     migrar_declaraciones_rotulado(motor)
     migrar_declaraciones_rotulado(motor)
-    assert "perfil_declaracion" in {c["name"] for c in inspect(motor).get_columns("insumos")}
+    assert "conservacion" in {c["name"] for c in inspect(motor).get_columns("productos")}
     with motor.connect() as conn:
-        assert conn.execute(text("SELECT nombre, perfil_declaracion FROM insumos")).one() == ("Anterior", None)
+        assert conn.execute(text("SELECT nombre, conservacion FROM productos")).one() == ("Anterior", None)
         assert conn.scalar(text("SELECT count(*) FROM schema_migrations")) == 1
     motor.dispose()
 
 
 def test_aditivo_incluido_sin_conversion_de_masa(escenario):
-    from src.aditivos.models import Aditivo, ClaseFuncional
+    from src.aditivos.models import ClaseFuncional
     db, producto, receta, version, *_ = escenario
     clase = ClaseFuncional(nombre="Emulsionante HU106")
-    referencia = Aditivo(nombre="Lecitina HU106", clase_funcional=clase, numero_ins="322")
-    insumo = Insumo(nombre="Lecitina comercial", tipo="aditivo", aditivo=referencia,
-                    unidad_medida=version.unidad_medida,
-                    perfil_declaracion={**PERFIL, "marcas": [{"codigo": "soja", "forma": "derivado"}]})
-    nueva = VersionReceta(receta=receta, numero=2, rendimiento=1, unidad_medida=version.unidad_medida)
-    nueva.insumos = [RecetaInsumo(insumo=insumo, cantidad=1, unidad_medida=version.unidad_medida, clasificacion="aditivo")]
+    lecitina = Ingrediente(nombre="Lecitina comercial", es_aditivo=True, clase_funcional=clase,
+                           numero_ins="322", unidad_medida=version.unidad_medida)
+    _evaluar(lecitina)
+    _marcar(db, lecitina, "soja", forma="derivado")
+    nueva = _nueva_version(receta, version, [lecitina], es_aditivo=True)
     # Falta densidad para esta unidad de volumen: E10 no puede calcular porcentajes.
     version.unidad_medida.tipo = "volumen"
     db.add(nueva)
     db.commit()
     propuesta = servicio.generar_propuesta_declaraciones(db, producto.id, nueva.id)
     assert propuesta["detectados"][0]["codigo"] == "soja"
-    assert propuesta["fuentes"][0]["clasificacion"] == "aditivo"
+    assert propuesta["fuentes"][0]["es_aditivo"] is True
 
 
 def test_sulfitos_requieren_evaluacion_documentada(escenario):
     db, _, _, version, borrador, admin, _ = escenario
-    version.insumos[0].insumo.perfil_declaracion = {
-        **PERFIL, "marcas": [{"codigo": "sulfitos", "forma": "directa"}],
-    }
+    _marcar(db, version.ingredientes[0].ingrediente, "sulfitos")
     db.commit()
     salida = servicio.regenerar(db, borrador.id, RegenerarDeclaraciones(revision=1), admin)
-    assert any("Sulfitos" in p for p in salida["pendientes"])
+    assert any("sulfitos" in p.lower() and "evaluá" in p for p in salida["pendientes"])
     assert not salida["declaracion"]
     salida = servicio.editar(db, borrador.id, EditarDeclaraciones(revision=2, evaluaciones=[{
         "codigo": "sulfitos", "declarar": True,

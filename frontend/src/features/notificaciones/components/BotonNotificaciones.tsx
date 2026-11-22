@@ -34,6 +34,11 @@ function destinoDe(notificacion: Notificacion): string {
   ) {
     return "/notificaciones";
   }
+  // El backend manda `/documentos/:id`, que no existe: igual que la página de
+  // notificaciones, se va a cargar la nueva versión del documento.
+  if (notificacion.tipo === "DOCUMENTO") {
+    return `/documentos/${notificacion.entidad_id}/nueva-version`;
+  }
   return notificacion.link_destino || "/notificaciones";
 }
 

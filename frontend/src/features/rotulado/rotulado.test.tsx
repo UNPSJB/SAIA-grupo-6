@@ -14,7 +14,7 @@ vi.mock("./hooks/useRotulado", () => ({ useRotulado: () => ({ ...hooks, borrador
 vi.mock("../../components/ui/toaster", () => ({ toaster: { create: vi.fn() } }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 function envolver(node: React.ReactNode) { return render(<ChakraProvider value={defaultSystem}>{node}</ChakraProvider>); }
-function preview(id: number): VistaPreviaAutocompletado { return { producto_id: id, producto_nombre: `Producto ${id}`, denominacion_venta: `Producto ${id}`, lista_ingredientes: `Frutilla ${id}`, version_receta_id: id, version_receta_numero: 1, receta_encontrada: true, mensaje: null, datos_nutricionales_json: null, sellos_disponibles: false }; }
+function preview(id: number): VistaPreviaAutocompletado { return { producto_id: id, producto_nombre: `Producto ${id}`, denominacion_venta: `Producto ${id}`, lista_ingredientes: `Frutilla ${id}`, alergenos: null, version_receta_id: id, version_receta_numero: 1, receta_encontrada: true, mensaje: null, datos_nutricionales_json: null, sellos_disponibles: false }; }
 function Cambiar() { const nav = useNavigate(); return <button onClick={() => nav("/rotulado/nuevo/2")}>Cambiar producto</button>; }
 function pagina() { envolver(<MemoryRouter initialEntries={["/rotulado/nuevo/1"]}><Cambiar /><Routes><Route path="/rotulado/nuevo/:producto_id" element={<RotuladoEditPage />} /></Routes></MemoryRouter>); }
 

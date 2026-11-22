@@ -44,7 +44,7 @@ export function PersonalTable({
             <EncabezadoOrdenable columna="dni" orden={orden} ancho="media">
               DNI
             </EncabezadoOrdenable>
-            <EncabezadoOscuro ancho="media">Permisos</EncabezadoOscuro>
+            <EncabezadoOscuro ancho="amplia">Permisos</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="accionesAnchas">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>

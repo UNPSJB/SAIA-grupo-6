@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HStack, Table } from "@chakra-ui/react";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { BotonExportar } from "../../../exportacion";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { PanelBase, PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
 import { formatoFecha } from "../../../../common/utils/fechas";
@@ -40,7 +41,8 @@ function normalizar(texto: string): string {
 }
 
 
-export function RecetasPage() {
+/** Pestaña "Recetas": el listado de recetas. */
+function TabRecetas() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const esAdmin = puedeAdministrar(user);
@@ -56,28 +58,20 @@ export function RecetasPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Recetas"
-      descripcion={
-          esAdmin
-            ? "Cada producto tiene una receta. Al modificarla se crea una versión nueva y las anteriores quedan de solo lectura."
-            : "Consultá la versión vigente antes de elaborar y escalala a la cantidad que vas a producir."
-        }
-      acciones={
-        esAdmin ? (
-          <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
-        ) : undefined
-      }
-    >
+    <>
       <BarraFiltros
         busqueda={<CampoBusqueda valor={busqueda} onCambio={setBusqueda} placeholder="Buscar por producto..." />}
         herramientas={
           esAdmin ? (
-            <BotonesExportar
-              nombreTabla="recetas"
-              vista="recetas"
-              filtros={{ buscar: busqueda.trim() || undefined }}
-            />
+            <>
+              {/* Dentro de una pestaña, el alta va en la barra. */}
+              <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
+              <BotonExportar
+                nombreTabla="recetas"
+                vista="recetas"
+                filtros={{ buscar: busqueda.trim() || undefined }}
+              />
+            </>
           ) : undefined
         }
       />
@@ -171,6 +165,39 @@ export function RecetasPage() {
             </Table.Body>
           </Table.Root>
         </TarjetaTabla>
+      )}
+    </>
+  );
+}
+
+/**
+ * Recetas, con los parámetros de la tabla nutricional como sub-opciones: antes
+ * "Parámetros nutricionales" era una entrada aparte del menú de Producción,
+ * aunque solo sirve para calcular la tabla a partir de la receta. Las
+ * pestañas extra son de administración; quien opera ve solo el listado.
+ * `/nutricion` redirige acá.
+ */
+export function RecetasPage() {
+  const esAdmin = puedeAdministrar(useAuth().user);
+  return (
+    <Pagina
+      titulo="Recetas"
+      descripcion={
+        esAdmin
+          ? "Cada producto tiene una receta. Al modificarla se crea una versión nueva y las anteriores quedan de solo lectura."
+          : "Consultá la versión vigente antes de elaborar y escalala a la cantidad que vas a producir."
+      }
+    >
+      {esAdmin ? (
+        <PestanasPagina
+          pestanas={[
+            { valor: "recetas", etiqueta: "Recetas", contenido: <TabRecetas /> },
+            { valor: "parametros", etiqueta: "Parámetros nutricionales", contenido: <PanelParametros /> },
+            { valor: "base", etiqueta: "Base de composición", contenido: <PanelBase /> },
+          ]}
+        />
+      ) : (
+        <TabRecetas />
       )}
     </Pagina>
   );

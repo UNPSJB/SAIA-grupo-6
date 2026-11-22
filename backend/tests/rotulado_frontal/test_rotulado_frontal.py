@@ -8,19 +8,20 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.aditivos.models import Aditivo, ClaseFuncional
+from src.aditivos.models import ClaseFuncional
 from src.auth.services import crear_access_token
 from src.database import get_db
-from src.insumos.models import TIPO_ADITIVO, Insumo
+from src.ingredientes.models import Ingrediente
 from src.nutricion.models import (
     InfoNutricionalProducto,
-    PerfilNutricionalInsumo,
-    ValorNutricionalInsumo,
+    ParametroNutricion,
+    PerfilNutricionalIngrediente,
+    ValorNutricionalIngrediente,
 )
 from src.nutricion.services import asegurar_parametros
 from src.personal.models import Personal
 from src.productos.models import Producto
-from src.recetas.models import Receta, RecetaInsumo, VersionReceta
+from src.recetas.models import Receta, RecetaIngrediente, VersionReceta
 from src.rotulado_frontal import constants as rotulado_constants
 from src.rotulado_frontal import services as rotulado_services
 from src.rotulado_frontal.models import EvaluacionRotulado, ReglaRotuladoFrontal
@@ -99,31 +100,25 @@ def productos(db_session):
     g = UnidadMedida(nombre="gramo", simbolo="g", tipo="masa", factor_a_base=1)
     kg = UnidadMedida(nombre="kilogramo", simbolo="kg")
 
-    azucar = Insumo(nombre="Azúcar", unidad_medida=g)
-    sal = Insumo(nombre="Sal", unidad_medida=g)
-    cafe = Insumo(nombre="Café", unidad_medida=g)
-    harina = Insumo(nombre="Harina", unidad_medida=g)
-    tomate = Insumo(nombre="Tomate", unidad_medida=g)
-    extracto_te = Insumo(nombre="Extracto de té", unidad_medida=g)
+    azucar = Ingrediente(nombre="Azúcar", unidad_medida=g)
+    sal = Ingrediente(nombre="Sal", unidad_medida=g)
+    cafe = Ingrediente(nombre="Café", unidad_medida=g)
+    harina = Ingrediente(nombre="Harina", unidad_medida=g)
+    tomate = Ingrediente(nombre="Tomate", unidad_medida=g)
+    extracto_te = Ingrediente(nombre="Extracto de té", unidad_medida=g)
 
     edulcorante = ClaseFuncional(nombre="Edulcorante")
-    aspartamo_ref = Aditivo(
-        clase_funcional=edulcorante, nombre="Aspartamo", numero_ins="951"
-    )
-    aspartamo = Insumo(
-        nombre="Aspartamo", tipo=TIPO_ADITIVO, aditivo=aspartamo_ref, unidad_medida=g
+    aspartamo = Ingrediente(
+        nombre="Aspartamo", es_aditivo=True, clase_funcional=edulcorante, numero_ins="951",
+        unidad_medida=g,
     )
     # Comparte la clase "Edulcorante" pero su INS es de textura: no debe
     # detectarse como edulcorante.
-    espesante_ref = Aditivo(
+    espesante = Ingrediente(
+        nombre="Carboximetilcelulosa",
+        es_aditivo=True,
         clase_funcional=edulcorante,
-        nombre="Carboximetilcelulosa",
         numero_ins="466",
-    )
-    espesante = Insumo(
-        nombre="Carboximetilcelulosa",
-        tipo=TIPO_ADITIVO,
-        aditivo=espesante_ref,
         unidad_medida=g,
     )
 
@@ -155,35 +150,35 @@ def productos(db_session):
     )
 
     renglones = [
-        RecetaInsumo(
+        RecetaIngrediente(
             version=version_marcas,
-            insumo=insumo,
+            ingrediente=ingrediente,
             cantidad=Decimal("10"),
             unidad_medida=g,
-            clasificacion=insumo.tipo or "ingrediente",
+            es_aditivo=ingrediente.es_aditivo,
         )
-        for insumo in (azucar, sal, cafe, aspartamo, espesante)
+        for ingrediente in (azucar, sal, cafe, aspartamo, espesante)
     ]
-    renglon_limpio = RecetaInsumo(
+    renglon_limpio = RecetaIngrediente(
         version=version_limpia,
-        insumo=harina,
+        ingrediente=harina,
         cantidad=Decimal("10"),
         unidad_medida=g,
-        clasificacion="ingrediente",
+        es_aditivo=False,
     )
-    renglon_tomate = RecetaInsumo(
+    renglon_tomate = RecetaIngrediente(
         version=version_limpia,
-        insumo=tomate,
+        ingrediente=tomate,
         cantidad=Decimal("10"),
         unidad_medida=g,
-        clasificacion="ingrediente",
+        es_aditivo=False,
     )
-    renglon_te = RecetaInsumo(
+    renglon_te = RecetaIngrediente(
         version=version_te,
-        insumo=extracto_te,
+        ingrediente=extracto_te,
         cantidad=Decimal("10"),
         unidad_medida=g,
-        clasificacion="ingrediente",
+        es_aditivo=False,
     )
     _sin_auditoria(
         db_session,
@@ -196,9 +191,7 @@ def productos(db_session):
         tomate,
         extracto_te,
         edulcorante,
-        aspartamo_ref,
         aspartamo,
-        espesante_ref,
         espesante,
         con_marcas,
         limpio,
@@ -217,13 +210,13 @@ def productos(db_session):
     )
     _sin_auditoria(
         db_session,
-        PerfilNutricionalInsumo(
-            insumo_id=azucar.id,
+        PerfilNutricionalIngrediente(
+            ingrediente_id=azucar.id,
             azucares_son_anadidos=True,
             grasas_son_anadidas=True,
         ),
-        PerfilNutricionalInsumo(insumo_id=sal.id, sodio_es_anadido=True),
-        PerfilNutricionalInsumo(insumo_id=cafe.id, contiene_cafeina=True),
+        PerfilNutricionalIngrediente(ingrediente_id=sal.id, sodio_es_anadido=True),
+        PerfilNutricionalIngrediente(ingrediente_id=cafe.id, contiene_cafeina=True),
     )
     return {
         "con_marcas": con_marcas,
@@ -239,7 +232,7 @@ def producto_sellos(db_session):
     """Producto completo para probar el cálculo de sellos de E12.2."""
     asegurar_parametros(db_session)
     g = UnidadMedida(nombre="gramo", simbolo="g", tipo="masa", factor_a_base=1)
-    insumo = Insumo(nombre="Base nutricional", unidad_medida=g)
+    ingrediente = Ingrediente(nombre="Base nutricional", unidad_medida=g)
     producto = Producto(nombre="Producto con sellos", unidad_medida=g)
     receta = Receta(producto=producto)
     version = VersionReceta(
@@ -248,19 +241,19 @@ def producto_sellos(db_session):
         rendimiento=Decimal("100"),
         unidad_medida=g,
     )
-    renglon = RecetaInsumo(
+    renglon = RecetaIngrediente(
         version=version,
-        insumo=insumo,
+        ingrediente=ingrediente,
         cantidad=Decimal("100"),
         unidad_medida=g,
-        clasificacion="ingrediente",
+        es_aditivo=False,
     )
-    _sin_auditoria(db_session, g, insumo, producto, receta, version, renglon)
+    _sin_auditoria(db_session, g, ingrediente, producto, receta, version, renglon)
 
     _sin_auditoria(
         db_session,
-        PerfilNutricionalInsumo(
-            insumo_id=insumo.id,
+        PerfilNutricionalIngrediente(
+            ingrediente_id=ingrediente.id,
             azucares_son_anadidos=True,
             grasas_son_anadidas=True,
             sodio_es_anadido=True,
@@ -286,8 +279,8 @@ def producto_sellos(db_session):
     _sin_auditoria(
         db_session,
         *[
-            ValorNutricionalInsumo(
-                insumo_id=insumo.id,
+            ValorNutricionalIngrediente(
+                ingrediente_id=ingrediente.id,
                 nutriente=clave,
                 valor=valor,
                 fuente="valor_propio",
@@ -365,6 +358,7 @@ def test_detecta_las_cinco_marcas_desde_perfiles_y_clase_edulcorante(
     assert all(marcas[clave]["valor"] is True for clave in marcas)
     assert marcas["edulcorantes"]["fuentes"][0]["motivo"].startswith("clase funcional")
     assert marcas["azucares"]["origen"] == "receta"
+    assert cuerpo["perfil_evaluado"] is True
 
 
 def test_la_correccion_manual_prevalece_sobre_la_deteccion(
@@ -449,6 +443,8 @@ def test_excepcion_por_naturaleza_no_evalua_el_perfil(
     assert "artículo 9" in cuerpo["mensaje"]
     assert cuerpo["categoria_exceptuada_por_ley"] is True
     assert all(not marca["fuentes"] for marca in cuerpo["marcas"])
+    # La pantalla usa esta bandera para explicar por qué no hay marcas.
+    assert cuerpo["perfil_evaluado"] is False
 
 
 def test_canal_no_minorista_no_aplica_el_rotulado(
@@ -483,7 +479,7 @@ def test_edulcorante_exige_un_ins_valido_y_no_una_clase_amplia(
     marcas = {marca["clave"]: marca for marca in respuesta.json()["marcas"]}
     fuentes = marcas["edulcorantes"]["fuentes"]
 
-    assert all(fuente["insumo_id"] != productos["espesante_id"] for fuente in fuentes)
+    assert all(fuente["ingrediente_id"] != productos["espesante_id"] for fuente in fuentes)
     assert any("951" in fuente["motivo"] for fuente in fuentes)
 
 
@@ -523,7 +519,7 @@ def test_la_regla_versionada_controla_ins_y_cafeina(
     )
     marcas = {marca["clave"]: marca for marca in con_marcas.json()["marcas"]}
     assert any(
-        fuente["insumo_id"] == productos["espesante_id"]
+        fuente["ingrediente_id"] == productos["espesante_id"]
         for fuente in marcas["edulcorantes"]["fuentes"]
     )
 
@@ -1248,6 +1244,26 @@ def test_los_sellos_se_leen_de_la_version_vigente(
     assert guardados[0]["formula"] == "kcal_por_g_azucares"
 
 
+def test_avisa_los_sellos_cerca_del_umbral(client, usuarios, regla, producto_sellos, db_session):
+    # 300 kcal contra un umbral de 275: +9,1 %, dentro de la tolerancia de
+    # homologación (20 %). Los azúcares (13,33 % contra 10 %) quedan a +33 %.
+    sellos = _guardar(client, producto_sellos.id, usuarios["admin"], envasado_sin_cliente=True).json()["sellos"]
+
+    resultados = {r["clave"]: r for r in sellos["resultados"]}
+    assert resultados["calorias"]["cerca_del_umbral"] is True
+    assert resultados["calorias"]["distancia_umbral_pct"] == "9.1"
+    assert resultados["azucares"]["cerca_del_umbral"] is False
+    assert sellos["cerca_del_umbral"] == ["Exceso en calorías"]
+    assert sellos["tolerancia_pct"] == "20"
+
+    # Con una tolerancia más chica, ningún sello queda cerca.
+    fila = db_session.get(ParametroNutricion, "tolerancia_homologacion_pct")
+    fila.valor = "5"
+    db_session.commit()
+    sellos = _guardar(client, producto_sellos.id, usuarios["admin"], envasado_sin_cliente=True).json()["sellos"]
+    assert sellos["cerca_del_umbral"] == []
+
+
 def test_los_sellos_leen_los_umbrales_de_la_version_vigente(
     client, usuarios, regla, producto_sellos
 ):
@@ -1293,7 +1309,7 @@ def test_los_liquidos_usan_el_umbral_de_kcal_por_100_ml(
     client, usuarios, regla, producto_sellos, db_session
 ):
     energia = (
-        db_session.query(ValorNutricionalInsumo)
+        db_session.query(ValorNutricionalIngrediente)
         .filter_by(nutriente="energia")
         .one()
     )
@@ -1326,7 +1342,7 @@ def test_si_falta_un_dato_el_sello_queda_sin_evaluar(
     client, usuarios, regla, producto_sellos, db_session
 ):
     sodio = (
-        db_session.query(ValorNutricionalInsumo)
+        db_session.query(ValorNutricionalIngrediente)
         .filter_by(nutriente="sodio")
         .one()
     )

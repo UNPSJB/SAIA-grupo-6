@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuPackage } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import {
@@ -43,7 +44,12 @@ export function ProductoEditPage() {
   };
 
   return (
-    <PaginaFormulario volver={{ a: "/productos", etiqueta: "Productos" }} titulo="Editar producto">
+    <PaginaAlta
+      volver={{ a: "/productos", etiqueta: "Productos" }}
+      icono={LuPackage}
+      titulo="Editar producto"
+      descripcion="Modificá el producto terminado y la unidad en que se produce."
+    >
       {cargando && <EstadoCargando>Cargando datos del producto...</EstadoCargando>}
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
 
@@ -60,7 +66,6 @@ export function ProductoEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar producto"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/productos")}
           />
@@ -68,6 +73,6 @@ export function ProductoEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Producto modificado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

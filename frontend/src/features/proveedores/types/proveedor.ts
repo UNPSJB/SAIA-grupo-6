@@ -23,7 +23,8 @@ export interface Proveedor {
   estado_certificacion: "vigente" | "vencida" | null;
   certificacion_vigente: CertificacionProveedor | null;
   certificaciones: CertificacionProveedor[];
-  insumos: { id: number; nombre: string }[];
+  /** Insumos (marcas) que vende, con su ingrediente. */
+  insumos: { id: number; nombre: string; ingrediente_id: number; ingrediente_nombre: string }[];
 }
 
 export type ProveedorFormValues = {

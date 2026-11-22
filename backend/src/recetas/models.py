@@ -9,6 +9,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     event,
 )
@@ -16,7 +17,6 @@ from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
-from src.recetas.constants import CLASIFICACIONES
 from src.recetas.exceptions import VersionRecetaInmutableError
 
 
@@ -84,8 +84,8 @@ class VersionReceta(ModeloBase):
     tareas: Mapped[list["TareaReceta"]] = relationship(
         back_populates="version", order_by="TareaReceta.orden"
     )
-    insumos: Mapped[list["RecetaInsumo"]] = relationship(
-        back_populates="version", order_by="RecetaInsumo.id"
+    ingredientes: Mapped[list["RecetaIngrediente"]] = relationship(
+        back_populates="version", order_by="RecetaIngrediente.id"
     )
 
 
@@ -104,42 +104,45 @@ class TareaReceta(ModeloBase):
     )
     orden: Mapped[int] = mapped_column(Integer)
     descripcion: Mapped[str] = mapped_column(String(300))
+    # Cómo se hace la etapa, paso a paso (lo que lee quien la ejecuta en el
+    # lote). Opcional: la descripción es el nombre corto de la etapa.
+    procedimiento: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     version: Mapped["VersionReceta"] = relationship(back_populates="tareas")
-    insumos: Mapped[list["TareaRecetaInsumo"]] = relationship(
-        back_populates="tarea", order_by="TareaRecetaInsumo.id"
+    ingredientes: Mapped[list["TareaRecetaIngrediente"]] = relationship(
+        back_populates="tarea", order_by="TareaRecetaIngrediente.id"
     )
 
 
-class RecetaInsumo(ModeloBase):
-    """Insumo de una versión: cantidad total, unidad y clasificación."""
+class RecetaIngrediente(ModeloBase):
+    """Ingrediente de una versión: cantidad total, unidad y si es aditivo.
 
-    __tablename__ = "receta_insumo"
+    `es_aditivo` se copia del maestro al guardar la versión: si después se
+    reclasifica el ingrediente, las versiones ya guardadas no cambian.
+    """
+
+    __tablename__ = "receta_ingrediente"
     __table_args__ = (
-        UniqueConstraint("version_receta_id", "insumo_id", name="uq_receta_insumo_version_insumo"),
-        CheckConstraint("cantidad > 0", name="ck_receta_insumo_cantidad_positiva"),
-        CheckConstraint(
-            "clasificacion IN ('ingrediente', 'aditivo')",
-            name="ck_receta_insumo_clasificacion_valida",
-        ),
+        UniqueConstraint("version_receta_id", "ingrediente_id", name="uq_receta_ingrediente_version_ingrediente"),
+        CheckConstraint("cantidad > 0", name="ck_receta_ingrediente_cantidad_positiva"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     version_receta_id: Mapped[int] = mapped_column(
         ForeignKey("versiones_receta.id", ondelete="RESTRICT"), index=True
     )
-    insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"), index=True)
+    ingrediente_id: Mapped[int] = mapped_column(ForeignKey("ingredientes.id"), index=True)
     cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     unidad_medida_id: Mapped[int] = mapped_column(ForeignKey("unidades_medida.id"))
-    clasificacion: Mapped[str] = mapped_column(String(20))
+    es_aditivo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
-    version: Mapped["VersionReceta"] = relationship(back_populates="insumos")
-    insumo: Mapped["Insumo"] = relationship()
+    version: Mapped["VersionReceta"] = relationship(back_populates="ingredientes")
+    ingrediente: Mapped["Ingrediente"] = relationship()
     unidad_medida: Mapped["UnidadMedida"] = relationship()
 
 
-class OrdenManualInsumo(ModeloBase):
-    """Decisión de quién va primero entre insumos de una versión que pesan lo mismo.
+class OrdenManualIngrediente(ModeloBase):
+    """Decisión de quién va primero entre ingredientes de una versión que pesan lo mismo.
 
     Las versiones son de solo lectura, así que la decisión vive en su propia tabla:
     no toca la receta, solo fija el orden de la lista de ingredientes y deja
@@ -149,7 +152,7 @@ class OrdenManualInsumo(ModeloBase):
     __tablename__ = "receta_orden_manual"
     __table_args__ = (
         UniqueConstraint(
-            "version_receta_id", "insumo_id", name="uq_receta_orden_manual_version_insumo"
+            "version_receta_id", "ingrediente_id", name="uq_receta_orden_manual_version_ingrediente"
         ),
         CheckConstraint("posicion > 0", name="ck_receta_orden_manual_posicion_positiva"),
     )
@@ -158,7 +161,7 @@ class OrdenManualInsumo(ModeloBase):
     version_receta_id: Mapped[int] = mapped_column(
         ForeignKey("versiones_receta.id", ondelete="RESTRICT"), index=True
     )
-    insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"), index=True)
+    ingrediente_id: Mapped[int] = mapped_column(ForeignKey("ingredientes.id"), index=True)
     # Lugar dentro del grupo empatado: 1 va primero.
     posicion: Mapped[int] = mapped_column(Integer)
     decidido_por_id: Mapped[int] = mapped_column(ForeignKey("personal.id"))
@@ -167,32 +170,32 @@ class OrdenManualInsumo(ModeloBase):
     decidido_por: Mapped["Personal"] = relationship()
 
 
-class TareaRecetaInsumo(ModeloBase):
-    """Reparto explícito: cuánto de cada insumo se usa en cada tarea."""
+class TareaRecetaIngrediente(ModeloBase):
+    """Reparto explícito: cuánto de cada ingrediente se usa en cada tarea."""
 
-    __tablename__ = "tarea_receta_insumo"
+    __tablename__ = "tarea_receta_ingrediente"
     __table_args__ = (
-        UniqueConstraint("tarea_receta_id", "receta_insumo_id", name="uq_tarea_receta_insumo"),
-        CheckConstraint("cantidad > 0", name="ck_tarea_receta_insumo_cantidad_positiva"),
+        UniqueConstraint("tarea_receta_id", "receta_ingrediente_id", name="uq_tarea_receta_ingrediente"),
+        CheckConstraint("cantidad > 0", name="ck_tarea_receta_ingrediente_cantidad_positiva"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     tarea_receta_id: Mapped[int] = mapped_column(
         ForeignKey("tareas_receta.id", ondelete="RESTRICT"), index=True
     )
-    receta_insumo_id: Mapped[int] = mapped_column(
-        ForeignKey("receta_insumo.id", ondelete="RESTRICT"), index=True
+    receta_ingrediente_id: Mapped[int] = mapped_column(
+        ForeignKey("receta_ingrediente.id", ondelete="RESTRICT"), index=True
     )
     cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 3))
 
-    tarea: Mapped["TareaReceta"] = relationship(back_populates="insumos")
-    receta_insumo: Mapped["RecetaInsumo"] = relationship()
+    tarea: Mapped["TareaReceta"] = relationship(back_populates="ingredientes")
+    receta_ingrediente: Mapped["RecetaIngrediente"] = relationship()
 
 
 @event.listens_for(VersionReceta, "before_update")
 @event.listens_for(TareaReceta, "before_update")
-@event.listens_for(RecetaInsumo, "before_update")
-@event.listens_for(TareaRecetaInsumo, "before_update")
+@event.listens_for(RecetaIngrediente, "before_update")
+@event.listens_for(TareaRecetaIngrediente, "before_update")
 def impedir_modificar_version(mapper, connection, target):
     """Una versión ya creada es de solo lectura: el historial no se reescribe."""
     if object_session(target).is_modified(target, include_collections=False):
@@ -201,7 +204,7 @@ def impedir_modificar_version(mapper, connection, target):
 
 @event.listens_for(VersionReceta, "before_delete")
 @event.listens_for(TareaReceta, "before_delete")
-@event.listens_for(RecetaInsumo, "before_delete")
-@event.listens_for(TareaRecetaInsumo, "before_delete")
+@event.listens_for(RecetaIngrediente, "before_delete")
+@event.listens_for(TareaRecetaIngrediente, "before_delete")
 def impedir_borrar_version(mapper, connection, target):
     raise VersionRecetaInmutableError()

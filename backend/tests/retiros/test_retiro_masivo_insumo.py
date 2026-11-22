@@ -26,6 +26,7 @@ from src.database import get_db  # noqa: E402
 from src.main import app  # noqa: E402
 from src.models import ModeloBase  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
+from src.ingredientes.models import Ingrediente  # noqa: E402
 from src.insumos.models import Insumo  # noqa: E402
 from src.proveedores.models import Proveedor  # noqa: E402
 from src.lotesInsumo.models import LoteInsumo  # noqa: E402
@@ -63,8 +64,21 @@ def _get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = _get_db
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _usar_esta_base():
+    # El override se aplica en cada test y no al importar el módulo: otros
+    # módulos de tests registran su propia base en la misma `app` y, si se
+    # importan después, la pisaban (401 "Usuario no encontrado").
+    anterior = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = _get_db
+    yield
+    if anterior is None:
+        app.dependency_overrides.pop(get_db, None)
+    else:
+        app.dependency_overrides[get_db] = anterior
 
 
 def _headers(personal_id: int) -> dict:
@@ -89,14 +103,22 @@ def setup_datos():
             db.add(prov)
             db.flush()
 
-        insumo = db.query(Insumo).filter_by(nombre="Harina de Trigo").first()
+        # Ingrediente (la especificación) e insumo (la marca que se compra).
+        ingrediente = db.query(Ingrediente).filter_by(nombre="Harina de Trigo").first()
+        if not ingrediente:
+            ingrediente = Ingrediente(nombre="Harina de Trigo", unidad_medida_id=um.id, activo=True)
+            db.add(ingrediente)
+            db.flush()
+        insumo = db.query(Insumo).filter_by(ingrediente_id=ingrediente.id).first()
         if not insumo:
-            insumo = Insumo(nombre="Harina de Trigo", unidad_medida_id=um.id, activo=True)
+            insumo = Insumo(ingrediente_id=ingrediente.id, marca="Molinos", activo=True,
+                            estado_homologacion="aprobada", proveedores=[prov])
             db.add(insumo)
             db.flush()
 
         lote_insumo = LoteInsumo(
             insumo_id=insumo.id,
+            ingrediente_id=ingrediente.id,
             proveedor_id=prov.id,
             numero_lote=f"LOT-INS-001-{os.urandom(4).hex()}",
             cantidad_recibida=Decimal("100"),
@@ -231,6 +253,7 @@ def test_retiro_masivo_insumo_rollback_por_lote_ya_retirado(setup_datos):
         insumo = db.query(Insumo).first()
         li = LoteInsumo(
             insumo_id=insumo.id,
+            ingrediente_id=insumo.ingrediente_id,
             proveedor_id=datos["prov_id"],
             numero_lote=f"LOT-INS-ROLLBACK-{os.urandom(4).hex()}",
             cantidad_recibida=Decimal("50"),

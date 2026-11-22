@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import { Badge, Box, Grid, HStack, Stack, Text } from "@chakra-ui/react";
 import { haceDiasISO, hoyISO } from "../../../common/utils/fechas";
 import { formatoCantidad } from "../../../common/utils/numeros";
@@ -11,30 +12,17 @@ import type { IndicadorBajasResponse } from "../types/loteInsumo";
 export function TarjetaBajasInsumos() {
   const [fechaDesde, setFechaDesde] = useState(() => haceDiasISO(30));
   const [fechaHasta, setFechaHasta] = useState(() => hoyISO());
-  const [datos, setDatos] = useState<IndicadorBajasResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelado = false;
-    setLoading(true);
-    setError(null);
-    obtenerIndicadorBajas(fechaDesde, fechaHasta)
-      .then((res) => {
-        if (!cancelado) setDatos(res);
-      })
-      .catch((err) => {
-        if (!cancelado) {
-          setError(err instanceof Error ? err.message : "Error al cargar bajas.");
-        }
-      })
-      .finally(() => {
-        if (!cancelado) setLoading(false);
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, [fechaDesde, fechaHasta]);
+  const cargar = useCallback(
+    () => obtenerIndicadorBajas(fechaDesde, fechaHasta),
+    [fechaDesde, fechaHasta],
+  );
+  const { items: datos, loading, error } = useLista<IndicadorBajasResponse | null>({
+    cargar,
+    dependencias: [fechaDesde, fechaHasta],
+    valorInicial: null,
+    mensajeError: "Error al cargar bajas.",
+    preferirMensajeDelBackend: true,
+  });
 
   const maximo = datos
     ? Math.max(...datos.por_motivo.map((m) => m.cantidad_registros), 0)

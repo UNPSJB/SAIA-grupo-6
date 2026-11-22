@@ -26,7 +26,7 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 
 const PAGE_SIZE = 10;
 
@@ -195,7 +195,7 @@ export function PlanLimpiezaPage() {
               onChange={handleToggleInactivos}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="planes_limpieza"
               filtros={{
                 activo: String(!verInactivos),

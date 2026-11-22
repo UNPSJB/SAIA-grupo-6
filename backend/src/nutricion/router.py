@@ -58,22 +58,22 @@ async def importar_alimentos(
     return services.importar_alimentos(db, base, contenido)
 
 
-# ── Datos nutricionales del insumo ─────────────────────────────────────────
+# ── Datos nutricionales del ingrediente ─────────────────────────────────────────
 
 
-@router.get("/insumos/{insumo_id}", response_model=schemas.DatosNutricionalesResponse)
-def obtener_datos_insumo(insumo_id: int, db: Session = Depends(get_db)):
-    return services.obtener_datos_insumo(db, insumo_id)
+@router.get("/ingredientes/{ingrediente_id}", response_model=schemas.DatosNutricionalesResponse)
+def obtener_datos_ingrediente(ingrediente_id: int, db: Session = Depends(get_db)):
+    return services.obtener_datos_ingrediente(db, ingrediente_id)
 
 
-@router.put("/insumos/{insumo_id}", response_model=schemas.DatosNutricionalesResponse)
-def guardar_datos_insumo(
-    insumo_id: int,
+@router.put("/ingredientes/{ingrediente_id}", response_model=schemas.DatosNutricionalesResponse)
+def guardar_datos_ingrediente(
+    ingrediente_id: int,
     datos: schemas.DatosNutricionalesIn,
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_admin),
 ):
-    return services.guardar_datos_insumo(db, insumo_id, datos, usuario)
+    return services.guardar_datos_ingrediente(db, ingrediente_id, datos, usuario)
 
 
 # ── Información nutricional del producto ───────────────────────────────────

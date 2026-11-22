@@ -11,6 +11,7 @@ MotivoBajaTipo = Literal["danado", "vencido", "contaminado", "devuelto_proveedor
 
 
 class LoteInsumoCreate(BaseModel):
+    # El insumo (marca) recibido; el ingrediente sale de él.
     insumo_id: int = Field(gt=0)
     proveedor_id: int = Field(gt=0)
     numero_lote: str = Field(max_length=100)
@@ -59,8 +60,16 @@ class ProveedorResumen(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class IngredienteResumen(BaseModel):
+    id: int
+    nombre: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class InsumoResumen(BaseModel):
     id: int
+    marca: str
     nombre: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -69,6 +78,7 @@ class InsumoResumen(BaseModel):
 class LoteInsumoResponse(BaseModel):
     id: int
     insumo: InsumoResumen
+    ingrediente: IngredienteResumen
     proveedor: ProveedorResumen
     numero_lote: str
     cantidad_recibida: Decimal
@@ -86,7 +96,10 @@ class LoteInsumoResponse(BaseModel):
 class StockLoteInsumo(BaseModel):
     lote_insumo_id: int
     insumo_id: int
+    # Marca (y descripción, si hay) del insumo recibido.
     insumo_nombre: str
+    ingrediente_id: int
+    ingrediente_nombre: str
     unidad: str
     proveedor_id: int
     proveedor_nombre: str
@@ -94,6 +107,9 @@ class StockLoteInsumo(BaseModel):
     fecha_vencimiento: date | None
     activo: bool
     vencido: bool
+    # Por qué la marca no se puede consumir (homologación no aprobada o
+    # vencida); None si se puede.
+    marca_no_utilizable: str | None = None
     motivo_baja: str | None = None
     fecha_baja: datetime | None = None
     dado_de_baja_por_nombre: str | None = None
@@ -104,9 +120,9 @@ class StockLoteInsumo(BaseModel):
     saldo: Decimal
 
 
-class StockInsumo(BaseModel):
-    insumo_id: int
-    insumo_nombre: str
+class StockIngrediente(BaseModel):
+    ingrediente_id: int
+    ingrediente_nombre: str
     unidad: str
     cantidad_recibida: Decimal
     consumo_real: Decimal

@@ -22,7 +22,8 @@ export function textoAlergenosDePropuesta(
   const directos: string[] = [];
   const derivados: string[] = [];
   for (const item of propuesta.detectados) {
-    if (item.codigo === "sulfitos") continue;
+    // Los condicionados (sulfitos) esperan su evaluación; las propuestas viejas no traen la marca.
+    if (item.condicionada ?? item.codigo === "sulfitos") continue;
     const esDirecto = item.fuentes.some((f) => f.forma === "directa");
     (esDirecto ? directos : derivados).push(item.nombre.toUpperCase());
   }

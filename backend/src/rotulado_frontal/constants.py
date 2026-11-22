@@ -40,7 +40,7 @@ CAMPO_CONFIGURACION = {
     CAFEINA: "cafeina",
 }
 
-# Campo del perfil nutricional del insumo que trae la marca.
+# Campo del perfil nutricional del ingrediente que trae la marca.
 CAMPO_PERFIL = {
     AZUCARES: "azucares_son_anadidos",
     GRASAS: "grasas_son_anadidas",
@@ -91,7 +91,7 @@ CANALES_CONSUMO_FINAL = (CANAL_MINORISTA,)
 ORIGEN_RECETA = "receta"
 ORIGEN_CORRECCION = "correccion"
 
-MOTIVO_PERFIL = "marca del insumo"
+MOTIVO_PERFIL = "marca del ingrediente"
 MOTIVO_CLASE = "clase funcional"
 MOTIVO_CAFEINA_INTRINSECA = "cafeína intrínseca del ingrediente"
 

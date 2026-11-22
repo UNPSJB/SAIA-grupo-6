@@ -1,21 +1,19 @@
 import { ConservacionFields } from "../../rotulado/components/ConservacionFields";
 import { useEffect, useState } from "react";
-import { Box } from "@chakra-ui/react";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  SIN_VALIDACION_NATIVA,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 import { listarUnidadesMedida } from "../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import type { ProductoFormValues } from "../types/producto";
@@ -25,7 +23,6 @@ interface ProductoFormProps {
   onSubmit: (values: ProductoFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -36,7 +33,6 @@ export function ProductoForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de producto",
   onCancel,
 }: ProductoFormProps) {
   const [values, setValues] = useState<ProductoFormValues>(initialValues);
@@ -62,65 +58,66 @@ export function ProductoForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo>
+            <FormInput
+              value={values.nombre}
+              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Ej: Mermelada de frutilla"
+            />
+          </FormField>
 
-        <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
-          <FormInput
-            value={values.nombre}
-            onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-            placeholder="Ej: Mermelada de frutilla"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField label="Descripción" opcional completo>
+            <FormInput
+              value={values.descripcion}
+              onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
+            />
+          </FormField>
 
-        <FormField label="Descripción" mb="4">
-          <FormInput
-            value={values.descripcion}
-            onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
-            placeholder="Opcional"
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField invalid={intentado && faltan.tiene("unidad")}
-          label="Unidad de medida"
-          required
-          mb="0"
-          helper="Unidad en la que se mide lo que se produce (por ejemplo kg o litros)."
-        >
-          <FormNativeSelect
+          <FormField
             invalid={intentado && faltan.tiene("unidad")}
-            value={values.unidad_medida_id}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }))
-            }
-            disabled={cargandoUnidades}
-            maxW="500px"
+            label="Unidad de medida"
+            required
+            helper="Unidad en la que se mide lo que se produce (por ejemplo kg o litros)."
           >
-            <SelectPlaceholder>
-              {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
-            </SelectPlaceholder>
-            {unidades.map((unidad) => (
-              <option key={unidad.id} value={unidad.id}>
-                {unidad.nombre} ({unidad.simbolo})
-              </option>
-            ))}
-          </FormNativeSelect>
-        </FormField>
-
-        <ConservacionFields value={values.conservacion ?? null} onChange={v => setValues(prev => ({ ...prev, conservacion: v }))} />
-        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-        <AccionesFormulario>
-          <BotonGuardar
-            loading={isLoading}
-          >
-            {submitLabel}
-          </BotonGuardar>
-          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+            <FormNativeSelect
+              invalid={intentado && faltan.tiene("unidad")}
+              value={values.unidad_medida_id}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, unidad_medida_id: Number(e.target.value) }))
+              }
+              disabled={cargandoUnidades}
+            >
+              <SelectPlaceholder>
+                {cargandoUnidades ? "Cargando..." : "Seleccioná una unidad"}
+              </SelectPlaceholder>
+              {unidades.map((unidad) => (
+                <option key={unidad.id} value={unidad.id}>
+                  {unidad.nombre} ({unidad.simbolo})
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <SeccionFormulario
+        titulo="Conservación"
+        ayuda="Se copia a la declaración del rótulo; ahí se puede ajustar por borrador."
+      >
+        <ConservacionFields
+          value={values.conservacion ?? null}
+          onChange={(v) => setValues((prev) => ({ ...prev, conservacion: v }))}
+        />
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

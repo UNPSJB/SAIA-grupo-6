@@ -8,7 +8,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../components/ui/plantillas";
+import { LuFileText } from "react-icons/lu";
+import { PaginaAlta } from "../../../components/ui/formularios";
 
 export function DocumentoCreatePage() {
   const navigate = useNavigate();
@@ -27,8 +28,9 @@ export function DocumentoCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/documentos", etiqueta: "Documentos" }}
+      icono={LuFileText}
       titulo="Nuevo documento"
       descripcion="Cargá un documento con su nombre y tipo; queda como versión 1 vigente."
     >
@@ -40,10 +42,9 @@ export function DocumentoCreatePage() {
         conDatosDelDocumento
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de documento"
         submitLabel="Subir documento"
         onCancel={() => navigate("/documentos")}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

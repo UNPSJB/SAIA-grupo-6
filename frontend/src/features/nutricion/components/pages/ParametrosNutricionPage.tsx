@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, Box, Button, Checkbox, HStack, InputGroup, Stack, Table, Text } from "@chakra-ui/react";
-import { LuFileDown, LuFileUp, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina, PestanasPagina, SeccionDetalle } from "../../../../components/ui/plantillas";
+import { LuFileDown, LuFileUp, LuScale, LuSlidersHorizontal, LuTextQuote } from "react-icons/lu";
+import { BotonExportar } from "../../../exportacion";
+import { SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -54,22 +54,6 @@ import { Aviso, Bloque } from "../piezas";
  * son parámetros y no constantes del código: la norma o el criterio del/la
  * profesional de referencia pueden cambiar.
  */
-export function ParametrosNutricionPage() {
-  return (
-    <Pagina
-      titulo="Parámetros nutricionales"
-      descripcion="Cómo se calcula y se expresa la tabla de información nutricional, y de dónde salen los datos de los insumos."
-    >
-      <PestanasPagina
-        pestanas={[
-          { valor: "parametros", etiqueta: "Redondeo y valores diarios", contenido: <PanelParametros /> },
-          { valor: "base", etiqueta: "Base de composición", contenido: <PanelBase /> },
-        ]}
-      />
-    </Pagina>
-  );
-}
-
 const vacioANull = (t: string | null) => (t === null || t.trim() === "" ? null : t.trim().replace(",", "."));
 /** "2000.000" -> "2000"; lo que la persona está escribiendo ("0,") queda igual. */
 const editable = (v: string | null) => (v === null ? "" : /^\d+\.\d*0$/.test(v) ? String(Number(v)) : v);
@@ -80,7 +64,8 @@ function ejemplo(valor: number, n: ParametroNutriente) {
   return valor.toLocaleString("es-AR", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
-function PanelParametros() {
+/** Pestaña "Parámetros nutricionales" de Recetas: redondeo, valores diarios y notas. */
+export function PanelParametros() {
   const [datos, setDatos] = useState<Parametros | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -263,6 +248,70 @@ function PanelParametros() {
         </Stack>
       </Bloque>
 
+      <Bloque
+        titulo="Homologación de insumos"
+        icono={LuScale}
+        ayuda="Al homologar una marca se compara su rótulo con los valores objetivo del ingrediente. Esta tolerancia decide cuándo un valor nutricional se aparta demasiado. Los alérgenos no tienen tolerancia."
+      >
+        <Stack gap="0" mx={{ base: "-4", md: "-5" }} mb={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
+          <CampoParametro
+            titulo="Tolerancia de los valores nutricionales"
+            descripcion="Desvío máximo, en más o en menos, entre el valor por 100 g del rótulo de la marca y el valor objetivo del ingrediente. Si un nutriente se pasa, la comparación queda «observada» y la marca solo se puede aprobar con una justificación. Los valores que en los dos casos están por debajo del umbral de «no significativo» se toman como iguales."
+            aparece={["Homologación de insumos (ficha del ingrediente)"]}
+            vacio="Más de 0 y hasta 100 %. El valor inicial es 20 %."
+            obligatorio
+          >
+            <Box w="140px">
+              <InputGroup endElement="%">
+                <FormInput
+                  size="sm"
+                  textAlign="right"
+                  inputMode="decimal"
+                  value={editable(datos.generales.tolerancia_homologacion_pct)}
+                  onChange={(e) => {
+                    if (/^\d*[.,]?\d*$/.test(e.target.value)) {
+                      setDatos({
+                        ...datos,
+                        generales: { ...datos.generales, tolerancia_homologacion_pct: e.target.value.replace(",", ".") },
+                      });
+                    }
+                  }}
+                  aria-label="Tolerancia de homologación en porcentaje"
+                />
+              </InputGroup>
+            </Box>
+          </CampoParametro>
+
+          <CampoParametro
+            titulo="Vigencia de la homologación"
+            descripcion="Cuánto dura una marca aprobada. Al acercarse el vencimiento (con el mismo margen que los documentos) y al vencer, aparece una notificación para revisar su rótulo y volver a aprobarla. Vencida, no se pueden recibir ni consumir lotes de esa marca."
+            aparece={["Notificaciones", "Homologación de insumos (vigente hasta)"]}
+            vacio="De 1 a 60 meses. El valor inicial es 12 meses."
+            obligatorio
+          >
+            <Box w="140px">
+              <InputGroup endElement="meses">
+                <FormInput
+                  size="sm"
+                  textAlign="right"
+                  inputMode="numeric"
+                  value={String(datos.generales.vigencia_homologacion_meses)}
+                  onChange={(e) => {
+                    if (/^\d{0,2}$/.test(e.target.value)) {
+                      setDatos({
+                        ...datos,
+                        generales: { ...datos.generales, vigencia_homologacion_meses: e.target.value },
+                      });
+                    }
+                  }}
+                  aria-label="Vigencia de la homologación en meses"
+                />
+              </InputGroup>
+            </Box>
+          </CampoParametro>
+        </Stack>
+      </Bloque>
+
       <HStack justify="flex-end">
         <BotonGuardar loading={guardando}>Guardar parámetros</BotonGuardar>
       </HStack>
@@ -293,7 +342,8 @@ function descargarPlantilla() {
   URL.revokeObjectURL(enlace);
 }
 
-function PanelBase() {
+/** Pestaña "Base de composición" de Recetas: importar y consultar alimentos. */
+export function PanelBase() {
   const [bases, setBases] = useState<string[]>([]);
   const [base, setBase] = useState("");
   const [texto, setTexto] = useState("");
@@ -361,7 +411,7 @@ function PanelBase() {
       <Bloque
         titulo="Importar una base de composición"
         icono={LuFileUp}
-        ayuda="Subí el CSV de SARA 1 (AlimentoyComposicion.csv) tal como viene, o cualquier otra tabla con el formato de la plantilla. Queda como referencia para completar los datos nutricionales de los insumos. La que viene cargada es solo de ejemplo."
+        ayuda="Subí el CSV de SARA 1 (AlimentoyComposicion.csv) tal como viene, o cualquier otra tabla con el formato de la plantilla. Queda como referencia para completar los datos nutricionales de los ingredientes. La que viene cargada es solo de ejemplo."
         acciones={
           <Button size="sm" variant="ghost" colorPalette="brand" onClick={descargarPlantilla}>
             <LuFileDown aria-hidden /> Descargar plantilla CSV
@@ -425,7 +475,7 @@ function PanelBase() {
           <Text fontSize="xs" color="fg.muted" mt="3">
             Una fila por alimento, valores por 100 g (energía en kcal, sodio en mg). Columnas: «nombre» (obligatoria),
             «codigo» y una por nutriente con el nombre de la plantilla. El CSV de SARA 1 se reconoce solo; no trae
-            azúcares ni grasas trans, que se completan en cada insumo con otra fuente. Para actualizar una base ya
+            azúcares ni grasas trans, que se completan en cada ingrediente con otra fuente. Para actualizar una base ya
             cargada, escribí su mismo nombre (aparece como sugerencia al escribir): los alimentos que ya estaban se
             actualizan y los nuevos se agregan.
           </Text>
@@ -455,7 +505,7 @@ function PanelBase() {
         sinMarco
         mb="0"
         titulo="Alimentos cargados"
-        descripcion="Valores por 100 g. Son los que se ofrecen al elegir «Base de composición» en los datos de un insumo."
+        descripcion="Valores por 100 g. Son los que se ofrecen al elegir «Base de composición» en los datos de un ingrediente."
       >
         <BarraFiltros
           busqueda={<CampoBusqueda valor={texto} onCambio={setTexto} placeholder="Nombre del alimento..." />}
@@ -470,7 +520,7 @@ function PanelBase() {
             />
           }
           herramientas={
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="alimentos"
               vista="alimentos"
               filtros={{ buscar: texto.trim() || undefined, base: base || undefined }}
@@ -540,12 +590,15 @@ function CampoParametro({
   descripcion,
   aparece,
   vacio,
+  obligatorio = false,
   children,
 }: {
   titulo: string;
   descripcion: ReactNode;
   aparece: string[];
+  /** Qué pasa si queda vacío; en uno obligatorio, qué valores admite. */
   vacio: string;
+  obligatorio?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -562,9 +615,11 @@ function CampoParametro({
       <Box minW="0">
         <HStack gap="2" mb="1">
           <Text fontWeight="semibold">{titulo}</Text>
-          <Badge size="sm" variant="subtle" colorPalette="gray">
-            Opcional
-          </Badge>
+          {!obligatorio && (
+            <Badge size="sm" variant="subtle" colorPalette="gray">
+              Opcional
+            </Badge>
+          )}
         </HStack>
         <Text fontSize="sm" color="fg.muted" mb="3">{descripcion}</Text>
         <HStack gap="1.5" flexWrap="wrap" mb="2">
@@ -574,7 +629,7 @@ function CampoParametro({
           ))}
         </HStack>
         <Text fontSize="xs" color="fg.muted">
-          <Text as="span" fontWeight="semibold">Si queda vacío: </Text>
+          <Text as="span" fontWeight="semibold">{obligatorio ? "Valores admitidos: " : "Si queda vacío: "}</Text>
           {vacio}
         </Text>
       </Box>

@@ -41,7 +41,7 @@ import {
   ProgresoTareas,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import { formatoPorcentaje } from "../../../../common/utils/numeros";
 
 const PAGE_SIZE = 10;
@@ -56,7 +56,7 @@ const ETIQUETAS_ORDEN: Record<ColumnaHistorial, string> = {
 /** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
 function colorPorcentaje(pct: number): string {
   if (pct >= 80) return "green.fg";
-  if (pct >= 50) return "orange.400";
+  if (pct >= 50) return "orange.fg";
   return "red.fg";
 }
 
@@ -331,7 +331,7 @@ export function HistorialChecklistPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="checklists"
             filtros={{
               buscar: busqueda || undefined,

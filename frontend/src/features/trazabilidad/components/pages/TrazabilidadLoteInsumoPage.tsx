@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Table, Text } from "@chakra-ui/react";
+import { Box, Button, Table, Text } from "@chakra-ui/react";
 import { LuTriangleAlert } from "react-icons/lu";
 import { useAuth } from "../../../../common/context/useAuth";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useRegistro } from "../../../../common/hooks/useRegistro";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
-import { formatoCantidad } from "../../../../common/utils/numeros";
+import { cantidadConUnidad, formatoCantidad, formatoFactor } from "../../../../common/utils/numeros";
 import {
   BannerError,
   BotonAccion,
@@ -23,6 +23,7 @@ import { DatoDetalle, GrillaDatos, PaginaDetalle, SeccionDetalle } from "../../.
 import { BadgeEstadoLote } from "../../../lotes/components/BadgeEstadoLote";
 import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import { trazarLoteInsumo } from "../../services/trazabilidadService";
+import type { LoteProductoUsoIngrediente } from "../../types/trazabilidad";
 
 export function TrazabilidadLoteInsumoPage() {
   const navigate = useNavigate();
@@ -51,6 +52,9 @@ export function TrazabilidadLoteInsumoPage() {
   return (
     <>
       <PaginaDetalle
+        // Ancho completo: la tabla de lotes tiene muchas columnas y con el
+        // ancho fijo de las fichas quedaban márgenes vacíos a los costados.
+        ancho="completo"
         // Se llega desde Stock de insumos o desde la ficha de un lote: "Volver"
         // regresa a la pantalla de origen (Stock de insumos si se entró por URL).
         volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos", historial: true }}
@@ -76,7 +80,8 @@ export function TrazabilidadLoteInsumoPage() {
           <>
             <SeccionDetalle titulo="Datos del lote">
               <GrillaDatos>
-                <DatoDetalle etiqueta="Insumo">{traza.lote_insumo.insumo_nombre}</DatoDetalle>
+                <DatoDetalle etiqueta="Ingrediente">{traza.lote_insumo.ingrediente_nombre}</DatoDetalle>
+                <DatoDetalle etiqueta="Marca">{traza.lote_insumo.insumo_nombre}</DatoDetalle>
                 <DatoDetalle etiqueta="Proveedor">
                   {traza.lote_insumo.proveedor.nombre} (matrícula {traza.lote_insumo.proveedor.matricula})
                 </DatoDetalle>
@@ -93,16 +98,19 @@ export function TrazabilidadLoteInsumoPage() {
               <EstadoVacio>Este lote de insumo todavía no se usó en ningún lote de producto.</EstadoVacio>
             ) : (
               <Tarjeta overflowX="auto">
-                <Table.Root variant="outline" w="100%" minW="760px">
+                <Table.Root variant="outline" w="100%" minW="880px">
                   <Table.Header>
                     <FilaEncabezado>
-                      <EncabezadoOscuro ancho="amplia">Número de lote</EncabezadoOscuro>
+                      {/* Anchos explícitos: con los presets sumaban 90% y al
+                          producto le quedaba un 10%, así que el nombre se cortaba. */}
+                      <EncabezadoOscuro width="13%">Número de lote</EncabezadoOscuro>
                       <EncabezadoOscuro>Producto</EncabezadoOscuro>
-                      <EncabezadoOscuro ancho="media">Fecha</EncabezadoOscuro>
-                      <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
-                      <EncabezadoOscuro numero ancho="media">Consumo real</EncabezadoOscuro>
-                      <EncabezadoOscuro numero ancho="media">Desperdicio</EncabezadoOscuro>
-                      <EncabezadoOscuro center ancho="angosta">
+                      <EncabezadoOscuro width="12%">Fecha</EncabezadoOscuro>
+                      <EncabezadoOscuro center width="11%">Estado</EncabezadoOscuro>
+                      <EncabezadoOscuro numero width="17%">Tamaño del lote</EncabezadoOscuro>
+                      <EncabezadoOscuro numero width="10%">Consumo real</EncabezadoOscuro>
+                      <EncabezadoOscuro numero width="10%">Desperdicio</EncabezadoOscuro>
+                      <EncabezadoOscuro center width="6%">
                         Ver
                       </EncabezadoOscuro>
                     </FilaEncabezado>
@@ -111,16 +119,21 @@ export function TrazabilidadLoteInsumoPage() {
                     {traza.lotes_producto.map((l) => (
                       <FilaClickeable onAbrir={() => navigate(`/lotes/${l.lote_producto_id}`)} key={l.lote_producto_id}>
                         <Celda>
-                          <Text fontFamily="mono" fontSize="sm" color="#64748B">
+                          <Text fontFamily="mono" fontSize="sm" color="tabla.textoSecundario">
                             {l.numero_lote}
                           </Text>
                         </Celda>
                         <Celda>
                           <DatoPrincipal titulo={l.producto_nombre} />
                         </Celda>
-                        <Celda whiteSpace="nowrap">{formatoFechaHora(l.fecha_inicio)}</Celda>
+                        {/* Sin `nowrap`: en una columna angosta la hora pasa al
+                            renglón de abajo en vez de salirse de la celda. */}
+                        <Celda>{formatoFechaHora(l.fecha_inicio)}</Celda>
                         <Celda center>
                           <BadgeEstadoLote estado={l.estado} />
+                        </Celda>
+                        <Celda numero>
+                          <TamanoLote lote={l} />
                         </Celda>
                         <Celda numero>{formatoCantidad(l.consumo_real)}</Celda>
                         <Celda numero>{formatoCantidad(l.desperdicio)}</Celda>
@@ -152,5 +165,27 @@ export function TrazabilidadLoteInsumoPage() {
         }}
       />
     </>
+  );
+}
+
+/**
+ * Objetivo del lote con su escala y, si ya cerró, lo producido. Con la misma
+ * receta, un lote a escala ×0,5 consume la mitad que uno a ×1: sin este dato
+ * la diferencia de consumo parecía un error.
+ */
+function TamanoLote({ lote }: { lote: LoteProductoUsoIngrediente }) {
+  const detalle = [
+    lote.factor_escala ? `escala ${formatoFactor(lote.factor_escala)}` : null,
+    lote.cantidad_producida ? `producido ${cantidadConUnidad(lote.cantidad_producida, lote.unidad)}` : null,
+  ].filter(Boolean);
+  return (
+    <Box>
+      <Text>{cantidadConUnidad(lote.cantidad_objetivo, lote.unidad)}</Text>
+      {detalle.length > 0 && (
+        <Text fontSize="xs" color="tabla.textoSecundario" mt="0.5">
+          {detalle.join(" · ")}
+        </Text>
+      )}
+    </Box>
   );
 }

@@ -1,14 +1,7 @@
 import { useId } from "react";
 import { Box, Text } from "@chakra-ui/react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { esPeriodoDeUnMes, useFechasEje } from "../../dashboard/components/ejeFechas";
 import type { PuntoDiario } from "../types/cumplimiento";
 
 /** brand.500 en hex (igual en claro y oscuro): el degradado del área (`<stop>`) necesita un color literal. */
@@ -66,15 +59,30 @@ function TooltipDia({
 export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoProps) {
   // Id del degradado, único por gráfico.
   const idDegradado = `cumplimiento-${useId().replace(/:/g, "")}`;
+  const { ref: refEjeFechas, ticks: ticksFechas, tick: tickFecha } = useFechasEje(
+    datos.map((d) => d.etiqueta),
+    10,
+    COLOR_TEXTO,
+    datos.map((d) => d.fecha),
+  );
   return (
     <Box
+      ref={refEjeFechas}
       w="full"
       h={`${alto}px`}
       role="img"
       aria-label="Evolución del porcentaje diario de cumplimiento de limpieza en el período elegido"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 6 }}>
+        <AreaChart
+          data={datos}
+          // En diagonal, las fechas de las puntas asoman unos píxeles: margen extra.
+          margin={
+            esPeriodoDeUnMes(datos.length)
+              ? { top: 8, right: 16, bottom: 4, left: 10 }
+              : { top: 8, right: 22, bottom: 0, left: 6 }
+          }
+        >
           {/* Curva suavizada con un degradado debajo, como las áreas de los paneles. */}
           <defs>
             <linearGradient id={idDegradado} x1="0" y1="0" x2="0" y2="1">
@@ -82,20 +90,32 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
               <stop offset="100%" stopColor={COLOR_LINEA} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            vertical={false}
-            stroke="var(--chakra-colors-bg-muted)"
-            strokeDasharray="4 4"
-          />
-          <XAxis
-            dataKey="etiqueta"
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 10, fill: COLOR_TEXTO }}
-            dy={4}
-            interval="preserveStartEnd"
-            minTickGap={24}
-          />
+          <CartesianGrid vertical={false} stroke="var(--chakra-colors-bg-muted)" strokeDasharray="4 4" />
+          {/* Período de 30 días: fechas en diagonal y todas visibles. En los
+              demás períodos, derechas y salteando las que no entran. */}
+          {esPeriodoDeUnMes(datos.length) ? (
+            <XAxis
+              dataKey="etiqueta"
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 10, fill: COLOR_TEXTO }}
+              angle={-45}
+              textAnchor="end"
+              height={48}
+              tickMargin={4}
+              interval={0}
+            />
+          ) : (
+            <XAxis
+              dataKey="etiqueta"
+              tickLine={false}
+              axisLine={false}
+              ticks={ticksFechas}
+              tick={tickFecha}
+              tickMargin={4}
+              interval={0}
+            />
+          )}
           <YAxis
             width={42}
             domain={[0, 100]}

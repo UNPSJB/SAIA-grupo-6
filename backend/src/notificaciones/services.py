@@ -254,7 +254,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
     lotes = db.scalars(
         select(LoteInsumo)
         .options(
-            selectinload(LoteInsumo.insumo),
+            selectinload(LoteInsumo.ingrediente),
             selectinload(LoteInsumo.proveedor),
         )
         .where(
@@ -274,7 +274,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
             titulo = "Lote de insumo vencido"
             nivel = "VENCIDO"
             mensaje = (
-                f"El lote '{lote.numero_lote}' de '{lote.insumo.nombre}' "
+                f"El lote '{lote.numero_lote}' de '{lote.ingrediente.nombre}' "
                 f"del proveedor '{lote.proveedor.nombre}' venció el "
                 f"{lote.fecha_vencimiento:%d/%m/%Y}."
             )
@@ -282,7 +282,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
             titulo = "Lote de insumo próximo a vencer"
             nivel = "PROXIMO_A_VENCER"
             mensaje = (
-                f"El lote '{lote.numero_lote}' de '{lote.insumo.nombre}' "
+                f"El lote '{lote.numero_lote}' de '{lote.ingrediente.nombre}' "
                 f"del proveedor '{lote.proveedor.nombre}' vence en "
                 f"{dias_restantes} día(s), el "
                 f"{lote.fecha_vencimiento:%d/%m/%Y}."
@@ -303,6 +303,62 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
         )
 
     return notificaciones
+
+def obtener_notificaciones_homologacion_insumos(db: Session) -> List[NotificacionResponse]:
+    """Marcas aprobadas cuya homologación venció o está por vencer.
+
+    La vigencia sale de Parámetros nutricionales (12 meses por defecto) y el
+    margen de "próximo" es el mismo de los documentos. Vencida, la marca no
+    recibe lotes ni se consume hasta que alguien revise su rótulo y vuelva a aprobarla.
+    """
+    from src.insumos.homologacion import vigencia_meses, vigente_hasta
+    from src.insumos.models import ESTADO_APROBADA, Insumo
+
+    hoy_dia = hoy()
+    margen = obtener_dias_alerta_vencimiento_personal(db)
+    meses = vigencia_meses(db)
+    insumos = db.scalars(
+        select(Insumo)
+        .options(selectinload(Insumo.ingrediente))
+        .where(Insumo.activo.is_(True), Insumo.estado_homologacion == ESTADO_APROBADA)
+        .order_by(Insumo.id)
+    ).all()
+
+    notificaciones = []
+    for insumo in insumos:
+        vence = vigente_hasta(insumo, meses)
+        if vence is None or vence > hoy_dia + timedelta(days=margen):
+            continue
+        dias = (vence - hoy_dia).days
+        marca = f"'{insumo.nombre}' de '{insumo.ingrediente.nombre}'"
+        if dias < 0:
+            titulo, nivel = "Homologación de insumo vencida", "VENCIDO"
+            mensaje = (
+                f"La homologación de la marca {marca} venció el {vence:%d/%m/%Y}: "
+                "no se pueden recibir ni consumir sus lotes hasta revisar el rótulo y volver a aprobarla."
+            )
+        else:
+            titulo, nivel = "Homologación de insumo próxima a vencer", "PROXIMO_A_VENCER"
+            mensaje = (
+                f"La homologación de la marca {marca} vence en {dias} día(s), el {vence:%d/%m/%Y}. "
+                "Revisá su rótulo y volvé a aprobarla: vencida, no se pueden recibir ni consumir sus lotes."
+            )
+        notificaciones.append(
+            NotificacionResponse(
+                id_notificacion=f"homologacion-insumo-{insumo.id}",
+                tipo="HOMOLOGACION_INSUMO",
+                entidad_id=insumo.id,
+                entidad_nombre=insumo.nombre,
+                titulo=titulo,
+                mensaje=mensaje,
+                nivel=nivel,
+                link_destino=f"/ingredientes/insumos/{insumo.id}/homologacion",
+                fecha_referencia=vence,
+                grupo_clave=f"homologacion-insumo:{insumo.id}",
+            )
+        )
+    return notificaciones
+
 
 def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]:
     filas = db.execute(
@@ -405,6 +461,7 @@ def calcular_filas_notificaciones(db: Session) -> list[dict]:
     notificaciones_originales.extend(obtener_notificaciones_vencimientos_personal(db))
     notificaciones_originales.extend(obtener_notificaciones_stock_bajo(db))
     notificaciones_originales.extend(obtener_notificaciones_vencimiento_lotes_insumo(db))
+    notificaciones_originales.extend(obtener_notificaciones_homologacion_insumos(db))
     por_id = {n.id_notificacion: n for n in notificaciones_originales}
 
     def _recortar(texto: str | None, largo: int) -> str | None:
@@ -507,6 +564,7 @@ _TIPOS_ORIGEN = (
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
+    "HOMOLOGACION_INSUMO",
     "DOCUMENTO",
     "CHECKLIST",
     "INCIDENTE",

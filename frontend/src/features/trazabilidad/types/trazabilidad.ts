@@ -1,4 +1,4 @@
-import type { InsumoPlanificado, LoteResumen } from "../../lotes/types/lote";
+import type { IngredientePlanificado, LoteResumen } from "../../lotes/types/lote";
 
 export interface UsuarioResumen {
   id: number;
@@ -13,6 +13,9 @@ export interface ProveedorTraza {
 
 export interface LoteInsumoTraza {
   id: number;
+  ingrediente_id: number;
+  ingrediente_nombre: string;
+  /** Marca del insumo recibido en este lote. */
   insumo_id: number;
   insumo_nombre: string;
   numero_lote: string;
@@ -39,7 +42,7 @@ export interface TareaTraza {
   descripcion: string;
   completado_por: UsuarioResumen | null;
   completado_en: string | null;
-  planificado: InsumoPlanificado[];
+  planificado: IngredientePlanificado[];
   consumos: ConsumoTraza[];
 }
 
@@ -62,13 +65,18 @@ export interface TrazabilidadLoteProducto {
   proveedores: ProveedorTraza[];
 }
 
-export interface LoteProductoUsoInsumo {
+export interface LoteProductoUsoIngrediente {
   lote_producto_id: number;
   numero_lote: string;
   producto_id: number;
   producto_nombre: string;
   estado: string;
   fecha_inicio: string;
+  /** Tamaño del lote: explica por qué dos lotes de la misma receta consumen distinto. */
+  unidad: string;
+  cantidad_objetivo: string;
+  factor_escala: string | null;
+  cantidad_producida: string | null;
   consumo_real: string;
   desperdicio: string;
 }
@@ -77,5 +85,5 @@ export interface TrazabilidadLoteInsumo {
   lote_insumo: LoteInsumoTraza;
   cantidad_recibida: string;
   saldo: string;
-  lotes_producto: LoteProductoUsoInsumo[];
+  lotes_producto: LoteProductoUsoIngrediente[];
 }

@@ -35,7 +35,9 @@ from src.Equipo.models import Equipo
 from src.aptitud.models import Aptitud
 from src.vencimientoPersonal.models import VencimientoPersonal
 from src.unidadMedida.models import UnidadMedida
+from src.ingredientes.models import Ingrediente
 from src.insumos.models import Insumo
+from src.lotesInsumo.models import LoteInsumo
 from src.insumoQuimico.models import InsumoQuimico
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.PlanLimpieza.models import PlanLimpieza
@@ -61,7 +63,7 @@ db = SessionLocal()
 
 print("==Volumen por tabla ==")
 for modelo in (
-    Personal, Equipo, Aptitud, VencimientoPersonal, UnidadMedida, Insumo,
+    Personal, Equipo, Aptitud, VencimientoPersonal, UnidadMedida, Ingrediente,
     InsumoQuimico, ElementoLimpieza, PlanLimpieza, Tarea, Checklist,
     RegistroTarea, HistorialRegistroTarea, Incidente, HistorialIncidente,
     PlanCalibracionMantenimiento,
@@ -86,6 +88,61 @@ check("el super admin puede administrar", all(p.puede_administrar for p in perso
 check("hay al menos un administrador activo", any(p.puede_administrar and p.activo for p in personas))
 check("todo mundo tiene alguna capacidad",
       all(p.es_super_admin or p.puede_operar or p.puede_administrar for p in personas))
+
+print()
+print("== Insumos y lotes de insumo ==")
+insumos = db.scalars(select(Insumo)).all()
+lotes_insumo = db.scalars(select(LoteInsumo)).all()
+check("cada lote es del ingrediente de su insumo",
+      all(l.ingrediente_id == l.insumo.ingrediente_id for l in lotes_insumo))
+check("el proveedor de cada lote vende ese insumo",
+      all(l.proveedor in l.insumo.proveedores for l in lotes_insumo))
+check("todo insumo tiene al menos un proveedor", all(i.proveedores for i in insumos))
+from src.lotes import services as _produccion  # noqa: E402
+from src.lotes.models import LoteProducto as _LoteProducto  # noqa: E402
+
+_tareas_cortas = [
+    (lote.numero_lote, p.ingrediente_nombre)
+    for lote in db.scalars(select(_LoteProducto)).all()
+    for item in lote.checklist
+    if item.completado_en is not None
+    for p in _produccion._planificados_del_item(db, lote, item)
+    if p.consumo_real < p.cantidad_planificada
+]
+check("toda tarea completada consumió lo que pide la receta", not _tareas_cortas)
+
+from src.rotulado.services import borrador_completo_del_lote as _rotulado_completo  # noqa: E402
+
+check("todo lote con salidas tiene su rotulado completo",
+      all(_rotulado_completo(db, lote.id) is not None
+          for lote in db.scalars(select(_LoteProducto)).all() if lote.salidas))
+_items_produccion = [i for lote in db.scalars(select(_LoteProducto)).all() for i in lote.checklist]
+check("cada tarea hecha y asignada la completó quien la tenía",
+      all(i.completado_por_id == i.asignado_a_id
+          for i in _items_produccion if i.completado_en and i.asignado_a_id))
+check("hay tareas de producción asignadas y sin asignar",
+      any(i.asignado_a_id for i in _items_produccion)
+      and any(i.asignado_a_id is None for i in _items_produccion))
+from src.lotesInsumo.services import saldo_lote_insumo as _saldo  # noqa: E402
+
+check("ningún lote de insumo queda con saldo negativo",
+      all(_saldo(db, l) >= 0 for l in lotes_insumo),
+      [l.numero_lote for l in lotes_insumo if _saldo(db, l) < 0][:5])
+from src.recetas.models import TareaReceta as _TareaReceta  # noqa: E402
+
+check("toda tarea de receta tiene su procedimiento",
+      all(t.procedimiento for t in db.scalars(select(_TareaReceta)).all()))
+from src.lotes.models import ConsumoInsumo as _ConsumoInsumo  # noqa: E402
+
+check("ningún consumo sale de un lote de insumo ya vencido",
+      all(c.lote_insumo.fecha_vencimiento is None or c.registrado_en is None
+          or c.registrado_en.date() <= c.lote_insumo.fecha_vencimiento
+          for c in db.scalars(select(_ConsumoInsumo)).all()))
+check("todo lote es de un insumo aprobado",
+      all(l.insumo.estado_homologacion == "aprobada" for l in lotes_insumo))
+check("todo insumo aprobado con observación tiene justificación",
+      all(i.justificacion_homologacion for i in insumos
+          if i.estado_homologacion == "aprobada" and i.resultado_homologacion not in (None, "apta")))
 
 print()
 print("==Planes y tareas ==")

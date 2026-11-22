@@ -66,21 +66,21 @@ export async function importarAlimentos(base: string, archivo: File): Promise<Re
   );
 }
 
-// ── Insumos ────────────────────────────────────────────────────────────────
+// ── Ingredientes ────────────────────────────────────────────────────────────────
 
-export async function obtenerDatosInsumo(insumoId: number): Promise<DatosNutricionales> {
+export async function obtenerDatosIngrediente(ingredienteId: number): Promise<DatosNutricionales> {
   return pedir<DatosNutricionales>(
-    await apiFetch(`${BASE}/insumos/${insumoId}`),
+    await apiFetch(`${BASE}/ingredientes/${ingredienteId}`),
     "Error al obtener los datos nutricionales",
   );
 }
 
-export async function guardarDatosInsumo(
-  insumoId: number,
+export async function guardarDatosIngrediente(
+  ingredienteId: number,
   datos: DatosNutricionalesInput,
 ): Promise<DatosNutricionales> {
   return pedir<DatosNutricionales>(
-    await apiFetch(`${BASE}/insumos/${insumoId}`, json("PUT", datos)),
+    await apiFetch(`${BASE}/ingredientes/${ingredienteId}`, json("PUT", datos)),
     "No se pudieron guardar los datos nutricionales",
   );
 }

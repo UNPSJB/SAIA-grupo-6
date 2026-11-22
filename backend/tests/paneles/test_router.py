@@ -6,8 +6,9 @@ import pytest
 
 from src.common.fechas import hoy
 
-PANELES_DE_ADMINISTRACION = ("inventario", "equipos", "personas")
-PANELES_DE_OPERACION = ("produccion", "limpieza", "calidad")
+PANELES_DE_ADMINISTRACION = ("produccion", "inventario", "equipos", "calidad", "personas")
+# El operario solo ve el de limpieza, recortado a sus tareas (su cumplimiento).
+PANELES_DE_OPERACION = ("limpieza",)
 
 
 def _rango(dias: int = 30) -> dict:
@@ -30,13 +31,9 @@ def test_panel_de_administracion_rechaza_al_operador(client, usuarios, categoria
 
 
 def test_operador_recibe_solo_lo_propio(client, usuarios):
-    calidad = client.get("/paneles/calidad", params=_rango(), headers=usuarios["operador"]).json()
     limpieza = client.get("/paneles/limpieza", params=_rango(), headers=usuarios["operador"]).json()
-    produccion = client.get("/paneles/produccion", params=_rango(), headers=usuarios["operador"]).json()
 
-    assert calidad["solo_propios"] is True and calidad["vencimientos_por_tipo"] is None
     assert limpieza["solo_propias"] is True and limpieza["atencion"] is None
-    assert produccion["catalogo"] is None
 
 
 def test_panel_sin_sesion(client):
@@ -58,6 +55,6 @@ def test_inicio_segun_permisos(client, usuarios):
     assert admin.status_code == 200
     assert [g["clave"] for g in admin.json()["grupos"]] == ["produccion", "inventario", "calidad"]
     assert operador.status_code == 200
-    assert [g["clave"] for g in operador.json()["grupos"]] == ["produccion", "calidad"]
+    assert operador.json()["grupos"] == []
     assert operador.json()["vencen_hoy"] is None
     assert client.get("/paneles/inicio").status_code == 401

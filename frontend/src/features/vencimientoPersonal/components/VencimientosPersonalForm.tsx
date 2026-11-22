@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Box, Button, Heading, HStack, Text } from "@chakra-ui/react";
+import { Box, Button, HStack, Text } from "@chakra-ui/react";
 import {
   BotonTexto,
   FormField,
-  FormInput,
   FormNativeSelect,
   SelectPlaceholder,
 } from "../../../components/ui/patrones";
+import { InputFecha, SeccionFormulario } from "../../../components/ui/formularios";
 import { useAptitudes } from "../../aptitud/hooks/useAptitudes";
 import { hoyISO } from "../../../common/utils/fechas";
 import type { VencimientosPorAptitud } from "../hooks/useVencimientosPersonal";
@@ -18,8 +18,8 @@ interface VencimientosPersonalFormProps {
 
 /**
  * Sub-formulario embebido en el alta/edición de Personal: no es una página,
- * así que no lleva `TarjetaFormulario`. La superficie es un bloque claro y el
- * título es de sección (`lg`), no de página (`2xl`).
+ * así que es una `SeccionFormulario` más del formulario de Personal (llega
+ * por su prop `extra`), con su título y el filete que la separa.
  */
 export function VencimientosPersonalForm({ valores, onChange }: VencimientosPersonalFormProps) {
   // Se piden las aptitudes incluyendo las dadas de baja a propósito: una
@@ -54,13 +54,10 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
   const puedeAgregar = Boolean(aptitudSeleccionada && fechaSeleccionada);
 
   return (
-    <Box bg="bg.panel" rounded="lg" p="6">
-      <Heading as="h3" size="lg" fontWeight="bold" color="brand.fg" mb="2">
-        Vencimientos de aptitud
-      </Heading>
-      <Text fontSize="sm" color="fg.muted" mb="6">
-        Opcional — cargá solo los que tengas a mano.
-      </Text>
+    <SeccionFormulario
+      titulo="Vencimientos de aptitud"
+      ayuda="Opcional: cargá solo los que tengas a mano."
+    >
 
       {loading && (
         <Text fontSize="sm" color="fg.muted" fontStyle="italic">
@@ -75,7 +72,7 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
               key={apt.id}
               justify="space-between"
               p="3"
-              bg="brand.50"
+              bg="brand.subtle"
               rounded="lg"
               mb="2"
             >
@@ -120,8 +117,7 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
             </Box>
             <Box flex="1" minW="200px">
               <FormField label="Fecha de vencimiento" mb="0">
-                <FormInput
-                  type="date"
+                <InputFecha
                   value={fechaSeleccionada}
                   min={hoyISO()}
                   onChange={(e) => setFechaSeleccionada(e.target.value)}
@@ -133,6 +129,8 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
               onClick={agregarVencimiento}
               disabled={!puedeAgregar}
               colorPalette="brand"
+              variant="outline"
+              h="11"
             >
               Agregar
             </Button>
@@ -145,6 +143,6 @@ export function VencimientosPersonalForm({ valores, onChange }: VencimientosPers
           </Text>
         )
       )}
-    </Box>
+    </SeccionFormulario>
   );
 }

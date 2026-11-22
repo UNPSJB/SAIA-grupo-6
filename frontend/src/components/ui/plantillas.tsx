@@ -48,17 +48,26 @@ import { BannerError, PageHeader, Tarjeta } from "./patrones";
 /* ──────────────────────────────── Anchos ───────────────────────────────── */
 
 /**
- * Los únicos tres anchos de página. Si una pantalla no entra en ninguno, el
+ * Los únicos anchos de página. Si una pantalla no entra en ninguno, el
  * problema es el contenido, no el ancho.
  *
- *   completo  listados: la tabla aprovecha todo el espacio
- *   ancho     formularios con tablas internas (receta, lote) y detalles
- *   angosto   formularios simples de pocos campos
+ *   completo   listados: la tabla aprovecha todo el espacio
+ *   ancho      formularios con tablas internas (receta, lote) y detalles
+ *   angosto    formularios simples de pocos campos
+ *
+ * Y los dos de las altas con el estándar nuevo (`PaginaAlta`, en
+ * `formularios.tsx`), pensados para la grilla de dos columnas: con 640px
+ * cada columna quedaba en ~280px y los selects cortaban el texto.
+ *
+ *   formulario  768px  altas cortas y medianas
+ *   extenso     896px  altas con muchas secciones
  */
 export const ANCHO_PAGINA = {
   completo: undefined,
   ancho: "1024px",
   angosto: "640px",
+  formulario: "3xl",
+  extenso: "4xl",
 } as const;
 
 export type AnchoPagina = keyof typeof ANCHO_PAGINA;
@@ -83,7 +92,7 @@ export interface DestinoVolver {
  * Enlace "← Volver a X", siempre arriba del título y alineado a la izquierda.
  * Reemplaza los `BotonVolver` sueltos en `actions` o al pie de la página.
  */
-function EnlaceVolver({ a, etiqueta, historial = false }: DestinoVolver) {
+export function EnlaceVolver({ a, etiqueta, historial = false }: DestinoVolver) {
   const navigate = useNavigate();
   const volver = () => {
     if (historial && window.history.length > 1) navigate(-1);
