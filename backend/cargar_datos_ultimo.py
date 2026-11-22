@@ -6,6 +6,7 @@ desincronizar las relaciones entre modelos:
 * aplica las migraciones actuales del backend;
 * carga datos Faker, incluido el circuito comercial y el rotulado con
   declaraciones de alergenos, gluten y conservacion;
+* prepara un rotulo demo con lote, tabla nutricional y octogonos;
 * completa los universos necesarios para los indicadores de la vista publica;
 * inicializa configuraciones globales sin publicar ningun enlace anonimo.
 
@@ -26,7 +27,12 @@ import sys
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 # Permite ejecutar el script desde cualquier directorio.
 RAIZ = Path(__file__).resolve().parent
@@ -34,9 +40,36 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 import src.all_models  # noqa: F401,E402
+from src.common.fechas import ahora  # noqa: E402
 from src.database import SessionLocal  # noqa: E402
 from src.config import settings  # noqa: E402
 from src.migrations import crear_tablas_y_migrar  # noqa: E402
+from src.insumos.models import Insumo  # noqa: E402
+from src.lotes.constants import ESTADO_TERMINADO  # noqa: E402
+from src.lotes.models import LoteProducto  # noqa: E402
+from src.nutricion.constants import FUENTE_PROPIO  # noqa: E402
+from src.nutricion.models import (  # noqa: E402
+    InfoNutricionalProducto,
+    PerfilNutricionalInsumo,
+    ValorNutricionalInsumo,
+)
+from src.personal.models import Personal  # noqa: E402
+from src.productos.models import Producto  # noqa: E402
+from src.recetas.models import Receta  # noqa: E402
+from src.rotulado import declaraciones_services, services as rotulado_services  # noqa: E402
+from src.rotulado.constants import CAMPO_COMPLETO, CAMPO_NO_APLICABLE, ESTADO_COMPLETADO  # noqa: E402
+from src.rotulado.declaraciones_schemas import (  # noqa: E402
+    ConservacionProducto,
+    MarcaAlergeno,
+    PerfilInsumoDeclaracion,
+    RevisionEsperada,
+)
+from src.rotulado.models import BorradorRotulado  # noqa: E402
+from src.rotulado.schemas import BorradorRotuladoCreate, BorradorRotuladoUpdate  # noqa: E402
+from src.rotulado_frontal import constants as frontal_constants  # noqa: E402
+from src.rotulado_frontal import services as frontal_services  # noqa: E402
+from src.rotulado_frontal.schemas import ConfiguracionRotuladoIn  # noqa: E402
+from src.unidadMedida.models import UnidadMedida  # noqa: E402
 from src.notificaciones.models import ConfiguracionAlerta  # noqa: E402
 from src.notificaciones.invalidacion import (  # noqa: E402
     asegurar_notificaciones_al_dia,
@@ -54,6 +87,8 @@ import cargar_datos_vista_publica as seed_vista_publica  # noqa: E402
 
 CLAVE_DIAS_ALERTA_VENCIMIENTO = "dias_alerta_vencimiento_personal"
 DIAS_ALERTA_POR_DEFECTO = 30
+PRODUCTO_ROTULO_DEMO = "Galletitas de cacao — demo de rotulado"
+LOTE_ROTULO_DEMO = "DEMO-ROTULO-001"
 
 
 @contextmanager
@@ -166,6 +201,170 @@ def asegurar_configuraciones(agregar: bool) -> None:
             raise
 
 
+def crear_lote_rotulo_demo(db: Session, usuario: Personal) -> LoteProducto:
+    """Crea los maestros exclusivos del ejemplo, con valores fijos para los sellos."""
+    kilogramo = db.scalars(select(UnidadMedida).where(UnidadMedida.simbolo == "kg")).one()
+    producto = Producto(
+        nombre=PRODUCTO_ROTULO_DEMO,
+        descripcion="Producto ficticio para probar la previsualización de rotulado.",
+        unidad_medida_id=kilogramo.id,
+        conservacion=ConservacionProducto(
+            instrucciones="Conservar en lugar fresco y seco.",
+        ).model_dump(mode="json"),
+    )
+    ficha = "Ficha técnica ficticia de la premezcla demo."
+    premezcla = Insumo(
+        nombre="Premezcla demo (harina de trigo, azúcar, manteca, cacao y sal)",
+        unidad_medida_id=kilogramo.id,
+        perfil_declaracion=PerfilInsumoDeclaracion(
+            evaluacion="evaluada",
+            marcas=[
+                MarcaAlergeno(codigo="trigo", forma="directa"),
+                MarcaAlergeno(codigo="leche", forma="derivado"),
+            ],
+            gluten="presente",
+            respaldo=ficha,
+        ).model_dump(mode="json"),
+    )
+    receta = Receta(producto=producto)
+    db.add_all([receta, premezcla])
+    db.flush()
+
+    db.add_all([
+        InfoNutricionalProducto(
+            producto_id=producto.id, expresar_en="g", porcion=Decimal("30"),
+            medida_casera="3 galletitas",
+        ),
+        PerfilNutricionalInsumo(
+            insumo_id=premezcla.id, azucares_son_anadidos=True,
+            grasas_son_anadidas=True, sodio_es_anadido=True,
+        ),
+    ])
+    # Por 100 g. El cálculo deriva los azúcares añadidos de los azúcares totales.
+    nutrientes = {
+        "energia": 500,
+        "carbohidratos": 60,
+        "azucares_totales": 24,
+        "proteinas": 8,
+        "grasas_totales": 26,
+        "grasas_saturadas": 14,
+        "grasas_trans": 0,
+        "fibra": 3,
+        "sodio": 700,
+    }
+    for nutriente, cantidad in nutrientes.items():
+        valor = Decimal(cantidad)
+        db.add(ValorNutricionalInsumo(
+            insumo_id=premezcla.id, nutriente=nutriente, valor=valor, valor_fuente=valor,
+            fuente=FUENTE_PROPIO, referencia=ficha, cargado_por_id=usuario.id,
+        ))
+
+    producido_en = ahora() - timedelta(days=2)
+    plantilla = {
+        "producto": PRODUCTO_ROTULO_DEMO,
+        "unidad": "kilogramo",
+        "rendimiento": "10",
+        "tareas": ["Formar, hornear y envasar las galletitas"],
+        "insumos": [(premezcla.nombre, "10", premezcla.tipo, 0)],
+    }
+    version = seed_faker._agregar_version(
+        db, receta, 1, plantilla, {premezcla.nombre: premezcla}, {"kilogramo": kilogramo},
+        usuario, producido_en - timedelta(days=1),
+    )
+    vida_util_dias = 180
+    version.vida_util_dias = vida_util_dias
+    lote = LoteProducto(
+        numero_lote=LOTE_ROTULO_DEMO, producto=producto, version_receta=version,
+        estado=ESTADO_TERMINADO, cantidad_objetivo=version.rendimiento,
+        cantidad_producida=version.rendimiento, factor_escala=Decimal("1"),
+        creado_por_id=usuario.id, fecha_inicio=producido_en,
+        fecha_cierre=producido_en + timedelta(hours=4),
+        fecha_vencimiento=producido_en.date() + timedelta(days=vida_util_dias),
+    )
+    db.add(lote)
+    db.commit()
+    return lote
+
+
+def asegurar_rotulo_demo(db: Session) -> None:
+    usuario = db.scalars(
+        select(Personal)
+        .where(Personal.activo.is_(True), Personal.puede_administrar.is_(True))
+        .order_by(Personal.id)
+    ).first()
+    if usuario is None:
+        raise RuntimeError("Falta un administrador activo para preparar el rótulo demo.")
+    db.info["usuario_id"] = usuario.id
+
+    lote = db.scalar(select(LoteProducto).where(LoteProducto.numero_lote == LOTE_ROTULO_DEMO))
+    if lote is None:
+        lote = crear_lote_rotulo_demo(db, usuario)
+    if lote.producto.nombre != PRODUCTO_ROTULO_DEMO or lote.version_receta_id is None:
+        raise RuntimeError(f"El lote {LOTE_ROTULO_DEMO} no corresponde al producto demo.")
+
+    frontal_services.guardar_configuracion(db, lote.producto_id, ConfiguracionRotuladoIn(
+        canal_comercializacion=frontal_constants.CANAL_MINORISTA,
+        envasado_sin_cliente=True,
+        categoria_rotulado=None,
+    ))
+
+    borrador_id = db.scalars(
+        select(BorradorRotulado.id).where(
+            BorradorRotulado.producto_id == lote.producto_id,
+            BorradorRotulado.lote_producto_id == lote.id,
+        ).order_by(BorradorRotulado.id)
+    ).first()
+    if borrador_id is None:
+        borrador_id = rotulado_services.crear_borrador(db, lote.producto_id, BorradorRotuladoCreate(
+            producto_id=lote.producto_id, version_receta_id=lote.version_receta_id,
+            lote_producto_id=lote.id,
+        ), usuario).id
+
+    rotulado_services.autocompletar_borrador(
+        db, borrador_id, lote.version_receta_id, lote.id, False, usuario,
+    )
+    rotulado_services.actualizar_borrador(db, borrador_id, BorradorRotuladoUpdate(
+        denominacion_venta="Galletitas de cacao",
+        contenido_neto="150 g",
+        rnpa_rppa="RNPA DEMO 07-000001",
+        razon_social=seed_faker.DATOS_ROTULO["razon_social"],
+        domicilio=seed_faker.DATOS_ROTULO["domicilio"],
+        fecha_duracion=lote.fecha_vencimiento,
+        instrucciones_uso="Listas para consumir.",
+    ), usuario)
+
+    declaraciones = declaraciones_services.consultar(db, borrador_id)
+    if declaraciones["estado"] != "confirmada" or declaraciones["vigencia"] != "vigente":
+        declaraciones_services.confirmar(
+            db, borrador_id, RevisionEsperada(revision=declaraciones["revision"]), usuario,
+        )
+
+    vista = rotulado_services.previsualizar_borrador(db, borrador_id)
+    if vista.completitud.estado_global != CAMPO_COMPLETO:
+        pendientes = ", ".join(
+            campo.etiqueta for campo in vista.completitud.campos
+            if campo.estado not in (CAMPO_COMPLETO, CAMPO_NO_APLICABLE)
+        )
+        raise RuntimeError(f"El rótulo demo quedó incompleto: {pendientes}.")
+
+    frontal = vista.rotulado_frontal
+    sellos = frontal.sellos
+    esperados = {definicion["clave"] for definicion in frontal_constants.SELLOS_INICIALES}
+    excesos = {resultado.clave for resultado in sellos.resultados if resultado.exceso} if sellos else set()
+    if not esperados.issubset(excesos):
+        detalle = f"{frontal.estado}, {len(esperados & excesos)} de {len(esperados)} excesos esperados"
+        if frontal.regla_version in (None, 1):
+            raise RuntimeError(f"El rótulo demo no muestra los octógonos esperados ({detalle}).")
+        print(f"Rótulo demo con la regla frontal vigente v{frontal.regla_version} ({detalle}).")
+
+    if vista.borrador.estado != ESTADO_COMPLETADO:
+        rotulado_services.actualizar_borrador(
+            db, borrador_id, BorradorRotuladoUpdate(estado=ESTADO_COMPLETADO), usuario,
+        )
+    etiquetas = ", ".join(sellos.excesos) if sellos and sellos.excesos else "sin octógonos"
+    print(f"Rótulo demo: {PRODUCTO_ROTULO_DEMO} (borrador {borrador_id}) · {etiquetas}")
+
+
 def main() -> int:
     args = parsear_argumentos()
     if args.cantidad < 1:
@@ -192,6 +391,8 @@ def main() -> int:
         print("Completando datos para indicadores de vista publica...")
         seed_vista_publica.main(preparar_esquema=False)
         asegurar_configuraciones(args.agregar)
+        with SessionLocal() as db:
+            asegurar_rotulo_demo(db)
         with SessionLocal() as db:
             invalidar_notificaciones(db)
             asegurar_notificaciones_al_dia(db)

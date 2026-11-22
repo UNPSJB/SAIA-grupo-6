@@ -3818,7 +3818,12 @@ def crear_vista_publica(db) -> int:
     for definicion in CATALOGO_VISTA_PUBLICA:
         if db.get(IndicadorVistaPublica, definicion.clave) is not None:
             continue
-        db.add(IndicadorVistaPublica(clave=definicion.clave, habilitado=bernoulli(0.75)))
+        # Mantiene la selección Faker histórica de limpieza. Los indicadores
+        # nuevos que requieren habilitación explícita conservan su default.
+        permite_sorteo = definicion.habilitado_por_defecto or definicion.clave == "cumplimiento_poes"
+        db.add(IndicadorVistaPublica(
+            clave=definicion.clave, habilitado=permite_sorteo and bernoulli(0.75),
+        ))
         agregados += 1
     db.flush()
     return agregados
