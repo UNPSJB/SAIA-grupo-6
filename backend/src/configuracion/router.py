@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.auth.dependencies import get_current_user, require_admin
 from src.database import get_db
-from src.notificaciones import schemas, services
+from src.notificaciones import impacto, schemas, services
 
 # Ajustes del sistema que se cambian desde la app ("Configuración" en el menú
 # de usuario). La ruta cuelga de `/configuracion` para que los próximos ajustes
@@ -61,5 +61,41 @@ def actualizar_configuracion_alertas(
     if "plazo_reclamo_dias" in cambios:
         services.actualizar_plazo_reclamo_dias(db, cambios["plazo_reclamo_dias"])
     if "meta_cumplimiento_limpieza" in cambios:
-        services.actualizar_meta_cumplimiento_limpieza(db, cambios["meta_cumplimiento_limpieza"])
+        services.actualizar_meta_cumplimiento_limpieza(
+            db, cambios["meta_cumplimiento_limpieza"]
+        )
     return _respuesta(db)
+
+
+# Impacto base de cada tipo de situación del motor de riesgos. SAIA sugiere una
+# clasificación y el administrador del establecimiento la puede cambiar.
+@router.get(
+    "/impacto-situaciones",
+    response_model=list[schemas.ImpactoSituacionResponse],
+    dependencies=[Depends(require_admin)],
+)
+def listar_impacto_situaciones(db: Session = Depends(get_db)):
+    return impacto.listar_impactos(db)
+
+
+@router.put(
+    "/impacto-situaciones/{tipo}",
+    response_model=schemas.ImpactoSituacionResponse,
+    dependencies=[Depends(require_admin)],
+)
+def fijar_impacto_situacion(
+    tipo: str,
+    datos: schemas.ImpactoSituacionUpdate,
+    db: Session = Depends(get_db),
+):
+    return impacto.fijar_impacto(db, tipo, datos.impacto)
+
+
+@router.delete(
+    "/impacto-situaciones/{tipo}",
+    response_model=schemas.ImpactoSituacionResponse,
+    dependencies=[Depends(require_admin)],
+)
+def restaurar_impacto_situacion(tipo: str, db: Session = Depends(get_db)):
+    """Vuelve al impacto sugerido por SAIA."""
+    return impacto.restaurar_impacto(db, tipo)

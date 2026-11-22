@@ -4,46 +4,52 @@ from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
 from src.common.fechas import hoy
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.checklist.models import Checklist
 from src.documentos.models import Documento
 from src.incidente.constants import EstadoIncidente
 from src.incidente.models import Incidente
+from src.notificaciones import riesgo
 from src.notificaciones import services as notificacion_services
+from src.notificaciones.impacto import impactos_vigentes
 from src.notificaciones.invalidacion import asegurar_notificaciones_al_dia
-from src.notificaciones.models import NotificacionPersistida
+from src.notificaciones.models import NotificacionPersistida, SituacionRiesgo
+from src.reclamos.models import Reclamo
+from src.retiros.models import Retiro
+from src.salidas.models import Salida
 from src.notificaciones.schemas import (
     AlertaCriticidadResponse,
     CriticidadDashboardResponse,
+    ResumenElementoResponse,
 )
 
 
 # ============================================================
-# REGLAS BASE DEL MOTOR
+# MOTOR DE RIESGOS
 # ============================================================
-
-REGLAS_BASE: dict[str, str] = {
-    "INCIDENTE_ABIERTO": "alta",
-    "ELEMENTO_LIMPIEZA_VENCIDO": "media",
-    "ELEMENTO_LIMPIEZA_PROXIMO": "baja",
-    "PLAN_CALIBRACION_VENCIDO": "media",
-    "PLAN_CALIBRACION_PROXIMO": "baja",
-    "PLAN_MANTENIMIENTO_VENCIDO": "media",
-    "PLAN_MANTENIMIENTO_PROXIMO": "baja",
-    "VENCIMIENTO_PERSONAL_VENCIDO": "media",
-    "VENCIMIENTO_PERSONAL_PROXIMO": "baja",
-    "DOCUMENTO_VENCIDO": "media",
-    "DOCUMENTO_PROXIMO": "baja",
-    "CHECKLIST_INCOMPLETO": "baja",
-    "STOCK_BAJO": "media",
-}
-
-ORDEN_CRITICIDAD = {"alta": 3, "media": 2, "baja": 1}
-
-DIAS_RECURRENCIA = 30
-UMBRAL_RECURRENCIA = 3
+#
+# Qué hace este módulo (la matemática vive en `riesgo.py`):
+#
+#   1. Detecta lo presente consultando las fuentes de origen (vencimientos,
+#      documentos, checklists, incidentes, stock). Todo se notifica.
+#   2. De eso generan riesgo las clases de `riesgo.TIPOS_SITUACION`:
+#      incidentes de higiene y contaminación, falla de equipos, plagas y otros;
+#      stock por debajo del mínimo; checklists incumplidos; y los
+#      vencimientos. Un reclamo, retiro de lote o rechazo de entrega lo genera
+#      solo si su causa es higiene o contaminación; una devolución de cliente
+#      solo se notifica. Los eventos de riesgo se registran en el historial
+#      `situaciones_riesgo`: cuándo apareció cada uno y, si ya terminó, cuándo.
+#      Es lo que permite medir persistencia y recurrencia.
+#   3. Evalúa cada evento de riesgo (Impacto × Probabilidad) y consolida el
+#      riesgo de cada elemento. Lo que no genera riesgo se notifica con
+#      puntaje 0.
+#
+# El motor evalúa; no decide qué hacer. Nada de lo que se haga con una
+# situación (un plan, una corrección) toca su impacto ni resta puntos: el riesgo
+# baja porque la situación deja de detectarse y porque las detecciones viejas
+# salen de la ventana de recurrencia.
 
 ICONOS = {
     "ELEMENTO_LIMPIEZA": "limpieza",
@@ -60,14 +66,6 @@ ICONOS = {
 # ============================================================
 # UTILIDADES
 # ============================================================
-
-def _subir(criticidad: str) -> str:
-    if criticidad == "baja":
-        return "media"
-    if criticidad == "media":
-        return "alta"
-    return "alta"
-
 
 def _plazo(fecha: date | None, hoy: date) -> str:
     if fecha is None:
@@ -128,21 +126,7 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
 
 
 def _motivo_base(regla: str) -> str:
-    return {
-        "INCIDENTE_ABIERTO": "Incidente abierto",
-        "ELEMENTO_LIMPIEZA_VENCIDO": "Recambio vencido",
-        "ELEMENTO_LIMPIEZA_PROXIMO": "Recambio próximo a vencer",
-        "PLAN_CALIBRACION_VENCIDO": "Calibración vencida",
-        "PLAN_CALIBRACION_PROXIMO": "Calibración próxima a vencer",
-        "PLAN_MANTENIMIENTO_VENCIDO": "Mantenimiento vencido",
-        "PLAN_MANTENIMIENTO_PROXIMO": "Mantenimiento próximo a vencer",
-        "VENCIMIENTO_PERSONAL_VENCIDO": "Aptitud vencida",
-        "VENCIMIENTO_PERSONAL_PROXIMO": "Aptitud próxima a vencer",
-        "DOCUMENTO_VENCIDO": "Documento vencido",
-        "DOCUMENTO_PROXIMO": "Documento próximo a vencer",
-        "CHECKLIST_INCOMPLETO": "Tarea de checklist incumplida",
-        "STOCK_BAJO": "Stock por debajo del mínimo",
-    }[regla]
+    return riesgo.etiqueta_de(regla)
 
 
 def _crear_alerta(
@@ -150,7 +134,6 @@ def _crear_alerta(
     clave: str,
     origen: str,
     entidad_id: int,
-    entidad_nombre: str | None = None,
     grupo_clave: str,
     titulo: str,
     detalle: str,
@@ -159,159 +142,409 @@ def _crear_alerta(
     destino: str,
     recambio_id: int | None = None,
 ) -> dict[str, Any]:
+    """`genera_riesgo` sale de la regla: solo las clases de `riesgo.TIPOS_SITUACION`
+    entran en el cálculo. El resto se notifica, sin historial, impacto ni
+    probabilidad."""
     return {
         "clave": clave,
         "origen": origen,
         "entidad_id": entidad_id,
-        "entidad_nombre": entidad_nombre,
         "grupo_clave": grupo_clave,
         "icono": ICONOS[origen],
         "titulo": titulo,
         "detalle": detalle,
         "regla": regla,
-        "criticidad": REGLAS_BASE[regla],
         "motivo": _motivo_base(regla),
         "fecha_referencia": fecha_referencia,
         "destino": destino,
         "recambio_id": recambio_id,
+        "genera_riesgo": regla in riesgo.TIPOS_SITUACION,
     }
 
 
 # ============================================================
-# RECURRENCIA
+# HISTORIAL DE SITUACIONES
 # ============================================================
 
-def _recurrencia_incidentes(
-    incidentes: list[Incidente],
-    desde: date,
-) -> Counter[str]:
-    conteos: Counter[str] = Counter()
-
-    for incidente in incidentes:
-        if incidente.fecha_reporte.date() < desde:
-            continue
-
-        if incidente.equipo_id is not None:
-            grupo = f"equipo:{incidente.equipo_id}"
-        else:
-            grupo = f"incidente-tipo:{incidente.tipo}"
-
-        conteos[grupo] += 1
-
-    return conteos
-
-
-def _recurrencia_checklists(
+def _sembrar_historial(
     db: Session,
+    *,
+    incidentes: list[Incidente],
+    tipos_riesgo: dict[int, str | None],
+    checklists: list[Checklist],
+    hoy_dia: date,
     desde: date,
-    hasta: date,
-) -> Counter[str]:
-    """Cuenta ocurrencias incumplidas durante los últimos 30 días.
+) -> None:
+    """Reconstruye lo que se pueda del pasado reciente, UNA vez.
 
-    Si una tarea incumplida está vinculada a un elemento de limpieza,
-    la recurrencia se agrupa por elemento. Si no, se agrupa por equipo.
+    Se ejecuta cuando el historial está vacío (primer arranque con esta versión)
+    para que la recurrencia no empiece de cero: se cuentan los incidentes de
+    riesgo y los checklists incumplidos de la ventana. Solo se siembra lo ya
+    terminado; lo que sigue presente lo crea la detección normal.
     """
-
-    checklists = db.scalars(
-        select(Checklist)
-        .options(selectinload(Checklist.registros))
-        .where(
-            Checklist.fecha >= desde,
-            Checklist.fecha <= hasta,
+    for incidente in incidentes:
+        if incidente.estado == EstadoIncidente.ABIERTO.value:
+            continue
+        tipo = tipos_riesgo.get(incidente.id)
+        if tipo is None:
+            continue  # no genera riesgo
+        reporte = incidente.fecha_reporte.date()
+        if reporte < desde:
+            continue
+        cierre = incidente.fecha_cierre.date() if incidente.fecha_cierre else hoy_dia
+        db.add(
+            SituacionRiesgo(
+                tipo=tipo,
+                clave=f"incidente-{incidente.id}",
+                elemento=_grupo_incidente(incidente, tipo),
+                detectada_en=reporte,
+                resuelta_en=max(cierre, reporte),
+            )
         )
+
+    dias_incumplidos: set[tuple[int, date]] = set()
+    for checklist in checklists:
+        if checklist.fecha >= hoy_dia:
+            continue  # hoy lo detecta el motor
+        if any(not registro.completado for registro in checklist.registros):
+            dias_incumplidos.add((checklist.equipo_id, checklist.fecha))
+
+    for equipo_id, fecha in sorted(dias_incumplidos):
+        db.add(
+            SituacionRiesgo(
+                tipo="CHECKLIST_INCOMPLETO",
+                clave=_clave_checklist(equipo_id, fecha),
+                elemento=f"equipo:{equipo_id}",
+                detectada_en=fecha,
+                resuelta_en=fecha + timedelta(days=1),
+            )
+        )
+
+
+def _grupo_incidente(incidente: Incidente, tipo_riesgo: str | None) -> str:
+    """El elemento al que pertenece un incidente: su equipo o, si no tiene, la
+    clase de evento (así los de la misma clase sin equipo cuentan juntos)."""
+    if incidente.equipo_id is not None:
+        return f"equipo:{incidente.equipo_id}"
+    return f"incidente-tipo:{(tipo_riesgo or incidente.tipo).lower()}"
+
+
+def _tipos_de_riesgo(
+    db: Session, incidentes: list[Incidente]
+) -> dict[int, str | None]:
+    """Tipo de evento de riesgo de cada incidente (`None`: no genera riesgo).
+
+    Los reclamos, retiros y rechazos dependen de su causa, que vive en su
+    circuito de origen.
+    """
+    de_sistema = {
+        incidente.id: incidente.tipo
+        for incidente in incidentes
+        if incidente.tipo in riesgo.CAUSAS_DE_CONTAMINACION
+    }
+    causas: dict[int, str] = {}
+    if de_sistema:
+        ids = list(de_sistema)
+        for modelo, motivo in (
+            (Reclamo, Reclamo.motivo),
+            (Retiro, Retiro.motivo),
+            (Salida, Salida.motivo_rechazo),
+        ):
+            for incidente_id, causa in db.execute(
+                select(modelo.incidente_id, motivo).where(
+                    modelo.incidente_id.in_(ids), motivo.is_not(None)
+                )
+            ):
+                causas[incidente_id] = causa
+
+    return {
+        incidente.id: riesgo.tipo_situacion_de_incidente(
+            incidente.tipo, causas.get(incidente.id)
+        )
+        for incidente in incidentes
+    }
+
+
+def _clave_checklist(equipo_id: int, fecha: date) -> str:
+    return f"checklist-equipo-{equipo_id}-{fecha.isoformat()}"
+
+
+def _sincronizar_situaciones(
+    db: Session,
+    alertas: list[dict[str, Any]],
+    *,
+    hoy_dia: date,
+    desde: date,
+) -> dict[tuple[str, str], SituacionRiesgo]:
+    """Pone el historial al día con lo que el motor detecta ahora.
+
+    - Lo detectado que ya estaba presente sigue siendo la misma situación.
+    - Lo detectado que no estaba presente es una situación NUEVA (también si
+      es un problema que ya había ocurrido y se había resuelto).
+    - Lo que estaba presente y ya no se detecta se marca como resuelto HOY:
+      deja de acumular persistencia, sin importar cómo se resolvió.
+
+    No hace commit: lo hace quien recalcula, en la misma transacción.
+    Devuelve la situación de cada alerta, por (tipo, clave).
+    """
+    # Solo importa lo presente y lo resuelto dentro de la ventana: lo anterior
+    # ya no puede influir en la recurrencia (se queda en la tabla, pero fuera
+    # de esta consulta, para que no crezca con los años).
+    relevantes = db.scalars(
+        select(SituacionRiesgo)
+        .where(
+            or_(
+                SituacionRiesgo.resuelta_en.is_(None),
+                SituacionRiesgo.resuelta_en >= desde,
+            )
+        )
+        .order_by(SituacionRiesgo.id)
     ).all()
 
-    fechas_por_grupo: dict[str, set[date]] = defaultdict(set)
+    abiertas: dict[tuple[str, str], SituacionRiesgo] = {}
+    cerradas_hoy: dict[tuple[str, str], SituacionRiesgo] = {}
+    for fila in relevantes:
+        clave = (fila.tipo, fila.clave)
+        if fila.resuelta_en is None:
+            abiertas[clave] = fila
+        elif fila.resuelta_en == hoy_dia:
+            cerradas_hoy[clave] = fila
 
-    for checklist in checklists:
-        for registro in checklist.registros:
-            if registro.completado:
-                continue
+    # ¿Ya hubo antes una situación con esta clave (aunque haya salido de la
+    # ventana)? Si hubo, lo que vuelve es un problema nuevo y cuenta desde hoy,
+    # no desde la fecha de origen (ej.: un incidente reabierto).
+    candidatas = {
+        a["clave"] for a in alertas
+        if (a["regla"], a["clave"]) not in abiertas
+        and (a["regla"], a["clave"]) not in cerradas_hoy
+    }
+    con_historia: set[tuple[str, str]] = set()
+    if candidatas:
+        con_historia = {
+            (tipo, clave)
+            for tipo, clave in db.execute(
+                select(SituacionRiesgo.tipo, SituacionRiesgo.clave)
+                .where(SituacionRiesgo.clave.in_(list(candidatas)))
+                .distinct()
+            )
+        }
 
-            if registro.elemento_limpieza_id is not None:
-                grupo = f"elemento:{registro.elemento_limpieza_id}"
-            else:
-                grupo = f"equipo:{checklist.equipo_id}"
+    vigentes: dict[tuple[str, str], SituacionRiesgo] = {}
+    for alerta in alertas:
+        clave = (alerta["regla"], alerta["clave"])
+        if clave in vigentes:
+            continue
 
-            # Varias tareas incumplidas del mismo elemento en un mismo día
-            # representan una sola ocurrencia recurrente.
-            fechas_por_grupo[grupo].add(checklist.fecha)
+        fila = abiertas.pop(clave, None)
+        if fila is not None:
+            fila.elemento = alerta["grupo_clave"]
+        elif clave in cerradas_hoy:
+            # Se resolvió y volvió el mismo día: es una sola situación (el
+            # motor trabaja con días enteros).
+            fila = cerradas_hoy[clave]
+            fila.resuelta_en = None
+            fila.elemento = alerta["grupo_clave"]
+        else:
+            fila = SituacionRiesgo(
+                tipo=alerta["regla"],
+                clave=alerta["clave"],
+                elemento=alerta["grupo_clave"],
+                detectada_en=(
+                    hoy_dia
+                    if clave in con_historia
+                    else riesgo.fecha_deteccion_inicial(
+                        alerta["regla"], alerta["fecha_referencia"], hoy_dia
+                    )
+                ),
+            )
+            db.add(fila)
+        vigentes[clave] = fila
 
-    return Counter({
-        grupo: len(fechas)
-        for grupo, fechas in fechas_por_grupo.items()
-    })
+    for fila in abiertas.values():  # ya no se detectan
+        fila.resuelta_en = hoy_dia
+
+    db.flush()
+    return vigentes
 
 
 # ============================================================
-# MOTOR DE CRITICIDAD
+# EVALUACIÓN
 # ============================================================
+
+def _numero(valor: float) -> str:
+    """Un decimal con coma (es-AR): 4,8."""
+    return f"{valor:.1f}".replace(".", ",")
+
+
+def _motivo(
+    regla: str, evaluacion: riesgo.Evaluacion, detecciones: int, dias_presente: int
+) -> str:
+    return (
+        f"{_motivo_base(regla)}; impacto {riesgo.ETIQUETA_IMPACTO[evaluacion.impacto]} "
+        f"× probabilidad {_numero(evaluacion.probabilidad)} "
+        f"(recurrencia {evaluacion.recurrencia}: {detecciones} en "
+        f"{riesgo.DIAS_VENTANA_RECURRENCIA} días; "
+        f"persistencia {evaluacion.persistencia}: {dias_presente} "
+        f"{'día' if dias_presente == 1 else 'días'}) "
+        f"= {_numero(evaluacion.riesgo)}"
+    )
+
+
+def _marcar_sin_riesgo(alerta: dict[str, Any], hoy_dia: date) -> None:
+    """Alerta que se notifica pero no genera riesgo: puntaje 0 en todo.
+
+    El nivel histórico queda en "baja" (la columna no admite vacío); lo que la
+    distingue es `puntaje == 0`, que las pantallas muestran como "sin riesgo".
+    """
+    alerta["impacto"] = 0
+    alerta["recurrencia"] = 0
+    alerta["persistencia"] = 0
+    alerta["probabilidad"] = 0.0
+    alerta["puntaje"] = 0.0
+    alerta["criticidad"] = "baja"
+    alerta["detectada_en"] = alerta["fecha_referencia"]
+    alerta["motivo"] = f"{_motivo_base(alerta['regla'])}; no se incluye en el cálculo de riesgo"
+    alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy_dia)
+
+
+def _evaluar_alertas(
+    db: Session,
+    alertas: list[dict[str, Any]],
+    vigentes: dict[tuple[str, str], SituacionRiesgo],
+    *,
+    hoy_dia: date,
+    desde: date,
+) -> None:
+    """Completa en cada alerta su evaluación de riesgo individual."""
+    impactos = impactos_vigentes(db)
+
+    # Detecciones de cada (tipo, elemento) dentro de la ventana: las presentes
+    # y las ya resueltas. El historial no se reinicia al resolverse algo.
+    detecciones: Counter[tuple[str, str]] = Counter()
+    for tipo, elemento in db.execute(
+        select(SituacionRiesgo.tipo, SituacionRiesgo.elemento).where(
+            SituacionRiesgo.detectada_en >= desde
+        )
+    ):
+        detecciones[(tipo, elemento)] += 1
+
+    for alerta in alertas:
+        situacion = vigentes[(alerta["regla"], alerta["clave"])]
+        cantidad = detecciones[(alerta["regla"], situacion.elemento)]
+        if situacion.detectada_en < desde:
+            # Empezó antes de la ventana: no figura en el conteo, pero la
+            # situación actual siempre cuenta.
+            cantidad += 1
+        dias_presente = (hoy_dia - situacion.detectada_en).days
+
+        evaluacion = riesgo.evaluar_situacion(
+            impacto=impactos[alerta["regla"]],
+            detecciones=cantidad,
+            dias_presente=dias_presente,
+            tipo=alerta["regla"],
+        )
+
+        alerta["impacto"] = evaluacion.impacto
+        alerta["recurrencia"] = evaluacion.recurrencia
+        alerta["persistencia"] = evaluacion.persistencia
+        alerta["probabilidad"] = evaluacion.probabilidad
+        alerta["puntaje"] = evaluacion.riesgo
+        alerta["criticidad"] = riesgo.criticidad_de(evaluacion.nivel)
+        alerta["detectada_en"] = situacion.detectada_en
+        alerta["motivo"] = _motivo(alerta["regla"], evaluacion, cantidad, dias_presente)
+        alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy_dia)
+
+
+# ============================================================
+# ARMADO DE LA RESPUESTA
+# ============================================================
+
+def _armar_dashboard(
+    alertas: list[AlertaCriticidadResponse],
+) -> CriticidadDashboardResponse:
+    """Ordena las situaciones y consolida el riesgo de cada elemento.
+
+    Lo usan el cálculo en vivo y la lectura de la tabla persistida, para que
+    ambos devuelvan exactamente lo mismo.
+    """
+    alertas = sorted(
+        alertas,
+        key=lambda a: (
+            -a.puntaje,
+            a.fecha_referencia is None,
+            a.fecha_referencia or date.max,
+        ),
+    )
+
+    por_elemento: dict[str, list[AlertaCriticidadResponse]] = defaultdict(list)
+    for alerta in alertas:
+        if alerta.puntaje <= 0:
+            continue  # se notifica, pero no entra en el riesgo de ningún elemento
+        por_elemento[alerta.grupo_clave or alerta.clave].append(alerta)
+
+    elementos: list[ResumenElementoResponse] = []
+    for elemento, situaciones in por_elemento.items():
+        puntaje = riesgo.riesgo_consolidado([s.puntaje for s in situaciones])
+        for situacion in situaciones:
+            situacion.puntaje_elemento = puntaje
+        elementos.append(
+            ResumenElementoResponse(
+                elemento=elemento,
+                # `alertas` ya viene de mayor a menor riesgo: la primera es la
+                # más grave del elemento.
+                etiqueta=situaciones[0].detalle,
+                situaciones=len(situaciones),
+                puntaje=puntaje,
+                nivel=riesgo.nivel_de(puntaje),
+            )
+        )
+    elementos.sort(key=lambda e: -e.puntaje)
+
+    # No hay un riesgo "del establecimiento" en la propuesta: el nivel general
+    # que se muestra es el del elemento en peor situación.
+    puntaje_maximo = elementos[0].puntaje if elementos else 0.0
+
+    return CriticidadDashboardResponse(
+        nivel_riesgo=riesgo.nivel_de(puntaje_maximo),
+        puntaje_maximo=puntaje_maximo,
+        total=len(alertas),
+        altas=sum(1 for a in alertas if a.puntaje > 0 and a.criticidad == "alta"),
+        medias=sum(1 for a in alertas if a.puntaje > 0 and a.criticidad == "media"),
+        bajas=sum(1 for a in alertas if a.puntaje > 0 and a.criticidad == "baja"),
+        alertas=alertas,
+        elementos=elementos,
+    )
 
 
 def _reconstruir_desde_persistida(
     filas: list[NotificacionPersistida],
 ) -> CriticidadDashboardResponse:
     """Reconstruye el CriticidadDashboardResponse desde la tabla persistida."""
-    alertas_response: list[AlertaCriticidadResponse] = []
-    altas = medias = bajas = 0
-    valores = {"baja": 1, "media": 2, "alta": 3}
-    suma_criticidad = 0
-
-    for f in filas:
-        c = f.criticidad
-        suma_criticidad += valores.get(c, 1)
-        if c == "alta":
-            altas += 1
-        elif c == "media":
-            medias += 1
-        else:
-            bajas += 1
-
-        alertas_response.append(
+    return _armar_dashboard(
+        [
             AlertaCriticidadResponse(
                 clave=f.id_notificacion,
                 origen=f.tipo,
                 entidad_id=f.entidad_id,
-                entidad_nombre=f.entidad_nombre,
                 grupo_clave=f.grupo_clave or "",
                 icono=ICONOS.get(f.tipo, "documento"),
                 titulo=f.titulo,
                 detalle=f.mensaje,
-                criticidad=c,
+                criticidad=f.criticidad,
                 motivo=f.motivo,
                 plazo=f.plazo or "",
                 fecha_referencia=f.fecha_referencia,
                 destino=f.link_destino,
                 recambio_id=f.recambio_id,
+                impacto=f.impacto,
+                recurrencia=f.recurrencia,
+                persistencia=f.persistencia,
+                probabilidad=f.probabilidad,
+                puntaje=f.puntaje,
+                detectada_en=f.detectada_en,
             )
-        )
-
-    total = len(alertas_response)
-    promedio = (suma_criticidad / total) if total else 1.0
-
-    if promedio >= 2.5:
-        nivel_riesgo = "alto"
-    elif promedio >= 1.5:
-        nivel_riesgo = "medio"
-    else:
-        nivel_riesgo = "bajo"
-
-    # Ordenar igual que el motor en vivo: criticidad desc, luego fecha.
-    alertas_response.sort(
-        key=lambda a: (
-            -valores.get(a.criticidad, 1),
-            a.fecha_referencia is None,
-            a.fecha_referencia or date.max,
-        )
-    )
-
-    return CriticidadDashboardResponse(
-        nivel_riesgo=nivel_riesgo,
-        total=total,
-        altas=altas,
-        medias=medias,
-        bajas=bajas,
-        alertas=alertas_response,
+            for f in filas
+        ]
     )
 
 
@@ -331,11 +564,15 @@ def calcular_criticidad_dashboard(
 ) -> CriticidadDashboardResponse:
     """Calcula el dashboard EN VIVO desde las fuentes de origen.
 
-    No lee ni escribe la tabla persistida: lo usa el recálculo
+    No lee ni escribe la tabla persistida de notificaciones: lo usa el recálculo
     (`invalidacion._sincronizar_tabla`) para saber qué filas deben existir.
+
+    SÍ actualiza el historial de situaciones (`situaciones_riesgo`), sin hacer
+    commit: el recálculo lo confirma junto con el resto, en una sola
+    transacción.
     """
     hoy_dia = hoy()
-    desde = hoy_dia - timedelta(days=DIAS_RECURRENCIA)
+    desde = hoy_dia - timedelta(days=riesgo.DIAS_VENTANA_RECURRENCIA)
 
     alertas: list[dict[str, Any]] = []
 
@@ -371,7 +608,6 @@ def calcular_criticidad_dashboard(
                 clave=f"notificacion-{notificacion.id_notificacion}",
                 origen=notificacion.tipo,
                 entidad_id=notificacion.entidad_id,
-                entidad_nombre=notificacion.entidad_nombre,
                 grupo_clave=grupo,
                 titulo=notificacion.titulo,
                 detalle=notificacion.mensaje,
@@ -424,7 +660,6 @@ def calcular_criticidad_dashboard(
                 clave=f"documento-{documento.id}",
                 origen="DOCUMENTO",
                 entidad_id=documento.id,
-                entidad_nombre=documento.nombre,
                 grupo_clave=f"documento:{documento.id}",
                 titulo=titulo,
                 detalle=(
@@ -452,11 +687,11 @@ def calcular_criticidad_dashboard(
     ).all()
 
     # Para el panel actual mostramos únicamente las situaciones vigentes de
-    # hoy, mientras que todos los días del período se utilizan para recurrencia.
-    # Una sola situación por equipo con tareas pendientes hoy (no una por
+    # hoy. Una sola situación por equipo con tareas pendientes hoy (no una por
     # tarea): varias tareas sin completar en la mañana no deben inflar el
-    # nivel de todas las alertas del equipo. Cada día histórico distinto aún
-    # cuenta como una ocurrencia para la recurrencia en _recurrencia_checklists.
+    # riesgo del equipo. Cada día distinto con tareas incumplidas es una
+    # situación distinta en el historial (clave con la fecha), y eso es lo que
+    # cuenta para la recurrencia.
     # Mapa equipo_id -> nombre (ya cargado con selectinload en la consulta).
     nombres_equipo: dict[int, str] = {}
     for checklist in checklists_historicos:
@@ -476,10 +711,9 @@ def calcular_criticidad_dashboard(
 
         alertas.append(
             _crear_alerta(
-                clave=f"checklist-equipo-{equipo_id}-{hoy_dia.isoformat()}",
+                clave=_clave_checklist(equipo_id, hoy_dia),
                 origen="CHECKLIST",
                 entidad_id=equipo_id,
-                entidad_nombre=detalle,
                 grupo_clave=f"equipo:{equipo_id}",
                 titulo="Tarea de checklist incumplida",
                 detalle=detalle,
@@ -496,15 +730,16 @@ def calcular_criticidad_dashboard(
     # 4. INCIDENTES
     # --------------------------------------------------------
     incidentes = db.scalars(select(Incidente).options(selectinload(Incidente.equipo))).all()
+    # Qué incidentes generan riesgo y de qué clase (los reclamos, retiros y
+    # rechazos, según su causa).
+    tipos_riesgo = _tipos_de_riesgo(db, incidentes)
 
     for incidente in incidentes:
         if incidente.estado != EstadoIncidente.ABIERTO.value:
             continue
 
-        if incidente.equipo_id is not None:
-            grupo = f"equipo:{incidente.equipo_id}"
-        else:
-            grupo = f"incidente-tipo:{incidente.tipo}"
+        tipo_riesgo = tipos_riesgo[incidente.id]
+        grupo = _grupo_incidente(incidente, tipo_riesgo)
 
         detalle = incidente.descripcion
         if incidente.equipo is not None:
@@ -515,88 +750,51 @@ def calcular_criticidad_dashboard(
                 clave=f"incidente-{incidente.id}",
                 origen="INCIDENTE",
                 entidad_id=incidente.id,
-                entidad_nombre=incidente.equipo.nombre if incidente.equipo else incidente.titulo,
                 grupo_clave=grupo,
                 titulo=incidente.titulo,
                 detalle=detalle,
-                regla="INCIDENTE_ABIERTO",
+                # La clase de riesgo si la tiene; si no, el incidente solo se
+                # notifica.
+                regla=tipo_riesgo or "INCIDENTE_ABIERTO",
                 fecha_referencia=incidente.fecha_reporte.date(),
                 destino=f"/incidentes/{incidente.id}",
             )
         )
 
     # --------------------------------------------------------
-    # 5. REGLAS DE ELEVACIÓN
+    # 5. HISTORIAL Y EVALUACIÓN DE RIESGO
     # --------------------------------------------------------
-    situaciones_por_grupo = Counter(
-        alerta["grupo_clave"] for alerta in alertas
-    )
-
-    recurrencia = _recurrencia_incidentes(incidentes, desde)
-    recurrencia.update(
-        _recurrencia_checklists(db, desde, hoy_dia)
-    )
-
-    for alerta in alertas:
-        elevaciones: list[str] = []
-
-        # Regla 1: varias situaciones actuales sobre el mismo elemento.
-        if situaciones_por_grupo[alerta["grupo_clave"]] >= 2:
-            alerta["criticidad"] = _subir(alerta["criticidad"])
-            elevaciones.append("varias situaciones sobre el mismo elemento")
-
-        # Regla 2: recurrencia de la situación en los últimos 30 días.
-        cantidad = recurrencia.get(alerta["grupo_clave"], 0)
-        if cantidad >= UMBRAL_RECURRENCIA:
-            alerta["criticidad"] = _subir(alerta["criticidad"])
-            elevaciones.append(
-                f"recurrencia de {cantidad} ocurrencias en {DIAS_RECURRENCIA} días"
-            )
-
-        if elevaciones:
-            alerta["motivo"] += "; " + "; ".join(elevaciones)
-
-        alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy_dia)
-
-    # --------------------------------------------------------
-    # 6. PRIORIZACIÓN
-    # --------------------------------------------------------
-    alertas.sort(
-        key=lambda alerta: (
-            -ORDEN_CRITICIDAD[alerta["criticidad"]],
-            alerta["fecha_referencia"] is None,
-            alerta["fecha_referencia"] or date.max,
+    # (Se mira solo lo de las clases de riesgo vigentes: si el historial viene
+    # de una versión anterior, con otras clases, se siembra igual.)
+    if not db.scalar(
+        select(func.count())
+        .select_from(SituacionRiesgo)
+        .where(SituacionRiesgo.tipo.in_(list(riesgo.TIPOS_SITUACION)))
+    ):
+        _sembrar_historial(
+            db,
+            incidentes=incidentes,
+            tipos_riesgo=tipos_riesgo,
+            checklists=checklists_historicos,
+            hoy_dia=hoy_dia,
+            desde=desde,
         )
-    )
+        db.flush()
 
-    altas = sum(1 for a in alertas if a["criticidad"] == "alta")
-    medias = sum(1 for a in alertas if a["criticidad"] == "media")
-    bajas = sum(1 for a in alertas if a["criticidad"] == "baja")
+    # Solo lo que genera riesgo tiene historial y se evalúa; el resto se
+    # notifica sin puntaje.
+    con_riesgo = [a for a in alertas if a["genera_riesgo"]]
+    vigentes = _sincronizar_situaciones(db, con_riesgo, hoy_dia=hoy_dia, desde=desde)
+    _evaluar_alertas(db, con_riesgo, vigentes, hoy_dia=hoy_dia, desde=desde)
+    for alerta in alertas:
+        if not alerta["genera_riesgo"]:
+            _marcar_sin_riesgo(alerta, hoy_dia)
 
-    # Riesgo general de la entidad.
-    # Cada situación conserva su criticidad individual; el nivel de riesgo
-    # se obtiene internamente a partir del promedio de esas criticidades.
-    valores = {"baja": 1, "media": 2, "alta": 3}
-    promedio = (
-        sum(valores[a["criticidad"]] for a in alertas) / len(alertas)
-        if alertas
-        else 1.0
-    )
-
-    if promedio >= 2.5:
-        nivel_riesgo = "alto"
-    elif promedio >= 1.5:
-        nivel_riesgo = "medio"
-    else:
-        nivel_riesgo = "bajo"
-
-    return CriticidadDashboardResponse(
-        nivel_riesgo=nivel_riesgo,
-        total=len(alertas),
-        altas=altas,
-        medias=medias,
-        bajas=bajas,
-        alertas=[
+    # --------------------------------------------------------
+    # 6. RESPUESTA (priorización y riesgo por elemento)
+    # --------------------------------------------------------
+    return _armar_dashboard(
+        [
             AlertaCriticidadResponse(
                 clave=a["clave"],
                 origen=a["origen"],
@@ -611,7 +809,13 @@ def calcular_criticidad_dashboard(
                 fecha_referencia=a["fecha_referencia"],
                 destino=a["destino"],
                 recambio_id=a["recambio_id"],
+                impacto=a["impacto"],
+                recurrencia=a["recurrencia"],
+                persistencia=a["persistencia"],
+                probabilidad=a["probabilidad"],
+                puntaje=a["puntaje"],
+                detectada_en=a["detectada_en"],
             )
             for a in alertas
-        ],
+        ]
     )

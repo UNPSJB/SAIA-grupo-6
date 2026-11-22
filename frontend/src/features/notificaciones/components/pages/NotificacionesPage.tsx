@@ -39,6 +39,11 @@ import type {
   CriticidadDashboard,
   IconoCriticidad,
 } from "../../types/notificacion";
+import {
+  RIESGO_MAXIMO,
+  formatoPuntaje,
+  nivelDePuntaje,
+} from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import {
   ChipsFiltros,
@@ -55,7 +60,7 @@ import {
   LabelFiltro,
   Paginacion,
   Tarjeta,
-  DatoPrincipal,
+  TextoTruncado,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 
@@ -72,12 +77,6 @@ type FiltroOrigen =
   | "INCIDENTE";
 type SortColumn = "criticidad" | "plazo" | "origen" | null;
 type SortDirection = "asc" | "desc";
-
-const ORDEN_CRITICIDAD: Record<Criticidad, number> = {
-  alta: 0,
-  media: 1,
-  baja: 2,
-};
 
 const PALETA_CRITICIDAD: Record<Criticidad, string> = {
   alta: "red",
@@ -105,6 +104,18 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
   INCIDENTE: "Incidente",
 };
 
+/**
+ * Las situaciones con puntaje 0 (retiros de lote, reclamos de clientes) se
+ * notifican pero no entran en el cálculo de riesgo: no tienen criticidad, así
+ * que ningún filtro alta/media/baja las incluye.
+ */
+function coincideConCriticidad(
+  alerta: AlertaCriticidad,
+  seleccionadas: Criticidad[],
+): boolean {
+  return alerta.puntaje > 0 && seleccionadas.includes(alerta.criticidad);
+}
+
 function etiquetaCriticidad(criticidad: Criticidad) {
   return criticidad === "alta"
     ? "ALTA"
@@ -114,33 +125,23 @@ function etiquetaCriticidad(criticidad: Criticidad) {
 }
 
 function etiquetaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
-  return nivel === "alto" ? "ALTO" : nivel === "medio" ? "MEDIO" : "BAJO";
-}
-
-/** Para vencimientos personales, el detalle trae oraciones largas como
- * "'Manipulación de Alimentos B' de pepe pepe vence en 8 días". Acota en el
- * nombre de la entidad (todo lo que está antes de " vence" / " venció").
- *
- * Para documento corta antes de " - versión".
- * Para elemento de limpieza corta antes de " superó su frecuencia".
- */
-function detalleCorto(detalle?: string | null): string {
-  if (!detalle) return "";
-  const recortes = [
-    detalle.indexOf(" vence"),
-    detalle.indexOf(" venció"),
-    detalle.indexOf(" · versión"),
-    detalle.indexOf(" superó su frecuencia"),
-  ];
-  const corte = Math.min(
-    ...recortes.map((i) => (i === -1 ? Infinity : i)),
-  );
-  if (corte === Infinity) return detalle;
-  return detalle.slice(0, corte).trimEnd();
+  return nivel === "alto"
+    ? "ALTO"
+    : nivel === "medio"
+      ? "MEDIO"
+      : nivel === "bajo"
+        ? "BAJO"
+        : "SIN RIESGO";
 }
 
 function paletaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
-  return nivel === "alto" ? "red" : nivel === "medio" ? "orange" : "green";
+  return nivel === "alto"
+    ? "red"
+    : nivel === "medio"
+      ? "orange"
+      : nivel === "bajo"
+        ? "green"
+        : "gray";
 }
 
 function SortIcon({
@@ -170,12 +171,14 @@ export function NotificacionesPage() {
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
-    nivel_riesgo: "bajo",
+    nivel_riesgo: "sin_riesgo",
+    puntaje_maximo: 0,
     total: 0,
     altas: 0,
     medias: 0,
     bajas: 0,
     alertas: [],
+    elementos: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -245,14 +248,6 @@ export function NotificacionesPage() {
       return;
     }
 
-    // Las notificaciones de checklist no llevan al historial genérico: se
-    // navega al historial filtrado por el equipo de la alerta y se prepara
-    // para abrir el detalle del primer checklist (botón "ver" / icono de ojo).
-    if (alerta.origen === "CHECKLIST") {
-      navigate(`/checklist/historial?equipoId=${alerta.entidad_id}&abrirDetalle=true`);
-      return;
-    }
-
     navigate(alerta.destino);
   };
 
@@ -276,7 +271,7 @@ export function NotificacionesPage() {
 
     if (criticidadesSeleccionadas.length > 0) {
       resultado = resultado.filter((alerta) =>
-        criticidadesSeleccionadas.includes(alerta.criticidad),
+        coincideConCriticidad(alerta, criticidadesSeleccionadas),
       );
     }
 
@@ -286,8 +281,8 @@ export function NotificacionesPage() {
 
     if (sortColumn === "criticidad") {
       resultado.sort((a, b) => {
-        const diferencia =
-          ORDEN_CRITICIDAD[a.criticidad] - ORDEN_CRITICIDAD[b.criticidad];
+        // "asc": primero lo más riesgoso, igual que el orden por defecto.
+        const diferencia = b.puntaje - a.puntaje;
         return sortDirection === "asc" ? diferencia : -diferencia;
       });
     } else if (sortColumn === "plazo") {
@@ -319,7 +314,7 @@ export function NotificacionesPage() {
 
     if (criticidadesSeleccionadas.length > 0) {
       base = base.filter((alerta) =>
-        criticidadesSeleccionadas.includes(alerta.criticidad),
+        coincideConCriticidad(alerta, criticidadesSeleccionadas),
       );
     }
 
@@ -451,6 +446,7 @@ export function NotificacionesPage() {
   const nivel = datos.nivel_riesgo;
   const nivelTexto = etiquetaNivelRiesgo(nivel);
   const nivelPaleta = paletaNivelRiesgo(nivel);
+  const elementoMasRiesgoso = datos.elementos[0] ?? null;
 
   return (
     <Pagina
@@ -460,7 +456,7 @@ export function NotificacionesPage() {
           Centro de notificaciones
         </HStack>
       }
-      descripcion="Situaciones de inocuidad detectadas y priorizadas automáticamente según su criticidad."
+      descripcion="Situaciones de inocuidad detectadas y priorizadas automáticamente según su riesgo (impacto × probabilidad)."
     >
       <DialogoExito isOpen={mensajeExito !== null} mensaje={mensajeExito ?? ""} />
 
@@ -489,7 +485,7 @@ export function NotificacionesPage() {
           {/* Nivel general de riesgo: destacado a la izquierda. */}
           <Box flex="1" minW="0">
             <Text fontSize="sm" color="fg.muted" mb="1">
-              Nivel de riesgo de la entidad
+              Nivel de riesgo general
             </Text>
             <Text
               fontSize={{ base: "3xl", md: "4xl" }}
@@ -500,8 +496,15 @@ export function NotificacionesPage() {
               {nivelTexto}
             </Text>
             <Text fontSize="sm" color="fg.muted" mt="2">
-              Riesgo general de inocuidad
+              {elementoMasRiesgoso
+                ? `${formatoPuntaje(datos.puntaje_maximo)} de ${RIESGO_MAXIMO} · ${elementoMasRiesgoso.etiqueta}`
+                : "No hay situaciones presentes"}
             </Text>
+            {elementoMasRiesgoso && (
+              <Text fontSize="xs" color="fg.subtle" mt="1">
+                Es el riesgo del elemento en peor situación.
+              </Text>
+            )}
           </Box>
 
           {/* Contador clickeable: limpia los filtros y muestra todo. */}
@@ -650,7 +653,7 @@ export function NotificacionesPage() {
                       <SortIcon column="origen" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </Box>
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro width="24%">Situación</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="media">Situación</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media" onClick={() => handleSort("plazo")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Plazo
@@ -683,22 +686,26 @@ export function NotificacionesPage() {
                         }
                       }}
                       _hover={{
-                        bg: accionable ? "#F0FDFA" : undefined,
+                        bg: accionable ? "brand.50" : undefined,
                         cursor: accionable ? "pointer" : "default",
                       }}
-                      transition="background-color 0.15s ease"
+                      transition="background 0.2s"
                       cursor={accionable ? "pointer" : "default"}
                     >
                       <Celda>
                         <Badge
-                          colorPalette={PALETA_CRITICIDAD[alerta.criticidad]}
+                          colorPalette={
+                            alerta.puntaje > 0 ? PALETA_CRITICIDAD[alerta.criticidad] : "gray"
+                          }
                           variant="subtle"
-                          px="2.5"
+                          px="2"
                           py="1"
-                          rounded="full"
-                          fontWeight="semibold"
+                          borderRadius="md"
+                          fontWeight="bold"
                         >
-                          {etiquetaCriticidad(alerta.criticidad)}
+                          {alerta.puntaje > 0
+                            ? `${etiquetaCriticidad(alerta.criticidad)} · ${formatoPuntaje(alerta.puntaje)}`
+                            : "SIN RIESGO"}
                         </Badge>
                       </Celda>
 
@@ -712,18 +719,11 @@ export function NotificacionesPage() {
                       </Celda>
 
                       <Celda>
-                        <DatoPrincipal
-                          titulo={alerta.titulo}
-                          secundario={
-                            alerta.entidad_nombre ??
-                            (alerta.origen === "INCIDENTE"
-                              ? alerta.detalle.split(" · ")[0]
-                              : detalleCorto(alerta.detalle))
-                          }
-                        />
+                        <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
+                        <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
                       </Celda>
 
-                      <Celda whiteSpace="nowrap">
+                      <Celda fontSize="sm">
                         {alerta.fecha_referencia
                           ? formatoFechaOCorta(alerta.fecha_referencia)
                           : alerta.plazo}
@@ -733,6 +733,16 @@ export function NotificacionesPage() {
                         <Text fontSize="sm" color="fg.muted" title={alerta.motivo}>
                           {alerta.motivo}
                         </Text>
+                        {alerta.puntaje_elemento !== alerta.puntaje && (
+                          <Text
+                            fontSize="xs"
+                            color={`${paletaNivelRiesgo(nivelDePuntaje(alerta.puntaje_elemento))}.fg`}
+                            mt="1"
+                            fontWeight="medium"
+                          >
+                            Riesgo del elemento: {formatoPuntaje(alerta.puntaje_elemento)}
+                          </Text>
+                        )}
                       </Celda>
                     </Table.Row>
                   );

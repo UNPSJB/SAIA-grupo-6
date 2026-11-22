@@ -53,12 +53,6 @@ from src.nutricion.models import (  # noqa: F401
     ValorLaboratorioProducto,
     ValorNutricionalInsumo,
 )
-from src.rotulado_frontal.models import (  # noqa: F401
-    ConfiguracionModuloRotulado,
-    ConfiguracionRotuladoProducto,
-    EvaluacionRotulado,
-    ReglaRotuladoFrontal,
-)
 from src.lotesInsumo.models import LoteInsumo  # noqa: F401
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: F401
 from src.insumoQuimico.models import InsumoQuimico, LoteStock  # noqa: F401
@@ -77,7 +71,11 @@ from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
 from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 from src.vistaPublica.models import ConfiguracionVistaPublica, IndicadorVistaPublica  # noqa: F401
-from src.notificaciones.models import NotificacionPersistida  # noqa: F401
+from src.notificaciones.models import (  # noqa: F401
+    ConfiguracionImpacto,
+    NotificacionPersistida,
+    SituacionRiesgo,
+)
 from src.notificaciones.invalidacion import EstadoNotificaciones  # noqa: F401
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: F401
 
@@ -122,17 +120,13 @@ __all__ = [
     "InsumoQuimico",
     "ChecklistProduccion",
     "ClaseFuncional",
-    "ConfiguracionModuloRotulado",
-    "ConfiguracionRotuladoProducto",
     "ConsumoInsumo",
-    "EvaluacionRotulado",
     "LoteInsumo",
     "LoteProducto",
     "LoteStock",
     "Producto",
     "Receta",
     "RecetaInsumo",
-    "ReglaRotuladoFrontal",
     "TareaReceta",
     "TareaRecetaInsumo",
     "VersionReceta",

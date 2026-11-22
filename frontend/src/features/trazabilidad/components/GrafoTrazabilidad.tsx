@@ -2,32 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Box,
-  Button,
   HStack,
   Heading,
   SimpleGrid,
   Stack,
   Text,
-  VStack,
 } from "@chakra-ui/react";
 import {
-  LuBuilding2,
-  LuCalendar,
-  LuCircleCheck,
-  LuClock,
-  LuExternalLink,
-  LuFilter,
-  LuInfo,
-  LuPackage,
   LuRotateCcw,
-  LuShieldAlert,
   LuShieldCheck,
-  LuTruck,
-  LuUser,
-  LuUserCheck,
   LuX,
 } from "react-icons/lu";
-import { BotonCancelar, EtiquetaEstado, Tarjeta } from "../../../components/ui/patrones";
+import { BotonCancelar, Tarjeta } from "../../../components/ui/patrones";
 import { getTimelineLote } from "../../lotes/services/loteService";
 import type { LoteTimelineResponse, NodoTimeline } from "../../lotes/types/timeline";
 import type { GrafoTrazabilidadResponse, NodoGrafo } from "../types/grafo";

@@ -11,8 +11,9 @@ import {
 import { Pagina } from "../../../../components/ui/plantillas";
 import { useConfiguracionAlertas } from "../../hooks/useConfiguracionAlertas";
 import { AlertasVencimientoPersonalCard } from "../AlertasVencimientoPersonalCard";
-import { PlazoReclamoCard } from "../PlazoReclamoCard";
+import { ImpactoSituacionesCard } from "../ImpactoSituacionesCard";
 import { MetaLimpiezaCard } from "../MetaLimpiezaCard";
+import { PlazoReclamoCard } from "../PlazoReclamoCard";
 
 /** Título de cada bloque de la pantalla. */
 function TituloSeccion({ children }: { children: string }) {
@@ -73,7 +74,11 @@ function TarjetaAcceso({ entrada }: { entrada: EntradaMenu }) {
  * aparecen como accesos, y los ajustes que se editan en el lugar.
  *
  * Para sumar un acceso: una línea en `CONFIGURACION` (`menuEntradas.ts`).
- * Para sumar un ajuste: una tarjeta más dentro del `Stack` de "Alertas".
+ * Para sumar un ajuste: una tarjeta más dentro del `Stack` de "Alertas" (o
+ * de "Indicadores", si es una meta).
+ *
+ * El impacto de los eventos del motor de riesgos tiene su propio bloque
+ * ("Riesgo"): la tarjeta carga y guarda por su cuenta.
  */
 export function ConfiguracionPage() {
   const {
@@ -110,7 +115,7 @@ export function ConfiguracionPage() {
       <TituloSeccion>Alertas</TituloSeccion>
 
       {cargando && !configuracion ? (
-        <EstadoCargando pagina>Cargando configuración...</EstadoCargando>
+        <EstadoCargando>Cargando configuración...</EstadoCargando>
       ) : null}
 
       {!cargando && errorCarga && !configuracion ? (
@@ -131,6 +136,7 @@ export function ConfiguracionPage() {
       {exito ? <BannerExito>{exito}</BannerExito> : null}
 
       {configuracion ? (
+        <>
         <Stack gap="5">
           <AlertasVencimientoPersonalCard
             diasGuardados={configuracion.dias_alerta_vencimiento_personal}
@@ -147,19 +153,25 @@ export function ConfiguracionPage() {
             onEditar={limpiarMensajes}
           />
         </Stack>
-      ) : null}
 
-      {configuracion ? (
-        <>
+        <Box mt="8">
           <TituloSeccion>Indicadores</TituloSeccion>
           <MetaLimpiezaCard
             metaGuardada={configuracion.meta_cumplimiento_limpieza}
             guardando={guardando}
-            onGuardar={(porcentaje) => guardar({ meta_cumplimiento_limpieza: porcentaje })}
+            onGuardar={(porcentaje) =>
+              guardar({ meta_cumplimiento_limpieza: porcentaje })
+            }
             onEditar={limpiarMensajes}
           />
+        </Box>
         </>
       ) : null}
+
+      <Box mt="8">
+        <TituloSeccion>Riesgo</TituloSeccion>
+        <ImpactoSituacionesCard />
+      </Box>
     </Pagina>
   );
 }
