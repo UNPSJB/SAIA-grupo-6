@@ -8,6 +8,7 @@ import { obtenerComposicion } from "../../services/recetaService";
 import { GraficoComposicion } from "../GraficoComposicion";
 import { FaltantesComposicion, ResumenComposicion, TablaComposicion } from "../TablaComposicion";
 import { GraficoAditivos } from "../GraficoAditivos";
+import { BotonDescargaGrafico } from "../../../exportacion";
 
 export function RecetaComposicionPage() {
   const navigate = useNavigate();
@@ -64,9 +65,16 @@ export function RecetaComposicionPage() {
 
                 <Stack gap="6">
                   <Tarjeta p="4">
+                    <BotonDescargaGrafico
+                    alDerecha
+                    titulo={`Composición de ${composicion.producto_nombre} (versión ${composicion.version_numero})`}
+                    />
                     <GraficoComposicion composicion={composicion} />
                   </Tarjeta>
-
+                  <BotonDescargaGrafico
+                  alDerecha
+                  titulo={`Aditivos de ${composicion.producto_nombre} (versión ${composicion.version_numero})`}
+                  />
                   {composicion.aditivos.length > 0 && (
                     <Tarjeta p="4">
                       <Heading as="h4" size="md" mb="1">Aditivos</Heading>

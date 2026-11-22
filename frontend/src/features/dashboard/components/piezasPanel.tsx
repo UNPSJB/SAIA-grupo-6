@@ -1,4 +1,4 @@
-import { Children, type ReactNode } from "react";
+import { Children,useMemo, type ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Box,
@@ -32,7 +32,9 @@ import { formatoCantidad } from "../../../common/utils/numeros";
 import type { EstadoPanel } from "../hooks/usePanel";
 import { PERIODOS, type Conteo, type FilaAtencion } from "../types/paneles";
 import { COLOR_ESTADO } from "../types/coloresGraficos";
+import { ContextoRangoDescarga, rangoDePanel } from "./rangoDescarga";
 import { TarjetaPanel } from "./TarjetaPanel";
+
 
 /*
  * Piezas de los paneles de categoría (Producción, Inventario, ...).
@@ -65,6 +67,7 @@ interface MarcoPanelProps<T> {
  */
 export function MarcoPanel<T>({ panel, filtro, aviso, children }: MarcoPanelProps<T>) {
   const { datos, loading, error } = panel;
+  const rango = useMemo(() => rangoDePanel(datos), [datos]);
   return (
     <>
       <BarraFiltrosPanel>
@@ -115,7 +118,7 @@ export function MarcoPanel<T>({ panel, filtro, aviso, children }: MarcoPanelProp
               <Text>{aviso}</Text>
             </HStack>
           ) : null}
-          {children(datos)}
+          <ContextoRangoDescarga.Provider value={rango}>{children(datos)}</ContextoRangoDescarga.Provider>
         </Box>
       )}
     </>
@@ -350,7 +353,7 @@ interface BloqueProps extends BoxProps {
 /** Tarjeta de un bloque del panel, con su título y su estado vacío. */
 export function Bloque({ titulo, descripcion, vacio, children, ...rest }: BloqueProps) {
   return (
-    <TarjetaPanel titulo={titulo} tamanoTitulo="lg" descripcion={descripcion} {...rest}>
+    <TarjetaPanel titulo={titulo} tamanoTitulo="lg" descripcion={descripcion} descargable={!vacio} {...rest}>
       {vacio ? (
         <Text fontSize="sm" color="fg.muted" py="4" my="auto">
           {vacio}
