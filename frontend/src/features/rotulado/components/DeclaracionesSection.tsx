@@ -11,11 +11,12 @@ import { catalogoAlergenos, confirmarDeclaraciones, consultarDeclaraciones, guar
 import { ConservacionFields } from "./ConservacionFields";
 import { CampoOrigen } from "./CampoOrigen";
 import { IndicadorCompletitud } from "./IndicadorCompletitud";
+import type { ResumenDeclaracion } from "./ListaIngredientesRotulo";
 
-export function DeclaracionesSection({ borradorId, productoId, preview, formularioSucio, onEstado, onDirtyChange, onOrigenChange }: {
+export function DeclaracionesSection({ borradorId, productoId, preview, formularioSucio, onEstado, onDirtyChange, onOrigenChange, onDeclaracion }: {
   borradorId: number; productoId: number; preview?: PropuestaDeclaraciones | null;
   formularioSucio: boolean; onEstado?: (pendiente: boolean) => void; onDirtyChange?: (sucio: boolean) => void;
-  onOrigenChange?: () => void;
+  onOrigenChange?: () => void; onDeclaracion?: (resumen: ResumenDeclaracion | null) => void;
 }) {
   const auth = useContext(AuthContext);
   const autorizado = puedeAdministrar(auth?.user);
@@ -54,6 +55,16 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
   }, [datos, sucio, onEstado]);
 
   useEffect(() => { onDirtyChange?.(sucio); }, [sucio, onDirtyChange]);
+
+
+
+ useEffect(() => {
+    onDeclaracion?.(
+   datos
+        ? { revision: datos.revision, texto: datos.declaracion ?? "", estado: datos.estado === "confirmada" ? "confirmada" : "sugerida", vigencia: datos.vigencia === "desactualizada" ? "desactualizada" : "vigente" }
+        : null,
+    );
+  }, [datos, onDeclaracion]);
 
   async function operar(accion: () => Promise<DeclaracionesOut>) {
     setOcupado(true); setError("");
