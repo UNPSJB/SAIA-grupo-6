@@ -127,6 +127,8 @@ export async function resolverRechazo(
       body: JSON.stringify({
         disposicion: datos.disposicion,
         justificacion: datos.justificacion.trim(),
+        generar_reposicion: datos.generar_reposicion ?? false,
+        cantidad_a_reponer: datos.cantidad_a_reponer ?? null,
       }),
     }
   );

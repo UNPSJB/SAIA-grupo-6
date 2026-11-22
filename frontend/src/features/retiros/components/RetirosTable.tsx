@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge, Box, Flex, HStack, Table, Text, VStack } from "@chakra-ui/react";
+import { Badge, Button, Flex, HStack, Table, Text, VStack } from "@chakra-ui/react";
 import { LuTriangleAlert } from "react-icons/lu";
 import { formatoFecha } from "../../../common/utils/fechas";
 import {
@@ -87,16 +87,20 @@ export function RetirosTable({
                         </HStack>
                       </Badge>
                       {textoInsumo && (
-                        <Text
-                          color="blue.600"
-                          _hover={{ color: "blue.800", textDecoration: "underline" }}
-                          cursor="pointer"
-                          fontSize="xs"
-                          mt={1}
-                          noOfLines={1}
-                          maxWidth="250px"
-                          title={`Filtrar por insumo: ${textoInsumo}`}
-                          onClick={(e) => {
+                        <Button
+                          type="button"
+                          variant="plain"
+                          colorPalette="teal"
+                          color="teal.600"
+                          size="xs"
+                          p={0}
+                          h="auto"
+                          minW={0}
+                          fontWeight="medium"
+                          textDecoration="underline"
+                          textUnderlineOffset="2px"
+                          _hover={{ color: "teal.800" }}
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                             e.stopPropagation();
                             if (onSearchChange) {
                               onSearchChange(textoInsumo);
@@ -104,7 +108,7 @@ export function RetirosTable({
                           }}
                         >
                           {textoInsumo}
-                        </Text>
+                        </Button>
                       )}
                     </VStack>
                   ) : esReclamo ? (

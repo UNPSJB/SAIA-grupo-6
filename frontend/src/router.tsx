@@ -105,6 +105,12 @@ const RetirosPage = lazyPrecargable(() =>
 const RetiroDetallePage = lazyPrecargable(() =>
   import("./features/retiros/components/pages/RetiroDetallePage").then((mod) => ({ default: mod.RetiroDetallePage })),
 );
+// Reposiciones pendientes (deuda comercial de stock con clientes)
+const ReposicionesPendientesPage = lazyPrecargable(() =>
+  import("./features/reposiciones/components/pages/ReposicionesPendientesPage").then((mod) => ({
+    default: mod.ReposicionesPendientesPage,
+  })),
+);
 
 // Trazabilidad: productos, recetas versionadas, lotes de insumo y consultas
 const ProductoPage = lazyPrecargable(() =>
@@ -697,6 +703,14 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <RetiroDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/reposiciones/pendientes",
+                element: (
+                  <ConSuspense>
+                    <ReposicionesPendientesPage />
                   </ConSuspense>
                 ),
               },

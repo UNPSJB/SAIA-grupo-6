@@ -126,11 +126,23 @@ class SalidaCancelar(BaseModel):
         return texto_no_vacio(valor, vacio=exceptions.MotivoRequerido)
 
 
+class SalidaRechazar(BaseModel):
+    """Rechazo de entrega con opción de generar reposición de stock."""
+
+    motivo: str
+    detalle: str | None = None
+    fecha_rechazo: date
+    generar_reposicion: bool = False
+    cantidad_a_reponer: Decimal | None = None
+
+
 class SalidaResolverRechazo(BaseModel):
     """Resolución de un rechazo: reingresar la mercadería o desecharla."""
 
     disposicion: str
     justificacion: str
+    generar_reposicion: bool = False
+    cantidad_a_reponer: Decimal | None = None
 
     @field_validator("justificacion")
     @classmethod

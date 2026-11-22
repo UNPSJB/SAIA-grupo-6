@@ -22,6 +22,12 @@ from src.lotes.models import LoteProducto
 from src.personal.models import Personal
 from src.reclamos.constants import ETIQUETAS_MOTIVO_RECLAMO
 from src.reclamos.models import Reclamo
+from src.reposiciones.constants import (
+    ESTADO_REPOSICION_PENDIENTE,
+    ORIGEN_REPOSICION_RECHAZO,
+    PRIORIDAD_ALTA,
+)
+from src.reposiciones.models import Reposicion
 from src.salidas import exceptions, schemas
 from src.salidas.constants import (
     DISPOSICION_DESECHADA,
@@ -485,6 +491,8 @@ def rechazar(
     fecha_rechazo: date,
     usuario: Personal,
     foto_url: str | None = None,
+    generar_reposicion: bool = False,
+    cantidad_a_reponer: Decimal | None = None,
 ) -> Salida:
     """Registra que el cliente rechazó una entrega (Historia A).
 
@@ -499,6 +507,9 @@ def rechazar(
     Abre un incidente "Entrega rechazada" vinculado al lote y a la salida,
     pasa la salida a RECHAZADA (la cantidad queda en revisión, sin volver al
     saldo) y registra el hito. Todo en UNA transacción.
+    
+    Si `generar_reposicion` es True y `cantidad_a_reponer` > 0, crea una
+    reposición de stock (deuda comercial) vinculada a esta salida.
     """
     salida = _obtener_salida_o_error(db, salida_id)
     _exigir_transicion(salida, ESTADO_RECHAZADA)
@@ -555,6 +566,28 @@ def rechazar(
 
     db.add(salida)
     db.flush()
+
+    # Generar reposición de stock si se solicita (deuda comercial por rechazo)
+    if generar_reposicion and cantidad_a_reponer is not None and cantidad_a_reponer > 0:
+        # Validar que la cantidad a reponer no supere la cantidad de la salida
+        if cantidad_a_reponer > salida.cantidad:
+            raise exceptions.CantidadInvalida(
+                "La cantidad a reponer no puede ser mayor a la cantidad de la salida rechazada."
+            )
+        
+        reposicion = Reposicion(
+            cliente_id=salida.cliente_id,
+            producto_id=salida.lote.producto_id,
+            cantidad_original=cantidad_a_reponer,
+            cantidad_pendiente=cantidad_a_reponer,
+            estado=ESTADO_REPOSICION_PENDIENTE,
+            prioridad=PRIORIDAD_ALTA,
+            origen=ORIGEN_REPOSICION_RECHAZO,
+            salida_origen_id=salida.id,
+        )
+        db.add(reposicion)
+        db.flush()
+
     try:
         registrar_hito(
             db,
@@ -582,6 +615,8 @@ def resolver_rechazo(
     disposicion: str,
     justificacion: str,
     usuario: Personal,
+    generar_reposicion: bool = False,
+    cantidad_a_reponer: Decimal | None = None,
 ) -> Salida:
     """Resuelve un rechazo: reingresa la mercadería al lote o la desecha.
 
@@ -592,6 +627,8 @@ def resolver_rechazo(
     - Cierra el incidente vinculado reutilizando la lógica de cierre de
       incidentes y registra el hito. Todo en UNA transacción. El estado de la
       salida NO cambia: la decisión vive en los campos de disposición.
+    - Si `generar_reposicion` es True y `cantidad_a_reponer` > 0, crea una
+      reposición de stock (deuda comercial) vinculada a esta salida.
     """
     salida = _obtener_salida_o_error(db, salida_id)
 
@@ -630,6 +667,26 @@ def resolver_rechazo(
         else "desechada"
     )
     detalle_accion = f"Rechazo resuelto: {accion}. Justificación: {justificacion}."
+
+    # Generar reposición de stock si se solicita (deuda comercial por rechazo)
+    if generar_reposicion and cantidad_a_reponer is not None and cantidad_a_reponer > 0:
+        if cantidad_a_reponer > salida.cantidad:
+            raise exceptions.CantidadInvalida(
+                "La cantidad a reponer no puede ser mayor a la cantidad de la salida rechazada."
+            )
+        
+        reposicion = Reposicion(
+            cliente_id=salida.cliente_id,
+            producto_id=salida.lote.producto_id,
+            cantidad_original=cantidad_a_reponer,
+            cantidad_pendiente=cantidad_a_reponer,
+            estado=ESTADO_REPOSICION_PENDIENTE,
+            prioridad=PRIORIDAD_ALTA,
+            origen=ORIGEN_REPOSICION_RECHAZO,
+            salida_origen_id=salida.id,
+        )
+        db.add(reposicion)
+        db.flush()
 
     # Cerrar el incidente vinculado con la acción correctiva, sin duplicar la
     # lógica de cierre. Si por algún motivo ya no existe, el hito se registra

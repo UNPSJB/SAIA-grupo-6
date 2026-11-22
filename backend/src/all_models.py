@@ -66,6 +66,7 @@ from src.certificaciones_transportista.models import CertificacionTransportista 
 from src.salidas.models import HitoLote, Salida, SalidaCertificacion  # noqa: F401
 from src.reclamos.models import Reclamo  # noqa: F401
 from src.retiros.models import Retiro, RetiroAfectado  # noqa: F401
+from src.reposiciones.models import Reposicion  # noqa: F401
 from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
@@ -110,6 +111,7 @@ __all__ = [
     "Reclamo",
     "Retiro",
     "RetiroAfectado",
+    "Reposicion",
     "Sector",
     "Equipo",
     "HistorialRegistroTarea",

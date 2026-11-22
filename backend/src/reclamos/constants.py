@@ -11,6 +11,8 @@ MOTIVO_ENVASE_DANADO = "envase_danado"
 MOTIVO_CUERPO_EXTRANO = "cuerpo_extrano"
 MOTIVO_AFECTACION_SALUD = "posible_afectacion_salud"
 MOTIVO_ROTULADO_ETIQUETA = "rotulado_etiqueta"
+MOTIVO_DEVOLUCION_RECALL = "Devolución de lote por alerta de recall/retiro"
+MOTIVO_DEVOLUCION_RECALL_KEY = "devolucion_recall_retiro"
 MOTIVO_OTRO = "otro"
 
 MOTIVOS_RECLAMO = (
@@ -19,6 +21,8 @@ MOTIVOS_RECLAMO = (
     MOTIVO_CUERPO_EXTRANO,
     MOTIVO_AFECTACION_SALUD,
     MOTIVO_ROTULADO_ETIQUETA,
+    MOTIVO_DEVOLUCION_RECALL,
+    MOTIVO_DEVOLUCION_RECALL_KEY,
     MOTIVO_OTRO,
 )
 
@@ -28,6 +32,8 @@ ETIQUETAS_MOTIVO_RECLAMO = {
     MOTIVO_CUERPO_EXTRANO: "Cuerpo extraño",
     MOTIVO_AFECTACION_SALUD: "Posible afectación a la salud",
     MOTIVO_ROTULADO_ETIQUETA: "Rotulado o etiqueta",
+    MOTIVO_DEVOLUCION_RECALL: "Devolución de lote por alerta de recall/retiro",
+    MOTIVO_DEVOLUCION_RECALL_KEY: "Devolución de lote por alerta de recall/retiro",
     MOTIVO_OTRO: "Otro",
 }
 

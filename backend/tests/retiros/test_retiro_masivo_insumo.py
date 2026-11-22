@@ -35,6 +35,17 @@ from src.lotes.constants import ESTADO_TERMINADO  # noqa: E402
 from src.lotes.models import LoteProducto  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
 from src.retiros.models import Retiro  # noqa: E402
+from src.clientes.models import Cliente  # noqa: E402
+from src.salidas.models import Salida  # noqa: E402
+from src.salidas.constants import ESTADO_CANCELADO, ESTADO_RESERVADO  # noqa: E402
+from src.reposiciones.models import Reposicion  # noqa: E402
+from src.reposiciones.constants import (  # noqa: E402
+    ESTADO_REPOSICION_PARCIAL,
+    ESTADO_REPOSICION_PENDIENTE,
+    ORIGEN_REPOSICION_RETIRO,
+    PRIORIDAD_ALTA,
+    PRIORIDAD_NORMAL,
+)
 from src.notificaciones.invalidacion import registrar_invalidacion_automatica  # noqa: E402
 
 registrar_invalidacion_automatica()
@@ -293,3 +304,135 @@ def test_retiro_masivo_insumo_rollback_por_lote_ya_retirado(setup_datos):
 
         retiro_ok = db.query(Retiro).filter(Retiro.lote_id == lp_ok_id).first()
         assert retiro_ok is None
+
+
+def test_retiro_cancela_reserva_y_crea_reposicion(setup_datos):
+    """Al iniciar un retiro sobre un lote con reserva activa:
+    a) Se crea el retiro.
+    b) La reserva (Salida en estado RESERVADO) pasa a CANCELADO.
+    c) Se crea exactamente 1 registro en `reposiciones` con cantidad, cliente y retiro_origen_id correctos.
+    d) El endpoint GET /reposiciones/pendientes devuelve las pendientes ordenadas por prioridad y fecha_registro.
+    """
+    datos = setup_datos
+
+    with _Fabrica() as db:
+        cliente = db.query(Cliente).filter_by(documento="30-77889900-1").first()
+        if not cliente:
+            cliente = Cliente(
+                nombre="Supermercado El Sol",
+                documento="30-77889900-1",
+                telefono="11-4455-6677",
+                email="compras@elsol.test",
+                activo=True,
+            )
+            db.add(cliente)
+            db.flush()
+
+        prod = db.query(Producto).first()
+        version = db.query(VersionReceta).first()
+        lote_con_reserva = LoteProducto(
+            producto_id=prod.id,
+            version_receta_id=version.id,
+            numero_lote=f"PROD-RESERVA-{os.urandom(4).hex()}",
+            cantidad_objetivo=Decimal("30.000"),
+            factor_escala=Decimal("1"),
+            cantidad_producida=Decimal("30.000"),
+            estado=ESTADO_TERMINADO,
+            retirado=False,
+            creado_por_id=datos["admin_id"],
+        )
+        db.add(lote_con_reserva)
+        db.flush()
+
+        reserva = Salida(
+            lote_id=lote_con_reserva.id,
+            cliente_id=cliente.id,
+            cantidad=Decimal("12.500"),
+            fecha_reserva=date.today(),
+            estado=ESTADO_RESERVADO,
+            creado_por_id=datos["admin_id"],
+        )
+        db.add(reserva)
+        db.commit()
+
+        lote_id = lote_con_reserva.id
+        reserva_id = reserva.id
+        cliente_id = cliente.id
+        producto_id = prod.id
+
+    payload = {
+        "lote_insumo_id": datos["lote_insumo_id"],
+        "lotes_producto_ids": [lote_id],
+        "motivo": "Aviso o recall del proveedor",
+        "detalle": "Notificación preventiva de lote de harina afectado",
+        "desactivar_insumo": True,
+    }
+
+    res = client.post(
+        "/retiros/masivo-insumo",
+        json=payload,
+        headers=_headers(datos["admin_id"]),
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert len(body["retiros_creados"]) == 1
+    retiro_creado_id = body["retiros_creados"][0]["retiro_id"]
+
+    with _Fabrica() as db:
+        # a) El retiro existe en BD
+        retiro_bd = db.get(Retiro, retiro_creado_id)
+        assert retiro_bd is not None
+        assert retiro_bd.lote_id == lote_id
+        assert retiro_bd.motivo == "Aviso o recall del proveedor"
+
+        # b) La reserva fue cancelada
+        reserva_bd = db.get(Salida, reserva_id)
+        assert reserva_bd is not None
+        assert reserva_bd.estado == ESTADO_CANCELADO
+
+        # c) Se creó exactamente 1 registro en reposiciones para este retiro
+        repos = (
+            db.query(Reposicion)
+            .filter(Reposicion.retiro_origen_id == retiro_creado_id)
+            .all()
+        )
+        assert len(repos) == 1
+        repo = repos[0]
+        assert repo.cliente_id == cliente_id
+        assert repo.producto_id == producto_id
+        assert Decimal(str(repo.cantidad_original)) == Decimal("12.500")
+        assert Decimal(str(repo.cantidad_pendiente)) == Decimal("12.500")
+        assert repo.estado == ESTADO_REPOSICION_PENDIENTE
+        assert repo.prioridad == PRIORIDAD_NORMAL
+        assert repo.origen == ORIGEN_REPOSICION_RETIRO
+        assert repo.retiro_origen_id == retiro_creado_id
+
+        # Agregar una segunda reposición con prioridad ALTA para verificar el orden en GET /reposiciones/pendientes
+        repo_alta = Reposicion(
+            cliente_id=cliente_id,
+            producto_id=producto_id,
+            cantidad_original=Decimal("5.000"),
+            cantidad_pendiente=Decimal("2.500"),
+            estado=ESTADO_REPOSICION_PARCIAL,
+            prioridad=PRIORIDAD_ALTA,
+            origen=ORIGEN_REPOSICION_RETIRO,
+            retiro_origen_id=retiro_creado_id,
+        )
+        db.add(repo_alta)
+        db.commit()
+        repo_alta_id = repo_alta.id
+        repo_normal_id = repo.id
+
+    # d) Verificar endpoint GET /reposiciones/pendientes y su ordenamiento
+    res_get = client.get(
+        "/reposiciones/pendientes",
+        headers=_headers(datos["admin_id"]),
+    )
+    assert res_get.status_code == 200
+    pendientes = res_get.json()
+    ids_devueltos = [item["id"] for item in pendientes]
+    assert repo_alta_id in ids_devueltos
+    assert repo_normal_id in ids_devueltos
+    # La de prioridad ALTA debe aparecer antes que la NORMAL
+    assert ids_devueltos.index(repo_alta_id) < ids_devueltos.index(repo_normal_id)
+
