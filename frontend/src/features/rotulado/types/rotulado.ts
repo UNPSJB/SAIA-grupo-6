@@ -1,3 +1,6 @@
+import type { SellosRotulado } from "../../rotuladoFrontal/types/rotuladoFrontal";
+import type { DeclaracionesOut } from "./declaraciones";
+
 import type { PropuestaDeclaraciones } from "./declaraciones";
 export interface CampoCompletitud {
   nombre: string;
@@ -131,4 +134,30 @@ export interface BorradorRotuladoUpdate {
   estado?: string;
   datos_nutricionales_json?: string | null;
   sellos_disponibles?: boolean;
+}
+
+export interface FrontalPrevisualizacion {
+  estado: string;
+  mensaje: string;
+  faltantes: string[];
+  advertencias: string[];
+  version_id: number | null;
+  regla_version: number | null;
+  evaluado_en: string | null;
+  sellos: SellosRotulado | null;
+}
+
+export interface PrevisualizacionRotulado {
+  borrador: BorradorRotuladoOut;
+  origen: { estado: string; version_id: number | null; version_numero: number | null; lote_id: number | null; motivo: string | null };
+  completitud: CompletitudRotulado;
+  nutricion: {
+    estado: "completa" | "incompleta" | "ausente" | "ilegible" | "origen_no_verificable" | "version_distinta";
+    problemas: string[];
+    version_id: number | null;
+    tabla: Record<string, unknown> | null;
+    difiere_de_e12: boolean;
+  };
+  declaraciones: DeclaracionesOut | null;
+  rotulado_frontal: FrontalPrevisualizacion;
 }

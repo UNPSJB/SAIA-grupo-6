@@ -1,8 +1,11 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from src.rotulado.declaraciones_schemas import DeclaracionesOut
+from src.rotulado_frontal.schemas import SellosRotulado
 
 
 class CampoCompletitud(BaseModel):
@@ -133,3 +136,65 @@ class VistaPreviaAutocompletado(BaseModel):
     mensaje: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OrigenPrevisualizacion(BaseModel):
+    estado: Literal["verificado", "sin_version", "incompatible"]
+    version_id: int | None = None
+    version_numero: int | None = None
+    lote_id: int | None = None
+    motivo: str | None = None
+
+
+class FilaInstantaneaNutricional(BaseModel):
+    clave: str
+    nombre: str
+    unidad: str
+    por_100: Decimal | None = None
+    por_porcion: Decimal | None = None
+    vd: Decimal | None = None
+    por_100_texto: str | None = None
+    por_porcion_texto: str | None = None
+    vd_texto: str | None = None
+    faltan_datos: bool = False
+    no_significativo: bool = False
+    de_laboratorio: bool = False
+
+
+class InstantaneaNutricional(BaseModel):
+    version_id: int | None = None
+    estado: str | None = None
+    problemas: list[str] = Field(default_factory=list)
+    expresar_en: Literal["g", "ml"] | None = None
+    porcion: Decimal | None = None
+    medida_casera: str | None = None
+    filas: list[FilaInstantaneaNutricional] = Field(default_factory=list)
+    calculado_en: datetime | None = None
+
+
+class NutricionPrevisualizacion(BaseModel):
+    estado: Literal["completa", "incompleta", "ausente", "ilegible", "origen_no_verificable", "version_distinta"]
+    problemas: list[str] = Field(default_factory=list)
+    version_id: int | None = None
+    tabla: InstantaneaNutricional | None = None
+    difiere_de_e12: bool = False
+
+
+class FrontalPrevisualizacion(BaseModel):
+    estado: str
+    mensaje: str
+    faltantes: list[str] = Field(default_factory=list)
+    advertencias: list[str] = Field(default_factory=list)
+    version_id: int | None = None
+    evaluado_en: datetime | None = None
+    regla_version: int | None = None
+    sellos: SellosRotulado | None = None
+
+
+class PrevisualizacionRotulado(BaseModel):
+    borrador: BorradorRotuladoOut
+    origen: OrigenPrevisualizacion
+    completitud: CompletitudRotulado
+    nutricion: NutricionPrevisualizacion
+    declaraciones: DeclaracionesOut | None
+    rotulado_frontal: FrontalPrevisualizacion

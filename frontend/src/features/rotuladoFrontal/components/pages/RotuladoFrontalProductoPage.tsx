@@ -1,5 +1,6 @@
+import { useEnfocarFragmento } from "../../../../common/hooks/useEnfocarFragmento";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { LuBookOpen, LuHistory, LuInfo, LuTriangleAlert } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
@@ -229,6 +230,10 @@ export function RotuladoFrontalProductoPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const productoId = Number(id);
+  const [params] = useSearchParams();
+  const soloLectura = params.get("solo_lectura") === "true";
+  const borradorId = Number(params.get("borrador_id"));
+  const volverVista = Number.isSafeInteger(borradorId) && borradorId > 0;
   const [evaluacion, setEvaluacion] = useState<EvaluacionRotulado | null>(null);
   const [envasado, setEnvasado] = useState<ValorEnvasado>("");
   const [canal, setCanal] = useState<CanalComercializacion>("MINORISTA");
@@ -248,6 +253,8 @@ export function RotuladoFrontalProductoPage() {
   const [historialError, setHistorialError] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] =
     useState<EvaluacionRotuladoGuardada | null>(null);
+
+  useEnfocarFragmento(!cargando && !!evaluacion);
 
   const inicializar = (datos: EvaluacionRotulado) => {
     setEvaluacion(datos);
@@ -290,7 +297,7 @@ export function RotuladoFrontalProductoPage() {
 
   useEffect(() => {
     let vigente = true;
-    evaluarRotulado(productoId)
+    evaluarRotulado(productoId, undefined, soloLectura)
       .then((datos) => {
         if (vigente) inicializar(datos);
       })
@@ -299,7 +306,7 @@ export function RotuladoFrontalProductoPage() {
     return () => {
       vigente = false;
     };
-  }, [productoId]);
+  }, [productoId, soloLectura]);
 
   useEffect(() => {
     void cargarHistorial();
@@ -354,11 +361,14 @@ export function RotuladoFrontalProductoPage() {
           </EtiquetaEstado>
         ) : null
       }
-      acciones={
+      acciones={<HStack gap="2" flexWrap="wrap">
+        {volverVista && <Button asChild variant="outline" colorPalette="brand">
+          <Link to={`/rotulado/borradores/${borradorId}/previsualizar`}>Volver a la previsualización</Link>
+        </Button>}
         <Button variant="outline" colorPalette="brand" onClick={() => navigate("/rotulado-frontal")}>
           <LuBookOpen aria-hidden /> Reglas de aplicabilidad
         </Button>
-      }
+      </HStack>}
     >
       {error && <BannerError mb="4">{error}</BannerError>}
 
@@ -391,7 +401,7 @@ export function RotuladoFrontalProductoPage() {
             descripcion="La normativa solo aplica a productos envasados en ausencia del cliente y destinados al consumo final directo."
             mb="6"
           >
-            <FormField
+            <FormField id="envasado"
               label="¿El producto se comercializa envasado en ausencia del cliente?"
               required
               mb="4"
@@ -452,7 +462,7 @@ export function RotuladoFrontalProductoPage() {
             descripcion="Se detectan desde las marcas de ingredientes y aditivos de la receta vigente. Podés corregir cada una."
             mb="6"
           >
-            <Box overflowX="auto" mx={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
+            <Box id="marcas" tabIndex={-1} aria-label="Marcas del producto" overflowX="auto" mx={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
               <Table.Root size="sm" minW="760px">
                 <Table.Header>
                   <FilaEncabezado>

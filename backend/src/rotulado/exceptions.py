@@ -29,3 +29,7 @@ class LoteVersionIncompatible(BadRequest):
     DETAIL = (
         "El lote no fue producido con la versión de receta indicada para el borrador."
     )
+
+
+class NutricionBorradorNoDisponible(BadRequest):
+    DETAIL = "No se pudo recalcular la tabla nutricional. Se conservó la tabla del borrador."

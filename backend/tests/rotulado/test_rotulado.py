@@ -177,6 +177,7 @@ def test_preview_exige_autorizacion(datos):
     app.include_router(router)
     app.dependency_overrides[get_db] = lambda: db
     assert TestClient(app).get(f"/rotulado/productos/{producto.id}/autocompletar/preview").status_code in (401, 403)
+    assert TestClient(app).get("/rotulado/borradores/1/previsualizacion").status_code in (401, 403)
 
 
 def test_receta_sin_version(datos):
@@ -225,3 +226,90 @@ def test_http_guardar_editar_y_reabrir(datos):
     assert historial.status_code == 200, historial.text
     assert len([e for e in historial.json() if e["campo"] != "declaraciones"]) == 2
     assert any(e["campo"] == "declaraciones" for e in historial.json())
+
+
+
+def test_previsualizacion_borrador_es_lectura_y_respeta_version(datos):
+    db, producto, receta, version = datos
+    borrador = services.crear_borrador(
+        db, producto.id, schemas.BorradorRotuladoCreate(
+            producto_id=producto.id, version_receta_id=version.id, denominacion_venta="Nombre editado",
+        ),
+    )
+    nuevo = VersionReceta(receta=receta, numero=2, rendimiento=100, unidad_medida=version.unidad_medida)
+    db.add(nuevo)
+    db.commit()
+    borrador_id, version_id = borrador.id, version.id
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[require_admin] = lambda: None
+    db.commit = Mock(side_effect=AssertionError("La previsualizacion no debe escribir"))
+    sentencias = []
+
+    def registrar(conn, cursor, statement, parameters, context, executemany):
+        sentencias.append(statement.strip().split()[0].upper())
+
+    event.listen(db.bind, "before_cursor_execute", registrar)
+    try:
+        respuesta = TestClient(app).get(f"/rotulado/borradores/{borrador_id}/previsualizacion")
+        assert respuesta.status_code == 200, respuesta.text
+        assert respuesta.headers["cache-control"] == "no-store"
+        vista = respuesta.json()
+        assert vista["origen"]["version_id"] == version_id
+        assert vista["borrador"]["denominacion_venta"] == "Nombre editado"
+        assert vista["nutricion"]["estado"] == "ausente"
+        assert vista["completitud"]["estado_global"] == "pendiente"
+        assert vista["rotulado_frontal"]["estado"] == "no_disponible"
+        assert not {"INSERT", "UPDATE", "DELETE", "REPLACE", "CREATE"}.intersection(sentencias)
+        db.commit.assert_not_called()
+    finally:
+        event.remove(db.bind, "before_cursor_execute", registrar)
+
+
+@pytest.mark.parametrize(
+    ("valor", "version_id", "estado"),
+    [
+        (None, 8, "ausente"),
+        ("{", 8, "ilegible"),
+        ('{}', 8, "origen_no_verificable"),
+        ('{"version_id": 9}', 8, "version_distinta"),
+        ('{"version_id": 9}', None, "origen_no_verificable"),
+    ],
+)
+def test_diagnostico_origen_nutricional(valor, version_id, estado):
+    assert services._nutricion_previsualizacion(valor, version_id).estado == estado
+
+
+def test_recalcular_reemplaza_solo_la_tabla_de_otra_version(datos, monkeypatch):
+    db, producto, receta, version = datos
+    nueva = VersionReceta(receta=receta, numero=2, rendimiento=100, unidad_medida=version.unidad_medida)
+    db.add(nueva)
+    db.commit()
+    inicial = schemas.InstantaneaNutricional(version_id=nueva.id).model_dump_json()
+    borrador = services.crear_borrador(
+        db, producto.id, schemas.BorradorRotuladoCreate(
+            producto_id=producto.id, version_receta_id=version.id,
+            denominacion_venta="Denominación manual", datos_nutricionales_json=inicial,
+        ),
+    )
+    antes = services.previsualizar_borrador(db, borrador.id)
+    assert antes.nutricion.estado == "version_distinta"
+    assert antes.nutricion.version_id == nueva.id
+
+    calcular = Mock(side_effect=ValueError("Cálculo fallido"))
+    with monkeypatch.context() as m:
+        m.setattr(services, "calcular_nutricion_service", calcular)
+        with pytest.raises(exceptions.NutricionBorradorNoDisponible):
+            services.recalcular_nutricion_borrador(db, borrador.id)
+    db.rollback()
+    assert borrador.datos_nutricionales_json == inicial
+
+    actualizado = services.recalcular_nutricion_borrador(db, borrador.id)
+    assert actualizado.denominacion_venta == "Denominación manual"
+    assert actualizado.version_receta_id == version.id
+    despues = services.previsualizar_borrador(db, borrador.id)
+    assert despues.nutricion.tabla is not None
+    assert despues.nutricion.tabla.version_id == version.id
+    historial = services.obtener_historial_ediciones(db, borrador.id)
+    assert any(c.campo == "datos_nutricionales_json" and c.valor_original == inicial for c in historial)

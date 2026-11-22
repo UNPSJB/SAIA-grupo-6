@@ -1,6 +1,6 @@
 import { DeclaracionesSection } from "./DeclaracionesSection";
 import { useState, type ChangeEvent } from "react";
-import { Box, Button, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
+import { Box, Button, HStack, SimpleGrid, Stack, Text, Textarea } from "@chakra-ui/react";
 import {
   AccionesFormulario,
   AvisoFaltantes,
@@ -31,6 +31,7 @@ interface RotuladoFormProps {
     loteId: number | null,
     forzar?: boolean,
   ) => Promise<void>;
+  onRecalcularNutricion?: () => Promise<void>;
   lotes: { id: number; numero_lote: string; version_receta_id: number | null }[];
   isLoading: boolean;
   hayFaltantes: boolean;
@@ -44,6 +45,7 @@ export function RotuladoForm({
   productoNombre,
   onGuardar,
   onAutocompletar,
+  onRecalcularNutricion,
   lotes,
   isLoading,
   hayFaltantes,
@@ -124,7 +126,6 @@ export function RotuladoForm({
     campos.push({ nombre, etiqueta, estado: !loteSeleccionado ? "no_aplicable" : values[nombre] ? "completo" : "pendiente" });
   }
   campos.push({ nombre: "instrucciones_uso", etiqueta: "Instrucciones de uso", estado: values.instrucciones_uso?.trim() ? "completo" : "pendiente" });
-  campos.push({ nombre: "sellos_advertencia", etiqueta: "Sellos de advertencia", estado: values.sellos_disponibles ? "completo" : "no_aplicable" });
   campos.push({ nombre: "datos_nutricionales_json", etiqueta: "Informaci\u00f3n nutricional", estado: values.datos_nutricionales_json?.trim() ? "completo" : "sin_datos_origen" });
 
   campos.push({ nombre: "declaraciones", etiqueta: "Declaraciones", estado: declaracionesPendientes ? "pendiente" : "completo" });
@@ -167,168 +168,150 @@ export function RotuladoForm({
 
   return (
     <Box as="form" id="rotulado-form" onSubmit={handleSubmit} onChangeCapture={e => { if (!(e.target as HTMLElement).closest("[data-declaraciones]")) setFormularioSucio(true); }} {...SIN_VALIDACION_NATIVA}>
-      <TarjetaFormulario>
-        <TituloFormulario>Datos del rótulo — {nombreParaMostrar}</TituloFormulario>
+      <Stack gap="4">
+        <TituloFormulario mb="0">Datos del rótulo — {nombreParaMostrar}</TituloFormulario>
 
-        <IndicadorCompletitud
+        <IndicadorCompletitud compacto
           completitud={{
             estado_global: campos.some(c => c.estado === "pendiente" || c.estado === "sin_datos_origen") ? "pendiente" : "completo",
             campos,
           }}
         />
 
-        {/* Sección 1: Identificación del producto */}
         <Seccion titulo="Identificación del producto">
-          <FormField label="Denominación de venta" required mb="4">
-            <FormInput
-              value={values.denominacion_venta ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, denominacion_venta: e.target.value }))
-              }
-              placeholder="Ej: Mermelada de frutilla"
-              maxW="500px"
-            />
-            <CampoOrigen origen="producto" />
-          </FormField>
-        </Seccion>
-
-        {/* Sección 2: Ingredientes */}
-        <Seccion titulo="Lista de ingredientes (Capítulo V CAA)">
-          <FormField label="Ingredientes y aditivos" required mb="4">
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+            <FormField id="denominacion_venta" label="Denominación de venta" required mb="0">
+              <FormInput
+                value={values.denominacion_venta ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, denominacion_venta: e.target.value }))
+                }
+                placeholder="Ej: Mermelada de frutilla"
+              />
+              <CampoOrigen origen="producto" />
+            </FormField>
+            <FormField id="contenido_neto" label="Contenido neto" required mb="0">
+              <FormInput
+                value={values.contenido_neto ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, contenido_neto: e.target.value }))
+                }
+                placeholder="Ej: 450 g"
+              />
+            </FormField>
+          </SimpleGrid>
+          <FormField id="lista_ingredientes" label="Ingredientes y aditivos" required mb="0">
             <Textarea
               value={values.lista_ingredientes ?? ""}
               onChange={(e) =>
                 setValues((prev) => ({ ...prev, lista_ingredientes: e.target.value }))
               }
               placeholder="Ingredientes y aditivos"
-              maxW="500px"
               minH="100px"
             />
             <CampoOrigen origen="receta" version={borrador?.version_receta_numero} />
           </FormField>
         </Seccion>
 
-        {/* Sección 3: Contenido neto */}
-        <Seccion titulo="Contenido neto">
-          <FormField label="Contenido neto" required mb="4">
-            <FormInput
-              value={values.contenido_neto ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, contenido_neto: e.target.value }))
-              }
-              placeholder="Ej: 450 g"
-              maxW="500px"
-            />
-          </FormField>
-        </Seccion>
-
-        {/* Sección 4: Identificación del origen */}
         <Seccion titulo="Identificación del origen">
-          <FormField label="RNPA / RPPA" required mb="4">
-            <FormInput
-              value={values.rnpa_rppa ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, rnpa_rppa: e.target.value }))
-              }
-              placeholder="Número declarado por el elaborador"
-              maxW="500px"
-            />
-            <Text fontSize="xs" color="fg.subtle" mt="1">
-              Dato declarado por el elaborador, sin verificación contra registros oficiales.
-            </Text>
-          </FormField>
+          <SimpleGrid columns={{ base: 1, md: 3 }} gap="3">
+            <FormField id="rnpa_rppa" label="RNPA / RPPA" required mb="0">
+              <FormInput
+                value={values.rnpa_rppa ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, rnpa_rppa: e.target.value }))
+                }
+                placeholder="Número declarado por el elaborador"
+              />
+              <Text fontSize="xs" color="fg.subtle" mt="1">
+                Dato declarado por el elaborador, sin verificación contra registros oficiales.
+              </Text>
+            </FormField>
 
-          <FormField label="Razón social del establecimiento" required mb="4">
-            <FormInput
-              value={values.razon_social ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, razon_social: e.target.value }))
-              }
-              placeholder="Nombre del establecimiento elaborador"
-              maxW="500px"
-            />
-          </FormField>
+            <FormField id="razon_social" label="Razón social del establecimiento" required mb="0">
+              <FormInput
+                value={values.razon_social ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, razon_social: e.target.value }))
+                }
+                placeholder="Nombre del establecimiento elaborador"
+              />
+            </FormField>
 
-          <FormField label="Domicilio del establecimiento" required mb="4">
-            <FormInput
-              value={values.domicilio ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, domicilio: e.target.value }))
-              }
-              placeholder="Dirección del establecimiento"
-              maxW="500px"
+            <FormField id="domicilio" label="Domicilio del establecimiento" required mb="0">
+              <FormInput
+                value={values.domicilio ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, domicilio: e.target.value }))
+                }
+                placeholder="Dirección del establecimiento"
+              />
+            </FormField>
+          </SimpleGrid>
+          <HStack as="label" gap="2" align="center" alignSelf="start" cursor="pointer">
+            <input
+              type="checkbox"
+              checked={values.es_importado ?? false}
+              onChange={handleCambioEsImportado}
             />
-          </FormField>
+            <Text fontSize="sm" color="fg">¿Producto importado?</Text>
+          </HStack>
+          {values.es_importado && (
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+              <FormField id="importador_razon_social" label="Razón social del importador" mb="0">
+                <FormInput
+                  value={values.importador_razon_social ?? ""}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, importador_razon_social: e.target.value }))
+                  }
+                />
+              </FormField>
+              <FormField id="importador_domicilio" label="Domicilio del importador" mb="0">
+                <FormInput
+                  value={values.importador_domicilio ?? ""}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, importador_domicilio: e.target.value }))
+                  }
+                />
+              </FormField>
+            </SimpleGrid>
+          )}
         </Seccion>
 
-        {/* Sección 5: Importador (condicional) */}
-        {values.es_importado && (
-          <Seccion titulo="Datos del importador">
-            <FormField label="Razón social del importador" mb="4">
-              <FormInput
-                value={values.importador_razon_social ?? ""}
+        <Seccion titulo="Lote, fechas e instrucciones">
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+            <FormField label="Lote de producción" mb="0">
+              <FormNativeSelect
+                value={loteSeleccionado ?? 0}
                 onChange={(e) =>
-                  setValues((prev) => ({ ...prev, importador_razon_social: e.target.value }))
+                  setLoteSeleccionado(e.target.value ? Number(e.target.value) : null)
                 }
-                maxW="500px"
-              />
+              >
+                <SelectPlaceholder>Seleccioná un lote (opcional)</SelectPlaceholder>
+                {lotes.map((lote) => (
+                  <option key={lote.id} value={lote.id}>
+                    {lote.numero_lote}
+                    {lote.version_receta_id !== null ? ` (v.${lote.version_receta_id})` : ""}
+                  </option>
+                ))}
+              </FormNativeSelect>
             </FormField>
-            <FormField label="Domicilio del importador" mb="4">
-              <FormInput
-                value={values.importador_domicilio ?? ""}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, importador_domicilio: e.target.value }))
-                }
-                maxW="500px"
-              />
-            </FormField>
-          </Seccion>
-        )}
 
-        <HStack mt="4" align="center">
-          <input
-            type="checkbox"
-            checked={values.es_importado ?? false}
-            onChange={handleCambioEsImportado}
-          />
-          <Text fontSize="sm" color="fg" ml="2">¿Producto importado?</Text>
-        </HStack>
+            {loteSeleccionado && (
+              <FormField id="identificacion_lote" label="Identificación del lote (visible en rótulo)" mb="0">
+                <FormInput
+                  value={values.identificacion_lote ?? ""}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, identificacion_lote: e.target.value }))
+                  }
+                />
+                <CampoOrigen origen="lote" />
+              </FormField>
+            )}
+          </SimpleGrid>
 
-        {/* Sección 6: Lote */}
-        <Seccion titulo="Identificación del lote (opcional)">
-          <FormField label="Lote de producción" mb="4">
-            <FormNativeSelect
-              value={loteSeleccionado ?? 0}
-              onChange={(e) =>
-                setLoteSeleccionado(e.target.value ? Number(e.target.value) : null)
-              }
-              maxW="500px"
-            >
-              <SelectPlaceholder>Seleccioná un lote (opcional)</SelectPlaceholder>
-              {lotes.map((lote) => (
-                <option key={lote.id} value={lote.id}>
-                  {lote.numero_lote}
-                  {lote.version_receta_id !== null ? ` (v.${lote.version_receta_id})` : ""}
-                </option>
-              ))}
-            </FormNativeSelect>
-          </FormField>
-
-          {loteSeleccionado && (
-            <FormField label="Identificación del lote (visible en rótulo)" mb="4">
-              <FormInput
-                value={values.identificacion_lote ?? ""}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, identificacion_lote: e.target.value }))
-                }
-                maxW="500px"
-              />
-              <CampoOrigen origen="lote" />
-            </FormField>
-          )}
-
-          <HStack gap="3" mt="2" align="start" flexWrap="wrap">
-            <FormField label="Fecha de producción" mb="0">
+          <SimpleGrid columns={{ base: 1, md: 3 }} gap="3">
+            <FormField id="fecha_produccion" label="Fecha de producción" mb="0">
               <FormInput
                 type="date"
                 value={values.fecha_produccion ?? ""}
@@ -337,7 +320,7 @@ export function RotuladoForm({
                 }
               />
             </FormField>
-            <FormField label="Fecha de cierre" mb="0">
+            <FormField id="fecha_cierre" label="Fecha de cierre" mb="0">
               <FormInput
                 type="date"
                 value={values.fecha_cierre ?? ""}
@@ -346,60 +329,63 @@ export function RotuladoForm({
                 }
               />
             </FormField>
-          </HStack>
-        </Seccion>
-
-        {/* Sección 7: Fecha de duración */}
-        <Seccion titulo="Fecha de duración">
-          <FormField label="Fecha de duración" required mb="4">
-            <FormInput
-              type="date"
-              value={values.fecha_duracion ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, fecha_duracion: e.target.value }))
-              }
-            />
-          </FormField>
-        </Seccion>
-
-        {/* Sección 8: Instrucciones de uso */}
-        <Seccion titulo="Preparación e instrucciones de uso">
-          <FormField label="Instrucciones de uso (cuando corresponda)" mb="4">
+            <FormField id="fecha_duracion" label="Fecha de duración" required mb="0">
+              <FormInput
+                type="date"
+                value={values.fecha_duracion ?? ""}
+                onChange={(e) =>
+                  setValues((prev) => ({ ...prev, fecha_duracion: e.target.value }))
+                }
+              />
+            </FormField>
+          </SimpleGrid>
+          <FormField id="instrucciones_uso" label="Instrucciones de uso (cuando corresponda)" mb="0">
             <Textarea
               value={values.instrucciones_uso ?? ""}
               onChange={(e) =>
                 setValues((prev) => ({ ...prev, instrucciones_uso: e.target.value }))
               }
               placeholder="Instrucciones de uso"
-              maxW="500px"
               minH="80px"
             />
           </FormField>
         </Seccion>
 
-        {/* Sección 9: Información nutricional */}
-        <Seccion titulo="Información nutricional">
+        <Seccion titulo="Información nutricional" id="datos_nutricionales_json">
           <CampoOrigen origen="nutricion" />
+          {borrador?.version_receta_numero != null && (
+            <Text fontSize="sm">Versión de receta del borrador: {borrador.version_receta_numero}</Text>
+          )}
           <ResumenNutricional
             valor={values.datos_nutricionales_json ?? ""}
             onCambio={(v) => setValues((prev) => ({ ...prev, datos_nutricionales_json: v }))}
+            enlaceOrigen={borrador && !esCreacion && borrador.version_receta_id != null
+              ? `/productos/${borrador.producto_id}/informacion-nutricional?version_id=${borrador.version_receta_id}`
+              : undefined}
           />
+          {onRecalcularNutricion && (
+            <Stack align="start">
+              <Text fontSize="sm">Esta acción reemplaza la tabla guardada con un cálculo para la versión de receta del borrador.</Text>
+              <Button type="button" variant="outline"
+                disabled={isLoading || formularioSucio || declaracionesSucias}
+                onClick={onRecalcularNutricion}>
+                Recalcular y reemplazar tabla nutricional
+              </Button>
+            </Stack>
+          )}
         </Seccion>
 
-        {/* Sección 10: Sellos de advertencia */}
-        <Seccion titulo="Sellos de advertencia">
-          <FormField label="Sellos (E12)" mb="4">
-            <Text fontSize="sm" color="fg.muted">
-              {borrador?.sellos_disponibles
-                ? "Disponibles desde el módulo E12."
-                : "No disponibles: el módulo E12 no está implementado aún."}
-            </Text>
-          </FormField>
-        </Seccion>
+        <Box as="section" aria-label="Sellos de advertencia" borderRadius="lg" bg="brand.subtle"
+          borderStartWidth="4px" borderStartColor="brand.fg" px="4" py="3">
+          <Text as="h2" fontWeight="semibold" color="brand.fg">Sellos de advertencia</Text>
+          <Text fontSize="sm">Consultar Octogonos en la previsualizacion del borrador</Text>
+        </Box>
 
-        <DeclaracionesSection borradorId={esCreacion ? 0 : borrador?.id ?? 0}
+        <Box as="section" id="declaraciones" tabIndex={-1} aria-label="Alérgenos, gluten y conservación">
+          <DeclaracionesSection borradorId={esCreacion ? 0 : borrador?.id ?? 0}
           productoId={borrador?.producto_id ?? 0} preview={borrador?.declaraciones}
           formularioSucio={formularioSucio} onEstado={setDeclaracionesPendientes} onDirtyChange={setDeclaracionesSucias} onOrigenChange={onOrigenChange} />
+        </Box>
         {declaracionesPendientes && <Text color="orange.fg">Declaraciones pendientes de revisión o confirmación.</Text>}
         {avisoDeclaraciones && declaracionesSucias && <Text role="alert">Guardá o descartá los cambios de declaraciones antes de guardar el formulario.</Text>}
         {(formularioSucio || declaracionesSucias) && !esCreacion && <Text>Guardá los cambios antes de autocompletar.</Text>}
@@ -422,15 +408,15 @@ export function RotuladoForm({
           )}
           {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
         </AccionesFormulario>
-      </TarjetaFormulario>
+      </Stack>
     </Box>
   );
 }
 
-function Seccion({ children, titulo }: { children: React.ReactNode; titulo: string }) {
+function Seccion({ children, titulo, id }: { children: React.ReactNode; titulo: string; id?: string }) {
   return (
-    <Stack as="section" gap="4" mb="6" p={{ base: "4", md: "6" }} borderWidth="1px" borderColor="border.subtle" rounded="xl" bg="bg.panel">
-      <Text as="h2" fontSize="lg" fontWeight="semibold" color="brand.fg" pb="3" borderBottomWidth="1px" borderColor="border.subtle">
+    <Stack as="section" id={id} tabIndex={id ? -1 : undefined} aria-label={id ? titulo : undefined} gap="3" minW="0" p={{ base: "3", md: "4" }} borderWidth="1px" borderColor="border.subtle" rounded="xl" bg="bg.panel">
+      <Text as="h2" fontSize="md" fontWeight="semibold" color="brand.fg" pb="2" borderBottomWidth="1px" borderColor="border.subtle">
         {titulo}
       </Text>
       {children}

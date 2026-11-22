@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.common.paginacion import Pagina
 
-AccionAuditoria = Literal["CREAR", "MODIFICAR", "BAJA", "REACTIVAR", "ELIMINAR"]
+AccionAuditoria = Literal["CREAR", "MODIFICAR", "BAJA", "REACTIVAR", "ELIMINAR", "EXPORTAR"]
 
 
 class CambioCampoEnriquecido(BaseModel):

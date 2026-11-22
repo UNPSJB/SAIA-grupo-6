@@ -32,7 +32,7 @@ def listar_auditoria(
     ),
     usuario_id: Optional[int] = Query(None, ge=1, description="Quién hizo el cambio."),
     accion: Optional[schemas.AccionAuditoria] = Query(
-        None, description="CREAR | MODIFICAR | BAJA | REACTIVAR | ELIMINAR."
+        None, description="CREAR | MODIFICAR | BAJA | REACTIVAR | ELIMINAR | EXPORTAR."
     ),
     desde: Optional[date] = Query(None, description="Eventos desde ese día (inclusive)."),
     hasta: Optional[date] = Query(None, description="Eventos hasta ese día (inclusive)."),

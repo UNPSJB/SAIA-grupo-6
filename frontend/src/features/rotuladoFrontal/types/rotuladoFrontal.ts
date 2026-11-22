@@ -480,3 +480,10 @@ export interface EvaluacionRotuladoGuardada {
   evaluado_en: string;
   instantanea: InstantaneaRotulado;
 }
+
+const clavesSello = ["sodio", "azucares", "grasas_saturadas", "grasas_totales", "calorias"] as const;
+export type ClaveSello = (typeof clavesSello)[number];
+
+export function esClaveSello(clave: string): clave is ClaveSello {
+  return clavesSello.some((conocida) => conocida === clave);
+}

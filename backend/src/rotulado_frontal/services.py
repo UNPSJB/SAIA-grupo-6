@@ -36,7 +36,7 @@ def _obtener_producto(db: Session, producto_id: int) -> Producto:
 
 
 def regla_vigente(
-    db: Session, fecha: date | None = None
+    db: Session, fecha: date | None = None, *, persistir: bool = True
 ) -> ReglaRotuladoFrontal:
     fecha = fecha or hoy()
     programadas = list(
@@ -49,6 +49,8 @@ def regla_vigente(
             .order_by(ReglaRotuladoFrontal.version.desc())
         ).all()
     )
+    if programadas and not persistir:
+        return programadas[0]
     if programadas:
         nueva = programadas[0]
         for activa in db.scalars(
@@ -788,15 +790,10 @@ def _evaluar_sello(
 
 
 def _calcular_sellos(
-    db: Session,
-    producto_id: int,
-    version_id: int | None,
+    info: nutricion_services.schemas.InfoNutricionalResponse,
     regla: ReglaRotuladoFrontal,
 ) -> schemas.SellosRotulado:
     umbrales, formulas = _parametros_de_regla(regla)
-    info = nutricion_services.calcular_info_nutricional(
-        db, producto_id, version_id
-    )
     filas = {fila.clave: fila for fila in info.filas}
     definiciones = [
         schemas.SelloDefinicion.model_validate(sello).model_dump()
@@ -882,9 +879,23 @@ def listar_evaluaciones(
 def evaluar(
     db: Session, producto_id: int, version_id: int | None = None
 ) -> schemas.EvaluacionRotuladoResponse:
+    respuesta, _ = _evaluar(db, producto_id, version_id, persistir=True)
+    return respuesta
+
+
+def evaluar_solo_lectura(db: Session, producto_id: int, version_id: int | None):
+    return _evaluar(db, producto_id, version_id, persistir=False)
+
+
+def modulo_activo_solo_lectura(db: Session) -> bool:
+    ajuste = db.get(ConfiguracionModuloRotulado, 1)
+    return ajuste.modulo_activo if ajuste is not None else True
+
+
+def _evaluar(db: Session, producto_id: int, version_id: int | None, *, persistir: bool):
     producto = _obtener_producto(db, producto_id)
-    regla = regla_vigente(db)
-    ajuste = ajuste_modulo(db)
+    regla = regla_vigente(db, persistir=persistir)
+    modulo_activo = ajuste_modulo(db).modulo_activo if persistir else modulo_activo_solo_lectura(db)
     config = _configuracion(db, producto_id)
 
     receta = _receta_de(db, producto_id)
@@ -904,7 +915,7 @@ def evaluar(
         and producto.categoria_rotulado in categorias_exceptuadas
     )
     hechos = {
-        "modulo_activo": ajuste.modulo_activo,
+        "modulo_activo": modulo_activo,
         "canal_consumo_final": canal in reglas.canales_consumo_final,
         "categoria_exceptuada": categoria_exceptuada,
         "envasado": envasado,
@@ -936,13 +947,15 @@ def evaluar(
     hechos["hay_marcas_pendientes"] = bool(pendientes)
     estado, mensaje, faltantes = _aplicar_reglas(reglas, hechos, pendientes)
 
+    info = None
     if estado == c.ESTADO_APLICA:
-        sellos = _calcular_sellos(
+        info = nutricion_services.calcular_info_nutricional(
             db,
             producto_id,
             version.id if version is not None else None,
-            regla,
+            inicializar_parametros=persistir,
         )
+        sellos = _calcular_sellos(info, regla)
     else:
         sellos = _sellos_no_evaluados(regla, c.MENSAJE_SELLOS_NO_EVALUADOS)
 
@@ -960,7 +973,7 @@ def evaluar(
         evaluado_en=evaluado_en,
         estado=estado,
         mensaje=mensaje,
-        modulo_activo=ajuste.modulo_activo,
+        modulo_activo=modulo_activo,
         parametros=_parametros_congelados(regla),
         sellos=sellos,
         regla_id=regla.id,
@@ -990,7 +1003,7 @@ def evaluar(
         configuracion=configuracion,
         categoria_rotulado=producto.categoria_rotulado,
         categoria_exceptuada_por_ley=producto.categoria_exceptuada_por_ley,
-        modulo_activo=ajuste.modulo_activo,
+        modulo_activo=modulo_activo,
         estado=estado,
         mensaje=mensaje,
         faltantes=faltantes,
@@ -1001,8 +1014,9 @@ def evaluar(
         instantanea=instantanea,
         versiones_receta=historial_versiones,
     )
-    _registrar_evaluacion(db, producto, instantanea)
-    return respuesta
+    if persistir:
+        _registrar_evaluacion(db, producto, instantanea)
+    return respuesta, info
 
 
 def guardar_configuracion(

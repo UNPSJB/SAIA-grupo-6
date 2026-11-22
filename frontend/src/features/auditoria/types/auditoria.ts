@@ -1,4 +1,4 @@
-export type AccionAuditoria = 'CREAR' | 'MODIFICAR' | 'BAJA' | 'REACTIVAR' | 'ELIMINAR';
+export type AccionAuditoria = 'CREAR' | 'MODIFICAR' | 'BAJA' | 'REACTIVAR' | 'ELIMINAR' | 'EXPORTAR';
 
 export interface CambioCampoEnriquecido {
   antes: unknown;

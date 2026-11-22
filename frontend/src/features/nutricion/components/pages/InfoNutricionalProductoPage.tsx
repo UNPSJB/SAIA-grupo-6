@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { LuCalculator, LuDownload, LuPrinter, LuTag, LuUtensils } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
@@ -47,6 +47,9 @@ export function InfoNutricionalProductoPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const productoId = Number(id);
+  const [params] = useSearchParams();
+  const version = Number(params.get("version_id"));
+  const versionId = Number.isSafeInteger(version) && version > 0 ? version : undefined;
   const [info, setInfo] = useState<InfoNutricional | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,32 +60,32 @@ export function InfoNutricionalProductoPage() {
 
   const recalcular = useCallback(async () => {
     try {
-      setInfo(await obtenerInfoNutricional(productoId));
+      setInfo(await obtenerInfoNutricional(productoId, versionId));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo calcular la información nutricional.");
     } finally {
       setCargando(false);
     }
-  }, [productoId]);
+  }, [productoId, versionId]);
 
   // Carga inicial; después, `recalcular` se llama al guardar un dato.
   useEffect(() => {
     let vigente = true;
-    obtenerInfoNutricional(productoId)
+    obtenerInfoNutricional(productoId, versionId)
       .then((datos) => vigente && setInfo(datos))
       .catch((e: Error) => vigente && setError(e.message))
       .finally(() => vigente && setCargando(false));
     return () => {
       vigente = false;
     };
-  }, [productoId]);
+  }, [productoId, versionId]);
 
   const exportar = async () => {
     if (!info) return;
     setDescargando(true);
     try {
-      await descargarPdf(productoId, info.producto);
+      await descargarPdf(productoId, info.producto, versionId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo generar el PDF.");
     } finally {
