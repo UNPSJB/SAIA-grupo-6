@@ -6,6 +6,7 @@ import { BannerError, EstadoCargando, Tarjeta } from "../../../../components/ui/
 import { PaginaDetalle } from "../../../../components/ui/plantillas";
 import { GrafoTrazabilidad } from "../GrafoTrazabilidad";
 import { obtenerGrafoTrazabilidad } from "../../services/trazabilidadService";
+import { BotonDescargaGrafico } from "../../../exportacion";
 
 export function TrazabilidadLoteCompletoPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +46,7 @@ export function TrazabilidadLoteCompletoPage() {
 
       {grafo && (
         <Tarjeta p="4">
+          <BotonDescargaGrafico alDerecha titulo={`Trazabilidad del lote ${grafo.numero_lote}`} />
           <GrafoTrazabilidad grafo={grafo} />
         </Tarjeta>
       )}

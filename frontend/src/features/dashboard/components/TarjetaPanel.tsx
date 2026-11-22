@@ -2,6 +2,10 @@ import { Flex, Heading, HStack, Text, type BoxProps } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 import { Tarjeta } from "../../../components/ui/patrones";
 
+
+import { BotonDescargaGrafico, type RangoGrafico } from "../../exportacion";
+import { useRangoDescarga } from "./rangoDescarga";
+
 /**
  * Tamaño del título de la tarjeta.
  *
@@ -21,6 +25,9 @@ interface TarjetaPanelProps extends BoxProps {
   descripcion?: ReactNode;
   /** Controles a la derecha del título. */
   acciones?: ReactNode;
+
+  descargable?: boolean;
+  rangoDescarga?: RangoGrafico | null;
   children: ReactNode;
 }
 
@@ -39,10 +46,14 @@ export function TarjetaPanel({
   tamanoTitulo = "md",
   descripcion,
   acciones,
+  descargable = false,
+  rangoDescarga,
   children,
   ...rest
 }: TarjetaPanelProps) {
   const chico = tamanoTitulo === "sm";
+  const rangoDelPanel = useRangoDescarga();
+  const rango = rangoDescarga === undefined ? rangoDelPanel : rangoDescarga;
 
   return (
     <Tarjeta
@@ -58,6 +69,7 @@ export function TarjetaPanel({
       {...rest}
     >
       <Flex
+        data-no-exportar=""
         justify="space-between"
         align="center"
         gap="3"
@@ -84,7 +96,12 @@ export function TarjetaPanel({
             </Text>
           ) : null}
         </Flex>
-        {acciones ? <HStack gap="2">{acciones}</HStack> : null}
+        {acciones || descargable ? (
+          <HStack gap="2">
+            {acciones}
+            {descargable ? <BotonDescargaGrafico titulo={titulo} rango={rango} /> : null}
+          </HStack>
+        ) : null}
       </Flex>
       {children}
     </Tarjeta>
