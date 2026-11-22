@@ -5,17 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.common.fechas import hoy
 from src.retiros import exceptions
-from src.retiros.constants import (
-    ESTADO_NOTIFICACION_NOTIFICADO,
-    ESTADO_NOTIFICACION_PENDIENTE,
-    ESTADO_RETIRO_CERRADO,
-    ESTADO_RETIRO_EN_CURSO,
-    MEDIOS_CONTACTO_RETIRO,
-    MOTIVOS_RETIRO,
-    ORIGEN_RETIRO_INSUMO,
-    ORIGEN_RETIRO_MANUAL,
-    ORIGEN_RETIRO_RECLAMO,
-)
+from src.retiros.constants import MEDIOS_CONTACTO_RETIRO, MOTIVOS_RETIRO
 
 
 class RetiroCreate(BaseModel):

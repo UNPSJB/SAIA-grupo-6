@@ -26,6 +26,7 @@ class ErrorCode:
     CANTIDAD_PRODUCIDA_NO_ENTERA = (
         "El producto se elabora por unidad: la cantidad producida tiene que ser un número entero."
     )
+    VENCIMIENTO_ANTERIOR_AL_CIERRE = "La fecha de vencimiento no puede ser anterior al cierre del lote."
     CANTIDAD_OBJETIVO_NO_ENTERA = (
         "El producto se elabora por unidad: la cantidad objetivo tiene que ser un número entero."
     )

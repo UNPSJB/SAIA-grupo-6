@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Table, Text } from "@chakra-ui/react";
+import { Box, Table, Text } from "@chakra-ui/react";
 import { useEquipo } from "../../hooks/useEquipo";
 import { usePlanesCalibracionMantenimiento } from "../../../planCalibracionMantenimiento/hooks/usePlanesCalibracionMantenimiento";
 import { formatoFecha } from "../../../../common/utils/fechas";
@@ -75,19 +75,18 @@ export function EquipoDetailPage() {
         </EtiquetaEstado>
       }
     >
-      <SeccionDetalle titulo="Datos del equipo">
-        <GrillaDatos>
-          <DatoDetalle etiqueta="Nombre">{equipo.nombre}</DatoDetalle>
-          <DatoDetalle etiqueta="Tipo">{equipo.tipo}</DatoDetalle>
-          <DatoDetalle etiqueta="Sector">{equipo.sector.nombre}</DatoDetalle>
-          <DatoDetalle etiqueta="Frecuencia de calibración">{
-              equipo.frecuencia_calibracion_dias
-                ? `Cada ${equipo.frecuencia_calibracion_dias} días`
-                : "Cada 365 días (por defecto)"
-            }</DatoDetalle>
-        </GrillaDatos>
-      </SeccionDetalle>
-
+        <SeccionDetalle titulo="Datos del equipo">
+          <GrillaDatos>
+            <DatoDetalle etiqueta="Nombre">{equipo.nombre}</DatoDetalle>
+            <DatoDetalle etiqueta="Tipo">{equipo.tipo}</DatoDetalle>
+            <DatoDetalle etiqueta="Sector">{equipo.sector.nombre}</DatoDetalle>
+            <DatoDetalle etiqueta="Frecuencia de calibración">{
+                equipo.frecuencia_calibracion_dias
+                  ? `Cada ${equipo.frecuencia_calibracion_dias} días`
+                  : "Cada 365 días (por defecto)"
+              }</DatoDetalle>
+          </GrillaDatos>
+        </SeccionDetalle>
       <SeccionDetalle titulo="Planes de calibración y mantenimiento">
           {cargandoPlanes && (
             <Text fontSize="sm" color="fg.muted" fontStyle="italic">
@@ -106,7 +105,8 @@ export function EquipoDetailPage() {
           )}
 
           {!cargandoPlanes && !errorPlanes && planesDelEquipo.length > 0 && (
-            <Table.Root variant="outline" w="100%">
+            <Box overflowX="auto">
+            <Table.Root variant="outline" w="100%" minW="560px">
               <Table.Header>
                 <Table.Row>
                   <ColumnaHeader>Tipo</ColumnaHeader>
@@ -160,6 +160,7 @@ export function EquipoDetailPage() {
                 })}
               </Table.Body>
             </Table.Root>
+            </Box>
           )}
       </SeccionDetalle>
     </PaginaDetalle>

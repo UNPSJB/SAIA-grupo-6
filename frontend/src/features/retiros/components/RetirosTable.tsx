@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge, Box, Flex, HStack, Table, Text, VStack } from "@chakra-ui/react";
+import { Badge, Flex, HStack, Table, Text, VStack } from "@chakra-ui/react";
 import { LuTriangleAlert } from "react-icons/lu";
 import { formatoFecha } from "../../../common/utils/fechas";
 import {
@@ -69,6 +69,14 @@ export function RetirosTable({
               : null;
             const textoInsumo = matchInsumo ? matchInsumo[1] : null;
 
+            // Si el motivo es el genérico de su origen ("Reclamos de clientes"
+            // en uno por reclamo, "Insumo defectuoso" en uno por insumo), la
+            // columna Origen ya lo dice: se muestra el detalle, si lo hay.
+            const motivoRepiteOrigen =
+              (esReclamo && motivoTexto === "Reclamos de clientes") ||
+              (esInsumo && motivoTexto === "Insumo defectuoso");
+            const detalleSinInsumo = detalleTexto.replace(/\[Insumo:\s*.*?\]/, "").trim();
+
             return (
               <FilaClickeable key={retiro.id} onAbrir={() => onVerDetalle(retiro.id)}>
                 <Celda verticalAlign="top" whiteSpace="nowrap">
@@ -93,7 +101,7 @@ export function RetirosTable({
                           cursor="pointer"
                           fontSize="xs"
                           mt={1}
-                          noOfLines={1}
+                          lineClamp={1}
                           maxWidth="250px"
                           title={`Filtrar por insumo: ${textoInsumo}`}
                           onClick={(e) => {
@@ -118,7 +126,13 @@ export function RetirosTable({
                   )}
                 </Celda>
                 <Celda verticalAlign="top">
-                  <TextoTruncado texto={retiro.motivo} />
+                  {!motivoRepiteOrigen ? (
+                    <TextoTruncado texto={retiro.motivo} />
+                  ) : detalleSinInsumo ? (
+                    <TextoTruncado texto={detalleSinInsumo} />
+                  ) : (
+                    <Text color="fg.muted">—</Text>
+                  )}
                 </Celda>
                 <Celda verticalAlign="top" center whiteSpace="nowrap">
                   {retiro.total_afectados === 0 ? (

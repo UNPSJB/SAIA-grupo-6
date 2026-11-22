@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState, type FormEvent } from "react";
 import { Text } from "@chakra-ui/react";
 import { DialogForm } from "../../../common/components/DialogForm";
@@ -44,6 +45,7 @@ export function CorregirConsumoDialog({ loteId, consumo, unidad, onCorregido, on
     setGuardando(true);
     try {
       await modificarConsumo(loteId, consumo.id, cantidad, desperdicio ? motivo.trim() || null : null);
+      avisarExito("Consumo corregido correctamente.");
       await onCorregido();
       onClose();
     } catch (err) {

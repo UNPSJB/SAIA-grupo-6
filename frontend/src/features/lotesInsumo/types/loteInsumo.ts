@@ -81,18 +81,6 @@ export interface BajaLoteInsumoRegistro {
   registrado_en: string;
 }
 
-export interface IndicadorBajasPorMotivoItem {
-  motivo: MotivoBajaInsumo;
-  etiqueta: string;
-  cantidad_registros: number;
-  cantidad_total: string;
-}
-
-export interface IndicadorBajasResponse {
-  total_registros: number;
-  por_motivo: IndicadorBajasPorMotivoItem[];
-}
-
 export interface IngredienteOpcion {
   id: number;
   nombre: string;

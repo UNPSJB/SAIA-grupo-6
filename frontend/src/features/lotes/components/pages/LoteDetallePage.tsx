@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -225,20 +226,21 @@ export function LoteDetallePage() {
   const [modalRetirar, setModalRetirar] = useState(false);
 
   // Retiro asociado (si el lote está retirado) para mostrar motivo y detalles
-  const [retiroAsociado, setRetiroAsociado] = useState<RetiroDetalle | null>(null);
+  // Se deriva contra el retiro_id actual: si el lote deja de estar retirado
+  // (o cambia de retiro) no queda mostrando el retiro anterior.
+  const [retiroCargado, setRetiroCargado] = useState<RetiroDetalle | null>(null);
+  const retiroAsociado =
+    lote?.retiro_id && retiroCargado?.id === lote.retiro_id ? retiroCargado : null;
 
   useEffect(() => {
-    if (!lote?.retiro_id) {
-      setRetiroAsociado(null);
-      return;
-    }
+    if (!lote?.retiro_id) return;
     let vigente = true;
     obtenerRetiro(lote.retiro_id)
       .then((data) => {
-        if (vigente) setRetiroAsociado(data);
+        if (vigente) setRetiroCargado(data);
       })
       .catch(() => {
-        if (vigente) setRetiroAsociado(null);
+        if (vigente) setRetiroCargado(null);
       });
     return () => {
       vigente = false;
@@ -255,6 +257,7 @@ export function LoteDetallePage() {
     setErrorAccion(null);
     try {
       await completarItem(lote.id, item.id);
+      avisarExito("Etapa completada correctamente.");
       await recargar();
     } catch (err) {
       setErrorAccion(err instanceof Error ? err.message : "No se pudo completar la tarea.");
@@ -274,6 +277,7 @@ export function LoteDetallePage() {
     setErrorAccion(null);
     try {
       await eliminarConsumo(lote.id, borrando.id);
+      avisarExito("Consumo borrado correctamente.");
       setBorrando(null);
       await recargar();
     } catch (err) {
@@ -297,6 +301,7 @@ export function LoteDetallePage() {
     setErrorAccion(null);
     try {
       await asignarTarea(lote.id, item.id, personaId);
+      avisarExito(personaId ? "Tarea asignada correctamente." : "Tarea liberada: la puede hacer cualquier persona que opera.");
       await recargarLote();
     } catch (err) {
       setErrorAccion(err instanceof Error ? err.message : "No se pudo asignar la tarea.");
@@ -317,6 +322,75 @@ export function LoteDetallePage() {
         lote
           ? `${lote.producto_nombre} · receta ${lote.version_numero ? `v${lote.version_numero}` : "sin versión (lote histórico)"}`
           : undefined
+      }
+      acciones={
+        lote && (!cerrado || terminado) ? (
+          /* Acciones: cerrar o cancelar mientras está en proceso; reservar una
+             vez terminado; retirar del mercado en los dos casos (no si se canceló).
+             Van junto al título y el estado, alineadas a la derecha. */
+          <HStack gap="3" flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }}>
+            {terminado && puedeReservar && sinRotulado && (
+              <Text fontSize="sm" color="fg.muted">
+                Para reservarlo falta el rotulado completo del lote
+                {" (Rotulado → nuevo borrador vinculado a este lote)."}
+              </Text>
+            )}
+            {terminado && puedeReservar && !sinRotulado && (
+              <Button
+                colorPalette="brand"
+                onClick={() => {
+                  setModalReservar(true);
+                }}
+              >
+                Reservar
+              </Button>
+            )}
+            {terminado && esAdmin && !reservasDisponibles && !lote.retirado && (
+              <Text fontSize="sm" color="fg.muted">
+                Sin saldo disponible para reservar.
+              </Text>
+            )}
+            {!cerrado && (
+              <>
+                <Button
+                  colorPalette="brand"
+                  onClick={() => setCerrando(true)}
+                  disabled={!checklistCompleto}
+                  title={checklistCompleto ? undefined : "Completá todas las tareas para cerrar el lote"}
+                >
+                  Cerrar lote
+                </Button>
+                {!checklistCompleto && (
+                  <Text fontSize="sm" color="fg.muted">
+                    Completá todas las tareas para poder cerrarlo.
+                  </Text>
+                )}
+                {esAdmin && (
+                  <Button
+                    variant="outline"
+                    colorPalette="red"
+                    onClick={() => setCancelando(true)}
+                  >
+                    Cancelar lote
+                  </Button>
+                )}
+              </>
+            )}
+            {esAdmin && !lote.retirado && (
+              <Button
+                colorPalette="red"
+                onClick={() => setModalRetirar(true)}
+              >
+                Retirar lote del mercado
+              </Button>
+            )}
+            {esAdmin && lote.retirado && (
+              <Text fontSize="sm" color="fg.muted">
+                El lote ya está retirado del mercado.
+              </Text>
+            )}
+          </HStack>
+        ) : undefined
       }
     >
       {loading && !lote && <EstadoCargando>Cargando lote...</EstadoCargando>}
@@ -389,10 +463,27 @@ export function LoteDetallePage() {
             )}
           </SeccionDetalle>
 
+          {/* Línea de tiempo de elaboración: entre los datos del lote y las
+              tareas, para ver de un vistazo en qué etapa va antes de operar. */}
+          <SeccionDetalle sinMarco titulo="Progreso de producción" mb="0">
+            <LoteProgressTracker
+              loteId={lote.id}
+              unidad={lote.unidad}
+              version={[
+                lote.estado,
+                lote.items_completados,
+                ...lote.checklist.flatMap((i) => i.consumos.map((c) => `${c.id}:${c.cantidad}`)),
+              ].join("|")}
+            />
+          </SeccionDetalle>
+
           {cerrado && (
             <AvisoSoloLectura mb="0">Lote {lote.estado}: es de solo lectura.</AvisoSoloLectura>
           )}
 
+          {/* Tareas, trazabilidad y distribución a todo el ancho: las acciones
+              del lote van en el encabezado (antes ocupaban una columna lateral
+              con un solo botón y el resto vacío). */}
           <SeccionDetalle sinMarco titulo="Tareas" mb="0">
           <Stack gap="4">
             {lote.checklist.length === 0 && (
@@ -425,88 +516,6 @@ export function LoteDetallePage() {
               />
             ))}
           </Stack>
-          </SeccionDetalle>
-
-          {/* Acciones: cerrar o cancelar mientras está en proceso; reservar una
-              vez terminado; retirar del mercado en los dos casos (no si se canceló). */}
-          {(!cerrado || terminado) && (
-            <HStack gap="3" flexWrap="wrap" pt="2">
-              {terminado && puedeReservar && sinRotulado && (
-                <Text fontSize="sm" color="fg.muted">
-                  Para reservarlo falta el rotulado completo del lote
-                  {" (Rotulado → nuevo borrador vinculado a este lote)."}
-                </Text>
-              )}
-              {terminado && puedeReservar && !sinRotulado && (
-                <Button
-                  colorPalette="brand"
-                  onClick={() => {
-                    setModalReservar(true);
-                  }}
-                >
-                  Reservar
-                </Button>
-              )}
-              {terminado && esAdmin && !reservasDisponibles && !lote.retirado && (
-                <Text fontSize="sm" color="fg.muted">
-                  Sin saldo disponible para reservar.
-                </Text>
-              )}
-              {!cerrado && (
-                <>
-                  <Button
-                    colorPalette="brand"
-                    onClick={() => setCerrando(true)}
-                    disabled={!checklistCompleto}
-                    title={checklistCompleto ? undefined : "Completá todas las tareas para cerrar el lote"}
-                  >
-                    Cerrar lote
-                  </Button>
-                  {!checklistCompleto && (
-                    <Text fontSize="sm" color="fg.muted">
-                      Completá todas las tareas para poder cerrarlo.
-                    </Text>
-                  )}
-                  {esAdmin && (
-                    <Button
-                      variant="outline"
-                      colorPalette="red"
-                      ml="auto"
-                      onClick={() => setCancelando(true)}
-                    >
-                      Cancelar lote
-                    </Button>
-                  )}
-                </>
-              )}
-              {esAdmin && !lote.retirado && (
-                <Button
-                  colorPalette="red"
-                  ml={cerrado ? "auto" : undefined}
-                  onClick={() => setModalRetirar(true)}
-                >
-                  Retirar lote del mercado
-                </Button>
-              )}
-              {esAdmin && lote.retirado && (
-                <Text fontSize="sm" color="fg.muted">
-                  El lote ya está retirado del mercado.
-                </Text>
-              )}
-            </HStack>
-          )}
-
-          {/* Línea de tiempo de elaboración: debajo de las etapas, que son el
-              trabajo del día (antes había que bajar más de una pantalla). */}
-          <SeccionDetalle sinMarco titulo="Progreso de producción" mb="0">
-            <LoteProgressTracker
-              loteId={lote.id}
-              version={[
-                lote.estado,
-                lote.items_completados,
-                ...lote.checklist.flatMap((i) => i.consumos.map((c) => `${c.id}:${c.cantidad}`)),
-              ].join("|")}
-            />
           </SeccionDetalle>
 
           {esAdmin && traza && <SeccionTrazabilidad traza={traza} loteId={lote.id} />}
@@ -743,6 +752,7 @@ export function LoteDetallePage() {
           onCancel={() => setCancelando(false)}
           onConfirm={async (motivo) => {
             await cancelarLote(lote.id, motivo);
+            avisarExito(`Lote ${lote.numero_lote} cancelado.`);
             setCancelando(false);
             await recargar();
           }}

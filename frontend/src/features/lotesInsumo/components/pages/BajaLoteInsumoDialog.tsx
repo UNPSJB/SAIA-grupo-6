@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Box, Checkbox, HStack, Image, Input, Stack, Text } from "@chakra-ui/react";
 import { DialogForm } from "../../../../common/components/DialogForm";
@@ -95,6 +96,7 @@ export function BajaLoteInsumoDialog({
         foto_data_url: fotoDataUrl,
         dar_de_baja_lote_completo: bajaCompleta || cantNum >= saldoNum,
       });
+      avisarExito("Baja del lote de insumo registrada correctamente.");
       await onConfirmado();
       onClose();
     } catch (err) {

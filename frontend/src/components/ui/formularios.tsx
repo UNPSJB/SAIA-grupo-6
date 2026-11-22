@@ -7,7 +7,7 @@ import {
   type BoxProps,
   type InputProps,
 } from "@chakra-ui/react";
-import { useContext, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { IconType } from "react-icons/lib";
 import { LuCalendar, LuSave } from "react-icons/lu";
 import {
@@ -17,7 +17,7 @@ import {
   ContextoCampo,
   SIN_VALIDACION_NATIVA,
 } from "./patrones";
-import { ANCHO_PAGINA, EnlaceVolver, type DestinoVolver } from "./plantillas";
+import { EnlaceVolver, PADDING_PAGINA, type DestinoVolver } from "./plantillas";
 
 /**
  * Formularios de alta: el estándar visual de las pantallas de creación.
@@ -64,6 +64,13 @@ import { ANCHO_PAGINA, EnlaceVolver, type DestinoVolver } from "./plantillas";
 
 /* ─────────────────────────────── Página ────────────────────────────────── */
 
+/**
+ * Tipo de alta, para que `GrillaFormulario` elija sus columnas sin que cada
+ * página lo repita: en un `extenso` (a todo el ancho) la grilla pasa a tres
+ * columnas desde `xl`.
+ */
+const ContextoAnchoAlta = createContext<"formulario" | "extenso">("formulario");
+
 interface PaginaAltaProps {
   /** "← Volver a [Módulo]": siempre, porque un alta se abre desde un listado. */
   volver: DestinoVolver;
@@ -72,8 +79,20 @@ interface PaginaAltaProps {
   descripcion?: ReactNode;
   /** Ícono de la entidad, en el recuadro teal junto al título. */
   icono?: IconType;
-  /** `formulario` (768px) para altas cortas y medianas; `extenso` (896px) si hay muchas secciones. */
+  /**
+   * Cuánto de la grilla de 12 columnas ocupa el formulario en escritorio:
+   * `formulario` 8/12 (altas cortas y medianas: no se estiran a todo el
+   * ancho), `extenso` 12/12 (altas con tablas embebidas o muchas secciones;
+   * con `lateral`, 9/3). La página en sí siempre tiene el ancho de la app.
+   */
   ancho?: "formulario" | "extenso";
+  /**
+   * Panel a la derecha del formulario desde `lg` (ayuda, resumen de lo que
+   * se va a crear, avisos). En el celular va debajo. Sin lateral, en un
+   * formulario corto queda libre el tercio derecho: la tarjeta mantiene un
+   * ancho de lectura cómodo en vez de estirarse.
+   */
+  lateral?: ReactNode;
   /** Error de la operación (respuesta de la API, validación al enviar). */
   error?: string | null;
   /**
@@ -86,8 +105,9 @@ interface PaginaAltaProps {
 
 /**
  * Esqueleto de una pantalla de alta: "← Volver", encabezado con ícono,
- * error y el formulario. Centrada y con ancho máximo, como toda pantalla que
- * se abre desde otra (ver la regla en `plantillas.tsx`).
+ * error y el formulario. Mismo ancho y padding que el resto de la app (ver
+ * `plantillas.tsx`): "Volver" y el título quedan alineados con los listados;
+ * lo que se acota es la columna del formulario.
  */
 export function PaginaAlta({
   volver,
@@ -95,64 +115,135 @@ export function PaginaAlta({
   descripcion,
   icono: Icono,
   ancho = "formulario",
+  lateral,
   error,
   leyendaObligatorios = true,
   children,
 }: PaginaAltaProps) {
+  const columnas = COLUMNAS_ALTA[ancho][lateral ? "conLateral" : "solo"];
   return (
-    <Box p={{ base: "3", md: "5" }} w="100%" maxW={ANCHO_PAGINA[ancho]} mx="auto">
+    <ContextoAnchoAlta.Provider value={ancho}>
+    <Box p={PADDING_PAGINA} w="100%" minW="0">
       <EnlaceVolver {...volver} />
 
       <Box
-        as="header"
-        display="flex"
-        flexWrap="wrap"
-        alignItems="flex-end"
-        justifyContent="space-between"
+        display="grid"
+        gridTemplateColumns={{ base: "minmax(0, 1fr)", lg: "repeat(12, minmax(0, 1fr))" }}
         columnGap="6"
-        rowGap="2"
-        mb="5"
+        alignItems="start"
       >
-        <Box display="flex" alignItems="center" gap="3" minW="0">
-          {Icono ? (
-            <Box
-              aria-hidden
-              flexShrink={0}
-              boxSize="10"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              rounded="lg"
-              bg="brand.subtle"
-              color="brand.fg"
-              borderWidth="1px"
-              borderColor="brand.muted"
-            >
-              <Icono size={20} />
+        {/* El encabezado va sobre la columna del formulario: la leyenda de
+            obligatorios queda sobre el borde derecho de la tarjeta, y el
+            lateral arranca a la altura de la tarjeta, no del título. */}
+        <Box gridColumn={{ base: "1 / -1", lg: `1 / span ${columnas}` }} minW="0">
+          <Box
+            as="header"
+            display="flex"
+            flexWrap="wrap"
+            alignItems="flex-end"
+            justifyContent="space-between"
+            columnGap="6"
+            rowGap="2"
+            mb="5"
+          >
+            <Box display="flex" alignItems="center" gap="3" minW="0">
+              {Icono ? (
+                <Box
+                  aria-hidden
+                  flexShrink={0}
+                  boxSize="10"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  rounded="lg"
+                  bg="brand.subtle"
+                  color="brand.fg"
+                  borderWidth="1px"
+                  borderColor="brand.muted"
+                >
+                  <Icono size={20} />
+                </Box>
+              ) : null}
+              <Box minW="0">
+                <Heading as="h2" fontSize="2xl" fontWeight="bold" lineHeight="1.25" color="fg">
+                  {titulo}
+                </Heading>
+                {descripcion ? (
+                  <Text mt="0.5" fontSize="sm" color="fg.muted">
+                    {descripcion}
+                  </Text>
+                ) : null}
+              </Box>
             </Box>
-          ) : null}
-          <Box minW="0">
-            <Heading as="h2" fontSize="2xl" fontWeight="bold" lineHeight="1.25" color="fg">
-              {titulo}
-            </Heading>
-            {descripcion ? (
-              <Text mt="0.5" fontSize="sm" color="fg.muted">
-                {descripcion}
+            {leyendaObligatorios ? (
+              <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap" pb="0.5">
+                <Box as="span" color="brand.fg" fontWeight="semibold" aria-hidden>
+                  *
+                </Box>{" "}
+                Campos obligatorios
               </Text>
             ) : null}
           </Box>
         </Box>
-        {leyendaObligatorios ? (
-          <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap" pb="0.5">
-            <Box as="span" color="brand.fg" fontWeight="semibold" aria-hidden>
-              *
-            </Box>{" "}
-            Campos obligatorios
-          </Text>
+        <Box gridColumn={{ base: "1 / -1", lg: `1 / span ${columnas}` }} minW="0">
+          {error ? <BannerError mb="5">{error}</BannerError> : null}
+          {children}
+        </Box>
+        {lateral ? (
+          <Box
+            as="aside"
+            gridColumn={{ base: "1 / -1", lg: `${columnas + 1} / -1` }}
+            gridRow={{ lg: "2" }}
+            minW="0"
+            display="flex"
+            flexDirection="column"
+            gap="5"
+            mb="8"
+            position={{ lg: "sticky" }}
+            top={{ lg: "6" }}
+          >
+            {lateral}
+          </Box>
         ) : null}
       </Box>
+    </Box>
+    </ContextoAnchoAlta.Provider>
+  );
+}
 
-      {error ? <BannerError mb="5">{error}</BannerError> : null}
+/** Columnas (de 12) del formulario en escritorio, según el tipo de alta. */
+const COLUMNAS_ALTA = {
+  formulario: { solo: 8, conLateral: 8 },
+  extenso: { solo: 12, conLateral: 9 },
+} as const;
+
+/**
+ * Tarjeta del panel lateral de un alta: ayuda, resumen, avisos. Mismo marco
+ * que el formulario pero sin peso visual: título chico y texto atenuado.
+ */
+export function TarjetaLateral({
+  titulo,
+  children,
+  ...rest
+}: { titulo?: ReactNode; children: ReactNode } & Omit<BoxProps, "title">) {
+  return (
+    <Box
+      bg="bg.panel"
+      rounded="lg"
+      borderWidth="1px"
+      borderColor="border.subtle"
+      boxShadow="panel"
+      px="5"
+      py="4"
+      fontSize="sm"
+      color="fg.muted"
+      {...rest}
+    >
+      {titulo ? (
+        <Heading as="h3" fontSize="sm" fontWeight="semibold" color="fg" mb="2">
+          {titulo}
+        </Heading>
+      ) : null}
       {children}
     </Box>
   );
@@ -302,23 +393,25 @@ export function SeccionFormulario({
 }
 
 /**
- * Grilla de campos: dos columnas desde tablet, una en el celular. Los
- * `FormField` de adentro pierden su margen (lo pone el `gap`) y con
- * `completo` ocupan las dos columnas.
+ * Grilla de campos: dos columnas desde tablet, una en el celular. Con
+ * `columnas={3}`, tres desde `xl`; es lo que toma por defecto dentro de un
+ * alta `extenso`, donde dos columnas a todo el ancho dejan inputs demasiado
+ * largos. Los `FormField` de adentro pierden su margen (lo pone el `gap`) y
+ * con `completo` ocupan toda la fila.
  */
 export function GrillaFormulario({
-  columnas = 2,
+  columnas: columnasPedidas,
   children,
   ...rest
-}: { columnas?: 1 | 2; children: ReactNode } & BoxProps) {
+}: { columnas?: 1 | 2 | 3; children: ReactNode } & BoxProps) {
   const contexto = useContext(ContextoCampo);
+  const anchoAlta = useContext(ContextoAnchoAlta);
+  const columnas = columnasPedidas ?? (anchoAlta === "extenso" ? 3 : 2);
   return (
     <ContextoCampo.Provider value={{ ...contexto, enGrilla: true }}>
       <Box
         display="grid"
-        gridTemplateColumns={
-          columnas === 2 ? { base: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" } : "minmax(0, 1fr)"
-        }
+        gridTemplateColumns={COLUMNAS_GRILLA[columnas]}
         columnGap="5"
         rowGap="5"
         {...rest}
@@ -328,6 +421,16 @@ export function GrillaFormulario({
     </ContextoCampo.Provider>
   );
 }
+
+const COLUMNAS_GRILLA = {
+  1: "minmax(0, 1fr)",
+  2: { base: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" },
+  3: {
+    base: "minmax(0, 1fr)",
+    md: "repeat(2, minmax(0, 1fr))",
+    xl: "repeat(3, minmax(0, 1fr))",
+  },
+} as const;
 
 /** Contenido que no es un campo (un aviso, una nota) a lo ancho de la grilla. */
 export function CeldaCompleta({ children, ...rest }: { children: ReactNode } & BoxProps) {

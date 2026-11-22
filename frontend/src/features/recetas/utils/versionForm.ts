@@ -71,6 +71,30 @@ export function desdeDetalle(version: VersionDetalle): VersionFormState {
   };
 }
 
+/**
+ * Opciones del formulario de una versión nueva: los ingredientes activos más
+ * los que usa la versión de partida y ya fueron dados de baja. Sin ellos, el
+ * selector no encuentra el valor precargado y muestra otro ingrediente.
+ */
+export function opcionesConInactivos(
+  activos: IngredienteOpcion[],
+  version: VersionDetalle,
+): IngredienteOpcion[] {
+  const ids = new Set(activos.map((i) => i.id));
+  const inactivos: IngredienteOpcion[] = version.ingredientes
+    .filter((i) => !ids.has(i.ingrediente.id))
+    .map((i) => ({
+      id: i.ingrediente.id,
+      nombre: i.ingrediente.nombre,
+      unidad_medida_id: i.unidad_medida.id,
+      unidad_medida: i.unidad_medida,
+      es_aditivo: i.es_aditivo,
+      aditivo: i.aditivo,
+      inactivo: true,
+    }));
+  return inactivos.length ? [...activos, ...inactivos] : activos;
+}
+
 const redondear = (valor: number) => Math.round(valor * 1000) / 1000;
 const numero = (texto: string) => {
   const valor = Number(texto.replace(",", "."));
@@ -123,6 +147,10 @@ export function validar(estado: VersionFormState, ingredientes: IngredienteOpcio
   }
   const ids = estado.ingredientes.map((i) => i.ingrediente_id);
   if (new Set(ids).size !== ids.length) return "Un ingrediente no puede repetirse en la receta.";
+  const dadoDeBaja = ingredientes.find((i) => i.inactivo && ids.includes(i.id));
+  if (dadoDeBaja) {
+    return `${dadoDeBaja.nombre} está dado de baja en el maestro de ingredientes: reemplazalo o quitalo de la receta.`;
+  }
   const esAditivo = (id: number) => ingredientes.find((i) => i.id === id)?.es_aditivo;
   if (ingredientes.length > 0 && ids.every((id) => esAditivo(id))) {
     return "La receta necesita al menos un ingrediente: no puede tener solo aditivos.";

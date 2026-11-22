@@ -1,3 +1,4 @@
+import { normalizar } from "../../../../common/utils/texto";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LuRefreshCw } from "react-icons/lu";
@@ -60,17 +61,17 @@ export function ReclamosPage() {
   }, [recargarReclamos]);
 
   const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+    const texto = normalizar(busqueda);
     return reclamos.filter(
       (r) =>
         (!filtroEstado || r.incidente_estado === filtroEstado) &&
         (!filtroPlazo ||
           (filtroPlazo === "fuera" ? r.fuera_de_plazo : !r.fuera_de_plazo)) &&
         (!texto ||
-          r.cliente_nombre.toLowerCase().includes(texto) ||
-          r.lote_numero.toLowerCase().includes(texto) ||
-          r.producto_nombre.toLowerCase().includes(texto) ||
-          r.motivo_label.toLowerCase().includes(texto))
+          normalizar(r.cliente_nombre).includes(texto) ||
+          normalizar(r.lote_numero).includes(texto) ||
+          normalizar(r.producto_nombre).includes(texto) ||
+          normalizar(r.motivo_label).includes(texto))
     );
   }, [reclamos, busqueda, filtroEstado, filtroPlazo]);
 

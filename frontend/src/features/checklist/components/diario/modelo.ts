@@ -16,6 +16,9 @@ export interface GrupoPlan {
   tareas: TareaDelDia[];
 }
 
+/** Id del DOM de la tarjeta de un registro, para llevarla a la vista desde un enlace. */
+export const idTareaChecklist = (registroId: number) => `tarea-registro-${registroId}`;
+
 export function agruparPorPlan(tareas: TareaDelDia[]): GrupoPlan[] {
   const grupos = new Map<string, GrupoPlan>();
   for (const tarea of tareas) {

@@ -41,6 +41,7 @@ const emptyValues: PlanLimpiezaInput = {
       tipo: "operacional",
       descripcion: "",
       observaciones: "",
+      operador_id: null,
     },
   ],
   equipo_id: 0,
@@ -91,6 +92,13 @@ export function PlanLimpiezaForm({
   }, [equipos]);
 
   const equiposDelSector = equipos.filter((e) => e.sector_id === sectorId);
+  // Responsables posibles de una tarea: quienes pueden operar (son los que
+  // la marcan en el checklist del día).
+  const operadores = personal.filter((persona) => persona.puede_operar);
+  // Un responsable que ya no está en la lista (dado de baja o sin permiso de
+  // operar): se muestra marcado y hay que elegir otro para poder guardar.
+  const responsableNoDisponible = (operadorId: number | null) =>
+    operadorId !== null && !cargandoOpciones && !operadores.some((o) => o.id === operadorId);
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((prev) => ({ ...prev, nombre: e.target.value }));
@@ -145,6 +153,12 @@ export function PlanLimpiezaForm({
       ),
     }));
 
+  const handleTareaOperadorChange = (index: number, operador_id: number | null) =>
+    setValues((prev) => ({
+      ...prev,
+      tareas: prev.tareas.map((t, i) => (i === index ? { ...t, operador_id } : t)),
+    }));
+
   const handleAgregarTarea = () =>
     setValues((prev) => ({
       ...prev,
@@ -156,6 +170,7 @@ export function PlanLimpiezaForm({
           tipo: "operacional",
           descripcion: "",
           observaciones: "",
+          operador_id: null,
         },
       ],
     }));
@@ -189,6 +204,9 @@ export function PlanLimpiezaForm({
     if (!tarea.nombre.trim()) faltantes.push(`el nombre de la tarea ${indice + 1}`);
     if (!tarea.frecuencia || tarea.frecuencia <= 0)
       faltantes.push(`la frecuencia de la tarea ${indice + 1}`);
+    if (!tarea.operador_id) faltantes.push(`el operador responsable de la tarea ${indice + 1}`);
+    else if (responsableNoDisponible(tarea.operador_id))
+      faltantes.push(`otro operador responsable para la tarea ${indice + 1} (el actual ya no está disponible)`);
   });
   if (!sectorId) faltantes.push("el sector");
   else if (!values.equipo_id) faltantes.push("el equipo");
@@ -259,7 +277,7 @@ export function PlanLimpiezaForm({
           <FormField
             label="Autor"
             required
-            completo
+            completo="hasta-xl"
             helper="Arranca en quien tiene la sesión abierta; podés cambiarlo si el plan lo firma otra persona."
           >
             <FormNativeSelect
@@ -319,7 +337,7 @@ export function PlanLimpiezaForm({
               rounded="lg"
             >
               <GrillaFormulario>
-                <FormField label={`Tarea ${index + 1}`} completo>
+                <FormField label={`Tarea ${index + 1}`} completo="hasta-xl">
                   <FormInput
                     value={tarea.nombre}
                     onChange={(e) =>
@@ -341,6 +359,36 @@ export function PlanLimpiezaForm({
                     placeholder="Ej: 7"
                     title="Frecuencia en días"
                   />
+                </FormField>
+
+                <FormField
+                  label="Operador responsable"
+                  required
+                  helper={
+                    responsableNoDisponible(tarea.operador_id)
+                      ? "El responsable actual fue dado de baja o ya no puede operar: elegí otro."
+                      : "Quien la hace en el checklist del día. Si falta, se le asigna un suplente desde el checklist."
+                  }
+                >
+                  <FormNativeSelect
+                    value={tarea.operador_id ?? 0}
+                    onChange={(e) => handleTareaOperadorChange(index, Number(e.target.value) || null)}
+                    disabled={cargandoOpciones}
+                  >
+                    <SelectPlaceholder value={0}>
+                      {cargandoOpciones ? "Cargando..." : "Seleccioná un operador"}
+                    </SelectPlaceholder>
+                    {responsableNoDisponible(tarea.operador_id) && (
+                      <option value={tarea.operador_id ?? 0} disabled>
+                        Responsable no disponible (dado de baja)
+                      </option>
+                    )}
+                    {operadores.map((persona) => (
+                      <option key={persona.id} value={persona.id}>
+                        {persona.nombre} {persona.apellido || ""}
+                      </option>
+                    ))}
+                  </FormNativeSelect>
                 </FormField>
 
                 {/*

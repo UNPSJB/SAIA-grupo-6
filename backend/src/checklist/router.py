@@ -155,12 +155,12 @@ def asignar_cobertura(
     db: Session = Depends(get_db),
     current_user: Personal = Depends(require_admin),
 ):
-    """Asigna o reasigna el operador responsable de una tarea de hoy.
+    """Asigna o quita el suplente de una tarea de hoy.
 
-    Solo administradores. Permite cubrir la ausencia del operador asignado:
-    se registra `reemplazado_por_id` con el administrador que hace el cambio.
-    Si `operador_id` se envía vacío (null), se desasigna el operador y
-    cualquier operador podrá tomar la tarea al marcarla.
+    Solo administradores. Cubre la ausencia del responsable: el operador
+    elegido queda como suplente (`reemplazado_por_id`) y es quien la ve y la
+    marca. Vacío (null), o el propio responsable, quita la cobertura. Quién
+    hizo el cambio queda en el historial del registro.
 
     No se permite sobre checklists de días anteriores (históricos).
     """
@@ -168,7 +168,7 @@ def asignar_cobertura(
         db=db,
         registro_id=registro_id,
         operador_id=operador_id,
-        reemplazado_por_id=current_user.id,
+        asignado_por_id=current_user.id,
     )
 
     operador_nombre = None

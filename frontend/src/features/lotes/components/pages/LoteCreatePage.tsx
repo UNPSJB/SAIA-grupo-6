@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Text } from "@chakra-ui/react";
@@ -94,7 +95,10 @@ export function LoteCreatePage() {
         ...(modo === "cantidad" ? { cantidad_objetivo: valor } : { factor: valor }),
         ...(administra && responsableId ? { responsable_id: responsableId } : {}),
       });
-      navigate(`/lotes/${lote.id}`);
+      avisarExito(`Lote ${lote.numero_lote} creado correctamente.`);
+      // replace: "Volver" desde el lote no debe reabrir el formulario de alta
+      // (invitaba a crear el mismo lote dos veces).
+      navigate(`/lotes/${lote.id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear el lote.");
       setGuardando(false);
@@ -170,7 +174,11 @@ export function LoteCreatePage() {
                   ? propsCampoCantidad(simbolo)
                   : { step: "any", inputMode: "decimal" as const })}
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onChange={(e) => {
+                  setValor(e.target.value);
+                  // El error era sobre este valor: al corregirlo deja de valer.
+                  setError(null);
+                }}
                 placeholder={modo === "cantidad" ? "Ej: 40" : "Ej: 2"}
               />
             </FormField>

@@ -50,6 +50,10 @@ class CantidadProducidaNoEntera(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_PRODUCIDA_NO_ENTERA
 
 
+class VencimientoAnteriorAlCierre(BadRequest):
+    DETAIL = ErrorCode.VENCIMIENTO_ANTERIOR_AL_CIERRE
+
+
 class CantidadObjetivoNoEntera(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_OBJETIVO_NO_ENTERA
 

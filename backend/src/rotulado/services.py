@@ -1,6 +1,4 @@
 import logging
-from datetime import date
-from decimal import Decimal
 from typing import Optional
 
 from fastapi import HTTPException
@@ -12,7 +10,6 @@ from src.common.fechas import ahora
 from src.lotes.models import LoteProducto
 from src.lotes.services import obtener_lote as obtener_lote_service
 from src.nutricion.services import calcular_info_nutricional as calcular_nutricion_service
-from src.productos.models import Producto
 from src.productos.services import obtener_producto as obtener_producto_service
 from src.recetas.composicion_services import calcular_composicion as calcular_composicion_service
 from src.recetas.models import Receta, VersionReceta
@@ -27,9 +24,6 @@ from src.rotulado.constants import (
     CAMPO_NO_APLICABLE,
     CAMPO_PENDIENTE,
     CAMPO_SIN_DATOS_ORIGEN,
-    CAMPOS_IMPORTADOR,
-    CAMPOS_LOTE,
-    CAMPOS_NUTRICION,
     ORIGEN_LOTE,
     ORIGEN_MANUAL,
     ORIGEN_NUTRICION,

@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from src.auth.dependencies import get_current_user, require_admin, require_operador
 
@@ -10,14 +10,13 @@ from src.auth.dependencies import get_current_user, require_admin, require_opera
 # resolver un rechazo) es de quien administra; lo físico de expedición
 # (despachar, registrar la entrega o el rechazo en la puerta) lo registra
 # quien opera. Ver y consultar las salidas, ambos.
-from src.clientes.models import Cliente
 from src.common.archivos import guardar_archivo
 from src.database import get_db
 from src.incidente.constants import EXTENSIONES_FOTO, TAMANO_MAX_FOTO
 from src.lotes.models import LoteProducto
 from src.personal.models import Personal
 from src.salidas import schemas, services
-from src.salidas.models import HitoLote, calcular_cantidades
+from src.salidas.models import HitoLote
 
 router = APIRouter(prefix="/salidas", tags=["Salidas de producto"])
 

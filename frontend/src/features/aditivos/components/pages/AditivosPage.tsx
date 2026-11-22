@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useCallback, useState } from "react";
 import { Badge, HStack, Table, Text } from "@chakra-ui/react";
 import { useLista } from "../../../../common/hooks/useLista";
@@ -152,6 +153,7 @@ export function TabClases() {
           onGuardar={async (datos) => {
             if (editando === "nueva") await crearClase(datos);
             else await modificarClase(editando.id, datos);
+            avisarExito(editando === "nueva" ? "Clase funcional agregada correctamente." : "Clase funcional modificada correctamente.");
             setEditando(null);
             await recargar();
           }}

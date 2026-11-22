@@ -11,7 +11,7 @@ import { catalogoAlergenos, confirmarDeclaraciones, consultarDeclaraciones, guar
 import { ConservacionFields } from "./ConservacionFields";
 import { CampoOrigen } from "./CampoOrigen";
 import { IndicadorCompletitud } from "./IndicadorCompletitud";
-import type { ResumenDeclaracion } from "./ListaIngredientesRotulo";
+import type { ResumenDeclaracion } from "../utils/textoRotulo";
 
 export function DeclaracionesSection({ borradorId, productoId, preview, formularioSucio, onEstado, onDirtyChange, onOrigenChange, onDeclaracion }: {
   borradorId: number; productoId: number; preview?: PropuestaDeclaraciones | null;

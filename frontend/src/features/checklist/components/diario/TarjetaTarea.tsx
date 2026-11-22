@@ -22,7 +22,7 @@ import type { ConsumoTarea, TareaDelDia } from "../../types/checklist";
 import { FotoEvidenciaDialog, HistorialTareaDialog } from "./DialogosTarea";
 import { CampoRegistro } from "./campos";
 import { RegistroInsumos, ResumenInsumos } from "./RegistroInsumos";
-import { completadaPor, etiquetaEtapa, filaConsumoVacia, type FilaConsumo } from "./modelo";
+import { completadaPor, etiquetaEtapa, filaConsumoVacia, idTareaChecklist, type FilaConsumo } from "./modelo";
 
 /**
  * Las dos filas de abajo (observaciones | "Ver procedimiento", y registro |
@@ -50,6 +50,8 @@ export interface TarjetaTareaProps {
   usuarioActual: User | null;
   puedeAsignarCobertura: boolean;
   onAsignarCobertura: (registroId: number) => void;
+  /** Se llegó a esta tarea desde un enlace (p. ej. el inicio): se marca un momento. */
+  resaltada?: boolean;
   onToggle: (
     tareaId: number,
     estadoActual: boolean,
@@ -79,6 +81,7 @@ export function TarjetaTarea({
   usuarioActual,
   puedeAsignarCobertura,
   onAsignarCobertura,
+  resaltada = false,
   onToggle,
 }: TarjetaTareaProps) {
   const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
@@ -107,6 +110,9 @@ export function TarjetaTarea({
   const esOperadorAsignado = tarea.operador_id != null && tarea.operador_id === usuarioActual?.id;
   const esReemplazado = tarea.reemplazado_por_id != null && tarea.reemplazado_por_id === usuarioActual?.id;
   const tareaSinAsignar = tarea.operador_id == null;
+  // Al operador no se le repite su propio nombre en cada tarea; sí cuando otra
+  // persona lo cubre (para que se vea quién) o la tarea es de otro.
+  const mostrarAsignado = esAdmin || !esOperadorAsignado || tarea.reemplazado_por_id != null;
   // Puede marcar si: es admin, es el operador asignado, es quien la cubrió,
   // o la tarea no tiene operador asignado (cualquier operador la toma).
   const puedeMarcar = esAdmin || esOperadorAsignado || esReemplazado || tareaSinAsignar;
@@ -180,6 +186,11 @@ export function TarjetaTarea({
 
   return (
     <Box
+      id={tarea.registro_id > 0 ? idTareaChecklist(tarea.registro_id) : undefined}
+      scrollMarginTop="24"
+      outline={resaltada ? "2px solid" : undefined}
+      outlineColor="teal.solid"
+      outlineOffset="2px"
       bg="bg.panel"
       borderWidth="1px"
       borderColor={tarea.completado ? "green.muted" : "border.subtle"}
@@ -233,7 +244,7 @@ export function TarjetaTarea({
         </HStack>
 
         <HStack gap="2" flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }} ps={{ base: "14", md: "0" }}>
-          {tarea.operador_id && tarea.operador_nombre && (
+          {tarea.operador_id && tarea.operador_nombre && mostrarAsignado && (
             <Chip paleta="blue" icono={<LuUser size={13} />} titulo={`Asignado a: ${tarea.operador_nombre}`}>
               {tarea.operador_nombre}
             </Chip>
@@ -244,15 +255,17 @@ export function TarjetaTarea({
             </Chip>
           )}
           {!tarea.operador_id && !esCerrado && !tarea.completado && <Chip paleta="gray">Sin asignar</Chip>}
-          {puedeAsignarCobertura && !esCerrado && (
+          {/* Una tarea ya hecha no necesita quién la cubra. */}
+          {puedeAsignarCobertura && !esCerrado && !tarea.completado && tarea.registro_id > 0 && (
             <Button
               size="sm"
               h="9"
               variant="ghost"
               colorPalette="teal"
               onClick={() => onAsignarCobertura(tarea.registro_id)}
+              title="Elegir quién cubre esta tarea hoy"
             >
-              <LuShieldPlus aria-hidden /> Cobertura
+              <LuShieldPlus aria-hidden /> Suplente
             </Button>
           )}
           {tarea.evidencia_url && (

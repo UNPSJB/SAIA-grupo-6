@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from src.common.validators import (
     RE_NOMBRE_SOLO_LETRAS,
     id_positivo,
@@ -40,6 +40,20 @@ class TareaBase(BaseModel):
             raise exceptions.TipoInvalido()
         return v
 
+    @field_validator("operador_id")
+    @classmethod
+    def validar_operador_id(cls, v: Optional[int]) -> Optional[int]:
+        return id_positivo(v, invalido=exceptions.OperadorInvalido)
+
+    @model_validator(mode="after")
+    def exigir_operador(self):
+        # Toda tarea de limpieza tiene un responsable: "cualquiera la puede
+        # hacer" equivalía a que nadie respondiera si no se hacía. Las
+        # ausencias se resuelven con la cobertura del checklist del día.
+        if self.operador_id is None:
+            raise exceptions.OperadorObligatorio()
+        return self
+
     @field_validator("descripcion")
     @classmethod
     def limpiar_descripcion(cls, v: Optional[str]) -> Optional[str]:
@@ -78,11 +92,24 @@ class TareaUpdate(TareaBase):
     tipo: Optional[str] = None
     activo: Optional[bool] = None
 
+    @model_validator(mode="after")
+    def exigir_operador(self):
+        # Actualización parcial: si no viene, se conserva; lo que no se
+        # acepta es quitarle el responsable.
+        if "operador_id" in self.model_fields_set and self.operador_id is None:
+            raise exceptions.OperadorObligatorio()
+        return self
+
 
 class Tarea(TareaBase):
     id: int
     activo: bool
     plan_limpieza_id: int
+
+    @model_validator(mode="after")
+    def exigir_operador(self):
+        # Respuesta: puede haber tareas viejas sin responsable.
+        return self
 
     model_config = ConfigDict(from_attributes=True)
 

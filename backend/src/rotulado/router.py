@@ -7,16 +7,7 @@ from src.auth.dependencies import require_admin
 from src.database import get_db
 from src.personal.models import Personal
 from src.rotulado import exportacion, schemas, services
-from src.rotulado.exceptions import (
-    BorradorNoEncontrado,
-    LoteNoEncontrado,
-    LoteNoPerteneceAlProducto,
-    LoteVersionIncompatible,
-    ProductoNoEncontrado,
-    VersionNoEncontrada,
-    VersionNoPerteneceAlProducto,
-)
-from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado
+from src.rotulado.exceptions import ProductoNoEncontrado
 
 router = APIRouter(
     prefix="/rotulado",

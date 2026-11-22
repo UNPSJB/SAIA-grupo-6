@@ -6,7 +6,6 @@ import type {
   BorradorRotuladoOut,
   BorradorRotuladoUpdate,
   CampoEditadoOut,
-  CompletitudRotulado,
   PrevisualizacionRotulado,
   VistaPreviaAutocompletado,
 } from "../types/rotulado";
@@ -83,16 +82,6 @@ export async function autocompletarBorrador(
   return pedir<BorradorRotuladoOut>(
     response,
     "Error al autocompletar el borrador",
-  );
-}
-
-export async function consultarCompletitud(
-  borradorId: number,
-): Promise<CompletitudRotulado> {
-  const response = await apiFetch(`${BASE}/borradores/${borradorId}/completitud`);
-  return pedir<CompletitudRotulado>(
-    response,
-    "Error al consultar la completitud",
   );
 }
 

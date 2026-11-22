@@ -1,3 +1,4 @@
+import { normalizar } from "../../../../common/utils/texto";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BotonExportar } from "../../../exportacion";
@@ -63,14 +64,14 @@ export function TabSalidas() {
   });
 
   const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+    const texto = normalizar(busqueda);
     return salidas.filter(
       (s) =>
         (!estado || s.estado === estado) &&
         (!texto ||
-          s.lote_numero.toLowerCase().includes(texto) ||
-          s.producto_nombre.toLowerCase().includes(texto) ||
-          s.cliente_nombre.toLowerCase().includes(texto))
+          normalizar(s.lote_numero).includes(texto) ||
+          normalizar(s.producto_nombre).includes(texto) ||
+          normalizar(s.cliente_nombre).includes(texto))
     );
   }, [salidas, estado, busqueda]);
 

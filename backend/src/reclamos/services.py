@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from src.common.fechas import hoy
 from src.incidente import services as incidente_services
@@ -19,7 +19,6 @@ from src.reclamos.constants import (
     MOTIVO_RECLAMO_OTRO,
     MOTIVOS_RECLAMO,
     TIPO_EVENTO_RECLAMO,
-    TIPO_INCIDENTE_RECLAMO,
 )
 from src.reclamos.models import Reclamo
 from src.salidas import exceptions as salidas_exceptions
@@ -279,6 +278,22 @@ def reclamo_a_resumen(reclamo: Reclamo) -> schemas.ReclamoResumen:
     )
 
 
+def _retiro_del_lote(reclamo: Reclamo) -> Optional[schemas.ReclamoRetiroDetalle]:
+    """El retiro del lote del reclamo, si ya existe: la ficha lo muestra en vez de
+    ofrecer iniciar otro (un lote admite un solo retiro)."""
+    from src.retiros.models import Retiro
+
+    db = object_session(reclamo)
+    if db is None:
+        return None
+    retiro = db.execute(
+        select(Retiro).where(Retiro.lote_id == reclamo.salida.lote_id)
+    ).scalar_one_or_none()
+    if retiro is None:
+        return None
+    return schemas.ReclamoRetiroDetalle(id=retiro.id, estado=retiro.estado)
+
+
 def reclamo_a_detalle(reclamo: Reclamo) -> schemas.ReclamoDetalle:
     salida = reclamo.salida
     incidente = reclamo.incidente
@@ -320,4 +335,5 @@ def reclamo_a_detalle(reclamo: Reclamo) -> schemas.ReclamoDetalle:
             if incidente is not None
             else None
         ),
+        retiro=_retiro_del_lote(reclamo),
     )

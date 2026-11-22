@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState, type FormEvent } from "react";
 import { Box, Stack, Text } from "@chakra-ui/react";
 import { DialogForm } from "../../../common/components/DialogForm";
@@ -110,6 +111,8 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
         ? ingrediente
         : item.ingredientes.find((i) => i.ingrediente_id !== ingredienteId && faltanteDe(i) > 0);
       if (!siguiente) {
+        // Entre ingredientes el aviso va dentro del diálogo; al terminar, en un toast.
+        avisarExito("Consumo registrado correctamente.");
         onClose();
         return;
       }

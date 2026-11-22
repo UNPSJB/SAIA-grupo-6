@@ -59,6 +59,13 @@ class ReclamoIncidenteDetalle(BaseModel):
     responsable_cierre_nombre: Optional[str] = None
 
 
+class ReclamoRetiroDetalle(BaseModel):
+    """Retiro del lote del reclamo (un lote admite un solo retiro)."""
+
+    id: int
+    estado: str
+
+
 class ReclamoDetalle(ReclamoResumen):
     """Ficha completa del reclamo."""
 
@@ -66,3 +73,4 @@ class ReclamoDetalle(ReclamoResumen):
     fecha_registro: Optional[str] = None
     salida: ReclamoSalidaDetalle
     incidente: Optional[ReclamoIncidenteDetalle] = None
+    retiro: Optional[ReclamoRetiroDetalle] = None

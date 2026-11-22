@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { Navigate, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Box, Flex, Link } from "@chakra-ui/react";
-import { LuArrowLeft } from "react-icons/lu";
+import { Box, Flex, Link, chakra } from "@chakra-ui/react";
+import { LuArrowLeft, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { useAuth } from "../context/useAuth";
 import { FONDO_PESTANA } from "../../theme";
 import {
@@ -630,6 +630,28 @@ export default function Navbar() {
         })`
       : undefined;
 
+  /** Desplaza la barra casi un ancho visible hacia un lado (-1 izq, 1 der). */
+  const desplazar = useCallback((sentido: -1 | 1) => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    lista.scrollBy({ left: sentido * lista.clientWidth * 0.7, behavior: "smooth" });
+  }, []);
+
+  // La rueda vertical del mouse desplaza la barra de costado cuando desborda
+  // (sin esto, solo se llegaba con trackpad). Listener no pasivo para poder
+  // evitar que además se mueva la página.
+  useEffect(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    const alGirar = (e: WheelEvent) => {
+      if (lista.scrollWidth <= lista.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      lista.scrollLeft += e.deltaY;
+    };
+    lista.addEventListener("wheel", alGirar, { passive: false });
+    return () => lista.removeEventListener("wheel", alGirar);
+  }, []);
+
   // Si cambia el ancho (ventana, buscador desplegado), el indicador se
   // reacomoda sin animar y las medidas se toman de nuevo.
   useLayoutEffect(() => {
@@ -697,7 +719,7 @@ export default function Navbar() {
     // Va dentro de la barra superior (`BarraSuperior`), entre el logo y las
     // herramientas: ocupa el espacio libre y, si las pestañas no entran,
     // scrollea de costado en vez de partirse en dos renglones.
-    <Box as="nav" aria-label="Menú principal" color="white" flex="1" minW={0} alignSelf="stretch">
+    <Box as="nav" aria-label="Menú principal" color="white" flex="1" minW={0} alignSelf="stretch" position="relative">
       <Flex
         as="ul"
         ref={listaRef}
@@ -849,6 +871,40 @@ export default function Navbar() {
           </>
         )}
       </Flex>
+      {/* Flechas sobre el borde que desborda: con el mouse no hay scroll
+          horizontal a mano, y el desvanecido solo no alcanzaba (la última
+          pestaña quedaba tapada sin forma evidente de llegar). */}
+      {desborde.izq && <FlechaDesborde lado="izq" onClick={() => desplazar(-1)} />}
+      {desborde.der && <FlechaDesborde lado="der" onClick={() => desplazar(1)} />}
     </Box>
+  );
+}
+
+function FlechaDesborde({ lado, onClick }: { lado: "izq" | "der"; onClick: () => void }) {
+  const Icono = lado === "izq" ? LuChevronLeft : LuChevronRight;
+  return (
+    <chakra.button
+      type="button"
+      aria-label={lado === "izq" ? "Ver opciones anteriores del menú" : "Ver más opciones del menú"}
+      title={lado === "izq" ? "Opciones anteriores" : "Más opciones"}
+      onClick={onClick}
+      position="absolute"
+      top="50%"
+      transform="translateY(-50%)"
+      {...(lado === "izq" ? { left: "0" } : { right: "0" })}
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      w="7"
+      h="7"
+      rounded="full"
+      bg="blackAlpha.500"
+      color="white"
+      cursor="pointer"
+      _hover={{ bg: "blackAlpha.700" }}
+      zIndex={1}
+    >
+      <Icono aria-hidden />
+    </chakra.button>
   );
 }

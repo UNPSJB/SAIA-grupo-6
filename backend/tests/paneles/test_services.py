@@ -280,6 +280,21 @@ def test_panel_limpieza_operador_ve_sus_tareas(base):
     assert panel.quimicos_bajo_minimo is None
 
 
+def test_panel_limpieza_operador_cuenta_lo_que_cubre_como_suplente(base):
+    # Hoy: una tarea suya (pendiente) y otra de alguien más que él cubre.
+    _checklist(base, dias_atras=0, completadas=0, total=2)
+    db = base["db"]
+    ajena = db.query(RegistroTarea).filter(RegistroTarea.operador_id.is_(None)).one()
+    ajena.operador_id = base["admin"].id
+    ajena.reemplazado_por_id = base["operador"].id
+    db.commit()
+
+    panel = services.panel_limpieza(db, _periodo(), None, base["operador"], False)
+
+    assert panel.tareas_total == 2
+    assert panel.pendientes_hoy == 2
+
+
 def test_panel_limpieza_sin_tareas(base):
     panel = services.panel_limpieza(base["db"], _periodo(), None, base["admin"], True)
 

@@ -5,7 +5,6 @@ import type {
   HistorialRegistroTareaResponse,
   ConsumoInsumosResponse,
   HistorialChecklistPagina,
-  HistorialChecklistResponse,
   CoberturaTareaResponse,
   ConsumoTarea,
 } from "../types/checklist";
@@ -185,22 +184,6 @@ export async function obtenerConsumoInsumos(
   return pedir<ConsumoInsumosResponse>(
     response,
     "Error al obtener el consumo"
-  );
-}
-export async function obtenerHistorialDelRango(
-  fechaDesde: string,
-  fechaHasta: string
-): Promise<HistorialChecklistResponse> {
-  const params = new URLSearchParams({
-    fecha_desde: fechaDesde,
-    fecha_hasta: fechaHasta,
-  });
-
-  const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
-
-  return pedir<HistorialChecklistResponse>(
-    response,
-    "Error al obtener el cumplimiento de limpieza"
   );
 }
 

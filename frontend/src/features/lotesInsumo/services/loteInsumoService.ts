@@ -3,7 +3,6 @@ import { pedir } from "../../../common/api/errors";
 import type {
   BajaLoteInsumoInput,
   BajaLoteInsumoRegistro,
-  IndicadorBajasResponse,
   IngredienteOpcion,
   LoteInsumoInput,
   StockIngrediente,
@@ -63,18 +62,6 @@ export async function listarBajasLoteInsumo(
     response,
     "Error al obtener el historial de bajas del lote",
   );
-}
-
-export async function obtenerIndicadorBajas(
-  fechaDesde?: string,
-  fechaHasta?: string,
-): Promise<IndicadorBajasResponse> {
-  const params = new URLSearchParams();
-  if (fechaDesde) params.set("fecha_desde", fechaDesde);
-  if (fechaHasta) params.set("fecha_hasta", fechaHasta);
-  const query = params.size > 0 ? `?${params.toString()}` : "";
-  const response = await apiFetch(`${API_URL}/stock/bajas-por-motivo${query}`);
-  return pedir<IndicadorBajasResponse>(response, "Error al obtener el indicador de bajas");
 }
 
 export async function listarIngredientesActivos(): Promise<IngredienteOpcion[]> {

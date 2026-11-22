@@ -1,3 +1,4 @@
+import { normalizar } from "../../../../common/utils/texto";
 import { useMemo, useState } from "react";
 import { Box, Button, Checkbox, HStack, Stack, Table, Text, chakra } from "@chakra-ui/react";
 import { LuBrush, LuFlaskConical, LuPencil, LuPlus, LuSearch } from "react-icons/lu";
@@ -251,13 +252,13 @@ function SelectorInsumosDialog({
   );
   const [intentado, setIntentado] = useState(false);
 
-  const texto = busqueda.trim().toLowerCase();
+  const texto = normalizar(busqueda);
   const elementosVisibles = useMemo(
-    () => elementos.filter((e) => !texto || e.nombre.toLowerCase().includes(texto)),
+    () => elementos.filter((e) => !texto || normalizar(e.nombre).includes(texto)),
     [elementos, texto],
   );
   const quimicosVisibles = useMemo(
-    () => quimicos.filter((q) => !texto || q.nombre.toLowerCase().includes(texto)),
+    () => quimicos.filter((q) => !texto || normalizar(q.nombre).includes(texto)),
     [quimicos, texto],
   );
 

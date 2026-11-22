@@ -11,13 +11,7 @@ clave-valor, y construye la URL dinámicamente.
 import { API_URL } from "../../../common/api/apiClient";
 import { apiFetch } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
-import type { DatosExport, TablaExport, FormatoExport, FiltrosExport } from "../types/exportacion";
-
-/** Devuelve todas las tablas que se pueden exportar, con sus columnas. */
-export async function listarTablasExportables(): Promise<TablaExport[]> {
-  const response = await apiFetch(`${API_URL}/exportacion/tablas`);
-  return pedir<TablaExport[]>(response, "Error al obtener las tablas para exportar");
-}
+import type { DatosExport, FormatoExport, FiltrosExport } from "../types/exportacion";
 
 /** Devuelve las columnas (nombre + encabezado) de una tabla registrada. */
 export async function obtenerColumnasTabla(nombreTabla: string): Promise<{ nombre: string; etiqueta: string }[]> {

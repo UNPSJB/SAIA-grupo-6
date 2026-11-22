@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState, useEffect } from "react";
 import { Box, Text, VStack } from "@chakra-ui/react";
 import {
@@ -153,6 +154,7 @@ export function ModalDespacharSalida({
           : null,
         fecha_despacho: values.fecha_despacho,
       });
+      avisarExito("Despacho registrado correctamente.");
       onDespachoRegistrado();
     } catch (err) {
       const mensaje =

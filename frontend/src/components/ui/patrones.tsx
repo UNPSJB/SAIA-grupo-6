@@ -28,6 +28,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -976,10 +977,15 @@ interface FormFieldProps {
    */
   opcional?: boolean;
   /**
-   * Dentro de `GrillaFormulario`, ocupa las dos columnas. Para selectores
+   * Dentro de `GrillaFormulario`, ocupa toda la fila. Para selectores
    * principales, nombres largos y observaciones.
+   *
+   * `"hasta-xl"`: ocupa la fila mientras la grilla tiene dos columnas y pasa
+   * a una celda cuando tiene tres (altas `extenso` desde `xl`). Sirve para el
+   * tercer campo de un trío (Sector · Equipo · Autor): en dos columnas no
+   * deja un hueco al lado y en tres completa la fila.
    */
-  completo?: boolean;
+  completo?: boolean | "hasta-xl";
   mb?: string;
   children: ReactNode;
 }
@@ -1004,7 +1010,9 @@ export function FormField({
       required={required}
       invalid={invalid ?? (error ? true : undefined)}
       mb={mb ?? (enGrilla ? "0" : "6")}
-      gridColumn={completo ? "1 / -1" : undefined}
+      gridColumn={
+        completo === "hasta-xl" ? { base: "1 / -1", xl: "auto" } : completo ? "1 / -1" : undefined
+      }
       minW={enGrilla ? "0" : undefined}
     >
       <Field.Label color={enAlta ? "fg" : "fg.muted"} fontWeight="medium">
@@ -1271,8 +1279,25 @@ export function BannerError({
   children: ReactNode;
   mb?: string;
 }) {
+  // Al aparecer (o cambiar el mensaje) se trae a la vista: en formularios
+  // largos el banner queda arriba y quien tocó "Guardar" abajo no veía el error
+  // (parecía que el botón no hacía nada).
+  const ref = useRef<HTMLDivElement>(null);
+  const mensaje = typeof children === "string" ? children : null;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.scrollIntoView !== "function") return;
+    const caja = el.getBoundingClientRect();
+    // La barra superior es fija: lo que queda debajo de ella tampoco se ve.
+    const tope = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    if (caja.top < tope || caja.bottom > window.innerHeight) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [mensaje]);
+
   return (
     <Box
+      ref={ref}
       role="alert"
       bg="red.subtle"
       color="red.fg"
@@ -1873,9 +1898,15 @@ export function DialogoExito({
   mensaje: string;
 }) {
   useEffect(() => {
-    if (isOpen) {
-      toaster.create({ type: "success", title: mensaje, duration: 4000 });
-    }
+    if (isOpen) avisarExito(mensaje);
   }, [isOpen, mensaje]);
   return null;
+}
+
+/**
+ * El mismo aviso de éxito que `DialogoExito`, para llamar directo después de
+ * una acción (baja, cierre, registro en un diálogo) sin manejar un estado.
+ */
+export function avisarExito(mensaje: string) {
+  toaster.create({ type: "success", title: mensaje, duration: 4000 });
 }

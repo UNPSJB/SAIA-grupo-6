@@ -149,6 +149,7 @@ export function PlanLimpiezaPage() {
           tipo: t.tipo,
           descripcion: t.descripcion ?? undefined,
           observaciones: t.observaciones ?? undefined,
+          operador_id: t.operador_id ?? null,
         })),
         equipo_id: planAReactivar.equipo_id,
         autor_id: planAReactivar.autor_id,

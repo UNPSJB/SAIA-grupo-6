@@ -41,7 +41,14 @@ export function TablaEscalado({
               {ingredientes.map((i) => (
                 <Table.Row key={i.ingrediente.id}>
                   <Celda>
-                    <Text>{i.ingrediente.nombre}</Text>
+                    <Text>
+                      {i.ingrediente.nombre}
+                      {i.ingrediente.activo === false && (
+                        <Badge colorPalette="orange" variant="subtle" ml="2">
+                          Dado de baja
+                        </Badge>
+                      )}
+                    </Text>
                     {i.aditivo && (
                       <Text fontSize="xs" color="fg.muted">
                         {etiquetaAditivo(i.aditivo)}

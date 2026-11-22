@@ -14,12 +14,12 @@ export function ResumenNutricional({ valor, onCambio, enlaceOrigen }: { valor: s
     || (Array.isArray(datos?.filas) && datos.filas.some(fila => objeto(fila)?.faltan_datos === true));
   return <Stack gap="4">
     {enlaceOrigen && faltanDatos && <Button asChild variant="outline" size="sm" alignSelf="start">
-      <Link to={enlaceOrigen}>Abrir información nutricional del producto (E11)</Link>
+      <Link to={enlaceOrigen}>Abrir información nutricional del producto</Link>
     </Button>}
     <TablaInstantaneaNutricional datos={datos} />
     <Box as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
       <Box as="summary" cursor="pointer" fontSize="sm" color="fg.muted">Detalle técnico · JSON nutricional</Box>
-      <Text fontSize="xs" color="fg.muted" mt="3" mb="2">Instantánea guardada en este rótulo. Su edición no modifica E11.</Text>
+      <Text fontSize="xs" color="fg.muted" mt="3" mb="2">Instantánea guardada en este rótulo. Su edición no modifica la información nutricional del producto.</Text>
       <Textarea aria-label="Datos nutricionales (JSON)" value={valor} onChange={e => onCambio(e.target.value)} fontFamily="mono" fontSize="xs" minH="200px" resize="vertical" spellCheck={false} />
     </Box>
   </Stack>;
@@ -42,7 +42,7 @@ export function TablaInstantaneaNutricional({ datos, estado, previsualizacion = 
           minW={previsualizacion ? "520px" : undefined} tableLayout={previsualizacion ? "auto" : undefined}
           data-sin-tarjetas={previsualizacion ? "" : undefined}
           css={previsualizacion ? { "& :is(th, td)": { paddingBlock: "1", lineHeight: "short" }, "& td:not(:first-of-type)": { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } } : undefined}>
-        <Table.Caption p={previsualizacion ? "2" : "3"} textAlign="start">Instantánea nutricional E11. VD: valor diario.</Table.Caption>
+        <Table.Caption p={previsualizacion ? "2" : "3"} textAlign="start">Instantánea de la información nutricional. VD: valor diario.</Table.Caption>
         <Table.Header><Table.Row>
           <Table.ColumnHeader minW={previsualizacion ? "140px" : "180px"} w={previsualizacion ? "38%" : undefined}>Nutriente</Table.ColumnHeader>
           <Table.ColumnHeader minW={previsualizacion ? "105px" : "130px"} textAlign="end">Por 100 {texto(datos?.expresar_en)}</Table.ColumnHeader>

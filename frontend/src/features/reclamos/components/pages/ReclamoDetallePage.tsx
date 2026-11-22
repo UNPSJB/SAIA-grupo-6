@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Image, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Image, Stack, Text } from "@chakra-ui/react";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
-import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import {
   BannerError,
@@ -13,6 +12,7 @@ import {
 import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import {
   DatoDetalle,
+  GrillaDatos,
   PaginaDetalle,
   SeccionDetalle,
 } from "../../../../components/ui/plantillas";
@@ -71,10 +71,31 @@ export function ReclamoDetallePage() {
             {cerrado ? "Cerrado" : "Abierto"}
           </EtiquetaEstado>
         }
+        acciones={
+          // Un lote admite un solo retiro: si ya existe se muestra, no se ofrece otro.
+          reclamo.retiro ? (
+            <Button variant="outline" onClick={() => navigate(`/retiros/${reclamo.retiro!.id}`)}>
+              Ver retiro #{reclamo.retiro.id} ({reclamo.retiro.estado === "CERRADO" ? "cerrado" : "en curso"})
+            </Button>
+          ) : !cerrado && reclamo.lote_id && esAdmin ? (
+            <Button
+              colorPalette="red"
+              onClick={() => {
+                setModalRetirar(true);
+              }}
+              title={`Abre el retiro del lote ${reclamo.lote_numero} del mercado, con el motivo "Reclamos de clientes" preseleccionado.`}
+            >
+              Iniciar retiro del lote
+            </Button>
+          ) : undefined
+        }
       >
+        {/* Secciones apiladas a todo el ancho: lado a lado, la columna del
+            reclamo quedaba con más de la mitad vacía. Iniciar el retiro del
+            lote es una acción: va en el encabezado. */}
         <Stack gap="6">
           <SeccionDetalle titulo="Datos del reclamo">
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
+            <GrillaDatos>
               <DatoDetalle etiqueta="Cliente">
                 {reclamo.cliente_nombre}
               </DatoDetalle>
@@ -125,7 +146,7 @@ export function ReclamoDetallePage() {
                   </Text>
                 </DatoDetalle>
               </Box>
-            </SimpleGrid>
+            </GrillaDatos>
 
             {reclamo.fuera_de_plazo && (
               <Text mt="4" fontSize="sm" color="orange.fg">
@@ -138,7 +159,7 @@ export function ReclamoDetallePage() {
           </SeccionDetalle>
 
           <SeccionDetalle titulo="Entrega asociada">
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="6">
+            <GrillaDatos>
               <DatoDetalle etiqueta="Producto">
                 {reclamo.salida.producto_nombre}
               </DatoDetalle>
@@ -146,15 +167,13 @@ export function ReclamoDetallePage() {
                 {reclamo.salida.lote_numero}
               </DatoDetalle>
               <DatoDetalle etiqueta="Cantidad">
-                {cantidadConUnidad(
-                  reclamo.salida.cantidad,
-                  reclamo.salida.unidad_medida
-                )}
+                {/* El backend ya la manda formateada ("0,749"): parsearla daba NaN. */}
+                {[reclamo.salida.cantidad, reclamo.salida.unidad_medida].filter(Boolean).join(" ")}
               </DatoDetalle>
               <DatoDetalle etiqueta="Fecha de despacho">
                 {formatoFecha(reclamo.salida.fecha_despacho)}
               </DatoDetalle>
-            </SimpleGrid>
+            </GrillaDatos>
             <Box mt="4">
               <BotonTexto
                 onClick={() => navigate(`/salidas/${reclamo.salida_id}/detalle`)}
@@ -192,7 +211,7 @@ export function ReclamoDetallePage() {
           <SeccionDetalle titulo="Incidente asociado">
             {reclamo.incidente ? (
               <Stack gap="4">
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
+                <GrillaDatos>
                   <DatoDetalle etiqueta="Incidente">
                     <BotonTexto
                       onClick={() =>
@@ -221,10 +240,10 @@ export function ReclamoDetallePage() {
                       </DatoDetalle>
                     </>
                   )}
-                </SimpleGrid>
+                </GrillaDatos>
                 {!cerrado && (
                   <Text fontSize="sm" color="fg.muted">
-                    El incidente se cierra desde Gestión de incidentes (E6) con
+                    El incidente se cierra desde Gestión de incidentes con
                     la acción correctiva.
                   </Text>
                 )}
@@ -235,23 +254,6 @@ export function ReclamoDetallePage() {
               </Text>
             )}
           </SeccionDetalle>
-
-          {!cerrado && reclamo.lote_id && esAdmin && (
-            <SeccionDetalle sinMarco titulo="Retiro del lote">
-              <Button
-                colorPalette="red"
-                onClick={() => {
-                  setModalRetirar(true);
-                }}
-              >
-                Iniciar retiro del lote
-              </Button>
-              <Text fontSize="xs" color="fg.muted" mt="2">
-                Abrirá el modal para retirar el lote {reclamo.lote_numero} del
-                mercado, con el motivo "Reclamos de clientes" preseleccionado.
-              </Text>
-            </SeccionDetalle>
-          )}
         </Stack>
       </PaginaDetalle>
 

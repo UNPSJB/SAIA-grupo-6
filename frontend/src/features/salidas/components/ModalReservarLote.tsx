@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState, useEffect } from "react";
 import { InputGroup, Text, VStack } from "@chakra-ui/react";
 import {
@@ -228,6 +229,7 @@ export function ModalReservarLote({
         cantidad: values.cantidad,
         fecha_reserva: values.fecha_reserva,
       });
+      avisarExito("Reserva registrada correctamente.");
       onReservaRegistrada();
     } catch (err) {
       const mensaje =

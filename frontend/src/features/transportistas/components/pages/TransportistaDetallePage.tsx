@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { Box, Button, HStack, SimpleGrid, Table, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, HStack, Table, Text, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuFileBadge, LuMinus } from "react-icons/lu";
 import { useTransportista } from "../../hooks/useTransportista";
 import { useCertificaciones } from "../../hooks/useCertificaciones";
@@ -12,7 +12,13 @@ import {
   EtiquetaEstado,
   type TonoEstado,
 } from "../../../../components/ui/patrones";
-import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
+import {
+  DatoDetalle,
+  DisposicionDetalle,
+  GrillaDatos,
+  PaginaDetalle,
+  SeccionDetalle,
+} from "../../../../components/ui/plantillas";
 import { formatoFecha, formatoFechaHora, hoyISO } from "../../../../common/utils/fechas";
 import {
   descargarArchivoCertificacion,
@@ -97,7 +103,8 @@ function TablaCertificaciones({
   onAnular?: (certificacion: CertificacionTransportista) => void;
 }) {
   return (
-    <Table.Root variant="outline" w="100%">
+    <Box overflowX="auto">
+    <Table.Root variant="outline" w="100%" minW="640px">
       <Table.Header>
         <Table.Row>
           <Table.ColumnHeader px="4" py="3">Tipo</Table.ColumnHeader>
@@ -188,6 +195,7 @@ function TablaCertificaciones({
         ))}
       </Table.Body>
     </Table.Root>
+    </Box>
   );
 }
 
@@ -264,192 +272,143 @@ export function TransportistaDetallePage() {
       titulo={transportista.razon_social}
       descripcion={`Transportista ${transportista.activo ? "activo" : "dado de baja"}`}
     >
-      {/* Sección: Datos principales */}
-      <SeccionDetalle titulo="Datos principales">
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Razón Social
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {transportista.razon_social}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              CUIT
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {transportista.cuit}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Teléfono
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {transportista.telefono}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Email
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {transportista.email ?? "-"}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Domicilio
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {transportista.domicilio ?? "-"}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Habilitación
+      {/* Principal: certificaciones (tabla y acciones); lateral: datos de
+          contacto e información del sistema. En el celular, los datos van
+          primero. */}
+      <DisposicionDetalle
+        lateralPrimero
+        lateral={
+          <>
+            <SeccionDetalle titulo="Datos principales">
+              <GrillaDatos columnasMax={2}>
+                <DatoDetalle etiqueta="Razón Social">{transportista.razon_social}</DatoDetalle>
+                <DatoDetalle etiqueta="CUIT">{transportista.cuit}</DatoDetalle>
+                <DatoDetalle etiqueta="Teléfono">{transportista.telefono}</DatoDetalle>
+                <DatoDetalle etiqueta="Email">{transportista.email ?? "-"}</DatoDetalle>
+                <DatoDetalle etiqueta="Domicilio">{transportista.domicilio ?? "-"}</DatoDetalle>
+                <DatoDetalle etiqueta="Habilitación">
+                  <EtiquetaEstado
+                    tono={TONO_HABILITACION[transportista.estado_habilitacion] ?? "neutro"}
+                  >
+                    {transportista.estado_habilitacion}
+                  </EtiquetaEstado>
+                </DatoDetalle>
+                <Box gridColumn="1 / -1">
+                  <DatoDetalle etiqueta="Observaciones">
+                    <Text as="span" whiteSpace="pre-line">
+                      {transportista.observaciones ?? "-"}
+                    </Text>
+                  </DatoDetalle>
+                </Box>
+              </GrillaDatos>
+            </SeccionDetalle>
+
+            <SeccionDetalle titulo="Información del sistema">
+              <GrillaDatos columnasMax={2}>
+                <DatoDetalle etiqueta="Estado">
+                  <Box display="flex" alignItems="center" gap="2">
+                    {transportista.activo ? (
+                      <LuCircleCheck size={14} color="green.fg" aria-hidden />
+                    ) : (
+                      <LuMinus size={14} color="gray.fg" aria-hidden />
+                    )}
+                    <Text
+                      as="span"
+                      fontSize="sm"
+                      fontWeight="medium"
+                      color={transportista.activo ? "green.fg" : "gray.fg"}
+                    >
+                      {transportista.activo ? "Activo" : "Inactivo"}
+                    </Text>
+                  </Box>
+                </DatoDetalle>
+                <DatoDetalle etiqueta="Fecha de creación">
+                  {formatoFechaHora(transportista.fecha_creacion)}
+                </DatoDetalle>
+                <DatoDetalle etiqueta="Última actualización">
+                  {formatoFechaHora(transportista.fecha_actualizacion)}
+                </DatoDetalle>
+              </GrillaDatos>
+            </SeccionDetalle>
+          </>
+        }
+      >
+        {/* Sección: Certificaciones y Habilitaciones */}
+        <SeccionDetalle
+          titulo="Certificaciones y Habilitaciones"
+          descripcion="Solo un transportista con certificaciones vigentes puede despachar."
+          acciones={
+            <Button
+              colorPalette="brand"
+              size="md"
+              onClick={() => setModalNueva({ open: true })}
+            >
+              <LuFileBadge aria-hidden />
+              Nueva certificación
+            </Button>
+          }
+        >
+          <HStack mb="4" gap="2" flexWrap="wrap">
+            <Text fontSize="sm" color="fg.muted">
+              Estado de habilitación:
             </Text>
             <EtiquetaEstado
               tono={TONO_HABILITACION[transportista.estado_habilitacion] ?? "neutro"}
             >
               {transportista.estado_habilitacion}
             </EtiquetaEstado>
-          </Box>
-          <Box gridColumn="1 / -1">
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Observaciones
-            </Text>
-            <Text
-              fontSize="sm"
-              fontWeight="medium"
-              color="fg"
-              wordBreak="break-word"
-              whiteSpace="pre-line"
-            >
-              {transportista.observaciones ?? "-"}
-            </Text>
-          </Box>
-        </SimpleGrid>
-      </SeccionDetalle>
+          </HStack>
 
-      {/* Sección: Certificaciones y Habilitaciones */}
-      <SeccionDetalle
-        titulo="Certificaciones y Habilitaciones"
-        descripcion="Solo un transportista con certificaciones vigentes puede despachar."
-        acciones={
-          <Button
-            colorPalette="brand"
-            size="md"
-            onClick={() => setModalNueva({ open: true })}
-          >
-            <LuFileBadge aria-hidden />
-            Nueva certificación
-          </Button>
-        }
-      >
-        <HStack mb="4" gap="2" flexWrap="wrap">
-          <Text fontSize="sm" color="fg.muted">
-            Estado de habilitación:
-          </Text>
-          <EtiquetaEstado
-            tono={TONO_HABILITACION[transportista.estado_habilitacion] ?? "neutro"}
-          >
-            {transportista.estado_habilitacion}
-          </EtiquetaEstado>
-        </HStack>
-
-        {cargandoCertificaciones && (
-          <EstadoCargando>Cargando certificaciones...</EstadoCargando>
-        )}
-
-        {!cargandoCertificaciones && errorCertificaciones && (
-          <BannerError>{errorCertificaciones}</BannerError>
-        )}
-
-        {!cargandoCertificaciones &&
-          !errorCertificaciones &&
-          certificacionesActivas.length === 0 && (
-            <Text color="fg.muted" fontSize="sm">
-              Este transportista no tiene certificaciones activas.
-            </Text>
+          {cargandoCertificaciones && (
+            <EstadoCargando>Cargando certificaciones...</EstadoCargando>
           )}
 
-        {!cargandoCertificaciones &&
-          !errorCertificaciones &&
-          certificacionesActivas.length > 0 && (
-            <TablaCertificaciones
-              certificaciones={certificacionesActivas}
-              onRenovar={(certificacion) =>
-                setModalNueva({ open: true, tipo: certificacion.tipo })
-              }
-              onAnular={setCertificacionAAnular}
-            />
+          {!cargandoCertificaciones && errorCertificaciones && (
+            <BannerError>{errorCertificaciones}</BannerError>
           )}
 
-        {!cargandoCertificaciones &&
-          !errorCertificaciones &&
-          certificacionesHistorial.length > 0 && (
-            <Box mt="5">
-              <BotonTexto onClick={() => setMostrarHistorial((visible) => !visible)}>
-                {mostrarHistorial
-                  ? "Ocultar historial"
-                  : `Ver historial (${certificacionesHistorial.length})`}
-              </BotonTexto>
-
-              {mostrarHistorial && (
-                <Box mt="4">
-                  <TablaCertificaciones
-                    certificaciones={certificacionesHistorial}
-                    historial
-                  />
-                </Box>
-              )}
-            </Box>
-          )}
-      </SeccionDetalle>
-
-      {/* Sección: Información del sistema */}
-      <SeccionDetalle titulo="Información del sistema">
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Estado
-            </Text>
-            <Box display="flex" alignItems="center" gap="2">
-              {transportista.activo ? (
-                <LuCircleCheck size={14} color="green.fg" aria-hidden />
-              ) : (
-                <LuMinus size={14} color="gray.fg" aria-hidden />
-              )}
-              <Text
-                fontSize="sm"
-                fontWeight="medium"
-                color={transportista.activo ? "green.fg" : "gray.fg"}
-              >
-                {transportista.activo ? "Activo" : "Inactivo"}
+          {!cargandoCertificaciones &&
+            !errorCertificaciones &&
+            certificacionesActivas.length === 0 && (
+              <Text color="fg.muted" fontSize="sm">
+                Este transportista no tiene certificaciones activas.
               </Text>
-            </Box>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Fecha de creación
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {formatoFechaHora(transportista.fecha_creacion)}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Última actualización
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {formatoFechaHora(transportista.fecha_actualizacion)}
-            </Text>
-          </Box>
-        </SimpleGrid>
-      </SeccionDetalle>
+            )}
+
+          {!cargandoCertificaciones &&
+            !errorCertificaciones &&
+            certificacionesActivas.length > 0 && (
+              <TablaCertificaciones
+                certificaciones={certificacionesActivas}
+                onRenovar={(certificacion) =>
+                  setModalNueva({ open: true, tipo: certificacion.tipo })
+                }
+                onAnular={setCertificacionAAnular}
+              />
+            )}
+
+          {!cargandoCertificaciones &&
+            !errorCertificaciones &&
+            certificacionesHistorial.length > 0 && (
+              <Box mt="5">
+                <BotonTexto onClick={() => setMostrarHistorial((visible) => !visible)}>
+                  {mostrarHistorial
+                    ? "Ocultar historial"
+                    : `Ver historial (${certificacionesHistorial.length})`}
+                </BotonTexto>
+
+                {mostrarHistorial && (
+                  <Box mt="4">
+                    <TablaCertificaciones
+                      certificaciones={certificacionesHistorial}
+                      historial
+                    />
+                  </Box>
+                )}
+              </Box>
+            )}
+        </SeccionDetalle>
+      </DisposicionDetalle>
 
       <ModalNuevaCertificacion
         isOpen={modalNueva.open}

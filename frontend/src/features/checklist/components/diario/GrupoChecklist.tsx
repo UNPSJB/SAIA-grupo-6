@@ -24,6 +24,7 @@ export function GrupoChecklist({
   abierto,
   onAlternar,
   visibles,
+  ocultarUsuarioId,
   children,
 }: {
   grupo: GrupoPlan;
@@ -32,13 +33,22 @@ export function GrupoChecklist({
   onAlternar: () => void;
   /** Tareas del grupo que pasan los filtros (si es distinto del total, se aclara). */
   visibles: number;
+  /** Persona cuyas iniciales no se muestran (quien mira, si solo opera). */
+  ocultarUsuarioId?: number;
   children: ReactNode;
 }) {
   const estilo = ESTILO[estado];
   const total = grupo.tareas.length;
   const hechas = grupo.tareas.filter((t) => t.completado).length;
   const porcentaje = total > 0 ? Math.round((hechas / total) * 100) : 0;
-  const operadores = [...new Set(grupo.tareas.map(responsable).filter((n): n is string => Boolean(n)))];
+  const operadores = [
+    ...new Set(
+      grupo.tareas
+        .filter((t) => ocultarUsuarioId === undefined || (t.reemplazado_por_id ?? t.operador_id) !== ocultarUsuarioId)
+        .map(responsable)
+        .filter((n): n is string => Boolean(n)),
+    ),
+  ];
   const cerrado = grupo.tareas[0]?.checklist_estado === "cerrado";
   const vistaPrevia = grupo.tareas[0]?.registro_id === 0;
   const idPanel = `grupo-${grupo.key}`;

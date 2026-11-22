@@ -3,7 +3,6 @@ import { pedir } from "../../../common/api/errors";
 import type {
   Consumo,
   ConsumoInput,
-  DashboardLotes,
   FiltrosLotes,
   LoteCreateValues,
   LoteDetalle,
@@ -104,11 +103,16 @@ export async function registrarConsumo(
 export async function cerrarLote(
   loteId: number,
   cantidadProducida: string,
+  /** ISO (aaaa-mm-dd). Solo cuando la receta no tiene vida útil. */
+  fechaVencimiento?: string | null,
 ): Promise<LoteDetalle> {
   const response = await apiFetch(`${API_URL}/lotes/${loteId}/cerrar`, {
     method: "POST",
     headers: JSON_HEADERS,
-    body: JSON.stringify({ cantidad_producida: cantidadProducida }),
+    body: JSON.stringify({
+      cantidad_producida: cantidadProducida,
+      ...(fechaVencimiento ? { fecha_vencimiento: fechaVencimiento } : {}),
+    }),
   });
   return pedir<LoteDetalle>(response, "Error al cerrar el lote");
 }
@@ -120,33 +124,6 @@ export async function cancelarLote(loteId: number, motivo: string): Promise<Lote
     body: JSON.stringify({ motivo }),
   });
   return pedir<LoteDetalle>(response, "Error al cancelar el lote");
-}
-
-export async function obtenerDashboardLotes(
-  filtros: FiltrosLotes = {},
-): Promise<DashboardLotes> {
-  const response = await apiFetch(`${API_URL}/lotes/dashboard${queryFiltros(filtros)}`);
-  const datos = await pedir<
-    Omit<DashboardLotes, "total_cantidad_producida" | "por_producto"> & {
-      total_cantidad_producida: string | number;
-      por_producto: {
-        producto: string;
-        cantidad_producida: string | number;
-        cantidad_lotes: number;
-        unidad: string;
-      }[];
-    }
-  >(response, "Error al obtener las estadísticas de producción");
-
-  // El backend manda las cantidades como texto decimal; el gráfico necesita números.
-  return {
-    ...datos,
-    total_cantidad_producida: Number(datos.total_cantidad_producida),
-    por_producto: datos.por_producto.map((p) => ({
-      ...p,
-      cantidad_producida: Number(p.cantidad_producida),
-    })),
-  };
 }
 
 export async function getTimelineLote(loteId: number): Promise<LoteTimelineResponse> {

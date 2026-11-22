@@ -22,7 +22,8 @@ import { ResumenNutricional } from "./ResumenNutricional";
 import type { BorradorRotuladoOut } from "../types/rotulado";
 import { OrdenListaIngredientes } from "../../recetas/components/OrdenListaIngredientes";
 import { previewAutocompletado } from "../services/rotuladoService";
-import { EstadoAlergenos, armarTextoRotulo, declaracionEfectiva, type ResumenDeclaracion } from "./ListaIngredientesRotulo";
+import { EstadoAlergenos } from "./ListaIngredientesRotulo";
+import { armarTextoRotulo, declaracionEfectiva, type ResumenDeclaracion } from "../utils/textoRotulo";
 
 interface RotuladoFormProps {
   borrador: BorradorRotuladoOut | null;

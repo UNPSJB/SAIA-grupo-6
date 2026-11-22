@@ -20,6 +20,7 @@ import {
   InputUnidad,
   SeccionFormulario,
 } from "../../../components/ui/formularios";
+import { ConfirmDialog } from "../../../common/components/ConfirmDialog";
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
 import {
@@ -89,13 +90,18 @@ export function RecetaVersionForm({
 }: RecetaVersionFormProps) {
   const [estado, setEstado] = useState<VersionFormState>(inicial);
   const [error, setError] = useState<string | null>(null);
+  const [confirmarSalida, setConfirmarSalida] = useState(false);
+  // Cancelar descartaba lo editado sin preguntar: si hay cambios, se confirma.
+  const hayCambios = JSON.stringify(estado) !== JSON.stringify(inicial);
+  const cancelar = () => (hayCambios ? setConfirmarSalida(true) : onCancel());
 
   const ingredientePor = (id: number) => ingredientes.find((i) => i.id === id);
   const simbolo = (id: number) => ingredientePor(id)?.unidad_medida.simbolo ?? "";
   const reparto = calcularReparto(estado);
   const ingredientesDeLaReceta = estado.ingredientes.filter((i) => i.ingrediente_id > 0);
-  const noAditivos = ingredientes.filter((i) => !i.es_aditivo);
-  const aditivos = ingredientes.filter((i) => i.es_aditivo);
+  const noAditivos = ingredientes.filter((i) => !i.es_aditivo && !i.inactivo);
+  const aditivos = ingredientes.filter((i) => i.es_aditivo && !i.inactivo);
+  const dadosDeBaja = ingredientes.filter((i) => i.inactivo);
 
   const editarIngrediente = (clave: string, cambios: Partial<VersionFormState["ingredientes"][number]>) =>
     setEstado((prev) => ({
@@ -205,7 +211,7 @@ export function RecetaVersionForm({
         ayuda="Opcional. Cómo se vende o se sirve el producto, por ejemplo un frasco de 454 g o una caja de 12 unidades."
       >
         <GrillaFormulario>
-          <FormField label="Descripción" completo>
+          <FormField label="Descripción" completo="hasta-xl">
             <FormInput
               value={estado.porcion_descripcion}
               onChange={(e) => setEstado((prev) => ({ ...prev, porcion_descripcion: e.target.value }))}
@@ -273,6 +279,15 @@ export function RecetaVersionForm({
                           </option>
                         ))}
                       </optgroup>
+                      {dadosDeBaja.length > 0 && (
+                        <optgroup label="Dados de baja">
+                          {dadosDeBaja.map((i) => (
+                            <option key={i.id} value={i.id} disabled={i.id !== fila.ingrediente_id}>
+                              {i.nombre} ({i.unidad_medida.simbolo}) · dado de baja
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </FormNativeSelect>
                   </FormField>
                   <FormField label="Cantidad" mb="0">
@@ -294,7 +309,15 @@ export function RecetaVersionForm({
                     justifySelf="end"
                   />
                 </Box>
-                {elegido && (
+                {elegido?.inactivo && (
+                  <HStack gap="2" mt="2" fontSize="sm" color="orange.fg">
+                    <LuTriangleAlert aria-hidden />
+                    <Text as="span">
+                      Está dado de baja en el maestro de ingredientes: reemplazalo por uno activo o quitalo.
+                    </Text>
+                  </HStack>
+                )}
+                {elegido && !elegido.inactivo && (
                   <HStack gap="2" mt="2" flexWrap="wrap">
                     {elegido.es_aditivo && (
                       <Badge colorPalette="purple" variant="subtle">
@@ -471,9 +494,18 @@ export function RecetaVersionForm({
       <AccionesAlta
         etiqueta={submitLabel}
         guardando={isLoading}
-        onCancelar={onCancel}
+        onCancelar={cancelar}
         faltantes={faltaProducto}
         mostrarFaltantes={intentado}
+      />
+      <ConfirmDialog
+        isOpen={confirmarSalida}
+        titulo="¿Descartar los cambios?"
+        mensaje="Lo que editaste en esta receta no se guardó y se va a perder."
+        textoConfirmar="Descartar cambios"
+        textoCancelar="Seguir editando"
+        onConfirm={onCancel}
+        onCancel={() => setConfirmarSalida(false)}
       />
     </FormularioAlta>
   );

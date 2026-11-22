@@ -32,10 +32,21 @@ def _verificar_plan_existe(db: Session, plan_limpieza_id: int) -> None:
         raise exceptions.PlanLimpiezaNoEncontrado()
 
 
+def verificar_operador(db: Session, operador_id: int) -> None:
+    """El responsable de una tarea de limpieza tiene que existir, estar
+    activo y poder operar (es quien la marca en el checklist del día)."""
+    from src.personal.models import Personal
+
+    operador = db.get(Personal, operador_id)
+    if operador is None or not operador.activo or not operador.puede_operar:
+        raise exceptions.OperadorInvalido()
+
+
 def crear_tarea(db: Session, tarea: schemas.TareaCreate) -> models.Tarea:
     """Agrega una tarea suelta a un plan de limpieza ya existente.
     Para crear varias tareas junto con el plan, ver PlanLimpieza.services.crear_plan_limpieza."""
     _verificar_plan_existe(db, tarea.plan_limpieza_id)
+    verificar_operador(db, tarea.operador_id)
 
     # Validar nombre duplicado dentro del mismo plan, ignorando tareas inactivas
     existente = db.scalar(
@@ -93,6 +104,9 @@ def modificar_tarea(
     for campo in ("nombre", "frecuencia", "tipo", "activo"):
         if campo in datos_a_actualizar and datos_a_actualizar[campo] is None:
             del datos_a_actualizar[campo]
+
+    if "operador_id" in datos_a_actualizar:
+        verificar_operador(db, datos_a_actualizar["operador_id"])
 
     # si se está cambiando el nombre, verifico que no choque con otra tarea
     # DEL MISMO PLAN (dos planes distintos sí pueden tener una tarea "Limpiar" cada uno)

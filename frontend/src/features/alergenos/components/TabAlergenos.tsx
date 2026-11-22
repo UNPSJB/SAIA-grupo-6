@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useCallback, useState } from "react";
 import { HStack, Table, Text } from "@chakra-ui/react";
 import { useLista } from "../../../common/hooks/useLista";
@@ -120,6 +121,7 @@ export function TabAlergenos() {
           onGuardar={async (nombre) => {
             if (editando === "nuevo") await crearAlergeno(nombre);
             else await modificarAlergeno(editando.id, { nombre });
+            avisarExito(editando === "nuevo" ? "Alérgeno agregado correctamente." : "Alérgeno modificado correctamente.");
             setEditando(null);
             await recargar();
           }}

@@ -62,7 +62,10 @@ export function RecetaComposicionPage() {
               >
                 <TablaComposicion composicion={composicion} />
 
-                <Stack gap="6">
+                {/* Los gráficos tienen alto fijo y la tabla crece con los
+                    ingredientes: acompañan el scroll para no dejar un hueco
+                    debajo cuando la tabla es larga. */}
+                <Stack gap="6" position={{ xl: "sticky" }} top={{ xl: "6" }}>
                   <Tarjeta p="4">
                     <GraficoComposicion composicion={composicion} />
                   </Tarjeta>

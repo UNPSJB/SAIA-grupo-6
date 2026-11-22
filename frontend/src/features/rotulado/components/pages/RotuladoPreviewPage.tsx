@@ -73,7 +73,7 @@ function Etiqueta({ datos }: { datos: PrevisualizacionRotulado }) {
           </Button>}
         </Flex>
         {nutricion.difiere_de_e12 && <Text role="status" fontSize="sm" color="orange.fg">
-          La evaluación actual de E12 usa datos distintos de la tabla guardada para esta versión.
+          La evaluación actual del rotulado frontal usa datos distintos de la tabla guardada para esta versión.
         </Text>}
       </Stack>
       <Stack as="section" gridArea="nutricion" aria-label="Información nutricional" minW="0" p="3"

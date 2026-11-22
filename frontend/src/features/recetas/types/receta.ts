@@ -12,6 +12,8 @@ export interface UnidadResumen {
 export interface IngredienteResumen {
   id: number;
   nombre: string;
+  /** Falso si fue dado de baja en el maestro de ingredientes. */
+  activo?: boolean;
 }
 
 export interface VersionResumen {
@@ -131,6 +133,8 @@ export interface IngredienteOpcion {
   unidad_medida: UnidadResumen;
   es_aditivo: boolean;
   aditivo: AditivoResumen | null;
+  /** Dado de baja en el maestro: solo aparece porque la versión de partida lo usa. */
+  inactivo?: boolean;
 }
 
 // ------------------------------------------------------------------

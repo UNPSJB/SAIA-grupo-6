@@ -16,6 +16,9 @@ const MAXIMO = 6;
  */
 export function MisTareasProduccion({ tareas }: { tareas: TareaProduccionHoy[] }) {
   const propias = tareas.filter((t) => t.asignada).length;
+  // Si todas son del mismo tipo, la bajada ya lo dice: el badge en cada fila
+  // solo distingue cuando hay tareas propias y sin asignar mezcladas.
+  const mostrarBadge = propias > 0 && propias < tareas.length;
   return (
     <TarjetaInicio h="auto">
       <EncabezadoTarjeta
@@ -76,9 +79,11 @@ export function MisTareasProduccion({ tareas }: { tareas: TareaProduccionHoy[] }
                         En espera
                       </Text>
                     )}
-                    <Badge flexShrink={0} colorPalette={t.asignada ? "orange" : "gray"} variant="subtle">
-                      {t.asignada ? "Tuya" : "Sin asignar"}
-                    </Badge>
+                    {mostrarBadge && (
+                      <Badge flexShrink={0} colorPalette={t.asignada ? "orange" : "gray"} variant="subtle">
+                        {t.asignada ? "Tuya" : "Sin asignar"}
+                      </Badge>
+                    )}
                   </RouterLink>
                 </Link>
               </Box>

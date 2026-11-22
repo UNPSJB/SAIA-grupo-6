@@ -2,7 +2,7 @@ import { useEnfocarFragmento } from "../../../../common/hooks/useEnfocarFragment
 import { useCallback, useEffect, useState } from "react";
 import { useLista } from "../../../../common/hooks/useLista";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Button, HStack, SimpleGrid, Stack, Table, Text } from "@chakra-ui/react";
 import { LuBookOpen, LuHistory, LuInfo, LuTriangleAlert } from "react-icons/lu";
 import { DatoDetalle, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import {
@@ -436,60 +436,61 @@ export function RotuladoFrontalProductoPage() {
             descripcion="La normativa solo aplica a productos envasados en ausencia del cliente y destinados al consumo final directo."
             mb="6"
           >
-            <FormField id="envasado"
-              label="¿El producto se comercializa envasado en ausencia del cliente?"
-              required
-              mb="4"
-            >
-              <FormNativeSelect
-                value={envasado}
-                onChange={(e) => setEnvasado(e.target.value as ValorEnvasado)}
-                maxW="420px"
+            {/* Tres preguntas cortas: en una fila desde `lg` (antes eran selects
+                de 420px apilados, con dos tercios de la tarjeta vacíos). */}
+            <SimpleGrid columns={{ base: 1, lg: 3 }} gap="5" alignItems="start">
+              <FormField id="envasado"
+                label="¿El producto se comercializa envasado en ausencia del cliente?"
+                required
+                mb="0"
               >
-                <option value="">Seleccioná una opción</option>
-                <option value="si">Sí, se comercializa envasado</option>
-                <option value="no">No se comercializa envasado</option>
-              </FormNativeSelect>
-            </FormField>
+                <FormNativeSelect
+                  value={envasado}
+                  onChange={(e) => setEnvasado(e.target.value as ValorEnvasado)}
+                >
+                  <option value="">Seleccioná una opción</option>
+                  <option value="si">Sí, se comercializa envasado</option>
+                  <option value="no">No se comercializa envasado</option>
+                </FormNativeSelect>
+              </FormField>
 
-            <FormField
-              label="Canal de comercialización"
-              helper="Solo el canal minorista se considera consumo final directo. Los canales mayorista e industrial no llevan sellos en el empaque del producto."
-              mb="4"
-            >
-              <FormNativeSelect
-                value={canal}
-                onChange={(e) => setCanal(e.target.value as CanalComercializacion)}
-                maxW="420px"
+              <FormField
+                label="Canal de comercialización"
+                helper="Solo el canal minorista se considera consumo final directo. Los canales mayorista e industrial no llevan sellos en el empaque del producto."
+                mb="0"
               >
-                {CANALES_COMERCIALIZACION.map((opcion) => (
-                  <option key={opcion.valor} value={opcion.valor}>
-                    {opcion.etiqueta}
-                  </option>
-                ))}
-              </FormNativeSelect>
-            </FormField>
-
-            <FormField
-              label="Categoría a los efectos del rotulado"
-              helper="La lista de categorías exceptuadas sale de la versión vigente de la regla."
-              mb="0"
-            >
-              <FormNativeSelect
-                value={categoriaRotulado}
-                onChange={(e) => setCategoriaRotulado(e.target.value)}
-                maxW="420px"
-              >
-                <option value="">No es una categoría exceptuada</option>
-                {evaluacion.regla.reglas_aplicabilidad.categorias_exceptuadas.map(
-                  (categoria) => (
-                    <option key={categoria.clave} value={categoria.clave}>
-                      {categoria.etiqueta}
+                <FormNativeSelect
+                  value={canal}
+                  onChange={(e) => setCanal(e.target.value as CanalComercializacion)}
+                >
+                  {CANALES_COMERCIALIZACION.map((opcion) => (
+                    <option key={opcion.valor} value={opcion.valor}>
+                      {opcion.etiqueta}
                     </option>
-                  ),
-                )}
-              </FormNativeSelect>
-            </FormField>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+
+              <FormField
+                label="Categoría a los efectos del rotulado"
+                helper="La lista de categorías exceptuadas sale de la versión vigente de la regla."
+                mb="0"
+              >
+                <FormNativeSelect
+                  value={categoriaRotulado}
+                  onChange={(e) => setCategoriaRotulado(e.target.value)}
+                >
+                  <option value="">No es una categoría exceptuada</option>
+                  {evaluacion.regla.reglas_aplicabilidad.categorias_exceptuadas.map(
+                    (categoria) => (
+                      <option key={categoria.clave} value={categoria.clave}>
+                        {categoria.etiqueta}
+                      </option>
+                    ),
+                  )}
+                </FormNativeSelect>
+              </FormField>
+            </SimpleGrid>
           </SeccionDetalle>
 
           <SeccionDetalle
@@ -810,7 +811,7 @@ export function RotuladoFrontalProductoPage() {
                   <Table.Header>
                     <FilaEncabezado>
                       <EncabezadoOscuro>Sello</EncabezadoOscuro>
-                      <EncabezadoOscuro>Valor E11</EncabezadoOscuro>
+                      <EncabezadoOscuro>Valor nutricional</EncabezadoOscuro>
                       <EncabezadoOscuro>Cálculo</EncabezadoOscuro>
                       <EncabezadoOscuro>Umbral</EncabezadoOscuro>
                       <EncabezadoOscuro center>Resultado</EncabezadoOscuro>

@@ -1,6 +1,6 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from src.common.fechas import hoy
-from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
+from src.common.estado_documento import VENCIDO
 from typing import List
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -9,7 +9,6 @@ from src.elementoLimpieza.models import ElementoLimpieza
 from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
-from src.documentos.models import Documento, VersionDocumento
 
 from src.aptitud.models import Aptitud
 from src.common.texto import coincide_terminos

@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.listados import ColumnaOrden, aplicar_orden, filtro_busqueda, paginar_consulta

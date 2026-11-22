@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
@@ -55,6 +56,7 @@ export function InsumosDelIngrediente({ ingredienteId, ingrediente }: { ingredie
     } else if (editando) {
       await modificarInsumo(editando.id, datos);
     }
+    avisarExito(editando === "nuevo" ? "Insumo agregado correctamente." : "Insumo modificado correctamente.");
     setEditando(null);
     await cargar();
   };
@@ -64,6 +66,7 @@ export function InsumosDelIngrediente({ ingredienteId, ingrediente }: { ingredie
     setProcesando(true);
     try {
       await darDeBajaInsumo(aBaja.id);
+      avisarExito("Insumo dado de baja correctamente.");
       setABaja(null);
       await cargar();
     } catch (e) {

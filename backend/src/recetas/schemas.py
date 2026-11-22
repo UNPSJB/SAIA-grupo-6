@@ -84,6 +84,9 @@ class UnidadResumen(BaseModel):
 class IngredienteResumen(BaseModel):
     id: int
     nombre: str
+    # Falso si fue dado de baja en el maestro: la receta lo sigue mostrando
+    # (las versiones son históricas) pero la interfaz avisa.
+    activo: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 

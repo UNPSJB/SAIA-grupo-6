@@ -165,14 +165,6 @@ export interface HistorialChecklistItem {
   tareas_incumplidas: TareaIncumplidaItem[];
 }
 
-export interface HistorialChecklistResponse {
-  fecha_desde: string;
-  fecha_hasta: string;
-  equipo_id: number | null;
-  porcentaje_cumplimiento_general: number;
-  checklists: HistorialChecklistItem[];
-}
-
 /**
  * Versión paginada del historial: `items` trae una sola página y el
  * cumplimiento general sigue siendo del PERÍODO completo (no cambia con la

@@ -485,7 +485,7 @@ def cerrar_lote(
 
     Si la versión de la receta tiene `vida_util_dias`, se calcula y guarda
     automáticamente `fecha_vencimiento = fecha_cierre.date() + timedelta(days=vida_util_dias)`.
-    Si es `None`, `fecha_vencimiento` queda `None`.
+    Si es `None`, se usa la `fecha_vencimiento` cargada a mano (o queda `None`).
     """
     lote = obtener_lote(db, lote_id)
     _exigir_abierto(lote)
@@ -504,7 +504,9 @@ def cerrar_lote(
             days=lote.version_receta.vida_util_dias
         )
     else:
-        lote.fecha_vencimiento = None
+        if datos.fecha_vencimiento is not None and datos.fecha_vencimiento < lote.fecha_cierre.date():
+            raise exceptions.VencimientoAnteriorAlCierre()
+        lote.fecha_vencimiento = datos.fecha_vencimiento
 
     db.commit()
     return obtener_lote(db, lote_id)

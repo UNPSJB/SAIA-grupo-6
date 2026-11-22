@@ -97,33 +97,6 @@ export interface LoteDetalle extends LoteResumen {
   rotulado_completo?: boolean | null;
 }
 
-export interface ProduccionPorProducto {
-  producto: string;
-  cantidad_producida: number;
-  cantidad_lotes: number;
-  /** Símbolo de la unidad del producto: "Kg", "un". */
-  unidad: string;
-}
-
-export interface TotalPorUnidad {
-  unidad: string;
-  cantidad: number | string;
-}
-
-export interface LoteResumenEstado {
-  estado: string;
-  cantidad: number;
-}
-
-export interface DashboardLotes {
-  total_lotes: number;
-  /** Suma kilos con unidades: no mostrar. Usar `total_por_unidad`. */
-  total_cantidad_producida: number;
-  total_por_unidad: TotalPorUnidad[];
-  por_estado: LoteResumenEstado[];
-  por_producto: ProduccionPorProducto[];
-}
-
 export interface FiltrosLotes {
   estado?: EstadoLote | "";
   /** Id del producto; vacío = todos. */

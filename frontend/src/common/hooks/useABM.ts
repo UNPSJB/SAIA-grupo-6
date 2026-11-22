@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { avisarExito } from "../../components/ui/patrones";
 import { ConflictoInactivoError } from "../api/errors";
 import type { ConflictoInactivo } from "../api/errors";
 
@@ -51,6 +52,11 @@ function mensajeDeError(err: unknown, porDefecto: string): string {
   return err instanceof Error ? err.message : porDefecto;
 }
 
+/** "el equipo" -> "El equipo", para empezar el aviso de éxito. */
+function mayuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 export function useABM<TIn, TOut>(opciones: OpcionesABM<TIn, TOut>): ABM<TIn, TOut> {
   const { crear, modificar, eliminar, reactivar, etiqueta } = opciones;
 
@@ -99,18 +105,24 @@ export function useABM<TIn, TOut>(opciones: OpcionesABM<TIn, TOut>): ABM<TIn, TO
   const cambiar = (id: number, valores: Partial<TIn>) =>
     ejecutar(() => modificar(id, valores), `No se pudo modificar ${etiqueta}`);
 
-  const borrar = (id: number) =>
-    ejecutar(async () => {
+  const borrar = async (id: number) => {
+    await ejecutar(async () => {
       await eliminar(id);
     }, `No se pudo eliminar ${etiqueta}`);
+    avisarExito(`${mayuscula(etiqueta)} se dio de baja correctamente.`);
+  };
 
   const volverActivo = async (id: number, valores?: Partial<TIn>) => {
+    // Con un conflicto pendiente es el alta que reactiva a alguien dado de
+    // baja: esa página ya avisa "agregado correctamente", no se repite.
+    const desdeAlta = conflicto !== null;
     const resultado = await ejecutar(
       () => reactivar(id, valores),
       `Error al reactivar ${etiqueta}`,
     );
     // Recién con la reactivación confirmada se cierra el conflicto pendiente.
     setConflicto(null);
+    if (!desdeAlta) avisarExito(`${mayuscula(etiqueta)} se reactivó correctamente.`);
     return resultado;
   };
 

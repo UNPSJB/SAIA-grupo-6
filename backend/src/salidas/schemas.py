@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.common.validators import texto_no_vacio, texto_opcional
+from src.common.validators import texto_no_vacio
 from src.salidas import exceptions
 
 

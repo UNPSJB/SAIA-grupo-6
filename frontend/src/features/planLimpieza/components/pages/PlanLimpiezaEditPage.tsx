@@ -82,6 +82,7 @@ export function PlanLimpiezaEditPage() {
                   tipo: tarea.tipo,
                   descripcion: tarea.descripcion ?? "",
                   observaciones: tarea.observaciones ?? "",
+                  operador_id: tarea.operador_id ?? null,
                 })),
               equipo_id: plan.equipo_id,
               autor_id: plan.autor_id,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, HStack, Skeleton, Stack, Text } from "@chakra-ui/react";
 import { LuRefreshCw, LuSearchX } from "react-icons/lu";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../../common/context/useAuth";
 import { BannerError, BotonCancelar, EstadoVacio, Tarjeta } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
@@ -17,8 +18,10 @@ import {
   FILTROS_INICIALES,
   agruparPorPlan,
   cumpleFiltros,
+  esMiTarea,
   estadoGrupo,
   hayFiltrosActivos,
+  idTareaChecklist,
   operadoresDelDia,
   type FiltrosChecklist,
 } from "../diario/modelo";
@@ -57,6 +60,13 @@ export function ChecklistPage() {
   const [filtros, setFiltros] = useState<FiltrosChecklist>(FILTROS_INICIALES);
   const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(new Set());
 
+  // `?registro=<id>`: se llega a una tarea puntual (desde el inicio).
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const registroDestino = Number(searchParams.get("registro")) || null;
+  const [resaltadoId, setResaltadoId] = useState<number | null>(null);
+
   useEffect(() => {
     // Endpoints de "opciones": los únicos de estos catálogos accesibles para
     // un operario sin permisos de administración.
@@ -76,7 +86,50 @@ export function ChecklistPage() {
   }, []);
 
   const grupos = useMemo(() => agruparPorPlan(tareas), [tareas]);
+  const tareaCobertura = tareas.find((t) => t.registro_id === coberturaRegistroId) ?? null;
+
+  /**
+   * Con las tareas ya cargadas, abre el grupo de la tarea pedida y la marca
+   * (una sola vez por destino: al marcar o recargar no vuelve a saltar). Se
+   * ajusta el estado durante el render, no en un efecto.
+   */
+  const [destinoAtendido, setDestinoAtendido] = useState<number | null>(null);
+  if (registroDestino !== null && registroDestino !== destinoAtendido && !loading && tareas.length > 0) {
+    setDestinoAtendido(registroDestino);
+    const grupo = grupos.find((g) => g.tareas.some((t) => t.registro_id === registroDestino));
+    if (grupo) {
+      setFiltros(FILTROS_INICIALES);
+      setGruposExpandidos((previos) => new Set(previos).add(grupo.key));
+      setResaltadoId(registroDestino);
+    }
+  }
+
+  /** Lleva la tarea a la vista; al rato le quita la marca y limpia la URL. */
+  useEffect(() => {
+    if (resaltadoId === null) return;
+    const marco = requestAnimationFrame(() =>
+      document
+        .getElementById(idTareaChecklist(resaltadoId))
+        ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
+    const fin = window.setTimeout(() => {
+      setResaltadoId(null);
+      navigate(pathname, { replace: true });
+    }, 2500);
+    return () => {
+      cancelAnimationFrame(marco);
+      window.clearTimeout(fin);
+    };
+  }, [resaltadoId, navigate, pathname]);
+
   const operadores = useMemo(() => operadoresDelDia(tareas), [tareas]);
+  // El backend ya le recorta la lista a quien solo opera (sus tareas, las que
+  // cubre y las sin asignar): filtrar por operador o por "mis tareas" sería
+  // filtrar por lo mismo. Quien administra ve todas.
+  const tieneTareasPropias = useMemo(
+    () => tareas.some((t) => esMiTarea(t, usuarioActual)),
+    [tareas, usuarioActual],
+  );
   const hayFiltros = hayFiltrosActivos(filtros);
 
   /** Cada grupo con sus tareas filtradas; los que quedan vacíos no se muestran. */
@@ -129,7 +182,11 @@ export function ChecklistPage() {
   return (
     <Pagina
       titulo="Checklist diario de limpieza"
-      descripcion="Control, persistencia e historial auditable por fecha, para todos los equipos."
+      descripcion={
+        esAdmin
+          ? "Control, persistencia e historial auditable por fecha, para todos los equipos."
+          : "Tus tareas de limpieza del día, las que cubrís como suplente y las que no tienen responsable."
+      }
       acciones={
         <BotonCancelar onClick={recargar}>
           <LuRefreshCw aria-hidden />
@@ -147,7 +204,8 @@ export function ChecklistPage() {
         onFiltros={cambiarFiltros}
         operadores={operadores}
         hayFiltros={hayFiltros}
-        hayUsuario={Boolean(usuarioActual)}
+        mostrarFiltroOperador={esAdmin}
+        mostrarMisTareas={esAdmin && tieneTareasPropias}
         todoAbierto={todoAbierto}
         onAlternarTodo={alternarTodo}
         mostrarFiltros={!loading && totalTareas > 0}
@@ -182,6 +240,8 @@ export function ChecklistPage() {
             abierto={gruposExpandidos.has(grupo.key)}
             onAlternar={() => toggleGrupo(grupo.key)}
             visibles={tareasGrupo.length}
+            // Para un operador, sus propias iniciales en cada grupo no dicen nada.
+            ocultarUsuarioId={esAdmin ? undefined : usuarioActual?.id}
           >
             {tareasGrupo.map((t) => (
               <TarjetaTarea
@@ -193,15 +253,16 @@ export function ChecklistPage() {
                 usuarioActual={usuarioActual}
                 puedeAsignarCobertura={esAdmin}
                 onAsignarCobertura={setCoberturaRegistroId}
+                resaltada={t.registro_id > 0 && t.registro_id === resaltadoId}
                 onToggle={toggleTarea}
               />
             ))}
           </GrupoChecklist>
         ))}
 
-      {coberturaRegistroId !== null && (
+      {tareaCobertura && (
         <CoberturaDialog
-          registroId={coberturaRegistroId}
+          tarea={tareaCobertura}
           onClose={() => setCoberturaRegistroId(null)}
           onGuardado={recargar}
         />

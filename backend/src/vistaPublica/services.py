@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.aptitud.models import Aptitud
-from src.checklist.models import Checklist, RegistroTarea
 from src.checklist.services import conteo_cumplimiento_periodo
 from src.common.fechas import hoy
 from src.common.persistence import guardar

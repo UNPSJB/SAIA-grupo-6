@@ -29,6 +29,9 @@ class AsignacionTarea(BaseModel):
 
 class LoteCierre(BaseModel):
     cantidad_producida: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+    # Solo se usa si la receta no tiene vida útil: el vencimiento se carga a mano
+    # (con vida útil se calcula y este valor se ignora).
+    fecha_vencimiento: date | None = None
 
 
 class LoteCancelacion(BaseModel):

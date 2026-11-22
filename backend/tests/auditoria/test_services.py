@@ -115,3 +115,39 @@ def test_listar_auditoria_paginado(db_session):
     # Assert
     assert total == 5
     assert len(items) == 2
+
+
+def test_listar_auditoria_resuelve_nombre_calculado_de_insumo(db_session):
+    """`Insumo.nombre` es una propiedad (marca · descripción), no una columna:
+    un registro con `insumo_id` no debe romper el listado."""
+    # Arrange
+    from src.ingredientes.models import Ingrediente
+    from src.insumos.models import Insumo
+    from src.unidadMedida.models import UnidadMedida
+
+    db_session.info["sin_auditoria"] = True
+    try:
+        kg = UnidadMedida(nombre="Kilogramo audit", simbolo="kg", tipo="masa")
+        db_session.add(kg)
+        db_session.commit()
+        ingrediente = Ingrediente(nombre="Harina audit", unidad_medida_id=kg.id)
+        db_session.add(ingrediente)
+        db_session.commit()
+        insumo = Insumo(ingrediente_id=ingrediente.id, marca="Molinos", descripcion="000")
+        db_session.add(insumo)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+    _audit_log(
+        db_session,
+        entidad="lotes_insumo",
+        entidad_id="1",
+        cambios={"insumo_id": [None, insumo.id], "ingrediente_id": [None, ingrediente.id]},
+    )
+
+    # Act
+    items, total = listar_auditoria(db_session)
+
+    # Assert
+    assert total == 1
+    assert "Molinos · 000" in str(items[0])

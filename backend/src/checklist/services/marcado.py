@@ -83,11 +83,24 @@ def marcar_tarea(
                 raise exceptions.ElementoLimpiezaNoEncontrado()
 
     tarea = leer_tarea(db, tarea_id)
-    if not tarea.activo or not tarea.plan.activo:
-        raise TareaNoEncontrada()
-
     fecha_registro = fecha or hoy()
     hoy_val = hoy()
+
+    # Si la tarea o su plan se desactivaron después de armado el checklist de
+    # esa fecha, la tarea sigue siendo de ese día y se puede marcar; lo que no
+    # se hace es generar checklists nuevos para ella.
+    if not tarea.activo or not tarea.plan.activo:
+        ya_programada = db.scalar(
+            select(models.RegistroTarea.id)
+            .join(models.Checklist, models.Checklist.id == models.RegistroTarea.checklist_id)
+            .where(
+                models.Checklist.plan_id == tarea.plan.id,
+                models.Checklist.fecha == fecha_registro,
+                models.RegistroTarea.tarea_id == tarea.id,
+            )
+        )
+        if ya_programada is None:
+            raise TareaNoEncontrada()
 
     # No se pueden modificar checklists futuros
     if fecha_registro > hoy_val:
@@ -346,16 +359,19 @@ def asignar_cobertura_tarea(
     db: Session,
     registro_id: int,
     operador_id: Optional[int],
-    reemplazado_por_id: int,
+    asignado_por_id: int,
 ) -> models.RegistroTarea:
-    """Asigna (o reasigna) el operador responsable de una tarea de hoy.
+    """Asigna (o quita) el suplente de una tarea de hoy.
 
-    Solo aplica sobre checklists del día actual (no cerrados). El
-    `reemplazado_por_id` registra al administrador que hizo el cambio, para
-    conservar rastro de quién cubrió la ausencia del operador original.
+    Solo aplica sobre checklists del día actual. El responsable original
+    (`operador_id`) no cambia: el operador elegido queda en
+    `reemplazado_por_id`, que es quien ve la tarea y la puede marcar. Elegir
+    al propio responsable, o ninguno (`operador_id=None`), quita la cobertura
+    y la tarea vuelve a su responsable.
 
-    Si `operador_id` es None, se desasigna el operador (cualquier operador
-    podrá tomar la tarea al marcarla).
+    Una tarea vieja sin responsable recibe al operador elegido como
+    responsable. Quién hizo el cambio (`asignado_por_id`, el administrador)
+    queda en el historial del registro.
     """
     registro = db.get(models.RegistroTarea, registro_id)
     if registro is None:
@@ -369,7 +385,7 @@ def asignar_cobertura_tarea(
     if checklist.fecha < hoy_val:
         raise ChecklistInmutable()
 
-    # Validar que el nuevo operador exista, esté activo y pueda operar.
+    # Validar que el operador elegido exista, esté activo y pueda operar.
     if operador_id is not None:
         nuevo_operador = db.get(Personal, operador_id)
         if (
@@ -381,22 +397,23 @@ def asignar_cobertura_tarea(
                 "El operador indicado no existe, está dado de baja o no tiene permiso de operar."
             )
 
-    # Si ya tiene operador asignado (responsable original), no lo cambiamos:
-    # solo registramos quién lo cubre en reemplazado_por_id.
-    if registro.operador_id is not None:
-        registro.reemplazado_por_id = reemplazado_por_id
-    else:
-        # No tiene operador asignado: asignamos el nuevo operador.
+    if registro.operador_id is None:
+        # Tarea sin responsable (anterior a que fuera obligatorio).
         registro.operador_id = operador_id
-        registro.reemplazado_por_id = reemplazado_por_id
+        registro.reemplazado_por_id = None
+    elif operador_id is None or operador_id == registro.operador_id:
+        # Sin suplente: la hace su responsable.
+        registro.reemplazado_por_id = None
+    else:
+        registro.reemplazado_por_id = operador_id
 
-    # Queda constancia en el historial de cobertura (sin cambiar el
-    # completado de la tarea).
+    # Queda constancia en el historial de quién cambió la cobertura (sin
+    # cambiar el completado de la tarea).
     db.add(
         models.HistorialRegistroTarea(
             registro_tarea_id=registro.id,
             completado=registro.completado,
-            usuario_id=reemplazado_por_id,
+            usuario_id=asignado_por_id,
             evidencia_url=None,
         )
     )

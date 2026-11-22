@@ -179,9 +179,10 @@ def obtener_o_crear_checklists_del_dia(
 ) -> List[schemas.ChecklistResponse]:
     """Devuelve los checklists del día para un equipo (solo lectura).
 
-    No crea ni persiste nada. Si un plan no tiene checklist para la fecha
-    consultada, se devuelve una vista calculada con las tareas del día
-    (registro_id=0, completado=False) sin escribir en la base.
+    No crea ni persiste nada. Si un plan no tiene checklist para hoy o una
+    fecha futura, se devuelve una vista calculada con las tareas del día
+    (registro_id=0, completado=False) sin escribir en la base. Para una fecha
+    pasada sin checklist no se devuelve nada.
     """
     obtener_equipo(db, equipo_id)
     fecha_consulta = fecha or hoy()
@@ -222,7 +223,11 @@ def obtener_o_crear_checklists_del_dia(
             if not tareas_del_dia:
                 # No hay tareas para mostrar y no hay checklist previo.
                 continue
-            # Vista calculada sin persistencia.
+            if fecha_consulta < hoy():
+                # Día pasado sin checklist: no quedó nada registrado, y
+                # reconstruirlo con los planes de hoy no sería fiel a ese día.
+                continue
+            # Vista calculada sin persistencia (hoy o una fecha futura).
             resultados.append(schemas.ChecklistResponse(
                 checklist_id=None,
                 fecha=fecha_consulta,

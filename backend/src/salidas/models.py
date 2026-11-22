@@ -10,19 +10,15 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Numeric,
     String,
-    event,
-    select,
-    text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.lotes.models import LoteProducto

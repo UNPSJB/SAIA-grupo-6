@@ -20,7 +20,7 @@ import {
   LuUser,
 } from "react-icons/lu";
 import { formatoFechaHora } from "../../../common/utils/fechas";
-import { cantidadConUnidad } from "../../../common/utils/numeros";
+import { cantidadConUnidad, formatoPorcentajeFino } from "../../../common/utils/numeros";
 import {
   BannerError,
   Celda,
@@ -44,6 +44,8 @@ interface LoteProgressTrackerProps {
    * esto quedaba desactualizada hasta recargar la página.
    */
   version?: string;
+  /** Unidad del producto ("u", "kg"), para las cantidades de inicio y cierre. */
+  unidad?: string | null;
 }
 
 const COLOR_ESTADO: Record<EstadoNodoTimeline, { palette: string; label: string }> = {
@@ -68,7 +70,7 @@ function iconoPorTipo(tipo: NodoTimeline["tipo"], estado: EstadoNodoTimeline) {
   return <LuLayers size={18} />;
 }
 
-export function LoteProgressTracker({ loteId, version }: LoteProgressTrackerProps) {
+export function LoteProgressTracker({ loteId, version, unidad }: LoteProgressTrackerProps) {
   const cargar = useCallback(() => getTimelineLote(loteId), [loteId]);
   const { items: data, loading, error } = useLista<LoteTimelineResponse | null>({
     cargar,
@@ -239,8 +241,14 @@ export function LoteProgressTracker({ loteId, version }: LoteProgressTrackerProp
             <HStack justify="space-between" align="flex-start" wrap="wrap" gap="3">
               <Stack gap="1">
                 <HStack gap="2" align="center">
+                  {/* Mismo número que la lista de tareas ("3. Rellenar…"): el inicio
+                      ocupa el orden 1, así que la tarea N es el nodo N+1. */}
                   <Badge size="sm" variant="outline">
-                    Paso {nodoSeleccionado.orden}
+                    {nodoSeleccionado.tipo === "tarea"
+                      ? `Tarea ${nodoSeleccionado.orden - 1}`
+                      : nodoSeleccionado.tipo === "inicio"
+                        ? "Inicio"
+                        : "Cierre"}
                   </Badge>
                   <Heading as="h4" size="md" color="fg">
                     {nodoSeleccionado.titulo}
@@ -315,7 +323,7 @@ export function LoteProgressTracker({ loteId, version }: LoteProgressTrackerProp
                     Cantidad objetivo
                   </Text>
                   <Text fontSize="base" fontWeight="bold" color="fg">
-                    {nodoSeleccionado.detalle.rendimiento.cantidad_objetivo}
+                    {cantidadConUnidad(nodoSeleccionado.detalle.rendimiento.cantidad_objetivo, unidad)}
                   </Text>
                 </Box>
                 {nodoSeleccionado.detalle.rendimiento.cantidad_producida !== null && (
@@ -324,7 +332,7 @@ export function LoteProgressTracker({ loteId, version }: LoteProgressTrackerProp
                       Cantidad producida
                     </Text>
                     <Text fontSize="base" fontWeight="bold" color="fg">
-                      {nodoSeleccionado.detalle.rendimiento.cantidad_producida}
+                      {cantidadConUnidad(nodoSeleccionado.detalle.rendimiento.cantidad_producida, unidad)}
                     </Text>
                   </Box>
                 )}
@@ -334,7 +342,7 @@ export function LoteProgressTracker({ loteId, version }: LoteProgressTrackerProp
                       Rendimiento obtenido
                     </Text>
                     <Badge colorPalette="teal" variant="solid" size="md" mt="1">
-                      {nodoSeleccionado.detalle.rendimiento.porcentaje_rendimiento}%
+                      {formatoPorcentajeFino(nodoSeleccionado.detalle.rendimiento.porcentaje_rendimiento)}
                     </Badge>
                   </Box>
                 )}

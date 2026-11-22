@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useEffect, useState } from "react";
 import { Box, Button, HStack, Image, Skeleton, Stack, Text } from "@chakra-ui/react";
 import { LuCamera, LuCheck, LuHistory, LuX } from "react-icons/lu";
@@ -14,7 +15,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { usePersonales } from "../../../personal/hooks/usePersonales";
 import { asignarCobertura, obtenerHistorialRegistro } from "../../services/checklistService";
-import type { HistorialRegistroTareaItem } from "../../types/checklist";
+import type { HistorialRegistroTareaItem, TareaDelDia } from "../../types/checklist";
 
 /** Marco común de los diálogos del checklist (portal, foco atrapado). */
 function Dialogo({ ancho, children }: { ancho: string; children: React.ReactNode }) {
@@ -179,11 +180,11 @@ export function HistorialTareaDialog({
 /* ─────────────────────────── Cobertura ─────────────────────────── */
 
 export function CoberturaDialog({
-  registroId,
+  tarea,
   onClose,
   onGuardado,
 }: {
-  registroId: number;
+  tarea: TareaDelDia;
   onClose: () => void;
   onGuardado: () => Promise<void> | void;
 }) {
@@ -192,25 +193,39 @@ export function CoberturaDialog({
     { rol: "operador" },
     50,
   );
-  const [operadorId, setOperadorId] = useState<number | null>(null);
+  // Arranca en el suplente actual, si ya tenía uno.
+  const [operadorId, setOperadorId] = useState<number | null>(tarea.reemplazado_por_id ?? null);
   const [guardando, setGuardando] = useState(false);
+  const responsable = tarea.operador_nombre;
 
   return (
     <Dialogo ancho="450px">
-      <DialogTitle fontSize="lg" fontWeight="semibold" color="fg" mb="4">
-        Asignar cobertura de tarea
+      <DialogTitle fontSize="lg" fontWeight="semibold" color="fg" mb="2">
+        Asignar suplente
       </DialogTitle>
-      <FormField label="Operador suplente" mb="4">
+      <Text fontSize="sm" color="fg.muted" mb="4">
+        {tarea.nombre}
+        {responsable ? ` · Responsable: ${responsable}` : " · Sin responsable"}
+      </Text>
+      <FormField
+        label="Operador suplente"
+        mb="4"
+        helper="El suplente ve la tarea en su checklist y la puede marcar. El responsable no cambia."
+      >
         <FormNativeSelect
           value={operadorId ?? ""}
           onChange={(e) => setOperadorId(e.target.value === "" ? null : Number(e.target.value))}
         >
-          <SelectPlaceholder value="">Sin asignar (cualquier operador puede tomar)</SelectPlaceholder>
-          {operadoresDisponibles.map((operador) => (
-            <option key={operador.id} value={operador.id}>
-              {operador.nombre} {operador.apellido || ""}
-            </option>
-          ))}
+          <SelectPlaceholder value="">
+            {responsable ? `Sin suplente (la hace ${responsable})` : "Elegí un operador"}
+          </SelectPlaceholder>
+          {operadoresDisponibles
+            .filter((operador) => operador.id !== tarea.operador_id)
+            .map((operador) => (
+              <option key={operador.id} value={operador.id}>
+                {operador.nombre} {operador.apellido || ""}
+              </option>
+            ))}
         </FormNativeSelect>
       </FormField>
       {cargandoOperadores && <EstadoCargando>Cargando operadores...</EstadoCargando>}
@@ -222,7 +237,8 @@ export function CoberturaDialog({
           onClick={async () => {
             setGuardando(true);
             try {
-              await asignarCobertura(registroId, operadorId);
+              await asignarCobertura(tarea.registro_id, operadorId);
+              avisarExito("Cobertura asignada correctamente.");
               onClose();
               await onGuardado();
             } catch {

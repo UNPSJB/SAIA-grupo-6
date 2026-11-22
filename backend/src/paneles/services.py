@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Iterable, Optional
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.aptitud.models import Aptitud  # noqa: F401  (registro de modelos)
@@ -832,12 +832,15 @@ def panel_limpieza(
     administra: bool,
 ) -> schemas.PanelLimpieza:
     hoy_dia = hoy()
-    # Quien solo opera ve el cumplimiento de las tareas que tiene asignadas.
+    # Quien solo opera ve el cumplimiento de las tareas que tiene asignadas y
+    # de las que cubre como suplente (las mismas que ve en su checklist).
     alcance = []
     if sector_id is not None:
         alcance.append(Equipo.sector_id == sector_id)
     if not administra:
-        alcance.append(RegistroTarea.operador_id == usuario.id)
+        alcance.append(
+            or_(RegistroTarea.operador_id == usuario.id, RegistroTarea.reemplazado_por_id == usuario.id)
+        )
 
     base = (
         select(
@@ -927,7 +930,9 @@ def panel_limpieza(
     if not administra:
         consulta_checklists = consulta_checklists.join(
             RegistroTarea, RegistroTarea.checklist_id == Checklist.id
-        ).where(RegistroTarea.operador_id == usuario.id)
+        ).where(
+            or_(RegistroTarea.operador_id == usuario.id, RegistroTarea.reemplazado_por_id == usuario.id)
+        )
     estados = {estado: 0 for estado in EstadoChecklist}
     for estado, pasado, cantidad in db.execute(consulta_checklists).all():
         estado = EstadoChecklist(estado)
@@ -1587,7 +1592,8 @@ def _checklist_de_hoy(db: Session, usuario: Personal, hoy_dia: date, meta: int) 
             f"{t.reemplazado_por_nombre or t.operador_nombre or 'Sin asignar'}",
             tono="alerta",
             estado=ETIQUETA_MOMENTO_TAREA.get(t.tipo or "", "Pendiente"),
-            link="/checklist",
+            # Lleva a la tarea puntual dentro del checklist diario.
+            link=f"/checklist?registro={t.registro_id}" if t.registro_id else "/checklist",
         )
         for t in tareas
         if not t.completado

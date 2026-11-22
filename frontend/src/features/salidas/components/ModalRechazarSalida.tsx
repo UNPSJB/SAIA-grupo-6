@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useRef, useState } from "react";
 import {
   Box,
@@ -169,6 +170,7 @@ export function ModalRechazarSalida({
         },
         foto ?? undefined
       );
+      avisarExito("Rechazo registrado correctamente.");
       onRechazoRegistrado();
     } catch (err) {
       setError(

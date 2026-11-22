@@ -1,18 +1,14 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from src.certificaciones_transportista import (
-    schemas as certificaciones_schemas,
-)
 from src.certificaciones_transportista.estado import (
     ESTADO_HABILITADO,
     estado_habilitacion,
 )
-from src.certificaciones_transportista.models import CertificacionTransportista
 from src.clientes.models import Cliente
 from src.common.fechas import ahora, hoy
 from src.incidente import services as incidente_services
@@ -24,7 +20,6 @@ from src.reclamos.constants import ETIQUETAS_MOTIVO_RECLAMO
 from src.reclamos.models import Reclamo
 from src.salidas import exceptions, schemas
 from src.salidas.constants import (
-    DISPOSICION_DESECHADA,
     DISPOSICION_REINGRESADA,
     DISPOSICIONES,
     ESTADO_CANCELADO,

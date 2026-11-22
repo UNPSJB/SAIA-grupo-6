@@ -1,4 +1,4 @@
-import { Box, HStack, Text } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 import { BannerError, EstadoCargando, FormNativeSelect } from "../../../components/ui/patrones";
 import { usePanel } from "../hooks/usePanel";
 import {
@@ -51,24 +51,18 @@ export function MiCumplimiento() {
       {!d && panel.loading && <EstadoCargando>Cargando tu cumplimiento...</EstadoCargando>}
       {d && (
         <>
-          <HStack gap="6" mb="4" flexWrap="wrap">
-            <Box>
-              <Text fontSize="3xl" fontWeight="bold" lineHeight="1">
-                {d.cumplimiento === null ? "—" : `${Math.round(d.cumplimiento)}%`}
-              </Text>
-              <Text fontSize="sm" color="fg.muted">
-                {d.cumplimiento === null
-                  ? `Sin tareas asignadas en los ${textoPeriodo(panel.dias)}`
-                  : `${d.tareas_completadas} de ${plural(d.tareas_total, "tarea", "tareas")} en los ${textoPeriodo(panel.dias)}`}
-              </Text>
-            </Box>
-            <Box>
-              <Text fontSize="3xl" fontWeight="bold" lineHeight="1">
-                {d.pendientes_hoy}
-              </Text>
-              <Text fontSize="sm" color="fg.muted">Pendientes hoy</Text>
-            </Box>
-          </HStack>
+          {/* Las pendientes de hoy ya están en "Checklist de limpieza de hoy",
+              al lado: acá solo el cumplimiento del período. */}
+          <Box mb="4">
+            <Text fontSize="3xl" fontWeight="bold" lineHeight="1">
+              {d.cumplimiento === null ? "—" : `${Math.round(d.cumplimiento)}%`}
+            </Text>
+            <Text fontSize="sm" color="fg.muted">
+              {d.cumplimiento === null
+                ? `Sin tareas asignadas en los ${textoPeriodo(panel.dias)}`
+                : `${d.tareas_completadas} de ${plural(d.tareas_total, "tarea", "tareas")} en los ${textoPeriodo(panel.dias)}`}
+            </Text>
+          </Box>
           {d.tareas_total === 0 ? (
             <Text fontSize="sm" color="fg.muted">No tuviste tareas asignadas en el período.</Text>
           ) : (

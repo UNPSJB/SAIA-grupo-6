@@ -498,7 +498,7 @@ VOCAB_PLANES = [
     ("Desinfección de cámara de frío", "litro", (3, 5)),
     ("Mantenimiento de equipos de cocción", "litro", (3, 5)),
     ("Sanitización de zona de elaboración", "mililitro", (3, 6)),
-    ("Limpieza de zona deLavadero", "litro", (2, 4)),
+    ("Limpieza de zona de lavadero", "litro", (2, 4)),
     ("Control de cadena de frío", "unidad", (2, 4)),
     ("Limpieza de equipos de medición", "mililitro", (2, 4)),
     ("Higiene de mesas de trabajo", "litro", (2, 4)),

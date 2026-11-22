@@ -252,13 +252,13 @@ function TabLotes() {
   const [busqueda, setBusqueda] = useState("");
 
   const visibles = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+    const texto = normalizar(busqueda);
     if (!texto) return lotes;
     return lotes.filter(
       (l) =>
-        l.numero_lote.toLowerCase().includes(texto) ||
-        l.proveedor_nombre.toLowerCase().includes(texto) ||
-        l.insumo_nombre.toLowerCase().includes(texto),
+        normalizar(l.numero_lote).includes(texto) ||
+        normalizar(l.proveedor_nombre).includes(texto) ||
+        normalizar(l.insumo_nombre).includes(texto),
     );
   }, [lotes, busqueda]);
 

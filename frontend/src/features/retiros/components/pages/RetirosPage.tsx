@@ -1,3 +1,4 @@
+import { normalizar } from "../../../../common/utils/texto";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BotonExportar } from "../../../exportacion";
@@ -62,7 +63,7 @@ export function RetirosPage() {
   });
 
   const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+    const texto = normalizar(busqueda);
     return retiros.filter((r) => {
       if (filtroEstado && r.estado !== filtroEstado) return false;
 
@@ -90,10 +91,10 @@ export function RetirosPage() {
 
       if (texto) {
         return (
-          r.lote_codigo.toLowerCase().includes(texto) ||
-          r.lote_producto_nombre.toLowerCase().includes(texto) ||
-          r.motivo.toLowerCase().includes(texto) ||
-          (r.detalle && r.detalle.toLowerCase().includes(texto))
+          normalizar(r.lote_codigo).includes(texto) ||
+          normalizar(r.lote_producto_nombre).includes(texto) ||
+          normalizar(r.motivo).includes(texto) ||
+          (r.detalle && normalizar(r.detalle).includes(texto))
         );
       }
 

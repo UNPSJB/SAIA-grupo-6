@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Text } from "@chakra-ui/react";
+import { Stack, Text } from "@chakra-ui/react";
 import { LuPackagePlus, LuSave } from "react-icons/lu";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useLista } from "../../../../common/hooks/useLista";
-import { hoyISO } from "../../../../common/utils/fechas";
+import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
+import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
   CeldaCompleta,
   FormularioAlta,
@@ -14,7 +15,9 @@ import {
   PaginaAlta,
   PieFormulario,
   SeccionFormulario,
+  TarjetaLateral,
 } from "../../../../components/ui/formularios";
+import { DatoDetalle } from "../../../../components/ui/plantillas";
 import {
   BotonCancelar,
   BotonGuardar,
@@ -124,6 +127,26 @@ export function LoteInsumoCreatePage() {
     }
   };
 
+  // Resumen de lo que se va a registrar, para el panel lateral: se arma con
+  // lo ya elegido en el formulario (no hace pedidos nuevos).
+  const ingredienteElegido = ingredientes.find((i) => i.id === ingredienteId);
+  const proveedorResumen = proveedores.find((p) => p.id === proveedorId);
+  const resumen = (
+    <TarjetaLateral titulo="Resumen de la recepción">
+      <Stack gap="3" mt="3">
+        <DatoDetalle etiqueta="Ingrediente">{ingredienteElegido?.nombre ?? "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Insumo (marca)">{insumo?.nombre ?? "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Proveedor">{proveedorResumen?.nombre ?? "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Lote del proveedor">{numeroLote.trim() || "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Cantidad">{cantidad ? cantidadConUnidad(cantidad, unidad) : "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Vencimiento">{vencimiento ? formatoFecha(vencimiento) : "Sin fecha"}</DatoDetalle>
+      </Stack>
+      <Text mt="4" fontSize="xs" color="fg.subtle">
+        Al registrarlo, la cantidad se suma al stock disponible del ingrediente.
+      </Text>
+    </TarjetaLateral>
+  );
+
   return (
     <PaginaAlta
       volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos" }}
@@ -131,8 +154,12 @@ export function LoteInsumoCreatePage() {
       titulo="Recibir lote de insumo"
       descripcion="Registrá la recepción de un lote para sumarlo al stock disponible."
       error={error}
+      lateral={resumen}
     >
-      <FormularioAlta onSubmit={handleSubmit}>
+      {/* Sin la validación nativa: el globo del navegador ("Completa este campo")
+          saltaba el primer obligatorio y no seguía el estilo de la app; los
+          faltantes los avisa handleSubmit en el banner. */}
+      <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
         <SeccionFormulario titulo="Origen" ayuda="Qué ingrediente llegó, de qué marca y quién lo entregó.">
           <GrillaFormulario>
             <FormField label="Ingrediente" required completo>

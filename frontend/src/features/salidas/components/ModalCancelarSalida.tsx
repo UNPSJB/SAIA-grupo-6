@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState } from "react";
 import { Box, Text, Textarea, VStack } from "@chakra-ui/react";
 import {
@@ -79,6 +80,7 @@ export function ModalCancelarSalida({
       await cancelarSalida(salidaId, {
         motivo: values.motivo.trim(),
       });
+      avisarExito("Reserva cancelada correctamente.");
       onCancelacionRegistrada();
     } catch (err) {
       const mensaje =

@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState } from "react";
 import { Box, Button, HStack, Text, Textarea, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuTrash2 } from "react-icons/lu";
@@ -104,6 +105,7 @@ export function ModalResolverRechazo({
         disposicion,
         justificacion: justificacion.trim(),
       });
+      avisarExito("Rechazo resuelto correctamente.");
       onRechazoResuelto();
     } catch (err) {
       setError(

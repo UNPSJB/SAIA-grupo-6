@@ -52,7 +52,10 @@ function TabButton({
       fontWeight="bold"
       fontSize="sm"
       rounded="full"
-      minW="180px"
+      // En el celular las dos pastillas se reparten el ancho: con 180px fijos
+      // cada una no entraban en 375px y la página scrolleaba de costado.
+      minW={{ base: "0", sm: "180px" }}
+      flex={{ base: "1", sm: "initial" }}
       h="12"
       borderWidth="1px"
       borderColor={isActive ? "transparent" : "border.muted"}
@@ -310,18 +313,27 @@ export function ReportarIncidentePage() {
         />
       </Flex>
 
+      {/* Mismo criterio que las altas (`PaginaAlta`): el formulario ocupa 8 de
+          12 columnas en escritorio, alineado con el resto de la página, en
+          vez de una columna angosta centrada. */}
       {activeTab === "nuevo-incidente" && (
-        <Box maxW="3xl" mx="auto">
+        <Box
+          display="grid"
+          gridTemplateColumns={{ base: "minmax(0, 1fr)", lg: "repeat(12, minmax(0, 1fr))" }}
+          columnGap="6"
+        >
+          <Box gridColumn={{ base: "1 / -1", lg: "span 8" }} minW="0">
           <IncidenteForm
             onSubmit={handleSubmit}
             isLoading={loadingAlta}
             submitLabel="Reportar incidente"
           />
+          </Box>
         </Box>
       )}
 
       {activeTab === "mis-reportes" && (
-        <Box maxW="960px" mx="auto">
+        <Box>
           <Tarjeta p="6">
             {/*
               El header con el filtro queda visible cuando hay resultados o

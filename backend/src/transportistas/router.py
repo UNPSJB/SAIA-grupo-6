@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import get_current_user_activo_completo, require_admin
-from src.common.paginacion import ParamsPaginacion, Pagina
+from src.common.paginacion import Pagina
 from src.database import get_db
 from src.transportistas import schemas, services
 

@@ -24,3 +24,7 @@ class ErrorCode:
     PLAN_LIMPIEZA_ID_INVALIDO = "El plan de limpieza indicado no es válido."
     PLAN_LIMPIEZA_NO_ENCONTRADO = "El plan de limpieza no existe o fue dado de baja."
     FRECUENCIA_INVALIDA = "La frecuencia debe ser mayor a cero."
+    OPERADOR_OBLIGATORIO = "Cada tarea de limpieza tiene que tener un operador responsable."
+    OPERADOR_INVALIDO = (
+        "El operador responsable no existe, está dado de baja o no tiene permiso de operar."
+    )

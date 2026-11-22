@@ -59,7 +59,7 @@ export function ResumenComposicion({ composicion }: { composicion: Composicion }
           {cantidadConUnidad(composicion.total_gramos, "g")}
         </Text>
       </Text>
-      <Badge colorPalette={composicion.suma_correcta ? "green" : "orange"} variant="subtle">
+      <Badge colorPalette={composicion.suma_correcta ? "green" : "orange"} variant="subtle" whiteSpace="normal" h="auto" py="0.5">
         Suma de porcentajes: {formatoPorcentajeFino(composicion.suma_porcentajes)}
         {composicion.suma_correcta ? " (dentro del redondeo)" : " (revisar)"}
       </Badge>

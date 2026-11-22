@@ -30,7 +30,8 @@ export function CabeceraChecklist({
   onFiltros,
   operadores,
   hayFiltros,
-  hayUsuario,
+  mostrarFiltroOperador,
+  mostrarMisTareas,
   todoAbierto,
   onAlternarTodo,
   mostrarFiltros,
@@ -45,7 +46,13 @@ export function CabeceraChecklist({
   onFiltros: (cambio: Partial<FiltrosChecklist>) => void;
   operadores: string[];
   hayFiltros: boolean;
-  hayUsuario: boolean;
+  /**
+   * Para quien administra. A un operador el backend ya le devuelve solo sus
+   * tareas (y las sin asignar): el filtro tendría una sola opción.
+   */
+  mostrarFiltroOperador: boolean;
+  /** Solo si quien administra tiene tareas propias ese día. */
+  mostrarMisTareas: boolean;
   todoAbierto: boolean;
   onAlternarTodo: () => void;
   /** Sin tareas no hay nada que filtrar: solo la fecha. */
@@ -147,22 +154,24 @@ export function CabeceraChecklist({
               </Box>
             </Box>
 
-            <Box minW={{ base: "auto", lg: "190px" }}>
-              <LabelFiltro>Operador</LabelFiltro>
-              <FormNativeSelect
-                value={filtros.operador}
-                onChange={(e) => onFiltros({ operador: e.target.value, misTareas: false })}
-                aria-label="Filtrar por operador"
-              >
-                <option value="">Todos los operadores</option>
-                {operadores.map((nombre) => (
-                  <option key={nombre} value={nombre}>
-                    {nombre}
-                  </option>
-                ))}
-                <option value={SIN_ASIGNAR}>Sin asignar</option>
-              </FormNativeSelect>
-            </Box>
+            {mostrarFiltroOperador && (
+              <Box minW={{ base: "auto", lg: "190px" }}>
+                <LabelFiltro>Operador</LabelFiltro>
+                <FormNativeSelect
+                  value={filtros.operador}
+                  onChange={(e) => onFiltros({ operador: e.target.value, misTareas: false })}
+                  aria-label="Filtrar por operador"
+                >
+                  <option value="">Todos los operadores</option>
+                  {operadores.map((nombre) => (
+                    <option key={nombre} value={nombre}>
+                      {nombre}
+                    </option>
+                  ))}
+                  <option value={SIN_ASIGNAR}>Sin asignar</option>
+                </FormNativeSelect>
+              </Box>
+            )}
 
             <Box minW={{ base: "auto", lg: "170px" }}>
               <LabelFiltro>Etapa</LabelFiltro>
@@ -188,7 +197,7 @@ export function CabeceraChecklist({
 
           <HStack justify="space-between" mt="3" gap="3" flexWrap="wrap">
             <HStack gap="4" flexWrap="wrap">
-              {hayUsuario && (
+              {mostrarMisTareas && (
                 <Switch.Root
                   checked={filtros.misTareas}
                   onCheckedChange={(e) => onFiltros({ misTareas: e.checked, operador: "" })}

@@ -85,6 +85,8 @@ export interface ReclamoDetalle extends ReclamoResumen {
   fecha_registro: string | null;
   salida: ReclamoSalida;
   incidente: ReclamoIncidente | null;
+  /** Retiro del lote, si ya existe (un lote admite un solo retiro). */
+  retiro?: { id: number; estado: "EN_CURSO" | "CERRADO" } | null;
 }
 
 export interface ReclamoCreateValues {

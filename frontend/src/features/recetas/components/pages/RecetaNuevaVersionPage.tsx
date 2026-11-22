@@ -14,7 +14,7 @@ import type { UnidadMedida } from "../../../unidadMedida/types/unidadMedida";
 import { useIngredientesParaReceta } from "../../hooks/useRecetas";
 import { crearVersion, obtenerReceta, obtenerVersion } from "../../services/recetaService";
 import type { VersionInput } from "../../types/receta";
-import { desdeDetalle } from "../../utils/versionForm";
+import { desdeDetalle, opcionesConInactivos } from "../../utils/versionForm";
 import { RecetaVersionForm } from "../RecetaVersionForm";
 
 export function RecetaNuevaVersionPage() {
@@ -78,7 +78,7 @@ export function RecetaNuevaVersionPage() {
           key={vigente.id}
           titulo={`Versión ${vigente.numero + 1}`}
           inicial={desdeDetalle(vigente)}
-          ingredientes={ingredientes}
+          ingredientes={opcionesConInactivos(ingredientes, vigente)}
           unidades={unidades}
           onSubmit={guardar}
           isLoading={guardando}

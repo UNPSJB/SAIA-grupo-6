@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState, type FormEvent } from "react";
 import { Box, Text } from "@chakra-ui/react";
 import { DialogForm } from "../../../common/components/DialogForm";
@@ -25,8 +26,15 @@ interface CierreLoteDialogProps {
   onClose: () => void;
 }
 
+/** Hoy en hora local, aaaa-mm-dd (toISOString usaría UTC y puede dar mañana). */
+function hoyISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function CierreLoteDialog({ lote, onCerrado, onClose }: CierreLoteDialogProps) {
   const [cantidad, setCantidad] = useState("");
+  const [vencimiento, setVencimiento] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null | undefined>(null);
 
@@ -51,9 +59,22 @@ export function CierreLoteDialog({ lote, onCerrado, onClose }: CierreLoteDialogP
       setError("El producto se elabora por unidad: la cantidad producida tiene que ser un número entero.");
       return;
     }
+    // Sin vida útil en la receta el vencimiento se carga a mano: un lote de
+    // alimento no se libera sin fecha de vencimiento.
+    if (!tieneVidaUtil) {
+      if (!vencimiento) {
+        setError("Indicá la fecha de vencimiento del lote: la receta no tiene vida útil configurada.");
+        return;
+      }
+      if (vencimiento < hoyISO()) {
+        setError("La fecha de vencimiento no puede ser anterior al cierre del lote.");
+        return;
+      }
+    }
     setGuardando(true);
     try {
-      await cerrarLote(lote.id, cantidad);
+      await cerrarLote(lote.id, cantidad, tieneVidaUtil ? null : vencimiento);
+      avisarExito(`Lote ${lote.numero_lote} cerrado correctamente.`);
       await onCerrado();
       onClose();
     } catch (err) {
@@ -115,19 +136,19 @@ export function CierreLoteDialog({ lote, onCerrado, onClose }: CierreLoteDialogP
               </Text>
             </Box>
           ) : (
-            <Box
-              p="3"
-              rounded="md"
-              bg="bg.muted"
-              borderWidth="1px"
-              borderColor="border.subtle"
-              fontSize="sm"
+            <FormField
+              label="Fecha de vencimiento"
+              required
+              helper="La receta no tiene vida útil configurada: indicá hasta cuándo es apto el lote."
               mb="4"
             >
-              <Text color="fg.muted">
-                Esta receta no tiene vida útil configurada; el lote se cerrará sin fecha de vencimiento.
-              </Text>
-            </Box>
+              <FormInput
+                type="date"
+                min={hoyISO()}
+                value={vencimiento}
+                onChange={(e) => setVencimiento(e.target.value)}
+              />
+            </FormField>
           )}
 
           <AccionesFormulario>

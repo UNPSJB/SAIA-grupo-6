@@ -38,7 +38,6 @@ export function EquipoIntervencionPage() {
 
   return (
     <PaginaDetalle
-      ancho="angosto"
       volver={{ a: "/equipos", etiqueta: "Equipos", historial: true }}
       titulo="Registrar intervención"
     >
