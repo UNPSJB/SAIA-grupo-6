@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Button, HStack, Text, Textarea, VStack } from "@chakra-ui/react";
+import { Box, Button, Checkbox, HStack, Input, Text, Textarea, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuTrash2 } from "react-icons/lu";
 import {
   DialogContent,
@@ -74,6 +74,8 @@ export function ModalResolverRechazo({
 
   const [disposicion, setDisposicion] = useState<DisposicionRechazo | "">("");
   const [justificacion, setJustificacion] = useState("");
+  const [generarReposicion, setGenerarReposicion] = useState(false);
+  const [cantidadAReponer, setCantidadAReponer] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { intentado, puedeEnviar } = useIntentoEnvio();
@@ -85,6 +87,9 @@ export function ModalResolverRechazo({
     if (isOpen) {
       setDisposicion("");
       setJustificacion("");
+      setGenerarReposicion(false);
+      // Limpiar ceros decimales innecesarios: "50.000" -> "50"
+      setCantidadAReponer(Number(cantidad).toString());
       setError(null);
     }
   }
@@ -103,6 +108,8 @@ export function ModalResolverRechazo({
       await resolverRechazo(salidaId, {
         disposicion,
         justificacion: justificacion.trim(),
+        generar_reposicion: generarReposicion,
+        cantidad_a_reponer: generarReposicion ? Number(cantidadAReponer) : undefined,
       });
       onRechazoResuelto();
     } catch (err) {
@@ -287,6 +294,42 @@ export function ModalResolverRechazo({
                 placeholder="Ej: se verificó la cadena de frío y el producto está apto para volver al lote."
               />
             </FormField>
+
+            <Box my="4" borderBottomWidth="1px" borderColor="border.subtle" />
+
+            <Box p="3" rounded="md" bg="bg.muted" borderWidth="1px" borderColor="border.subtle">
+              <Checkbox.Root
+                checked={generarReposicion}
+                onCheckedChange={(e) => setGenerarReposicion(e.checked === true)}
+                colorPalette="brand"
+              >
+                <Checkbox.HiddenInput />
+                <HStack gap="2" align="center">
+                  <Checkbox.Control />
+                  <Checkbox.Label fontSize="sm" color="fg">
+                    Generar deuda comercial (Reposición de stock) para compensar este rechazo
+                  </Checkbox.Label>
+                </HStack>
+              </Checkbox.Root>
+              {generarReposicion && (
+                <Box mt="3">
+                  <FormField
+                    label={`Cantidad a reponer (${unidadMedida || "u"})`}
+                    mb="0"
+                  >
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      max={Number(cantidad)}
+                      value={cantidadAReponer}
+                      onChange={(e) => setCantidadAReponer(e.target.value)}
+                      placeholder={`Ej: ${Number(cantidad).toString()}`}
+                    />
+                  </FormField>
+                </Box>
+              )}
+            </Box>
 
             <Box p="3" rounded="md" bg="orange.subtle" color="orange.fg">
               <Text fontSize="xs" fontWeight="medium">

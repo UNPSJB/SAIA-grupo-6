@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { Alert, Badge, Box, HStack, Image, Text, VStack } from "@chakra-ui/react";
-import { LuCircleCheck, LuHistory } from "react-icons/lu";
+import { Alert, Badge, Box, Button, HStack, Image, Text, VStack } from "@chakra-ui/react";
+import { LuCircleCheck, LuHistory, LuX } from "react-icons/lu";
 import { useIncidente } from "../../hooks/useIncidente";
 import { useHistorialIncidente } from "../../hooks/useHistorialIncidente";
 import { HistorialIncidenteModal } from "../HistorialIncidenteModal";
+import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
 import { useReclamoDeIncidente } from "../../../reclamos/hooks/useReclamoDeIncidente";
 import { listarRetiros } from "../../../retiros/services/retiroService";
@@ -18,16 +19,23 @@ import {
 import { BannerError, BotonCancelar, BotonTexto, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
 import { VisorFoto } from "../../../../components/ui/VisorFoto";
 import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
+import { useAuth } from "../../../../common/context/useAuth";
 
 export function IncidenteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { incidente, loading, error } = useIncidente(Number(id));
+  const { user } = useAuth();
+  const { incidente, loading, error, recargar } = useIncidente(Number(id));
   const { historial, loading: loadingHistorial, cargarHistorial, limpiarHistorial } = useHistorialIncidente();
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
   const [buscandoRetiro, setBuscandoRetiro] = useState(false);
+  const [modalCerrarAbierto, setModalCerrarAbierto] = useState(false);
+
+  const esAdmin = user?.puede_administrar ?? false;
+  const cerrado = incidente?.estado === "cerrado";
+  const mostrarBotonCerrar = esAdmin && !cerrado;
 
   const handleVerRetiro = useCallback(async () => {
     if (!incidente?.lote_id) return;
@@ -44,6 +52,18 @@ export function IncidenteDetailPage() {
       setBuscandoRetiro(false);
     }
   }, [incidente?.lote_id, navigate]);
+
+  const handleCerrarIncidente = async () => {
+    try {
+      await recargar(); // Recargar el incidente para actualizar el estado
+      setModalCerrarAbierto(false);
+    } catch (err) {
+      console.error("Error al cerrar incidente:", err);
+    }
+  };
+
+  const handleAbrirModalCerrar = () => setModalCerrarAbierto(true);
+  const handleCerrarModalCerrar = () => setModalCerrarAbierto(false);
 
   const esReclamoCliente = incidente?.tipo === "reclamo_cliente";
   const esEntregaRechazada = incidente?.tipo === "entrega_rechazada";
@@ -84,8 +104,6 @@ export function IncidenteDetailPage() {
     );
   }
 
-  const cerrado = incidente.estado === "cerrado";
-
   const handleVerHistorial = async () => {
     setMostrarHistorial(true);
     await cargarHistorial(incidente.id);
@@ -108,10 +126,24 @@ export function IncidenteDetailPage() {
           </EtiquetaEstado>
         }
         acciones={
-          <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
-            <LuHistory aria-hidden />
-            Ver historial
-          </BotonCancelar>
+          <>
+            <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
+              <LuHistory aria-hidden />
+              Ver historial
+            </BotonCancelar>
+            {mostrarBotonCerrar && (
+              <Button
+                colorPalette="red"
+                variant="surface"
+                size="sm"
+                onClick={handleAbrirModalCerrar}
+                aria-label="Cerrar incidente"
+              >
+                <LuX size={16} aria-hidden />
+                Cerrar incidente
+              </Button>
+            )}
+          </>
         }
       >
         <SeccionDetalle>
@@ -338,6 +370,14 @@ export function IncidenteDetailPage() {
         historial={historial}
         loading={loadingHistorial}
         onClose={handleCerrarHistorial}
+      />
+
+      {/* Modal para cerrar incidente (solo admin) */}
+      <CerrarIncidenteDialog
+        isOpen={modalCerrarAbierto}
+        incidente={incidente}
+        onClose={handleCerrarModalCerrar}
+        onConfirm={handleCerrarIncidente}
       />
     </>
   );

@@ -66,6 +66,15 @@ export function ModalNotificarAfectado({
         observacion: null,
       });
       setError(null);
+    } else {
+      // Limpieza al cerrar: resetea el formulario para la próxima apertura
+      setValues({
+        fecha_notificacion: hoyISO(),
+        medio_contacto: null,
+        observacion: null,
+      });
+      setError(null);
+      setEnviando(false);
     }
   }
 
@@ -87,6 +96,7 @@ export function ModalNotificarAfectado({
         observacion: values.observacion?.trim() || null,
       });
       onNotificado();
+      onClose(); // Cerrar el modal tras notificar correctamente
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo notificar al afectado.");
     } finally {

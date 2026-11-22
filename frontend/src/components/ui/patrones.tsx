@@ -555,7 +555,8 @@ export type AccionTabla =
   | "rechazar"
   | "disposicion"
   | "reclamar"
-  | "notificar";
+  | "notificar"
+  | "reponer";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -605,6 +606,8 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   reclamar: "blue",
   // Notificar a un cliente afectado: confirma un contacto (cierra el pendiente).
   notificar: "green",
+  // Reponer stock: salda la deuda con el cliente creando la reserva.
+  reponer: "green",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -651,6 +654,8 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   reclamar: LuMessageSquare,
   // Notificar: confirmación del contacto con el cliente afectado.
   notificar: LuCircleCheck,
+  // Reponer: ingreso de stock para saldar una deuda con el cliente.
+  reponer: LuPackagePlus,
 };
 
 /**

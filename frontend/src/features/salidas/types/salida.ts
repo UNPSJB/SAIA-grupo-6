@@ -20,6 +20,7 @@ export type MotivoRechazo =
   | "temperatura_inadecuada"
   | "producto_no_conforme"
   | "error_pedido"
+  | "retiro_recall"
   | "otro";
 
 export const MOTIVOS_RECHAZO: { valor: MotivoRechazo; etiqueta: string }[] = [
@@ -27,6 +28,7 @@ export const MOTIVOS_RECHAZO: { valor: MotivoRechazo; etiqueta: string }[] = [
   { valor: "temperatura_inadecuada", etiqueta: "Temperatura inadecuada" },
   { valor: "producto_no_conforme", etiqueta: "Producto no conforme" },
   { valor: "error_pedido", etiqueta: "Error de pedido" },
+  { valor: "retiro_recall", etiqueta: "Devolución de lote por alerta de recall/retiro" },
   { valor: "otro", etiqueta: "Otro" },
 ];
 
@@ -146,6 +148,8 @@ export interface SalidaRechazarValues {
 export interface SalidaResolverRechazoValues {
   disposicion: DisposicionRechazo;
   justificacion: string;
+  generar_reposicion?: boolean;
+  cantidad_a_reponer?: number;
 }
 
 export interface HitoLote {
