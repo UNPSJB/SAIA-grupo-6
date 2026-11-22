@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy import select
@@ -189,6 +190,8 @@ def rechazar_salida(
     motivo: str = Form(...),
     detalle: str | None = Form(None),
     fecha_rechazo: date = Form(...),
+    generar_reposicion: bool = Form(False),
+    cantidad_a_reponer: Decimal | None = Form(None),
     foto: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     usuario: Personal = Depends(get_current_user),
@@ -198,6 +201,9 @@ def rechazar_salida(
     Multipart porque la foto es opcional: mismo mecanismo que el alta de un
     incidente. La salida, el incidente y el hito se guardan en una sola
     transacción; si algo falla, se borra la foto recién subida.
+    
+    Si `generar_reposicion` es True y `cantidad_a_reponer` > 0, crea una
+    reposición de stock (deuda comercial) vinculada a esta salida.
     """
     ruta_foto = None
     if foto is not None and foto.filename:
@@ -218,6 +224,8 @@ def rechazar_salida(
             fecha_rechazo=fecha_rechazo,
             usuario=usuario,
             foto_url=ruta_foto,
+            generar_reposicion=generar_reposicion,
+            cantidad_a_reponer=cantidad_a_reponer,
         )
     except Exception:
         _eliminar_foto(ruta_foto)
@@ -243,6 +251,8 @@ def resolver_rechazo(
         disposicion=datos.disposicion,
         justificacion=datos.justificacion,
         usuario=usuario,
+        generar_reposicion=datos.generar_reposicion,
+        cantidad_a_reponer=datos.cantidad_a_reponer,
     )
     return services.salida_a_resumen(salida)
 

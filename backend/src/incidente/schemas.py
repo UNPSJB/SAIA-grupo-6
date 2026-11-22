@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.common.paginacion import Pagina
@@ -47,6 +48,10 @@ class IncidenteEstadoUpdate(BaseModel):
 
     estado: EstadoIncidente
     observacion_cierre: Optional[str] = None
+    mercaderia_devuelta: bool = False
+    disposicion_fisica: Optional[str] = None
+    generar_reposicion: bool = False
+    cantidad_a_reponer: Optional[Decimal] = None
 
     @field_validator("observacion_cierre")
     @classmethod

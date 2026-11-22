@@ -230,6 +230,10 @@ def cambiar_estado_incidente(
         datos.estado,
         current_user,
         datos.observacion_cierre,
+        mercaderia_devuelta=datos.mercaderia_devuelta,
+        disposicion_fisica=datos.disposicion_fisica,
+        generar_reposicion=datos.generar_reposicion,
+        cantidad_a_reponer=datos.cantidad_a_reponer,
     )
 
 
