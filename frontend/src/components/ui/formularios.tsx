@@ -32,7 +32,7 @@ import { ANCHO_PAGINA, EnlaceVolver, type DestinoVolver } from "./plantillas";
  *     <FormularioAlta onSubmit={handleSubmit}>
  *       <SeccionFormulario titulo="Origen" ayuda="...">
  *         <GrillaFormulario>
- *           <FormField label="Insumo" required completo>...</FormField>
+ *           <FormField label="Ingrediente" required completo>...</FormField>
  *           <FormField label="Número de lote" required>...</FormField>
  *           <FormField label="Cantidad" required>
  *             <InputUnidad unidad="kg" ... />

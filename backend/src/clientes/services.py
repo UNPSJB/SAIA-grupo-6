@@ -75,7 +75,7 @@ def listar_clientes(
     if not incluir_inactivos:
         consulta = consulta.where(Cliente.activo.is_(True))
 
-    # Ordenamiento por columna (patrón igual al de insumos/incidentes)
+    # Ordenamiento por columna (patrón igual al de ingredientes/incidentes)
     if orden == "nombre_asc":
         consulta = consulta.order_by(sin_tildes(Cliente.nombre).asc(), Cliente.id.asc())
     elif orden == "nombre_desc":

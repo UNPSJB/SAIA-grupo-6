@@ -38,6 +38,9 @@ REGLAS_BASE: dict[str, str] = {
     "DOCUMENTO_PROXIMO": "baja",
     "CHECKLIST_INCOMPLETO": "baja",
     "STOCK_BAJO": "media",
+    # Por ahora solo avisa, con criticidad fija (sin recurrencia ni elevación).
+    "HOMOLOGACION_INSUMO_VENCIDA": "media",
+    "HOMOLOGACION_INSUMO_PROXIMA": "baja",
 }
 
 ORDEN_CRITICIDAD = {"alta": 3, "media": 2, "baja": 1}
@@ -50,6 +53,7 @@ ICONOS = {
     "PLAN_CALIBRACION": "calibracion",
     "PLAN_MANTENIMIENTO": "calibracion",
     "STOCK_BAJO": "stock",
+    "HOMOLOGACION_INSUMO": "documento",
     "VENCIMIENTO_PERSONAL": "personal",
     "DOCUMENTO": "documento",
     "CHECKLIST": "checklist",
@@ -117,6 +121,13 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
     if tipo == "STOCK_BAJO":
         return "STOCK_BAJO"
 
+    if tipo == "HOMOLOGACION_INSUMO":
+        return (
+            "HOMOLOGACION_INSUMO_VENCIDA"
+            if nivel == "VENCIDO"
+            else "HOMOLOGACION_INSUMO_PROXIMA"
+        )
+
     if tipo == "DOCUMENTO":
         return (
             "DOCUMENTO_VENCIDO"
@@ -142,6 +153,8 @@ def _motivo_base(regla: str) -> str:
         "DOCUMENTO_PROXIMO": "Documento próximo a vencer",
         "CHECKLIST_INCOMPLETO": "Tarea de checklist incumplida",
         "STOCK_BAJO": "Stock por debajo del mínimo",
+        "HOMOLOGACION_INSUMO_VENCIDA": "Homologación vencida",
+        "HOMOLOGACION_INSUMO_PROXIMA": "Homologación próxima a vencer",
     }[regla]
 
 
@@ -351,6 +364,7 @@ def calcular_criticidad_dashboard(
     notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_planes_calibracion_mantenimiento(db))
     notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_vencimientos_personal(db))
     notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_stock_bajo(db))
+    notificaciones_vivas.extend(notificacion_services.obtener_notificaciones_homologacion_insumos(db))
     notificaciones_vivas.sort(key=lambda x: 0 if x.nivel == "VENCIDO" else 1)
 
     for notificacion in notificaciones_vivas:

@@ -103,6 +103,7 @@ function RotuladoEditor() {
         const actualizado = await actualizarBorrador(borradorId, {
           denominacion_venta: datos.denominacion_venta ?? undefined,
           lista_ingredientes: datos.lista_ingredientes ?? undefined,
+          alergenos: datos.alergenos ?? undefined,
           contenido_neto: datos.contenido_neto ?? undefined,
           rnpa_rppa: datos.rnpa_rppa ?? undefined,
           razon_social: datos.razon_social ?? undefined,
@@ -128,6 +129,7 @@ function RotuladoEditor() {
           lote_producto_id: datos.lote_producto_id ?? null,
           denominacion_venta: datos.denominacion_venta ?? null,
           lista_ingredientes: datos.lista_ingredientes ?? null,
+          alergenos: datos.alergenos ?? null,
           contenido_neto: datos.contenido_neto ?? null,
           rnpa_rppa: datos.rnpa_rppa ?? null,
           razon_social: datos.razon_social ?? null,
@@ -197,6 +199,7 @@ function RotuladoEditor() {
         producto_nombre: vistaPrevia.producto_nombre,
         denominacion_venta: vistaPrevia.denominacion_venta ?? "",
         lista_ingredientes: vistaPrevia.lista_ingredientes ?? "",
+        alergenos: vistaPrevia.alergenos ?? "",
         contenido_neto: "",
         rnpa_rppa: "",
         razon_social: "",

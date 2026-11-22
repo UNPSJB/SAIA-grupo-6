@@ -284,7 +284,7 @@ function NuevaVersionDialog({
 
             <FormField
               label="Ingredientes con cafeína intrínseca"
-              helper="Separados por coma. Se comparan por palabra completa sobre el nombre del insumo."
+              helper="Separados por coma. Se comparan por palabra completa sobre el nombre del ingrediente."
               mb="0"
             >
               <FormInput

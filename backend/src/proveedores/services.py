@@ -14,7 +14,7 @@ def _cuit_normalizado(valor: str | None):
 
 def _consulta_proveedor():
     return select(Proveedor).options(
-        selectinload(Proveedor.insumos),
+        selectinload(Proveedor.insumos).selectinload(Insumo.ingrediente),
         selectinload(Proveedor.certificaciones),
     )
 

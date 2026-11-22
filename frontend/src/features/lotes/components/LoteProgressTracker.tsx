@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import {
   Badge,
   Box,
@@ -37,6 +38,12 @@ import type {
 
 interface LoteProgressTrackerProps {
   loteId: number;
+  /**
+   * Cambia cada vez que cambia el lote (etapa completada, consumo registrado,
+   * corregido o borrado, cierre): la línea de tiempo se vuelve a pedir. Sin
+   * esto quedaba desactualizada hasta recargar la página.
+   */
+  version?: string;
 }
 
 const COLOR_ESTADO: Record<EstadoNodoTimeline, { palette: string; label: string }> = {
@@ -61,44 +68,20 @@ function iconoPorTipo(tipo: NodoTimeline["tipo"], estado: EstadoNodoTimeline) {
   return <LuLayers size={18} />;
 }
 
-export function LoteProgressTracker({ loteId }: LoteProgressTrackerProps) {
-  const [data, setData] = useState<LoteTimelineResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nodoSeleccionadoId, setNodoSeleccionadoId] = useState<string | null>(null);
+export function LoteProgressTracker({ loteId, version }: LoteProgressTrackerProps) {
+  const cargar = useCallback(() => getTimelineLote(loteId), [loteId]);
+  const { items: data, loading, error } = useLista<LoteTimelineResponse | null>({
+    cargar,
+    dependencias: [loteId, version],
+    valorInicial: null,
+    mensajeError: "No se pudo cargar la línea de tiempo.",
+    preferirMensajeDelBackend: true,
+  });
+  // Lo que eligió la persona; sin elección, el nodo por defecto (ver abajo).
+  const [nodoElegidoId, setNodoSeleccionadoId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let activo = true;
-    setLoading(true);
-    setError(null);
-
-    getTimelineLote(loteId)
-      .then((res) => {
-        if (!activo) return;
-        setData(res);
-        // Pre-seleccionar: primer nodo 'en_proceso', o el último si está terminado, o el primero
-        const enProceso = res.nodos.find((n) => n.estado === "en_proceso");
-        if (enProceso) {
-          setNodoSeleccionadoId(enProceso.id);
-        } else {
-          const ultimoCompletado = [...res.nodos].reverse().find((n) => n.estado === "completado");
-          setNodoSeleccionadoId(ultimoCompletado ? ultimoCompletado.id : res.nodos[0]?.id ?? null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!activo) return;
-        setError(err instanceof Error ? err.message : "No se pudo cargar la línea de tiempo.");
-      })
-      .finally(() => {
-        if (activo) setLoading(false);
-      });
-
-    return () => {
-      activo = false;
-    };
-  }, [loteId]);
-
-  if (loading) {
+  // Solo la primera vez: al actualizarse se sigue mostrando la anterior (sin parpadeo).
+  if (loading && !data) {
     return <EstadoCargando>Cargando progreso de producción...</EstadoCargando>;
   }
 
@@ -110,7 +93,12 @@ export function LoteProgressTracker({ loteId }: LoteProgressTrackerProps) {
     return null;
   }
 
-  const nodoSeleccionado = data.nodos.find((n) => n.id === nodoSeleccionadoId) ?? data.nodos[0];
+  // Por defecto: el primer nodo en proceso; si no hay, el último completado; si no, el primero.
+  const porDefecto =
+    data.nodos.find((n) => n.estado === "en_proceso") ??
+    [...data.nodos].reverse().find((n) => n.estado === "completado") ??
+    data.nodos[0];
+  const nodoSeleccionado = data.nodos.find((n) => n.id === nodoElegidoId) ?? porDefecto;
 
   return (
     <Stack gap="5">
@@ -353,26 +341,26 @@ export function LoteProgressTracker({ loteId }: LoteProgressTrackerProps) {
               </SimpleGrid>
             )}
 
-            {/* Insumos Consumidos */}
-            {nodoSeleccionado.detalle.insumos_consumidos.length > 0 && (
+            {/* Ingredientes Consumidos */}
+            {nodoSeleccionado.detalle.ingredientes_consumidos.length > 0 && (
               <Stack gap="2">
                 <Heading as="h5" size="xs" color="fg.muted" textTransform="uppercase">
-                  Insumos consumidos en esta etapa ({nodoSeleccionado.detalle.insumos_consumidos.length})
+                  Ingredientes consumidos en esta etapa ({nodoSeleccionado.detalle.ingredientes_consumidos.length})
                 </Heading>
                 <Tarjeta overflowX="auto" p="0">
                   <Table.Root variant="outline" size="sm">
                     <Table.Header>
                       <FilaEncabezado>
-                        <EncabezadoOscuro>Insumo</EncabezadoOscuro>
+                        <EncabezadoOscuro>Ingrediente</EncabezadoOscuro>
                         <EncabezadoOscuro numero ancho="media">Cantidad</EncabezadoOscuro>
-                        <EncabezadoOscuro ancho="media">Lote insumo</EncabezadoOscuro>
+                        <EncabezadoOscuro ancho="media">Lote ingrediente</EncabezadoOscuro>
                         <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
                       </FilaEncabezado>
                     </Table.Header>
                     <Table.Body>
-                      {nodoSeleccionado.detalle.insumos_consumidos.map((ins, i) => (
+                      {nodoSeleccionado.detalle.ingredientes_consumidos.map((ins, i) => (
                         <Table.Row key={i}>
-                          <Celda p="2.5">{ins.insumo_nombre}</Celda>
+                          <Celda p="2.5">{ins.ingrediente_nombre}</Celda>
                           <Celda p="2.5" numero>
                             {cantidadConUnidad(ins.cantidad, ins.unidad_medida)}
                           </Celda>

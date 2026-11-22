@@ -9,7 +9,7 @@ export function GraficoAditivos({ composicion, alto = 320 }: { composicion: Comp
   if (composicion.aditivos.length === 0) return null;
 
   const datos = composicion.aditivos.map((a) => ({
-    nombre: a.insumo.nombre,
+    nombre: a.ingrediente.nombre,
     valor: Number(a.porcentaje),
   }));
 

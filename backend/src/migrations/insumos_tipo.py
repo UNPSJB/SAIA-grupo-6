@@ -22,23 +22,52 @@ Es idempotente: si la tabla ya tiene el esquema nuevo, no hace nada.
 import logging
 
 from sqlalchemy import text
-from sqlalchemy.schema import CreateIndex, CreateTable
 
 from src.aditivos.referencia import ADITIVOS, CLASES
 from src.database import engine
-from src.insumos.models import Insumo
 
-from .base import agregar_columna, columnas_de, tablas
+from .base import agregar_columna, columnas_de, hay_insumos_viejo, tablas
 
 logger = logging.getLogger(__name__)
 
 _TABLA_TEMPORAL = "insumos_migracion_tipo"
 
+# Esquema de `insumos` congelado tal como era al escribir esta migración. No
+# se genera desde el modelo: el maestro después pasó a llamarse
+# `ingredientes`, y una migración vieja no puede depender del modelo actual.
+_DDL_INSUMOS = """CREATE TABLE insumos_migracion_tipo (
+	id INTEGER NOT NULL,
+	nombre VARCHAR NOT NULL,
+	unidad_medida_id INTEGER NOT NULL,
+	activo BOOLEAN NOT NULL,
+	tipo VARCHAR(20) DEFAULT 'ingrediente' NOT NULL,
+	aditivo_id INTEGER,
+	densidad_g_ml NUMERIC(10, 4),
+	peso_unitario_g NUMERIC(10, 4),
+	PRIMARY KEY (id),
+	CONSTRAINT ck_insumos_tipo_valido CHECK (tipo IN ('ingrediente', 'aditivo')),
+	CONSTRAINT ck_insumos_aditivo_segun_tipo CHECK ((tipo = 'aditivo' AND aditivo_id IS NOT NULL) OR (tipo = 'ingrediente' AND aditivo_id IS NULL)),
+	FOREIGN KEY(unidad_medida_id) REFERENCES unidades_medida (id),
+	FOREIGN KEY(aditivo_id) REFERENCES aditivos (id) ON DELETE RESTRICT
+)"""
+
+_INDICES_INSUMOS = (
+    "CREATE INDEX ix_insumos_tipo ON insumos (tipo)",
+    "CREATE UNIQUE INDEX ix_insumos_nombre ON insumos (nombre)",
+    "CREATE INDEX ix_insumos_id ON insumos (id)",
+    "CREATE INDEX ix_insumos_aditivo_id ON insumos (aditivo_id)",
+)
+
 
 def migrar_aditivos_referencia() -> None:
-    """Carga inicial de clases funcionales y aditivos, solo si están vacías."""
+    """Carga inicial de las clases funcionales, solo si están vacías.
+
+    La tabla `aditivos` (lista de referencia con nombre e INS) ya no existe: el
+    ingrediente guarda su clase e INS. Solo se sigue cargando si una base vieja
+    todavía la tiene, porque `migrar_insumos_tipo` la usa para vincular.
+    """
     existentes = tablas()
-    if not {"clases_funcionales", "aditivos"} <= existentes:
+    if "clases_funcionales" not in existentes:
         return
     with engine.begin() as conexion:
         if not conexion.execute(text("SELECT COUNT(*) FROM clases_funcionales")).scalar_one():
@@ -51,7 +80,9 @@ def migrar_aditivos_referencia() -> None:
                     ),
                     {"nombre": nombre, "ins_opcional": ins_opcional},
                 )
-        if not conexion.execute(text("SELECT COUNT(*) FROM aditivos")).scalar_one():
+        if "aditivos" in existentes and not conexion.execute(
+            text("SELECT COUNT(*) FROM aditivos")
+        ).scalar_one():
             logger.info("Migración: cargando la lista de referencia de aditivos.")
             for clase, nombre, ins in ADITIVOS:
                 conexion.execute(
@@ -104,7 +135,7 @@ def migrar_insumos_tipo() -> None:
     # El esquema se lee ANTES de abrir la transacción: `inspect(engine)` usa
     # otra conexión (o la misma, con StaticPool) y no debe cruzarse con ella.
     existentes = tablas()
-    if "insumos" not in existentes:
+    if not hay_insumos_viejo():
         return
     columnas = columnas_de("insumos")
 
@@ -150,11 +181,8 @@ def migrar_insumos_tipo() -> None:
 
                 total_antes = conexion.execute(text("SELECT COUNT(*) FROM insumos")).scalar_one()
 
-                # 2) Tabla nueva con el esquema del modelo (CHECKs incluidos).
-                crear = str(CreateTable(Insumo.__table__).compile(engine)).replace(
-                    "CREATE TABLE insumos (", f"CREATE TABLE {_TABLA_TEMPORAL} (", 1
-                )
-                conexion.execute(text(crear))
+                # 2) Tabla nueva con el esquema congelado (CHECKs incluidos).
+                conexion.execute(text(_DDL_INSUMOS))
 
                 if tiene_aditivo:
                     expresion_aditivo = "CASE WHEN tipo = 'aditivo' THEN aditivo_id END"
@@ -202,8 +230,8 @@ def migrar_insumos_tipo() -> None:
                 # 4) Reemplazo e índices.
                 conexion.execute(text("DROP TABLE insumos"))
                 conexion.execute(text(f"ALTER TABLE {_TABLA_TEMPORAL} RENAME TO insumos"))
-                for indice in Insumo.__table__.indexes:
-                    conexion.execute(text(str(CreateIndex(indice).compile(engine))))
+                for indice in _INDICES_INSUMOS:
+                    conexion.execute(text(indice))
 
                 # Solo se borraron productos sin referencias, así que esto no
                 # debería encontrar nada nuevo; si las tablas viejas ya traían

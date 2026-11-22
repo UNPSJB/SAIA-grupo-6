@@ -125,10 +125,10 @@ export function BajaLoteInsumoDialog({
       >
         <DialogForm onSubmit={handleSubmit}>
           <DialogTitle as="h3" mt={0} mb="1" fontSize="lg" fontWeight="bold" color="fg">
-            Dar de baja insumo — Lote {lote.numero_lote}
+            Dar de baja ingrediente — Lote {lote.numero_lote}
           </DialogTitle>
           <Text mb="4" fontSize="sm" color="fg.muted">
-            {lote.insumo_nombre} · Proveedor: {lote.proveedor_nombre} · Saldo disponible:{" "}
+            {lote.ingrediente_nombre} · Proveedor: {lote.proveedor_nombre} · Saldo disponible:{" "}
             <Text as="span" fontWeight="semibold" color="fg">
               {cantidadConUnidad(lote.saldo, lote.unidad)}
             </Text>

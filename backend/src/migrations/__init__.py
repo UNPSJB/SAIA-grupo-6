@@ -8,6 +8,7 @@ import src.all_models  # noqa: F401  (registra todos los modelos)
 from src.database import engine
 from src.models import ModeloBase
 
+from .alergenos import migrar_alergenos
 from .base import crear_bitacora
 from .documentos import migrar_documentos
 from .equipos import migrar_equipos
@@ -84,6 +85,8 @@ def run_migrations() -> None:
     migrar_conversion_a_insumo()
     migrar_vista_publica()
     migrar_rotulado()
+    # Después de rotulado: agrega la columna de alérgenos a los borradores.
+    migrar_alergenos()
     migrar_clientes()
     migrar_transportistas()
     migrar_certificaciones_transportista()

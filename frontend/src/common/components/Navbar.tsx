@@ -16,8 +16,10 @@ import { FONDO_PESTANA } from "../../theme";
 import {
   GRUPOS,
   MENU,
+  destinoCategoria,
   esVisibleEntrada,
   rutaPanel,
+  vePaneles,
   type EntradaMenu,
   type GrupoMenu,
 } from "./menuEntradas";
@@ -290,10 +292,13 @@ type AlIr = (e: MouseEvent<HTMLAnchorElement>, destino: string) => void;
  */
 function PestanaCategoria({
   grupo,
+  destino,
   contieneRutaActual,
   onIr,
 }: {
   grupo: GrupoMenu;
+  /** Su panel, o su primera pantalla para quien no ve los paneles. */
+  destino: string;
   contieneRutaActual: boolean;
   onIr: AlIr;
 }) {
@@ -311,9 +316,9 @@ function PestanaCategoria({
       roundedBottom={contieneRutaActual ? "none" : "md"}
     >
       <NavLink
-        to={rutaPanel(grupo)}
+        to={destino}
         data-pieza={clave}
-        onClick={(e) => onIr(e, rutaPanel(grupo))}
+        onClick={(e) => onIr(e, destino)}
       >
         <Capas activa={false} {...CAPAS_CATEGORIA}>
           <Icono size={20} aria-hidden style={{ flexShrink: 0 }} />
@@ -763,6 +768,7 @@ export default function Navbar() {
             <Box as="li" key={grupo.id}>
               <PestanaCategoria
                 grupo={grupo}
+                destino={destinoCategoria(grupo, user)}
                 contieneRutaActual={grupo.id === grupoDeRuta}
                 onIr={ir}
               />
@@ -798,29 +804,31 @@ export default function Navbar() {
               que en la fila de categorías (ícono incluido) para que la
               animación la traslade sin deformarla.
             */}
-            <Box as="li" flexShrink={0}>
-              <Link
-                asChild
-                aria-current={enPanel ? "page" : undefined}
-                title={`Panel de ${grupoAbierto.label}`}
-                {...pestana(enPanel)}
-                {...CATEGORIA}
-              >
-                <NavLink
-                  to={rutaPanel(grupoAbierto)}
-                  data-pieza={clavePanel(grupoAbierto.id)}
-                  data-activa={enPanel ? "" : undefined}
-                  onClick={(e) => ir(e, rutaPanel(grupoAbierto))}
+            {vePaneles(user) && (
+              <Box as="li" flexShrink={0}>
+                <Link
+                  asChild
+                  aria-current={enPanel ? "page" : undefined}
+                  title={`Panel de ${grupoAbierto.label}`}
+                  {...pestana(enPanel)}
+                  {...CATEGORIA}
                 >
-                  <Capas activa={enPanel} {...CAPAS_CATEGORIA}>
-                    {IconoAbierto && (
-                      <IconoAbierto size={20} aria-hidden style={{ flexShrink: 0 }} />
-                    )}
-                    {grupoAbierto.label}
-                  </Capas>
-                </NavLink>
-              </Link>
-            </Box>
+                  <NavLink
+                    to={rutaPanel(grupoAbierto)}
+                    data-pieza={clavePanel(grupoAbierto.id)}
+                    data-activa={enPanel ? "" : undefined}
+                    onClick={(e) => ir(e, rutaPanel(grupoAbierto))}
+                  >
+                    <Capas activa={enPanel} {...CAPAS_CATEGORIA}>
+                      {IconoAbierto && (
+                        <IconoAbierto size={20} aria-hidden style={{ flexShrink: 0 }} />
+                      )}
+                      {grupoAbierto.label}
+                    </Capas>
+                  </NavLink>
+                </Link>
+              </Box>
+            )}
 
             <Box
               as="li"

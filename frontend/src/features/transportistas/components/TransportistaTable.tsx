@@ -1,4 +1,5 @@
 import { Table, Text } from "@chakra-ui/react";
+import type { OrdenTabla } from "../../../common/hooks/useOrdenTabla";
 import type { Transportista } from "../types/transportista";
 import { TransportistaItem } from "./TransportistaItem";
 import { EncabezadoOrdenable } from "../../../components/ui/filtros";
@@ -10,14 +11,7 @@ import {
 
 interface TransportistaTableProps {
   transportistas: Transportista[];
-  orden?: {
-    columna: string | null;
-    direccion: "asc" | "desc";
-    orden: string;
-    esPorDefecto: boolean;
-    ordenar: (columna: string) => void;
-    reiniciar: () => void;
-  };
+  orden?: OrdenTabla<string, string>;
   onEdit: (transportista: Transportista) => void;
   onDelete: (transportista: Transportista) => void;
   onReactivar: (transportista: Transportista) => void;
@@ -50,14 +44,14 @@ export function TransportistaTable({
         <Table.Header>
           <FilaEncabezado>
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="razon_social" orden={orden as any}>
+              <EncabezadoOrdenable columna="razon_social" orden={orden}>
                 Razón Social
               </EncabezadoOrdenable>
             ) : (
               <EncabezadoOscuro>Razón Social</EncabezadoOscuro>
             )}
             {tieneOrden && orden ? (
-              <EncabezadoOrdenable columna="cuit" orden={orden as any} ancho="angosta">
+              <EncabezadoOrdenable columna="cuit" orden={orden} ancho="angosta">
                 CUIT
               </EncabezadoOrdenable>
             ) : (

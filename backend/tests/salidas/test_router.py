@@ -9,7 +9,8 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
-from src.auth.dependencies import get_db, require_operador
+from tests.produccion_helpers import rotular_lote
+from src.auth.dependencies import get_db, require_admin, require_operador
 from src.auth.services import crear_access_token
 from src.clientes.models import Cliente
 from src.database import SessionLocal as SessionLocalProduccion
@@ -85,6 +86,23 @@ def cliente_test(db, monkeypatch):
             app.dependency_overrides[require_operador] = anterior_operador
 
 
+@pytest.fixture(scope="function")
+def cliente_admin(cliente_test, db):
+    """Como `cliente_test`, pero quien pide administra: reservar y cancelar
+    son decisiones comerciales (require_admin)."""
+    client, _ = cliente_test
+    admin = _crear_personal(db, dni="10000003", operar=True, admin=True)
+    anterior = app.dependency_overrides.get(require_admin)
+    app.dependency_overrides[require_admin] = lambda: admin
+    try:
+        yield client, _headers(admin.id)
+    finally:
+        if anterior is None:
+            app.dependency_overrides.pop(require_admin, None)
+        else:
+            app.dependency_overrides[require_admin] = anterior
+
+
 def _crear_personal(db: Session, dni="10000002", operar=True, admin=False):
     fila = Personal(
         nombre="Omar",
@@ -144,6 +162,7 @@ def _crear_lote(db: Session, cantidad_producida=Decimal("100.000"), retirado=Fal
         db.refresh(fila)
     finally:
         db.info.pop("sin_auditoria", None)
+    rotular_lote(db, fila)
     return fila
 
 
@@ -198,8 +217,8 @@ def test_reservar_sin_permiso_operador(cliente_test, db):
     assert respuesta.status_code in (403, 404)
 
 
-def test_reservar_exitoso_endpoint(cliente_test, db):
-    client, headers = cliente_test
+def test_reservar_exitoso_endpoint(cliente_admin, db):
+    client, headers = cliente_admin
     lote = _crear_lote(db, cantidad_producida=Decimal("100.000"))
     cliente = _crear_cliente(db)
 
@@ -225,8 +244,8 @@ def test_reservar_exitoso_endpoint(cliente_test, db):
     assert "Reserva de" in hitos[0].descripcion
 
 
-def test_reservar_saldo_insuficiente_endpoint(cliente_test, db):
-    client, headers = cliente_test
+def test_reservar_saldo_insuficiente_endpoint(cliente_admin, db):
+    client, headers = cliente_admin
     lote = _crear_lote(db, cantidad_producida=Decimal("50.000"))
     cliente = _crear_cliente(db)
 
@@ -243,8 +262,8 @@ def test_reservar_saldo_insuficiente_endpoint(cliente_test, db):
     assert respuesta.status_code == 400
 
 
-def test_reservar_lote_retirado_endpoint(cliente_test, db):
-    client, headers = cliente_test
+def test_reservar_lote_retirado_endpoint(cliente_admin, db):
+    client, headers = cliente_admin
     lote = _crear_lote(db, cantidad_producida=Decimal("100.000"), retirado=True)
     cliente = _crear_cliente(db)
 
@@ -317,8 +336,8 @@ def test_listar_salidas_filtro_estado(cliente_test, db):
     assert datos[0]["estado"] == "RESERVADO"
 
 
-def test_listar_clientes_disponibles(cliente_test, db):
-    client, headers = cliente_test
+def test_listar_clientes_disponibles(cliente_admin, db):
+    client, headers = cliente_admin
     cliente = _crear_cliente(db)
 
     respuesta = client.get("/salidas/clientes-disponibles", headers=headers)
@@ -329,8 +348,8 @@ def test_listar_clientes_disponibles(cliente_test, db):
     assert datos[0]["nombre"] == cliente.nombre
 
 
-def test_listar_lotes_disponibles(cliente_test, db):
-    client, headers = cliente_test
+def test_listar_lotes_disponibles(cliente_admin, db):
+    client, headers = cliente_admin
     lote = _crear_lote(db)
 
     respuesta = client.get("/salidas/lotes-disponibles", headers=headers)
@@ -339,3 +358,20 @@ def test_listar_lotes_disponibles(cliente_test, db):
     assert len(datos) == 1
     assert datos[0]["id"] == lote.id
     assert datos[0]["codigo"] == lote.numero_lote
+
+
+def test_quien_opera_no_reserva_ni_cancela(cliente_test, db):
+    """Reservar y cancelar son comerciales: quien solo opera recibe 403
+    (despachar y entregar, en cambio, siguen siendo suyos)."""
+    client, headers = cliente_test
+    lote = _crear_lote(db, cantidad_producida=Decimal("100.000"))
+    cliente = _crear_cliente(db)
+
+    reserva = client.post(
+        "/salidas/reservar",
+        json={"lote_id": lote.id, "cliente_id": cliente.id, "cantidad": "1.000", "fecha_reserva": "2026-02-10"},
+        headers=headers,
+    )
+    assert reserva.status_code == 403
+    assert client.get("/salidas/lotes-disponibles", headers=headers).status_code == 403
+    assert client.post("/salidas/1/cancelar", json={"motivo": "x"}, headers=headers).status_code == 403

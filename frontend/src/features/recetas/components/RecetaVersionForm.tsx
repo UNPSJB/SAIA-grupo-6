@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Badge, Box, HStack, Stack, Text } from "@chakra-ui/react";
+import { Badge, Box, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
 import { LuCircleCheck, LuTriangleAlert } from "react-icons/lu";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import {
@@ -23,15 +23,14 @@ import {
 import type { UnidadMedida } from "../../unidadMedida/types/unidadMedida";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
 import {
-  ETIQUETA_CLASIFICACION,
-  type InsumoOpcion,
+  type IngredienteOpcion,
   type VersionFormState,
   type VersionInput,
 } from "../types/receta";
 import {
   aInput,
   calcularReparto,
-  nuevaFilaInsumo,
+  nuevaFilaIngrediente,
   nuevaFilaTarea,
   nuevaFilaUso,
   validar,
@@ -40,7 +39,7 @@ import {
 interface RecetaVersionFormProps {
   titulo: string;
   inicial: VersionFormState;
-  insumos: InsumoOpcion[];
+  ingredientes: IngredienteOpcion[];
   unidades: UnidadMedida[];
   onSubmit: (datos: VersionInput) => Promise<void> | void;
   isLoading?: boolean;
@@ -53,7 +52,7 @@ interface RecetaVersionFormProps {
 }
 
 /**
- * Recuadro de una fila repetible (un insumo, una tarea): fondo apenas
+ * Recuadro de una fila repetible (un ingrediente, una tarea): fondo apenas
  * distinto y borde, para que cada fila se lea como una unidad.
  */
 const ESTILO_FILA = {
@@ -79,7 +78,7 @@ const COLUMNAS_FILA = {
 export function RecetaVersionForm({
   titulo,
   inicial,
-  insumos,
+  ingredientes,
   unidades,
   onSubmit,
   isLoading = false,
@@ -91,33 +90,33 @@ export function RecetaVersionForm({
   const [estado, setEstado] = useState<VersionFormState>(inicial);
   const [error, setError] = useState<string | null>(null);
 
-  const insumoPor = (id: number) => insumos.find((i) => i.id === id);
-  const simbolo = (id: number) => insumoPor(id)?.unidad_medida.simbolo ?? "";
+  const ingredientePor = (id: number) => ingredientes.find((i) => i.id === id);
+  const simbolo = (id: number) => ingredientePor(id)?.unidad_medida.simbolo ?? "";
   const reparto = calcularReparto(estado);
-  const insumosDeLaReceta = estado.insumos.filter((i) => i.insumo_id > 0);
-  const ingredientes = insumos.filter((i) => i.tipo === "ingrediente");
-  const aditivos = insumos.filter((i) => i.tipo === "aditivo");
+  const ingredientesDeLaReceta = estado.ingredientes.filter((i) => i.ingrediente_id > 0);
+  const noAditivos = ingredientes.filter((i) => !i.es_aditivo);
+  const aditivos = ingredientes.filter((i) => i.es_aditivo);
 
-  const editarInsumo = (clave: string, cambios: Partial<VersionFormState["insumos"][number]>) =>
+  const editarIngrediente = (clave: string, cambios: Partial<VersionFormState["ingredientes"][number]>) =>
     setEstado((prev) => ({
       ...prev,
-      insumos: prev.insumos.map((i) => (i.clave === clave ? { ...i, ...cambios } : i)),
+      ingredientes: prev.ingredientes.map((i) => (i.clave === clave ? { ...i, ...cambios } : i)),
     }));
 
-  const quitarInsumo = (clave: string) =>
+  const quitarIngrediente = (clave: string) =>
     setEstado((prev) => {
-      const quitado = prev.insumos.find((i) => i.clave === clave);
+      const quitado = prev.ingredientes.find((i) => i.clave === clave);
       return {
         ...prev,
-        insumos: prev.insumos.filter((i) => i.clave !== clave),
+        ingredientes: prev.ingredientes.filter((i) => i.clave !== clave),
         tareas: prev.tareas.map((t) => ({
           ...t,
-          usos: t.usos.filter((u) => u.insumo_id !== quitado?.insumo_id || !quitado?.insumo_id),
+          usos: t.usos.filter((u) => u.ingrediente_id !== quitado?.ingrediente_id || !quitado?.ingrediente_id),
         })),
       };
     });
 
-  const editarTarea = (clave: string, cambios: { descripcion?: string }) =>
+  const editarTarea = (clave: string, cambios: { descripcion?: string; procedimiento?: string }) =>
     setEstado((prev) => ({
       ...prev,
       tareas: prev.tareas.map((t) => (t.clave === clave ? { ...t, ...cambios } : t)),
@@ -126,7 +125,7 @@ export function RecetaVersionForm({
   const editarUso = (
     tareaClave: string,
     usoClave: string,
-    cambios: { insumo_id?: number; cantidad?: string },
+    cambios: { ingrediente_id?: number; cantidad?: string },
   ) =>
     setEstado((prev) => ({
       ...prev,
@@ -145,10 +144,10 @@ export function RecetaVersionForm({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!puedeEnviar(faltaProducto)) return;
-    const problema = validar(estado, insumos);
+    const problema = validar(estado, ingredientes);
     setError(problema);
     if (problema) return;
-    await onSubmit(aInput(estado, insumos));
+    await onSubmit(aInput(estado, ingredientes));
   };
 
   return (
@@ -245,23 +244,23 @@ export function RecetaVersionForm({
       </SeccionFormulario>
 
       <SeccionFormulario
-        titulo="Insumos"
-        ayuda="Cantidad total de cada ingrediente y aditivo para el rendimiento indicado. Si es ingrediente o aditivo lo define el maestro de insumos."
+        titulo="Ingredientes"
+        ayuda="Cantidad total de cada ingrediente y aditivo para el rendimiento indicado. Si es ingrediente o aditivo lo define el maestro de ingredientes."
       >
         <Stack gap="3">
-          {estado.insumos.map((fila) => {
-            const elegido = insumoPor(fila.insumo_id);
+          {estado.ingredientes.map((fila) => {
+            const elegido = ingredientePor(fila.ingrediente_id);
             return (
               <Box key={fila.clave} {...ESTILO_FILA}>
                 <Box {...COLUMNAS_FILA}>
-                  <FormField label="Insumo" mb="0">
+                  <FormField label="Ingrediente" mb="0">
                     <FormNativeSelect
-                      value={fila.insumo_id}
-                      onChange={(e) => editarInsumo(fila.clave, { insumo_id: Number(e.target.value) })}
+                      value={fila.ingrediente_id}
+                      onChange={(e) => editarIngrediente(fila.clave, { ingrediente_id: Number(e.target.value) })}
                     >
-                      <SelectPlaceholder>Seleccioná un insumo</SelectPlaceholder>
-                      <optgroup label="Ingredientes">
-                        {ingredientes.map((i) => (
+                      <SelectPlaceholder>Seleccioná un ingrediente</SelectPlaceholder>
+                      <optgroup label="No aditivos">
+                        {noAditivos.map((i) => (
                           <option key={i.id} value={i.id}>
                             {i.nombre} ({i.unidad_medida.simbolo})
                           </option>
@@ -278,31 +277,30 @@ export function RecetaVersionForm({
                   </FormField>
                   <FormField label="Cantidad" mb="0">
                     <InputUnidad
-                      unidad={fila.insumo_id ? simbolo(fila.insumo_id) : undefined}
+                      unidad={fila.ingrediente_id ? simbolo(fila.ingrediente_id) : undefined}
                       type="number"
                       min="0"
                       step="any"
                       inputMode="decimal"
                       value={fila.cantidad}
-                      onChange={(e) => editarInsumo(fila.clave, { cantidad: e.target.value })}
+                      onChange={(e) => editarIngrediente(fila.clave, { cantidad: e.target.value })}
                     />
                   </FormField>
                   <BotonAccion
                     accion="eliminar"
-                    label="Quitar insumo"
-                    onClick={() => quitarInsumo(fila.clave)}
+                    label="Quitar ingrediente"
+                    onClick={() => quitarIngrediente(fila.clave)}
                     mb="1"
                     justifySelf="end"
                   />
                 </Box>
                 {elegido && (
                   <HStack gap="2" mt="2" flexWrap="wrap">
-                    <Badge
-                      colorPalette={elegido.tipo === "aditivo" ? "purple" : "gray"}
-                      variant="subtle"
-                    >
-                      {ETIQUETA_CLASIFICACION[elegido.tipo]}
-                    </Badge>
+                    {elegido.es_aditivo && (
+                      <Badge colorPalette="purple" variant="subtle">
+                        Aditivo
+                      </Badge>
+                    )}
                     {elegido.aditivo && (
                       <Text fontSize="xs" color="fg.muted">
                         {etiquetaAditivo(elegido.aditivo)}
@@ -317,15 +315,15 @@ export function RecetaVersionForm({
         <BotonAgregar
           mt="4"
           variant="outline"
-          onClick={() => setEstado((prev) => ({ ...prev, insumos: [...prev.insumos, nuevaFilaInsumo()] }))}
+          onClick={() => setEstado((prev) => ({ ...prev, ingredientes: [...prev.ingredientes, nuevaFilaIngrediente()] }))}
         >
-          Agregar insumo
+          Agregar ingrediente
         </BotonAgregar>
       </SeccionFormulario>
 
       <SeccionFormulario
         titulo="Tareas"
-        ayuda="Etapas de elaboración, en orden. Repartí cada insumo entre las tareas donde se usa."
+        ayuda="Etapas de elaboración, en orden. Repartí cada ingrediente entre las tareas donde se usa."
       >
         <Stack gap="4">
           {estado.tareas.map((tarea, indice) => (
@@ -353,27 +351,42 @@ export function RecetaVersionForm({
                 />
               </HStack>
 
+              <FormField
+                label="Procedimiento"
+                opcional
+                helper="Cómo se hace la etapa, paso a paso. Es lo que lee quien la ejecuta en cada lote."
+                mb="4"
+              >
+                <Textarea
+                  value={tarea.procedimiento}
+                  onChange={(e) => editarTarea(tarea.clave, { procedimiento: e.target.value })}
+                  placeholder={"Ej: 1. Tamizar la harina con la sal.\n2. Agregar la levadura disuelta y amasar 10 minutos."}
+                  rows={3}
+                  maxLength={4000}
+                />
+              </FormField>
+
               <Stack gap="3" pl={{ base: "0", md: "4" }} borderLeftWidth={{ base: "0", md: "2px" }} borderColor="brand.muted">
                 {tarea.usos.map((uso) => (
                   <Box key={uso.clave} {...COLUMNAS_FILA}>
-                    <FormField label="Insumo usado" mb="0">
+                    <FormField label="Ingrediente usado" mb="0">
                       <FormNativeSelect
-                        value={uso.insumo_id}
+                        value={uso.ingrediente_id}
                         onChange={(e) =>
-                          editarUso(tarea.clave, uso.clave, { insumo_id: Number(e.target.value) })
+                          editarUso(tarea.clave, uso.clave, { ingrediente_id: Number(e.target.value) })
                         }
                       >
-                        <SelectPlaceholder>Seleccioná un insumo</SelectPlaceholder>
-                        {insumosDeLaReceta.map((i) => (
-                          <option key={i.clave} value={i.insumo_id}>
-                            {insumoPor(i.insumo_id)?.nombre ?? i.insumo_id}
+                        <SelectPlaceholder>Seleccioná un ingrediente</SelectPlaceholder>
+                        {ingredientesDeLaReceta.map((i) => (
+                          <option key={i.clave} value={i.ingrediente_id}>
+                            {ingredientePor(i.ingrediente_id)?.nombre ?? i.ingrediente_id}
                           </option>
                         ))}
                       </FormNativeSelect>
                     </FormField>
                     <FormField label="Cantidad" mb="0">
                       <InputUnidad
-                        unidad={uso.insumo_id ? simbolo(uso.insumo_id) : undefined}
+                        unidad={uso.ingrediente_id ? simbolo(uso.ingrediente_id) : undefined}
                         type="number"
                         min="0"
                         step="any"
@@ -384,7 +397,7 @@ export function RecetaVersionForm({
                     </FormField>
                     <BotonAccion
                       accion="eliminar"
-                      label="Quitar insumo de la tarea"
+                      label="Quitar ingrediente de la tarea"
                       onClick={() =>
                         setEstado((prev) => ({
                           ...prev,
@@ -412,7 +425,7 @@ export function RecetaVersionForm({
                       }))
                     }
                   >
-                    + Insumo de esta tarea
+                    + Ingrediente de esta tarea
                   </BotonCancelar>
                 </Box>
               </Stack>
@@ -433,15 +446,15 @@ export function RecetaVersionForm({
           <Stack gap="2">
             {reparto.map((r) => (
               <HStack
-                key={r.insumo_id}
+                key={r.ingrediente_id}
                 gap="2"
                 fontSize="sm"
                 color={r.completo ? "green.fg" : "orange.fg"}
               >
                 {r.completo ? <LuCircleCheck aria-hidden /> : <LuTriangleAlert aria-hidden />}
                 <Text as="span">
-                  {insumoPor(r.insumo_id)?.nombre}: repartido {formatoCantidad(r.repartido)} de{" "}
-                  {formatoCantidad(r.total)} {simbolo(r.insumo_id)}
+                  {ingredientePor(r.ingrediente_id)?.nombre}: repartido {formatoCantidad(r.repartido)} de{" "}
+                  {formatoCantidad(r.total)} {simbolo(r.ingrediente_id)}
                 </Text>
               </HStack>
             ))}

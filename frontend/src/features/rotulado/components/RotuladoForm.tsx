@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react";
+import { useCallback, useState, type ChangeEvent } from "react";
 import { Box, Button, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
 import {
   AccionesFormulario,
@@ -19,6 +19,8 @@ import { IndicadorCompletitud } from "./IndicadorCompletitud";
 import { CampoOrigen } from "./CampoOrigen";
 import { ResumenNutricional } from "./ResumenNutricional";
 import type { BorradorRotuladoOut } from "../types/rotulado";
+import { useLista } from "../../../common/hooks/useLista";
+import { obtenerAlergenosDeProducto } from "../../alergenos/services/alergenoService";
 
 interface RotuladoFormProps {
   borrador: BorradorRotuladoOut | null;
@@ -51,6 +53,7 @@ export function RotuladoForm({
     ? {
         denominacion_venta: "",
         lista_ingredientes: "",
+        alergenos: "",
         contenido_neto: "",
         rnpa_rppa: "",
         razon_social: "",
@@ -70,6 +73,7 @@ export function RotuladoForm({
     : {
         denominacion_venta: borrador?.denominacion_venta ?? "",
         lista_ingredientes: borrador?.lista_ingredientes ?? "",
+        alergenos: borrador?.alergenos ?? "",
         contenido_neto: borrador?.contenido_neto ?? "",
         rnpa_rppa: borrador?.rnpa_rppa ?? "",
         razon_social: borrador?.razon_social ?? "",
@@ -95,9 +99,26 @@ export function RotuladoForm({
 
   const { intentado, puedeEnviar } = useIntentoEnvio();
 
+  // Alérgenos que surgen de la receta: si hay, la declaración es obligatoria.
+  const productoId = borrador?.producto_id ?? 0;
+  const cargarAlergenos = useCallback(
+    () => (productoId ? obtenerAlergenosDeProducto(productoId) : Promise.resolve(null)),
+    [productoId],
+  );
+  const { items: alergenosReceta } = useLista({
+    cargar: cargarAlergenos,
+    dependencias: [productoId],
+    valorInicial: null,
+    mensajeError: "No se pudieron calcular los alérgenos de la receta.",
+  });
+  const leyendaReceta = alergenosReceta?.leyenda ?? null;
+
   const reglasFaltantes: Record<string, [boolean, string]> = {
     denominacion: [!values.denominacion_venta?.trim(), "denominación de venta"],
     ingredientes: [!values.lista_ingredientes?.trim(), "lista de ingredientes"],
+    ...(leyendaReceta
+      ? { alergenos: [!values.alergenos?.trim(), "declaración de alérgenos"] as [boolean, string] }
+      : {}),
     contenido: [!values.contenido_neto?.trim(), "contenido neto"],
     rnpa: [!values.rnpa_rppa?.trim(), "registro del producto (RNPA/RPPA)"],
     razonSocial: [!values.razon_social?.trim(), "razón social del establecimiento"],
@@ -115,6 +136,9 @@ export function RotuladoForm({
   campos.push({ nombre: "identificacion_lote", etiqueta: "Identificaci\u00f3n del lote", estado: !loteSeleccionado ? "no_aplicable" : values.identificacion_lote?.trim() ? "completo" : "pendiente" });
   for (const [nombre, etiqueta] of [["fecha_produccion", "Fecha de producci\u00f3n"], ["fecha_cierre", "Fecha de cierre"]] as const) {
     campos.push({ nombre, etiqueta, estado: !loteSeleccionado ? "no_aplicable" : values[nombre] ? "completo" : "pendiente" });
+  }
+  if (!leyendaReceta) {
+    campos.push({ nombre: "alergenos", etiqueta: "Declaración de alérgenos", estado: values.alergenos?.trim() ? "completo" : "no_aplicable" });
   }
   campos.push({ nombre: "instrucciones_uso", etiqueta: "Instrucciones de uso", estado: values.instrucciones_uso?.trim() ? "completo" : "pendiente" });
   campos.push({ nombre: "sellos_advertencia", etiqueta: "Sellos de advertencia", estado: values.sellos_disponibles ? "completo" : "no_aplicable" });
@@ -192,6 +216,41 @@ export function RotuladoForm({
               maxW="500px"
               minH="100px"
             />
+            <CampoOrigen origen="receta" version={borrador?.version_receta_numero} />
+          </FormField>
+        </Seccion>
+
+        {/* Sección 2b: Alérgenos */}
+        <Seccion titulo="Declaración de alérgenos">
+          <FormField
+            label="Alérgenos"
+            required={Boolean(leyendaReceta)}
+            mb="4"
+            helper={
+              leyendaReceta
+                ? values.alergenos?.trim() === leyendaReceta
+                  ? "Coincide con los alérgenos de los ingredientes de la receta."
+                  : `Según la receta: ${leyendaReceta}`
+                : "Ningún ingrediente de la receta tiene alérgenos cargados."
+            }
+          >
+            <Textarea
+              value={values.alergenos ?? ""}
+              onChange={(e) => setValues((prev) => ({ ...prev, alergenos: e.target.value }))}
+              placeholder="Ej: Contiene: huevo y leche. Puede contener: soja."
+              maxW="500px"
+              minH="70px"
+            />
+            {leyendaReceta && values.alergenos?.trim() !== leyendaReceta && (
+              <Button
+                size="xs"
+                variant="outline"
+                mt="2"
+                onClick={() => setValues((prev) => ({ ...prev, alergenos: leyendaReceta }))}
+              >
+                Usar la de la receta
+              </Button>
+            )}
             <CampoOrigen origen="receta" version={borrador?.version_receta_numero} />
           </FormField>
         </Seccion>

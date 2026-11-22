@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from src.lotes import schemas, services
+from src.lotesInsumo.services import saldo_lote_insumo
 from src.recetas import services as recetas_services
 from src.trazabilidad import services as trazabilidad_services
 
@@ -26,11 +27,22 @@ def _producir(escenario, objetivo="40"):
             escenario.operador,
         )
 
-    consumir(amasar, escenario.lote_harina, "19")
+    # Las etapas van en orden: la segunda se registra con la primera completada.
+    consumir(amasar, escenario.lote_harina, "20")
     consumir(amasar, escenario.lote_harina, "1", tipo="desperdicio")
-    consumir(condimentar, escenario.lote_sal, "4")
-    for item in (amasar, condimentar):
-        services.completar_item(db, lote.id, item.id, escenario.operador)
+    services.completar_item(db, lote.id, amasar.id, escenario.operador)
+    # La sal, lo planificado (4 kg cada 40). No se consume más que el saldo del
+    # lote: si el de 5 kg no alcanza, lo que falta sale de una reposición.
+    necesario = Decimal(objetivo) / 10
+    del_lote = min(necesario, saldo_lote_insumo(db, escenario.lote_sal))
+    if del_lote > 0:
+        consumir(condimentar, escenario.lote_sal, str(del_lote))
+    if necesario > del_lote:
+        reposicion = escenario.nuevo_lote_insumo(
+            escenario.sal, escenario.lote_sal.proveedor, f"S-{lote.id}", "10"
+        )
+        consumir(condimentar, reposicion, str(necesario - del_lote))
+    services.completar_item(db, lote.id, condimentar.id, escenario.operador)
     return services.cerrar_lote(db, lote.id, schemas.LoteCierre(cantidad_producida=Decimal("38")))
 
 
@@ -49,7 +61,7 @@ def test_hacia_atras_del_lote_de_producto_al_proveedor(escenario):
     assert amasar.completado_por.nombre == "Omar Operador"
     assert amasar.completado_en is not None
     assert [(c.tipo, c.cantidad) for c in amasar.consumos] == [
-        ("real", Decimal("19")),
+        ("real", Decimal("20")),
         ("desperdicio", Decimal("1")),
     ]
     assert amasar.consumos[0].lote_insumo.numero_lote == "H-100"
@@ -58,7 +70,7 @@ def test_hacia_atras_del_lote_de_producto_al_proveedor(escenario):
 
     harina = amasar.planificado[0]
     assert (harina.cantidad_planificada, harina.consumo_real, harina.desperdicio) == (
-        Decimal("20"), Decimal("19"), Decimal("1"),
+        Decimal("20"), Decimal("20"), Decimal("1"),
     )
     assert {p.nombre for p in traza.proveedores} == {"Molino Sur", "Salinas del Norte"}
     assert {l.numero_lote for l in traza.lotes_insumo} == {"H-100", "S-200"}
@@ -73,9 +85,16 @@ def test_hacia_adelante_del_lote_de_insumo_a_los_lotes_de_producto(escenario):
     assert traza.lote_insumo.proveedor.nombre == "Molino Sur"
     assert traza.cantidad_recibida == Decimal("50")
     assert [l.lote_producto_id for l in traza.lotes_producto] == [primero.id, segundo.id]
-    assert traza.lotes_producto[0].consumo_real == Decimal("19")
+    assert traza.lotes_producto[0].consumo_real == Decimal("20")
     assert traza.lotes_producto[0].desperdicio == Decimal("1")
-    assert traza.saldo == Decimal("50") - 2 * Decimal("20")
+    # El tamaño de cada lote viaja con la fila: explica por qué consumieron distinto.
+    assert [l.cantidad_objetivo for l in traza.lotes_producto] == [
+        primero.cantidad_objetivo,
+        Decimal("20"),
+    ]
+    assert traza.lotes_producto[1].factor_escala == segundo.factor_escala
+    assert traza.lotes_producto[0].unidad
+    assert traza.saldo == Decimal("50") - 2 * Decimal("21")
 
 
 def test_ida_y_vuelta_cada_lote_de_insumo_apunta_al_lote_de_producto_que_lo_uso(escenario):
@@ -98,8 +117,8 @@ def test_la_trazabilidad_conserva_la_version_original_tras_modificar_la_receta(e
             escenario,
             harina_total="30",
             tareas=[
-                {"descripcion": "Nueva tarea", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "30"}]},
-                {"descripcion": "Sal", "insumos": [{"insumo_id": escenario.sal.id, "cantidad": "2"}]},
+                {"descripcion": "Nueva tarea", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "30"}]},
+                {"descripcion": "Sal", "ingredientes": [{"ingrediente_id": escenario.sal.id, "cantidad": "2"}]},
             ],
         ),
         escenario.admin,

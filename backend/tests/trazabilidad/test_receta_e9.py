@@ -4,7 +4,6 @@ from decimal import Decimal
 
 import pytest
 
-from src.insumos.models import TIPO_INGREDIENTE
 from src.lotes import schemas as lotes_schemas
 from src.lotes import services as lotes_services
 from src.recetas import exceptions, schemas, services
@@ -17,10 +16,10 @@ from .conftest import receta_datos
 # H1 – Definir receta versionada
 # --------------------------------------------------------------------------
 
-def test_la_clasificacion_sale_del_maestro_de_insumos(escenario):
-    clasificacion = {i.insumo_id: i.clasificacion for i in escenario.version1.insumos}
+def test_si_es_aditivo_sale_del_maestro_de_ingredientes(escenario):
+    es_aditivo = {i.ingrediente_id: i.es_aditivo for i in escenario.version1.ingredientes}
 
-    assert clasificacion == {escenario.harina.id: "ingrediente", escenario.sal.id: "aditivo"}
+    assert es_aditivo == {escenario.harina.id: False, escenario.sal.id: True}
 
 
 def test_el_detalle_muestra_clase_funcional_nombre_completo_e_ins(client, escenario):
@@ -28,42 +27,43 @@ def test_el_detalle_muestra_clase_funcional_nombre_completo_e_ins(client, escena
         f"/recetas/versiones/{escenario.version1.id}", headers=escenario.h_operador
     )
 
-    renglones = {r["insumo"]["nombre"]: r for r in respuesta.json()["insumos"]}
+    renglones = {r["ingrediente"]["nombre"]: r for r in respuesta.json()["ingredientes"]}
     assert renglones["Harina 000"]["aditivo"] is None
     assert renglones["Sal fina"]["aditivo"] == {
-        "id": escenario.citrato.id,
-        "nombre": "Citrato de sodio",
+        "id": escenario.sal.id,
+        "nombre": "Sal fina",
         "numero_ins": "331",
         "clase_funcional": "Regulador de acidez",
     }
 
 
-def test_reclasificar_el_insumo_no_altera_versiones_guardadas(escenario):
-    escenario.sal.tipo = TIPO_INGREDIENTE
-    escenario.sal.aditivo_id = None
+def test_reclasificar_el_ingrediente_no_altera_versiones_guardadas(escenario):
+    escenario.sal.es_aditivo = False
+    escenario.sal.clase_funcional_id = None
+    escenario.sal.numero_ins = None
     escenario.db.commit()
 
     version = services.obtener_version(escenario.db, escenario.version1.id)
-    assert {i.clasificacion for i in version.insumos} == {"ingrediente", "aditivo"}
+    assert {i.es_aditivo for i in version.ingredientes} == {False, True}
 
 
 def test_no_se_guarda_una_receta_solo_con_aditivos(escenario):
     datos = schemas.VersionRecetaIn(
         rendimiento=Decimal("5"),
         unidad_medida_id=escenario.kg.id,
-        insumos=[{"insumo_id": escenario.sal.id, "cantidad": "1", "unidad_medida_id": escenario.kg.id}],
-        tareas=[{"descripcion": "Mezclar", "insumos": [{"insumo_id": escenario.sal.id, "cantidad": "1"}]}],
+        ingredientes=[{"ingrediente_id": escenario.sal.id, "cantidad": "1", "unidad_medida_id": escenario.kg.id}],
+        tareas=[{"descripcion": "Mezclar", "ingredientes": [{"ingrediente_id": escenario.sal.id, "cantidad": "1"}]}],
     )
 
     with pytest.raises(exceptions.SinIngredientes):
         services.crear_version(escenario.db, escenario.receta.id, datos, escenario.admin)
 
 
-def test_no_se_guarda_sin_insumos_ni_sin_rendimiento(client, escenario):
+def test_no_se_guarda_sin_ingredientes_ni_sin_rendimiento(client, escenario):
     cuerpo = receta_datos(escenario).model_dump(mode="json")
     url = f"/recetas/{escenario.receta.id}/versiones"
 
-    assert client.post(url, json={**cuerpo, "insumos": []}, headers=escenario.h_admin).status_code == 422
+    assert client.post(url, json={**cuerpo, "ingredientes": []}, headers=escenario.h_admin).status_code == 422
     assert client.post(url, json={**cuerpo, "rendimiento": "0"}, headers=escenario.h_admin).status_code == 422
     sin_rendimiento = {k: v for k, v in cuerpo.items() if k != "rendimiento"}
     assert client.post(url, json=sin_rendimiento, headers=escenario.h_admin).status_code == 422
@@ -71,7 +71,7 @@ def test_no_se_guarda_sin_insumos_ni_sin_rendimiento(client, escenario):
 
 def test_un_aditivo_sin_cantidad_se_rechaza(client, escenario):
     cuerpo = receta_datos(escenario).model_dump(mode="json")
-    cuerpo["insumos"][1]["cantidad"] = "0"
+    cuerpo["ingredientes"][1]["cantidad"] = "0"
 
     respuesta = client.post(
         f"/recetas/{escenario.receta.id}/versiones", json=cuerpo, headers=escenario.h_admin
@@ -81,11 +81,11 @@ def test_un_aditivo_sin_cantidad_se_rechaza(client, escenario):
 
 def test_un_aditivo_sin_clase_funcional_se_rechaza(escenario):
     """El CHECK de la base lo impide; el service también lo valida por si hay
-    datos viejos. Se simula en memoria (sin flush) un aditivo sin referencia."""
-    escenario.sal.aditivo = None
+    datos viejos. Se simula en memoria (sin flush) un aditivo sin clase."""
+    escenario.sal.clase_funcional = None
 
     with pytest.raises(exceptions.AditivoSinClase):
-        services._validar_insumos(escenario.db, receta_datos(escenario))
+        services._validar_ingredientes(escenario.db, receta_datos(escenario))
     escenario.db.rollback()
 
 
@@ -125,11 +125,11 @@ def test_escalar_por_cantidad_objetivo(client, escenario):
     datos = respuesta.json()
     assert datos["factor"] == "2.500000"
     assert datos["cantidad_objetivo"] == "50.000"
-    cantidades = {i["insumo"]["nombre"]: i["cantidad_escalada"] for i in datos["insumos"]}
+    cantidades = {i["ingrediente"]["nombre"]: i["cantidad_escalada"] for i in datos["ingredientes"]}
     assert cantidades == {"Harina 000": "25.000", "Sal fina": "5.000"}
-    assert datos["tareas"][0]["insumos"][0]["cantidad_escalada"] == "25.000"
-    # Respeta la unidad de cada insumo.
-    assert {i["unidad_medida"]["simbolo"] for i in datos["insumos"]} == {"kg"}
+    assert datos["tareas"][0]["ingredientes"][0]["cantidad_escalada"] == "25.000"
+    # Respeta la unidad de cada ingrediente.
+    assert {i["unidad_medida"]["simbolo"] for i in datos["ingredientes"]} == {"kg"}
 
 
 def test_escalar_por_factor_multiplicador(client, escenario):
@@ -139,7 +139,7 @@ def test_escalar_por_factor_multiplicador(client, escenario):
 
     datos = respuesta.json()
     assert datos["cantidad_objetivo"] == "40.000"
-    assert {i["insumo"]["nombre"]: i["cantidad_escalada"] for i in datos["insumos"]} == {
+    assert {i["ingrediente"]["nombre"]: i["cantidad_escalada"] for i in datos["ingredientes"]} == {
         "Harina 000": "20.000",
         "Sal fina": "4.000",
     }
@@ -160,7 +160,7 @@ def test_escalar_no_modifica_la_receta_guardada(client, escenario):
     escenario.db.expire_all()
     version = services.obtener_version(escenario.db, escenario.version1.id)
     assert escenario.db.query(VersionReceta).count() == antes
-    assert {i.cantidad for i in version.insumos} == {Decimal("10.000"), Decimal("2.000")}
+    assert {i.cantidad for i in version.ingredientes} == {Decimal("10.000"), Decimal("2.000")}
 
 
 def test_el_lote_se_puede_iniciar_con_un_factor(escenario):
@@ -188,9 +188,9 @@ def test_api_el_operador_inicia_el_lote_con_las_cantidades_escaladas(client, esc
 
     assert lote.status_code == 201
     planificado = {
-        i["insumo_nombre"]: i["cantidad_planificada"]
+        i["ingrediente_nombre"]: i["cantidad_planificada"]
         for item in lote.json()["checklist"]
-        for i in item["insumos"]
+        for i in item["ingredientes"]
     }
     assert planificado == {"Harina 000": "25.000", "Sal fina": "5.000"}
 

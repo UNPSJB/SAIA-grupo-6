@@ -1,33 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Badge,
-  Box,
-  Button,
-  HStack,
-  Heading,
-  SimpleGrid,
-  Stack,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
-import {
-  LuBuilding2,
-  LuCalendar,
-  LuCircleCheck,
-  LuClock,
-  LuExternalLink,
-  LuFilter,
-  LuInfo,
-  LuPackage,
-  LuRotateCcw,
-  LuShieldAlert,
-  LuShieldCheck,
-  LuTruck,
-  LuUser,
-  LuUserCheck,
-  LuX,
-} from "react-icons/lu";
-import { BotonCancelar, EtiquetaEstado, Tarjeta } from "../../../components/ui/patrones";
+import { Badge, Box, HStack, Heading, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { LuRotateCcw, LuShieldCheck, LuX } from "react-icons/lu";
+import { BotonCancelar, Tarjeta } from "../../../components/ui/patrones";
 import { getTimelineLote } from "../../lotes/services/loteService";
 import type { LoteTimelineResponse, NodoTimeline } from "../../lotes/types/timeline";
 import type { GrafoTrazabilidadResponse, NodoGrafo } from "../types/grafo";
@@ -115,9 +89,9 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
     const nodoCierreTimeline = (timeline?.nodos || []).find((n) => n.tipo === "cierre");
 
     // Dimensiones y espaciados amplios
-    const cantInsumos = Math.max(lotesInsumo.length, 1);
+    const cantIngredientes = Math.max(lotesInsumo.length, 1);
     const cantSalidas = Math.max(salidas.length, 1);
-    const cantMaxLateral = Math.max(cantInsumos, cantSalidas);
+    const cantMaxLateral = Math.max(cantIngredientes, cantSalidas);
 
     const espaciadoY = 120;
     const altoMinimo = 480;
@@ -140,20 +114,20 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
     const xC = xD + colGap;
     const anchoTotal = xC + 180;
 
-    // --- 1. ZONA IZQUIERDA: Insumos (P) -> (L) ---
-    const inicioYInsumos = centerY - ((cantInsumos - 1) * espaciadoY) / 2;
+    // --- 1. ZONA IZQUIERDA: Ingredientes (P) -> (L) ---
+    const inicioYIngredientes = centerY - ((cantIngredientes - 1) * espaciadoY) / 2;
 
-    // Mapeo insumo_id -> tarea_id donde se consumió
-    const insumoToTareaMap: Record<string, string> = {};
+    // Mapeo ingrediente_id -> tarea_id donde se consumió
+    const ingredienteToTareaMap: Record<string, string> = {};
     if (timeline) {
       timeline.nodos.forEach((n) => {
-        if (n.tipo === "tarea" && n.detalle?.insumos_consumidos) {
-          n.detalle.insumos_consumidos.forEach((c) => {
-            const matchInsumo = lotesInsumo.find(
-              (li) => li.metadatos?.numero_lote === c.lote_insumo_codigo || li.titulo.includes(c.insumo_nombre)
+        if (n.tipo === "tarea" && n.detalle?.ingredientes_consumidos) {
+          n.detalle.ingredientes_consumidos.forEach((c) => {
+            const matchIngrediente = lotesInsumo.find(
+              (li) => li.metadatos?.numero_lote === c.lote_insumo_codigo || li.titulo.includes(c.ingrediente_nombre)
             );
-            if (matchInsumo) {
-              insumoToTareaMap[matchInsumo.id] = n.id;
+            if (matchIngrediente) {
+              ingredienteToTareaMap[matchIngrediente.id] = n.id;
             }
           });
         }
@@ -161,7 +135,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
     }
 
     lotesInsumo.forEach((li, idx) => {
-      const yNodo = inicioYInsumos + idx * espaciadoY;
+      const yNodo = inicioYIngredientes + idx * espaciadoY;
 
       // Buscar proveedor asociado
       const conexionProv = grafo.conexiones.find((c) => c.destino_id === li.id);
@@ -179,7 +153,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
           radio: 22,
           tipoVisual: "P",
           linea1: truncar(prov.titulo, 16),
-          linea2: truncar(prov.subtitulo || "Proveedor Homol.", 18),
+          linea2: truncar(prov.subtitulo || "Proveedor", 18),
           nodoRaw: prov,
           colorBg: "#FAF5FF",
           colorBorder: "#9333EA",
@@ -217,7 +191,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
       }
 
       // Conexión curva desde (L) hacia el paso correspondiente o hacia el Inicio
-      const tareaTargetId = insumoToTareaMap[li.id];
+      const tareaTargetId = ingredienteToTareaMap[li.id];
       const targetPasoIdx = tareasTimeline.findIndex((t) => t.id === tareaTargetId);
       const targetX = targetPasoIdx >= 0 ? xPrimerPaso + targetPasoIdx * pasoSpacing : xInicio;
       const targetId = targetPasoIdx >= 0 ? `paso_${targetPasoIdx + 1}` : "lote_inicio";
@@ -314,7 +288,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
       tipoVisual: "Fin",
       numeroPaso: "Fin",
       linea1: truncar(`Fin: ${grafo.producto_nombre}`, 16),
-      linea2: truncar(`${nodoLoteProd?.metadatos?.producido || "100"} u prod.`, 18),
+      linea2: truncar(nodoLoteProd?.metadatos?.producido ? `${nodoLoteProd.metadatos.producido} u prod.` : "Sin cantidad", 18),
       nodoRaw: nodoCierreTimeline || nodoLoteProd || {
         id: "lote_fin",
         columna: "lote_producto",
@@ -365,7 +339,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
         radio: 22,
         tipoVisual: "R",
         linea1: truncar(`Reserva #${salida.metadatos?.salida_id || salida.id}`, 16),
-        linea2: `${cantSalidaFmt || "?"}`,
+        linea2: `${cantSalidaFmt || "—"}`,
         nodoRaw: salida,
         colorBg: "#EFF6FF",
         colorBorder: "#3B82F6",
@@ -380,7 +354,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
         radio: 22,
         tipoVisual: "D",
         linea1: truncar(salida.subtitulo || "Despacho", 16),
-        linea2: truncar(salida.badge || "En tránsito", 18),
+        linea2: truncar(salida.badge || "Sin estado", 18),
         nodoRaw: salida,
         colorBg: "#FFF7ED",
         colorBorder: "#F97316",
@@ -396,7 +370,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
           radio: 22,
           tipoVisual: "C",
           linea1: truncar(cliente.titulo, 16),
-          linea2: truncar(cliente.badge || "Cliente Conforme", 18),
+          linea2: truncar(cliente.badge || "Cliente", 18),
           nodoRaw: cliente,
           colorBg: "#F0FDF4",
           colorBorder: "#16A34A",
@@ -757,7 +731,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
                       </Heading>
                       <Badge size="xs" colorPalette="blue" variant="subtle">
                         {nodoSeleccionado.tipoVisual === "P"
-                          ? "Proveedor Certificado"
+                          ? "Proveedor"
                           : nodoSeleccionado.tipoVisual === "L"
                             ? "Lote de Materia Prima"
                             : nodoSeleccionado.tipoVisual === "Paso"
@@ -796,21 +770,31 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">MATRÍCULA BROMATOLÓGICA (RPE/RNE)</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.matricula || "RPE-0982-BA"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.matricula || "—"}
                       </Text>
                     </Box>
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">CUIT</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.cuit || "30-71234567-8"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.cuit || "—"}
                       </Text>
                     </Box>
                     <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">ESTADO DE HOMOLOGACIÓN</Text>
-                      <HStack gap="1" color="green.fg">
-                        <LuShieldCheck />
-                        <Text fontSize="xs" fontWeight="bold">Proveedor Homologado y Activo</Text>
-                      </HStack>
+                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">ESTADO</Text>
+                      {(() => {
+                        const datos = (nodoSeleccionado.nodoRaw as NodoGrafo).metadatos;
+                        const activo = datos?.activo !== false;
+                        return (
+                          <HStack gap="1" color={activo ? "green.fg" : "fg.muted"}>
+                            <LuShieldCheck />
+                            <Text fontSize="xs" fontWeight="bold">
+                              {datos?.es_certificado ? "Con certificación requerida" : "Sin certificación requerida"}
+                              {" · "}
+                              {activo ? "Activo" : "Dado de baja"}
+                            </Text>
+                          </HStack>
+                        );
+                      })()}
                     </Box>
                   </SimpleGrid>
                 )}
@@ -831,7 +815,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">FECHA DE VENCIMIENTO</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.vence || "Vigente"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.vence || "Sin vencimiento"}
                       </Text>
                     </Box>
                     <Box>
@@ -853,7 +837,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">OPERARIO FIRMANTE</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoTimeline).detalle?.operario_nombre || "Operario de planta"}
+                        {(nodoSeleccionado.nodoRaw as NodoTimeline).detalle?.operario_nombre || "—"}
                       </Text>
                     </Box>
                     <Box>
@@ -883,13 +867,15 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">CANTIDAD PRODUCIDA</Text>
                       <Text fontSize="sm" fontWeight="bold" color="green.fg">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.producido || "100"} u
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.producido
+                          ? `${(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos.producido} u`
+                          : "—"}
                       </Text>
                     </Box>
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">VENCIMIENTO COMERCIAL</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.vencimiento || "Vigente"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.vencimiento || "Sin vencimiento"}
                       </Text>
                     </Box>
                     <Box>
@@ -911,19 +897,21 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">TRANSPORTE Y HABILITACIÓN</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.transportista || "Transporte certificado SENASA"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.transportista || "Sin transportista"}
                       </Text>
                     </Box>
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">ESTADO LOGÍSTICO</Text>
                       <Badge size="xs" colorPalette="teal" variant="subtle">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).badge || "ENTREGADO"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).badge || "—"}
                       </Badge>
                     </Box>
                     <Box>
                       <Text fontSize="2xs" color="fg.muted" fontWeight="bold">REMITO DE ENTREGA</Text>
                       <Text fontSize="sm" fontWeight="medium">
-                        #{(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.salida_id || "REM-001"}
+                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.salida_id
+                          ? `#${(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos.salida_id}`
+                          : "—"}
                       </Text>
                     </Box>
                   </SimpleGrid>
@@ -934,7 +922,7 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
         ) : (
           <Tarjeta p="4" textAlign="center" bg="bg.panel" borderColor="border.subtle">
             <Text fontSize="xs" color="fg.muted">
-              💡 Hacé clic en cualquier nodo (proveedor, insumo, paso, lote final, transporte o cliente) para trazar su recorrido bidireccional y consultar sus datos de auditoría.
+              💡 Hacé clic en cualquier nodo (proveedor, ingrediente, paso, lote final, transporte o cliente) para trazar su recorrido bidireccional y consultar sus datos de auditoría.
             </Text>
           </Tarjeta>
         )}

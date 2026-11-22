@@ -43,6 +43,8 @@ class BorradorRotulado(ModeloBase):
     )
     denominacion_venta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     lista_ingredientes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Declaración de alérgenos ("Contiene: ... Puede contener: ...").
+    alergenos: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     contenido_neto: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     rnpa_rppa: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     razon_social: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)

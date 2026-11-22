@@ -3,17 +3,16 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from src.aditivos.models import Aditivo
 from src.aditivos.services import resumen as resumen_aditivo
-from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
+from src.ingredientes.models import Ingrediente
 from src.personal.models import Personal
 from src.productos.models import Producto
 from src.recetas import exceptions, schemas
 from src.recetas.models import (
     Receta,
-    RecetaInsumo,
+    RecetaIngrediente,
     TareaReceta,
-    TareaRecetaInsumo,
+    TareaRecetaIngrediente,
     VersionReceta,
 )
 from src.unidadMedida.models import UnidadMedida
@@ -52,15 +51,14 @@ def obtener_version(db: Session, version_id: int) -> VersionReceta:
             selectinload(VersionReceta.creado_por),
             selectinload(VersionReceta.unidad_medida),
             selectinload(VersionReceta.porcion_unidad_medida),
-            selectinload(VersionReceta.insumos)
-            .selectinload(RecetaInsumo.insumo)
-            .selectinload(Insumo.aditivo)
-            .selectinload(Aditivo.clase_funcional),
-            selectinload(VersionReceta.insumos).selectinload(RecetaInsumo.unidad_medida),
+            selectinload(VersionReceta.ingredientes)
+            .selectinload(RecetaIngrediente.ingrediente)
+            .selectinload(Ingrediente.clase_funcional),
+            selectinload(VersionReceta.ingredientes).selectinload(RecetaIngrediente.unidad_medida),
             selectinload(VersionReceta.tareas)
-            .selectinload(TareaReceta.insumos)
-            .selectinload(TareaRecetaInsumo.receta_insumo)
-            .selectinload(RecetaInsumo.insumo),
+            .selectinload(TareaReceta.ingredientes)
+            .selectinload(TareaRecetaIngrediente.receta_ingrediente)
+            .selectinload(RecetaIngrediente.ingrediente),
         )
     )
     if version is None:
@@ -68,7 +66,7 @@ def obtener_version(db: Session, version_id: int) -> VersionReceta:
     return version
 
 
-def _validar_insumos(db: Session, datos: schemas.VersionRecetaIn) -> dict[int, Insumo]:
+def _validar_ingredientes(db: Session, datos: schemas.VersionRecetaIn) -> dict[int, Ingrediente]:
     if db.get(UnidadMedida, datos.unidad_medida_id) is None:
         raise exceptions.UnidadNoEncontrada()
     if datos.porcion_cantidad is not None and datos.porcion_unidad_medida_id is None:
@@ -79,46 +77,44 @@ def _validar_insumos(db: Session, datos: schemas.VersionRecetaIn) -> dict[int, I
         if db.get(UnidadMedida, datos.porcion_unidad_medida_id) is None:
             raise exceptions.UnidadNoEncontrada()
 
-    ids = [i.insumo_id for i in datos.insumos]
+    ids = [i.ingrediente_id for i in datos.ingredientes]
     if len(set(ids)) != len(ids):
-        raise exceptions.InsumoRepetido()
+        raise exceptions.IngredienteRepetido()
 
-    insumos = {
+    ingredientes = {
         i.id: i
         for i in db.scalars(
-            select(Insumo)
-            .where(Insumo.id.in_(ids), Insumo.activo.is_(True))
-            .options(selectinload(Insumo.aditivo).selectinload(Aditivo.clase_funcional))
+            select(Ingrediente)
+            .where(Ingrediente.id.in_(ids), Ingrediente.activo.is_(True))
+            .options(selectinload(Ingrediente.clase_funcional))
         ).all()
     }
-    for item in datos.insumos:
-        insumo = insumos.get(item.insumo_id)
-        if insumo is None:
-            raise exceptions.InsumoNoEncontrado()
-        if insumo.unidad_medida_id != item.unidad_medida_id:
+    for item in datos.ingredientes:
+        ingrediente = ingredientes.get(item.ingrediente_id)
+        if ingrediente is None:
+            raise exceptions.IngredienteNoEncontrado()
+        if ingrediente.unidad_medida_id != item.unidad_medida_id:
             raise exceptions.UnidadNoCoincide()
-        # El CHECK de `insumos` ya lo impide; esto cubre datos viejos o editados a mano.
-        if insumo.tipo == TIPO_ADITIVO and (
-            insumo.aditivo is None or insumo.aditivo.clase_funcional is None
-        ):
+        # El CHECK de `ingredientes` ya lo impide; esto cubre datos viejos o editados a mano.
+        if ingrediente.es_aditivo and ingrediente.clase_funcional is None:
             raise exceptions.AditivoSinClase()
-    if not any(i.tipo == TIPO_INGREDIENTE for i in insumos.values()):
+    if all(i.es_aditivo for i in ingredientes.values()):
         raise exceptions.SinIngredientes()
-    return insumos
+    return ingredientes
 
 
 def _validar_reparto(datos: schemas.VersionRecetaIn) -> None:
-    totales = {i.insumo_id: _q(i.cantidad) for i in datos.insumos}
-    repartido: dict[int, Decimal] = {insumo_id: Decimal("0") for insumo_id in totales}
+    totales = {i.ingrediente_id: _q(i.cantidad) for i in datos.ingredientes}
+    repartido: dict[int, Decimal] = {ingrediente_id: Decimal("0") for ingrediente_id in totales}
     for tarea in datos.tareas:
         vistos = set()
-        for uso in tarea.insumos:
-            if uso.insumo_id not in totales:
-                raise exceptions.TareaInsumoDesconocido()
-            if uso.insumo_id in vistos:
-                raise exceptions.TareaInsumoRepetido()
-            vistos.add(uso.insumo_id)
-            repartido[uso.insumo_id] += _q(uso.cantidad)
+        for uso in tarea.ingredientes:
+            if uso.ingrediente_id not in totales:
+                raise exceptions.TareaIngredienteDesconocido()
+            if uso.ingrediente_id in vistos:
+                raise exceptions.TareaIngredienteRepetido()
+            vistos.add(uso.ingrediente_id)
+            repartido[uso.ingrediente_id] += _q(uso.cantidad)
     if any(repartido[i] != totales[i] for i in totales):
         raise exceptions.RepartoIncompleto()
 
@@ -129,7 +125,7 @@ def _armar_version(
     datos: schemas.VersionRecetaIn,
     usuario: Personal | None,
 ) -> VersionReceta:
-    insumos = _validar_insumos(db, datos)
+    ingredientes = _validar_ingredientes(db, datos)
     _validar_reparto(datos)
 
     ultimo = db.scalar(
@@ -146,23 +142,26 @@ def _armar_version(
         vida_util_dias=datos.vida_util_dias,
         creado_por_id=usuario.id if usuario else None,
     )
-    por_insumo = {
-        item.insumo_id: RecetaInsumo(
+    por_ingrediente = {
+        item.ingrediente_id: RecetaIngrediente(
             version=version,
-            insumo=insumos[item.insumo_id],
+            ingrediente=ingredientes[item.ingrediente_id],
             cantidad=item.cantidad,
             unidad_medida_id=item.unidad_medida_id,
-            # Copia del tipo del maestro: la versión es inmutable y no debe
-            # cambiar si después se reclasifica el insumo.
-            clasificacion=insumos[item.insumo_id].tipo,
+            # Copia de la marca del maestro: la versión es inmutable y no debe
+            # cambiar si después se reclasifica el ingrediente.
+            es_aditivo=ingredientes[item.ingrediente_id].es_aditivo,
         )
-        for item in datos.insumos
+        for item in datos.ingredientes
     }
     for orden, tarea_in in enumerate(datos.tareas, start=1):
-        tarea = TareaReceta(version=version, orden=orden, descripcion=tarea_in.descripcion)
-        for uso in tarea_in.insumos:
-            TareaRecetaInsumo(
-                tarea=tarea, receta_insumo=por_insumo[uso.insumo_id], cantidad=uso.cantidad
+        tarea = TareaReceta(
+            version=version, orden=orden, descripcion=tarea_in.descripcion,
+            procedimiento=tarea_in.procedimiento,
+        )
+        for uso in tarea_in.ingredientes:
+            TareaRecetaIngrediente(
+                tarea=tarea, receta_ingrediente=por_ingrediente[uso.ingrediente_id], cantidad=uso.cantidad
             )
     db.add(version)
     return version
@@ -252,11 +251,11 @@ def nombre_personal(persona: Personal | None) -> str | None:
     return nombre or None
 
 
-def _aditivo_de(receta_insumo: RecetaInsumo):
+def _aditivo_de(receta_ingrediente: RecetaIngrediente):
     """Datos del aditivo (clase funcional, nombre completo, INS) si el renglón lo es."""
-    if receta_insumo.clasificacion != TIPO_ADITIVO:
+    if not receta_ingrediente.es_aditivo:
         return None
-    return resumen_aditivo(receta_insumo.insumo.aditivo)
+    return resumen_aditivo(receta_ingrediente.ingrediente)
 
 
 def _resumen_version(version: VersionReceta) -> dict:
@@ -283,29 +282,30 @@ def a_detalle(version: VersionReceta) -> schemas.VersionDetalle:
     return schemas.VersionDetalle(
         **_resumen_version(version),
         receta_id=version.receta_id,
-        insumos=[
-            schemas.RecetaInsumoResponse(
+        ingredientes=[
+            schemas.RecetaIngredienteResponse(
                 id=i.id,
-                insumo=schemas.InsumoResumen.model_validate(i.insumo),
+                ingrediente=schemas.IngredienteResumen.model_validate(i.ingrediente),
                 cantidad=i.cantidad,
                 unidad_medida=schemas.UnidadResumen.model_validate(i.unidad_medida),
-                clasificacion=i.clasificacion,
+                es_aditivo=i.es_aditivo,
                 aditivo=_aditivo_de(i),
             )
-            for i in version.insumos
+            for i in version.ingredientes
         ],
         tareas=[
             schemas.TareaRecetaResponse(
                 id=t.id,
                 orden=t.orden,
                 descripcion=t.descripcion,
-                insumos=[
-                    schemas.TareaInsumoResponse(
-                        receta_insumo_id=u.receta_insumo_id,
-                        insumo=schemas.InsumoResumen.model_validate(u.receta_insumo.insumo),
+                procedimiento=t.procedimiento,
+                ingredientes=[
+                    schemas.TareaIngredienteResponse(
+                        receta_ingrediente_id=u.receta_ingrediente_id,
+                        ingrediente=schemas.IngredienteResumen.model_validate(u.receta_ingrediente.ingrediente),
                         cantidad=u.cantidad,
                     )
-                    for u in t.insumos
+                    for u in t.ingredientes
                 ],
             )
             for t in version.tareas
@@ -345,7 +345,7 @@ def escalar_receta(
 ) -> schemas.RecetaEscalada:
     """Cantidades de la versión vigente multiplicadas por el factor.
 
-    Cada cantidad queda en la unidad del insumo (la de la receta), así que el
+    Cada cantidad queda en la unidad del ingrediente (la de la receta), así que el
     cálculo respeta las unidades. Es solo lectura: no toca la receta guardada.
     """
     receta = obtener_receta(db, receta_id)
@@ -365,31 +365,31 @@ def escalar_receta(
         version=schemas.VersionResumen(**_resumen_version(version)),
         factor=factor,
         cantidad_objetivo=objetivo,
-        insumos=[
-            schemas.InsumoEscalado(
-                insumo=schemas.InsumoResumen.model_validate(i.insumo),
-                clasificacion=i.clasificacion,
+        ingredientes=[
+            schemas.IngredienteEscalado(
+                ingrediente=schemas.IngredienteResumen.model_validate(i.ingrediente),
+                es_aditivo=i.es_aditivo,
                 aditivo=_aditivo_de(i),
                 unidad_medida=schemas.UnidadResumen.model_validate(i.unidad_medida),
                 cantidad_receta=i.cantidad,
                 cantidad_escalada=escalada(i.cantidad),
             )
-            for i in version.insumos
+            for i in version.ingredientes
         ],
         tareas=[
             schemas.TareaEscalada(
                 orden=t.orden,
                 descripcion=t.descripcion,
-                insumos=[
-                    schemas.TareaInsumoEscalado(
-                        insumo=schemas.InsumoResumen.model_validate(u.receta_insumo.insumo),
+                ingredientes=[
+                    schemas.TareaIngredienteEscalado(
+                        ingrediente=schemas.IngredienteResumen.model_validate(u.receta_ingrediente.ingrediente),
                         unidad_medida=schemas.UnidadResumen.model_validate(
-                            u.receta_insumo.unidad_medida
+                            u.receta_ingrediente.unidad_medida
                         ),
                         cantidad_receta=u.cantidad,
                         cantidad_escalada=escalada(u.cantidad),
                     )
-                    for u in t.insumos
+                    for u in t.ingredientes
                 ],
             )
             for t in version.tareas

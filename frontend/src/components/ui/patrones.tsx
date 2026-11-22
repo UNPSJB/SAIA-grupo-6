@@ -415,7 +415,7 @@ export function TextoTruncado({
 /*
  * `cifra` es para las tablas con muchas columnas de cantidades seguidas
  * (stock: recibido, consumo, desperdicio, bajas, stock, vencido). Con seis
- * `amplia` sumaban 96% y a la columna del insumo le quedaba el 4%: el
+ * `amplia` sumaban 96% y a la columna del ingrediente le quedaba el 4%: el
  * encabezado se partía en "Insu/mo" y los nombres quedaban en "A…".
  *
  * Va en `rem` y no en porcentaje, a diferencia del resto: una cantidad con su
@@ -686,7 +686,7 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   minimo: LuGauge,
   asociar: LuLink,
   escalar: LuCalculator,
-  // E11: datos e información nutricional (insumos y productos).
+  // E11: datos e información nutricional (ingredientes y productos).
   nutricion: LuApple,
   // E12.1: aplicabilidad del rotulado frontal.
   rotulado: LuTag,

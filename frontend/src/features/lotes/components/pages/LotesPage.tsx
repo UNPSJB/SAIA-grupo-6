@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, HStack, Table } from "@chakra-ui/react";
+import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
 import { BotonExportar } from "../../../exportacion";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { TabSalidas } from "../../../salidas/components/pages/SalidasPage";
@@ -151,14 +151,17 @@ function TabLotes() {
               opciones={productos}
               todos="Todos los productos"
             />
-            <FiltroSelect
-              label="Estado"
-              valor={estado}
-              onCambio={(v) => setEstado(v as EstadoLote | "")}
-              opciones={ESTADOS_LOTE.map((e) => ({ valor: e.valor, etiqueta: e.etiqueta }))}
-              todos="Todos los estados"
-              minW="180px"
-            />
+            {/* Quien opera solo ve lotes en proceso: el estado no filtra nada. */}
+            {esAdmin && (
+              <FiltroSelect
+                label="Estado"
+                valor={estado}
+                onCambio={(v) => setEstado(v as EstadoLote | "")}
+                opciones={ESTADOS_LOTE.map((e) => ({ valor: e.valor, etiqueta: e.etiqueta }))}
+                todos="Todos los estados"
+                minW="180px"
+              />
+            )}
             <Box minW="150px">
               <LabelFiltro>Desde</LabelFiltro>
               <FormInput
@@ -209,6 +212,13 @@ function TabLotes() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
+      {!esAdmin && (
+        <Text fontSize="sm" color="fg.muted">
+          Ves los lotes en proceso con tareas asignadas a vos o sin asignar. Los lotes cerrados se
+          consultan desde sus salidas, reclamos o retiros.
+        </Text>
+      )}
+
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando pagina>Cargando lotes...</EstadoCargando>}
 
@@ -218,7 +228,11 @@ function TabLotes() {
             No hay lotes que coincidan con los filtros aplicados.
           </EstadoVacioFiltrado>
         ) : (
-          <EstadoVacio>Todavía no hay lotes de producción registrados.</EstadoVacio>
+          <EstadoVacio>
+            {esAdmin
+              ? "Todavía no hay lotes de producción registrados."
+              : "No hay lotes en proceso con tareas para vos."}
+          </EstadoVacio>
         ))}
 
       {!loading && !error && filtrados.length > 0 && (

@@ -16,29 +16,51 @@ Idempotente: si la tabla ya no tiene las columnas, no hace nada.
 import logging
 
 from sqlalchemy import text
-from sqlalchemy.schema import CreateTable
 
 from src.database import engine
-from src.nutricion.models import PerfilNutricionalInsumo
 
-from .base import columnas_de, tablas
+from .base import columnas_de, hay_insumos_viejo, tablas
 
 logger = logging.getLogger(__name__)
 
 TABLA = "perfiles_nutricionales_insumo"
+
+# Esquema del perfil congelado tal como era al escribir esta migración. No se
+# genera desde el modelo: la tabla después pasó a llamarse
+# `perfiles_nutricionales_ingrediente`.
+_COLUMNAS_PERFIL = (
+    "insumo_id",
+    "aporta_energia_sodio",
+    "azucares_son_anadidos",
+    "grasas_son_anadidas",
+    "sodio_es_anadido",
+    "contiene_edulcorantes",
+    "contiene_cafeina",
+)
+_DDL_PERFIL = f"""CREATE TABLE {TABLA} (
+	insumo_id INTEGER NOT NULL,
+	aporta_energia_sodio BOOLEAN NOT NULL,
+	azucares_son_anadidos BOOLEAN DEFAULT '0' NOT NULL,
+	grasas_son_anadidas BOOLEAN DEFAULT '0' NOT NULL,
+	sodio_es_anadido BOOLEAN DEFAULT '0' NOT NULL,
+	contiene_edulcorantes BOOLEAN DEFAULT '0' NOT NULL,
+	contiene_cafeina BOOLEAN DEFAULT '0' NOT NULL,
+	PRIMARY KEY (insumo_id),
+	FOREIGN KEY(insumo_id) REFERENCES insumos (id) ON DELETE CASCADE
+)"""
 # columna del perfil -> columna del insumo
 COPIAS = {"densidad_g_ml": "densidad_g_ml", "peso_unidad_g": "peso_unitario_g"}
 
 
 def migrar_conversion_a_insumo() -> None:
-    if TABLA not in tablas() or "insumos" not in tablas():
+    if TABLA not in tablas() or not hay_insumos_viejo():
         return
     columnas = columnas_de(TABLA)
     viejas = [c for c in COPIAS if c in columnas]
     if not viejas:
         return
     columnas_insumo = columnas_de("insumos")
-    conservadas = [c.name for c in PerfilNutricionalInsumo.__table__.columns if c.name in columnas]
+    conservadas = [c for c in _COLUMNAS_PERFIL if c in columnas]
 
     with engine.connect() as conexion:
         fk_habilitadas = conexion.execute(text("PRAGMA foreign_keys")).scalar_one()
@@ -78,7 +100,7 @@ def migrar_conversion_a_insumo() -> None:
 
                 logger.info("Migración: reconstruyendo %s sin densidad ni peso.", TABLA)
                 conexion.execute(text(f"ALTER TABLE {TABLA} RENAME TO {TABLA}__vieja"))
-                conexion.execute(CreateTable(PerfilNutricionalInsumo.__table__))
+                conexion.execute(text(_DDL_PERFIL))
                 lista = ", ".join(conservadas)
                 conexion.execute(
                     text(f"INSERT INTO {TABLA} ({lista}) SELECT {lista} FROM {TABLA}__vieja")

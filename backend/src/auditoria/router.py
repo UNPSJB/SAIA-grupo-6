@@ -109,7 +109,7 @@ def obtener_detalle_auditoria(
 ):
     """Detalle de un evento de auditoría, con los cambios enriquecidos para
     mostrar nombres legibles de entidades relacionadas (nombres de equipos,
-    personas, insumos, etc.) en vez de solo IDs."""
+    personas, ingredientes, etc.) en vez de solo IDs."""
     fila = services.obtener_auditoria_por_id(db, audit_id)
     if fila is None:
         raise HTTPException(

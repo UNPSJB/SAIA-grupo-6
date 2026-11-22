@@ -3,7 +3,7 @@
 from sqlalchemy import select
 
 from src.exceptions import ConflictoRegistroInactivo
-from src.insumos.models import Insumo
+from src.ingredientes.models import Ingrediente
 from src.insumoQuimico.models import InsumoQuimico, TipoQuimico
 from src.unidadMedida import exceptions, schemas
 from src.unidadMedida.models import UnidadMedida
@@ -298,19 +298,19 @@ def test_eliminar_unidad_medida_no_existe(db_session):
         raise AssertionError("Se esperaba UnidadMedidaNoEncontrada")
 
 
-def test_eliminar_unidad_medida_en_uso_por_insumo_activo_lanza_en_uso(db_session):
+def test_eliminar_unidad_medida_en_uso_por_ingrediente_activo_lanza_en_uso(db_session):
     # Arrange
     um = _um(db_session, nombre="Kilogramo", simbolo="KG")
-    insumo = Insumo(
-        nombre="Insumo X",
+    ingrediente = Ingrediente(
+        nombre="Ingrediente X",
         unidad_medida_id=um.id,
         activo=True,
     )
     db_session.info["sin_auditoria"] = True
     try:
-        db_session.add(insumo)
+        db_session.add(ingrediente)
         db_session.commit()
-        db_session.refresh(insumo)
+        db_session.refresh(ingrediente)
     finally:
         db_session.info.pop("sin_auditoria", None)
 
@@ -349,19 +349,19 @@ def test_eliminar_unidad_medida_en_uso_por_insumo_quimico_activo_lanza_en_uso(db
         raise AssertionError("Se esperaba UnidadMedidaEnUso")
 
 
-def test_eliminar_unidad_medida_insumo_inactivo_no_bloquea(db_session):
+def test_eliminar_unidad_medida_ingrediente_inactivo_no_bloquea(db_session):
     # Arrange
     um = _um(db_session, nombre="Kilogramo", simbolo="KG")
-    insumo = Insumo(
-        nombre="Insumo X",
+    ingrediente = Ingrediente(
+        nombre="Ingrediente X",
         unidad_medida_id=um.id,
         activo=False,
     )
     db_session.info["sin_auditoria"] = True
     try:
-        db_session.add(insumo)
+        db_session.add(ingrediente)
         db_session.commit()
-        db_session.refresh(insumo)
+        db_session.refresh(ingrediente)
     finally:
         db_session.info.pop("sin_auditoria", None)
 

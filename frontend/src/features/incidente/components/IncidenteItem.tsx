@@ -44,11 +44,13 @@ export function IncidenteItem({
 }: IncidenteItemProps) {
   const navigate = useNavigate();
   const cerrado = incidente.estado === "cerrado";
+  // Respuestas viejas traían el tipo en `tipo_incidente` o con su etiqueta.
+  const tipoViejo = (incidente as Incidente & { tipo_incidente?: string }).tipo_incidente;
   const esEntregaRechazada =
     incidente.tipo === "entrega_rechazada" ||
     (incidente.tipo as string) === "Entrega rechazada" ||
-    (incidente as any).tipo_incidente === "entrega_rechazada" ||
-    (incidente as any).tipo_incidente === "Entrega rechazada";
+    tipoViejo === "entrega_rechazada" ||
+    tipoViejo === "Entrega rechazada";
   // El retiro de lote también se resuelve desde su circuito (cerrar el retiro),
   // igual que el rechazo de mercadería: acá no se ofrece el cierre manual.
   const esRetiroLote = incidente.tipo === "retiro_lote";

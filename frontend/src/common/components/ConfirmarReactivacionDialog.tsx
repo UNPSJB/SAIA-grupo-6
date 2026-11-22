@@ -15,7 +15,7 @@ interface ConfirmarReactivacionDialogProps {
   onConfirm: () => void;
 }
 
-// Diálogo genérico: no sabe si es una Persona, un Equipo o un Insumo.
+// Diálogo genérico: no sabe si es una Persona, un Equipo o un Ingrediente.
 // Solo necesita el mensaje a mostrar y qué hacer al confirmar/cancelar.
 // Cada feature arma su propio `mensaje` (viene del backend, en `err.message`
 // de un ConflictoInactivoError) y decide qué hacer en `onConfirm`.

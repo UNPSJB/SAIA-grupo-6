@@ -18,6 +18,17 @@ def columnas_de(tabla: str) -> set[str]:
     return {columna["name"] for columna in inspect(engine).get_columns(tabla)}
 
 
+def hay_insumos_viejo() -> bool:
+    """True si existe la tabla `insumos` del esquema viejo.
+
+    Hasta 2026-11 `insumos` era el maestro que hoy se llama `ingredientes`.
+    Ahora `insumos` es otra tabla (la marca comprada, con `ingrediente_id`):
+    las migraciones legadas que trabajaban sobre el maestro viejo tienen que
+    reconocerlo por sus columnas, no por el nombre, para no tocar la nueva.
+    """
+    return "insumos" in tablas() and "ingrediente_id" not in columnas_de("insumos")
+
+
 def agregar_columna(tabla: str, columna: str, definicion: str) -> bool:
     """Agrega la columna si falta. Devuelve True si la agregó."""
     if columna in columnas_de(tabla):

@@ -1,6 +1,3 @@
-CLASIFICACION_INGREDIENTE = "ingrediente"
-CLASIFICACION_ADITIVO = "aditivo"
-CLASIFICACIONES = (CLASIFICACION_INGREDIENTE, CLASIFICACION_ADITIVO)
 MOTIVOFALTANTE = "MotivoFaltante"
 
 TIPO_MASA = "masa"
@@ -18,20 +15,20 @@ class ErrorCode:
         "El producto ya tiene una receta. Creá una versión nueva para modificarla."
     )
     SIN_TAREAS = "La receta necesita al menos una tarea."
-    SIN_INSUMOS = "La receta necesita al menos un insumo."
-    INSUMO_NO_ENCONTRADO = "El insumo no existe o está dado de baja."
-    INSUMO_REPETIDO = "Un insumo no puede repetirse dentro de la misma receta."
+    RECETA_VACIA = "La receta necesita al menos un ingrediente."
+    INGREDIENTE_NO_ENCONTRADO = "El ingrediente no existe o está dado de baja."
+    INGREDIENTE_REPETIDO = "Un ingrediente no puede repetirse dentro de la misma receta."
     UNIDAD_NO_COINCIDE = (
-        "La unidad indicada para el insumo debe ser la unidad de medida del insumo."
+        "La unidad indicada para el ingrediente debe ser la unidad de medida del ingrediente."
     )
     UNIDAD_NO_ENCONTRADA = "La unidad de medida no existe."
-    TAREA_INSUMO_DESCONOCIDO = (
-        "Una tarea usa un insumo que no está en la lista de insumos de la receta."
+    TAREA_INGREDIENTE_DESCONOCIDO = (
+        "Una tarea usa un ingrediente que no está en la lista de ingredientes de la receta."
     )
-    TAREA_INSUMO_REPETIDO = "Una tarea no puede repetir el mismo insumo."
+    TAREA_INGREDIENTE_REPETIDO = "Una tarea no puede repetir el mismo ingrediente."
     REPARTO_INCOMPLETO = (
         "La cantidad repartida entre las tareas debe sumar la cantidad total "
-        "de cada insumo de la receta."
+        "de cada ingrediente de la receta."
     )
     DESCRIPCION_VACIA = "La descripción de la tarea no puede estar vacía."
     VERSION_INMUTABLE = "Las versiones de receta son de solo lectura."
@@ -39,7 +36,7 @@ class ErrorCode:
         "La receta necesita al menos un ingrediente: no puede tener solo aditivos."
     )
     ADITIVO_SIN_CLASE = (
-        "Un aditivo de la receta no tiene clase funcional en el maestro de insumos. "
+        "Un aditivo de la receta no tiene clase funcional en el maestro de ingredientes. "
         "Completalo antes de guardar la receta."
     )
     PORCION_SIN_UNIDAD = "Indicá la unidad de medida de la porción."
@@ -52,8 +49,8 @@ class ErrorCode:
 
 
 class MotivoFaltante:
-    """Por qué un insumo no se pudo convertir a gramos en la composición (E10)."""
+    """Por qué un ingrediente no se pudo convertir a gramos en la composición (E10)."""
 
     UNIDAD_SIN_EQUIVALENCIA = "La unidad de medida no tiene tipo o factor de conversión."
-    SIN_DENSIDAD = "Falta la densidad del insumo (g/ml)."
-    SIN_PESO_UNITARIO = "Falta el peso por unidad del insumo (g)."
+    SIN_DENSIDAD = "Falta la densidad del ingrediente (g/ml)."
+    SIN_PESO_UNITARIO = "Falta el peso por unidad del ingrediente (g)."

@@ -1,9 +1,10 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from src.aditivos import exceptions, schemas
-from src.aditivos.models import Aditivo, ClaseFuncional
-from src.common.texto import sin_tildes
+from src.aditivos.models import ClaseFuncional
+from src.aditivos.referencia import ADITIVOS
+from src.common.texto import normalizar_texto, sin_tildes
 
 
 # --------------------------------------------------------------------------
@@ -58,7 +59,7 @@ def actualizar_clase(
 
 
 def eliminar_clase(db: Session, clase_id: int) -> ClaseFuncional:
-    """Baja lógica: los aditivos e insumos que la usan conservan el dato."""
+    """Baja lógica: los ingredientes que la usan conservan el dato."""
     clase = obtener_clase(db, clase_id)
     clase.activo = False
     db.commit()
@@ -67,108 +68,41 @@ def eliminar_clase(db: Session, clase_id: int) -> ClaseFuncional:
 
 
 # --------------------------------------------------------------------------
-# Aditivos
+# Sugerencias (lista de referencia) y resumen de un ingrediente aditivo
 # --------------------------------------------------------------------------
 
-def listar_aditivos(
-    db: Session,
-    incluir_inactivos: bool = False,
-    clase_funcional_id: int | None = None,
-    buscar: str | None = None,
-) -> list[Aditivo]:
-    consulta = (
-        select(Aditivo)
-        .join(Aditivo.clase_funcional)
-        .options(selectinload(Aditivo.clase_funcional))
-    )
-    if not incluir_inactivos:
-        consulta = consulta.where(Aditivo.activo.is_(True), ClaseFuncional.activo.is_(True))
-    if clase_funcional_id:
-        consulta = consulta.where(Aditivo.clase_funcional_id == clase_funcional_id)
-    if buscar and buscar.strip():
-        patron = f"%{buscar.strip().lower()}%"
-        consulta = consulta.where(
-            func.lower(Aditivo.nombre).like(patron)
-            | func.lower(func.coalesce(Aditivo.numero_ins, "")).like(patron)
+def listar_sugerencias(db: Session, buscar: str | None = None) -> list[schemas.SugerenciaAditivo]:
+    """Entradas de la lista de referencia para autocompletar clase e INS.
+
+    Se filtra por nombre, INS o clase. La clase se vincula por nombre con las
+    clases de la app; si no existe o está dada de baja, `clase_funcional_id`
+    queda en None (el usuario elige otra).
+    """
+    clases = {c.nombre.lower(): c.id for c in listar_clases(db)}
+    termino = normalizar_texto(buscar or "")
+    resultado = []
+    for clase, nombre, ins in ADITIVOS:
+        texto = normalizar_texto(f"{nombre} {ins or ''} {clase}")
+        if termino and termino not in texto:
+            continue
+        resultado.append(
+            schemas.SugerenciaAditivo(
+                nombre=nombre,
+                numero_ins=ins,
+                clase_funcional=clase,
+                clase_funcional_id=clases.get(clase.lower()),
+            )
         )
-    return list(
-        db.scalars(
-            consulta.order_by(sin_tildes(ClaseFuncional.nombre), sin_tildes(Aditivo.nombre))
-        ).all()
-    )
+    return resultado
 
 
-def obtener_aditivo(db: Session, aditivo_id: int) -> Aditivo:
-    aditivo = db.get(Aditivo, aditivo_id)
-    if aditivo is None:
-        raise exceptions.AditivoNoEncontrado()
-    return aditivo
-
-
-def _validar_aditivo(
-    db: Session, clase_id: int, nombre: str, numero_ins: str | None, excepto_id: int | None
-) -> ClaseFuncional:
-    clase = obtener_clase(db, clase_id)
-    if not clase.activo:
-        raise exceptions.ClaseInactiva()
-    if numero_ins is None and not clase.ins_opcional:
-        raise exceptions.InsObligatorio()
-    consulta = select(Aditivo.id).where(
-        Aditivo.clase_funcional_id == clase.id,
-        func.lower(Aditivo.nombre) == nombre.lower(),
-    )
-    if excepto_id is not None:
-        consulta = consulta.where(Aditivo.id != excepto_id)
-    if db.scalar(consulta) is not None:
-        raise exceptions.AditivoYaExiste()
-    return clase
-
-
-def crear_aditivo(db: Session, datos: schemas.AditivoCreate) -> Aditivo:
-    _validar_aditivo(db, datos.clase_funcional_id, datos.nombre, datos.numero_ins, None)
-    aditivo = Aditivo(
-        clase_funcional_id=datos.clase_funcional_id,
-        nombre=datos.nombre,
-        numero_ins=datos.numero_ins,
-        activo=True,
-    )
-    db.add(aditivo)
-    db.commit()
-    db.refresh(aditivo)
-    return aditivo
-
-
-def actualizar_aditivo(db: Session, aditivo_id: int, datos: schemas.AditivoUpdate) -> Aditivo:
-    aditivo = obtener_aditivo(db, aditivo_id)
-    cambios = datos.model_dump(exclude_unset=True)
-    # `numero_ins` puede venir en null a propósito (para borrarlo); el resto no.
-    cambios = {k: v for k, v in cambios.items() if v is not None or k == "numero_ins"}
-    final_clase = cambios.get("clase_funcional_id", aditivo.clase_funcional_id)
-    final_nombre = cambios.get("nombre", aditivo.nombre)
-    final_ins = cambios["numero_ins"] if "numero_ins" in cambios else aditivo.numero_ins
-    _validar_aditivo(db, final_clase, final_nombre, final_ins, aditivo.id)
-    for campo, valor in cambios.items():
-        setattr(aditivo, campo, valor)
-    db.commit()
-    db.refresh(aditivo)
-    return aditivo
-
-
-def eliminar_aditivo(db: Session, aditivo_id: int) -> Aditivo:
-    """Baja lógica: los insumos que lo usan conservan la referencia."""
-    aditivo = obtener_aditivo(db, aditivo_id)
-    aditivo.activo = False
-    db.commit()
-    db.refresh(aditivo)
-    return aditivo
-
-
-def resumen(aditivo: Aditivo | None) -> schemas.AditivoResumen | None:
-    if aditivo is None:
+def resumen(ingrediente) -> schemas.AditivoResumen | None:
+    """Clase funcional, nombre e INS de un ingrediente aditivo (None si no lo es)."""
+    if ingrediente is None or not ingrediente.es_aditivo or ingrediente.clase_funcional is None:
         return None
     return schemas.AditivoResumen(
-        id=aditivo.id,
-        nombre=aditivo.nombre,
-        numero_ins=aditivo.numero_ins,
-        clase_funcional=aditivo.clase_funcional.nombre,
+        id=ingrediente.id,
+        nombre=ingrediente.nombre,
+        numero_ins=ingrediente.numero_ins,
+        clase_funcional=ingrediente.clase_funcional.nombre,
     )

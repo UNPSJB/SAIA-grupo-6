@@ -16,7 +16,17 @@ TABLA = "perfiles_nutricionales_insumo"
 def perfil_viejo(db):
     """Esquema de antes: el perfil con su propia densidad y peso por unidad."""
     with engine.begin() as conexion:
-        conexion.execute(text(f"DROP TABLE {TABLA}"))
+        # Las tablas con los nombres de antes: hoy son `ingredientes` y
+        # `perfiles_nutricionales_ingrediente`.
+        conexion.execute(text("DROP TABLE IF EXISTS proveedores_insumos"))
+        conexion.execute(text("DROP TABLE IF EXISTS insumos"))
+        conexion.execute(
+            text(
+                "CREATE TABLE insumos (id INTEGER PRIMARY KEY, nombre VARCHAR NOT NULL, "
+                "unidad_medida_id INTEGER NOT NULL, activo BOOLEAN NOT NULL, tipo VARCHAR(20), "
+                "densidad_g_ml NUMERIC(10, 4), peso_unitario_g NUMERIC(10, 4))"
+            )
+        )
         conexion.execute(
             text(
                 f"CREATE TABLE {TABLA} ("
@@ -46,6 +56,11 @@ def perfil_viejo(db):
             )
         )
     yield
+    with engine.begin() as conexion:
+        conexion.execute(text("PRAGMA foreign_keys = OFF"))
+        conexion.execute(text(f"DROP TABLE IF EXISTS {TABLA}"))
+        conexion.execute(text("DROP TABLE IF EXISTS insumos"))
+        conexion.execute(text("PRAGMA foreign_keys = ON"))
 
 
 def _insumos() -> dict[str, tuple]:

@@ -6,20 +6,20 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.fechas import ahora
-from src.insumos.models import TIPO_ADITIVO, Insumo
+from src.ingredientes.models import Ingrediente
 from src.nutricion import calculo, constants as c, exceptions, schemas
 from src.nutricion.models import (
     AlimentoReferencia,
     InfoNutricionalProducto,
     ParametroNutricion,
     ParametroNutriente,
-    PerfilNutricionalInsumo,
+    PerfilNutricionalIngrediente,
     ValorLaboratorioProducto,
-    ValorNutricionalInsumo,
+    ValorNutricionalIngrediente,
 )
 from src.personal.models import Personal
 from src.productos.models import Producto
-from src.recetas.models import Receta, RecetaInsumo, VersionReceta
+from src.recetas.models import Receta, RecetaIngrediente, VersionReceta
 
 _PRECISION = Decimal("0.0001")
 
@@ -29,7 +29,7 @@ def _q(valor: Decimal | None) -> Decimal | None:
 
 
 def _decimal(valor: Decimal | float | None) -> Decimal | None:
-    """Densidad / peso del insumo como Decimal (la columna está tipada como float)."""
+    """Densidad / peso del ingrediente como Decimal (la columna está tipada como float)."""
     return None if valor is None else Decimal(str(valor))
 
 
@@ -165,6 +165,10 @@ def actualizar_parametros(db: Session, datos: schemas.ParametrosUpdate) -> schem
             valor = "1" if valor else "0"
         generales[clave].valor = str(valor).strip()
     db.commit()
+    # La vigencia de la homologación cambia qué marcas están por vencer.
+    from src.notificaciones.invalidacion import invalidar_notificaciones
+
+    invalidar_notificaciones(db)
     return obtener_parametros(db)
 
 
@@ -331,59 +335,59 @@ def cargar_alimentos_ejemplo(db: Session) -> None:
     db.commit()
 
 
-# ── Datos nutricionales del insumo ─────────────────────────────────────────
+# ── Datos nutricionales del ingrediente ─────────────────────────────────────────
 
 
-def _obtener_insumo(db: Session, insumo_id: int) -> Insumo:
-    insumo = db.scalar(
-        select(Insumo)
-        .where(Insumo.id == insumo_id)
-        .options(selectinload(Insumo.unidad_medida))
+def _obtener_ingrediente(db: Session, ingrediente_id: int) -> Ingrediente:
+    ingrediente = db.scalar(
+        select(Ingrediente)
+        .where(Ingrediente.id == ingrediente_id)
+        .options(selectinload(Ingrediente.unidad_medida))
     )
-    if insumo is None:
-        raise exceptions.InsumoNoEncontrado()
-    return insumo
+    if ingrediente is None:
+        raise exceptions.IngredienteNoEncontrado()
+    return ingrediente
 
 
-def _admitidos(insumo: Insumo) -> tuple[str, ...]:
-    return c.NUTRIENTES_ADITIVO if insumo.tipo == TIPO_ADITIVO else c.CLAVES_NUTRIENTES
+def _admitidos(ingrediente: Ingrediente) -> tuple[str, ...]:
+    return c.NUTRIENTES_ADITIVO if ingrediente.es_aditivo else c.CLAVES_NUTRIENTES
 
 
-def _azucares_son_anadidos(insumo: Insumo, perfil: PerfilNutricionalInsumo | None) -> bool:
+def _azucares_son_anadidos(ingrediente: Ingrediente, perfil: PerfilNutricionalIngrediente | None) -> bool:
     """Ingrediente cuyo azúcar se agrega al producto (azúcar, miel, jarabes...).
 
     La guía de rotulado pide calcular los azúcares añadidos desde la
     composición: se suman los azúcares de los ingredientes que los aportan.
     Para esos ingredientes, sus azúcares añadidos son sus azúcares totales.
     """
-    return insumo.tipo != TIPO_ADITIVO and bool(perfil and perfil.azucares_son_anadidos)
+    return not ingrediente.es_aditivo and bool(perfil and perfil.azucares_son_anadidos)
 
 
-def requeridos_de(insumo: Insumo, perfil: PerfilNutricionalInsumo | None) -> tuple[str, ...]:
-    """Nutrientes que hay que cargarle al insumo (si se le exigen datos)."""
-    if insumo.tipo == TIPO_ADITIVO:
+def requeridos_de(ingrediente: Ingrediente, perfil: PerfilNutricionalIngrediente | None) -> tuple[str, ...]:
+    """Nutrientes que hay que cargarle al ingrediente (si se le exigen datos)."""
+    if ingrediente.es_aditivo:
         return c.NUTRIENTES_ADITIVO
-    if _azucares_son_anadidos(insumo, perfil):
+    if _azucares_son_anadidos(ingrediente, perfil):
         return tuple(k for k in c.CLAVES_NUTRIENTES if k != c.AZUCARES_ANADIDOS)
     return c.CLAVES_NUTRIENTES
 
 
-def evaluar_insumo(
-    insumo: Insumo,
-    perfil: PerfilNutricionalInsumo | None,
-    valores: dict[str, ValorNutricionalInsumo],
+def evaluar_ingrediente(
+    ingrediente: Ingrediente,
+    perfil: PerfilNutricionalIngrediente | None,
+    valores: dict[str, ValorNutricionalIngrediente],
     reglas: dict[str, calculo.ReglaNutriente],
     cubiertos: frozenset[str] = frozenset(),
 ) -> schemas.Completitud:
-    """Qué le falta al insumo para entrar en el cálculo.
+    """Qué le falta al ingrediente para entrar en el cálculo.
 
     Un aditivo no se considera incompleto salvo que esté marcado como
     aportante de energía o sodio; en ese caso se le piden esos dos datos.
     `cubiertos` son los nutrientes que el producto ya tiene determinados en
-    laboratorio: para esos no hace falta el dato del insumo.
+    laboratorio: para esos no hace falta el dato del ingrediente.
     """
-    exige = bool(perfil and perfil.aporta_energia_sodio) if insumo.tipo == TIPO_ADITIVO else True
-    requeridos = tuple(k for k in requeridos_de(insumo, perfil) if k not in cubiertos)
+    exige = bool(perfil and perfil.aporta_energia_sodio) if ingrediente.es_aditivo else True
+    requeridos = tuple(k for k in requeridos_de(ingrediente, perfil) if k not in cubiertos)
 
     faltantes: list[str] = []
     # Un aditivo sin aporte que igual tiene datos cargados entra en la suma:
@@ -395,71 +399,71 @@ def evaluar_insumo(
             if valor is None or not valor.fuente:
                 faltantes.append(reglas[clave].nombre if clave in reglas else clave)
     if necesita_conversion:
-        unidad = insumo.unidad_medida
+        unidad = ingrediente.unidad_medida
         conversion = calculo.tipo_unidad(unidad)
         if conversion is None:
             faltantes.append(f"una unidad convertible a gramos (hoy está en {unidad.simbolo})")
-        elif conversion[0] == c.VOLUMEN and not insumo.densidad_g_ml:
+        elif conversion[0] == c.VOLUMEN and not ingrediente.densidad_g_ml:
             faltantes.append("la densidad (g/ml)")
-        elif conversion[0] == c.POR_UNIDAD and not insumo.peso_unitario_g:
+        elif conversion[0] == c.POR_UNIDAD and not ingrediente.peso_unitario_g:
             faltantes.append("el peso por unidad (g)")
     return schemas.Completitud(
         completo=not faltantes, exige_datos=exige, faltantes=faltantes
     )
 
 
-def _valores_de(db: Session, insumo_ids: list[int]) -> dict[int, dict[str, ValorNutricionalInsumo]]:
-    resultado: dict[int, dict[str, ValorNutricionalInsumo]] = {i: {} for i in insumo_ids}
-    if not insumo_ids:
+def _valores_de(db: Session, ingrediente_ids: list[int]) -> dict[int, dict[str, ValorNutricionalIngrediente]]:
+    resultado: dict[int, dict[str, ValorNutricionalIngrediente]] = {i: {} for i in ingrediente_ids}
+    if not ingrediente_ids:
         return resultado
     filas = db.scalars(
-        select(ValorNutricionalInsumo)
-        .where(ValorNutricionalInsumo.insumo_id.in_(insumo_ids))
+        select(ValorNutricionalIngrediente)
+        .where(ValorNutricionalIngrediente.ingrediente_id.in_(ingrediente_ids))
         .options(
-            selectinload(ValorNutricionalInsumo.cargado_por),
-            selectinload(ValorNutricionalInsumo.modificado_por),
+            selectinload(ValorNutricionalIngrediente.cargado_por),
+            selectinload(ValorNutricionalIngrediente.modificado_por),
         )
     ).all()
     for fila in filas:
-        resultado[fila.insumo_id][fila.nutriente] = fila
+        resultado[fila.ingrediente_id][fila.nutriente] = fila
     return resultado
 
 
-def _perfiles_de(db: Session, insumo_ids: list[int]) -> dict[int, PerfilNutricionalInsumo]:
-    if not insumo_ids:
+def _perfiles_de(db: Session, ingrediente_ids: list[int]) -> dict[int, PerfilNutricionalIngrediente]:
+    if not ingrediente_ids:
         return {}
     return {
-        p.insumo_id: p
+        p.ingrediente_id: p
         for p in db.scalars(
-            select(PerfilNutricionalInsumo).where(
-                PerfilNutricionalInsumo.insumo_id.in_(insumo_ids)
+            select(PerfilNutricionalIngrediente).where(
+                PerfilNutricionalIngrediente.ingrediente_id.in_(ingrediente_ids)
             )
         ).all()
     }
 
 
-def obtener_datos_insumo(db: Session, insumo_id: int) -> schemas.DatosNutricionalesResponse:
-    insumo = _obtener_insumo(db, insumo_id)
+def obtener_datos_ingrediente(db: Session, ingrediente_id: int) -> schemas.DatosNutricionalesResponse:
+    ingrediente = _obtener_ingrediente(db, ingrediente_id)
     reglas = _reglas(db)
-    perfil = _perfiles_de(db, [insumo.id]).get(insumo.id)
-    valores = _valores_de(db, [insumo.id])[insumo.id]
-    conversion = calculo.tipo_unidad(insumo.unidad_medida)
+    perfil = _perfiles_de(db, [ingrediente.id]).get(ingrediente.id)
+    valores = _valores_de(db, [ingrediente.id])[ingrediente.id]
+    conversion = calculo.tipo_unidad(ingrediente.unidad_medida)
     return schemas.DatosNutricionalesResponse(
-        insumo_id=insumo.id,
-        nombre=insumo.nombre,
-        tipo=insumo.tipo,
-        unidad=insumo.unidad_medida.simbolo,
+        ingrediente_id=ingrediente.id,
+        nombre=ingrediente.nombre,
+        es_aditivo=ingrediente.es_aditivo,
+        unidad=ingrediente.unidad_medida.simbolo,
         unidad_tipo=conversion[0] if conversion else None,
-        # Son datos del insumo (los mismos que usa la composición porcentual).
-        peso_unidad_g=_decimal(insumo.peso_unitario_g),
-        densidad_g_ml=_decimal(insumo.densidad_g_ml),
+        # Son datos del ingrediente (los mismos que usa la composición porcentual).
+        peso_unidad_g=_decimal(ingrediente.peso_unitario_g),
+        densidad_g_ml=_decimal(ingrediente.densidad_g_ml),
         aporta_energia_sodio=bool(perfil and perfil.aporta_energia_sodio),
         azucares_son_anadidos=bool(perfil and perfil.azucares_son_anadidos),
         grasas_son_anadidas=bool(perfil and perfil.grasas_son_anadidas),
         sodio_es_anadido=bool(perfil and perfil.sodio_es_anadido),
         contiene_edulcorantes=bool(perfil and perfil.contiene_edulcorantes),
         contiene_cafeina=bool(perfil and perfil.contiene_cafeina),
-        nutrientes_admitidos=list(_admitidos(insumo)),
+        nutrientes_admitidos=list(_admitidos(ingrediente)),
         valores=[
             schemas.ValorResponse(
                 nutriente=clave,
@@ -480,16 +484,16 @@ def obtener_datos_insumo(db: Session, insumo_id: int) -> schemas.DatosNutriciona
             for clave, regla in reglas.items()
             if (v := valores.get(clave)) is not None
         ],
-        completitud=evaluar_insumo(insumo, perfil, valores, reglas),
+        completitud=evaluar_ingrediente(ingrediente, perfil, valores, reglas),
     )
 
 
-def guardar_datos_insumo(
-    db: Session, insumo_id: int, datos: schemas.DatosNutricionalesIn, usuario: Personal | None
+def guardar_datos_ingrediente(
+    db: Session, ingrediente_id: int, datos: schemas.DatosNutricionalesIn, usuario: Personal | None
 ) -> schemas.DatosNutricionalesResponse:
-    insumo = _obtener_insumo(db, insumo_id)
+    ingrediente = _obtener_ingrediente(db, ingrediente_id)
     asegurar_parametros(db)
-    admitidos = _admitidos(insumo)
+    admitidos = _admitidos(ingrediente)
 
     vistos: set[str] = set()
     for item in datos.valores:
@@ -501,19 +505,19 @@ def guardar_datos_insumo(
             raise exceptions.NutrienteNoAdmitidoAditivo()
         vistos.add(item.nutriente)
 
-    # La densidad y el peso por unidad se guardan en el insumo: es el mismo
+    # La densidad y el peso por unidad se guardan en el ingrediente: es el mismo
     # dato que pide su alta y que usa la composición porcentual. Un valor
-    # vacío no lo borra (el alta del insumo puede exigirlo según la unidad).
+    # vacío no lo borra (el alta del ingrediente puede exigirlo según la unidad).
     if datos.peso_unidad_g is not None:
-        insumo.peso_unitario_g = datos.peso_unidad_g
+        ingrediente.peso_unitario_g = datos.peso_unidad_g
     if datos.densidad_g_ml is not None:
-        insumo.densidad_g_ml = datos.densidad_g_ml
+        ingrediente.densidad_g_ml = datos.densidad_g_ml
 
-    perfil = db.get(PerfilNutricionalInsumo, insumo.id)
+    perfil = db.get(PerfilNutricionalIngrediente, ingrediente.id)
     if perfil is None:
-        perfil = PerfilNutricionalInsumo(insumo_id=insumo.id)
+        perfil = PerfilNutricionalIngrediente(ingrediente_id=ingrediente.id)
         db.add(perfil)
-    perfil.aporta_energia_sodio = insumo.tipo == TIPO_ADITIVO and datos.aporta_energia_sodio
+    perfil.aporta_energia_sodio = ingrediente.es_aditivo and datos.aporta_energia_sodio
     perfil.azucares_son_anadidos = datos.azucares_son_anadidos
     perfil.grasas_son_anadidas = datos.grasas_son_anadidas
     perfil.sodio_es_anadido = datos.sodio_es_anadido
@@ -526,7 +530,7 @@ def guardar_datos_insumo(
     existentes = {
         v.nutriente: v
         for v in db.scalars(
-            select(ValorNutricionalInsumo).where(ValorNutricionalInsumo.insumo_id == insumo.id)
+            select(ValorNutricionalIngrediente).where(ValorNutricionalIngrediente.ingrediente_id == ingrediente.id)
         ).all()
     }
 
@@ -561,7 +565,7 @@ def guardar_datos_insumo(
         if not misma_carga:
             # Carga nueva (o cambio de fuente): arranca su propia historia.
             if actual is None:
-                actual = ValorNutricionalInsumo(insumo_id=insumo.id, nutriente=item.nutriente)
+                actual = ValorNutricionalIngrediente(ingrediente_id=ingrediente.id, nutriente=item.nutriente)
                 db.add(actual)
             actual.fuente = item.fuente
             actual.referencia = referencia
@@ -582,7 +586,12 @@ def guardar_datos_insumo(
     for sobrante in existentes.values():
         db.delete(sobrante)
     db.commit()
-    return obtener_datos_insumo(db, insumo.id)
+    # Cambió la referencia: las marcas aprobadas cuya comparación empeoró
+    # pasan a revisión (ver `src.insumos.homologacion`).
+    from src.insumos.homologacion import revisar_insumos_de_ingrediente
+
+    revisar_insumos_de_ingrediente(db, ingrediente.id)
+    return obtener_datos_ingrediente(db, ingrediente.id)
 
 
 # ── Información nutricional del producto ───────────────────────────────────
@@ -635,10 +644,10 @@ def _version(db: Session, producto_id: int, version_id: int | None) -> tuple[Rec
     version = db.scalar(
         consulta.options(
             selectinload(VersionReceta.unidad_medida),
-            selectinload(VersionReceta.insumos).selectinload(RecetaInsumo.insumo).selectinload(
-                Insumo.unidad_medida
+            selectinload(VersionReceta.ingredientes).selectinload(RecetaIngrediente.ingrediente).selectinload(
+                Ingrediente.unidad_medida
             ),
-            selectinload(VersionReceta.insumos).selectinload(RecetaInsumo.unidad_medida),
+            selectinload(VersionReceta.ingredientes).selectinload(RecetaIngrediente.unidad_medida),
         )
     )
     if version is None and version_id is not None:
@@ -691,8 +700,8 @@ def _cantidad_base(
     return None
 
 
-def _gramos_insumo(renglon: RecetaInsumo) -> Decimal | None:
-    """Cantidad del renglón en gramos, o None si al insumo le falta el dato."""
+def _gramos_ingrediente(renglon: RecetaIngrediente) -> Decimal | None:
+    """Cantidad del renglón en gramos, o None si al ingrediente le falta el dato."""
     conversion = calculo.tipo_unidad(renglon.unidad_medida)
     if conversion is None:
         return None
@@ -700,11 +709,11 @@ def _gramos_insumo(renglon: RecetaInsumo) -> Decimal | None:
     base = renglon.cantidad * factor
     if tipo == c.MASA:
         return base
-    insumo = renglon.insumo
+    ingrediente = renglon.ingrediente
     if tipo == c.VOLUMEN:
-        densidad = _decimal(insumo.densidad_g_ml)
+        densidad = _decimal(ingrediente.densidad_g_ml)
         return base * densidad if densidad else None
-    peso = _decimal(insumo.peso_unitario_g)
+    peso = _decimal(ingrediente.peso_unitario_g)
     return base * peso if peso else None
 
 
@@ -781,7 +790,7 @@ def _a_laboratorio(
 def calcular_info_nutricional(
     db: Session, producto_id: int, version_id: int | None = None, *, inicializar_parametros: bool = True
 ) -> schemas.InfoNutricionalResponse:
-    """Tabla del producto a partir de la receta, los datos de cada insumo y el rendimiento.
+    """Tabla del producto a partir de la receta, los datos de cada ingrediente y el rendimiento.
 
     Se calcula siempre en el momento: completar un dato faltante recalcula la
     tabla sin pasos extra, y el estado "incompleta" nunca queda desactualizado.
@@ -824,30 +833,30 @@ def calcular_info_nutricional(
             **comunes,
         )
 
-    ids = [r.insumo_id for r in version.insumos]
+    ids = [r.ingrediente_id for r in version.ingredientes]
     perfiles = _perfiles_de(db, ids)
     valores = _valores_de(db, ids)
 
     totales = {clave: Decimal(0) for clave in reglas}
-    # Nutrientes a los que les falta el aporte de algún insumo: no se muestran
+    # Nutrientes a los que les falta el aporte de algún ingrediente: no se muestran
     # números armados con datos faltantes (un "0" parecería un dato real).
     sin_datos: set[str] = set()
     ingredientes: list[schemas.IngredienteCalculo] = []
-    for renglon in version.insumos:
-        insumo = renglon.insumo
-        perfil = perfiles.get(insumo.id)
-        datos = valores[insumo.id]
-        completitud = evaluar_insumo(insumo, perfil, datos, reglas, cubiertos)
-        gramos = _gramos_insumo(renglon)
+    for renglon in version.ingredientes:
+        ingrediente = renglon.ingrediente
+        perfil = perfiles.get(ingrediente.id)
+        datos = valores[ingrediente.id]
+        completitud = evaluar_ingrediente(ingrediente, perfil, datos, reglas, cubiertos)
+        gramos = _gramos_ingrediente(renglon)
         incluido = gramos is not None and bool(datos)
         if completitud.exige_datos or datos:
             if gramos is None:
                 sin_datos.update(reglas)
             elif completitud.exige_datos:
-                sin_datos.update(k for k in requeridos_de(insumo, perfil) if k not in datos)
+                sin_datos.update(k for k in requeridos_de(ingrediente, perfil) if k not in datos)
         if incluido:
             aportes = {clave: fila.valor for clave, fila in datos.items()}
-            if _azucares_son_anadidos(insumo, perfil):
+            if _azucares_son_anadidos(ingrediente, perfil):
                 # Todo su azúcar es añadido: se toma el total (guía de rotulado).
                 aportes[c.AZUCARES_ANADIDOS] = aportes.get(c.AZUCARES_TOTALES, Decimal(0))
             for clave, valor in aportes.items():
@@ -855,9 +864,9 @@ def calcular_info_nutricional(
                     totales[clave] += gramos / calculo.CIEN * valor
         ingredientes.append(
             schemas.IngredienteCalculo(
-                insumo_id=insumo.id,
-                nombre=insumo.nombre,
-                tipo=insumo.tipo,
+                ingrediente_id=ingrediente.id,
+                nombre=ingrediente.nombre,
+                es_aditivo=ingrediente.es_aditivo,
                 cantidad=renglon.cantidad,
                 unidad=renglon.unidad_medida.simbolo,
                 gramos=_q(gramos),

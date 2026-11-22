@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.fechas import ahora
@@ -83,17 +84,25 @@ def _formatear_ingredientes(composicion) -> str:
     lineas: list[str] = []
     if composicion.ingredientes:
         for item in composicion.ingredientes:
-            linea = item.insumo.nombre
+            linea = item.ingrediente.nombre
             if item.porcentaje is not None:
                 linea += f" ({item.porcentaje} %)"
             lineas.append(linea)
     if composicion.aditivos:
         for item in composicion.aditivos:
-            linea = item.insumo.nombre
+            linea = item.ingrediente.nombre
             if item.porcentaje is not None:
                 linea += f" ({item.porcentaje} %)"
             lineas.append(linea)
     return "; ".join(lineas) if lineas else None
+
+
+def _leyenda_alergenos(db: Session, version_receta) -> Optional[str]:
+    """"Contiene: ... Puede contener: ..." de la versión, o None si no tiene alérgenos."""
+    from src.alergenos.services import alergenos_de_version, leyenda
+
+    contiene, puede = alergenos_de_version(db, version_receta)
+    return leyenda([a.nombre for a in contiene], [a.nombre for a in puede])
 
 
 def _serializar_nutricion(info_nutricional) -> Optional[str]:
@@ -216,6 +225,7 @@ def crear_borrador(
         lote_producto_id=datos.lote_producto_id,
         denominacion_venta=datos.denominacion_venta,
         lista_ingredientes=datos.lista_ingredientes,
+        alergenos=datos.alergenos,
         contenido_neto=datos.contenido_neto,
         rnpa_rppa=datos.rnpa_rppa,
         razon_social=datos.razon_social,
@@ -370,6 +380,25 @@ def autocompletar_borrador(
                     )
                     cambios_registrados = True
 
+    # ── Alérgenos desde la receta ──
+    if version_receta is not None:
+        texto_alergenos = _leyenda_alergenos(db, version_receta)
+        if texto_alergenos is not None and (forzar or not borrador.alergenos):
+            valor_original = borrador.alergenos
+            borrador.alergenos = texto_alergenos
+            if _texto_si_cambio(valor_original, texto_alergenos):
+                _registrar_edicion(
+                    db,
+                    borrador,
+                    "alergenos",
+                    str(valor_original) if valor_original is not None else None,
+                    texto_alergenos,
+                    ORIGEN_RECETA,
+                    TIPO_AUTOCOMPLETADO,
+                    usuario_id,
+                )
+                cambios_registrados = True
+
     # ── Información nutricional desde E11 ──
     if version_receta is not None:
         try:
@@ -438,6 +467,23 @@ def autocompletar_borrador(
     return borrador
 
 
+def borrador_completo_del_lote(db: Session, lote_id: int) -> Optional[int]:
+    """Id de un borrador de rotulado del lote con todos los campos obligatorios; None si no hay.
+
+    Sin rotulado completo el lote no se vende (lo exige la reserva de salidas):
+    los datos del lote (identificación, fechas) son parte obligatoria del rótulo.
+    """
+    ids = db.scalars(
+        select(BorradorRotulado.id)
+        .where(BorradorRotulado.lote_producto_id == lote_id)
+        .order_by(BorradorRotulado.id.desc())
+    ).all()
+    for borrador_id in ids:
+        if calcular_completitud(db, borrador_id).estado_global == CAMPO_COMPLETO:
+            return borrador_id
+    return None
+
+
 def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRotulado:
     borrador = obtener_borrador(db, borrador_id)
 
@@ -483,6 +529,21 @@ def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRo
         "lista_ingredientes",
         "Lista de ingredientes",
         borrador.lista_ingredientes,
+    )
+    # Alérgenos: obligatorios solo si la receta tiene alguno.
+    version_completitud = (
+        obtener_version_service(db, borrador.version_receta_id)
+        if borrador.version_receta_id is not None
+        else None
+    )
+    receta_con_alergenos = (
+        version_completitud is not None and _leyenda_alergenos(db, version_completitud) is not None
+    )
+    agregar_campo(
+        "alergenos",
+        "Declaración de alérgenos",
+        borrador.alergenos,
+        aplicable=receta_con_alergenos or bool(borrador.alergenos),
     )
     agregar_campo(
         "contenido_neto",
@@ -640,6 +701,7 @@ def preview_autocompletado(
 
     denominacion_venta = producto.nombre
     lista_ingredientes: Optional[str] = None
+    alergenos: Optional[str] = None
     datos_nutricionales_json: Optional[str] = None
     sellos_disponibles = False
     mensaje: Optional[str] = None
@@ -650,6 +712,9 @@ def preview_autocompletado(
         texto_ingredientes = _formatear_ingredientes(composicion)
         if texto_ingredientes is not None:
             lista_ingredientes = texto_ingredientes
+
+        # ── Alérgenos desde la receta ──
+        alergenos = _leyenda_alergenos(db, version_receta)
 
         # ── Información nutricional desde E11 ──
         try:
@@ -668,7 +733,7 @@ def preview_autocompletado(
 
         if not composicion.completa:
             faltantes = ", ".join(
-                f.insumo.nombre for f in (composicion.faltantes or [])
+                f.ingrediente.nombre for f in (composicion.faltantes or [])
             )
             if faltantes:
                 mensaje = (
@@ -682,6 +747,7 @@ def preview_autocompletado(
         producto_nombre=producto.nombre,
         denominacion_venta=denominacion_venta,
         lista_ingredientes=lista_ingredientes,
+        alergenos=alergenos,
         datos_nutricionales_json=datos_nutricionales_json,
         sellos_disponibles=sellos_disponibles,
         version_receta_id=version_receta.id if version_receta else None,

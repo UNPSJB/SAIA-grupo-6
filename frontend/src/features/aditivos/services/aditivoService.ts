@@ -1,39 +1,13 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
-import type { Aditivo, AditivoInput, ClaseFuncional, ClaseFuncionalInput } from "../types/aditivo";
+import type { ClaseFuncional, ClaseFuncionalInput, SugerenciaAditivo } from "../types/aditivo";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-export async function listarAditivos(incluirInactivos = false): Promise<Aditivo[]> {
-  const query = incluirInactivos ? "?incluir_inactivos=true" : "";
-  const response = await apiFetch(`${API_URL}/aditivos${query}`);
-  return pedir<Aditivo[]>(response, "Error al obtener los aditivos");
-}
-
-export async function crearAditivo(datos: AditivoInput): Promise<Aditivo> {
-  const response = await apiFetch(`${API_URL}/aditivos`, {
-    method: "POST",
-    headers: JSON_HEADERS,
-    body: JSON.stringify(datos),
-  });
-  return pedir<Aditivo>(response, "Error al crear el aditivo");
-}
-
-export async function modificarAditivo(
-  id: number,
-  datos: Partial<AditivoInput> & { activo?: boolean },
-): Promise<Aditivo> {
-  const response = await apiFetch(`${API_URL}/aditivos/${id}`, {
-    method: "PUT",
-    headers: JSON_HEADERS,
-    body: JSON.stringify(datos),
-  });
-  return pedir<Aditivo>(response, "Error al modificar el aditivo");
-}
-
-export async function darDeBajaAditivo(id: number): Promise<Aditivo> {
-  const response = await apiFetch(`${API_URL}/aditivos/${id}`, { method: "DELETE" });
-  return pedir<Aditivo>(response, "Error al dar de baja el aditivo");
+export async function listarSugerencias(buscar?: string): Promise<SugerenciaAditivo[]> {
+  const query = buscar?.trim() ? `?buscar=${encodeURIComponent(buscar.trim())}` : "";
+  const response = await apiFetch(`${API_URL}/aditivos/sugerencias${query}`);
+  return pedir<SugerenciaAditivo[]>(response, "Error al obtener la lista de referencia de aditivos");
 }
 
 export async function listarClases(incluirInactivas = false): Promise<ClaseFuncional[]> {

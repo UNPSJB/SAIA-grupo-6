@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { Box, Text } from "@chakra-ui/react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { esPeriodoDeUnMes, useFechasEje } from "../../dashboard/components/graficos";
+import { esPeriodoDeUnMes, useFechasEje } from "../../dashboard/components/ejeFechas";
 import type { PuntoDiario } from "../types/cumplimiento";
 
 /** brand.500 en hex (igual en claro y oscuro): el degradado del área (`<stop>`) necesita un color literal. */
@@ -59,7 +59,7 @@ function TooltipDia({
 export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoProps) {
   // Id del degradado, único por gráfico.
   const idDegradado = `cumplimiento-${useId().replace(/:/g, "")}`;
-  const fechas = useFechasEje(
+  const { ref: refEjeFechas, ticks: ticksFechas, tick: tickFecha } = useFechasEje(
     datos.map((d) => d.etiqueta),
     10,
     COLOR_TEXTO,
@@ -67,7 +67,7 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
   );
   return (
     <Box
-      ref={fechas.ref}
+      ref={refEjeFechas}
       w="full"
       h={`${alto}px`}
       role="img"
@@ -110,8 +110,8 @@ export function GraficoCumplimiento({ datos, alto = 320 }: GraficoCumplimientoPr
               dataKey="etiqueta"
               tickLine={false}
               axisLine={false}
-              ticks={fechas.ticks}
-              tick={fechas.tick}
+              ticks={ticksFechas}
+              tick={tickFecha}
               tickMargin={4}
               interval={0}
             />

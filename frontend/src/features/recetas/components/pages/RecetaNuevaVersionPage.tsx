@@ -11,7 +11,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { listarUnidadesMedida } from "../../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../../unidadMedida/types/unidadMedida";
-import { useInsumosParaReceta } from "../../hooks/useRecetas";
+import { useIngredientesParaReceta } from "../../hooks/useRecetas";
 import { crearVersion, obtenerReceta, obtenerVersion } from "../../services/recetaService";
 import type { VersionInput } from "../../types/receta";
 import { desdeDetalle } from "../../utils/versionForm";
@@ -34,7 +34,7 @@ export function RecetaNuevaVersionPage() {
     id: receta?.version_vigente?.id ?? null,
     etiqueta: "la versión vigente",
   });
-  const { insumos, loading: cargandoInsumos, error: errorInsumos } = useInsumosParaReceta();
+  const { ingredientes, loading: cargandoIngredientes, error: errorIngredientes } = useIngredientesParaReceta();
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +58,8 @@ export function RecetaNuevaVersionPage() {
     }
   };
 
-  const cargando = cargandoReceta || cargandoVersion || cargandoInsumos;
-  const fallo = errorReceta ?? errorVersion ?? errorInsumos;
+  const cargando = cargandoReceta || cargandoVersion || cargandoIngredientes;
+  const fallo = errorReceta ?? errorVersion ?? errorIngredientes;
 
   return (
     <PaginaAlta
@@ -78,7 +78,7 @@ export function RecetaNuevaVersionPage() {
           key={vigente.id}
           titulo={`Versión ${vigente.numero + 1}`}
           inicial={desdeDetalle(vigente)}
-          insumos={insumos}
+          ingredientes={ingredientes}
           unidades={unidades}
           onSubmit={guardar}
           isLoading={guardando}

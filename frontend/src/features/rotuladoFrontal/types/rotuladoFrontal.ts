@@ -306,9 +306,9 @@ export type ConfiguracionRotuladoInput = Omit<ConfiguracionRotulado, "configurad
 };
 
 export interface FuenteMarca {
-  insumo_id: number;
+  ingrediente_id: number;
   nombre: string;
-  tipo: string;
+  es_aditivo: boolean;
   motivo: string;
 }
 
@@ -351,6 +351,14 @@ export interface ResultadoSello {
   exceso: boolean | null;
   evaluado: boolean;
   motivo: string | null;
+  /**
+   * A menos de la tolerancia de homologación del umbral: con otra marca
+   * aprobada de los ingredientes, el producto podría quedar del otro lado.
+   * Las evaluaciones guardadas antes de este aviso no lo traen.
+   */
+  cerca_del_umbral?: boolean;
+  /** Distancia relativa al umbral, en % ("+9.1" arriba, "-4.0" abajo). */
+  distancia_umbral_pct?: string | null;
 }
 
 export interface SellosRotulado {
@@ -358,6 +366,9 @@ export interface SellosRotulado {
   completo: boolean;
   motivo: string | null;
   excesos: string[];
+  /** Etiquetas de los sellos cerca del umbral. */
+  cerca_del_umbral?: string[];
+  tolerancia_pct?: string | null;
   resultados: ResultadoSello[];
   regla_version: number;
   vigencia_desde: string;
@@ -444,6 +455,8 @@ export interface EvaluacionRotulado {
   faltantes: string[];
   advertencias: string[];
   marcas: MarcaRotulado[];
+  /** False si la regla no cruzó la receta (categoría exceptuada, no envasado...). */
+  perfil_evaluado: boolean;
   sellos: SellosRotulado;
   evaluado_en: string;
   instantanea: InstantaneaRotulado;

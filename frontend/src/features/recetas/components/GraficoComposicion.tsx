@@ -8,7 +8,7 @@ const COLORES = ["#2f6f4f", "#4a90a4", "#d9a441", "#b5623e", "#7a5c99", "#8a9a5b
 export function GraficoComposicion({ composicion, alto = 320 }: { composicion: Composicion; alto?: number }) {
   const totalAditivos = composicion.aditivos.reduce((s, a) => s + Number(a.porcentaje), 0);
   const datos = [
-    ...composicion.ingredientes.map((i) => ({ nombre: i.insumo.nombre, valor: Number(i.porcentaje) })),
+    ...composicion.ingredientes.map((i) => ({ nombre: i.ingrediente.nombre, valor: Number(i.porcentaje) })),
     ...(totalAditivos > 0 ? [{ nombre: "Aditivos", valor: totalAditivos }] : []),
   ];
 

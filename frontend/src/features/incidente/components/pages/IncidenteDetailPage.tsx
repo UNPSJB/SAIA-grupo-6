@@ -29,11 +29,12 @@ export function IncidenteDetailPage() {
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
   const [buscandoRetiro, setBuscandoRetiro] = useState(false);
 
+  const loteIdIncidente = incidente?.lote_id;
   const handleVerRetiro = useCallback(async () => {
-    if (!incidente?.lote_id) return;
+    if (!loteIdIncidente) return;
     setBuscandoRetiro(true);
     try {
-      const retiros = await listarRetiros({ lote_id: incidente.lote_id });
+      const retiros = await listarRetiros({ lote_id: loteIdIncidente });
       const retiro = retiros[0];
       if (retiro) {
         navigate(`/retiros/${retiro.id}`);
@@ -43,7 +44,7 @@ export function IncidenteDetailPage() {
     } finally {
       setBuscandoRetiro(false);
     }
-  }, [incidente?.lote_id, navigate]);
+  }, [loteIdIncidente, navigate]);
 
   const esReclamoCliente = incidente?.tipo === "reclamo_cliente";
   const esEntregaRechazada = incidente?.tipo === "entrega_rechazada";

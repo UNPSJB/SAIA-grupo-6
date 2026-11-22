@@ -35,6 +35,7 @@ class CampoEditadoOut(BaseModel):
 class BorradorRotuladoBase(BaseModel):
     denominacion_venta: Optional[str] = Field(default=None, max_length=200)
     lista_ingredientes: Optional[str] = None
+    alergenos: Optional[str] = None
     contenido_neto: Optional[str] = Field(default=None, max_length=100)
     rnpa_rppa: Optional[str] = Field(default=None, max_length=50)
     razon_social: Optional[str] = Field(default=None, max_length=200)
@@ -61,6 +62,7 @@ class BorradorRotuladoCreate(BorradorRotuladoBase):
 class BorradorRotuladoUpdate(BaseModel):
     denominacion_venta: Optional[str] = Field(default=None, max_length=200)
     lista_ingredientes: Optional[str] = None
+    alergenos: Optional[str] = None
     contenido_neto: Optional[str] = Field(default=None, max_length=100)
     rnpa_rppa: Optional[str] = Field(default=None, max_length=50)
     razon_social: Optional[str] = Field(default=None, max_length=200)
@@ -122,6 +124,7 @@ class VistaPreviaAutocompletado(BaseModel):
     producto_nombre: str
     denominacion_venta: Optional[str] = None
     lista_ingredientes: Optional[str] = None
+    alergenos: Optional[str] = None
     datos_nutricionales_json: Optional[str] = None
     sellos_disponibles: bool = False
     version_receta_id: Optional[int] = None

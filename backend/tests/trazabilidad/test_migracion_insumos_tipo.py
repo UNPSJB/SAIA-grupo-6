@@ -17,6 +17,19 @@ ESQUEMA_VIEJO = (
     "CONSTRAINT ck_insumos_tipo_valido CHECK (tipo IN ('insumo', 'producto')), "
     "FOREIGN KEY(unidad_medida_id) REFERENCES unidades_medida (id))"
 )
+# `aditivos` (la lista de referencia) como era antes de fusionarse en el
+# ingrediente: la migración vieja la usa para vincular los aditivos.
+ADITIVOS_VIEJA = (
+    "CREATE TABLE aditivos ("
+    "id INTEGER PRIMARY KEY, clase_funcional_id INTEGER REFERENCES clases_funcionales(id), "
+    "nombre VARCHAR(150), numero_ins VARCHAR(20), activo BOOLEAN)"
+)
+# `receta_insumo` como era antes de que el maestro pasara a llamarse `ingredientes`.
+RECETA_INSUMO_VIEJA = (
+    "CREATE TABLE receta_insumo ("
+    "id INTEGER PRIMARY KEY, version_receta_id INTEGER, insumo_id INTEGER REFERENCES insumos(id), "
+    "cantidad NUMERIC(14, 3), unidad_medida_id INTEGER, clasificacion VARCHAR(20))"
+)
 
 
 @pytest.fixture
@@ -26,8 +39,12 @@ def base_vieja(db):
         conexion.execute(text("PRAGMA foreign_keys = OFF"))
         conexion.commit()
         with conexion.begin():
-            conexion.execute(text("DROP TABLE insumos"))
+            # Hoy `insumos` es otra tabla (la marca comprada): se reemplaza por la vieja.
+            conexion.execute(text("DROP TABLE IF EXISTS proveedores_insumos"))
+            conexion.execute(text("DROP TABLE IF EXISTS insumos"))
             conexion.execute(text(ESQUEMA_VIEJO))
+            conexion.execute(text(RECETA_INSUMO_VIEJA))
+            conexion.execute(text(ADITIVOS_VIEJA))
             conexion.execute(text("INSERT INTO unidades_medida (id, nombre, simbolo, activo) VALUES (1, 'Kilo', 'kg', 1)"))
             conexion.execute(
                 text(
@@ -61,7 +78,10 @@ def base_vieja(db):
     migrar_aditivos_referencia()
     yield
     with engine.begin() as conexion:
-        conexion.execute(text("DROP TABLE IF EXISTS lotes_legado"))
+        conexion.execute(text("PRAGMA foreign_keys = OFF"))
+        for tabla in ("lotes_legado", "receta_insumo", "insumos", "aditivos"):
+            conexion.execute(text(f"DROP TABLE IF EXISTS {tabla}"))
+        conexion.execute(text("PRAGMA foreign_keys = ON"))
 
 
 def _filas():

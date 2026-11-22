@@ -184,10 +184,16 @@ class ChecklistProduccion(ModeloBase):
         ForeignKey("personal.id"), nullable=True
     )
     completado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Quién tiene que hacer la tarea (como en el checklist de limpieza). Sin
+    # asignar, la puede hacer cualquiera que opere.
+    asignado_a_id: Mapped[int | None] = mapped_column(
+        ForeignKey("personal.id"), nullable=True, index=True
+    )
 
     lote: Mapped["LoteProducto"] = relationship(back_populates="checklist")
     tarea: Mapped["TareaReceta"] = relationship()
-    completado_por: Mapped["Personal | None"] = relationship()
+    completado_por: Mapped["Personal | None"] = relationship(foreign_keys=[completado_por_id])
+    asignado_a: Mapped["Personal | None"] = relationship(foreign_keys=[asignado_a_id])
     consumos: Mapped[list["ConsumoInsumo"]] = relationship(
         back_populates="checklist", order_by="ConsumoInsumo.id"
     )

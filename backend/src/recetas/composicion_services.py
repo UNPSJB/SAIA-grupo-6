@@ -3,12 +3,8 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from src.recetas import schemas
-from src.recetas.constants import (
-    CLASIFICACION_INGREDIENTE,
-    CLASIFICACION_ADITIVO,
-    MotivoFaltante,
-)
-from src.recetas.models import RecetaInsumo
+from src.recetas.constants import MotivoFaltante
+from src.recetas.models import RecetaIngrediente
 from src.recetas.services import obtener_version
 from src.unidadMedida.constants import TIPO_MASA, TIPO_UNIDAD, TIPO_VOLUMEN
 
@@ -17,9 +13,9 @@ _PORCENTAJE = Decimal("0.01")
 _TOLERANCIA_POR_ITEM = Decimal("0.005")  # error máximo de redondear a 2 decimales
 
 
-def _a_gramos(linea: RecetaInsumo) -> tuple[Decimal | None, str | None]:
+def _a_gramos(linea: RecetaIngrediente) -> tuple[Decimal | None, str | None]:
     """Devuelve (gramos, None) o (None, motivo) si falta algún dato."""
-    unidad, insumo = linea.unidad_medida, linea.insumo
+    unidad, ingrediente = linea.unidad_medida, linea.ingrediente
     if unidad.tipo is None or unidad.factor_a_base is None:
         return None, MotivoFaltante.UNIDAD_SIN_EQUIVALENCIA
 
@@ -27,19 +23,19 @@ def _a_gramos(linea: RecetaInsumo) -> tuple[Decimal | None, str | None]:
     if unidad.tipo == TIPO_MASA:
         return base, None
     if unidad.tipo == TIPO_VOLUMEN:
-        if insumo.densidad_g_ml is None:
+        if ingrediente.densidad_g_ml is None:
             return None, MotivoFaltante.SIN_DENSIDAD
-        return base * insumo.densidad_g_ml, None
+        return base * ingrediente.densidad_g_ml, None
     if unidad.tipo == TIPO_UNIDAD:
-        if insumo.peso_unitario_g is None:
+        if ingrediente.peso_unitario_g is None:
             return None, MotivoFaltante.SIN_PESO_UNITARIO
-        return base * insumo.peso_unitario_g, None
+        return base * ingrediente.peso_unitario_g, None
     return None, MotivoFaltante.UNIDAD_SIN_EQUIVALENCIA
 
 
-def _item(linea: RecetaInsumo, gramos: Decimal, total: Decimal) -> schemas.ComposicionItem:
+def _item(linea: RecetaIngrediente, gramos: Decimal, total: Decimal) -> schemas.ComposicionItem:
     return schemas.ComposicionItem(
-        insumo=schemas.InsumoResumen.model_validate(linea.insumo),
+        ingrediente=schemas.IngredienteResumen.model_validate(linea.ingrediente),
         unidad_medida=schemas.UnidadResumen.model_validate(linea.unidad_medida),
         cantidad=linea.cantidad,
         gramos=gramos.quantize(_GRAMOS),
@@ -56,14 +52,14 @@ def calcular_composicion(db: Session, version_id: int) -> schemas.Composicion:
         "producto_nombre": version.receta.producto.nombre,
     }
 
-    pesos: list[tuple[RecetaInsumo, Decimal]] = []
+    pesos: list[tuple[RecetaIngrediente, Decimal]] = []
     faltantes: list[schemas.ComposicionFaltante] = []
-    for linea in version.insumos:
+    for linea in version.ingredientes:
         gramos, motivo = _a_gramos(linea)
         if gramos is None:
             faltantes.append(schemas.ComposicionFaltante(
-                insumo=schemas.InsumoResumen.model_validate(linea.insumo),
-                clasificacion=linea.clasificacion,
+                ingrediente=schemas.IngredienteResumen.model_validate(linea.ingrediente),
+                es_aditivo=linea.es_aditivo,
                 motivo=motivo,
             ))
         else:
@@ -73,12 +69,12 @@ def calcular_composicion(db: Session, version_id: int) -> schemas.Composicion:
     if faltantes:
         return schemas.Composicion(**base, completa=False, faltantes=faltantes)
 
-    # total > 0: la versión tiene al menos un insumo y todas las cantidades,
+    # total > 0: la versión tiene al menos un ingrediente y todas las cantidades,
     # factores, densidades y pesos son positivos.
     total = sum((g for _, g in pesos), Decimal(0))
-    items = [(linea.clasificacion, _item(linea, g, total)) for linea, g in pesos]
-    ingredientes = [i for c, i in items if c == CLASIFICACION_INGREDIENTE]
-    aditivos = [i for c, i in items if c == CLASIFICACION_ADITIVO]
+    items = [(linea.es_aditivo, _item(linea, g, total)) for linea, g in pesos]
+    ingredientes = [i for es_aditivo, i in items if not es_aditivo]
+    aditivos = [i for es_aditivo, i in items if es_aditivo]
 
     todos = ingredientes + aditivos
     suma = sum((i.porcentaje for i in todos), Decimal(0))

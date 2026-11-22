@@ -26,6 +26,8 @@ export interface CampoEditadoOut {
 export interface BorradorRotuladoBase {
   denominacion_venta: string | null;
   lista_ingredientes: string | null;
+  /** Declaración de alérgenos ("Contiene: ... Puede contener: ..."). */
+  alergenos: string | null;
   contenido_neto: string | null;
   rnpa_rppa: string | null;
   razon_social: string | null;
@@ -77,6 +79,8 @@ export interface VistaPreviaAutocompletado {
   producto_nombre: string;
   denominacion_venta: string | null;
   lista_ingredientes: string | null;
+  /** Declaración de alérgenos ("Contiene: ... Puede contener: ..."). */
+  alergenos: string | null;
   datos_nutricionales_json: string | null;
   sellos_disponibles: boolean;
   version_receta_id: number | null;
@@ -91,6 +95,8 @@ export interface BorradorRotuladoCreate {
   lote_producto_id: number | null;
   denominacion_venta: string | null;
   lista_ingredientes: string | null;
+  /** Declaración de alérgenos ("Contiene: ... Puede contener: ..."). */
+  alergenos: string | null;
   contenido_neto: string | null;
   rnpa_rppa: string | null;
   razon_social: string | null;
@@ -111,6 +117,7 @@ export interface BorradorRotuladoCreate {
 export interface BorradorRotuladoUpdate {
   denominacion_venta?: string | null;
   lista_ingredientes?: string | null;
+  alergenos?: string | null;
   contenido_neto?: string | null;
   rnpa_rppa?: string | null;
   razon_social?: string | null;

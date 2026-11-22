@@ -7,6 +7,7 @@ import { formatoCantidad } from "../../../common/utils/numeros";
 import { plural, type Periodo, type ProduccionDelDia, type Serie } from "../types/paneles";
 import { GraficoSerie, type SerieGrafico } from "./graficos";
 import { MetricasBloque, type Metrica } from "./piezasPanel";
+import { unidadesDe } from "./produccionDiaria.utils";
 
 /**
  * Un color por producto, el primero libre al agregarlo. El primero es el
@@ -82,13 +83,6 @@ function serieDiaria(
     cursor.setDate(cursor.getDate() + 1);
   }
   return { granularidad: "dia", puntos };
-}
-
-/** Unidades con producción, de la de mayor volumen a la menor. */
-export function unidadesDe(porDia: ProduccionDelDia[]): string[] {
-  const totales = new Map<string, number>();
-  for (const p of porDia) totales.set(p.unidad, (totales.get(p.unidad) ?? 0) + p.cantidad);
-  return [...totales.entries()].sort((a, b) => b[1] - a[1]).map(([unidad]) => unidad);
 }
 
 /** Productos con producción en el período, con su unidad, por nombre. */

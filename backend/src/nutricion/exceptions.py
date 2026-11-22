@@ -2,8 +2,8 @@ from src.exceptions import BadRequest, NotFound
 from src.nutricion.constants import ErrorCode
 
 
-class InsumoNoEncontrado(NotFound):
-    DETAIL = ErrorCode.INSUMO_NO_ENCONTRADO
+class IngredienteNoEncontrado(NotFound):
+    DETAIL = ErrorCode.INGREDIENTE_NO_ENCONTRADO
 
 
 class ProductoNoEncontrado(NotFound):

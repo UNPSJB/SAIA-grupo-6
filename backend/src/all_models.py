@@ -33,15 +33,17 @@ from src.aptitud.models import Aptitud  # noqa: F401
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: F401
 from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
-from src.aditivos.models import Aditivo, ClaseFuncional  # noqa: F401
-from src.insumos.models import Insumo  # noqa: F401
+from src.aditivos.models import ClaseFuncional  # noqa: F401
+from src.ingredientes.models import Ingrediente  # noqa: F401
+from src.insumos.models import Insumo, ValorRotuloInsumo, proveedores_insumos  # noqa: F401
+from src.alergenos.models import Alergeno, IngredienteAlergeno, InsumoAlergeno  # noqa: F401
 from src.proveedores.models import Proveedor, CertificacionProveedor  # noqa: F401
 from src.productos.models import Producto  # noqa: F401
 from src.recetas.models import (  # noqa: F401
     Receta,
-    RecetaInsumo,
+    RecetaIngrediente,
     TareaReceta,
-    TareaRecetaInsumo,
+    TareaRecetaIngrediente,
     VersionReceta,
 )
 from src.nutricion.models import (  # noqa: F401
@@ -49,9 +51,9 @@ from src.nutricion.models import (  # noqa: F401
     InfoNutricionalProducto,
     ParametroNutricion,
     ParametroNutriente,
-    PerfilNutricionalInsumo,
+    PerfilNutricionalIngrediente,
     ValorLaboratorioProducto,
-    ValorNutricionalInsumo,
+    ValorNutricionalIngrediente,
 )
 from src.rotulado_frontal.models import (  # noqa: F401
     ConfiguracionModuloRotulado,
@@ -94,14 +96,13 @@ from src.auditoria.models import AuditLog  # noqa: F401
 import src.auditoria.listeners  # noqa: F401
 
 __all__ = [
-    "Aditivo",
     "AlimentoReferencia",
     "InfoNutricionalProducto",
     "ParametroNutricion",
     "ParametroNutriente",
-    "PerfilNutricionalInsumo",
+    "PerfilNutricionalIngrediente",
     "ValorLaboratorioProducto",
-    "ValorNutricionalInsumo",
+    "ValorNutricionalIngrediente",
     "Aptitud",
     "AuditLog",
     "Calibracion",
@@ -124,7 +125,12 @@ __all__ = [
     "Incidente",
     "HistorialIncidente",
     "IndicadorVistaPublica",
+    "Ingrediente",
     "Insumo",
+    "Alergeno",
+    "IngredienteAlergeno",
+    "InsumoAlergeno",
+    "ValorRotuloInsumo",
     "InsumoQuimico",
     "ChecklistProduccion",
     "ClaseFuncional",
@@ -137,10 +143,10 @@ __all__ = [
     "LoteStock",
     "Producto",
     "Receta",
-    "RecetaInsumo",
+    "RecetaIngrediente",
     "ReglaRotuladoFrontal",
     "TareaReceta",
-    "TareaRecetaInsumo",
+    "TareaRecetaIngrediente",
     "VersionReceta",
     "Personal",
     "PlanCalibracionMantenimiento",

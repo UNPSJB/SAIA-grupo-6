@@ -274,15 +274,18 @@ export function TabSalidas() {
         }
         herramientas={
           <>
-            {/* Dentro de una pestaña, el alta va en la barra. */}
-            <BotonAgregar
-              onClick={() => {
-                setLotePreseleccionado(null);
-                setModalReservar(true);
-              }}
-            >
-              Nueva reserva
-            </BotonAgregar>
+            {/* Dentro de una pestaña, el alta va en la barra. Reservar es una
+                decisión comercial: solo quien administra. */}
+            {puedeResolverRechazo && (
+              <BotonAgregar
+                onClick={() => {
+                  setLotePreseleccionado(null);
+                  setModalReservar(true);
+                }}
+              >
+                Nueva reserva
+              </BotonAgregar>
+            )}
             {puedeResolverRechazo && (
               <BotonExportar
                 nombreTabla="salidas"
@@ -336,12 +339,16 @@ export function TabSalidas() {
                 setModalDespachar({ open: true, salida });
               }
             }}
-            onCancelar={(salidaId) => {
-              const salida = paginados.find((s) => s.id === salidaId);
-              if (salida) {
-                setModalCancelar({ open: true, salida });
-              }
-            }}
+            onCancelar={
+              puedeResolverRechazo
+                ? (salidaId) => {
+                    const salida = paginados.find((s) => s.id === salidaId);
+                    if (salida) {
+                      setModalCancelar({ open: true, salida });
+                    }
+                  }
+                : undefined
+            }
             onEntregar={(salidaId) => {
               const salida = paginados.find((s) => s.id === salidaId);
               if (salida) {

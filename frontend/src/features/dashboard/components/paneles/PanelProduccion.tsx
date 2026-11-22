@@ -13,7 +13,8 @@ import {
   type ProduccionDelDia,
 } from "../../types/paneles";
 import { GraficoDona, GraficoPaleta, GraficoSerie } from "../graficos";
-import { ProduccionDiaria, unidadesDe } from "../ProduccionDiaria";
+import { ProduccionDiaria } from "../ProduccionDiaria";
+import { unidadesDe } from "../produccionDiaria.utils";
 import { COLOR_CALIDO, COLOR_ESTADO, COLOR_SERIE, conColor, serieVacia } from "../../types/coloresGraficos";
 import {
   Bloque,

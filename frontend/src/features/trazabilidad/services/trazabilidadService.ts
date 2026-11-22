@@ -3,7 +3,7 @@ import { pedir } from "../../../common/api/errors";
 import type { GrafoTrazabilidadResponse } from "../types/grafo";
 import type { TrazabilidadLoteInsumo, TrazabilidadLoteProducto } from "../types/trazabilidad";
 
-/** Hacia atrás: del lote de producto hasta el proveedor de cada insumo. */
+/** Hacia atrás: del lote de producto hasta el proveedor de cada ingrediente. */
 export async function trazarLoteProducto(id: number): Promise<TrazabilidadLoteProducto> {
   const response = await apiFetch(`${API_URL}/trazabilidad/lotes-producto/${id}`);
   return pedir<TrazabilidadLoteProducto>(response, "Error al obtener la trazabilidad del lote");

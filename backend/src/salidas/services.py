@@ -144,6 +144,7 @@ def reservar(
 
     Validaciones:
     - Lote existe y no está retirado.
+    - El lote tiene un borrador de rotulado completo.
     - Cliente existe y está activo.
     - cantidad > 0.
     - cantidad <= saldo del lote.
@@ -158,6 +159,12 @@ def reservar(
 
     if lote.fecha_vencimiento is not None and lote.fecha_vencimiento < hoy():
         raise exceptions.LoteVencidoError()
+
+    # Sin rotulado completo del lote no se vende.
+    from src.rotulado.services import borrador_completo_del_lote
+
+    if borrador_completo_del_lote(db, lote.id) is None:
+        raise exceptions.LoteSinRotulado()
 
     cliente = _obtener_cliente_o_error(db, cliente_id)
 
@@ -898,6 +905,8 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
         .order_by(LoteProducto.numero_lote.asc())
     ).all()
 
+    from src.rotulado.services import borrador_completo_del_lote
+
     disponibles: list[schemas.LoteDisponible] = []
     for lote in lotes:
         producto = lote.producto
@@ -920,6 +929,7 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
                     fecha_vencimiento=lote.fecha_vencimiento,
                     retirado=lote.retirado,
                     retiro_id=None,
+                    rotulado_completo=borrador_completo_del_lote(db, lote.id) is not None,
                 )
             )
     return disponibles

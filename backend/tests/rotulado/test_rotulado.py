@@ -9,9 +9,9 @@ from decimal import Decimal
 
 from src.auth.dependencies import require_admin
 from src.database import get_db
-from src.insumos.models import Insumo
+from src.ingredientes.models import Ingrediente
 from src.productos.models import Producto
-from src.recetas.models import Receta, VersionReceta, RecetaInsumo
+from src.recetas.models import Receta, VersionReceta, RecetaIngrediente
 from src.rotulado import services, schemas, exceptions
 from src.rotulado.router import router
 from src.unidadMedida.models import UnidadMedida
@@ -24,10 +24,10 @@ def datos(db_session):
     db.info["sin_auditoria"] = True
     unidad = UnidadMedida(nombre="Gramo", simbolo="g", tipo="masa", factor_a_base=1)
     producto = Producto(nombre="Mermelada de frutilla", unidad_medida=unidad)
-    insumo = Insumo(nombre="Frutilla", unidad_medida=unidad)
+    ingrediente = Ingrediente(nombre="Frutilla", unidad_medida=unidad)
     receta = Receta(producto=producto)
     version = VersionReceta(receta=receta, numero=1, rendimiento=100, unidad_medida=unidad)
-    version.insumos = [RecetaInsumo(insumo=insumo, cantidad=100, unidad_medida=unidad, clasificacion="ingrediente")]
+    version.ingredientes = [RecetaIngrediente(ingrediente=ingrediente, cantidad=100, unidad_medida=unidad, es_aditivo=False)]
     db.add_all([producto, receta, version])
     db.commit()
     return db, producto, receta, version

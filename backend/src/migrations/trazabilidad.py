@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from src.database import engine
 
-from .base import marcar_migracion, migracion_ya_corrio, tablas
+from .base import hay_insumos_viejo, marcar_migracion, migracion_ya_corrio, tablas
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,8 @@ def migrar_trazabilidad() -> None:
         return
 
     nombre_lote = _NOMBRE_PRODUCTO.format(col="l.producto_nombre")
+    # Se lee antes de abrir la transacción (`inspect` usa otra conexión).
+    insumos_viejo = hay_insumos_viejo()
     with engine.begin() as conexion:
         unidad_id = None
         if "unidades_medida" in existentes:
@@ -52,7 +54,7 @@ def migrar_trazabilidad() -> None:
                 )
             ).scalar_one_or_none()
 
-        if "insumos" in existentes:
+        if insumos_viejo:
             conexion.execute(
                 text(
                     "INSERT OR IGNORE INTO productos (nombre, unidad_medida_id, activo) "

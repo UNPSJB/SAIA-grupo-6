@@ -30,6 +30,9 @@ import { useRecetas } from "../../../recetas/hooks/useRecetas";
 import type { ModoEscalado } from "../../../recetas/types/receta";
 import { TablaEscalado } from "../../../recetas/components/TablaEscalado";
 import { crearLote } from "../../services/loteService";
+import { nombrePersona, useOperarios } from "../../hooks/useOperarios";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
 
 /**
  * Nuevo lote de producción, que también es la calculadora de escalado (E9).
@@ -51,6 +54,12 @@ export function LoteCreatePage() {
   const [valor, setValor] = useState(params.get("cantidad") ?? params.get("factor") ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Quien administra puede asignar todo el lote a una persona que opera; sin
+  // responsable, cada tarea la puede hacer cualquiera (y se reasigna después).
+  const { user } = useAuth();
+  const administra = puedeAdministrar(user);
+  const { operarios, loading: cargandoOperarios } = useOperarios(administra);
+  const [responsableId, setResponsableId] = useState(0);
 
   const disponibles = recetas.filter((r) => r.version_vigente);
   const receta = disponibles.find((r) => r.id === recetaId);
@@ -83,6 +92,7 @@ export function LoteCreatePage() {
       const lote = await crearLote({
         producto_id: receta.producto_id,
         ...(modo === "cantidad" ? { cantidad_objetivo: valor } : { factor: valor }),
+        ...(administra && responsableId ? { responsable_id: responsableId } : {}),
       });
       navigate(`/lotes/${lote.id}`);
     } catch (err) {
@@ -98,7 +108,7 @@ export function LoteCreatePage() {
       volver={{ a: "/lotes", etiqueta: "Lotes", historial: true }}
       icono={LuFactory}
       titulo="Nuevo lote de producción"
-      descripcion="Calculá las cantidades de cada insumo para lo que vas a elaborar. El lote se crea recién al confirmar, con la versión vigente de la receta y su checklist."
+      descripcion="Calculá las cantidades de cada ingrediente para lo que vas a elaborar. El lote se crea recién al confirmar, con la versión vigente de la receta y su checklist."
       error={error}
     >
       {errorRecetas && <BannerError>{errorRecetas}</BannerError>}
@@ -164,6 +174,26 @@ export function LoteCreatePage() {
                 placeholder={modo === "cantidad" ? "Ej: 40" : "Ej: 2"}
               />
             </FormField>
+
+            {administra && (
+              <FormField
+                label="Responsable"
+                helper="Queda asignado a todas las tareas del lote. Sin responsable, cada tarea la puede hacer cualquier persona que opera; se puede reasignar desde la ficha."
+              >
+                <FormNativeSelect
+                  value={responsableId}
+                  onChange={(e) => setResponsableId(Number(e.target.value))}
+                  disabled={cargandoOperarios}
+                >
+                  <option value={0}>{cargandoOperarios ? "Cargando..." : "Sin responsable"}</option>
+                  {operarios.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {nombrePersona(p)}
+                    </option>
+                  ))}
+                </FormNativeSelect>
+              </FormField>
+            )}
 
             {escalado && (
               <CeldaCompleta>

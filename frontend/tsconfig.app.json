@@ -30,5 +30,7 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Los tests los compila vitest (con sus propios tipos), no el build de la app.
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

@@ -70,6 +70,7 @@ type FiltroOrigen =
   | "VENCIMIENTO_PERSONAL"
   | "PLAN_CALIBRACION"
   | "PLAN_MANTENIMIENTO"
+  | "HOMOLOGACION_INSUMO"
   | "DOCUMENTO"
   | "CHECKLIST"
   | "INCIDENTE";
@@ -103,6 +104,7 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
   VENCIMIENTO_PERSONAL: "Vencimiento de personal",
   PLAN_CALIBRACION: "Calibración",
   PLAN_MANTENIMIENTO: "Mantenimiento",
+  HOMOLOGACION_INSUMO: "Homologación de insumo",
   DOCUMENTO: "Documento",
   CHECKLIST: "Checklist",
   INCIDENTE: "Incidente",
@@ -347,6 +349,7 @@ export function NotificacionesPage() {
       personal: base.filter((a) => a.origen === "VENCIMIENTO_PERSONAL").length,
       calibracion: base.filter((a) => a.origen === "PLAN_CALIBRACION").length,
       mantenimiento: base.filter((a) => a.origen === "PLAN_MANTENIMIENTO").length,
+      homologaciones: base.filter((a) => a.origen === "HOMOLOGACION_INSUMO").length,
       documentos: base.filter((a) => a.origen === "DOCUMENTO").length,
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
@@ -596,6 +599,7 @@ export function NotificacionesPage() {
                 <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
                 <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
                 <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
+                <option value="HOMOLOGACION_INSUMO">Homologaciones ({contadores.homologaciones})</option>
                 <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
                 <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
                 <option value="INCIDENTE">Incidentes ({contadores.incidentes})</option>

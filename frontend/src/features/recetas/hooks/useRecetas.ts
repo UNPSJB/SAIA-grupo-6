@@ -1,11 +1,11 @@
 import { useCallback } from "react";
 import { useLista } from "../../../common/hooks/useLista";
 import {
-  listarInsumosParaReceta,
+  listarIngredientesParaReceta,
   listarRecetas,
   listarVersiones,
 } from "../services/recetaService";
-import type { InsumoOpcion, Receta, VersionResumen } from "../types/receta";
+import type { IngredienteOpcion, Receta, VersionResumen } from "../types/receta";
 
 export function useRecetas() {
   const cargar = useCallback(() => listarRecetas(), []);
@@ -29,13 +29,13 @@ export function useVersiones(recetaId: number) {
   return { versiones: items, loading, error };
 }
 
-export function useInsumosParaReceta() {
-  const cargar = useCallback(() => listarInsumosParaReceta(), []);
-  const { items, loading, error } = useLista<InsumoOpcion[]>({
+export function useIngredientesParaReceta() {
+  const cargar = useCallback(() => listarIngredientesParaReceta(), []);
+  const { items, loading, error } = useLista<IngredienteOpcion[]>({
     cargar,
     dependencias: [],
     valorInicial: [],
-    mensajeError: "No se pudieron cargar los insumos",
+    mensajeError: "No se pudieron cargar los ingredientes",
   });
-  return { insumos: items, loading, error };
+  return { ingredientes: items, loading, error };
 }

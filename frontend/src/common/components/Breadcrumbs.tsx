@@ -11,6 +11,7 @@ import {
   rutaPanel,
   TODAS_LAS_ENTRADAS,
   esVisibleEntrada,
+  destinoCategoria,
 } from "./menuEntradas";
 
 type Usuario = Parameters<typeof esVisibleEntrada>[1];
@@ -43,13 +44,14 @@ const ETIQUETAS: Record<string, string> = {
   "informacion-nutricional": "Información nutricional",
   "rotulado-frontal": "Rotulado frontal",
   nutricion: "Datos nutricionales",
+  homologacion: "Homologación",
 };
 
 /**
  * Secciones cuya ruta `/<seccion>/:id` es una página de detalle. En las
  * pantallas que cuelgan de ese detalle (`/recetas/3/nueva-version`) el id se
- * muestra como la miga "Detalle", con enlace. En las demás (`/insumos/3/editar`)
- * no hay página `/insumos/3` y el id no se muestra.
+ * muestra como la miga "Detalle", con enlace. En las demás (`/ingredientes/3/editar`)
+ * no hay página `/ingredientes/3` y el id no se muestra.
  */
 const SECCIONES_CON_DETALLE = new Set(["recetas", "lotes", "incidentes"]);
 
@@ -95,7 +97,7 @@ function construirMigas(pathname: string, user: Usuario): Miga[] {
   );
   if (grupoDeLaRuta) {
     migas.push({
-      to: rutaPanel(grupoDeLaRuta),
+      to: destinoCategoria(grupoDeLaRuta, user),
       label: grupoDeLaRuta.label,
       actual: false,
       enlace: grupoDeLaRuta.entradas.some((e) => esVisibleEntrada(e, user)),
@@ -170,7 +172,9 @@ export function Breadcrumbs({ claro = false }: { claro?: boolean }) {
     <Breadcrumb.Root size="sm" minW={0}>
       <Breadcrumb.List flexWrap="nowrap"> 
         {migas.map((miga, i) => (
-          <Fragment key={miga.to}>
+          // Por posición: para quien opera, la categoría y su primera pantalla
+          // llevan a la misma ruta (Producción y Lotes → /lotes).
+          <Fragment key={`${i}-${miga.to}`}>
             {i > 0 && (
               <Breadcrumb.Separator color={claro ? "whiteAlpha.700" : undefined}>
                 <LuChevronRight size={14} aria-hidden />

@@ -55,6 +55,8 @@ interface LoteOpcion {
   fecha_inicio: string | null;
   vencido: boolean;
   retirado: boolean;
+  /** Sin rotulado completo no se vende. */
+  sinRotulado: boolean;
 }
 
 /**
@@ -105,13 +107,6 @@ export function ModalReservarLote({
     id: number;
     nombre: string;
   }[]>([]);
-  const [loteSeleccionado, setLoteSeleccionado] = useState<{
-    id: number;
-    saldo: number;
-    unidad: string;
-    fecha_inicio: string | null;
-    fecha_vencimiento: string | null;
-  } | null>(null);
   const { intentado, puedeEnviar } = useIntentoEnvio();
 
   // Cada apertura arranca limpia.
@@ -119,14 +114,12 @@ export function ModalReservarLote({
   if (isOpen !== abiertoAnterior) {
     setAbiertoAnterior(isOpen);
     if (isOpen) {
+      // El lote preseleccionado se marca cuando llega la lista (si se puede reservar).
       setValues({
         ...VALORES_INICIALES,
         fecha_reserva: hoyISO(),
       });
       setError(null);
-      if (loteIdInicial) {
-        setValues({ ...values, lote_id: loteIdInicial });
-      }
     }
   }
 
@@ -152,6 +145,7 @@ export function ModalReservarLote({
             vencido:
               !!l.fecha_vencimiento && l.fecha_vencimiento < hoyISO(),
             retirado: l.retirado,
+            sinRotulado: l.rotulado_completo === false,
           })).sort(compararLotes);
         setLotesDisponibles(disponibles);
         setClientesActivos(
@@ -162,20 +156,12 @@ export function ModalReservarLote({
             )
         );
 
-        // Si hay un lote preseleccionado, marcarlo (salvo que esté vencido:
-        // esos se muestran deshabilitados y no se pueden reservar).
+        // Si hay un lote preseleccionado, marcarlo (salvo que esté vencido o
+        // sin rotulado: esos se muestran deshabilitados y no se pueden reservar).
         if (loteIdInicial) {
           const lote = disponibles.find((l) => l.id === loteIdInicial);
-          if (lote && !lote.vencido) {
-            const saldoNum = Number(lote.saldo);
-            setLoteSeleccionado({
-              id: lote.id,
-              saldo: saldoNum,
-              unidad: lote.unidad,
-              fecha_inicio: lote.fecha_inicio,
-              fecha_vencimiento: lote.fecha_vencimiento,
-            });
-            setValues({ ...values, lote_id: loteIdInicial });
+          if (lote && !lote.vencido && !lote.sinRotulado) {
+            setValues((actual) => ({ ...actual, lote_id: loteIdInicial }));
           }
         }
       })
@@ -192,31 +178,10 @@ export function ModalReservarLote({
     };
   }, [isOpen, loteIdInicial]);
 
-  // Cuando cambia el lote, recalcular el saldo máximo y resetear la fecha si fuera de rango.
-  useEffect(() => {
-    if (values.lote_id) {
-      const lote = lotesDisponibles.find((l) => l.id === values.lote_id);
-      if (lote) {
-        const saldoNum = Number(lote.saldo);
-        setLoteSeleccionado({
-          id: lote.id,
-          saldo: saldoNum,
-          unidad: lote.unidad,
-          fecha_inicio: lote.fecha_inicio,
-          fecha_vencimiento: lote.fecha_vencimiento,
-        });
-        // Si la fecha ya elegida quedó fuera de rango, resetea a hoy y avisa.
-        const hoy = hoyISO();
-        if (values.fecha_reserva > hoy) {
-          setValues({ ...values, fecha_reserva: hoy });
-        }
-      } else {
-        setLoteSeleccionado(null);
-      }
-    } else {
-      setLoteSeleccionado(null);
-    }
-  }, [values.lote_id, lotesDisponibles]);
+  // El lote elegido, con su saldo y fechas, sale de la lista cargada.
+  const loteSeleccionado = values.lote_id
+    ? lotesDisponibles.find((l) => l.id === values.lote_id) ?? null
+    : null;
 
   const saldoMax = loteSeleccionado?.saldo ?? 0;
 
@@ -230,7 +195,7 @@ export function ModalReservarLote({
           loteSeleccionado.fecha_inicio
         )}. Después de los lotes con vencimiento se ordena por antigüedad (FIFO).`
       : "Sin fechas de vencimiento ni de elaboración registradas."
-    : "Se muestran primero los lotes con vencimiento más próximo (FEFO) y después los más antiguos (FIFO). Los vencidos quedan al final, deshabilitados.";
+    : "Se muestran primero los lotes con vencimiento más próximo (FEFO) y después los más antiguos (FIFO). Los vencidos y los que no tienen el rotulado completo aparecen deshabilitados.";
 
   const faltan = faltantes({
     lote_id: [!values.lote_id || values.lote_id === 0, "el lote"],
@@ -319,16 +284,22 @@ export function ModalReservarLote({
             >
               <FormNativeSelect
                 value={String(values.lote_id)}
-                onChange={(e) =>
-                  setValues({ ...values, lote_id: Number(e.target.value) })
-                }
+                onChange={(e) => {
+                  // Al cambiar de lote, una fecha futura vuelve a hoy.
+                  const hoy = hoyISO();
+                  setValues({
+                    ...values,
+                    lote_id: Number(e.target.value),
+                    fecha_reserva: values.fecha_reserva > hoy ? hoy : values.fecha_reserva,
+                  });
+                }}
               >
                 <option value="">-- Lote --</option>
                 {lotesDisponibles.map((lote) => (
                   <option
                     key={lote.id}
                     value={String(lote.id)}
-                    disabled={lote.vencido}
+                    disabled={lote.vencido || lote.sinRotulado}
                   >
                     {lote.numero_lote} · {lote.producto_nombre} · saldo:{" "}
                     {cantidadConUnidad(lote.saldo, lote.unidad)}
@@ -337,6 +308,7 @@ export function ModalReservarLote({
                       : lote.fecha_vencimiento
                       ? ` · vence ${formatoFecha(lote.fecha_vencimiento)}`
                       : " · sin vencimiento"}
+                    {lote.sinRotulado ? " · sin rotulado completo" : ""}
                   </option>
                 ))}
               </FormNativeSelect>

@@ -6,12 +6,24 @@ class LoteInsumoNoEncontrado(NotFound):
     DETAIL = ErrorCode.LOTE_NO_ENCONTRADO
 
 
-class InsumoNoEncontrado(BadRequest):
-    DETAIL = ErrorCode.INSUMO_NO_ENCONTRADO
+class IngredienteNoEncontrado(BadRequest):
+    DETAIL = ErrorCode.INGREDIENTE_NO_ENCONTRADO
 
 
 class ProveedorNoEncontrado(BadRequest):
     DETAIL = ErrorCode.PROVEEDOR_NO_ENCONTRADO
+
+
+class InsumoNoEncontrado(BadRequest):
+    DETAIL = ErrorCode.INSUMO_NO_ENCONTRADO
+
+
+class InsumoNoHomologado(BadRequest):
+    DETAIL = ErrorCode.INSUMO_NO_HOMOLOGADO
+
+
+class ProveedorNoVendeInsumo(BadRequest):
+    DETAIL = ErrorCode.PROVEEDOR_NO_VENDE_INSUMO
 
 
 class LoteInsumoYaExiste(BadRequest):

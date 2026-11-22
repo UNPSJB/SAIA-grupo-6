@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { Badge, Box, HStack, Text, Textarea } from "@chakra-ui/react";
 import {
   DialogContent,
@@ -16,6 +16,7 @@ import {
 import { formatoFecha } from "../../../common/utils/fechas";
 import { MiniaturaFoto } from "./MiniaturaFoto";
 import { listarReclamos } from "../../reclamos/services/reclamoService";
+import { useLista } from "../../../common/hooks/useLista";
 import type { Incidente } from "../types/incidente";
 import type { ReclamoResumen } from "../../reclamos/types/reclamo";
 
@@ -38,6 +39,11 @@ interface CerrarIncidenteDialogProps {
  * quien lo cierra tenga el contexto completo antes de documentar la
  * resolución.
  */
+interface ReclamoDelIncidente {
+  incidenteId: number | null;
+  reclamo: ReclamoResumen | null;
+}
+
 export function CerrarIncidenteDialog({
   isOpen,
   incidente,
@@ -47,8 +53,6 @@ export function CerrarIncidenteDialog({
 }: CerrarIncidenteDialogProps) {
   const [observacion, setObservacion] = useState("");
   const [intento, setIntento] = useState(false);
-  const [reclamo, setReclamo] = useState<ReclamoResumen | null>(null);
-  const [cargandoReclamo, setCargandoReclamo] = useState(false);
 
   // Cada apertura arranca vacía.
   const [abiertoAnterior, setAbiertoAnterior] = useState(isOpen);
@@ -57,29 +61,31 @@ export function CerrarIncidenteDialog({
     if (isOpen) {
       setObservacion("");
       setIntento(false);
-      setReclamo(null);
-      setCargandoReclamo(false);
     }
   }
 
   // Si es un reclamo de cliente, traer sus datos para el resumen del cierre.
-  useEffect(() => {
-    if (!isOpen || !incidente || incidente.tipo !== "reclamo_cliente") {
-      setReclamo(null);
-      return;
+  // Se guarda de qué incidente es: al abrir otro, no se muestra el anterior
+  // mientras carga el nuevo.
+  const incidenteReclamoId = isOpen && incidente?.tipo === "reclamo_cliente" ? incidente.id : null;
+  const cargarReclamo = useCallback(async (): Promise<ReclamoDelIncidente> => {
+    if (incidenteReclamoId === null) return { incidenteId: null, reclamo: null };
+    try {
+      const lista = await listarReclamos({ incidente_id: incidenteReclamoId });
+      return { incidenteId: incidenteReclamoId, reclamo: lista[0] ?? null };
+    } catch {
+      return { incidenteId: incidenteReclamoId, reclamo: null };
     }
-    setCargandoReclamo(true);
-    void listarReclamos({ incidente_id: incidente.id })
-      .then((lista) => {
-        setReclamo(lista[0] ?? null);
-      })
-      .catch(() => {
-        setReclamo(null);
-      })
-      .finally(() => {
-        setCargandoReclamo(false);
-      });
-  }, [isOpen, incidente]);
+  }, [incidenteReclamoId]);
+  const { items: reclamoCargado, loading: cargandoLista } = useLista<ReclamoDelIncidente>({
+    cargar: cargarReclamo,
+    dependencias: [incidenteReclamoId],
+    valorInicial: { incidenteId: null, reclamo: null },
+    mensajeError: "No se pudo cargar el reclamo del incidente.",
+  });
+  const reclamo =
+    incidenteReclamoId !== null && reclamoCargado.incidenteId === incidenteReclamoId ? reclamoCargado.reclamo : null;
+  const cargandoReclamo = incidenteReclamoId !== null && cargandoLista;
 
   const esReclamoCliente: boolean = incidente?.tipo === "reclamo_cliente";
   const observacionVacia = !observacion.trim();

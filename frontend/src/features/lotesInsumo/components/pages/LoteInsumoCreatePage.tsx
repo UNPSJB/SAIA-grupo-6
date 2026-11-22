@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Text } from "@chakra-ui/react";
 import { LuPackagePlus, LuSave } from "react-icons/lu";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
+import { useLista } from "../../../../common/hooks/useLista";
 import { hoyISO } from "../../../../common/utils/fechas";
 import {
   CeldaCompleta,
@@ -24,17 +25,20 @@ import {
   SelectPlaceholder,
 } from "../../../../components/ui/patrones";
 import { useProveedores } from "../../../proveedores/hooks/useProveedores";
-import { useInsumosActivos } from "../../hooks/useStockInsumos";
+import { listarInsumos } from "../../../insumos/services/insumoService";
+import { homologacionVigente, type Insumo } from "../../../insumos/types/insumo";
+import { useIngredientesActivos } from "../../hooks/useStockInsumos";
 import { crearLoteInsumo } from "../../services/loteInsumoService";
 
 export function LoteInsumoCreatePage() {
   const navigate = useNavigate();
   const delayedNavigate = useDelayedNavigate();
-  const { insumos, loading: cargandoInsumos } = useInsumosActivos();
+  const { ingredientes, loading: cargandoIngredientes } = useIngredientesActivos();
   const { proveedores, loading: cargandoProveedores } = useProveedores(false);
 
-  const [insumoId, setInsumoId] = useState(0);
-  const [proveedorId, setProveedorId] = useState(0);
+  const [ingredienteId, setIngredienteId] = useState(0);
+  const [insumoElegido, setInsumoId] = useState(0);
+  const [proveedorElegido, setProveedorId] = useState(0);
   const [numeroLote, setNumeroLote] = useState("");
   const [cantidad, setCantidad] = useState("");
   const [ingreso, setIngreso] = useState(() => hoyISO());
@@ -43,13 +47,49 @@ export function LoteInsumoCreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
 
-  const unidad = insumos.find((i) => i.id === insumoId)?.unidad_medida.simbolo;
+  const unidad = ingredientes.find((i) => i.id === ingredienteId)?.unidad_medida.simbolo;
+
+  // Marcas del ingrediente elegido.
+  const cargarInsumos = useCallback(
+    () => (ingredienteId ? listarInsumos({ ingredienteId }) : Promise.resolve([] as Insumo[])),
+    [ingredienteId],
+  );
+  const { items: todosLosInsumos, loading: cargandoInsumos } = useLista<Insumo[]>({
+    cargar: cargarInsumos,
+    dependencias: [ingredienteId],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los insumos.",
+  });
+  // Solo se reciben lotes de marcas con la homologación aprobada y vigente.
+  const insumos = useMemo(() => todosLosInsumos.filter(homologacionVigente), [todosLosInsumos]);
+  const sinAprobar = todosLosInsumos.length - insumos.length;
+  // Con una sola marca no hace falta elegirla.
+  const insumo =
+    insumos.find((i) => i.id === insumoElegido) ?? (insumos.length === 1 ? insumos[0] : undefined);
+  const insumoId = insumo?.id ?? 0;
+
+  // Solo los proveedores que venden la marca elegida (y si es uno solo, ya queda elegido).
+  const proveedoresDelInsumo = useMemo(() => {
+    const ids = new Set(insumo?.proveedores.map((p) => p.id) ?? []);
+    return proveedores.filter((p) => ids.has(p.id));
+  }, [insumo, proveedores]);
+  const proveedorId = proveedoresDelInsumo.some((p) => p.id === proveedorElegido)
+    ? proveedorElegido
+    : proveedoresDelInsumo.length === 1
+      ? proveedoresDelInsumo[0].id
+      : 0;
+
+  const elegirIngrediente = (id: number) => {
+    setIngredienteId(id);
+    setInsumoId(0);
+    setProveedorId(0);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!insumoId || !proveedorId) {
-      setError("Elegí el insumo y el proveedor.");
+    if (!ingredienteId || !insumoId || !proveedorId) {
+      setError("Elegí el ingrediente, el insumo (marca) y el proveedor.");
       return;
     }
     if (!numeroLote.trim()) {
@@ -93,16 +133,16 @@ export function LoteInsumoCreatePage() {
       error={error}
     >
       <FormularioAlta onSubmit={handleSubmit}>
-        <SeccionFormulario titulo="Origen" ayuda="Qué insumo llegó y quién lo entregó.">
+        <SeccionFormulario titulo="Origen" ayuda="Qué ingrediente llegó, de qué marca y quién lo entregó.">
           <GrillaFormulario>
-            <FormField label="Insumo" required completo>
+            <FormField label="Ingrediente" required completo>
               <FormNativeSelect
-                value={insumoId}
-                onChange={(e) => setInsumoId(Number(e.target.value))}
-                disabled={cargandoInsumos}
+                value={ingredienteId}
+                onChange={(e) => elegirIngrediente(Number(e.target.value))}
+                disabled={cargandoIngredientes}
               >
-                <SelectPlaceholder>{cargandoInsumos ? "Cargando..." : "Seleccioná un insumo"}</SelectPlaceholder>
-                {insumos.map((i) => (
+                <SelectPlaceholder>{cargandoIngredientes ? "Cargando..." : "Seleccioná un ingrediente"}</SelectPlaceholder>
+                {ingredientes.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.nombre} ({i.unidad_medida.simbolo})
                   </option>
@@ -110,16 +150,57 @@ export function LoteInsumoCreatePage() {
               </FormNativeSelect>
             </FormField>
 
-            <FormField label="Proveedor" required completo>
+            <FormField
+              label="Insumo (marca)"
+              required
+              completo
+              helper={
+                !ingredienteId || cargandoInsumos
+                  ? undefined
+                  : todosLosInsumos.length === 0
+                    ? "Este ingrediente no tiene insumos. Cargalos en la ficha del ingrediente."
+                    : insumos.length === 0
+                      ? "Ninguna marca de este ingrediente tiene la homologación aprobada y vigente. Homologalas en la ficha del ingrediente."
+                      : sinAprobar > 0
+                        ? `No se muestran ${sinAprobar === 1 ? "1 marca" : `${sinAprobar} marcas`} sin homologación vigente.`
+                        : undefined
+              }
+            >
+              <FormNativeSelect
+                value={insumoId}
+                onChange={(e) => setInsumoId(Number(e.target.value))}
+                disabled={!ingredienteId || cargandoInsumos}
+              >
+                <SelectPlaceholder>
+                  {!ingredienteId ? "Primero elegí el ingrediente" : cargandoInsumos ? "Cargando..." : "Seleccioná una marca"}
+                </SelectPlaceholder>
+                {insumos.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
+
+            <FormField
+              label="Proveedor"
+              required
+              completo
+              helper={
+                insumo && proveedoresDelInsumo.length === 0
+                  ? "Ningún proveedor activo vende esta marca. Asociáselo en la ficha del ingrediente o del proveedor."
+                  : undefined
+              }
+            >
               <FormNativeSelect
                 value={proveedorId}
                 onChange={(e) => setProveedorId(Number(e.target.value))}
-                disabled={cargandoProveedores}
+                disabled={cargandoProveedores || !insumoId}
               >
                 <SelectPlaceholder>
-                  {cargandoProveedores ? "Cargando..." : "Seleccioná un proveedor"}
+                  {cargandoProveedores ? "Cargando..." : !insumoId ? "Primero elegí la marca" : "Seleccioná un proveedor"}
                 </SelectPlaceholder>
-                {proveedores.map((p) => (
+                {proveedoresDelInsumo.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}
                   </option>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useLista } from "../../../../common/hooks/useLista";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { LuBookOpen, LuHistory, LuInfo, LuTriangleAlert } from "react-icons/lu";
@@ -33,6 +34,8 @@ import {
   type EvaluacionRotulado,
   type EvaluacionRotuladoGuardada,
   type MarcaRotulado,
+  type ResultadoSello,
+  type SellosRotulado,
 } from "../../types/rotuladoFrontal";
 
 type ValorMarca = "auto" | "si" | "no";
@@ -53,19 +56,23 @@ const aValorMarca = (valor: boolean | null): ValorMarca =>
 const aBooleano = (valor: ValorMarca): boolean | null =>
   valor === "auto" ? null : valor === "si";
 
-function textoDeMarca(marca: MarcaRotulado): string {
-  if (marca.valor === null) return "Sin dato";
+function textoDeMarca(marca: MarcaRotulado, evaluada = true): string {
+  if (marca.valor === null) return evaluada ? "Sin dato" : "No evaluada";
   return marca.valor ? "Sí" : "No";
 }
 
-function FuentesDeMarca({ marca }: { marca: MarcaRotulado }) {
+function FuentesDeMarca({ marca, evaluada = true }: { marca: MarcaRotulado; evaluada?: boolean }) {
   if (marca.fuentes.length === 0) {
-    return <Text fontSize="xs" color="fg.subtle">Sin marcas en la receta</Text>;
+    return (
+      <Text fontSize="xs" color="fg.subtle">
+        {evaluada ? "Sin marcas en la receta" : "No se consultó la receta"}
+      </Text>
+    );
   }
   return (
     <Stack gap="0.5">
       {marca.fuentes.slice(0, 3).map((fuente) => (
-        <Text key={`${fuente.insumo_id}-${fuente.motivo}`} fontSize="xs" color="fg.muted">
+        <Text key={`${fuente.ingrediente_id}-${fuente.motivo}`} fontSize="xs" color="fg.muted">
           {fuente.nombre} · {fuente.motivo}
         </Text>
       ))}
@@ -215,6 +222,7 @@ function DetalleEvaluacionGuardada({
                         No supera
                       </Badge>
                     )}
+                    <MarcaCercania resultado={resultado} />
                   </Celda>
                 </Table.Row>
               ))}
@@ -222,6 +230,43 @@ function DetalleEvaluacionGuardada({
           </Table.Root>
         </Box>
       )}
+    </Box>
+  );
+}
+
+/** "+9.1" -> "+9,1 %". */
+function distanciaTexto(distancia: string | null | undefined): string {
+  const numero = Number(distancia);
+  if (distancia === null || distancia === undefined || !Number.isFinite(numero)) return "";
+  return `${numero > 0 ? "+" : ""}${formatoCantidad(numero)} %`;
+}
+
+/** Debajo del resultado de un sello: queda a menos de la tolerancia del umbral. */
+function MarcaCercania({ resultado }: { resultado: ResultadoSello }) {
+  if (!resultado.cerca_del_umbral) return null;
+  return (
+    <Text fontSize="xs" color="orange.fg" mt="1" whiteSpace="nowrap">
+      Cerca del umbral ({distanciaTexto(resultado.distancia_umbral_pct)})
+    </Text>
+  );
+}
+
+function AvisoCercania({ sellos }: { sellos: SellosRotulado }) {
+  const cerca = sellos.cerca_del_umbral ?? [];
+  return (
+    <Box p="3" bg="orange.subtle" borderWidth="1px" borderColor="orange.muted" rounded="md">
+      <HStack gap="2" color="orange.fg">
+        <LuTriangleAlert aria-hidden />
+        <Text fontSize="sm" fontWeight="semibold">
+          {cerca.length === 1 ? "Un sello queda cerca del umbral" : `${cerca.length} sellos quedan cerca del umbral`}
+        </Text>
+      </HStack>
+      <Text fontSize="sm" mt="1">
+        {cerca.join(", ")}: el valor calculado está a menos de {formatoCantidad(sellos.tolerancia_pct)} % del
+        umbral. Las marcas aprobadas pueden apartarse de la especificación de sus ingredientes en esa proporción
+        (tolerancia de homologación), así que el producto real podría quedar del otro lado. Conviene confirmarlo con
+        un análisis de laboratorio.
+      </Text>
     </Box>
   );
 }
@@ -244,11 +289,22 @@ export function RotuladoFrontalProductoPage() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [historial, setHistorial] = useState<EvaluacionRotuladoGuardada[]>([]);
-  const [cargandoHistorial, setCargandoHistorial] = useState(true);
-  const [historialError, setHistorialError] = useState<string | null>(null);
-  const [seleccionada, setSeleccionada] =
-    useState<EvaluacionRotuladoGuardada | null>(null);
+  const cargarHistorial = useCallback(() => listarEvaluaciones(productoId), [productoId]);
+  const {
+    items: historial,
+    loading: cargandoHistorial,
+    error: historialError,
+    recargar: recargarHistorial,
+  } = useLista<EvaluacionRotuladoGuardada[]>({
+    cargar: cargarHistorial,
+    dependencias: [productoId],
+    valorInicial: [],
+    mensajeError: "No se pudo cargar el historial.",
+    preferirMensajeDelBackend: true,
+  });
+  // La evaluación abierta, siempre en su versión recién cargada del historial.
+  const [seleccionadaId, setSeleccionadaId] = useState<number | null>(null);
+  const seleccionada = historial.find((item) => item.id === seleccionadaId) ?? null;
 
   const inicializar = (datos: EvaluacionRotulado) => {
     setEvaluacion(datos);
@@ -271,24 +327,6 @@ export function RotuladoFrontalProductoPage() {
     });
   };
 
-  const cargarHistorial = async () => {
-    setCargandoHistorial(true);
-    try {
-      const datos = await listarEvaluaciones(productoId);
-      setHistorial(datos);
-      setHistorialError(null);
-      setSeleccionada((actual) =>
-        actual ? datos.find((item) => item.id === actual.id) ?? null : null,
-      );
-    } catch (e) {
-      setHistorialError(
-        e instanceof Error ? e.message : "No se pudo cargar el historial.",
-      );
-    } finally {
-      setCargandoHistorial(false);
-    }
-  };
-
   useEffect(() => {
     let vigente = true;
     evaluarRotulado(productoId)
@@ -300,10 +338,6 @@ export function RotuladoFrontalProductoPage() {
     return () => {
       vigente = false;
     };
-  }, [productoId]);
-
-  useEffect(() => {
-    void cargarHistorial();
   }, [productoId]);
 
   const guardar = async (event: { preventDefault(): void }) => {
@@ -322,7 +356,7 @@ export function RotuladoFrontalProductoPage() {
         categoria_rotulado: categoriaRotulado || null,
       });
       inicializar(datos);
-      await cargarHistorial();
+      await recargarHistorial();
       toaster.create({ type: "success", title: "Rotulado frontal evaluado." });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la evaluación.");
@@ -453,6 +487,33 @@ export function RotuladoFrontalProductoPage() {
             descripcion="Se detectan desde las marcas de ingredientes y aditivos de la receta vigente. Podés corregir cada una."
             mb="6"
           >
+            {!evaluacion.perfil_evaluado && (
+              // Sin este aviso, una categoría exceptuada o un producto no
+              // envasado dejaban todas las marcas en "Sin dato" y parecía que
+              // el guardado las había borrado.
+              <HStack
+                align="flex-start"
+                gap="2"
+                mb="4"
+                p="3"
+                rounded="md"
+                borderWidth="1px"
+                borderColor="border.subtle"
+                bg="bg.subtle"
+                color="fg.muted"
+                fontSize="sm"
+              >
+                <Box as="span" mt="0.5" flexShrink={0}>
+                  <LuInfo aria-hidden />
+                </Box>
+                <Text>
+                  <Text as="span" fontWeight="semibold" color="fg">
+                    No se evalúan las marcas desde la receta.
+                  </Text>{" "}
+                  {evaluacion.mensaje}
+                </Text>
+              </HStack>
+            )}
             <Box overflowX="auto" mx={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
               <Table.Root size="sm" minW="760px">
                 <Table.Header>
@@ -482,11 +543,17 @@ export function RotuladoFrontalProductoPage() {
                         <Celda py="3" px="4">
                           <HStack gap="2" mb="1" flexWrap="wrap">
                             <Badge
-                              colorPalette={marca.valor ? "blue" : marca.valor === false ? "gray" : "orange"}
+                              colorPalette={
+                                marca.valor
+                                  ? "blue"
+                                  : marca.valor === false || !evaluacion.perfil_evaluado
+                                    ? "gray"
+                                    : "orange"
+                              }
                               variant="subtle"
                               size="sm"
                             >
-                              {textoDeMarca(marca)}
+                              {textoDeMarca(marca, evaluacion.perfil_evaluado)}
                             </Badge>
                             {marca.origen === "correccion" && (
                               <Badge colorPalette="green" variant="subtle" size="sm">
@@ -494,7 +561,7 @@ export function RotuladoFrontalProductoPage() {
                               </Badge>
                             )}
                           </HStack>
-                          <FuentesDeMarca marca={marca} />
+                          <FuentesDeMarca marca={marca} evaluada={evaluacion.perfil_evaluado} />
                         </Celda>
                         <Celda py="3" px="4">
                           <FormNativeSelect
@@ -511,7 +578,11 @@ export function RotuladoFrontalProductoPage() {
                             <option value="auto">
                               Según receta{marca.resuelta && marca.origen === "receta"
                                 ? ` (${marca.valor ? "sí" : "no"})`
-                                : marca.resuelta ? "" : " (sin dato)"}
+                                : marca.resuelta
+                                  ? ""
+                                  : evaluacion.perfil_evaluado
+                                    ? " (sin dato)"
+                                    : " (no evaluada)"}
                             </option>
                             <option value="si">Sí</option>
                             <option value="no">No</option>
@@ -695,6 +766,10 @@ export function RotuladoFrontalProductoPage() {
                 </Text>
               )}
 
+              {(evaluacion.sellos.cerca_del_umbral ?? []).length > 0 && (
+                <AvisoCercania sellos={evaluacion.sellos} />
+              )}
+
               {!evaluacion.sellos.completo && (
                 <Box
                   p="3"
@@ -796,6 +871,7 @@ export function RotuladoFrontalProductoPage() {
                               No supera
                             </Badge>
                           )}
+                          <MarcaCercania resultado={resultado} />
                         </Celda>
                       </Table.Row>
                     ))}
@@ -899,7 +975,7 @@ export function RotuladoFrontalProductoPage() {
                             <BotonAccion
                               accion="ver"
                               label="Ver snapshot"
-                              onClick={() => setSeleccionada(item)}
+                              onClick={() => setSeleccionadaId(item.id)}
                             />
                           </Celda>
                         </Table.Row>
@@ -911,7 +987,7 @@ export function RotuladoFrontalProductoPage() {
               {seleccionada && (
                 <DetalleEvaluacionGuardada
                   evaluacion={seleccionada}
-                  onCerrar={() => setSeleccionada(null)}
+                  onCerrar={() => setSeleccionadaId(null)}
                 />
               )}
             </>

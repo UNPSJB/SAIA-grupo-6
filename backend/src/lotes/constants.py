@@ -32,6 +32,6 @@ class ErrorCode:
     MOTIVO_VACIO = "El motivo de cancelación no puede estar vacío."
     LOTE_INSUMO_NO_ENCONTRADO = "El lote de insumo no existe."
     LOTE_INSUMO_DADO_DE_BAJA = "El lote de insumo está dado de baja y no se puede consumir."
-    INSUMO_NO_PREVISTO = "El insumo de ese lote no está asignado a esta tarea de la receta."
+    INGREDIENTE_NO_PREVISTO = "El ingrediente de ese lote no está asignado a esta tarea de la receta."
     NUMERO_LOTE_NO_GENERADO = "No se pudo generar un número de lote único."
     TIPO_CONSUMO_INVALIDO = "El tipo de consumo debe ser 'real' o 'desperdicio'."

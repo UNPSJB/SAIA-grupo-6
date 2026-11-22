@@ -202,6 +202,11 @@ class ResultadoSello(BaseModel):
     exceso: bool | None = None
     evaluado: bool = False
     motivo: str | None = None
+    # A menos de la tolerancia de homologación del umbral: las marcas aprobadas
+    # pueden apartarse de la especificación en esa proporción, así que el sello
+    # podría no corresponder (o faltar) en el producto real.
+    cerca_del_umbral: bool = False
+    distancia_umbral_pct: Decimal | None = None
 
 
 class SellosRotulado(BaseModel):
@@ -212,6 +217,9 @@ class SellosRotulado(BaseModel):
     motivo: str | None = None
     excesos: list[str] = Field(default_factory=list)
     resultados: list[ResultadoSello] = Field(default_factory=list)
+    # Etiquetas de los sellos cerca del umbral y la tolerancia con que se midió.
+    cerca_del_umbral: list[str] = Field(default_factory=list)
+    tolerancia_pct: Decimal | None = None
     regla_version: int
     vigencia_desde: date
     norma_origen: str
@@ -322,9 +330,10 @@ class ConfiguracionRotuladoResponse(BaseModel):
 
 
 class FuenteMarca(BaseModel):
-    insumo_id: int
+    ingrediente_id: int
     nombre: str
-    tipo: str
+    # Con valor por defecto: las instantáneas guardadas antes del cambio no lo traen.
+    es_aditivo: bool = False
     motivo: str
 
 
@@ -445,6 +454,10 @@ class EvaluacionRotuladoResponse(BaseModel):
     faltantes: list[str]
     advertencias: list[str]
     marcas: list[MarcaRotulado]
+    # False cuando la regla no manda cruzar la receta (categoría exceptuada,
+    # producto no envasado, módulo inactivo...): las marcas quedan sin dato a
+    # propósito y la pantalla lo explica en vez de mostrar "Sin dato".
+    perfil_evaluado: bool = True
     sellos: SellosRotulado
     evaluado_en: datetime
     instantanea: InstantaneaRotulado

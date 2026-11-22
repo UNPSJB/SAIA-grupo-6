@@ -60,15 +60,15 @@ const PersonalDetailPage = lazyPrecargable(() =>
   import("./features/personal/components/pages/PersonalDetailPage").then((mod) => ({ default: mod.PersonalDetailPage })),
 );
 
-// 2. Insumos
-const InsumosPage = lazyPrecargable(() =>
-  import("./features/insumos/components/pages/InsumosPage").then((mod) => ({ default: mod.InsumosPage })),
+// 2. Ingredientes
+const IngredientesPage = lazyPrecargable(() =>
+  import("./features/ingredientes/components/pages/IngredientesPage").then((mod) => ({ default: mod.IngredientesPage })),
 );
-const InsumoCreatePage = lazyPrecargable(() =>
-  import("./features/insumos/components/pages/InsumoCreatePage").then((mod) => ({ default: mod.InsumoCreatePage })),
+const IngredienteCreatePage = lazyPrecargable(() =>
+  import("./features/ingredientes/components/pages/IngredienteCreatePage").then((mod) => ({ default: mod.IngredienteCreatePage })),
 );
-const InsumoEditPage = lazyPrecargable(() =>
-  import("./features/insumos/components/pages/InsumoEditPage").then((mod) => ({ default: mod.InsumoEditPage })),
+const IngredienteEditPage = lazyPrecargable(() =>
+  import("./features/ingredientes/components/pages/IngredienteEditPage").then((mod) => ({ default: mod.IngredienteEditPage })),
 );
 
 // Lotes de producción
@@ -272,8 +272,11 @@ const NotificacionesPage = lazyPrecargable(() =>
 );
 
 // E11: tabla de información nutricional
-const DatosNutricionalesInsumoPage = lazyPrecargable(() =>
-  import("./features/nutricion/components/pages/DatosNutricionalesInsumoPage").then((mod) => ({ default: mod.DatosNutricionalesInsumoPage })),
+const DatosNutricionalesIngredientePage = lazyPrecargable(() =>
+  import("./features/nutricion/components/pages/DatosNutricionalesIngredientePage").then((mod) => ({ default: mod.DatosNutricionalesIngredientePage })),
+);
+const HomologacionInsumoPage = lazyPrecargable(() =>
+  import("./features/insumos/components/pages/HomologacionInsumoPage").then((mod) => ({ default: mod.HomologacionInsumoPage })),
 );
 const InfoNutricionalProductoPage = lazyPrecargable(() =>
   import("./features/nutricion/components/pages/InfoNutricionalProductoPage").then((mod) => ({ default: mod.InfoNutricionalProductoPage })),
@@ -742,28 +745,28 @@ export const router = createBrowserRouter([
               ),
               },
 
-              // ---------------- INSUMOS ----------------
+              // ---------------- INGREDIENTES ----------------
               {
-                path: "/insumos",
+                path: "/ingredientes",
                 element: (
                 <ConSuspense>
-                  <InsumosPage />
+                  <IngredientesPage />
                 </ConSuspense>
               ),
               },
               {
-                path: "/insumos/nuevo",
+                path: "/ingredientes/nuevo",
                 element: (
                 <ConSuspense>
-                  <InsumoCreatePage />
+                  <IngredienteCreatePage />
                 </ConSuspense>
               ),
               },
               {
-                path: "/insumos/:id/editar",
+                path: "/ingredientes/:id/editar",
                 element: (
                 <ConSuspense>
-                  <InsumoEditPage />
+                  <IngredienteEditPage />
                 </ConSuspense>
               ),
               },
@@ -962,9 +965,9 @@ export const router = createBrowserRouter([
 
               // ---------------- PRODUCTOS Y RECETAS ----------------
               {
-                // Aditivos ahora es una pestaña de Insumos.
+                // Aditivos ahora es una pestaña de Ingredientes.
                 path: "/aditivos",
-                element: <Navigate to="/insumos?tab=aditivos" replace />,
+                element: <Navigate to="/ingredientes?tab=clases" replace />,
               },
               {
                 path: "/productos",
@@ -1037,10 +1040,18 @@ export const router = createBrowserRouter([
                 element: <Navigate to="/rotulado?tab=reglas" replace />,
               },
               {
-                path: "/insumos/:id/nutricion",
+                path: "/ingredientes/insumos/:id/homologacion",
                 element: (
                   <ConSuspense>
-                    <DatosNutricionalesInsumoPage />
+                    <HomologacionInsumoPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/ingredientes/:id/nutricion",
+                element: (
+                  <ConSuspense>
+                    <DatosNutricionalesIngredientePage />
                   </ConSuspense>
                 ),
               },
@@ -1086,7 +1097,7 @@ export const router = createBrowserRouter([
                 ),
               },
 
-              // ---------------- LOTES DE INSUMO Y TRAZABILIDAD ----------------
+              // ---------------- LOTES DE INGREDIENTE Y TRAZABILIDAD ----------------
               {
                 path: "/stock-insumos",
                 element: (
@@ -1150,7 +1161,7 @@ export const router = createBrowserRouter([
               ),
               },
 
-              // ---------------- INSUMOS QUÍMICOS ----------------
+              // ---------------- INGREDIENTES QUÍMICOS ----------------
               {
                 path: "/insumos-quimicos",
                 element: (
@@ -1348,37 +1359,44 @@ export const router = createBrowserRouter([
           // =====================================================
           // DOCUMENTOS
           // =====================================================
+          // Gestión de documentos: solo quien administra (la consulta de la
+          // versión vigente, más abajo, es para cualquier sesión).
           {
-            path: "/documentos",
-            element: (
-              <ConSuspense>
-                <DocumentosPage />
-              </ConSuspense>
-            ),
-          },
-          {
-            path: "/documentos/nuevo",
-            element: (
-              <ConSuspense>
-                <DocumentoCreatePage />
-              </ConSuspense>
-            ),
-          },
-          {
-            path: "/documentos/:id/nueva-version",
-            element: (
-              <ConSuspense>
-                <DocumentoNuevaVersionPage />
-              </ConSuspense>
-            ),
-          },
-          {
-            path: "/documentos/:id/historial",
-            element: (
-              <ConSuspense>
-                <DocumentoHistorialPage />
-              </ConSuspense>
-            ),
+            element: <RequireRole permiso="puede_administrar" />,
+            children: [
+              {
+                path: "/documentos",
+                element: (
+                  <ConSuspense>
+                    <DocumentosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/documentos/nuevo",
+                element: (
+                  <ConSuspense>
+                    <DocumentoCreatePage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/documentos/:id/nueva-version",
+                element: (
+                  <ConSuspense>
+                    <DocumentoNuevaVersionPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/documentos/:id/historial",
+                element: (
+                  <ConSuspense>
+                    <DocumentoHistorialPage />
+                  </ConSuspense>
+                ),
+              },
+            ],
           },
           // Historia 3: consulta de la versión vigente (operadores)
           {

@@ -14,7 +14,7 @@ import type { ConflictoInactivo } from "../api/errors";
  * Todas las operaciones pasan por el mismo `mensajeDeError`, que SIEMPRE
  * prefiere el mensaje del backend (`err.message`) y solo cae al texto de
  * respaldo cuando lo que se tiró no es un `Error`. Antes cada feature elegía
- * distinto: `useEquipoABM` y `useInsumoABM` descartaban `err.message` al
+ * distinto: `useEquipoABM` y `useIngredienteABM` descartaban `err.message` al
  * modificar y terminaban mostrando "No se pudo modificar el equipo",
  * escondiendo cosas como "El correo ya está en uso".
  */

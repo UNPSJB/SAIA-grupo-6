@@ -20,6 +20,8 @@ import {
 } from "../../../../components/ui/patrones";
 import { useInicio } from "../../hooks/useInicio";
 import { ChecklistDeHoy } from "../ChecklistDeHoy";
+import { MiCumplimiento } from "../MiCumplimiento";
+import { MisTareasProduccion } from "../MisTareasProduccion";
 import { TarjetaHoy, VencenHoy } from "../TarjetaHoy";
 
 function saludo(hora: number): string {
@@ -43,7 +45,7 @@ function horaCorta(fecha: Date): string {
  *
  * A la izquierda, el checklist de limpieza de hoy (lo que más se mira en el
  * día); a la derecha, las cifras de hoy de cada área (lotes iniciados y
- * terminados, salidas, insumos recibidos, incidentes, reclamos, retiros) y,
+ * terminados, salidas, ingredientes recibidos, incidentes, reclamos, retiros) y,
  * para quien administra, lo que vence hoy. Las tendencias y el análisis del
  * período están en el panel de cada área, no acá.
  */
@@ -85,6 +87,18 @@ export function InicioPage() {
       </GridItem>
 
       <GridItem gridColumn={{ base: "span 12", lg: "span 7" }}>
+        {!puedeAdministrar(user) ? (
+          // Quien solo opera no ve las cifras de cada área: ve sus tareas de
+          // producción pendientes y cuánto cumplió de las de limpieza.
+          <Stack gap={separacion} h="full">
+            {cargado ? (
+              <Box flexShrink={0}>
+                <MisTareasProduccion tareas={inicio.tareas_produccion ?? []} />
+              </Box>
+            ) : null}
+            <MiCumplimiento />
+          </Stack>
+        ) : (
         <Stack gap={separacion} h="full">
           {/* Producción y Calidad con su alto natural; la última fila
               (Inventario y Vence hoy) ocupa lo que sobra, así la columna
@@ -106,6 +120,7 @@ export function InicioPage() {
             </SimpleGrid>
           ) : null}
         </Stack>
+        )}
       </GridItem>
     </Grid>
   );

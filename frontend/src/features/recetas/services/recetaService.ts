@@ -2,7 +2,7 @@ import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import type {
   Composicion,
-  InsumoOpcion,
+  IngredienteOpcion,
   ModoEscalado,
   Receta,
   RecetaEscalada,
@@ -67,10 +67,10 @@ export async function escalarReceta(
   return pedir<RecetaEscalada>(response, "Error al escalar la receta");
 }
 
-/** Insumos activos (ingredientes y aditivos) para armar la receta. */
-export async function listarInsumosParaReceta(): Promise<InsumoOpcion[]> {
-  const response = await apiFetch(`${API_URL}/insumos`);
-  return pedir<InsumoOpcion[]>(response, "Error al obtener los insumos");
+/** Ingredientes activos (ingredientes y aditivos) para armar la receta. */
+export async function listarIngredientesParaReceta(): Promise<IngredienteOpcion[]> {
+  const response = await apiFetch(`${API_URL}/ingredientes`);
+  return pedir<IngredienteOpcion[]>(response, "Error al obtener los ingredientes");
 }
 
 

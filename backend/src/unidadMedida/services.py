@@ -148,18 +148,18 @@ def actualizar_unidad_medida(db: Session, unidad_id: int, datos: schemas.UnidadM
 
 
 def eliminar_unidad_medida(db: Session, unidad_id: int) -> UnidadMedida:
-    from src.insumos.models import Insumo
+    from src.ingredientes.models import Ingrediente
     from src.insumoQuimico.models import InsumoQuimico
 
     unidad = obtener_unidad_medida(db, unidad_id)
 
-    # Validar que no esté en uso por insumos activos
-    insumo_en_uso = db.scalar(
-        select(Insumo).where(Insumo.unidad_medida_id == unidad_id, Insumo.activo == True)
+    # Validar que no esté en uso por ingredientes activos
+    ingrediente_en_uso = db.scalar(
+        select(Ingrediente).where(Ingrediente.unidad_medida_id == unidad_id, Ingrediente.activo == True)
     )
-    if insumo_en_uso:
+    if ingrediente_en_uso:
         raise exceptions.UnidadMedidaEnUso(
-            mensaje=f"La unidad de medida '{unidad.nombre}' está en uso por el insumo '{insumo_en_uso.nombre}'."
+            mensaje=f"La unidad de medida '{unidad.nombre}' está en uso por el ingrediente '{ingrediente_en_uso.nombre}'."
         )
 
     # Validar que no esté en uso por insumos químicos activos

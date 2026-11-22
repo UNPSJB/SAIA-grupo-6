@@ -22,16 +22,16 @@ class SinTareas(BadRequest):
     DETAIL = ErrorCode.SIN_TAREAS
 
 
-class SinInsumos(BadRequest):
-    DETAIL = ErrorCode.SIN_INSUMOS
+class RecetaVacia(BadRequest):
+    DETAIL = ErrorCode.RECETA_VACIA
 
 
-class InsumoNoEncontrado(BadRequest):
-    DETAIL = ErrorCode.INSUMO_NO_ENCONTRADO
+class IngredienteNoEncontrado(BadRequest):
+    DETAIL = ErrorCode.INGREDIENTE_NO_ENCONTRADO
 
 
-class InsumoRepetido(BadRequest):
-    DETAIL = ErrorCode.INSUMO_REPETIDO
+class IngredienteRepetido(BadRequest):
+    DETAIL = ErrorCode.INGREDIENTE_REPETIDO
 
 
 class UnidadNoCoincide(BadRequest):
@@ -42,12 +42,12 @@ class UnidadNoEncontrada(BadRequest):
     DETAIL = ErrorCode.UNIDAD_NO_ENCONTRADA
 
 
-class TareaInsumoDesconocido(BadRequest):
-    DETAIL = ErrorCode.TAREA_INSUMO_DESCONOCIDO
+class TareaIngredienteDesconocido(BadRequest):
+    DETAIL = ErrorCode.TAREA_INGREDIENTE_DESCONOCIDO
 
 
-class TareaInsumoRepetido(BadRequest):
-    DETAIL = ErrorCode.TAREA_INSUMO_REPETIDO
+class TareaIngredienteRepetido(BadRequest):
+    DETAIL = ErrorCode.TAREA_INGREDIENTE_REPETIDO
 
 
 class RepartoIncompleto(BadRequest):

@@ -32,12 +32,12 @@ def crear_lote_insumo(
     dependencies=[Depends(require_operador)],
 )
 def listar_lotes_insumo(
-    insumo_id: int | None = Query(None, ge=1),
+    ingrediente_id: int | None = Query(None, ge=1),
     proveedor_id: int | None = Query(None, ge=1),
     incluir_inactivos: bool = False,
     db: Session = Depends(get_db),
 ):
-    lotes = services.listar_lotes_insumo(db, insumo_id, proveedor_id, incluir_inactivos)
+    lotes = services.listar_lotes_insumo(db, ingrediente_id, proveedor_id, incluir_inactivos)
     return [services.lote_a_respuesta(l) for l in lotes]
 
 
@@ -47,11 +47,11 @@ def listar_lotes_insumo(
     dependencies=[Depends(require_operador)],
 )
 def lotes_sugeridos(
-    insumo_id: int = Query(..., ge=1),
+    ingrediente_id: int = Query(..., ge=1),
     todos: bool = False,
     db: Session = Depends(get_db),
 ):
-    return services.lotes_sugeridos(db, insumo_id, todos)
+    return services.lotes_sugeridos(db, ingrediente_id, todos)
 
 
 @router.get(
@@ -107,14 +107,14 @@ def eliminar_lote_insumo(
 
 
 @stock_router.get(
-    "/insumos",
-    response_model=list[schemas.StockInsumo],
+    "/ingredientes",
+    response_model=list[schemas.StockIngrediente],
     dependencies=[Depends(require_operador)],
 )
-def stock_por_insumo(
-    insumo_id: int | None = Query(None, ge=1), db: Session = Depends(get_db)
+def stock_por_ingrediente(
+    ingrediente_id: int | None = Query(None, ge=1), db: Session = Depends(get_db)
 ):
-    return services.stock_por_insumo(db, insumo_id)
+    return services.stock_por_ingrediente(db, ingrediente_id)
 
 
 @stock_router.get(
@@ -123,11 +123,11 @@ def stock_por_insumo(
     dependencies=[Depends(require_operador)],
 )
 def stock_por_lote(
-    insumo_id: int | None = Query(None, ge=1),
+    ingrediente_id: int | None = Query(None, ge=1),
     incluir_inactivos: bool = False,
     db: Session = Depends(get_db),
 ):
-    return services.stock_por_lote(db, insumo_id, incluir_inactivos)
+    return services.stock_por_lote(db, ingrediente_id, incluir_inactivos)
 
 
 @stock_router.get(
