@@ -91,3 +91,15 @@ class RecetaSinVersion(BadRequest):
 
 class VidaUtilInvalida(BadRequest):
     DETAIL = ErrorCode.VIDA_UTIL_INVALIDA
+
+
+
+class OrdenEmpateInvalido(BadRequest):
+    DETAIL = ErrorCode.ORDEN_EMPATE_INVALIDO
+
+class OrdenEmpateSinComposicion(BadRequest):
+   DETAIL = ErrorCode.ORDEN_EMPATE_SIN_COMPOSICION
+
+
+class AditivoSinClase(BadRequest):
+     DETAIL = ErrorCode.ADITIVO_SIN_CLASE

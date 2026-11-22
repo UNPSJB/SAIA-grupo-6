@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-
+from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -49,7 +49,7 @@ def test_preview_http_no_escribe_ni_commit(datos, monkeypatch):
         assert response.status_code == 200, response.text
         vista = response.json()
         assert vista["denominacion_venta"] == producto.nombre
-        assert "Frutilla (100.00 %)" == vista["lista_ingredientes"]
+        assert vista["lista_ingredientes"] == "Frutilla"
         assert vista["version_receta_id"] == version.id
         assert vista["datos_nutricionales_json"] is not None
         assert not {"INSERT", "UPDATE", "DELETE", "REPLACE", "CREATE"}.intersection(sentencias)

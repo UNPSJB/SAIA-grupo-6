@@ -78,3 +78,17 @@ export async function obtenerComposicion(versionId: number): Promise<Composicion
   const response = await apiFetch(`${API_URL}/recetas/versiones/${versionId}/composicion`);
   return pedir<Composicion>(response, "Error al obtener la composición porcentual");
 }
+
+
+/** Fija el orden de un grupo de insumos que pesan lo mismo (del primero al último). */
+export async function decidirOrdenEmpate(
+  versionId: number,
+  insumoIds: number[],
+): Promise<Composicion> {
+  const response = await apiFetch(`${API_URL}/recetas/versiones/${versionId}/orden-empate`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ insumo_ids: insumoIds }),
+  });
+  return pedir<Composicion>(response, "Error al guardar el orden de la lista");
+}

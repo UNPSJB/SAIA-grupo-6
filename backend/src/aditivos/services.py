@@ -171,4 +171,5 @@ def resumen(aditivo: Aditivo | None) -> schemas.AditivoResumen | None:
         nombre=aditivo.nombre,
         numero_ins=aditivo.numero_ins,
         clase_funcional=aditivo.clase_funcional.nombre,
+        ins_opcional=aditivo.clase_funcional.ins_opcional,
     )

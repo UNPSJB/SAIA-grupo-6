@@ -20,6 +20,9 @@ import { IndicadorCompletitud } from "./IndicadorCompletitud";
 import { CampoOrigen } from "./CampoOrigen";
 import { ResumenNutricional } from "./ResumenNutricional";
 import type { BorradorRotuladoOut } from "../types/rotulado";
+import { OrdenListaIngredientes } from "../../recetas/components/OrdenListaIngredientes";
+import { previewAutocompletado } from "../services/rotuladoService";
+import { EstadoAlergenos, armarTextoRotulo, declaracionEfectiva, type ResumenDeclaracion } from "./ListaIngredientesRotulo";
 
 interface RotuladoFormProps {
   borrador: BorradorRotuladoOut | null;
@@ -96,6 +99,9 @@ export function RotuladoForm({
   const [declaracionesSucias, setDeclaracionesSucias] = useState(false);
   const [declaracionesPendientes, setDeclaracionesPendientes] = useState(true);
   const [avisoDeclaraciones, setAvisoDeclaraciones] = useState(false);
+  //const [declaracion, setDeclaracion] = useState<ResumenDeclaracion | null>(null);
+  const [declaracionGuardada, setDeclaracion] = useState<ResumenDeclaracion | null>(null);
+  const declaracion = declaracionEfectiva(declaracionGuardada, borrador?.declaraciones);
   const [values, setValues] = useState<Partial<BorradorRotuladoOut>>(valoresIniciales);
 
   const [loteSeleccionado, setLoteSeleccionado] = useState<number | null>(
@@ -142,6 +148,15 @@ export function RotuladoForm({
     if (formularioSucio || declaracionesSucias) return;
     await onAutocompletar(null, loteSeleccionado, forzar);
   };
+  
+    const regenerarLista = async () => {
+    if (!borrador) return;
+    const vista = await previewAutocompletado(borrador.producto_id, borrador.version_receta_id);
+    if (vista.lista_ingredientes) {
+      setValues((prev) => ({ ...prev, lista_ingredientes: vista.lista_ingredientes }));
+    }
+  };
+
 
   const handleCambioEsImportado = (e: ChangeEvent<HTMLInputElement>) => {
     setValues((prev) => ({
@@ -200,17 +215,39 @@ export function RotuladoForm({
               />
             </FormField>
           </SimpleGrid>
-          <FormField id="lista_ingredientes" label="Ingredientes y aditivos" required mb="0">
+          <FormField
+            id="lista_ingredientes"
+            label="Ingredientes y aditivos"
+            required
+            mb="0"
+            helper="Se arma sola con la receta. Lo único que se decide a mano es el orden entre insumos que pesan lo mismo."
+          >
             <Textarea
-              value={values.lista_ingredientes ?? ""}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, lista_ingredientes: e.target.value }))
-              }
-              placeholder="Ingredientes y aditivos"
+              value={armarTextoRotulo(values.lista_ingredientes ?? "", declaracion?.texto)}
+              readOnly
+              placeholder="Se completa sola cuando el producto tiene receta"
               minH="100px"
+              bg="bg.subtle"
+              cursor="default"
             />
             <CampoOrigen origen="receta" version={borrador?.version_receta_numero} />
+            <EstadoAlergenos declaracion={declaracion} />
           </FormField>
+          <Button
+            size="xs"
+            variant="outline"
+            alignSelf="flex-start"
+            disabled={isLoading || !borrador}
+            onClick={() => {
+              void regenerarLista();
+            }}
+          >
+            Volver a armar la lista con la receta
+          </Button>
+          <OrdenListaIngredientes
+            versionId={borrador?.version_receta_id ?? null}
+            onOrdenCambiado={regenerarLista}
+          />
         </Seccion>
 
         <Seccion titulo="Identificación del origen">
@@ -384,7 +421,7 @@ export function RotuladoForm({
         <Box as="section" id="declaraciones" tabIndex={-1} aria-label="Alérgenos, gluten y conservación">
           <DeclaracionesSection borradorId={esCreacion ? 0 : borrador?.id ?? 0}
           productoId={borrador?.producto_id ?? 0} preview={borrador?.declaraciones}
-          formularioSucio={formularioSucio} onEstado={setDeclaracionesPendientes} onDirtyChange={setDeclaracionesSucias} onOrigenChange={onOrigenChange} />
+          formularioSucio={formularioSucio} onEstado={setDeclaracionesPendientes} onDirtyChange={setDeclaracionesSucias} onOrigenChange={onOrigenChange} onDeclaracion={setDeclaracion} />
         </Box>
         {declaracionesPendientes && <Text color="orange.fg">Declaraciones pendientes de revisión o confirmación.</Text>}
         {avisoDeclaraciones && declaracionesSucias && <Text role="alert">Guardá o descartá los cambios de declaraciones antes de guardar el formulario.</Text>}

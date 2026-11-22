@@ -27,7 +27,7 @@ describe("Rotulado", () => {
     await screen.findAllByDisplayValue("Producto 2");
     resolver(preview(1));
     await waitFor(() => expect(screen.queryAllByDisplayValue("Producto 1")).toHaveLength(0));
-    expect(screen.getAllByDisplayValue("Frutilla 2").length).toBeGreaterThan(0);
+    expect(screen.getAllByDisplayValue("Ingredientes: Frutilla 2.").length).toBeGreaterThan(0);
   });
   it("permite reintentar un error de preview", async () => {
     vi.mocked(previewAutocompletado).mockRejectedValueOnce(new Error("Preview fall?")).mockResolvedValue(preview(1));

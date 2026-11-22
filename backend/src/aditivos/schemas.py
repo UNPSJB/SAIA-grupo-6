@@ -96,3 +96,4 @@ class AditivoResumen(BaseModel):
     nombre: str
     numero_ins: str | None
     clase_funcional: str
+    ins_opcional: bool = False
