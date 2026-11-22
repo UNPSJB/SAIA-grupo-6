@@ -1,6 +1,7 @@
 """Tests unitarios de services del módulo `vistaPublica`."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from src.aptitud.models import Aptitud
@@ -9,8 +10,12 @@ from src.documentos.constants import TipoDocumento
 from src.documentos.models import Documento, VersionDocumento
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.Equipo.models import Equipo
+from src.lotes.models import LoteProducto
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
 from src.personal.models import Personal
+from src.productos.models import Producto
+from src.recetas.models import Receta, VersionReceta
+from src.rotulado.models import BorradorRotulado
 from src.sector.models import Sector
 from src.unidadMedida.models import UnidadMedida
 from src.vencimientoPersonal.models import VencimientoPersonal
@@ -35,6 +40,117 @@ from tests.database import db_session
 def _mock_hoy(monkeypatch, fecha):
     monkeypatch.setattr("src.common.fechas.hoy", lambda: fecha)
     monkeypatch.setattr("src.vistaPublica.services.hoy", lambda: fecha)
+
+
+def _productos_control_alimentos(db, cantidad):
+    unidad = UnidadMedida(nombre="Kilogramo", simbolo="kg")
+    db.add(unidad)
+    db.flush()
+    productos = [
+        Producto(nombre=f"Producto {i}", unidad_medida_id=unidad.id, activo=True)
+        for i in range(cantidad)
+    ]
+    db.add_all(productos)
+    db.flush()
+    return unidad, productos
+
+
+def _versiones_control_alimentos(db, producto, unidad, cantidad):
+    receta = Receta(producto_id=producto.id)
+    db.add(receta)
+    db.flush()
+    versiones = [
+        VersionReceta(receta_id=receta.id, numero=i, rendimiento=1, unidad_medida_id=unidad.id)
+        for i in range(1, cantidad + 1)
+    ]
+    db.add_all(versiones)
+    db.flush()
+    return versiones
+
+
+def test_lotes_trazables_limites_y_publicacion(db_session, monkeypatch):
+    db = db_session
+    db.info["sin_auditoria"] = True
+    cierre = datetime(2026, 5, 30, 0, 0)
+    _mock_hoy(monkeypatch, cierre.date())
+    unidad, (producto,) = _productos_control_alimentos(db, 1)
+    (version,) = _versiones_control_alimentos(db, producto, unidad, 1)
+
+    def agregar_lote(numero, fecha, version_id=None, estado="terminado"):
+        db.add(LoteProducto(
+            numero_lote=str(numero), producto_id=producto.id, estado=estado,
+            fecha_cierre=fecha, cantidad_objetivo=1, version_receta_id=version_id,
+        ))
+        db.flush()
+
+    for i in range(4):
+        agregar_lote(i, cierre)
+    clave_lotes = "lotes_con_receta_trazable"
+    clave_rotulos = "productos_con_rotulado_revisado"
+    configuracion = {i["clave"]: i for i in obtener_indicadores(db)}
+    assert not configuracion[clave_lotes]["habilitado"]
+    assert not configuracion[clave_rotulos]["habilitado"]
+    actualizar_indicadores(db, [(clave_lotes, True)])
+    assert vservices._lotes_con_receta_trazable(db) is None
+    assert clave_lotes not in {i["clave"] for i in indicadores_publicos(db)}
+
+    agregar_lote(4, cierre - timedelta(days=29))
+    agregar_lote(5, cierre - timedelta(days=29, microseconds=1), version.id)
+    agregar_lote(6, cierre + timedelta(days=1), version.id)
+    agregar_lote(7, cierre, version.id, "cancelado")
+    agregar_lote(8, cierre, version.id, "en_proceso")
+    publicados = {i["clave"]: i for i in indicadores_publicos(db)}
+    assert publicados[clave_lotes]["valor"] == 0.0
+    assert clave_rotulos not in publicados
+
+    agregar_lote(9, cierre + timedelta(days=1, microseconds=-1), version.id)
+    assert vservices._lotes_con_receta_trazable(db) == 16.7
+
+
+def test_rotulado_revisado_cuenta_productos_unicos_y_versiones_vigentes(db_session, monkeypatch):
+    db = db_session
+    db.info["sin_auditoria"] = True
+    unidad, productos = _productos_control_alimentos(db, 6)
+    productos[-1].activo = False
+    versiones = [_versiones_control_alimentos(db, producto, unidad, 2) for producto in productos]
+
+    def crear_borrador(producto, version, **campos):
+        borrador = BorradorRotulado(producto_id=producto.id, version_receta_id=version.id, **campos)
+        db.add(borrador)
+        db.flush()
+        return borrador.id, version.id
+
+    valido = crear_borrador(productos[0], versiones[0][1])
+    duplicado = crear_borrador(productos[0], versiones[0][1])
+    desactualizado = crear_borrador(productos[1], versiones[1][1])
+    crear_borrador(productos[2], versiones[2][0])
+    crear_borrador(productos[3], versiones[3][1], archivado=True)
+    crear_borrador(productos[-1], versiones[-1][1])
+    candidatas = dict([valido, duplicado, desactualizado])
+
+    def previsualizar(_db, borrador_id):
+        return SimpleNamespace(
+            origen=SimpleNamespace(estado="verificado", motivo=None, version_id=candidatas[borrador_id]),
+            completitud=SimpleNamespace(estado_global="completo"),
+            nutricion=SimpleNamespace(estado="completa"),
+            declaraciones=SimpleNamespace(
+                estado="confirmada", pendientes=[],
+                vigencia="desactualizada" if borrador_id == desactualizado[0] else "vigente",
+            ),
+        )
+
+    mock = MagicMock(side_effect=previsualizar)
+    monkeypatch.setattr(vservices, "previsualizar_borrador", mock)
+    clave = "productos_con_rotulado_revisado"
+    actualizar_indicadores(db, [(clave, True)])
+    publicados = {i["clave"]: i for i in indicadores_publicos(db)}
+    assert publicados[clave]["valor"] == 20.0
+    assert "lotes_con_receta_trazable" not in publicados
+    assert not any(call.args[1] == valido[0] for call in mock.call_args_list)
+
+    productos[4].activo = False
+    db.flush()
+    assert vservices._productos_con_rotulado_revisado(db) is None
 
 
 def _personal_admin(db, dni="12345678", email="a@test.com"):

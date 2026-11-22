@@ -34,6 +34,9 @@ class DefinicionIndicador:
     periodo_dias: Optional[int] = None
 
 
+DIAS_VENTANA_TRAZABILIDAD = 30
+
+
 CATALOGO: tuple[DefinicionIndicador, ...] = (
     DefinicionIndicador(
         clave="cumplimiento_poes",
@@ -77,6 +80,25 @@ CATALOGO: tuple[DefinicionIndicador, ...] = (
             "Elementos activos con recambio configurado que están dentro del "
             "plazo recomendado."
         ),
+    ),
+    DefinicionIndicador(
+        clave="lotes_con_receta_trazable",
+        etiqueta="Lotes con receta trazable",
+        descripcion=(
+            f"Porcentaje de lotes de producción terminados en los últimos {DIAS_VENTANA_TRAZABILIDAD} días "
+            "que están vinculados a la versión de receta usada."
+        ),
+        habilitado_por_defecto=False,
+        periodo_dias=DIAS_VENTANA_TRAZABILIDAD,
+    ),
+    DefinicionIndicador(
+        clave="productos_con_rotulado_revisado",
+        etiqueta="Productos con rotulado revisado",
+        descripcion=(
+            "Porcentaje de productos activos con un rótulo completo para la "
+            "receta vigente y declaraciones confirmadas y vigentes."
+        ),
+        habilitado_por_defecto=False,
     ),
 )
 

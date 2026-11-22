@@ -2,6 +2,7 @@ import { Badge, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import type { Insumo } from "../types/insumo";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
+import { EstadoEntidad } from "../../../components/ui/ResumenEntidadDialog";
 import {
   BotonAccion,
   Celda,
@@ -16,6 +17,7 @@ interface InsumoItemProps {
   onDelete: (insumo: Insumo) => void;
   onReactivar: (insumo: Insumo) => void;
   onNutricion: (insumo: Insumo) => void;
+  onResumen: (id: number) => void;
 }
 
 export function InsumoItem({
@@ -24,6 +26,7 @@ export function InsumoItem({
   onDelete,
   onReactivar,
   onNutricion,
+  onResumen,
 }: InsumoItemProps) {
   const unidadLabel = insumo.unidad_medida
     ? `${insumo.unidad_medida.nombre} (${insumo.unidad_medida.simbolo})`
@@ -32,7 +35,10 @@ export function InsumoItem({
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={insumo.activo ? 1 : 0.65}>
       <Celda>
-        <DatoPrincipal titulo={insumo.nombre} />
+        <Stack gap="1" align="start">
+          <DatoPrincipal titulo={insumo.nombre} />
+          <EstadoEntidad activo={insumo.activo} />
+        </Stack>
       </Celda>
       <Celda>
         <Stack gap="1" align="flex-start">
@@ -82,6 +88,8 @@ export function InsumoItem({
       </Celda>
       <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
+          <BotonAccion accion="ver" label={`Ver resumen de ${insumo.nombre}`} tooltip="Ver resumen"
+            onClick={() => onResumen(insumo.id)} />
           {insumo.activo && (
             <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(insumo)} />
           )}
