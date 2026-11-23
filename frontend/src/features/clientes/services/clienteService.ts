@@ -36,13 +36,14 @@ export async function listarClientesPaginados(
   page: number,
   pageSize: number,
   opciones: {
-    incluirInactivos?: boolean;
+    /** "Ver dados de baja": solo los dados de baja. */
+    soloInactivos?: boolean;
     buscar?: string;
     orden?: OrdenCliente;
   } = {}
 ): Promise<Pagina<Cliente>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: opciones.incluirInactivos || undefined,
+    solo_inactivos: opciones.soloInactivos || undefined,
     buscar: opciones.buscar?.trim() || undefined,
     orden: opciones.orden || undefined,
   });

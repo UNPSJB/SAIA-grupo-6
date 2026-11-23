@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin
 from src.database import get_db
+from src.establecimientos.contexto import fijar_establecimiento
 from src.exceptions import NotFound
 
 from . import schemas, services
@@ -122,10 +123,14 @@ def indicadores_publicos(
     Si el código no es el vigente, responde 404 sin distinguir entre
     "desactivada" y "código inválido".
     """
-    if not services.codigo_publico_valido(db, codigo_publico):
+    sede = services.sede_de_codigo(db, codigo_publico)
+    if sede is None:
         raise NotFound("Vista pública no disponible.", headers=_CABECERAS_SIN_CACHE)
 
     response.headers.update(_CABECERAS_SIN_CACHE)
+    # Anónimo: nadie fijó la sede. El código dice de cuál es el enlace, y desde
+    # acá los indicadores se calculan solo con los datos de esa sede.
+    fijar_establecimiento(db, sede)
     return schemas.IndicadoresPublicosResponse(
         indicadores=services.indicadores_publicos(db)
     )

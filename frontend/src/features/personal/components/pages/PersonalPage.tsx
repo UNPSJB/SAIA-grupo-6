@@ -30,17 +30,18 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 
 const PAGE_SIZE = 10;
 
 export function PersonalPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("PersonalPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("PersonalPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [rol, setRol] = useState("");
+  const [rol, setRol] = useEstadoNavegacion("PersonalPage.rol", "");
   const orden = useOrdenTabla<ColumnaOrdenPersonal, "nombre_asc">("nombre_asc");
 
   const {

@@ -30,6 +30,7 @@ import { notificarCambioIncidentes, escucharCambioIncidentes } from "../../../in
 import { useReclamos } from "../../hooks/useReclamos";
 import { ReclamosTable } from "../ReclamosTable";
 import { ModalNuevoReclamo } from "../ModalNuevoReclamo";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -42,8 +43,8 @@ export function ReclamosPage() {
   const puedeRegistrar = puedeOperar(user);
   const esAdmin = puedeAdministrar(user);
 
-  const [busqueda, setBusqueda] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState<"" | "abierto" | "cerrado">(
+  const [busqueda, setBusqueda] = useEstadoNavegacion("ReclamosPage.busqueda", "");
+  const [filtroEstado, setFiltroEstado] = useEstadoNavegacion<"" | "abierto" | "cerrado">("ReclamosPage.filtroEstado", 
     ""
   );
   const [filtroPlazo, setFiltroPlazo] = useState<FiltroPlazo>("");

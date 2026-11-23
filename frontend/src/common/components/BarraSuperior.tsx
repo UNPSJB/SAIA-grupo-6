@@ -3,7 +3,8 @@ import { Link as RouterLink, useLocation } from "react-router-dom";
 import { Flex, Link } from "@chakra-ui/react";
 import { ColorModeButton } from "../../components/ui/color-mode";
 import { useAuth } from "../context/useAuth";
-import { puedeAdministrar } from "../api/permissions";
+import { esSuperAdmin, puedeAdministrar } from "../api/permissions";
+import { SelectorEstablecimiento } from "../../features/establecimientos/components/SelectorEstablecimiento";
 import { BotonNotificaciones } from "../../features/notificaciones/components/BotonNotificaciones";
 import { BuscadorGlobal } from "./BuscadorGlobal";
 import { LogoSaia } from "./LogoSaia";
@@ -70,6 +71,8 @@ export function BarraSuperior(): ReactElement | null {
 
       {/* Derecha: buscador, notificaciones y usuario. Miden 40px de alto. */}
       <Flex align="center" gap={{ base: "1", md: "2" }} flexShrink={0}>
+        {/* El super admin es de la empresa: elige en qué sede trabajar. */}
+        {esSuperAdmin(user) && <SelectorEstablecimiento />}
         <BuscadorGlobal />
         <ColorModeButton
           aria-label="Cambiar entre modo claro y oscuro"

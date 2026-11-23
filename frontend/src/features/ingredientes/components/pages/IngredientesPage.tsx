@@ -31,20 +31,22 @@ import { TabClases } from "../../../aditivos/components/pages/AditivosPage";
 import { TabAlergenos } from "../../../alergenos/components/TabAlergenos";
 import { BotonExportar } from "../../../../features/exportacion";
 import { useProveedores } from "../../../proveedores/hooks/useProveedores";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
+import { PanelBase } from "../../../nutricion/components/pages/ParametrosNutricionPage";
 
 const PAGE_SIZE = 10;
 
 /** Pestaña "Ingredientes": el catálogo de ingredientes y productos. */
 function TabIngredientes() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("IngredientesPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("IngredientesPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [unidadId, setUnidadId] = useState("");
+  const [unidadId, setUnidadId] = useEstadoNavegacion("IngredientesPage.unidadId", "");
   // "" = todos, "true" = solo aditivos, "false" = solo los que no son aditivos.
   const [esAditivo, setEsAditivo] = useState<"" | "true" | "false">("");
-  const [proveedorId, setProveedorId] = useState("");
+  const [proveedorId, setProveedorId] = useEstadoNavegacion("IngredientesPage.proveedorId", "");
   const { proveedores } = useProveedores(false);
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const orden = useOrdenTabla<ColumnaOrdenIngrediente, "nombre_asc">("nombre_asc");
@@ -321,13 +323,14 @@ export function IngredientesPage() {
   return (
     <Pagina
       titulo="Ingredientes"
-      descripcion="Alta, modificación y baja de ingredientes (aditivos incluidos), sus clases funcionales y el catálogo de alérgenos."
+      descripcion="Alta, modificación y baja de ingredientes (aditivos incluidos), sus clases funcionales, el catálogo de alérgenos y las bases de composición (SARA 1 u otras)."
     >
       <PestanasPagina
         pestanas={[
           { valor: "ingredientes", etiqueta: "Ingredientes", contenido: <TabIngredientes /> },
           { valor: "clases", etiqueta: "Clases funcionales", contenido: <TabClases /> },
           { valor: "alergenos", etiqueta: "Alérgenos", contenido: <TabAlergenos /> },
+          { valor: "base", etiqueta: "Base de composición", contenido: <PanelBase /> },
         ]}
       />
     </Pagina>

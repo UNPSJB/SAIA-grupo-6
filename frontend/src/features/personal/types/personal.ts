@@ -10,6 +10,9 @@ export interface Persona {
   puede_operar: boolean;
   puede_administrar: boolean;
   es_super_admin: boolean;
+  es_gerente?: boolean;
+  /** `null`: de la empresa (super admin), sin sede propia. */
+  establecimiento_id?: number | null;
   activo: boolean;
   debe_cambiar_password?: boolean;
   fecha_creacion: string;
@@ -23,11 +26,12 @@ export interface Persona {
  * listado: el super admin no cuenta como administrador, y quien administra no
  * cuenta como operador.
  */
-export type RolPersonal = "super_admin" | "administrador" | "operador";
+export type RolPersonal = "super_admin" | "gerente" | "administrador" | "operador";
 
 /** Opciones del filtro por rol, con su etiqueta legible. */
 export const ROLES_PERSONAL: { value: RolPersonal; label: string }[] = [
   { value: "super_admin", label: "Super admin" },
+  { value: "gerente", label: "Gerente" },
   { value: "administrador", label: "Administrador" },
   { value: "operador", label: "Operador" },
 ];
@@ -49,6 +53,7 @@ export interface PersonaInput {
   puede_operar?: boolean;
   puede_administrar?: boolean;
   es_super_admin?: boolean;
+  es_gerente?: boolean;
   activo?: boolean;
 }
 

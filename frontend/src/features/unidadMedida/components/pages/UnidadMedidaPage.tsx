@@ -25,14 +25,15 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function UnidadMedidaPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("UnidadMedidaPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("UnidadMedidaPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
   const orden = useOrdenTabla<ColumnaOrdenUnidadMedida, "nombre_asc">(
     "nombre_asc"

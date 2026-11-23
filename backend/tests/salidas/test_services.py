@@ -605,3 +605,38 @@ def test_reservar_exige_un_rotulado_completo_del_lote(db_session):
         fecha_reserva=date(2026, 1, 5), usuario=usuario,
     ).id
 
+
+
+def test_reservar_exige_el_rotulado_frontal_decidido(db_session):
+    """Sin saber si el producto lleva octógonos ("sin definir"), el rótulo no
+    está completo y el lote no se vende; con el módulo apagado no aplica."""
+    from src.rotulado.models import BorradorRotulado
+    from src.rotulado.services import calcular_completitud
+    from src.rotulado_frontal.models import ConfiguracionModuloRotulado, ConfiguracionRotuladoProducto
+    from src.salidas import exceptions as salidas_exceptions
+
+    lote = _lote(db_session, cantidad_producida=Decimal("100.000"))
+    cliente = _cliente(db_session)
+    usuario = _personal(db_session)
+    borrador = db_session.query(BorradorRotulado).filter_by(lote_producto_id=lote.id).one()
+
+    # Se borra la configuración del producto: la evaluación queda sin definir.
+    db_session.delete(db_session.get(ConfiguracionRotuladoProducto, lote.producto_id))
+    db_session.commit()
+    campo = next(c for c in calcular_completitud(db_session, borrador.id).campos if c.nombre == "rotulado_frontal")
+    assert campo.estado == "pendiente"
+    with pytest.raises(salidas_exceptions.LoteSinRotulado):
+        services.reservar(
+            db_session, lote_id=lote.id, cliente_id=cliente.id, cantidad=Decimal("10"),
+            fecha_reserva=date(2026, 1, 5), usuario=usuario,
+        )
+
+    # Con el módulo de octógonos apagado, el rotulado frontal no aplica.
+    db_session.add(ConfiguracionModuloRotulado(establecimiento_id=1, modulo_activo=False))
+    db_session.commit()
+    campo = next(c for c in calcular_completitud(db_session, borrador.id).campos if c.nombre == "rotulado_frontal")
+    assert campo.estado == "no_aplicable"
+    assert services.reservar(
+        db_session, lote_id=lote.id, cliente_id=cliente.id, cantidad=Decimal("10"),
+        fecha_reserva=date(2026, 1, 5), usuario=usuario,
+    ).id

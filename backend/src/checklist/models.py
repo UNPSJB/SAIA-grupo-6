@@ -15,6 +15,7 @@ from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Stri
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
 class EstadoChecklist(str, Enum):
@@ -24,7 +25,7 @@ class EstadoChecklist(str, Enum):
     CERRADO = "cerrado"
 
 
-class Checklist(ModeloBase):
+class Checklist(DatosDeEstablecimiento, ModeloBase):
     """Cabecera diaria de checklist para un equipo."""
 
     __tablename__ = "checklists"
@@ -74,7 +75,7 @@ class Checklist(ModeloBase):
     )
 
 
-class RegistroTarea(ModeloBase):
+class RegistroTarea(DatosDeEstablecimiento, ModeloBase):
     # El rastro de cada marcado vive en HistorialRegistroTarea (fuente de verdad):
     # auditar también esta fila lo registraría dos veces.
     __audit__ = False
@@ -219,7 +220,7 @@ class RegistroTarea(ModeloBase):
         return [e.elemento_limpieza_id for e in self.elementos]
 
 
-class RegistroTareaConsumo(ModeloBase):
+class RegistroTareaConsumo(DatosDeEstablecimiento, ModeloBase):
     """Un producto químico usado en una tarea del checklist y su cantidad.
 
     Es el detalle del consumo que descuenta stock: cada cambio se traduce en
@@ -246,7 +247,7 @@ class RegistroTareaConsumo(ModeloBase):
     insumo_quimico: Mapped["InsumoQuimico"] = relationship(lazy="joined")
 
 
-class RegistroTareaElemento(ModeloBase):
+class RegistroTareaElemento(DatosDeEstablecimiento, ModeloBase):
     """Un elemento de limpieza usado en una tarea del checklist."""
 
     __audit__ = False
@@ -267,7 +268,7 @@ class RegistroTareaElemento(ModeloBase):
     elemento_limpieza: Mapped["ElementoLimpieza"] = relationship(lazy="joined")
 
 
-class HistorialRegistroTarea(ModeloBase):
+class HistorialRegistroTarea(DatosDeEstablecimiento, ModeloBase):
     """Bitácora de auditoría de un RegistroTarea. A diferencia de
     RegistroTarea (que solo guarda el estado ACTUAL y se sobrescribe en
     cada marcar_tarea), acá se agrega una fila nueva por cada evento:

@@ -1,5 +1,5 @@
 import { normalizar } from "../../../../common/utils/texto";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
 import { BotonExportar } from "../../../exportacion";
@@ -41,6 +41,7 @@ import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useLotes } from "../../hooks/useLotes";
 import { ESTADOS_LOTE, type EstadoLote, type LoteResumen } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -50,11 +51,11 @@ function TabLotes() {
   // Exportar es de administración (el backend lo exige).
   const esAdmin = puedeAdministrar(useAuth().user);
 
-  const [busqueda, setBusqueda] = useState("");
-  const [producto, setProducto] = useState("");
-  const [estado, setEstado] = useState<EstadoLote | "">("");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("LotesPage.busqueda", "");
+  const [producto, setProducto] = useEstadoNavegacion("LotesPage.producto", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoLote | "">("LotesPage.estado", "");
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion("LotesPage.fechaDesde", "");
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion("LotesPage.fechaHasta", "");
 
   const { lotes, loading, error, recargar } = useLotes({ estado, fechaDesde, fechaHasta });
 

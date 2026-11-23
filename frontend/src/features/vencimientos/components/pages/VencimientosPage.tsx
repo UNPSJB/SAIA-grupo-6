@@ -48,6 +48,7 @@ import { Pagina } from "../../../../components/ui/plantillas";
 import { Table } from "@chakra-ui/react";
 import { BotonExportar } from "../../../exportacion";
 import { LuCircleCheck } from "react-icons/lu";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 /** Tamaño de página de todos los listados de la app. */
 const PAGE_SIZE = 10;
@@ -79,11 +80,11 @@ export function VencimientosPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<VencimientoConsolidado[]>([]);
   const [total, setTotal] = useState(0);
-  const [tipo, setTipo] = useState<TipoVencimiento | "">("");
-  const [estado, setEstado] = useState<EstadoVencimiento | "">("");
+  const [tipo, setTipo] = useEstadoNavegacion<TipoVencimiento | "">("VencimientosPage.tipo", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoVencimiento | "">("VencimientosPage.estado", "");
   const [persona, setPersona] = useState(""); // id de la persona, o "" = todas
   const [aptitud, setAptitud] = useState(""); // nombre de la aptitud, o "" = todas
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("VencimientosPage.busqueda", "");
   // El fetch usa la búsqueda con debounce: sin esto, cada tecla pedía una
   // página al servidor. El input actualiza `busqueda`; el efecto de carga
   // depende de `busquedaAplicada`.
@@ -92,7 +93,7 @@ export function VencimientosPage() {
   // La tabla abre en el orden histórico de urgencia (vencidos primero), que
   // es el mismo `estado_asc`: el header de Estado ya muestra la flecha y el
   // resto de las columnas se puede clickear.
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useEstadoNavegacion("VencimientosPage.page", 1);
   const orden = useOrdenTabla<ColumnaOrdenVencimiento, "URGENCIA">(
     "URGENCIA",
     "estado",

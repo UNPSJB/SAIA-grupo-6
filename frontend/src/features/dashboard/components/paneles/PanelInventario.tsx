@@ -109,7 +109,7 @@ export function PanelInventario() {
               vacio={d.vencen_primero.length === 0 && "No hay lotes con fecha de vencimiento."}
             >
               <ListaPanel filas={d.vencen_primero} acento />
-              <VerTodos to="/stock-insumos">Ver el stock de insumos</VerTodos>
+              <VerTodos to="/lotes-insumo">Ver los lotes de insumos</VerTodos>
             </Bloque>
           </GrillaBloques>
 

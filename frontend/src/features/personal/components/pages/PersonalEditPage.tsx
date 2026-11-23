@@ -10,6 +10,8 @@ import { useAuth } from "../../../../common/context/useAuth";
 import {
   esSuperAdmin,
   puedeModificarRoles,
+  puedeAsignarAdministrar,
+  puedeAsignarGerente,
 } from "../../../../common/api/permissions";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 
@@ -108,6 +110,8 @@ export function PersonalEditPage() {
           puede_operar: usuarioActualizado.puede_operar,
           puede_administrar: usuarioActualizado.puede_administrar,
           es_super_admin: Boolean(usuarioActualizado.es_super_admin),
+          es_gerente: Boolean(usuarioActualizado.es_gerente),
+          establecimiento_id: usuarioActualizado.establecimiento_id ?? null,
         });
       }
 
@@ -159,11 +163,14 @@ export function PersonalEditPage() {
               puede_operar: persona.puede_operar,
               puede_administrar: persona.puede_administrar,
               es_super_admin: Boolean(persona.es_super_admin),
+              es_gerente: Boolean(persona.es_gerente),
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
             puedeEditarCapacidades={puedeEditarCapacidades}
             puedeAsignarSuperAdmin={puedeAsignarSuperAdmin}
+            puedeAsignarAdministrar={puedeAsignarAdministrar(user)}
+            puedeAsignarGerente={puedeAsignarGerente(user)}
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/personal")}
             esMiPerfil={esMiPerfil}

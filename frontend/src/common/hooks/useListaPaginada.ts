@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useEstadoNavegacion } from "./useEstadoNavegacion";
 
 import type { Pagina } from "../api/paginacion";
 
@@ -50,7 +51,8 @@ export function useListaPaginada<T>(opciones: OpcionesListaPaginada<T>) {
 
   const [items, setItems] = useState<T[]>(valorInicial);
   const [total, setTotal] = useState(0);
-  const [paginaPedida, setPaginaPedida] = useState(1);
+  // La página sobrevive a ir y volver con "atrás" (ver useEstadoNavegacion).
+  const [paginaPedida, setPaginaPedida] = useEstadoNavegacion("useListaPaginada.pagina", 1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,8 +120,8 @@ export function useListaPaginada<T>(opciones: OpcionesListaPaginada<T>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recargar, ...dependencias]);
 
-  const setPage = useCallback((nueva: number) => setPaginaPedida(nueva), []);
-  const primeraPagina = useCallback(() => setPaginaPedida(1), []);
+  const setPage = useCallback((nueva: number) => setPaginaPedida(nueva), [setPaginaPedida]);
+  const primeraPagina = useCallback(() => setPaginaPedida(1), [setPaginaPedida]);
 
   return {
     items,

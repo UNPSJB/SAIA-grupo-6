@@ -43,6 +43,7 @@ import {
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonExportar } from "../../../../features/exportacion";
 import { formatoPorcentaje } from "../../../../common/utils/numeros";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -76,16 +77,16 @@ export function HistorialChecklistPage() {
     return equipoId > 0 && fecha ? { equipoId, fecha } : null;
   });
 
-  const [fechaDesde, setFechaDesde] = useState(
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion("HistorialChecklistPage.fechaDesde", 
     pendienteAbrir?.fecha ?? rangoInicial.desde
   );
-  const [fechaHasta, setFechaHasta] = useState(
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion("HistorialChecklistPage.fechaHasta", 
     pendienteAbrir?.fecha ?? rangoInicial.hasta
   );
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>(
     pendienteAbrir ? String(pendienteAbrir.equipoId) : ""
   );
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("HistorialChecklistPage.busqueda", "");
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
   const [checklistSeleccionado, setChecklistSeleccionado] =
     useState<HistorialChecklistItem | null>(null);
@@ -110,7 +111,7 @@ export function HistorialChecklistPage() {
 
   const { equipos } = useEquipos();
 
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useEstadoNavegacion("HistorialChecklistPage.page", 1);
 
   // La tabla abre por fecha descendente (lo más reciente arriba). Al ordenar
   // se vuelve a la página 1: `alCambiar` replica lo que hace

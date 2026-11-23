@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 _FUENTES_SQL = "('base_referencia', 'rotulo_proveedor', 'bibliografia', 'valor_propio')"
 
@@ -77,7 +78,7 @@ class AlimentoReferencia(ModeloBase):
     importado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
-class PerfilNutricionalIngrediente(ModeloBase):
+class PerfilNutricionalIngrediente(DatosDeEstablecimiento, ModeloBase):
     """Datos del ingrediente que necesita el cálculo además de los nutrientes.
 
     * Para aditivos: si aportan energía o sodio de forma relevante. Un aditivo
@@ -117,7 +118,7 @@ class PerfilNutricionalIngrediente(ModeloBase):
     )
 
 
-class ValorNutricionalIngrediente(ModeloBase):
+class ValorNutricionalIngrediente(DatosDeEstablecimiento, ModeloBase):
     """Un nutriente de un ingrediente, por 100 g, con su fuente y su historia.
 
     `valor_fuente` es lo que dijo la fuente al cargarlo: si después alguien
@@ -161,7 +162,7 @@ class ValorNutricionalIngrediente(ModeloBase):
     )
 
 
-class InfoNutricionalProducto(ModeloBase):
+class InfoNutricionalProducto(DatosDeEstablecimiento, ModeloBase):
     """Lo que el producto declara en la tabla: porción, medida casera, g o ml.
 
     `densidad_g_ml` y `peso_unidad_g` convierten el rendimiento de la receta
@@ -192,7 +193,7 @@ class InfoNutricionalProducto(ModeloBase):
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
 
 
-class ValorLaboratorioProducto(ModeloBase):
+class ValorLaboratorioProducto(DatosDeEstablecimiento, ModeloBase):
     """Nutriente del producto determinado por análisis de laboratorio.
 
     Reemplaza al valor calculado desde los ingredientes (la cátedra pide poder

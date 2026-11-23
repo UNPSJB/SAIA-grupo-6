@@ -1,4 +1,4 @@
-import { puedeAdministrar, puedeOperar } from "../api/permissions";
+import { esGerente, esSuperAdmin, puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
   LuArchive,
   LuBadgeCheck,
@@ -13,6 +13,8 @@ import {
   LuContainer,
   LuCookingPot,
   LuFactory,
+  LuBuilding2,
+  LuChartColumn,
   LuFileSearch,
   LuFileText,
   LuFlaskConical,
@@ -25,8 +27,10 @@ import {
   LuMicroscope,
   LuMessageSquareWarning,
   LuPackage,
+  LuPackageOpen,
   LuRuler,
   LuShieldCheck,
+  LuShoppingBasket,
   LuSparkles,
   LuSprayCan,
   LuTruck,
@@ -46,7 +50,7 @@ import type { IconType } from "react-icons/lib";
  * a mano: agregar una sección implicaba tocar el render del Navbar y el
  * router por separado, y se desincronizaban.
  */
-export type RolMenu = "todos" | "operar" | "administrar";
+export type RolMenu = "todos" | "operar" | "administrar" | "gerente" | "super_admin";
 
 export interface EntradaMenu {
   to: string;
@@ -120,7 +124,9 @@ export const GRUPOS: GrupoMenu[] = [
     ayuda: "Materia prima y proveedores",
     icon: LuArchive,
     entradas: [
-      { to: "/stock-insumos", label: "Stock de insumos", rol: "administrar", icon: LuWarehouse },
+      { to: "/lotes-insumo", label: "Lotes de insumos", rol: "administrar", icon: LuPackageOpen },
+      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuShoppingBasket },
+      { to: "/stock-ingredientes", label: "Stock de ingredientes", rol: "administrar", icon: LuWarehouse },
       { to: "/ingredientes", label: "Ingredientes", rol: "administrar", icon: LuPackage },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
     ],
@@ -232,6 +238,8 @@ export const MENU: EntradaMenu[] = [
    */
   // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
+  // Tablero que compara la sede con el resto de la empresa.
+  { to: "/comparativo", label: "Comparar sedes", rol: "gerente", icon: LuChartColumn },
 ];
 
 /** Pantalla de configuración: se abre desde el menú de usuario (el avatar). */
@@ -259,6 +267,13 @@ export const CONFIGURACION: EntradaMenu[] = [
     ayuda: "Unidades con las que se miden ingredientes, recetas y productos.",
   },
   {
+    to: "/establecimientos",
+    label: "Establecimientos",
+    rol: "super_admin",
+    icon: LuBuilding2,
+    ayuda: "Sedes de producción de la empresa: alta, datos y baja.",
+  },
+  {
     to: "/vista-publica",
     label: "Vista pública",
     rol: "administrar",
@@ -279,6 +294,8 @@ export function esVisibleEntrada(
 ): boolean {
   if (entrada.rol === "todos") return true;
   if (entrada.rol === "operar") return puedeOperar(user);
+  if (entrada.rol === "super_admin") return esSuperAdmin(user);
+  if (entrada.rol === "gerente") return esGerente(user) || esSuperAdmin(user);
   return puedeAdministrar(user);
 }
 

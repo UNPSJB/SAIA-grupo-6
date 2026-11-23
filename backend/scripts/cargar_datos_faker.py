@@ -50,6 +50,13 @@ favoritos en vez de salir todas por igual. `--dias-historia` y
 Por defecto reemplaza los datos (igual que `cargar_datos.py`); con `--agregar`
 conserva lo que hay y agrega nuevas filas sin chocar con los UNIQUE.
 
+Es multiestablecimiento: además del "Establecimiento principal" carga otras
+sedes (`ESTABLECIMIENTOS_EXTRA`, `--sedes-extra`), cada una con su propio
+personal, catálogos, producción, circuito comercial y su gerente. Todo el
+armado corre una vez por sede con la sede fijada en la sesión, así cada fila
+queda sellada en su establecimiento. El super admin es de la empresa (sin
+sede) y en la principal también hay un gerente.
+
 Después de las altas, `simular_actividad` opera sobre lo cargado como lo haría
 la gente en la app (modificar, dar de baja, reactivar, eliminar, cerrar
 incidentes, versionar documentos, consumir stock...) para que la bitácora de
@@ -98,6 +105,11 @@ import src.all_models  # noqa: F401,E402  (registra los modelos)
 from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
+from src.establecimientos.contexto import fijar_establecimiento, sede_efectiva  # noqa: E402
+from src.establecimientos.models import (  # noqa: E402
+    ESTABLECIMIENTO_PRINCIPAL_ID,
+    Establecimiento,
+)
 from src.auditoria.models import AuditLog  # noqa: E402
 from src.sector.models import Sector  # noqa: E402
 from src.Equipo.models import Equipo, Calibracion  # noqa: E402
@@ -1136,6 +1148,36 @@ VOCAB_DOCUMENTOS = [
 # GENERADORES
 # ============================================================
 
+# Sedes que se cargan además del establecimiento principal: nombre, dirección y
+# tamaño relativo (multiplica `--cantidad`). Con tamaños distintos el tablero
+# comparativo del gerente muestra diferencias reales entre sedes.
+ESTABLECIMIENTOS_EXTRA = [
+    ("Planta Norte", "Ruta 9 km 12, Córdoba", 0.6, "Alimentos del Sur S.A. — Planta Norte"),
+    ("Planta Sur", "Av. Colón 1500, Mar del Plata", 1.4, "Alimentos del Sur S.A. — Planta Sur"),
+]
+
+
+def obtener_o_crear_establecimiento(
+    db, nombre: str, direccion: str, razon_social: Optional[str] = None
+) -> Establecimiento:
+    """La sede con ese nombre (activa); se crea si no existe.
+
+    Se reusa entre corridas: el personal no se borra y queda colgado de su
+    sede, así que borrarla rompería la FK.
+    """
+    sede = db.scalar(select(Establecimiento).where(Establecimiento.nombre == nombre))
+    if sede is None:
+        sede = Establecimiento(nombre=nombre, direccion=direccion, razon_social=razon_social, activo=True)
+        db.add(sede)
+        db.flush()
+    else:
+        sede.activo = True
+        # El rotulado toma razón social y domicilio de la sede.
+        sede.razon_social = sede.razon_social or razon_social
+        sede.direccion = sede.direccion or direccion
+    return sede
+
+
 def borrar_todo(db) -> None:
     """Limpia las tablas que el seed va a rellenar (orden: hijos primero)."""
     orden = [
@@ -1261,14 +1303,20 @@ def crear_configuracion_alertas(db):
         "alerta_insumo_bajo_stock": 10,
     }
     for clave, valor in defaults.items():
-        existente = db.get(ConfiguracionAlerta, clave)
+        existente = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": clave})
         if existente is None:
             db.add(ConfiguracionAlerta(clave=clave, valor=valor))
     db.flush()
 
 
-def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: str) -> list:
-    """Personas: 1 super admin, ~15% administradores y el resto operadores."""
+def crear_personal(
+    db, cantidad: int, fake: Faker, vistos: dict, hash_password: str, con_super_admin: bool = True
+) -> list:
+    """Personas de la sede activa: su gerente, ~15% administradores y el resto operadores.
+
+    En la principal la primera es además el super admin (de la empresa, sin
+    sede) y la segunda el gerente; en las otras sedes la primera es el gerente.
+    """
     print(f"⏳ Cargando {cantidad} personas...")
     personas = []
     emails, dnis = vistos["email"], vistos["dni"]
@@ -1277,9 +1325,10 @@ def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: 
         nombre = recortar(solo_letras(fake.first_name()), 40)
         apellido = recortar(solo_letras(fake.last_name()), 40)
 
-        es_super_admin = i == 0
-        es_admin = es_super_admin or bernoulli(0.15)
-        puede_operar = es_super_admin or bernoulli(0.8)
+        es_super_admin = con_super_admin and i == 0
+        es_gerente = i == (1 if con_super_admin else 0)
+        es_admin = es_super_admin or es_gerente or bernoulli(0.15)
+        puede_operar = es_super_admin or es_gerente or bernoulli(0.8)
         # La API exige al menos una capacidad por persona (`validar_capacidades`):
         # alguien sin ninguna no se podría volver a crear ni editar por el endpoint.
         if not es_admin and not puede_operar:
@@ -1305,6 +1354,7 @@ def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: 
             puede_operar=puede_operar,
             puede_administrar=es_admin,
             es_super_admin=es_super_admin,
+            es_gerente=es_gerente,
             # Se mantienen activos los que administran: un admin dado de baja
             # deja la base sin administración para probar.
             activo=bool(es_admin or not bernoulli(0.08)),
@@ -3491,6 +3541,19 @@ def rotular_lote(db, lote_id: int, fecha_duracion: date, usuario) -> int:
     propuesta de declaraciones; a mano van los que no salen de ningún lado.
     """
     lote = db.get(LoteProducto, lote_id)
+    # El rotulado frontal tiene que estar decidido para que el rótulo quede
+    # completo (si no, la reserva no deja vender el lote). Si el producto
+    # todavía no tiene configuración, se vende envasado al canal minorista y
+    # las marcas se deducen de la receta. `crear_rotulado_frontal` después
+    # reparte los escenarios de la pantalla.
+    if db.get(ConfiguracionRotuladoProducto, lote.producto_id) is None:
+        rotulado_frontal_services.guardar_configuracion(
+            db, lote.producto_id,
+            ConfiguracionRotuladoIn(
+                envasado_sin_cliente=True,
+                canal_comercializacion=rotulado_frontal_constants.CANAL_MINORISTA,
+            ),
+        )
     # Antes del borrador: la propuesta de declaraciones sale de estos maestros
     # (conservación del producto y alérgenos evaluados de cada ingrediente).
     _preparar_declaraciones_rotulado(
@@ -3509,8 +3572,6 @@ def rotular_lote(db, lote_id: int, fecha_duracion: date, usuario) -> int:
         BorradorRotuladoUpdate(
             contenido_neto=random.choice(DATOS_ROTULO["contenidos"]),
             rnpa_rppa=f"RNPA 07-{random.randint(100000, 999999)}",
-            razon_social=DATOS_ROTULO["razon_social"],
-            domicilio=DATOS_ROTULO["domicilio"],
             instrucciones_uso=random.choice(DATOS_ROTULO["instrucciones"]),
             fecha_duracion=fecha_duracion,
         ),
@@ -4006,8 +4067,13 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
     """Configuración por producto e historial de evaluaciones de octógonos.
 
     Cubre los estados de la pantalla: aplica, corregido a mano, canal no
-    minorista, sin envasado, categoría exceptuada, sin definir y módulo
-    inactivo. Usa los services para que el snapshot quede igual que en la app.
+    minorista, sin envasado, categoría exceptuada y módulo inactivo. Usa los
+    services para que el snapshot quede igual que en la app.
+
+    TODOS los productos quedan configurados (envasado, canal y, según el
+    escenario, marcas o categoría): un producto "sin definir" deja su rótulo
+    incompleto y sus lotes no se pueden reservar. Por eso ya no hay escenario
+    "sin definir".
     """
     cuenta = {
         "configurados": 0,
@@ -4057,29 +4123,27 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
             "envasado": True,
             "categoria": "azucar_comun",
         },
-        {"nombre": "sin_definir"},
     ]
-    elegidos = random.sample(
-        productos, min(len(productos), max(len(escenarios), cantidad // 2))
-    )
+    # Todos los productos, en orden aleatorio: los escenarios se reparten y
+    # se repiten si hay más productos que escenarios.
+    elegidos = random.sample(productos, len(productos))
 
     for indice, producto in enumerate(elegidos):
         escenario = escenarios[indice % len(escenarios)]
         try:
-            if escenario["nombre"] != "sin_definir":
-                datos = {
-                    "envasado_sin_cliente": escenario["envasado"],
-                    "canal_comercializacion": escenario["canal"],
-                }
-                datos.update(escenario.get("marcas", {}))
-                if escenario.get("categoria"):
-                    datos["categoria_rotulado"] = escenario["categoria"]
-                respuesta = rotulado_frontal_services.guardar_configuracion(
-                    db, producto.id, ConfiguracionRotuladoIn(**datos)
-                )
-                cuenta["configurados"] += 1
-                cuenta["evaluaciones"] += 1
-                cuenta["estados"].add(respuesta.estado)
+            datos = {
+                "envasado_sin_cliente": escenario["envasado"],
+                "canal_comercializacion": escenario["canal"],
+            }
+            datos.update(escenario.get("marcas", {}))
+            if escenario.get("categoria"):
+                datos["categoria_rotulado"] = escenario["categoria"]
+            respuesta = rotulado_frontal_services.guardar_configuracion(
+                db, producto.id, ConfiguracionRotuladoIn(**datos)
+            )
+            cuenta["configurados"] += 1
+            cuenta["evaluaciones"] += 1
+            cuenta["estados"].add(respuesta.estado)
             for _ in range(random.randint(1, 2)):
                 respuesta = rotulado_frontal_services.evaluar(db, producto.id)
                 cuenta["evaluaciones"] += 1
@@ -4115,15 +4179,15 @@ def crear_vista_publica(db) -> int:
     Devuelve la cantidad de indicadores agregados.
     """
     print("⏳ Cargando configuración de la vista pública...")
-    if db.get(ConfiguracionVistaPublica, 1) is None:
+    if db.get(ConfiguracionVistaPublica, sede_efectiva(db)) is None:
         db.add(
             ConfiguracionVistaPublica(
-                id=1, habilitada=True, codigo_publico=secrets.token_urlsafe(32)
+                establecimiento_id=sede_efectiva(db), habilitada=True, codigo_publico=secrets.token_urlsafe(32)
             )
         )
     agregados = 0
     for definicion in CATALOGO_VISTA_PUBLICA:
-        if db.get(IndicadorVistaPublica, definicion.clave) is not None:
+        if db.get(IndicadorVistaPublica, {"establecimiento_id": sede_efectiva(db), "clave": definicion.clave}) is not None:
             continue
         db.add(IndicadorVistaPublica(clave=definicion.clave, habilitado=bernoulli(0.75)))
         agregados += 1
@@ -4463,7 +4527,7 @@ def simular_actividad(
             ("alerta_calibracion_dias", (15, 45, 60)),
             ("alerta_insumo_bajo_stock", (5, 15, 20)),
         ):
-            config = db.get(ConfiguracionAlerta, clave)
+            config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": clave})
             if config is not None:
                 db.refresh(config)
                 config.valor = random.choice([v for v in opciones if v != config.valor])
@@ -4662,6 +4726,163 @@ def simular_actividad(
     return cuenta
 
 
+def vistos_de_la_sede(db) -> dict:
+    """Valores ya usados en la sede activa, para no chocar con los UNIQUE por sede.
+
+    Las consultas salen filtradas por la sede fijada en la sesión: dos sedes
+    pueden repetir nombres de equipos, productos, lotes, etc.
+    """
+    return {
+        "incidente": set(db.scalars(select(Incidente.titulo)).all()),
+        "equipo": set(db.scalars(select(Equipo.nombre)).all()),
+        "aptitud": set(db.scalars(select(Aptitud.nombre)).all()),
+        "plan": set(db.scalars(select(PlanLimpieza.nombre)).all()),
+        "quimico": set(db.scalars(select(InsumoQuimico.nombre)).all()),
+        "elemento": set(db.scalars(select(ElementoLimpieza.nombre)).all()),
+        "ingrediente": set(db.scalars(select(Ingrediente.nombre)).all()),
+        "documento": set(db.scalars(select(Documento.nombre)).all()),
+        "proveedor": set(db.scalars(select(Proveedor.nombre)).all()),
+        "matricula": set(db.scalars(select(Proveedor.matricula)).all()),
+        "lote": set(db.scalars(select(LoteStock.numero_lote)).all()),
+        "sector": set(db.scalars(select(Sector.nombre)).all()),
+        "producto": set(db.scalars(select(Producto.nombre)).all()),
+        "lote_insumo": set(db.scalars(select(LoteInsumo.numero_lote)).all()),
+        "lote_producto": set(db.scalars(select(LoteProducto.numero_lote)).all()),
+        "cliente": set(db.scalars(select(Cliente.nombre)).all()),
+        "cliente_doc": set(db.scalars(select(Cliente.documento)).all()),
+        "transportista": set(db.scalars(select(Transportista.razon_social)).all()),
+        "transportista_cuit": set(db.scalars(select(Transportista.cuit)).all()),
+    }
+
+
+def cargar_establecimiento(
+    db, args, fake: Faker, vistos: dict, hash_password: str, con_super_admin: bool
+) -> dict:
+    """Todo el armado de datos de UNA sede: la que esté fijada en la sesión.
+
+    Las filas nuevas se sellan solas con esa sede y las consultas solo ven sus
+    datos (ver `src.establecimientos.contexto`), así que el mismo armado sirve
+    para cada establecimiento.
+    """
+    unidades = crear_unidades(db, vistos)
+    crear_configuracion_alertas(db)
+    personal = crear_personal(
+        db, args.cantidad, fake, vistos, hash_password, con_super_admin=con_super_admin
+    )
+    proveedores = crear_proveedores(db, args.cantidad, fake, vistos)
+    equipos = crear_equipos(db, args.cantidad, vistos)
+    calibraciones = crear_calibraciones(db, equipos, args.dias_historia)
+    aptitudes = crear_aptitudes(db, args.cantidad, vistos)
+
+    admins = [p for p in personal if p.puede_administrar]
+    operadores = [p for p in personal if not p.puede_administrar and p.puede_operar]
+    # Sin admins no se puede crear nada: el plan necesita un autor.
+    if not admins:
+        admins = personal[:1]
+    if not operadores:
+        operadores = admins
+
+    vencimientos = crear_vencimientos(db, personal, aptitudes)
+    quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
+    elementos = crear_elementos(db, args.cantidad, vistos)
+    planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
+    registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
+    # Después de los checklists: el saldo descuenta lo que ellos consumieron.
+    stocks, lotes, movimientos_stock = crear_stock_y_movimientos(
+        db, quimicos, proveedores, admins, args.dias_checklist, vistos
+    )
+    historial_registros = crear_historial_registro_tarea(db)
+    # Cinco veces la cantidad: con menos, la evolución mensual por tipo
+    # queda en ceros y unos.
+    incidentes = crear_incidentes(
+        db, args.cantidad * 5, equipos, personal, admins, operadores, vistos,
+        args.dias_historia,
+    )
+    historial_incidentes = crear_historial_incidente(db, admins)
+    documentos = crear_documentos(db, args.cantidad, admins, vistos)
+    cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
+    clientes = crear_clientes(db, args.cantidad, fake, vistos)
+    transporte = crear_transportistas(db, args.cantidad, fake, vistos, admins)
+
+    # Trazabilidad: productos -> recetas versionadas -> lotes de insumo ->
+    # lotes de producción con checklist y consumos.
+    ingredientes = crear_ingredientes(db, unidades, vistos)
+    alergenos_asignados = crear_alergenos_ingredientes(db, ingredientes)
+    productos, versiones = crear_productos_y_recetas(
+        db, args.cantidad, ingredientes, unidades, admins, vistos
+    )
+    nutricion = crear_datos_nutricionales(db, ingredientes, productos, admins)
+    lotes_insumo = crear_lotes_insumo(
+        db, ingredientes, proveedores, admins, vistos, args.dias_historia
+    )
+    produccion = crear_lotes_produccion(
+        db, args.cantidad * 8, productos, versiones, lotes_insumo,
+        proveedores, admins, operadores, vistos, args.dias_historia,
+    )
+    asociaciones = crear_marcas_sin_lotes(db, proveedores, ingredientes)
+    homologaciones = homologar_insumos(db, admins)
+    indicadores_vp = crear_vista_publica(db)
+
+    db.commit()
+
+    # Las altas ya están commiteadas (como "sistema"). Sobre ellas se simula
+    # lo que haría la gente en la app, para que la bitácora tenga historia.
+    actividad: dict = {}
+    if not args.sin_actividad:
+        actividad = simular_actividad(
+            db, fake, vistos, args.password, admins, personal, equipos,
+            aptitudes, quimicos, elementos, list(ingredientes.values()),
+            proveedores=proveedores, stocks=stocks, lotes=lotes,
+            calibraciones=calibraciones, planes=planes,
+            planes_cal=cal_mantenimiento, unidades=unidades,
+        )
+        for clave, n in simular_actividad_trazabilidad(
+            db, admins, productos, lotes_insumo
+        ).items():
+            actividad[clave] += n
+        for clave, n in simular_actividad_comercial(
+            db, fake, admins, clientes,
+            list(db.scalars(select(Transportista).order_by(Transportista.id)).all()),
+        ).items():
+            actividad[clave] += n
+
+    bajas_insumo = crear_bajas_lote_insumo(db, lotes_insumo, admins)
+
+    # Circuito comercial y rotulado: van después de la actividad simulada
+    # (que reclasifica y borra incidentes al azar) porque sus incidentes
+    # automáticos no se pueden editar. Cada service hace su propio commit.
+    db.info.pop("usuario_id", None)
+    comercial = crear_circuito_comercial(db, fake, args.cantidad)
+    rotulado = crear_rotulado(db, args.cantidad, productos)
+    rotulado_frontal = crear_rotulado_frontal(db, args.cantidad)
+
+    db.commit()
+
+    # La caché de notificaciones se recalcula sobre los datos finales, igual
+    # que en la primera lectura de la app.
+    print("⏳ Calculando notificaciones...")
+    asegurar_notificaciones_al_dia(db)
+    notificaciones = db.scalar(select(func.count()).select_from(NotificacionPersistida))
+
+    db.info.pop("usuario_id", None)
+    return {
+        "personal": personal, "equipos": equipos, "aptitudes": aptitudes,
+        "proveedores": proveedores, "vencimientos": vencimientos, "planes": planes,
+        "stocks": stocks, "lotes": lotes, "movimientos_stock": movimientos_stock,
+        "calibraciones": calibraciones, "registros": registros,
+        "historial_registros": historial_registros, "incidentes": incidentes,
+        "historial_incidentes": historial_incidentes, "documentos": documentos,
+        "cal_mantenimiento": cal_mantenimiento, "productos": productos,
+        "versiones": versiones, "ingredientes": ingredientes, "lotes_insumo": lotes_insumo,
+        "produccion": produccion, "bajas_insumo": bajas_insumo, "nutricion": nutricion,
+        "asociaciones": asociaciones, "alergenos_asignados": alergenos_asignados,
+        "homologaciones": homologaciones, "clientes": clientes, "transporte": transporte,
+        "comercial": comercial, "rotulado": rotulado, "rotulado_frontal": rotulado_frontal,
+        "indicadores_vp": indicadores_vp, "notificaciones": notificaciones,
+        "actividad": actividad, "admins": admins,
+    }
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Carga datos de ejemplo generados con Faker.",
@@ -4699,6 +4920,13 @@ def parse_args() -> argparse.Namespace:
             "Solo altas: no simula modificaciones, bajas, reactivaciones ni "
             "eliminaciones (por defecto la bitácora trae todas las acciones)."
         ),
+    )
+    p.add_argument(
+        "--sedes-extra",
+        type=int,
+        default=len(ESTABLECIMIENTOS_EXTRA),
+        choices=range(0, len(ESTABLECIMIENTOS_EXTRA) + 1),
+        help="Cuántos establecimientos cargar además del principal (cada uno con sus datos y su gerente).",
     )
     p.add_argument(
         "--agregar",
@@ -4748,31 +4976,14 @@ def main(preparar_esquema: bool = True) -> int:
         else:
             print("➕ Modo agregar: se conserva lo que ya estaba cargado.")
 
-        # Valores ya usados, para no violar ningún UNIQUE en modo agregar.
-        vistos = {
+        # Valores únicos en TODA la empresa (DNI y email con los que se inicia
+        # sesión; las unidades de medida son un catálogo global). El resto se
+        # arma por sede (`vistos_de_la_sede`).
+        globales = {
             "dni": valores_existentes(db, Personal.dni),
             "email": valores_existentes(db, Personal.email),
             "telefono": set(),
-            "incidente": set(db.scalars(select(Incidente.titulo)).all()),
-            "equipo": set(db.scalars(select(Equipo.nombre)).all()),
-            "aptitud": set(db.scalars(select(Aptitud.nombre)).all()),
-            "plan": set(db.scalars(select(PlanLimpieza.nombre)).all()),
-            "quimico": set(db.scalars(select(InsumoQuimico.nombre)).all()),
-            "elemento": set(db.scalars(select(ElementoLimpieza.nombre)).all()),
-            "ingrediente": set(db.scalars(select(Ingrediente.nombre)).all()),
             "unidad": set(db.scalars(select(UnidadMedida.nombre)).all()),
-            "documento": set(db.scalars(select(Documento.nombre)).all()),
-            "proveedor": set(db.scalars(select(Proveedor.nombre)).all()),
-            "matricula": set(db.scalars(select(Proveedor.matricula)).all()),
-            "lote": set(db.scalars(select(LoteStock.numero_lote)).all()),
-            "sector": set(db.scalars(select(Sector.nombre)).all()),
-            "producto": set(db.scalars(select(Producto.nombre)).all()),
-            "lote_insumo": set(db.scalars(select(LoteInsumo.numero_lote)).all()),
-            "lote_producto": set(db.scalars(select(LoteProducto.numero_lote)).all()),
-            "cliente": set(db.scalars(select(Cliente.nombre)).all()),
-            "cliente_doc": set(db.scalars(select(Cliente.documento)).all()),
-            "transportista": set(db.scalars(select(Transportista.razon_social)).all()),
-            "transportista_cuit": set(db.scalars(select(Transportista.cuit)).all()),
         }
 
         # Un solo hash para todo el personal: bcrypt es lento (~0,3 s por
@@ -4780,105 +4991,56 @@ def main(preparar_esquema: bool = True) -> int:
         print("🔐 Hasheando la contraseña...")
         hash_password = hashear_password(args.password)
 
-        unidades = crear_unidades(db, vistos)
-        crear_configuracion_alertas(db)
-        personal = crear_personal(db, args.cantidad, fake, vistos, hash_password)
-        proveedores = crear_proveedores(db, args.cantidad, fake, vistos)
-        equipos = crear_equipos(db, args.cantidad, vistos)
-        calibraciones = crear_calibraciones(db, equipos, args.dias_historia)
-        aptitudes = crear_aptitudes(db, args.cantidad, vistos)
-
-        admins = [p for p in personal if p.puede_administrar]
-        operadores = [p for p in personal if not p.puede_administrar and p.puede_operar]
-        # Sin admins no se puede crear nada: el plan necesita un autor.
-        if not admins:
-            admins = personal[:1]
-        if not operadores:
-            operadores = admins
-
-        vencimientos = crear_vencimientos(db, personal, aptitudes)
-        quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
-        elementos = crear_elementos(db, args.cantidad, vistos)
-        planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
-        registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
-        # Después de los checklists: el saldo descuenta lo que ellos consumieron.
-        stocks, lotes, movimientos_stock = crear_stock_y_movimientos(
-            db, quimicos, proveedores, admins, args.dias_checklist, vistos
-        )
-        historial_registros = crear_historial_registro_tarea(db)
-        # Cinco veces la cantidad: con menos, la evolución mensual por tipo
-        # queda en ceros y unos.
-        incidentes = crear_incidentes(
-            db, args.cantidad * 5, equipos, personal, admins, operadores, vistos,
-            args.dias_historia,
-        )
-        historial_incidentes = crear_historial_incidente(db, admins)
-        documentos = crear_documentos(db, args.cantidad, admins, vistos)
-        cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
-        clientes = crear_clientes(db, args.cantidad, fake, vistos)
-        transporte = crear_transportistas(db, args.cantidad, fake, vistos, admins)
-
-        # Trazabilidad: productos -> recetas versionadas -> lotes de insumo ->
-        # lotes de producción con checklist y consumos.
-        ingredientes = crear_ingredientes(db, unidades, vistos)
-        alergenos_asignados = crear_alergenos_ingredientes(db, ingredientes)
-        productos, versiones = crear_productos_y_recetas(
-            db, args.cantidad, ingredientes, unidades, admins, vistos
-        )
-        nutricion = crear_datos_nutricionales(db, ingredientes, productos, admins)
-        lotes_insumo = crear_lotes_insumo(
-            db, ingredientes, proveedores, admins, vistos, args.dias_historia
-        )
-        produccion = crear_lotes_produccion(
-            db, args.cantidad * 8, productos, versiones, lotes_insumo,
-            proveedores, admins, operadores, vistos, args.dias_historia,
-        )
-        asociaciones = crear_marcas_sin_lotes(db, proveedores, ingredientes)
-        homologaciones = homologar_insumos(db, admins)
-        indicadores_vp = crear_vista_publica(db)
-
+        principal = db.get(Establecimiento, ESTABLECIMIENTO_PRINCIPAL_ID)
+        # Datos legales del elaborador: los rótulos los autocompletan de acá.
+        principal.razon_social = principal.razon_social or DATOS_ROTULO["razon_social"]
+        principal.direccion = principal.direccion or DATOS_ROTULO["domicilio"]
+        sedes = [principal]
+        tamano = {principal.id: 1.0}
+        for nombre, direccion, factor, razon_social in ESTABLECIMIENTOS_EXTRA[: args.sedes_extra]:
+            sede = obtener_o_crear_establecimiento(db, nombre, direccion, razon_social)
+            sedes.append(sede)
+            tamano[sede.id] = factor
         db.commit()
 
-        # Las altas ya están commiteadas (como "sistema"). Sobre ellas se simula
-        # lo que haría la gente en la app, para que la bitácora tenga historia.
-        actividad: dict = {}
-        if not args.sin_actividad:
-            actividad = simular_actividad(
-                db, fake, vistos, args.password, admins, personal, equipos,
-                aptitudes, quimicos, elementos, list(ingredientes.values()),
-                proveedores=proveedores, stocks=stocks, lotes=lotes,
-                calibraciones=calibraciones, planes=planes,
-                planes_cal=cal_mantenimiento, unidades=unidades,
+        resultados: dict[int, dict] = {}
+        for sede in sedes:
+            print()
+            print(f"🏭 Establecimiento: {sede.nombre}")
+            fijar_establecimiento(db, sede.id)
+            vistos = {**globales, **vistos_de_la_sede(db)}
+            # Misma configuración, con el volumen escalado al tamaño de la sede.
+            args_sede = argparse.Namespace(
+                **{**vars(args), "cantidad": max(3, round(args.cantidad * tamano[sede.id]))}
             )
-            for clave, n in simular_actividad_trazabilidad(
-                db, admins, productos, lotes_insumo
-            ).items():
-                actividad[clave] += n
-            for clave, n in simular_actividad_comercial(
-                db, fake, admins, clientes,
-                list(db.scalars(select(Transportista).order_by(Transportista.id)).all()),
-            ).items():
-                actividad[clave] += n
+            resultados[sede.id] = cargar_establecimiento(
+                db, args_sede, fake, vistos, hash_password,
+                con_super_admin=sede.id == ESTABLECIMIENTO_PRINCIPAL_ID,
+            )
+        fijar_establecimiento(db, None)
 
-        bajas_insumo = crear_bajas_lote_insumo(db, lotes_insumo, admins)
-
-        # Circuito comercial y rotulado: van después de la actividad simulada
-        # (que reclasifica y borra incidentes al azar) porque sus incidentes
-        # automáticos no se pueden editar. Cada service hace su propio commit.
-        db.info.pop("usuario_id", None)
-        comercial = crear_circuito_comercial(db, fake, args.cantidad)
-        rotulado = crear_rotulado(db, args.cantidad, productos)
-        rotulado_frontal = crear_rotulado_frontal(db, args.cantidad)
-
-        # Sesiones de ejemplo, después de la actividad (que puede borrar personas).
+        # Sesiones de ejemplo de todo el personal, después de la actividad
+        # (que puede borrar personas).
         sesiones = crear_sesiones_auth(db, list(db.scalars(select(Personal)).all()))
         db.commit()
 
-        # La caché de notificaciones se recalcula sobre los datos finales, igual
-        # que en la primera lectura de la app.
-        print("⏳ Calculando notificaciones...")
-        asegurar_notificaciones_al_dia(db)
-        notificaciones = db.scalar(select(func.count()).select_from(NotificacionPersistida))
+        # El resumen detallado es el de la sede principal; de las demás, una línea.
+        fijar_establecimiento(db, ESTABLECIMIENTO_PRINCIPAL_ID)
+        r = resultados[ESTABLECIMIENTO_PRINCIPAL_ID]
+        personal, equipos, aptitudes = r["personal"], r["equipos"], r["aptitudes"]
+        proveedores, vencimientos, planes = r["proveedores"], r["vencimientos"], r["planes"]
+        stocks, lotes, movimientos_stock = r["stocks"], r["lotes"], r["movimientos_stock"]
+        calibraciones, registros = r["calibraciones"], r["registros"]
+        historial_registros, incidentes = r["historial_registros"], r["incidentes"]
+        historial_incidentes, documentos = r["historial_incidentes"], r["documentos"]
+        cal_mantenimiento, productos, versiones = r["cal_mantenimiento"], r["productos"], r["versiones"]
+        ingredientes, lotes_insumo, produccion = r["ingredientes"], r["lotes_insumo"], r["produccion"]
+        bajas_insumo, nutricion, asociaciones = r["bajas_insumo"], r["nutricion"], r["asociaciones"]
+        alergenos_asignados, homologaciones = r["alergenos_asignados"], r["homologaciones"]
+        clientes, transporte, comercial = r["clientes"], r["transporte"], r["comercial"]
+        rotulado, rotulado_frontal = r["rotulado"], r["rotulado_frontal"]
+        indicadores_vp, notificaciones = r["indicadores_vp"], r["notificaciones"]
+        actividad, admins = r["actividad"], r["admins"]
 
         # --------------------------------------------------------------
         # Resumen
@@ -4972,8 +5134,27 @@ def main(preparar_esquema: bool = True) -> int:
             + " · ".join(f"{accion} {n}" for accion, n in sorted(por_accion.items()))
         )
         print()
+        print("🏭 Establecimientos:")
+        for sede in sedes:
+            datos = resultados[sede.id]
+            print(
+                f"   • {sede.nombre}: {len(datos['personal'])} personas · "
+                f"{len(datos['productos'])} productos · {datos['produccion']['lotes']} lotes · "
+                f"{datos['incidentes']} incidentes · {datos['comercial']['reclamos']} reclamos"
+            )
+        fijar_establecimiento(db, None)
+        print()
         print(f"🔑 Contraseña de todo el personal: {args.password}")
-        print("👤 Usuarios administradores (el login es con DNI):")
+        print("🏢 Super admin (de la empresa, elige la sede en la barra superior):")
+        for p in resultados[ESTABLECIMIENTO_PRINCIPAL_ID]["personal"]:
+            if p.es_super_admin:
+                print(f"   • {p.nombre} {p.apellido} — DNI {p.dni}")
+        print("👔 Gerentes (ven el tablero para comparar sedes):")
+        for sede in sedes:
+            for p in resultados[sede.id]["personal"]:
+                if p.es_gerente:
+                    print(f"   • {p.nombre} {p.apellido} — DNI {p.dni} · {sede.nombre}")
+        print("👤 Otros administradores de la principal (el login es con DNI):")
         for a in admins[:5]:
             print(f"   • {a.nombre} {a.apellido} — DNI {a.dni}")
         if len(admins) > 5:

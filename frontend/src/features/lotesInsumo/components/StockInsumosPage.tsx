@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { Pagina, PestanasPagina } from "../../../components/ui/plantillas";
+import { Pagina } from "../../../components/ui/plantillas";
 import { BotonExportar } from "../../exportacion";
 import { formatoFecha } from "../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../common/utils/numeros";
@@ -36,8 +36,7 @@ import {
   useStockInsumos,
   useStockLotes,
 } from "../hooks/useStockInsumos";
-import { BajaLoteInsumoDialog } from "./pages/BajaLoteInsumoDialog";
-import type { StockLoteInsumo } from "../types/loteInsumo";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 /** Minúsculas y sin tildes, para buscar "azucar" y encontrar "Azúcar". */
 function normalizar(texto: string): string {
@@ -58,8 +57,8 @@ const ESTADOS_STOCK = [
 
 function TabStockPorIngrediente() {
   const { stock, loading, error } = useStockInsumos();
-  const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("StockInsumosPage.busqueda", "");
+  const [estado, setEstado] = useEstadoNavegacion("StockInsumosPage.estado", "");
 
   const visibles = useMemo(() => {
     const texto = normalizar(busqueda);
@@ -122,8 +121,8 @@ function TabStockPorIngrediente() {
             nombreTabla="el stock de insumos"
             disabled={visibles.length === 0}
             datos={() => ({
-              titulo: "Stock por ingrediente",
-              nombre: "stock-insumos",
+              titulo: "Stock de ingredientes",
+              nombre: "stock-ingredientes",
               encabezados: ["Ingrediente", "Recibido", "Consumo real", "Desperdicio", "Bajas", "Stock actual", "Vencido"],
               filas: visibles.map((s) => [
                 s.ingrediente_nombre,
@@ -242,25 +241,26 @@ function TabStockPorIngrediente() {
 function TabLotes() {
   const navigate = useNavigate();
   const { ingredientes } = useIngredientesActivos();
-  const [ingrediente, setIngrediente] = useState("");
-  const [verBajas, setVerBajas] = useState(false);
-  const { lotes, loading, error, recargar } = useStockLotes(
+  const [ingrediente, setIngrediente] = useEstadoNavegacion("StockInsumosPage.ingrediente", "");
+  const [verBajas, setVerBajas] = useEstadoNavegacion("StockInsumosPage.verBajas", false);
+  const { lotes, loading, error } = useStockLotes(
     ingrediente ? Number(ingrediente) : undefined,
     verBajas,
   );
-  const [aBaja, setABaja] = useState<StockLoteInsumo | null>(null);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("StockInsumosPage.busqueda", "");
 
   const visibles = useMemo(() => {
     const texto = normalizar(busqueda);
-    if (!texto) return lotes;
-    return lotes.filter(
+    // "Ver dados de baja": solo los lotes dados de baja.
+    const segunEstado = lotes.filter((l) => (verBajas ? !l.activo : l.activo));
+    if (!texto) return segunEstado;
+    return segunEstado.filter(
       (l) =>
         normalizar(l.numero_lote).includes(texto) ||
         normalizar(l.proveedor_nombre).includes(texto) ||
         normalizar(l.insumo_nombre).includes(texto),
     );
-  }, [lotes, busqueda]);
+  }, [lotes, busqueda, verBajas]);
 
   const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
     visibles,
@@ -318,7 +318,7 @@ function TabLotes() {
               nombreTabla="los lotes recibidos"
               disabled={visibles.length === 0}
               datos={() => ({
-                titulo: verBajas ? "Lotes de insumo recibidos (con bajas)" : "Lotes de insumo recibidos",
+                titulo: verBajas ? "Lotes de insumo dados de baja" : "Lotes de insumo recibidos",
                 nombre: "lotes-insumo",
                 encabezados: ["Ingrediente", "Marca", "Proveedor", "Lote", "Vencimiento", "Recibido", "Saldo", "Estado"],
                 filas: visibles.map((l) => [
@@ -448,13 +448,6 @@ function TabLotes() {
                             )
                           }
                         />
-                        {l.activo && Number(l.saldo) > 0 && (
-                          <BotonAccion
-                            accion="eliminar"
-                            label="Dar de baja ingrediente"
-                            onClick={() => setABaja(l)}
-                          />
-                        )}
                       </HStack>
                     </Celda>
                   </FilaClickeable>
@@ -473,44 +466,41 @@ function TabLotes() {
         </>
       )}
 
-      {aBaja && (
-        <BajaLoteInsumoDialog
-          lote={aBaja}
-          onConfirmado={recargar}
-          onClose={() => setABaja(null)}
-        />
-      )}
     </>
   );
 }
 
-export function StockInsumosPage() {
+/**
+ * Stock de cada ingrediente: lo recibido en todos sus lotes menos lo consumido,
+ * desperdiciado y dado de baja. Es su propia opción del menú ("Stock de
+ * ingredientes"); los lotes uno por uno están en "Lotes de insumos".
+ */
+export function StockIngredientesPage() {
+  return (
+    <Pagina
+      titulo="Stock de ingredientes"
+      descripcion="Stock calculado de cada ingrediente: lo recibido en sus lotes menos los consumos, desperdicios y bajas registrados."
+    >
+      <TabStockPorIngrediente />
+    </Pagina>
+  );
+}
+
+/** Lotes de insumo recibidos, uno por uno, con su saldo. Desde acá se recibe un lote nuevo. */
+export function LotesInsumoPage() {
   const navigate = useNavigate();
 
   return (
     <Pagina
-      titulo="Stock de insumos"
-      descripcion="Stock calculado: lo recibido en cada lote menos los consumos, desperdicios y bajas registrados."
+      titulo="Lotes de insumos"
+      descripcion="Cada lote recibido con su marca, proveedor, vencimiento y saldo (lo recibido menos los consumos, desperdicios y bajas)."
       acciones={
         <BotonAgregar onClick={() => navigate("/lotes-insumo/nuevo")}>
           Recibir lote
         </BotonAgregar>
       }
     >
-      <PestanasPagina
-        pestanas={[
-          {
-            valor: "ingredientes",
-            etiqueta: "Stock por ingrediente",
-            contenido: <TabStockPorIngrediente />,
-          },
-          {
-            valor: "lotes",
-            etiqueta: "Lotes recibidos",
-            contenido: <TabLotes />,
-          },
-        ]}
-      />
+      <TabLotes />
     </Pagina>
   );
 }

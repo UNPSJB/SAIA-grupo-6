@@ -10,7 +10,10 @@ export interface FiltrosPanel {
 }
 
 /** Indicadores ya agregados de una categoría: un solo pedido por panel. */
-export async function obtenerPanel<T>(categoria: CategoriaPanel, filtros: FiltrosPanel): Promise<T> {
+export async function obtenerPanel<T>(
+  categoria: CategoriaPanel | "comparativo",
+  filtros: FiltrosPanel,
+): Promise<T> {
   const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
   for (const [clave, valor] of Object.entries(filtros.extra ?? {})) {
     if (valor !== "") params.set(clave, valor);

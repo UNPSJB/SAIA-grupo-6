@@ -61,18 +61,11 @@ export function ProductoForm({
     <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
       <SeccionFormulario>
         <GrillaFormulario>
-          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo="doble">
             <FormInput
               value={values.nombre}
               onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
               placeholder="Ej: Mermelada de frutilla"
-            />
-          </FormField>
-
-          <FormField label="Descripción" opcional completo>
-            <FormInput
-              value={values.descripcion}
-              onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
             />
           </FormField>
 
@@ -99,6 +92,13 @@ export function ProductoForm({
                 </option>
               ))}
             </FormNativeSelect>
+          </FormField>
+
+          <FormField label="Descripción" opcional completo>
+            <FormInput
+              value={values.descripcion}
+              onChange={(e) => setValues((prev) => ({ ...prev, descripcion: e.target.value }))}
+            />
           </FormField>
         </GrillaFormulario>
       </SeccionFormulario>

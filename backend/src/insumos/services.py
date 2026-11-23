@@ -33,6 +33,7 @@ def a_respuesta(insumo: Insumo, meses: Optional[int] = None) -> schemas.InsumoRe
         codigo_fabricante=insumo.codigo_fabricante,
         nombre=insumo.nombre,
         activo=insumo.activo,
+        sin_rotulo=insumo.sin_rotulo,
         proveedores=[schemas.ProveedorResumen.model_validate(p) for p in insumo.proveedores],
         estado_homologacion=insumo.estado_homologacion,
         homologacion_vigente_hasta=vence,
@@ -110,6 +111,7 @@ def crear_insumo(db: Session, datos: schemas.InsumoCreate) -> Insumo:
         marca=datos.marca,
         descripcion=datos.descripcion,
         codigo_fabricante=datos.codigo_fabricante,
+        sin_rotulo=datos.sin_rotulo,
         proveedores=_proveedores(db, datos.proveedor_ids),
     )
     db.add(insumo)
@@ -135,8 +137,13 @@ def actualizar_insumo(db: Session, insumo_id: int, datos: schemas.InsumoUpdate) 
         )
     if "proveedor_ids" in cambios:
         insumo.proveedores = _proveedores(db, cambios.pop("proveedor_ids"))
+    cambia_rotulo = "sin_rotulo" in cambios and cambios["sin_rotulo"] != insumo.sin_rotulo
     for campo, valor in cambios.items():
         setattr(insumo, campo, valor)
+    if cambia_rotulo:
+        from src.insumos.homologacion import cambiar_sin_rotulo
+
+        cambiar_sin_rotulo(db, insumo)
     db.commit()
     return obtener_insumo(db, insumo.id)
 

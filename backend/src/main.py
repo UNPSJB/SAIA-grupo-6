@@ -77,6 +77,7 @@ from src.vistaPublica.router import router as vista_publica_router
 from src.exportacion.router import router as exportacion_router
 from src.rotulado.router import router as rotulado_router
 from src.paneles.router import router as paneles_router
+from src.establecimientos.router import router as establecimientos_router
 
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
@@ -200,4 +201,5 @@ app.include_router(auditoria_router)
 app.include_router(exportacion_router)
 app.include_router(rotulado_router)
 app.include_router(paneles_router)
+app.include_router(establecimientos_router)
 app.include_router(vista_publica_router)

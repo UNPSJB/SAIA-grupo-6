@@ -1,14 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Index, Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.aditivos.models import ClaseFuncional
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.unidadMedida.models import UnidadMedida
 
 
-class Ingrediente(ModeloBase):
+class Ingrediente(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "ingredientes"
     __table_args__ = (
         # Un aditivo siempre tiene clase funcional (el INS puede faltar en
@@ -30,7 +31,7 @@ class Ingrediente(ModeloBase):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    nombre: Mapped[str] = mapped_column(index=True, unique=True)
+    nombre: Mapped[str] = mapped_column(index=True)
     unidad_medida_id: Mapped[int] = mapped_column(ForeignKey("unidades_medida.id"), nullable=False)
     activo: Mapped[bool] = mapped_column(default=True)
     # Todo lo que entra en la receta es un ingrediente (CAA: "incluidos los
@@ -43,9 +44,9 @@ class Ingrediente(ModeloBase):
     clase_funcional_id: Mapped[int | None] = mapped_column(
         ForeignKey("clases_funcionales.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    # Único: el INS identifica al aditivo, y sus marcas van como insumos.
+    # Único en la sede: el INS identifica al aditivo, y sus marcas van como insumos.
     # Varios ingredientes sin INS (NULL) no chocan.
-    numero_ins: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True, unique=True)
+    numero_ins: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
 
     unidad_medida: Mapped["UnidadMedida"] = relationship()
     clase_funcional: Mapped["ClaseFuncional | None"] = relationship()
@@ -102,3 +103,9 @@ class Ingrediente(ModeloBase):
             "clase_funcional": self.clase_funcional.nombre,
             "ins_opcional": self.clase_funcional.ins_opcional,
         }
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_ingredientes_establecimiento_nombre", Ingrediente.establecimiento_id, Ingrediente.nombre, unique=True)
+Index("uq_ingredientes_establecimiento_numero_ins", Ingrediente.establecimiento_id, Ingrediente.numero_ins, unique=True)

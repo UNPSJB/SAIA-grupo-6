@@ -59,4 +59,17 @@ describe("Rotulado", () => {
     expect(guardar.mock.calls[1][0]).toEqual(guardar.mock.calls[0][0]);
   });
 
+  it("al elegir un lote completa su identificación y fechas", () => {
+    const borrador = { ...preview(1), id: 0 } as unknown as BorradorRotuladoOut;
+    const lotes = [{ id: 9, numero_lote: "LP-001", version_receta_id: 1, version_numero: 1,
+      fecha_inicio: "2026-11-09T08:00:00", fecha_cierre: "2026-11-10", fecha_vencimiento: "2027-03-09" }];
+    const { container } = envolver(<RotuladoForm borrador={borrador} esCreacion onGuardar={vi.fn()} onAutocompletar={vi.fn()} lotes={lotes} isLoading={false} hayFaltantes={false} />);
+    fireEvent.change(container.querySelector("#lote_producto select, select#lote_producto") as HTMLSelectElement, { target: { value: "9" } });
+    const valor = (id: string) => (container.querySelector(`#${id} input, input#${id}`) as HTMLInputElement).value;
+    expect(valor("identificacion_lote")).toBe("LP-001");
+    expect(valor("fecha_produccion")).toBe("2026-11-09");
+    expect(valor("fecha_cierre")).toBe("2026-11-10");
+    expect(valor("fecha_duracion")).toBe("2027-03-09");
+  });
+
 });

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin
+from src.auth.dependencies import require_admin, require_super_admin
 from src.database import get_db
 from src.nutricion import pdf, schemas, services
 from src.personal.models import Personal
@@ -25,7 +25,13 @@ def obtener_parametros(db: Session = Depends(get_db)):
     return services.obtener_parametros(db)
 
 
-@router.put("/parametros", response_model=schemas.ParametrosResponse)
+@router.put(
+    "/parametros",
+    response_model=schemas.ParametrosResponse,
+    # Valen para todas las sedes (tabla nutricional y homologación): las
+    # cambia solo el super admin; el resto las ve en solo lectura.
+    dependencies=[Depends(require_super_admin)],
+)
 def actualizar_parametros(datos: schemas.ParametrosUpdate, db: Session = Depends(get_db)):
     return services.actualizar_parametros(db, datos)
 

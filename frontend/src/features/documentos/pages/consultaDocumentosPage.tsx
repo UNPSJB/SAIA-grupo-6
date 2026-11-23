@@ -27,6 +27,7 @@ import type { EstadoDocumentoFiltro, TipoDocumento } from "../types/documento";
 import type { OrdenDocumentoVigente } from "../services/documentoService";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
 import { abrirArchivo } from "../services/documentoService";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 // 9 tarjetas: tres filas de tres en pantallas anchas, sin fila incompleta.
 const PAGE_SIZE = 9;
@@ -45,11 +46,11 @@ const OPCIONES_ORDEN: { valor: OrdenDocumentoVigente; etiqueta: string }[] = [
 export function ConsultaDocumentosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [buscar, setBuscar] = useState("");
-  const [tipo, setTipo] = useState<TipoDocumento | "">("");
-  const [estado, setEstado] = useState<EstadoDocumentoFiltro | "">("");
-  const [orden, setOrden] = useState<OrdenDocumentoVigente>(ORDEN_POR_DEFECTO);
-  const [page, setPage] = useState(1);
+  const [buscar, setBuscar] = useEstadoNavegacion("consultaDocumentosPage.buscar", "");
+  const [tipo, setTipo] = useEstadoNavegacion<TipoDocumento | "">("consultaDocumentosPage.tipo", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoDocumentoFiltro | "">("consultaDocumentosPage.estado", "");
+  const [orden, setOrden] = useEstadoNavegacion<OrdenDocumentoVigente>("consultaDocumentosPage.orden", ORDEN_POR_DEFECTO);
+  const [page, setPage] = useEstadoNavegacion("consultaDocumentosPage.page", 1);
 
   const [errorApertura, setErrorApertura] = useState<string | null>(null);
 

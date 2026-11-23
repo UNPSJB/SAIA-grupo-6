@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Stack, Text } from "@chakra-ui/react";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link, Stack, Text } from "@chakra-ui/react";
 import { LuPackagePlus, LuSave } from "react-icons/lu";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useLista } from "../../../../common/hooks/useLista";
@@ -119,7 +119,7 @@ export function LoteInsumoCreatePage() {
         fecha_vencimiento: vencimiento || null,
       });
       setExito(true);
-      delayedNavigate("/stock-insumos");
+      delayedNavigate("/lotes-insumo");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar el lote.");
     } finally {
@@ -149,7 +149,7 @@ export function LoteInsumoCreatePage() {
 
   return (
     <PaginaAlta
-      volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos" }}
+      volver={{ a: "/lotes-insumo", etiqueta: "Lotes de insumos" }}
       icono={LuPackagePlus}
       titulo="Recibir lote de insumo"
       descripcion="Registrá la recepción de un lote para sumarlo al stock disponible."
@@ -185,9 +185,9 @@ export function LoteInsumoCreatePage() {
                 !ingredienteId || cargandoInsumos
                   ? undefined
                   : todosLosInsumos.length === 0
-                    ? "Este ingrediente no tiene insumos. Cargalos en la ficha del ingrediente."
+                    ? "Este ingrediente todavía no tiene insumos (marcas)."
                     : insumos.length === 0
-                      ? "Ninguna marca de este ingrediente tiene la homologación aprobada y vigente. Homologalas en la ficha del ingrediente."
+                      ? "Ninguna marca de este ingrediente tiene la homologación aprobada y vigente."
                       : sinAprobar > 0
                         ? `No se muestran ${sinAprobar === 1 ? "1 marca" : `${sinAprobar} marcas`} sin homologación vigente.`
                         : undefined
@@ -208,6 +208,19 @@ export function LoteInsumoCreatePage() {
                 ))}
               </FormNativeSelect>
             </FormField>
+
+            {ingredienteId > 0 && !cargandoInsumos && (
+              <CeldaCompleta mt="-2">
+                <Text fontSize="sm" color="fg.muted">
+                  ¿Llegó una marca que no está en la lista o sin homologar?{" "}
+                  <Link asChild color="brand.600" fontWeight="medium">
+                    <RouterLink to={`/insumos?ingrediente=${ingredienteId}${todosLosInsumos.length === 0 ? "&nuevo=1" : ""}`}>
+                      {todosLosInsumos.length === 0 ? "Crear el insumo" : "Ir a Insumos"}
+                    </RouterLink>
+                  </Link>
+                </Text>
+              </CeldaCompleta>
+            )}
 
             <FormField
               label="Proveedor"
@@ -277,7 +290,7 @@ export function LoteInsumoCreatePage() {
         </SeccionFormulario>
 
         <PieFormulario>
-          <BotonCancelar onClick={() => navigate("/stock-insumos")} disabled={guardando}>
+          <BotonCancelar onClick={() => navigate("/lotes-insumo")} disabled={guardando}>
             Cancelar
           </BotonCancelar>
           <BotonGuardar loading={guardando} loadingText="Guardando...">

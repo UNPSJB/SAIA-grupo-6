@@ -1,18 +1,19 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String, text
+from sqlalchemy import Index, Boolean, CheckConstraint, Date, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class Equipo(ModeloBase):
+class Equipo(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "equipos"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
-    nombre: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    nombre: Mapped[str] = mapped_column(String(100), index=True)
 
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
 
@@ -38,7 +39,7 @@ class Equipo(ModeloBase):
     calibraciones: Mapped[list["Calibracion"]] = relationship(back_populates="equipo")
 
 
-class Calibracion(ModeloBase):
+class Calibracion(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "calibraciones"
     __table_args__ = (
         CheckConstraint(
@@ -72,3 +73,8 @@ class Calibracion(ModeloBase):
     )
 
     equipo: Mapped["Equipo"] = relationship(back_populates="calibraciones")
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_equipos_establecimiento_nombre", Equipo.establecimiento_id, Equipo.nombre, unique=True)

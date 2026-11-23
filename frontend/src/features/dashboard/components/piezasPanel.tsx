@@ -53,6 +53,8 @@ interface MarcoPanelProps<T> {
   filtro?: { label: string; todos: string; opciones: OpcionFiltro[] };
   /** Aclaración sobre qué datos se están viendo (p. ej. "solo tus tareas"). */
   aviso?: ReactNode;
+  /** Nota discreta debajo de los filtros (a qué datos se refieren). */
+  nota?: (datos: T) => ReactNode;
   children: (datos: T) => ReactNode;
 }
 
@@ -63,11 +65,11 @@ interface MarcoPanelProps<T> {
  * Mientras se vuelve a pedir por un cambio de filtro, el contenido anterior
  * queda a la vista, atenuado: la pantalla no salta entre un período y otro.
  */
-export function MarcoPanel<T>({ panel, filtro, aviso, children }: MarcoPanelProps<T>) {
+export function MarcoPanel<T>({ panel, filtro, aviso, nota, children }: MarcoPanelProps<T>) {
   const { datos, loading, error } = panel;
   return (
     <>
-      <BarraFiltrosPanel>
+      <BarraFiltrosPanel nota={datos !== null && nota ? nota(datos) : null}>
         <FiltroCompacto
           label="Período"
           icono={LuCalendarRange}
@@ -136,10 +138,12 @@ export function MarcoPanel<T>({ panel, filtro, aviso, children }: MarcoPanelProp
  * banner (margen negativo), a la derecha: no queda una franja vacía entre el
  * banner y los bloques. En el celular va debajo, a todo el ancho.
  */
-function BarraFiltrosPanel({ children }: { children: ReactNode }) {
+function BarraFiltrosPanel({ children, nota }: { children: ReactNode; nota?: ReactNode }) {
   return (
     <Flex
-      justify={{ base: "stretch", md: "flex-end" }}
+      direction="column"
+      align={{ base: "stretch", md: "flex-end" }}
+      gap="2"
       mt={{ base: "3", md: "-6" }}
       mb={{ base: "4", md: "5" }}
       px={{ base: "0", md: "5" }}
@@ -163,6 +167,11 @@ function BarraFiltrosPanel({ children }: { children: ReactNode }) {
       >
         {children}
       </Flex>
+      {nota ? (
+        <Text fontSize="xs" color="fg.muted" textAlign={{ base: "left", md: "right" }} maxW="72ch">
+          {nota}
+        </Text>
+      ) : null}
     </Flex>
   );
 }
@@ -224,6 +233,8 @@ export interface Metrica {
   detalle?: string;
   /** 0 a 100: dibuja una barrita de avance junto al número. */
   avance?: number | null;
+  /** El detalle es una alerta (p. ej. certificaciones vencidas): va en color de error, sutil. */
+  detalleAlerta?: boolean;
 }
 
 /**
@@ -253,7 +264,7 @@ export function MetricasBloque({
       gap={{ base: "4", sm: "0" }}
       direction={{ base: "column", sm: "row" }}
     >
-      {metricas.map(({ clave, etiqueta, valor, icono: Icono, detalle, avance }, i) => (
+      {metricas.map(({ clave, etiqueta, valor, icono: Icono, detalle, avance, detalleAlerta }, i) => (
         <Flex
           key={clave}
           direction="column"
@@ -293,7 +304,7 @@ export function MetricasBloque({
               ) : null}
             </HStack>
             {detalle ? (
-              <Text fontSize="xs" color="fg.muted" mt="1">
+              <Text fontSize="xs" color={detalleAlerta ? "fg.error" : "fg.muted"} mt="1">
                 {detalle}
               </Text>
             ) : null}
@@ -312,20 +323,26 @@ export function MetricasBloque({
 export function GrillaBloques({
   children,
   principal = false,
+  tres = false,
 }: {
   children: ReactNode;
   principal?: boolean;
+  /** Tres bloques iguales en una fila (desde `lg`): ninguno queda huérfano. */
+  tres?: boolean;
 }) {
   const solo = Children.toArray(children).length === 1;
   return (
     <Grid
       templateColumns={{
         base: "minmax(0, 1fr)",
+        ...(tres ? { lg: "repeat(3, minmax(0, 1fr))" } : {}),
         xl: solo
           ? "minmax(0, 1fr)"
-          : principal
-            ? "minmax(0, 2fr) minmax(0, 1fr)"
-            : "repeat(2, minmax(0, 1fr))",
+          : tres
+            ? "repeat(3, minmax(0, 1fr))"
+            : principal
+              ? "minmax(0, 2fr) minmax(0, 1fr)"
+              : "repeat(2, minmax(0, 1fr))",
       }}
       gap="5"
       _notFirst={{ mt: "5" }}

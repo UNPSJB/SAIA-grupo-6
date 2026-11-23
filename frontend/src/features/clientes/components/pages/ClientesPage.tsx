@@ -25,13 +25,14 @@ import type { OrdenCliente } from "../../services/clienteService";
 import type { Cliente } from "../../types/cliente";
 import { ClienteTable } from "../ClienteTable";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function ClientesPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("ClientesPage.verInactivos", false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("ClientesPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
 
   // Orden por defecto: nombre ascendente, con el header de Nombre activo.

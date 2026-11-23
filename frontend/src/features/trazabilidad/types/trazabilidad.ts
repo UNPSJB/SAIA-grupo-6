@@ -85,5 +85,7 @@ export interface TrazabilidadLoteInsumo {
   lote_insumo: LoteInsumoTraza;
   cantidad_recibida: string;
   saldo: string;
+  /** Símbolo de la unidad del ingrediente. */
+  unidad: string;
   lotes_producto: LoteProductoUsoIngrediente[];
 }

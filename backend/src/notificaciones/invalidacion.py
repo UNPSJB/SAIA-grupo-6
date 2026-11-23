@@ -22,22 +22,30 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from src.common.fechas import hoy
+from src.establecimientos.contexto import sede_efectiva
+from src.establecimientos.models import (
+    DatosDeEstablecimiento,
+    _ConEstablecimiento,
+    columna_sede_pk,
+)
 from src.models import ModeloBase
 from src.notificaciones.models import NotificacionPersistida
-
-ID_ESTADO = 1
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # 1) Modelo
 # ──────────────────────────────────────────────────────────────────────────
-class EstadoNotificaciones(ModeloBase):
-    """Fila única: ¿la tabla persistida está al día?"""
+class EstadoNotificaciones(DatosDeEstablecimiento, ModeloBase):
+    """Una fila por sede: ¿su tabla persistida está al día?
+
+    Tiene que ser por sede: cada una calcula sus propias notificaciones, y si
+    el recálculo de una marcara "al día" a todas, las demás nunca recalcularían.
+    """
 
     __tablename__ = "estado_notificaciones"
     __audit__ = False
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    establecimiento_id: Mapped[int] = columna_sede_pk()
     sucio: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # Día para el que se calculó la tabla (los VENCIDO/PRÓXIMO dependen de hoy()).
     fecha_calculo: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -45,8 +53,9 @@ class EstadoNotificaciones(ModeloBase):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
-def _condicion_estado(*extra):
-    return (EstadoNotificaciones.id == ID_ESTADO, *extra)
+def _condicion_estado(db: Session, *extra):
+    """La fila de la sede de esta sesión (explícito: también sin contexto)."""
+    return (EstadoNotificaciones.establecimiento_id == sede_efectiva(db), *extra)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -55,7 +64,7 @@ def _condicion_estado(*extra):
 def invalidar_notificaciones(db: Session) -> None:
     db.execute(
         update(EstadoNotificaciones)
-        .where(*_condicion_estado())
+        .where(*_condicion_estado(db))
         .values(sucio=True)
     )
     db.commit()
@@ -69,12 +78,12 @@ def asegurar_notificaciones_al_dia(db: Session) -> None:
 
     fila = db.execute(
         select(EstadoNotificaciones.sucio, EstadoNotificaciones.fecha_calculo)
-        .where(*_condicion_estado())
+        .where(*_condicion_estado(db))
     ).one_or_none()
 
     if fila is None:
         # Primer arranque. Lo ideal es crear la fila en crear_tablas_y_migrar().
-        db.add(EstadoNotificaciones(id=ID_ESTADO, sucio=True, version=0))
+        db.add(EstadoNotificaciones(establecimiento_id=sede_efectiva(db), sucio=True, version=0))
         try:
             db.commit()
         except IntegrityError:  # otro request la creó antes
@@ -90,6 +99,7 @@ def asegurar_notificaciones_al_dia(db: Session) -> None:
         update(EstadoNotificaciones)
         .where(
             *_condicion_estado(
+                db,
                 or_(
                     EstadoNotificaciones.sucio.is_(True),
                     EstadoNotificaciones.fecha_calculo.is_(None),
@@ -137,7 +147,7 @@ def _sincronizar_tabla(db: Session) -> None:
     if hubo_cambios:
         db.execute(
             update(EstadoNotificaciones)
-            .where(*_condicion_estado())
+            .where(*_condicion_estado(db))
             .values(version=EstadoNotificaciones.version + 1)
         )
 
@@ -146,6 +156,7 @@ def _sincronizar_tabla(db: Session) -> None:
 # 4) Fase 2: invalidación automática (reemplaza los 24 llamados manuales)
 # ──────────────────────────────────────────────────────────────────────────
 _MARCA = "notificaciones_sucias"
+_TODAS = "todas"
 _instalado = False
 
 
@@ -196,18 +207,31 @@ def _instalar_listeners(origen, fuentes: tuple[type, ...]) -> None:
 
     @event.listens_for(origen, "after_flush")
     def _detectar(session: Session, _ctx) -> None:
-        if session.info.get(_MARCA):
+        marcadas: set = session.info.setdefault(_MARCA, set())
+        if _TODAS in marcadas:
             return
         # En after_flush, new/dirty/deleted todavía reflejan lo que se acaba de escribir.
+        # Se ensucia solo la sede del cambio; un cambio global (una unidad de
+        # medida, un super admin sin sede) ensucia a todas.
+        sedes: set = set()
         for obj in chain(session.new, session.dirty, session.deleted):
-            if isinstance(obj, fuentes):
-                session.connection().execute(
-                    update(EstadoNotificaciones.__table__)
-                    .where(EstadoNotificaciones.__table__.c.id == ID_ESTADO)
-                    .values(sucio=True)
-                )
-                session.info[_MARCA] = True
-                return
+            if not isinstance(obj, fuentes):
+                continue
+            sede = getattr(obj, "establecimiento_id", None)
+            if isinstance(obj, _ConEstablecimiento) and sede is not None:
+                sedes.add(sede)
+            else:
+                sedes = {_TODAS}
+                break
+        sedes -= marcadas
+        if not sedes:
+            return
+        tabla = EstadoNotificaciones.__table__
+        sentencia = update(tabla).values(sucio=True)
+        if _TODAS not in sedes:
+            sentencia = sentencia.where(tabla.c.establecimiento_id.in_(sedes))
+        session.connection().execute(sentencia)
+        marcadas |= sedes
 
     @event.listens_for(origen, "after_commit")
     @event.listens_for(origen, "after_rollback")

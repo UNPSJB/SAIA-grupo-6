@@ -316,6 +316,17 @@ const config = defineConfig({
             bajada: { value: { _light: "#674453", _dark: "#D2BBC5" } },
             arco3: { value: { _light: "#F0DBE4", _dark: "#6A394E" } },
           },
+          // Comparativa entre establecimientos: teal de la marca y pizarra.
+          empresa: {
+            fondo0: { value: { _light: "#EEF6F5", _dark: "#142120" } },
+            fondo1: { value: { _light: "#D9ECEA", _dark: "#1A2E2C" } },
+            fondo2: { value: { _light: "#E5EDF3", _dark: "#172330" } },
+            borde: { value: { _light: "#C3DCD9", _dark: "#2F524D" } },
+            acento: { value: { _light: "#1D6A64", _dark: "#8FD0C8" } },
+            titulo: { value: { _light: "#132D2B", _dark: "#E6F2F0" } },
+            bajada: { value: { _light: "#3B5A57", _dark: "#B7CFCB" } },
+            arco3: { value: { _light: "#D3E9E6", _dark: "#2E5752" } },
+          },
         },
       },
     },

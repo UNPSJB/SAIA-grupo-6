@@ -25,6 +25,7 @@ from src.rotulado.constants import (
     CAMPO_PENDIENTE,
     CAMPO_SIN_DATOS_ORIGEN,
     ORIGEN_LOTE,
+    ORIGEN_ESTABLECIMIENTO,
     ORIGEN_MANUAL,
     ORIGEN_NUTRICION,
     ORIGEN_PRODUCTO,
@@ -104,6 +105,13 @@ def _formatear_ingredientes(composicion) -> Optional[str]:
 
 
 
+# Campos de la instantánea que no son datos nutricionales: las instantáneas
+# viejas no los tienen y no cuentan para decir que la tabla cambió.
+_SOLO_PRESENTACION = {
+    "calculado_en", "mostrar_por_100", "leyenda_no_significativo", "leyenda_vd", "leyenda_laboratorio",
+}
+
+
 def _serializar_nutricion(info_nutricional) -> Optional[str]:
     """Serializa la información nutricional de E11 como JSON estructurado.
 
@@ -150,6 +158,12 @@ def _serializar_nutricion(info_nutricional) -> Optional[str]:
             }
             for f in (getattr(info_nutricional, "filas", None) or [])
         ],
+        # Para dibujar la tabla con el formato del rótulo (notas al pie y
+        # columna "Por 100"), igual que en la información nutricional.
+        "mostrar_por_100": getattr(info_nutricional, "mostrar_por_100", None),
+        "leyenda_no_significativo": getattr(info_nutricional, "leyenda_no_significativo", None),
+        "leyenda_vd": getattr(info_nutricional, "leyenda_vd", None),
+        "leyenda_laboratorio": getattr(info_nutricional, "leyenda_laboratorio", None),
         "calculado_en": (
             getattr(info_nutricional, "calculado_en", None).isoformat()
             if getattr(info_nutricional, "calculado_en", None)
@@ -157,6 +171,17 @@ def _serializar_nutricion(info_nutricional) -> Optional[str]:
         ),
     }
     return json.dumps(datos, ensure_ascii=False)
+
+
+def _datos_establecimiento(db: Session) -> tuple[Optional[str], Optional[str]]:
+    """(razón social, domicilio) del establecimiento activo, para el rótulo."""
+    from src.establecimientos.contexto import sede_efectiva
+    from src.establecimientos.models import Establecimiento
+
+    sede = db.get(Establecimiento, sede_efectiva(db))
+    if sede is None:
+        return None, None
+    return sede.razon_social, sede.direccion
 
 
 def obtener_borrador(db: Session, borrador_id: int) -> BorradorRotulado:
@@ -427,6 +452,20 @@ def autocompletar_borrador(
             # E11 puede no tener datos configurados; no bloquea el autocompletado.
             pass
 
+    # ── Razón social y domicilio desde el establecimiento ──
+    razon_social, domicilio = _datos_establecimiento(db)
+    for campo, valor in (("razon_social", razon_social), ("domicilio", domicilio)):
+        if not valor or not (forzar or not getattr(borrador, campo)):
+            continue
+        valor_original = getattr(borrador, campo)
+        setattr(borrador, campo, valor)
+        if _texto_si_cambio(valor_original, valor):
+            _registrar_edicion(
+                db, borrador, campo, valor_original, valor,
+                ORIGEN_ESTABLECIMIENTO, TIPO_AUTOCOMPLETADO, usuario_id,
+            )
+            cambios_registrados = True
+
     # ── Datos de lote desde E8 ──
     if lote_producto is not None:
         if forzar or not borrador.identificacion_lote:
@@ -489,7 +528,79 @@ def borrador_completo_del_lote(db: Session, lote_id: int) -> Optional[int]:
 
 def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRotulado:
     borrador = obtener_borrador(db, borrador_id)
-    return _completitud(borrador, declaraciones.consultar(db, borrador_id))
+    completitud = _completitud(borrador, declaraciones.consultar(db, borrador_id))
+    return _con_rotulado_frontal(completitud, _estado_frontal(db, borrador))
+
+
+# ── Rotulado frontal en la completitud ─────────────────────────────────────
+#
+# Los octógonos no se cargan en el borrador: salen de la evaluación del
+# producto y su versión de receta (`src.rotulado_frontal`). Pero un rótulo no
+# está terminado si todavía no se sabe si lleva sellos: mientras la evaluación
+# esté "sin definir" (falta configurar el producto) o no se pueda hacer (sin
+# versión de receta, sin regla vigente), el borrador queda pendiente y el lote
+# no se puede reservar. Los estados ya decididos (aplica, no aplica, canal
+# industrial, exceptuado) lo completan; con el módulo apagado no aplica.
+
+_ETIQUETA_FRONTAL = "Rotulado frontal (octógonos)"
+
+_TEXTO_ESTADO_FRONTAL = {
+    "aplica": "Lleva sellos",
+    "no_aplica": "No lleva sellos",
+    "no_aplica_canal_industrial": "No aplica: canal industrial",
+    "exceptuado": "Exceptuado",
+}
+
+
+def _version_del_borrador(db: Session, borrador: BorradorRotulado) -> Optional[int]:
+    if borrador.lote_producto_id is not None:
+        lote = db.get(LoteProducto, borrador.lote_producto_id)
+        if lote is not None and lote.version_receta_id is not None:
+            return lote.version_receta_id
+    return borrador.version_receta_id
+
+
+def _estado_frontal(db: Session, borrador: BorradorRotulado) -> tuple[str, Optional[str], list[str]]:
+    """(estado, mensaje, faltantes) de la evaluación frontal, sin guardar nada."""
+    if not frontal.modulo_activo_solo_lectura(db):
+        return "modulo_inactivo", None, []
+    version_id = _version_del_borrador(db, borrador)
+    if version_id is None:
+        return "no_disponible", "Elegí la versión de la receta o el lote para evaluar los octógonos.", []
+    try:
+        resultado, _ = frontal.evaluar_solo_lectura(db, borrador.producto_id, version_id)
+    except (frontal_exceptions.SinReglaVigente, frontal_exceptions.VersionNoEncontrada) as error:
+        return "no_disponible", str(error.detail), []
+    return resultado.estado, resultado.mensaje, list(resultado.faltantes or [])
+
+
+def _campo_frontal(estado: str, mensaje: Optional[str], faltantes: list[str]) -> schemas.CampoCompletitud:
+    if estado == "modulo_inactivo":
+        return schemas.CampoCompletitud(
+            nombre="rotulado_frontal", etiqueta=_ETIQUETA_FRONTAL,
+            estado=CAMPO_NO_APLICABLE, motivo="El módulo de octógonos está desactivado.",
+        )
+    if estado in _TEXTO_ESTADO_FRONTAL:
+        return schemas.CampoCompletitud(
+            nombre="rotulado_frontal", etiqueta=_ETIQUETA_FRONTAL,
+            estado=CAMPO_COMPLETO, motivo=_TEXTO_ESTADO_FRONTAL[estado],
+        )
+    detalle = "; ".join(faltantes) if faltantes else mensaje
+    return schemas.CampoCompletitud(
+        nombre="rotulado_frontal", etiqueta=_ETIQUETA_FRONTAL,
+        estado=CAMPO_PENDIENTE,
+        motivo=detalle or "Falta configurar el rotulado frontal del producto.",
+    )
+
+
+def _con_rotulado_frontal(
+    completitud: schemas.CompletitudRotulado, estado_frontal: tuple[str, Optional[str], list[str]]
+) -> schemas.CompletitudRotulado:
+    campo = _campo_frontal(*estado_frontal)
+    completitud.campos.append(campo)
+    if campo.estado == CAMPO_PENDIENTE:
+        completitud.estado_global = CAMPO_PENDIENTE
+    return completitud
 
 
 def _completitud(borrador: BorradorRotulado, evaluacion: dict) -> schemas.CompletitudRotulado:
@@ -562,8 +673,16 @@ def _completitud(borrador: BorradorRotulado, evaluacion: dict) -> schemas.Comple
         borrador.fecha_duracion,
     )
 
-    # Lote: aplicable solo si se seleccionó un lote
+    # Lote: sin lote el rótulo no está completo. La identificación y las
+    # fechas son de cada tanda, y la reserva solo acepta el rótulo del lote
+    # que se vende. Se puede guardar un borrador sin lote (modelo de una
+    # versión antes de producir), pero queda pendiente.
     lote_aplicable = borrador.lote_producto_id is not None
+    agregar_campo(
+        "lote_producto",
+        "Lote de producción",
+        borrador.lote_producto_id,
+    )
     agregar_campo(
         "identificacion_lote",
         "Identificación del lote",
@@ -759,8 +878,8 @@ def _frontal_previsualizacion(
     if info is not None and nutricion.tabla is not None:
         actual = schemas.InstantaneaNutricional.model_validate_json(_serializar_nutricion(info))
         nutricion.difiere_de_e12 = (
-            actual.model_dump(exclude={"calculado_en"})
-            != nutricion.tabla.model_dump(exclude={"calculado_en"})
+            actual.model_dump(exclude=_SOLO_PRESENTACION)
+            != nutricion.tabla.model_dump(exclude=_SOLO_PRESENTACION)
         )
     return schemas.FrontalPrevisualizacion(
         estado=resultado.estado, mensaje=resultado.mensaje, faltantes=resultado.faltantes,
@@ -779,6 +898,9 @@ def previsualizar_borrador(db: Session, borrador_id: int) -> schemas.Previsualiz
     completitud = _completitud(borrador, revision if revision is not None else {
         "estado": "sugerida", "pendientes": ["No se pudo verificar el origen de las declaraciones."],
     })
+    completitud = _con_rotulado_frontal(
+        completitud, (evaluacion.estado, evaluacion.mensaje, list(evaluacion.faltantes or []))
+    )
     for campo in completitud.campos:
         if campo.nombre == "datos_nutricionales_json":
             campo.estado = CAMPO_COMPLETO if nutricion.estado == "completa" else CAMPO_PENDIENTE
@@ -818,6 +940,7 @@ def preview_autocompletado(
     producto = obtener_producto_service(db, producto_id)
     if producto is None:
         raise exceptions.ProductoNoEncontrado()
+    razon_social, domicilio = _datos_establecimiento(db)
 
     # Buscar la receta del producto
     from sqlalchemy import select
@@ -831,6 +954,8 @@ def preview_autocompletado(
             declaraciones=declaraciones.generar_propuesta_declaraciones(db, producto_id),
             receta_encontrada=False,
             mensaje="El producto no tiene receta asociada.",
+            razon_social=razon_social,
+            domicilio=domicilio,
         )
 
     # Determinar la versión de origen
@@ -896,5 +1021,7 @@ def preview_autocompletado(
         declaraciones=declaraciones.generar_propuesta_declaraciones(db, producto_id, version_receta.id if version_receta else None),
         receta_encontrada=version_receta is not None,
         mensaje=mensaje or None,
+        razon_social=razon_social,
+        domicilio=domicilio,
     )
 

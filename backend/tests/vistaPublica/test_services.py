@@ -136,7 +136,8 @@ def test_actualizar_configuracion_crea_y_habilita(db_session):
     configuracion = actualizar_configuracion(db_session, habilitada=True)
 
     # Assert
-    assert configuracion.id == 1
+    # Una configuración por sede: sin contexto, la de la sede principal.
+    assert configuracion.establecimiento_id == 1
     assert configuracion.habilitada is True
     assert configuracion.codigo_publico is not None
     assert len(configuracion.codigo_publico) >= 32

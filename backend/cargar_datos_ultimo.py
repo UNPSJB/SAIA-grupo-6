@@ -131,7 +131,7 @@ def asegurar_configuraciones(agregar: bool) -> None:
     """
     with SessionLocal() as db:
         try:
-            alerta = db.get(ConfiguracionAlerta, CLAVE_DIAS_ALERTA_VENCIMIENTO)
+            alerta = db.get(ConfiguracionAlerta, {"establecimiento_id": 1, "clave": CLAVE_DIAS_ALERTA_VENCIMIENTO})
             if alerta is None:
                 db.add(
                     ConfiguracionAlerta(
@@ -142,7 +142,7 @@ def asegurar_configuraciones(agregar: bool) -> None:
 
             configuracion = db.get(ConfiguracionVistaPublica, 1)
             if configuracion is None:
-                configuracion = ConfiguracionVistaPublica(id=1, habilitada=False)
+                configuracion = ConfiguracionVistaPublica(establecimiento_id=1, habilitada=False)
                 db.add(configuracion)
             elif not agregar:
                 # El seed completo no debe dejar expuesto un enlace que pudo
@@ -151,7 +151,7 @@ def asegurar_configuraciones(agregar: bool) -> None:
                 configuracion.codigo_publico = None
 
             for definicion in CATALOGO:
-                indicador = db.get(IndicadorVistaPublica, definicion.clave)
+                indicador = db.get(IndicadorVistaPublica, {"establecimiento_id": 1, "clave": definicion.clave})
                 if indicador is None:
                     db.add(
                         IndicadorVistaPublica(

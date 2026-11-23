@@ -23,6 +23,7 @@ import {
   type EntradaMenu,
   type GrupoMenu,
 } from "./menuEntradas";
+import { hayPantallaAnterior } from "../hooks/historialNavegacion";
 
 /**
  * Ruta activa del menú, de la más específica a la más general.
@@ -798,12 +799,14 @@ export default function Navbar() {
           ))
         ) : (
           <>
-            {/* Flecha: vuelve al inicio, donde la barra muestra las categorías. */}
+            {/* Flecha: vuelve a la pantalla anterior tal como estaba (filtros
+                incluidos), como la del navegador. Sin pantalla anterior en la
+                app, va al inicio, donde la barra muestra las categorías. */}
             <Box as="li" flexShrink={0}>
               <Link
                 asChild
-                aria-label="Volver al inicio"
-                title="Volver al inicio"
+                aria-label="Volver"
+                title="Volver"
                 {...pestana(false)}
                 alignItems="center"
                 justifyContent="center"
@@ -812,7 +815,14 @@ export default function Navbar() {
                 <NavLink
                   to="/"
                   data-pieza="flecha"
-                  onClick={(e) => ir(e, "/")}
+                  onClick={(e) => {
+                    if (hayPantallaAnterior() && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                      e.preventDefault();
+                      navigate(-1);
+                    } else {
+                      ir(e, "/");
+                    }
+                  }}
                 >
                   <LuArrowLeft size={20} aria-hidden />
                 </NavLink>

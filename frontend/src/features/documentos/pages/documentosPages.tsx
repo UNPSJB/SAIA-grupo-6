@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HStack, Spinner, Table, Text } from "@chakra-ui/react";
 import {
@@ -34,6 +33,7 @@ import { ESTADOS_DOCUMENTO, TIPOS_DOCUMENTO } from "../types/documento";
 import type { EstadoDocumentoFiltro, TipoDocumento } from "../types/documento";
 import { etiquetaTipo, fechaCorta } from "../utils/formato";
 import { BotonExportar } from "../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -46,10 +46,10 @@ const ETIQUETAS_ORDEN: Record<ColumnaOrdenDocumento, string> = {
 export function DocumentosPage() {
   const navigate = useNavigate();
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("documentosPages.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [tipo, setTipo] = useState<TipoDocumento | "">("");
-  const [estado, setEstado] = useState<EstadoDocumentoFiltro | "">("");
+  const [tipo, setTipo] = useEstadoNavegacion<TipoDocumento | "">("documentosPages.tipo", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoDocumentoFiltro | "">("documentosPages.estado", "");
   const orden = useOrdenTabla<ColumnaOrdenDocumento, "nombre_asc">(
     "nombre_asc"
   );

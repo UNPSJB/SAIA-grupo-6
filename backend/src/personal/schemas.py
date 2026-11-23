@@ -73,6 +73,7 @@ class PersonaBase(PersonaCamposValidos):
     puede_operar: bool = False
     puede_administrar: bool = False
     es_super_admin: bool = False
+    es_gerente: bool = False
 
 class PersonaCreate(PersonaBase):
     password: Optional[str] = None
@@ -84,6 +85,10 @@ class PersonaCreate(PersonaBase):
 
     @model_validator(mode="after")
     def validar_capacidades(self):
+        if self.es_gerente:
+            # El gerente administra su sede: todo chequeo de "administra" lo incluye.
+            self.puede_administrar = True
+            self.puede_operar = True
         if not (self.es_super_admin or self.puede_operar or self.puede_administrar):
             raise ValueError("Debe asignar al menos una capacidad (operar o administrar).")
         return self
@@ -96,6 +101,7 @@ class PersonaUpdate(PersonaCamposValidos):
     puede_operar: Optional[bool] = None
     puede_administrar: Optional[bool] = None
     es_super_admin: Optional[bool] = None
+    es_gerente: Optional[bool] = None
     activo: Optional[bool] = None
 
     @field_validator("password")
@@ -105,6 +111,8 @@ class PersonaUpdate(PersonaCamposValidos):
 
 class Persona(PersonaBase):
     id: int
+    # NULL = de la empresa (super admin), sin sede propia.
+    establecimiento_id: Optional[int] = None
     activo: bool
     debe_cambiar_password: bool
     fecha_creacion: datetime

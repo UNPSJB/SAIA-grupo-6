@@ -23,7 +23,8 @@ export function useIncidentes(
   fechaDesde?: string,
   fechaHasta?: string,
   pageSize = 10,
-  orden: OrdenIncidente = "antiguos"
+  orden: OrdenIncidente = "antiguos",
+  reportadoPor: number | null = null
 ) {
   const buscarAplicado = useValorDebounced(buscar);
 
@@ -36,8 +37,9 @@ export function useIncidentes(
         fechaDesde,
         fechaHasta,
         orden,
+        reportadoPor,
       }),
-    [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden]
+    [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden, reportadoPor]
   );
 
   const {
@@ -51,7 +53,7 @@ export function useIncidentes(
     recargar,
   } = useListaPaginada<Incidente>({
     cargar,
-    dependencias: [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden],
+    dependencias: [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden, reportadoPor],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los incidentes",
     pageSize,

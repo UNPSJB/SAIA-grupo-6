@@ -144,7 +144,7 @@ export function IngredienteForm({
     <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
       <SeccionFormulario titulo="Identificación">
         <GrillaFormulario>
-          <FormField label="Nombre" required completo invalid={intentado && faltan.tiene("nombre")}>
+          <FormField label="Nombre" required completo="doble" invalid={intentado && faltan.tiene("nombre")}>
             <FormInput
               value={values.nombre}
               onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}

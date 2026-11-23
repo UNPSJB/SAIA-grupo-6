@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { IncidenteTable } from "../IncidenteTable";
 import { IncidentesPorTipoPanel } from "../IncidentesPorTipoPanel";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
@@ -43,8 +43,14 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
+
+/** `YYYY-MM-DD` válido o `null`: lo que llega por la URL no se da por bueno. */
+function fechaDeUrl(valor: string | null): string | null {
+  return valor && /^\d{4}-\d{2}-\d{2}$/.test(valor) ? valor : null;
+}
 
 const ETIQUETAS_ORDEN: Record<ColumnaOrdenIncidente, string> = {
   fecha: "Fecha",
@@ -54,19 +60,47 @@ const ETIQUETAS_ORDEN: Record<ColumnaOrdenIncidente, string> = {
 
 export function IncidentesListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Filtro por quien reportó, desde la URL (`?reportado_por=12`): lo usa el
+  // panel de Personas al hacer clic en una barra. Llega con el período del
+  // panel (`desde`/`hasta`), que solo se toma como valor inicial: después el
+  // período se cambia acá, como siempre.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const idReportado = Number(searchParams.get("reportado_por"));
+  const reportadoPor = Number.isInteger(idReportado) && idReportado > 0 ? idReportado : null;
+  const desdeUrl = fechaDeUrl(searchParams.get("desde"));
+  const hastaUrl = fechaDeUrl(searchParams.get("hasta"));
+  const periodoUrl = desdeUrl !== null && hastaUrl !== null;
 
   // HU "Ver incidentes abiertos": por defecto se listan solo los que todavía
-  // no tienen una acción correctiva registrada (estado abierto).
-  const [filtroEstado, setFiltroEstado] = useState<EstadoIncidente | "">("abierto");
+  // no tienen una acción correctiva registrada (estado abierto). Desde el
+  // panel de Personas se cuentan todos los reportes, así que van todos.
+  const [filtroEstado, setFiltroEstado] = useEstadoNavegacion<EstadoIncidente | "">(
+    "IncidentesListPage.filtroEstado",
+    reportadoPor !== null ? "" : "abierto"
+  );
   const [filtroTipo, setFiltroTipo] = useState<TipoIncidente | "">("");
-  const [busqueda, setBusqueda] = useState("");
-  const [incluirCerrados, setIncluirCerrados] = useState(false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("IncidentesListPage.busqueda", "");
+  const [incluirCerrados, setIncluirCerrados] = useEstadoNavegacion(
+    "IncidentesListPage.incluirCerrados",
+    reportadoPor !== null
+  );
 
   // Período de la estadística: por defecto "todo", que es el comportamiento
   // original (sin acotar por fecha).
-  const [periodo, setPeriodo] = useState<PeriodoRapido>("todo");
-  const [fechaDesde, setFechaDesde] = useState(haceDiasISO(30));
-  const [fechaHasta, setFechaHasta] = useState(hoyISO());
+  const [periodo, setPeriodo] = useEstadoNavegacion<PeriodoRapido>(
+    "IncidentesListPage.periodo",
+    periodoUrl ? "personalizado" : "todo"
+  );
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion(
+    "IncidentesListPage.fechaDesde",
+    desdeUrl ?? haceDiasISO(30)
+  );
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion(
+    "IncidentesListPage.fechaHasta",
+    hastaUrl ?? hoyISO()
+  );
 
   // La tabla abre por fecha ascendente ("antiguos"), igual que antes: el
   // incidente más viejo arriba para resolver primero lo que más espera.
@@ -93,8 +127,22 @@ export function IncidentesListPage() {
     periodo === "todo" ? undefined : fechaDesde,
     periodo === "todo" ? undefined : fechaHasta,
     PAGE_SIZE,
-    orden.orden
+    orden.orden,
+    reportadoPor
   );
+
+  // Nombre para el chip: el que mandó el panel o el de las filas cargadas.
+  const nombreReportado =
+    (location.state as { reportadoNombre?: string } | null)?.reportadoNombre ??
+    incidentes.find((i) => i.usuario_id === reportadoPor)?.usuario_nombre ??
+    (reportadoPor !== null ? `Persona #${reportadoPor}` : "");
+
+  /** Saca el filtro de la URL (con el período que trajo, ya aplicado). */
+  const quitarReportado = () => {
+    const resto = new URLSearchParams(searchParams);
+    ["reportado_por", "desde", "hasta"].forEach((clave) => resto.delete(clave));
+    setSearchParams(resto, { replace: true });
+  };
 
   // Refresco automático: el alta, el cierre o la reapertura de un incidente
   // avisan por el bus y acá se vuelve a pedir la lista. Así la estadística y
@@ -152,6 +200,7 @@ export function IncidentesListPage() {
     setIncluirCerrados(true);
     setPeriodo("todo");
     orden.reiniciar();
+    if (reportadoPor !== null) quitarReportado();
   };
 
   // El diálogo no se cierra mientras corre la petición: cerrarlo a mitad de
@@ -198,9 +247,16 @@ export function IncidentesListPage() {
     filtroEstado !== "" ||
     filtroTipo !== "" ||
     busqueda.trim() !== "" ||
-    periodo !== "todo";
+    periodo !== "todo" ||
+    reportadoPor !== null;
 
   const chips = chipsDeFiltros([
+    {
+      clave: "reportado_por",
+      etiqueta: "Reportado por",
+      valor: reportadoPor !== null ? nombreReportado : "",
+      onQuitar: quitarReportado,
+    },
     {
       clave: "busqueda",
       etiqueta: "Búsqueda",

@@ -24,6 +24,8 @@ def crear_cliente(datos: schemas.ClienteCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=Union[list[schemas.ClienteResponse], Pagina[schemas.ClienteResponse]])
 def listar_clientes(
     incluir_inactivos: bool = False,
+    # "Ver dados de baja" del listado: solo los dados de baja.
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -50,6 +52,7 @@ def listar_clientes(
         items, total = services.listar_clientes(
             db,
             incluir_inactivos=incluir_inactivos,
+            solo_inactivos=solo_inactivos,
             buscar=buscar,
             page=page,
             page_size=page_size,
@@ -64,6 +67,7 @@ def listar_clientes(
     return services.listar_clientes(
         db,
         incluir_inactivos=incluir_inactivos,
+            solo_inactivos=solo_inactivos,
         buscar=buscar,
         orden=orden,
     )

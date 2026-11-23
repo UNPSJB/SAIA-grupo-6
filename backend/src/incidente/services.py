@@ -222,6 +222,7 @@ def listar_incidentes(
     buscar: Optional[str] = None,
     fecha_desde: Optional[date] = None,
     fecha_hasta: Optional[date] = None,
+    reportado_por: Optional[int] = None,
 ) -> List[models.Incidente]:
     """Lista los incidentes, por defecto del más reciente al más viejo.
 
@@ -237,6 +238,8 @@ def listar_incidentes(
     _validar_rango_fechas(fecha_desde, fecha_hasta)
     consulta = _consulta_incidentes(estado, tipo, equipo_id, orden, buscar)
     consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
+    if reportado_por is not None:
+        consulta = consulta.where(models.Incidente.usuario_id == reportado_por)
     return _completar_nombres(list(db.scalars(consulta).all()))
 
 
@@ -251,6 +254,7 @@ def listar_incidentes_paginado(
     page_size: int,
     fecha_desde: Optional[date] = None,
     fecha_hasta: Optional[date] = None,
+    reportado_por: Optional[int] = None,
 ) -> tuple[List[models.Incidente], int]:
     """Página del listado, recortada por la BASE (COUNT + OFFSET/LIMIT).
 
@@ -264,6 +268,8 @@ def listar_incidentes_paginado(
     _validar_rango_fechas(fecha_desde, fecha_hasta)
     consulta = _consulta_incidentes(estado, tipo, equipo_id, orden, buscar)
     consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
+    if reportado_por is not None:
+        consulta = consulta.where(models.Incidente.usuario_id == reportado_por)
     incidentes, total = paginar(db, consulta, page, page_size)
     return _completar_nombres(incidentes), total
 

@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Flex,
   Grid,
   GridItem,
@@ -11,9 +12,10 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { LuRefreshCw } from "react-icons/lu";
+import { Link as RouterLink } from "react-router-dom";
+import { LuChartColumn, LuRefreshCw } from "react-icons/lu";
 import { useAuth } from "../../../../common/context/useAuth";
-import { puedeAdministrar, puedeOperar } from "../../../../common/api/permissions";
+import { esGerente, esSuperAdmin, puedeAdministrar, puedeOperar } from "../../../../common/api/permissions";
 import {
   EstadoVacio,
   MensajeError,
@@ -144,6 +146,22 @@ export function InicioPage() {
           </Text>
         </Box>
         <Flex align="center" gap="3" wrap="wrap">
+          {/* El gerente compara su sede con el resto de la empresa. */}
+          {(esGerente(user) || esSuperAdmin(user)) && (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              color="white"
+              borderColor="whiteAlpha.600"
+              _hover={{ bg: "whiteAlpha.200" }}
+            >
+              <RouterLink to="/comparativo">
+                <LuChartColumn aria-hidden />
+                Comparar sedes
+              </RouterLink>
+            </Button>
+          )}
           {actualizado ? (
             // Blanco pleno: a la derecha el degradado es más claro.
             <Flex align="center" gap="1" color="white" fontSize="xs" fontWeight="medium">

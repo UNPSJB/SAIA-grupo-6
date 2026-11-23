@@ -5,7 +5,11 @@ import { usePersonalABM } from "../../hooks/usePersonalABM";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import { useAuth } from "../../../../common/context/useAuth";
-import { esSuperAdmin } from "../../../../common/api/permissions";
+import {
+  esSuperAdmin,
+  puedeAsignarAdministrar,
+  puedeAsignarGerente,
+} from "../../../../common/api/permissions";
 import type { PersonaInput } from "../../types/personal";
 import { VencimientosPersonalForm } from "../../../vencimientoPersonal/components/VencimientosPersonalForm";
 import { useVencimientosPersonal, type VencimientosPorAptitud } from "../../../vencimientoPersonal/hooks/useVencimientosPersonal";
@@ -85,6 +89,8 @@ export function PersonalCreatePage() {
         submitLabel="Crear personal"
         puedeEditarCapacidades
         puedeAsignarSuperAdmin={esSuperAdmin(user)}
+        puedeAsignarAdministrar={puedeAsignarAdministrar(user)}
+        puedeAsignarGerente={puedeAsignarGerente(user)}
         onCancel={() => navigate("/personal")}
         extra={<VencimientosPersonalForm valores={vencimientos} onChange={setVencimientos} />}
       />

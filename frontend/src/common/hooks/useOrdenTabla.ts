@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useEstadoNavegacion } from "./useEstadoNavegacion";
 
 export type DireccionOrden = "asc" | "desc";
 
@@ -38,10 +39,11 @@ export function useOrdenTabla<
     alCambiarRef.current = alCambiar;
   }, [alCambiar]);
 
-  const [estado, setEstado] = useState<{
+  // El orden sobrevive a ir y volver con "atrás" (ver useEstadoNavegacion).
+  const [estado, setEstado] = useEstadoNavegacion<{
     columna: C | null;
     direccion: DireccionOrden;
-  }>(() => ({
+  }>("useOrdenTabla.orden", () => ({
     columna: columnaPorDefecto ?? null,
     direccion: direccionPorDefecto,
   }));
@@ -56,7 +58,7 @@ export function useOrdenTabla<
         : { columna: nueva, direccion: "asc" },
     );
     alCambiarRef.current?.();
-  }, []);
+  }, [setEstado]);
 
   const reiniciar = useCallback(() => {
     setEstado({
@@ -64,7 +66,7 @@ export function useOrdenTabla<
       direccion: direccionPorDefecto,
     });
     alCambiarRef.current?.();
-  }, [columnaPorDefecto, direccionPorDefecto]);
+  }, [columnaPorDefecto, direccionPorDefecto, setEstado]);
 
   return {
     columna: estado.columna,

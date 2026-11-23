@@ -30,7 +30,7 @@ export function useTransportistas(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarTransportistasPaginados(page, pageSize, {
-        incluirInactivos,
+        soloInactivos: incluirInactivos,
         buscar: buscarAplicado,
         orden,
       }),

@@ -7,10 +7,11 @@ from src.Equipo.models import Equipo
 from src.personal.models import Personal
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.common.fechas import hoy
 
 
-class PlanCalibracionMantenimiento(ModeloBase):
+class PlanCalibracionMantenimiento(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "planes_calibracion_mantenimiento"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)

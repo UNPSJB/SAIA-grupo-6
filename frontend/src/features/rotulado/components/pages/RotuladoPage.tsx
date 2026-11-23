@@ -37,6 +37,8 @@ import { listarProductos } from "../../../productos/services/productoService";
 import { listarBorradoresPorProducto } from "../../services/rotuladoService";
 import type { Producto } from "../../../productos/types/producto";
 import type { BorradorRotuladoOut } from "../../types/rotulado";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
+import { PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
 
 interface ProductoConBorradores extends Producto {
   borradores: BorradorRotuladoOut[];
@@ -46,7 +48,7 @@ interface ProductoConBorradores extends Producto {
 function TabRotulado() {
   const navigate = useNavigate();
   const [errorBorradores, setErrorBorradores] = useState<string | null>(null);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("RotuladoPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
   const [productosConBorradores, setProductosConBorradores] = useState<
     ProductoConBorradores[]
@@ -163,6 +165,7 @@ export function RotuladoPage() {
         pestanas={[
           { valor: "productos", etiqueta: "Rotulado de productos", contenido: <TabRotulado /> },
           { valor: "reglas", etiqueta: "Reglas de rotulado frontal", contenido: <TabReglasRotuladoFrontal /> },
+          { valor: "tabla", etiqueta: "Tabla nutricional", contenido: <PanelParametros seccion="tabla" /> },
         ]}
       />
     </Pagina>
@@ -381,8 +384,9 @@ function VistaProductoSeleccionado({
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Borrador</EncabezadoOscuro>
-                <EncabezadoOscuro center width="18%">Estado</EncabezadoOscuro>
-                <EncabezadoOscuro width="22%">Actualizado</EncabezadoOscuro>
+                <EncabezadoOscuro width="22%">Lote</EncabezadoOscuro>
+                <EncabezadoOscuro center width="16%">Estado</EncabezadoOscuro>
+                <EncabezadoOscuro width="20%">Actualizado</EncabezadoOscuro>
                 <EncabezadoOscuro center width="16%">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
@@ -390,7 +394,18 @@ function VistaProductoSeleccionado({
               {producto.borradores.map((b) => (
                 <FilaClickeable key={b.id} onAbrir={() => onEditarBorrador(b.id)}>
                   <Celda>
-                    <DatoPrincipal titulo={`Borrador #${b.id}`} />
+                    <DatoPrincipal
+                      titulo={`Borrador #${b.id}`}
+                      secundario={b.version_receta_numero != null ? `Receta versión ${b.version_receta_numero}` : undefined}
+                    />
+                  </Celda>
+                  {/* Cada lote lleva su rótulo (identificación y fechas propias). */}
+                  <Celda>
+                    {b.lote_numero ? (
+                      <Text fontFamily="mono" fontSize="sm">{b.lote_numero}</Text>
+                    ) : (
+                      <Text fontSize="sm" color="fg.muted">Sin lote</Text>
+                    )}
                   </Celda>
                   <Celda center>
                     <PildoraNeutra>{b.estado.replaceAll("_", " ")}</PildoraNeutra>

@@ -57,6 +57,8 @@ export async function listarIncidentesPaginados(
     fechaDesde?: string;
     fechaHasta?: string;
     orden?: OrdenIncidente;
+    /** Id de quien reportó. */
+    reportadoPor?: number | null;
   } = {}
 ): Promise<Pagina<Incidente>> {
   const query = queryPagina(page, pageSize, {
@@ -66,6 +68,7 @@ export async function listarIncidentesPaginados(
     fecha_desde: opciones.fechaDesde || undefined,
     fecha_hasta: opciones.fechaHasta || undefined,
     orden: opciones.orden || undefined,
+    reportado_por: opciones.reportadoPor ?? undefined,
   });
   const response = await apiFetch(`${API_URL}/incidentes${query}`);
 

@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { HStack, Table } from "@chakra-ui/react";
 import { BotonExportar } from "../../../exportacion";
-import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
-import { PanelBase, PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
+import { Pagina } from "../../../../components/ui/plantillas";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
 import { formatoFecha } from "../../../../common/utils/fechas";
@@ -32,6 +31,7 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import { useRecetas } from "../../hooks/useRecetas";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -47,7 +47,7 @@ function TabRecetas() {
   const { user } = useAuth();
   const esAdmin = puedeAdministrar(user);
   const { recetas, loading, error } = useRecetas();
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("RecetasPage.busqueda", "");
   const visibles = useMemo(() => {
     const texto = normalizar(busqueda);
     return texto ? recetas.filter((r) => normalizar(r.producto_nombre).includes(texto)) : recetas;
@@ -171,14 +171,17 @@ function TabRecetas() {
 }
 
 /**
- * Recetas, con los parámetros de la tabla nutricional como sub-opciones: antes
- * "Parámetros nutricionales" era una entrada aparte del menú de Producción,
- * aunque solo sirve para calcular la tabla a partir de la receta. Las
- * pestañas extra son de administración; quien opera ve solo el listado.
- * `/nutricion` redirige acá.
+ * Recetas. Antes tenía también las pestañas "Parámetros nutricionales" y
+ * "Base de composición"; ahora cada una está donde se usa: la tabla
+ * nutricional en Rotulado, la base de composición en Ingredientes y las
+ * reglas de homologación en Insumos. Los enlaces viejos redirigen.
  */
 export function RecetasPage() {
   const esAdmin = puedeAdministrar(useAuth().user);
+  const [params] = useSearchParams();
+  const tabVieja = params.get("tab");
+  if (tabVieja === "parametros") return <Navigate to="/rotulado?tab=tabla" replace />;
+  if (tabVieja === "base") return <Navigate to="/ingredientes?tab=base" replace />;
   return (
     <Pagina
       titulo="Recetas"
@@ -188,17 +191,7 @@ export function RecetasPage() {
           : "Consultá la versión vigente antes de elaborar y escalala a la cantidad que vas a producir."
       }
     >
-      {esAdmin ? (
-        <PestanasPagina
-          pestanas={[
-            { valor: "recetas", etiqueta: "Recetas", contenido: <TabRecetas /> },
-            { valor: "parametros", etiqueta: "Parámetros nutricionales", contenido: <PanelParametros /> },
-            { valor: "base", etiqueta: "Base de composición", contenido: <PanelBase /> },
-          ]}
-        />
-      ) : (
-        <TabRecetas />
-      )}
+      <TabRecetas />
     </Pagina>
   );
 }

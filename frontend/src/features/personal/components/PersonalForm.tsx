@@ -35,11 +35,15 @@ interface PersonalFormProps {
   // de super admin únicamente lo muestra un super admin.
   puedeEditarCapacidades?: boolean;
   puedeAsignarSuperAdmin?: boolean;
+  /** Dar o quitar "Administrar": el gerente de la sede o el super admin. */
+  puedeAsignarAdministrar?: boolean;
+  /** Designar gerentes: solo el super admin. */
+  puedeAsignarGerente?: boolean;
 }
 
-const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false };
+const emptyValues: PersonalFormValues = { nombre: "", apellido: "", dni: "", email: "", telefono: "", puede_operar: false, puede_administrar: false, es_super_admin: false, es_gerente: false };
 
-export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", onCancel, extra, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false }: PersonalFormProps) {
+export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading = false, submitLabel = "Guardar", onCancel, extra, esMiPerfil = false, puedeEditarCapacidades = false, puedeAsignarSuperAdmin = false, puedeAsignarAdministrar = false, puedeAsignarGerente = false }: PersonalFormProps) {
   const [values, setValues] = useState<PersonalFormValues>(initialValues);
   const [errorCapacidades, setErrorCapacidades] = useState<string | null>(null);
   
@@ -81,6 +85,12 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
       }
       if (!puedeAsignarSuperAdmin) {
           delete datosEnviar.es_super_admin;
+      }
+      if (!puedeAsignarAdministrar) {
+          delete datosEnviar.puede_administrar;
+      }
+      if (!puedeAsignarGerente) {
+          delete datosEnviar.es_gerente;
       }
 
       // Al editar tu propio perfil, la contraseña solo se manda si la cambiaste.
@@ -147,6 +157,8 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
                 <HStack gap="6">
                   <Checkbox.Root
                     checked={Boolean(values.puede_operar)}
+                    // El gerente siempre opera y administra.
+                    disabled={Boolean(values.es_gerente)}
                     onCheckedChange={(e) => setValues({ ...values, puede_operar: !!e.checked })}
                     fontWeight="medium"
                     color="fg"
@@ -155,17 +167,48 @@ export function PersonalForm({ initialValues = emptyValues, onSubmit, isLoading 
                     <Checkbox.Control />
                     <Checkbox.Label>Operar</Checkbox.Label>
                   </Checkbox.Root>
-                  <Checkbox.Root
-                    checked={Boolean(values.puede_administrar)}
-                    onCheckedChange={(e) => setValues({ ...values, puede_administrar: !!e.checked })}
-                    fontWeight="medium"
-                    color="fg"
-                  >
-                    <Checkbox.HiddenInput />
-                    <Checkbox.Control />
-                    <Checkbox.Label>Administrar</Checkbox.Label>
-                  </Checkbox.Root>
+                  {/* Un admin común solo da de alta operadores: "Administrar"
+                      lo asigna el gerente de la sede o el super admin. */}
+                  {puedeAsignarAdministrar && (
+                    <Checkbox.Root
+                      checked={Boolean(values.puede_administrar)}
+                      disabled={Boolean(values.es_gerente)}
+                      onCheckedChange={(e) => setValues({ ...values, puede_administrar: !!e.checked })}
+                      fontWeight="medium"
+                      color="fg"
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control />
+                      <Checkbox.Label>Administrar</Checkbox.Label>
+                    </Checkbox.Root>
+                  )}
                 </HStack>
+              </CeldaCompleta>
+            )}
+
+            {puedeEditarCapacidades && puedeAsignarGerente && (
+              <CeldaCompleta p="4" bg="bg.muted" borderWidth="1px" rounded="lg">
+                <Checkbox.Root
+                  checked={Boolean(values.es_gerente)}
+                  onCheckedChange={(e) =>
+                    setValues({
+                      ...values,
+                      es_gerente: !!e.checked,
+                      // Gerente implica operar y administrar.
+                      ...(e.checked ? { puede_operar: true, puede_administrar: true } : {}),
+                    })
+                  }
+                  fontWeight="medium"
+                  color="fg"
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control />
+                  <Checkbox.Label>Gerente del establecimiento</Checkbox.Label>
+                </Checkbox.Root>
+                <Text fontSize="xs" color="fg.muted" mt="1">
+                  Administra todo su establecimiento (incluidos los administradores) y ve el
+                  tablero que compara su sede con el resto de la empresa.
+                </Text>
               </CeldaCompleta>
             )}
 

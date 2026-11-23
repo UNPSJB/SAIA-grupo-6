@@ -75,6 +75,7 @@ import {
 import type { IconType } from "react-icons/lib";
 import { toaster } from "./toaster";
 import { Tooltip } from "./tooltip";
+import { leerOpciones, SelectBuscable, UMBRAL_SELECT_BUSCABLE } from "./SelectBuscable";
 
 /**
  * Patrones compartidos: la fuente de verdad del formato de toda la app.
@@ -984,8 +985,12 @@ interface FormFieldProps {
    * a una celda cuando tiene tres (altas `extenso` desde `xl`). Sirve para el
    * tercer campo de un trío (Sector · Equipo · Autor): en dos columnas no
    * deja un hueco al lado y en tres completa la fila.
+   *
+   * `"doble"`: toda la fila en dos columnas y dos de las tres desde `xl`.
+   * Para un campo largo (nombre, razón social) que comparte la fila con el
+   * siguiente en vez de dejarlo solo debajo.
    */
-  completo?: boolean | "hasta-xl";
+  completo?: boolean | "hasta-xl" | "doble";
   mb?: string;
   children: ReactNode;
 }
@@ -1011,7 +1016,13 @@ export function FormField({
       invalid={invalid ?? (error ? true : undefined)}
       mb={mb ?? (enGrilla ? "0" : "6")}
       gridColumn={
-        completo === "hasta-xl" ? { base: "1 / -1", xl: "auto" } : completo ? "1 / -1" : undefined
+        completo === "hasta-xl"
+          ? { base: "1 / -1", xl: "auto" }
+          : completo === "doble"
+            ? { base: "1 / -1", xl: "span 2" }
+            : completo
+              ? "1 / -1"
+              : undefined
       }
       minW={enGrilla ? "0" : undefined}
     >
@@ -1126,6 +1137,28 @@ export function FormNativeSelect({
    * pero la flecha quedaba en el borde del Root, afuera del control (se veía
    * en "Nuevo lote", con selects de 500px en una tarjeta más ancha).
    */
+  // Lista larga: popup con búsqueda y orden alfabético (ver SelectBuscable).
+  const opciones = leerOpciones(children);
+  if (opciones && opciones.filter((o) => !o.deshabilitada && o.valor !== "").length > UMBRAL_SELECT_BUSCABLE) {
+    return (
+      <SelectBuscable
+        opciones={opciones}
+        value={rest.value}
+        onChange={rest.onChange}
+        disabled={disabled}
+        invalid={invalid}
+        id={rest.id}
+        name={rest.name}
+        ariaLabel={rest["aria-label"]}
+        w={w}
+        maxW={maxW}
+        minW={minW}
+        mt={mt}
+        mb={mb}
+      />
+    );
+  }
+
   return (
     <NativeSelect.Root
       disabled={disabled}

@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.texto import sin_tildes
 from src.common.persistence import aplicar_cambios
+from src.establecimientos.contexto import establecimiento_activo
+from src.establecimientos.models import ESTABLECIMIENTO_PRINCIPAL_ID
 from src.personal.models import Personal
 from src.personal import schemas, exceptions
 from src.common.persistence import es_violacion_unica, mapa_por_campo
@@ -39,7 +41,9 @@ _ORDENES = {
 # admin y "operador" no incluye a quien además administra.
 _ROLES = {
     "super_admin": Personal.es_super_admin.is_(True),
+    "gerente": Personal.es_super_admin.is_(False) & Personal.es_gerente.is_(True),
     "administrador": Personal.es_super_admin.is_(False)
+    & Personal.es_gerente.is_(False)
     & Personal.puede_administrar.is_(True),
     "operador": Personal.es_super_admin.is_(False)
     & Personal.puede_administrar.is_(False)
@@ -60,10 +64,24 @@ def _verificar_disponibilidad(db: Session, campo: str, valor: str) -> None:
     - Si no existe -> el valor está disponible.
     """
     columna = getattr(Personal, campo)
-    existente = db.scalar(select(Personal).where(columna == valor))
+    # DNI y email son únicos en toda la empresa (con ellos se inicia sesión),
+    # así que se buscan en todas las sedes.
+    existente = db.scalar(
+        select(Personal)
+        .where(columna == valor)
+        .execution_options(todos_los_establecimientos=True)
+    )
 
     if existente is None:
         return
+
+    # Sin sede activa (scripts) se trabaja sobre la principal, igual que el sellado.
+    sede = establecimiento_activo(db) or ESTABLECIMIENTO_PRINCIPAL_ID
+    if existente.establecimiento_id not in (None, sede):
+        # Es de otra sede: no se ofrece reactivar algo que esta sede no ve.
+        if campo == "dni":
+            raise exceptions.DniDuplicado()
+        raise exceptions.EmailDuplicado()
 
     if existente.activo:
         if campo == "dni":
@@ -259,7 +277,7 @@ def modificar_persona(
     # Solo actualizamos los campos que realmente fueron enviados.
     datos_a_actualizar = persona.model_dump(exclude_unset=True)
 
-    for campo in ("password", "puede_operar", "puede_administrar", "es_super_admin", "activo", "nombre", "dni", "email"):
+    for campo in ("password", "puede_operar", "puede_administrar", "es_super_admin", "es_gerente", "activo", "nombre", "dni", "email"):
         if campo in datos_a_actualizar and datos_a_actualizar[campo] is None:
             del datos_a_actualizar[campo]
 
@@ -270,6 +288,12 @@ def modificar_persona(
 
     if not datos_a_actualizar:
         return db_persona
+
+    # El gerente siempre administra y opera: quitarle esas capacidades sin
+    # quitarle la gerencia lo dejaría en un estado inconsistente.
+    if datos_a_actualizar.get("es_gerente", db_persona.es_gerente):
+        datos_a_actualizar["puede_administrar"] = True
+        datos_a_actualizar["puede_operar"] = True
 
     # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
     # disparan eventos del ORM, así que la auditoría no vería el cambio.

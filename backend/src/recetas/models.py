@@ -17,10 +17,11 @@ from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.recetas.exceptions import VersionRecetaInmutableError
 
 
-class Receta(ModeloBase):
+class Receta(DatosDeEstablecimiento, ModeloBase):
     """Receta de un producto. El contenido vive en sus versiones."""
 
     __tablename__ = "recetas"
@@ -38,7 +39,7 @@ class Receta(ModeloBase):
     )
 
 
-class VersionReceta(ModeloBase):
+class VersionReceta(DatosDeEstablecimiento, ModeloBase):
     """Foto inmutable de la receta. Modificar la receta crea una versión nueva."""
 
     __tablename__ = "versiones_receta"
@@ -89,7 +90,7 @@ class VersionReceta(ModeloBase):
     )
 
 
-class TareaReceta(ModeloBase):
+class TareaReceta(DatosDeEstablecimiento, ModeloBase):
     """Etapa de elaboración. Pertenece a una versión, nunca a la receta en general."""
 
     __tablename__ = "tareas_receta"
@@ -114,7 +115,7 @@ class TareaReceta(ModeloBase):
     )
 
 
-class RecetaIngrediente(ModeloBase):
+class RecetaIngrediente(DatosDeEstablecimiento, ModeloBase):
     """Ingrediente de una versión: cantidad total, unidad y si es aditivo.
 
     `es_aditivo` se copia del maestro al guardar la versión: si después se
@@ -141,7 +142,7 @@ class RecetaIngrediente(ModeloBase):
     unidad_medida: Mapped["UnidadMedida"] = relationship()
 
 
-class OrdenManualIngrediente(ModeloBase):
+class OrdenManualIngrediente(DatosDeEstablecimiento, ModeloBase):
     """Decisión de quién va primero entre ingredientes de una versión que pesan lo mismo.
 
     Las versiones son de solo lectura, así que la decisión vive en su propia tabla:
@@ -170,7 +171,7 @@ class OrdenManualIngrediente(ModeloBase):
     decidido_por: Mapped["Personal"] = relationship()
 
 
-class TareaRecetaIngrediente(ModeloBase):
+class TareaRecetaIngrediente(DatosDeEstablecimiento, ModeloBase):
     """Reparto explícito: cuánto de cada ingrediente se usa en cada tarea."""
 
     __tablename__ = "tarea_receta_ingrediente"

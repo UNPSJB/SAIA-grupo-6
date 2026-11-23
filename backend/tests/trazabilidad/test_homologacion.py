@@ -303,7 +303,7 @@ def test_avisa_la_homologacion_vencida_o_por_vencer(ctx, monkeypatch):
     monkeypatch.setattr(notificaciones, "hoy", lambda: date(2026, 10, 25))
     (por_vencer,) = notificaciones.obtener_notificaciones_homologacion_insumos(ctx.db)
     assert (por_vencer.nivel, por_vencer.fecha_referencia) == ("PROXIMO_A_VENCER", date(2026, 11, 1))
-    assert por_vencer.link_destino == f"/ingredientes/insumos/{ctx.insumo.id}/homologacion"
+    assert por_vencer.link_destino == f"/insumos/{ctx.insumo.id}/homologacion"
 
     monkeypatch.setattr(notificaciones, "hoy", lambda: date(2026, 11, 2))
     (vencida,) = notificaciones.obtener_notificaciones_homologacion_insumos(ctx.db)
@@ -368,3 +368,52 @@ def test_una_homologacion_vencida_no_recibe_ni_se_consume(ctx):
     # Volver a aprobarla renueva la vigencia.
     _decidir(ctx, "aprobar")
     assert _consumir(ctx, lote_insumo)[0].id
+
+
+# ── Insumos sin rótulo (no elaborados o a granel) ─────────────────────────
+
+
+def _marcar_sin_rotulo(ctx, valor=True):
+    return insumos_services.actualizar_insumo(ctx.db, ctx.insumo.id, schemas.InsumoUpdate(sin_rotulo=valor))
+
+
+def test_sin_rotulo_es_apto_sin_cargar_nada(ctx):
+    _marcar_sin_rotulo(ctx)
+    h = homologacion.obtener_homologacion(ctx.db, ctx.insumo.id)
+    assert h.sin_rotulo is True
+    assert h.comparacion.resultado == homologacion.RESULTADO_APTA
+    assert {f.estado for f in h.comparacion.nutrientes} == {homologacion.ESTADO_SIN_ROTULO}
+    # Rigen los alérgenos del ingrediente: no hay nada que pueda no cumplir.
+    assert all(a.cumple for a in h.comparacion.alergenos)
+    # Se aprueba sin justificación: no hay desvíos que justificar.
+    assert _decidir(ctx, "aprobar").estado == "aprobada"
+
+
+def test_sin_rotulo_no_admite_cargar_un_rotulo(ctx):
+    _marcar_sin_rotulo(ctx)
+    with pytest.raises(exceptions.InsumoSinRotulo):
+        _rotulo(ctx, {"energia": "340"})
+
+
+def test_marcarlo_sin_rotulo_borra_el_rotulo_cargado(ctx):
+    _rotulo(ctx, {"energia": "500"}, [(GLUTEN, "contiene")])
+    _marcar_sin_rotulo(ctx)
+    h = homologacion.obtener_homologacion(ctx.db, ctx.insumo.id)
+    assert h.rotulo.valores == [] and h.rotulo.alergenos == []
+
+
+def test_quitarle_sin_rotulo_a_uno_aprobado_lo_manda_a_revision(ctx):
+    _marcar_sin_rotulo(ctx)
+    _decidir(ctx, "aprobar")
+    insumo = _marcar_sin_rotulo(ctx, False)
+    assert insumo.estado_homologacion == "requiere_revision"
+
+
+def test_crear_un_insumo_sin_rotulo(ctx):
+    nuevo = insumos_services.crear_insumo(
+        ctx.db,
+        schemas.InsumoCreate(
+            ingrediente_id=ctx.harina.id, marca="A granel", proveedor_ids=[ctx.molino.id], sin_rotulo=True
+        ),
+    )
+    assert insumos_services.a_respuesta(nuevo).sin_rotulo is True

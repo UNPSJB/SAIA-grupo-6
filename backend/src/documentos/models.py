@@ -7,14 +7,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.common.fechas import ahora, hoy
 from src.documentos.constants import EstadoVersion
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.personal.models import Personal  # noqa: F401  (para resolver la relación "Personal")
 
 
-class Documento(ModeloBase):
+class Documento(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "documentos"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    nombre: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    nombre: Mapped[str] = mapped_column(String(100), index=True)
     tipo: Mapped[str] = mapped_column(String(30))
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
@@ -38,7 +39,7 @@ class Documento(ModeloBase):
         return max((v.numero_version for v in self.versiones), default=0) + 1
 
 
-class VersionDocumento(ModeloBase):
+class VersionDocumento(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "versiones_documento"
     __table_args__ = (
         # Autoincremento
@@ -109,3 +110,8 @@ class VersionDocumento(ModeloBase):
             return EstadoVersion.VENCIDO
 
         return EstadoVersion.VIGENTE
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_documentos_establecimiento_nombre", Documento.establecimiento_id, Documento.nombre, unique=True)

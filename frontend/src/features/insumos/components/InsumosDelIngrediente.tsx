@@ -145,7 +145,7 @@ export function InsumosDelIngrediente({ ingredienteId, ingrediente }: { ingredie
                   </Celda>
                   <Celda center>
                     <HStack justify="center" gap="2">
-                      <BotonFila onClick={() => navigate(`/ingredientes/insumos/${insumo.id}/homologacion`)}>
+                      <BotonFila onClick={() => navigate(`/insumos/${insumo.id}/homologacion`)}>
                         Homologar
                       </BotonFila>
                       <BotonFila onClick={() => setEditando(insumo)}>Modificar</BotonFila>

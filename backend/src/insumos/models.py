@@ -9,10 +9,11 @@ trazabilidad dice qué marca exacta entró en cada lote de producto.
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Numeric, String, Table
+from sqlalchemy import text, JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Numeric, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 # Qué proveedores venden cada insumo: una misma marca puede comprarse a más de
 # un distribuidor, y un proveedor vende varias.
@@ -34,7 +35,7 @@ ESTADO_REQUIERE_REVISION = "requiere_revision"
 ESTADOS_HOMOLOGACION = (ESTADO_PENDIENTE, ESTADO_APROBADA, ESTADO_RECHAZADA, ESTADO_REQUIERE_REVISION)
 
 
-class Insumo(ModeloBase):
+class Insumo(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "insumos"
     __table_args__ = (
         CheckConstraint(
@@ -52,6 +53,13 @@ class Insumo(ModeloBase):
     descripcion: Mapped[str | None] = mapped_column(String(200), nullable=True)
     codigo_fabricante: Mapped[str | None] = mapped_column(String(60), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Producto no elaborado o a granel (frutas, verduras, huevos, carne): no
+    # tiene rótulo propio. No se compara contra el ingrediente: toma su
+    # composición y sus alérgenos, que son los que ya usa la tabla del producto.
+    sin_rotulo: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), nullable=False
+    )
 
     # Rótulo del fabricante: de dónde salen sus valores (los valores van en
     # `valores_rotulo_insumo`; los alérgenos, en `insumos_alergenos`).
@@ -91,7 +99,7 @@ class Insumo(ModeloBase):
         return f"{self.marca} · {self.descripcion}" if self.descripcion else self.marca
 
 
-class ValorRotuloInsumo(ModeloBase):
+class ValorRotuloInsumo(DatosDeEstablecimiento, ModeloBase):
     """Un nutriente del rótulo del fabricante del insumo.
 
     `valor_declarado` es el número tal como figura en el rótulo (por la porción

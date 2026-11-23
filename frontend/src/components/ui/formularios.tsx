@@ -70,6 +70,8 @@ import { EnlaceVolver, PADDING_PAGINA, type DestinoVolver } from "./plantillas";
  * columnas desde `xl`.
  */
 const ContextoAnchoAlta = createContext<"formulario" | "extenso">("formulario");
+/** Si el alta tiene panel lateral (el formulario queda más angosto). */
+const ContextoLateralAlta = createContext(false);
 
 interface PaginaAltaProps {
   /** "← Volver a [Módulo]": siempre, porque un alta se abre desde un listado. */
@@ -81,16 +83,14 @@ interface PaginaAltaProps {
   icono?: IconType;
   /**
    * Cuánto de la grilla de 12 columnas ocupa el formulario en escritorio:
-   * `formulario` 8/12 (altas cortas y medianas: no se estiran a todo el
-   * ancho), `extenso` 12/12 (altas con tablas embebidas o muchas secciones;
-   * con `lateral`, 9/3). La página en sí siempre tiene el ancho de la app.
+   * sin `lateral`, siempre 12/12; con `lateral`, `formulario` 8/4 y
+   * `extenso` 9/3. La página en sí siempre tiene el ancho de la app.
    */
   ancho?: "formulario" | "extenso";
   /**
    * Panel a la derecha del formulario desde `lg` (ayuda, resumen de lo que
-   * se va a crear, avisos). En el celular va debajo. Sin lateral, en un
-   * formulario corto queda libre el tercio derecho: la tarjeta mantiene un
-   * ancho de lectura cómodo en vez de estirarse.
+   * se va a crear, avisos). En el celular va debajo. Sin lateral, el
+   * formulario ocupa todo el ancho y reparte los campos en 3 columnas.
    */
   lateral?: ReactNode;
   /** Error de la operación (respuesta de la API, validación al enviar). */
@@ -123,6 +123,7 @@ export function PaginaAlta({
   const columnas = COLUMNAS_ALTA[ancho][lateral ? "conLateral" : "solo"];
   return (
     <ContextoAnchoAlta.Provider value={ancho}>
+    <ContextoLateralAlta.Provider value={Boolean(lateral)}>
     <Box p={PADDING_PAGINA} w="100%" minW="0">
       <EnlaceVolver {...volver} />
 
@@ -207,13 +208,17 @@ export function PaginaAlta({
         ) : null}
       </Box>
     </Box>
+    </ContextoLateralAlta.Provider>
     </ContextoAnchoAlta.Provider>
   );
 }
 
 /** Columnas (de 12) del formulario en escritorio, según el tipo de alta. */
 const COLUMNAS_ALTA = {
-  formulario: { solo: 8, conLateral: 8 },
+  // Sin lateral, todo el ancho: antes era 8/12 y en un monitor ancho quedaba
+  // vacío el tercio derecho. Los campos se reparten en 3 columnas desde `xl`
+  // (ver GrillaFormulario), así no se estiran de más.
+  formulario: { solo: 12, conLateral: 8 },
   extenso: { solo: 12, conLateral: 9 },
 } as const;
 
@@ -406,7 +411,9 @@ export function GrillaFormulario({
 }: { columnas?: 1 | 2 | 3; children: ReactNode } & BoxProps) {
   const contexto = useContext(ContextoCampo);
   const anchoAlta = useContext(ContextoAnchoAlta);
-  const columnas = columnasPedidas ?? (anchoAlta === "extenso" ? 3 : 2);
+  const conLateral = useContext(ContextoLateralAlta);
+  // A todo el ancho, 3 columnas desde `xl`; al lado de un lateral, 2.
+  const columnas = columnasPedidas ?? (conLateral && anchoAlta === "formulario" ? 2 : 3);
   return (
     <ContextoCampo.Provider value={{ ...contexto, enGrilla: true }}>
       <Box

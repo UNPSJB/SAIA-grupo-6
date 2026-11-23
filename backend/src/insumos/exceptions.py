@@ -42,5 +42,9 @@ class AlergenosNoCumplen(BadRequest):
     DETAIL = ErrorCode.ALERGENOS_NO_CUMPLEN
 
 
+class InsumoSinRotulo(BadRequest):
+    DETAIL = "Este insumo está marcado como sin rótulo propio: toma la composición del ingrediente."
+
+
 class JustificacionRequerida(BadRequest):
     DETAIL = ErrorCode.JUSTIFICACION_REQUERIDA

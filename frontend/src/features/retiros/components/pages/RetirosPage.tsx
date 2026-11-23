@@ -28,6 +28,7 @@ import { RetirosTable } from "../RetirosTable";
 import { ModalIniciarRetiro } from "../ModalIniciarRetiro";
 import { listarRetiros } from "../../services/retiroService";
 import type { RetiroResumen } from "../../types/retiro";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -39,8 +40,8 @@ export function RetirosPage() {
   const { user } = useAuth();
   const puedeRegistrar = puedeAdministrar(user);
 
-  const [busqueda, setBusqueda] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("RetirosPage.busqueda", "");
+  const [filtroEstado, setFiltroEstado] = useEstadoNavegacion<FiltroEstado>("RetirosPage.filtroEstado", "");
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("");
   const [modalNuevo, setModalNuevo] = useState(false);
 

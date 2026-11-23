@@ -413,7 +413,7 @@ export function PlanLimpiezaForm({
                   </FormNativeSelect>
                 </FormField>
 
-                <FormField label="Procedimiento" opcional completo>
+                <FormField label="Procedimiento" opcional completo="doble">
                   <Textarea
                     value={tarea.descripcion ?? ""}
                     onChange={(e) =>

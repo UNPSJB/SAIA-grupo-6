@@ -164,7 +164,7 @@ def test_actualizar_dias_alerta_crea_configuracion(db_session, monkeypatch):
 
     # Assert
     assert resultado == 20
-    config = db_session.get(ConfiguracionAlerta, "dias_alerta_vencimiento_personal")
+    config = db_session.get(ConfiguracionAlerta, {"establecimiento_id": 1, "clave": "dias_alerta_vencimiento_personal"})
     assert config is not None
     assert config.valor == 20
 
@@ -187,7 +187,7 @@ def test_actualizar_dias_alerta_actualiza_existente(db_session, monkeypatch):
 
     # Assert
     assert resultado == 30
-    config = db_session.get(ConfiguracionAlerta, "dias_alerta_vencimiento_personal")
+    config = db_session.get(ConfiguracionAlerta, {"establecimiento_id": 1, "clave": "dias_alerta_vencimiento_personal"})
     assert config.valor == 30
 
 

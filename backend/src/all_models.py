@@ -27,6 +27,8 @@ Uso:
 """
 
 # Orden sin dependencias entre sí: primero las hojas, después las que las usan.
+# Los establecimientos van primero: casi todas las tablas tienen FK a ellos.
+from src.establecimientos.models import Establecimiento  # noqa: F401
 from src.personal.models import Personal  # noqa: F401
 from src.unidadMedida.models import UnidadMedida  # noqa: F401
 from src.aptitud.models import Aptitud  # noqa: F401
@@ -99,6 +101,9 @@ from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: 
 from src.auditoria.models import AuditLog  # noqa: F401
 import src.auditoria.listeners  # noqa: F401
 
+# Filtro y sellado automático por establecimiento (ver su docstring).
+import src.establecimientos.contexto  # noqa: F401
+
 __all__ = [
     "AlimentoReferencia",
     "InfoNutricionalProducto",
@@ -125,6 +130,7 @@ __all__ = [
     "RetiroAfectado",
     "Sector",
     "Equipo",
+    "Establecimiento",
     "HistorialRegistroTarea",
     "Incidente",
     "HistorialIncidente",

@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 import { useLista } from "../../../common/hooks/useLista";
 import { haceDiasISO, hoyISO } from "../../../common/utils/fechas";
 import { obtenerPanel } from "../services/panelService";
@@ -27,9 +28,13 @@ export interface EstadoPanel<T> {
  *
  * @param parametro  nombre del query param del filtro propio (`sector_id`...).
  */
-export function usePanel<T>(categoria: CategoriaPanel, parametro?: string): EstadoPanel<T> {
-  const [dias, setDias] = useState<string>(PERIODO_INICIAL);
-  const [filtro, setFiltro] = useState("");
+export function usePanel<T>(
+  categoria: CategoriaPanel | "comparativo",
+  parametro?: string,
+): EstadoPanel<T> {
+  // Período y filtro sobreviven a ir y volver con "atrás" (ver useEstadoNavegacion).
+  const [dias, setDias] = useEstadoNavegacion<string>("usePanel.dias", PERIODO_INICIAL);
+  const [filtro, setFiltro] = useEstadoNavegacion("usePanel.filtro", "");
 
   const cargar = useCallback(
     () =>

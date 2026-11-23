@@ -56,7 +56,7 @@ export function TransportistaForm({
     <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
       <SeccionFormulario>
         <GrillaFormulario>
-          <FormField invalid={intentado && faltan.tiene("razon_social")} label="Razón social" required completo>
+          <FormField invalid={intentado && faltan.tiene("razon_social")} label="Razón social" required completo="doble">
             <FormInput
               value={values.razon_social}
               onChange={(e) =>

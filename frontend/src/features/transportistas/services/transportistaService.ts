@@ -37,13 +37,14 @@ export async function listarTransportistasPaginados(
   page: number,
   pageSize: number,
   opciones: {
-    incluirInactivos?: boolean;
+    /** "Ver dados de baja": solo los dados de baja. */
+    soloInactivos?: boolean;
     buscar?: string;
     orden?: OrdenTransportista;
   } = {}
 ): Promise<Pagina<Transportista>> {
   const query = queryPagina(page, pageSize, {
-    incluir_inactivos: opciones.incluirInactivos || undefined,
+    solo_inactivos: opciones.soloInactivos || undefined,
     buscar: opciones.buscar?.trim() || undefined,
     orden: opciones.orden || undefined,
   });

@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from src.establecimientos.contexto import sede_efectiva
 from src.common.fechas import ahora, hoy
 from src.common.texto import normalizar_texto
 from src.ingredientes.models import Ingrediente
@@ -136,10 +137,10 @@ def activar_regla(db: Session, regla_id: int) -> ReglaRotuladoFrontal:
 
 
 def ajuste_modulo(db: Session) -> ConfiguracionModuloRotulado:
-    """Interruptor global; si falta la fila, se crea activo."""
-    ajuste = db.get(ConfiguracionModuloRotulado, 1)
+    """Interruptor de la sede; si falta la fila, se crea activo."""
+    ajuste = db.get(ConfiguracionModuloRotulado, sede_efectiva(db))
     if ajuste is None:
-        ajuste = ConfiguracionModuloRotulado(id=1, modulo_activo=True)
+        ajuste = ConfiguracionModuloRotulado(establecimiento_id=sede_efectiva(db), modulo_activo=True)
         db.add(ajuste)
         db.commit()
         db.refresh(ajuste)
@@ -925,7 +926,7 @@ def evaluar_solo_lectura(db: Session, producto_id: int, version_id: int | None):
 
 
 def modulo_activo_solo_lectura(db: Session) -> bool:
-    ajuste = db.get(ConfiguracionModuloRotulado, 1)
+    ajuste = db.get(ConfiguracionModuloRotulado, sede_efectiva(db))
     return ajuste.modulo_activo if ajuste is not None else True
 
 

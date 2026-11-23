@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Box, Button, HStack, SimpleGrid, Stack, Table, Text, Textarea } from "@chakra-ui/react";
+import { Link as RouterLink, useParams } from "react-router-dom";
+import { Box, Button, HStack, Link, SimpleGrid, Stack, Table, Text, Textarea } from "@chakra-ui/react";
 import { PaginaFormulario } from "../../../../components/ui/plantillas";
 import {
   BannerError,
@@ -50,6 +50,7 @@ const ESTADO_FILA: Record<EstadoFila, { tono: TonoEstado; texto: string }> = {
   sin_dato: { tono: "alerta", texto: "Falta en el rótulo" },
   sin_referencia: { tono: "neutro", texto: "Sin referencia" },
   bajo_umbral: { tono: "ok", texto: "No significativo" },
+  sin_rotulo: { tono: "neutro", texto: "Del ingrediente" },
 };
 
 const RESULTADO: Record<ResultadoComparacion, { tono: TonoEstado; texto: string; detalle: string }> = {
@@ -84,7 +85,7 @@ const PARCIAL_NUMERICO = /^\d*[.,]?\d*$/;
  * Homologación de un insumo (marca) contra su ingrediente (especificación).
  *
  * Se carga el rótulo del fabricante por 100 g y se compara con los valores
- * objetivo del ingrediente (con la tolerancia de Parámetros nutricionales) y
+ * objetivo del ingrediente (con la tolerancia de Insumos → Reglas de homologación) y
  * con sus alérgenos. Solo de una marca aprobada se reciben lotes.
  */
 export function HomologacionInsumoPage() {
@@ -145,7 +146,7 @@ export function HomologacionInsumoPage() {
   }
   if (!h) {
     return (
-      <PaginaFormulario ancho="ancho" titulo="Homologación del insumo" volver={{ a: "/ingredientes", etiqueta: "Ingredientes", historial: true }}>
+      <PaginaFormulario ancho="ancho" titulo="Homologación del insumo" volver={{ a: "/insumos", etiqueta: "Insumos", historial: true }}>
         <BannerError>{error ?? "No se pudo cargar la homologación."}</BannerError>
       </PaginaFormulario>
     );
@@ -235,9 +236,13 @@ export function HomologacionInsumoPage() {
   return (
     <PaginaFormulario
       ancho="ancho"
-      volver={{ a: `/ingredientes/${h.ingrediente_id}/editar`, etiqueta: h.ingrediente_nombre, historial: true }}
+      volver={{ a: "/insumos", etiqueta: "Insumos", historial: true }}
       titulo={`Homologación de ${h.insumo_nombre}`}
-      descripcion={`Rótulo de la marca comparado con la especificación de ${h.ingrediente_nombre}. Solo de un insumo aprobado y vigente se reciben y consumen lotes.`}
+      descripcion={
+        h.sin_rotulo
+          ? `Insumo sin rótulo propio: toma la composición y los alérgenos de ${h.ingrediente_nombre}. Solo de un insumo aprobado y vigente se reciben y consumen lotes.`
+          : `Rótulo del insumo comparado con la especificación de ${h.ingrediente_nombre}. Solo de un insumo aprobado y vigente se reciben y consumen lotes.`
+      }
     >
       {errorAccion && <BannerError mb="4">{errorAccion}</BannerError>}
       {aviso && <BannerExito mb="4">{aviso}</BannerExito>}
@@ -287,200 +292,218 @@ export function HomologacionInsumoPage() {
         )}
       </TarjetaFormulario>
 
-      <TarjetaFormulario mt="6">
-        <TituloFormulario mb="1">Rótulo del fabricante</TituloFormulario>
-        <Text fontSize="sm" color="fg.muted" mb="4">
-          Valores tal como figuran en el envase, por 100 g (o 100 ml) o por porción: si son por porción, se
-          convierten solos a 100 para comparar. Tolerancia admitida: ±
-          {formatoCantidad(h.comparacion.tolerancia_pct)}% respecto del valor objetivo del ingrediente.
-          {h.es_aditivo && " Es un aditivo: solo se comparan valor energético y sodio."}
-        </Text>
+      {h.sin_rotulo ? (
+        <TarjetaFormulario mt="6">
+          <TituloFormulario mb="1">Sin rótulo propio</TituloFormulario>
+          <Text fontSize="sm" color="fg.muted">
+            Es un producto no elaborado o a granel (fruta, verdura, huevos, carne): no trae rótulo, así que no
+            hay nada que comparar. Toma la composición y los alérgenos de {h.ingrediente_nombre}, que son los que
+            ya usa la tabla nutricional de los productos. Aprobarlo deja registrada la decisión y su vigencia.
+          </Text>
+          <Link asChild display="inline-block" mt="3" fontSize="sm" color="brand.600">
+            <RouterLink to={`/ingredientes/${h.ingrediente_id}/nutricion`}>
+              Ver la composición de {h.ingrediente_nombre}
+            </RouterLink>
+          </Link>
+        </TarjetaFormulario>
+      ) : (
+        <TarjetaFormulario mt="6">
+          <TituloFormulario mb="1">Rótulo del fabricante</TituloFormulario>
+          <Text fontSize="sm" color="fg.muted" mb="4">
+            Valores tal como figuran en el envase, por 100 g (o 100 ml) o por porción: si son por porción, se
+            convierten solos a 100 para comparar. Tolerancia admitida: ±
+            {formatoCantidad(h.comparacion.tolerancia_pct)}% respecto del valor objetivo del ingrediente.
+            {h.es_aditivo && " Es un aditivo: solo se comparan valor energético y sodio."}
+          </Text>
 
-        <FormField label="Referencia del rótulo" opcional helper="Envase, ficha técnica o fecha en que se tomó.">
-          <FormInput
-            value={textoReferencia}
-            maxLength={300}
-            onChange={(e) => setReferencia(e.target.value)}
-            placeholder="Ej.: envase de 1 kg, lote 2026-10"
-          />
-        </FormField>
+          <FormField label="Referencia del rótulo" opcional helper="Envase, ficha técnica o fecha en que se tomó.">
+            <FormInput
+              value={textoReferencia}
+              maxLength={300}
+              onChange={(e) => setReferencia(e.target.value)}
+              placeholder="Ej.: envase de 1 kg, lote 2026-10"
+            />
+          </FormField>
 
-        <HStack gap="4" align="flex-start" flexWrap="wrap" mb="6">
-          <Box w={{ base: "100%", sm: "260px" }}>
-            <FormField label="El rótulo declara los valores" mb="0">
-              <FormNativeSelect
-                value={esPorPorcion ? "porcion" : "100"}
-                onChange={(e) => setPorPorcion(e.target.value === "porcion")}
-              >
-                <option value="100">Por 100 g o 100 ml</option>
-                <option value="porcion">Por porción</option>
-              </FormNativeSelect>
-            </FormField>
-          </Box>
-          {esPorPorcion && (
-            <Box w={{ base: "100%", sm: "200px" }}>
-              <FormField
-                label="Porción del rótulo"
-                required
-                mb="0"
-                error={!porcionValida ? "Indicá una porción mayor que 0." : undefined}
-              >
-                <HStack gap="2">
-                  <FormInput
-                    value={textoPorcion}
-                    inputMode="decimal"
-                    textAlign="right"
-                    w="110px"
-                    aria-label="Porción del rótulo"
-                    onChange={(e) => {
-                      if (PARCIAL_NUMERICO.test(e.target.value)) setPorcion(e.target.value);
-                    }}
-                  />
-                  <Text fontSize="sm" color="fg.muted" whiteSpace="nowrap">g o ml</Text>
-                </HStack>
+          <HStack gap="4" align="flex-start" flexWrap="wrap" mb="6">
+            <Box w={{ base: "100%", sm: "260px" }}>
+              <FormField label="El rótulo declara los valores" mb="0">
+                <FormNativeSelect
+                  value={esPorPorcion ? "porcion" : "100"}
+                  onChange={(e) => setPorPorcion(e.target.value === "porcion")}
+                >
+                  <option value="100">Por 100 g o 100 ml</option>
+                  <option value="porcion">Por porción</option>
+                </FormNativeSelect>
               </FormField>
             </Box>
-          )}
-        </HStack>
+            {esPorPorcion && (
+              <Box w={{ base: "100%", sm: "200px" }}>
+                <FormField
+                  label="Porción del rótulo"
+                  required
+                  mb="0"
+                  error={!porcionValida ? "Indicá una porción mayor que 0." : undefined}
+                >
+                  <HStack gap="2">
+                    <FormInput
+                      value={textoPorcion}
+                      inputMode="decimal"
+                      textAlign="right"
+                      w="110px"
+                      aria-label="Porción del rótulo"
+                      onChange={(e) => {
+                        if (PARCIAL_NUMERICO.test(e.target.value)) setPorcion(e.target.value);
+                      }}
+                    />
+                    <Text fontSize="sm" color="fg.muted" whiteSpace="nowrap">g o ml</Text>
+                  </HStack>
+                </FormField>
+              </Box>
+            )}
+          </HStack>
 
-        <Box overflowX="auto">
-          <Table.Root variant="outline" w="100%" minW="640px">
-            <Table.Header>
-              <FilaEncabezado>
-                <EncabezadoOscuro>Nutriente</EncabezadoOscuro>
-                <EncabezadoOscuro center width="130px">Objetivo del ingrediente</EncabezadoOscuro>
-                <EncabezadoOscuro center width="170px">
-                  {esPorPorcion ? "Rótulo (por porción)" : "Rótulo de la marca"}
-                </EncabezadoOscuro>
-                {esPorPorcion && <EncabezadoOscuro center width="120px">Rótulo por 100</EncabezadoOscuro>}
-                <EncabezadoOscuro center width="90px">Desvío</EncabezadoOscuro>
-                <EncabezadoOscuro center width="220px">Comparación</EncabezadoOscuro>
-              </FilaEncabezado>
-            </Table.Header>
-            <Table.Body>
-              {h.comparacion.nutrientes.map((f) => {
-                const editado =
-                  porcionCambio ||
-                  (valores[f.nutriente] !== undefined && valores[f.nutriente] !== (guardados[f.nutriente] ?? ""));
-                const estado = ESTADO_FILA[f.estado];
-                return (
-                  <Table.Row key={f.nutriente}>
-                    <Celda>{f.nombre}</Celda>
-                    <Celda center>
-                      {f.referencia === null ? (
-                        <Text as="span" color="fg.muted">-</Text>
-                      ) : (
-                        `${formatoCantidad(f.referencia)} ${f.unidad}`
-                      )}
-                    </Celda>
-                    <Celda center>
-                      <HStack gap="2" justify="center">
-                        <FormInput
-                          value={valor(f.nutriente)}
-                          inputMode="decimal"
-                          textAlign="right"
-                          w="100px"
-                          aria-label={`${f.nombre} en el rótulo`}
-                          onChange={(e) => {
-                            if (PARCIAL_NUMERICO.test(e.target.value)) {
-                              setValores((prev) => ({ ...prev, [f.nutriente]: e.target.value }));
-                            }
-                          }}
-                        />
-                        <Text fontSize="sm" color="fg.muted" w="32px" textAlign="left">{f.unidad}</Text>
-                      </HStack>
-                    </Celda>
-                    {esPorPorcion && (
+          <Box overflowX="auto">
+            <Table.Root variant="outline" w="100%" minW="640px">
+              <Table.Header>
+                <FilaEncabezado>
+                  <EncabezadoOscuro>Nutriente</EncabezadoOscuro>
+                  <EncabezadoOscuro center width="130px">Objetivo del ingrediente</EncabezadoOscuro>
+                  <EncabezadoOscuro center width="170px">
+                    {esPorPorcion ? "Rótulo (por porción)" : "Rótulo de la marca"}
+                  </EncabezadoOscuro>
+                  {esPorPorcion && <EncabezadoOscuro center width="120px">Rótulo por 100</EncabezadoOscuro>}
+                  <EncabezadoOscuro center width="90px">Desvío</EncabezadoOscuro>
+                  <EncabezadoOscuro center width="220px">Comparación</EncabezadoOscuro>
+                </FilaEncabezado>
+              </Table.Header>
+              <Table.Body>
+                {h.comparacion.nutrientes.map((f) => {
+                  const editado =
+                    porcionCambio ||
+                    (valores[f.nutriente] !== undefined && valores[f.nutriente] !== (guardados[f.nutriente] ?? ""));
+                  const estado = ESTADO_FILA[f.estado];
+                  return (
+                    <Table.Row key={f.nutriente}>
+                      <Celda>{f.nombre}</Celda>
                       <Celda center>
-                        {a100(valor(f.nutriente)) === null ? (
+                        {f.referencia === null ? (
                           <Text as="span" color="fg.muted">-</Text>
                         ) : (
-                          `${formatoCantidad(a100(valor(f.nutriente)))} ${f.unidad}`
+                          `${formatoCantidad(f.referencia)} ${f.unidad}`
                         )}
                       </Celda>
-                    )}
-                    <Celda center>{f.desvio_pct === null || editado ? "-" : `${formatoConSigno(Math.round(Number(f.desvio_pct) * 10) / 10)}%`}</Celda>
-                    <Celda center>
-                      {editado ? (
-                        <Text as="span" fontSize="sm" color="fg.muted">Sin guardar</Text>
-                      ) : (
-                        <EtiquetaEstado tono={estado.tono}>{estado.texto}</EtiquetaEstado>
+                      <Celda center>
+                        <HStack gap="2" justify="center">
+                          <FormInput
+                            value={valor(f.nutriente)}
+                            inputMode="decimal"
+                            textAlign="right"
+                            w="100px"
+                            aria-label={`${f.nombre} en el rótulo`}
+                            onChange={(e) => {
+                              if (PARCIAL_NUMERICO.test(e.target.value)) {
+                                setValores((prev) => ({ ...prev, [f.nutriente]: e.target.value }));
+                              }
+                            }}
+                          />
+                          <Text fontSize="sm" color="fg.muted" w="32px" textAlign="left">{f.unidad}</Text>
+                        </HStack>
+                      </Celda>
+                      {esPorPorcion && (
+                        <Celda center>
+                          {a100(valor(f.nutriente)) === null ? (
+                            <Text as="span" color="fg.muted">-</Text>
+                          ) : (
+                            `${formatoCantidad(a100(valor(f.nutriente)))} ${f.unidad}`
+                          )}
+                        </Celda>
                       )}
-                    </Celda>
-                  </Table.Row>
-                );
-              })}
-            </Table.Body>
-          </Table.Root>
-        </Box>
-
-        <TituloFormulario mt="6" mb="1" fontSize="md">Alérgenos declarados por la marca</TituloFormulario>
-        <Text fontSize="sm" color="fg.muted" mb="4">
-          Lo que la marca contiene tiene que estar en lo que contiene el ingrediente; lo que puede contener, en lo que
-          el ingrediente contiene o puede contener.
-        </Text>
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
-          {filasAlergenos.map((f) => {
-            const fila = h.comparacion.alergenos.find((a) => a.alergeno_id === f.id);
-            const noCumple = fila && !fila.cumple && alergenos[f.id] === undefined;
-            return (
-              <HStack key={f.id} justify="space-between" gap="3">
-                <Stack gap="0" minW="0">
-                  <Text fontSize="sm" color={noCumple ? "red.fg" : undefined} fontWeight={noCumple ? "medium" : undefined}>
-                    {f.nombre}
-                  </Text>
-                  <Text fontSize="xs" color="fg.muted">
-                    Ingrediente: {nivelIngrediente[f.id] ? ETIQUETA_NIVEL[nivelIngrediente[f.id]].toLowerCase() : "no"}
-                  </Text>
-                </Stack>
-                <Box w="170px" flexShrink={0}>
-                  <FormNativeSelect
-                    value={nivel(f.id)}
-                    onChange={(e) => setAlergenos((prev) => ({ ...prev, [f.id]: e.target.value as NivelSeleccion }))}
-                    aria-label={`Alérgeno ${f.nombre} en el rótulo`}
-                  >
-                    <option value="">No</option>
-                    <option value="contiene">{ETIQUETA_NIVEL.contiene}</option>
-                    <option value="puede_contener">{ETIQUETA_NIVEL.puede_contener}</option>
-                  </FormNativeSelect>
-                </Box>
-              </HStack>
-            );
-          })}
-        </SimpleGrid>
-
-        {invalidos.length > 0 && (
-          <Box mt="4">
-            <BannerError>Revisá los valores de {invalidos.map((f) => f.nombre).join(", ")}.</BannerError>
+                      <Celda center>{f.desvio_pct === null || editado ? "-" : `${formatoConSigno(Math.round(Number(f.desvio_pct) * 10) / 10)}%`}</Celda>
+                      <Celda center>
+                        {editado ? (
+                          <Text as="span" fontSize="sm" color="fg.muted">Sin guardar</Text>
+                        ) : (
+                          <EtiquetaEstado tono={estado.tono}>{estado.texto}</EtiquetaEstado>
+                        )}
+                      </Celda>
+                    </Table.Row>
+                  );
+                })}
+              </Table.Body>
+            </Table.Root>
           </Box>
-        )}
-        <HStack mt="5" gap="3">
-          <Button onClick={guardar} loading={guardando} disabled={!hayCambios || invalidos.length > 0 || !porcionValida}>
-            Guardar rótulo y comparar
-          </Button>
-          {hayCambios && (
-            <Button
-              variant="ghost"
-              disabled={guardando}
-              onClick={() => {
-                setValores({});
-                setAlergenos({});
-                setReferencia(null);
-                setPorPorcion(null);
-                setPorcion(null);
-              }}
-            >
-              Descartar cambios
-            </Button>
+
+          <TituloFormulario mt="6" mb="1" fontSize="md">Alérgenos declarados por la marca</TituloFormulario>
+          <Text fontSize="sm" color="fg.muted" mb="4">
+            Lo que la marca contiene tiene que estar en lo que contiene el ingrediente; lo que puede contener, en lo que
+            el ingrediente contiene o puede contener.
+          </Text>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+            {filasAlergenos.map((f) => {
+              const fila = h.comparacion.alergenos.find((a) => a.alergeno_id === f.id);
+              const noCumple = fila && !fila.cumple && alergenos[f.id] === undefined;
+              return (
+                <HStack key={f.id} justify="space-between" gap="3">
+                  <Stack gap="0" minW="0">
+                    <Text fontSize="sm" color={noCumple ? "red.fg" : undefined} fontWeight={noCumple ? "medium" : undefined}>
+                      {f.nombre}
+                    </Text>
+                    <Text fontSize="xs" color="fg.muted">
+                      Ingrediente: {nivelIngrediente[f.id] ? ETIQUETA_NIVEL[nivelIngrediente[f.id]].toLowerCase() : "no"}
+                    </Text>
+                  </Stack>
+                  <Box w="170px" flexShrink={0}>
+                    <FormNativeSelect
+                      value={nivel(f.id)}
+                      onChange={(e) => setAlergenos((prev) => ({ ...prev, [f.id]: e.target.value as NivelSeleccion }))}
+                      aria-label={`Alérgeno ${f.nombre} en el rótulo`}
+                    >
+                      <option value="">No</option>
+                      <option value="contiene">{ETIQUETA_NIVEL.contiene}</option>
+                      <option value="puede_contener">{ETIQUETA_NIVEL.puede_contener}</option>
+                    </FormNativeSelect>
+                  </Box>
+                </HStack>
+              );
+            })}
+          </SimpleGrid>
+
+          {invalidos.length > 0 && (
+            <Box mt="4">
+              <BannerError>Revisá los valores de {invalidos.map((f) => f.nombre).join(", ")}.</BannerError>
+            </Box>
           )}
-        </HStack>
-      </TarjetaFormulario>
+          <HStack mt="5" gap="3">
+            <Button onClick={guardar} loading={guardando} disabled={!hayCambios || invalidos.length > 0 || !porcionValida}>
+              Guardar rótulo y comparar
+            </Button>
+            {hayCambios && (
+              <Button
+                variant="ghost"
+                disabled={guardando}
+                onClick={() => {
+                  setValores({});
+                  setAlergenos({});
+                  setReferencia(null);
+                  setPorPorcion(null);
+                  setPorcion(null);
+                }}
+              >
+                Descartar cambios
+              </Button>
+            )}
+          </HStack>
+        </TarjetaFormulario>
+      )}
 
       <TarjetaFormulario mt="6">
         <TituloFormulario mb="3">Decisión</TituloFormulario>
         <HStack gap="3" mb="2" flexWrap="wrap">
           <EtiquetaEstado tono={resultado.tono}>{resultado.texto}</EtiquetaEstado>
-          <Text fontSize="sm">{resultado.detalle}</Text>
+          <Text fontSize="sm">
+            {h.sin_rotulo ? "Sin rótulo propio: toma la composición y los alérgenos del ingrediente." : resultado.detalle}
+          </Text>
         </HStack>
         {h.comparacion.problemas.length > 0 && (
           <Box as="ul" ps="5" mb="4" fontSize="sm" color="fg.muted">

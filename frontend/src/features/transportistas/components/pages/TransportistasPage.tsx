@@ -26,13 +26,14 @@ import type { Transportista } from "../../types/transportista";
 import { TransportistaTable } from "../TransportistaTable";
 import { ModalNuevaCertificacion } from "../ModalNuevaCertificacion";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function TransportistasPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("TransportistasPage.verInactivos", false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("TransportistasPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
 
   const orden = useOrdenTabla<string, OrdenTransportista>(

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento, columna_sede_pk
 from src.rotulado_frontal import constants as c
 
 
@@ -83,16 +84,18 @@ class ReglaRotuladoFrontal(ModeloBase):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
-class ConfiguracionModuloRotulado(ModeloBase):
-    """Interruptor global del módulo de octógonos.
+class ConfiguracionModuloRotulado(DatosDeEstablecimiento, ModeloBase):
+    """Interruptor del módulo de octógonos de cada sede.
 
     Es independiente de la versión de la regla para que apagar el módulo no
-    obligue a crear ni activar otra versión normativa. La fila única es id=1.
+    obligue a crear ni activar otra versión normativa (las reglas son
+    normativas y globales; el interruptor, de cada establecimiento). Una fila
+    por sede.
     """
 
     __tablename__ = "configuracion_modulo_rotulado"
 
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    establecimiento_id: Mapped[int] = columna_sede_pk()
     modulo_activo: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="1"
     )
@@ -101,7 +104,7 @@ class ConfiguracionModuloRotulado(ModeloBase):
     )
 
 
-class EvaluacionRotulado(ModeloBase):
+class EvaluacionRotulado(DatosDeEstablecimiento, ModeloBase):
     """Historial inmutable de evaluaciones de rotulado frontal.
 
     Guarda el snapshot completo para que un resultado pasado pueda
@@ -127,7 +130,7 @@ class EvaluacionRotulado(ModeloBase):
     instantanea: Mapped[dict] = mapped_column(JSON)
 
 
-class ConfiguracionRotuladoProducto(ModeloBase):
+class ConfiguracionRotuladoProducto(DatosDeEstablecimiento, ModeloBase):
     """Respuesta y correcciones manuales de un producto para E12.1.
 
     Un `None` significa "no hay corrección": la marca se deduce de la receta.

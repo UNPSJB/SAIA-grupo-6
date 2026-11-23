@@ -52,8 +52,14 @@ export interface MetadatosNodo {
   fecha_ingreso?: string | null;
   vence?: string | null;
   cantidad_usada?: string;
+  cantidad_desperdicio?: string;
+  /** Símbolo de la unidad: del ingrediente en un lote de insumo, del producto en el lote y las salidas. */
+  unidad?: string;
+  /** Ítems del checklist (etapas) en los que se consumió el lote de insumo. */
+  checklist_items?: number[];
   // lote de producto
-  producido?: string;
+  producido?: string | null;
+  objetivo?: string | null;
   inicio?: string | null;
   vencimiento?: string | null;
   version_receta?: number | null;
@@ -61,13 +67,16 @@ export interface MetadatosNodo {
   // despacho
   salida_id?: number;
   cantidad?: string;
+  forma_entrega?: string | null;
+  fecha_reserva?: string | null;
   fecha_despacho?: string | null;
-  transportista?: string | null;
-  certificaciones_transportista?: unknown;
-  // cliente
-  cliente_id?: number;
-  direccion?: string;
   fecha_entrega?: string | null;
   recibido_por?: string | null;
+  transportista?: string | null;
+  certificaciones_transportista?: string[];
   estado_salida?: string;
+  // cliente (y cliente_id también en la salida)
+  cliente_id?: number | null;
+  documento?: string | null;
+  direccion?: string | null;
 }

@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from src.establecimientos.contexto import sede_efectiva
 from src.common.fechas import hoy
 from src.common.estado_documento import VENCIDO
 from typing import List
@@ -142,12 +143,12 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
     return notificaciones
 
 def obtener_dias_alerta_vencimiento_personal(db: Session) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_DIAS_VENCIMIENTO_PERSONAL)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_DIAS_VENCIMIENTO_PERSONAL})
     return config.valor if config else DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO
 
 
 def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_DIAS_VENCIMIENTO_PERSONAL)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_DIAS_VENCIMIENTO_PERSONAL})
     if config:
         config.valor = dias
     else:
@@ -158,12 +159,12 @@ def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
 
 def obtener_plazo_reclamo_dias(db: Session) -> int:
     """Días de referencia para marcar un reclamo como fuera de plazo."""
-    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_PLAZO_RECLAMO_DIAS})
     return config.valor if config else PLAZO_RECLAMO_DIAS_POR_DEFECTO
 
 
 def actualizar_plazo_reclamo_dias(db: Session, dias: int) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_PLAZO_RECLAMO_DIAS})
     if config:
         config.valor = dias
     else:
@@ -174,12 +175,12 @@ def actualizar_plazo_reclamo_dias(db: Session, dias: int) -> int:
 
 def obtener_meta_cumplimiento_limpieza(db: Session) -> int:
     """Porcentaje de tareas de limpieza que se espera completar."""
-    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_META_CUMPLIMIENTO_LIMPIEZA})
     return config.valor if config else META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO
 
 
 def actualizar_meta_cumplimiento_limpieza(db: Session, porcentaje: int) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_META_CUMPLIMIENTO_LIMPIEZA})
     if config:
         config.valor = porcentaje
     else:
@@ -295,7 +296,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
                 titulo=titulo,
                 mensaje=mensaje,
                 nivel=nivel,
-                link_destino="/gestion-stock/lotes-insumo",
+                link_destino="/lotes-insumo",
                 fecha_referencia=lote.fecha_vencimiento,
                 grupo_clave=f"lote-insumo:{lote.id}",
             )
@@ -351,7 +352,7 @@ def obtener_notificaciones_homologacion_insumos(db: Session) -> List[Notificacio
                 titulo=titulo,
                 mensaje=mensaje,
                 nivel=nivel,
-                link_destino=f"/ingredientes/insumos/{insumo.id}/homologacion",
+                link_destino=f"/insumos/{insumo.id}/homologacion",
                 fecha_referencia=vence,
                 grupo_clave=f"homologacion-insumo:{insumo.id}",
             )

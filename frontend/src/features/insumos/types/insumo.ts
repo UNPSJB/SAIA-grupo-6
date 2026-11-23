@@ -17,6 +17,8 @@ export interface Insumo {
   /** Marca y, si hay, descripción: como se muestra en listas y lotes. */
   nombre: string;
   activo: boolean;
+  /** Producto no elaborado o a granel: sin rótulo propio, toma la composición del ingrediente. */
+  sin_rotulo: boolean;
   proveedores: { id: number; nombre: string }[];
   /** Solo de un insumo aprobado y con la homologación vigente se reciben y consumen lotes. */
   estado_homologacion: EstadoHomologacion;
@@ -37,6 +39,7 @@ export interface InsumoInput {
   descripcion: string | null;
   codigo_fabricante: string | null;
   proveedor_ids: number[];
+  sin_rotulo?: boolean;
 }
 
 /** El ingrediente no se cambia: los lotes ya recibidos quedarían incoherentes. */
@@ -48,7 +51,7 @@ export type InsumoCambios = Partial<Omit<InsumoInput, "ingrediente_id">> & { act
  */
 export type EstadoHomologacion = "pendiente" | "aprobada" | "rechazada" | "requiere_revision";
 export type ResultadoComparacion = "apta" | "observada" | "rechazada";
-export type EstadoFila = "ok" | "fuera_de_tolerancia" | "sin_dato" | "sin_referencia" | "bajo_umbral";
+export type EstadoFila = "ok" | "fuera_de_tolerancia" | "sin_dato" | "sin_referencia" | "bajo_umbral" | "sin_rotulo";
 export type NivelAlergenoRotulo = "contiene" | "puede_contener";
 
 export const ETIQUETA_ESTADO_HOMOLOGACION: Record<EstadoHomologacion, string> = {
@@ -106,6 +109,8 @@ export interface HomologacionInsumo {
   ingrediente_id: number;
   ingrediente_nombre: string;
   es_aditivo: boolean;
+  /** Sin rótulo propio: no hay comparación, toma la composición del ingrediente. */
+  sin_rotulo: boolean;
   estado: EstadoHomologacion;
   /** Resultado de la comparación cuando se decidió (apta u observada). */
   resultado_al_decidir: ResultadoComparacion | null;

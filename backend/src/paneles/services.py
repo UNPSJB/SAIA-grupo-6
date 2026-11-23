@@ -708,7 +708,7 @@ def panel_inventario(
                 detalle=f"{lote.proveedor_nombre} · vence el {lote.fecha_vencimiento:%d/%m/%Y}",
                 tono=tono,
                 estado=estado,
-                link="/stock-insumos",
+                link="/lotes-insumo",
             )
         )
 
@@ -1366,10 +1366,12 @@ def panel_calidad(
 # ────────────────────────────── Personas ──────────────────────────────
 
 
-def _rol(es_super_admin: bool, puede_administrar: bool, puede_operar: bool) -> tuple[str, str]:
+def _rol(es_super_admin: bool, es_gerente: bool, puede_administrar: bool, puede_operar: bool) -> tuple[str, str]:
     """Rol excluyente, con el mismo criterio que el listado de personal."""
     if es_super_admin:
         return "super_admin", "Super administradores"
+    if es_gerente:
+        return "gerente", "Gerentes"
     if puede_administrar:
         return "admin", "Administradores"
     if puede_operar:
@@ -1394,18 +1396,21 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
     transportistas_activos, transportistas_inactivos = _activos_inactivos(db, Transportista)
 
     roles: dict[tuple[str, str], int] = defaultdict(int)
-    for es_super, administra, opera, cantidad in db.execute(
-        select(Personal.es_super_admin, Personal.puede_administrar, Personal.puede_operar, func.count())
+    for es_super, gerente, administra, opera, cantidad in db.execute(
+        select(
+            Personal.es_super_admin, Personal.es_gerente, Personal.puede_administrar,
+            Personal.puede_operar, func.count(),
+        )
         .where(Personal.activo.is_(True))
-        .group_by(Personal.es_super_admin, Personal.puede_administrar, Personal.puede_operar)
+        .group_by(
+            Personal.es_super_admin, Personal.es_gerente, Personal.puede_administrar,
+            Personal.puede_operar,
+        )
     ).all():
-        roles[_rol(es_super, administra, opera)] += cantidad
+        roles[_rol(es_super, gerente, administra, opera)] += cantidad
 
-    vencimientos = [
-        v
-        for v in vencimientos_services.listar_vencimientos(db, "PERSONAL")
-        if v.estado in (VENCIDO, PROXIMO)
-    ]
+    todas_las_aptitudes = vencimientos_services.listar_vencimientos(db, "PERSONAL")
+    vencimientos = [v for v in todas_las_aptitudes if v.estado in (VENCIDO, PROXIMO)]
     aptitudes_atencion = []
     for v in vencimientos[:FILAS_LISTA]:
         tono, estado = _plazo(v.dias_restantes)
@@ -1442,6 +1447,13 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
         .limit(FILAS_RANKING)
     ).all()
 
+    # Total del período (el ranking de arriba se corta en FILAS_RANKING personas).
+    incidentes_reportados = db.scalar(
+        select(func.count(Incidente.id))
+        .join(Personal, Personal.id == Incidente.usuario_id)
+        .where(*_en_periodo(Incidente.fecha_reporte, periodo, True))
+    ) or 0
+
     reclamos_por_cliente = dict(
         db.execute(
             select(Reclamo.cliente_id, func.count())
@@ -1457,6 +1469,23 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
         .order_by(func.count(Salida.id).desc(), Cliente.nombre)
         .limit(FILAS_RANKING)
     ).all()
+
+    # De las salidas del período de esos clientes, cuántas recibieron al menos
+    # un reclamo (de cualquier fecha): separa las salidas con y sin reclamo.
+    salidas_con_reclamo: dict[str, int] = {}
+    if clientes:
+        salidas_con_reclamo = {
+            str(cliente_id): cantidad
+            for cliente_id, cantidad in db.execute(
+                select(Salida.cliente_id, func.count(func.distinct(Salida.id)))
+                .join(Reclamo, Reclamo.salida_id == Salida.id)
+                .where(
+                    Salida.cliente_id.in_([c[0] for c in clientes]),
+                    *_en_periodo(Salida.fecha_reserva, periodo, False),
+                )
+                .group_by(Salida.cliente_id)
+            ).all()
+        }
 
     entregas = db.execute(
         select(Transportista.id, Transportista.razon_social, func.count(Salida.id))
@@ -1487,6 +1516,7 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
         personal_inactivo=personal_inactivo,
         aptitudes_vencidas=sum(1 for v in vencimientos if v.estado == VENCIDO),
         aptitudes_proximas=sum(1 for v in vencimientos if v.estado == PROXIMO),
+        aptitudes_vigentes=len(todas_las_aptitudes) - len(vencimientos),
         clientes_activos=clientes_activos,
         clientes_inactivos=clientes_inactivos,
         transportistas_activos=transportistas_activos,
@@ -1508,6 +1538,20 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
             )
             for persona_id, nombre, apellido, n, c in asignadas[:FILAS_RANKING]
         ],
+        # Mismas filas que arriba, pero el ranking es por tareas hechas: quien
+        # más trabajo completó, aunque su porcentaje sea menor.
+        tareas_completadas_por_operador=[
+            schemas.Conteo(
+                clave=str(persona_id),
+                etiqueta=_nombre_persona(nombre, apellido),
+                valor=int(c),
+                detalle=f"{int(c)} de {_plural(n, 'tarea', 'tareas')}",
+            )
+            for persona_id, nombre, apellido, n, c in sorted(
+                asignadas, key=lambda fila: (-int(fila[4]), fila[1] or "")
+            )[:FILAS_RANKING]
+        ],
+        incidentes_reportados=incidentes_reportados,
         incidentes_por_persona=[
             schemas.Conteo(clave=str(persona_id), etiqueta=_nombre_persona(nombre, apellido), valor=cantidad)
             for persona_id, nombre, apellido, cantidad in incidentes
@@ -1526,6 +1570,7 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
             )
             for cliente_id, nombre, cantidad in clientes
         ],
+        salidas_con_reclamo_por_cliente=salidas_con_reclamo,
         entregas_por_transportista=[
             schemas.Conteo(clave=str(tid), etiqueta=razon, valor=cantidad)
             for tid, razon, cantidad in entregas
@@ -1620,7 +1665,7 @@ def _vencen_hoy(db: Session, hoy_dia: date) -> list[schemas.FilaAtencion]:
             detalle=lote.proveedor_nombre,
             tono="peligro",
             estado="Lote de insumo",
-            link="/stock-insumos",
+            link="/lotes-insumo",
         )
         for lote in lotes_insumo_services.stock_por_lote(db)
         if lote.saldo > 0 and lote.fecha_vencimiento == hoy_dia
@@ -1729,7 +1774,7 @@ def panel_inicio(db: Session, usuario: Personal, administra: bool) -> schemas.Pa
                 clave="inventario",
                 titulo="Inventario",
                 cifras=[
-                    _cifra("recibidos", "Lotes de insumo recibidos", inventario.lotes_recibidos, "/stock-insumos"),
+                    _cifra("recibidos", "Lotes de insumo recibidos", inventario.lotes_recibidos, "/lotes-insumo"),
                 ],
             )
         )

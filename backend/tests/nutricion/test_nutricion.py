@@ -63,6 +63,18 @@ def usuario(db_session):
     return persona
 
 
+@pytest.fixture
+def super_admin(db_session):
+    """Las reglas de la tabla y de homologación valen para todas las sedes:
+    solo el super admin las cambia."""
+    persona = Personal(
+        nombre="Sara", apellido="Super", dni="44556688", email="sara@test.local",
+        password="x", puede_operar=True, puede_administrar=True, es_super_admin=True,
+    )
+    _sin_auditoria(db_session, persona)
+    return persona
+
+
 def _unidad(nombre: str, simbolo: str) -> UnidadMedida:
     """Unidad con su tipo y factor reales: el cálculo los toma de la unidad."""
     return UnidadMedida(nombre=nombre, simbolo=simbolo, **equivalencia_conocida(nombre, simbolo))
@@ -539,8 +551,8 @@ def test_azucares_anadidos_salen_de_los_ingredientes_que_los_aportan(db_session,
     _cerca(_fila(info, "azucares_anadidos").por_100, "35.714")
 
 
-def test_columna_por_100_es_optativa(client_nutricion, db_session, usuario):
-    token, _, _ = crear_access_token(str(usuario.id))
+def test_columna_por_100_es_optativa(client_nutricion, db_session, usuario, super_admin):
+    token, _, _ = crear_access_token(str(super_admin.id))
     h = {"Authorization": f"Bearer {token}"}
     actuales = client_nutricion.get("/nutricion/parametros", headers=h).json()
     assert actuales["generales"]["mostrar_por_100"] is True
@@ -550,8 +562,8 @@ def test_columna_por_100_es_optativa(client_nutricion, db_session, usuario):
     assert r.json()["generales"]["mostrar_por_100"] is False
 
 
-def test_azucares_y_grasas_trans_no_admiten_valor_diario(client_nutricion, db_session, receta, usuario):
-    token, _, _ = crear_access_token(str(usuario.id))
+def test_azucares_y_grasas_trans_no_admiten_valor_diario(client_nutricion, db_session, receta, usuario, super_admin):
+    token, _, _ = crear_access_token(str(super_admin.id))
     h = {"Authorization": f"Bearer {token}"}
     actuales = client_nutricion.get("/nutricion/parametros", headers=h).json()
     trans = next(n for n in actuales["nutrientes"] if n["clave"] == "grasas_trans")
@@ -572,8 +584,8 @@ def test_azucares_y_grasas_trans_no_admiten_valor_diario(client_nutricion, db_se
     assert _fila(info, "azucares_totales").vd_texto == ""
 
 
-def test_leyendas_obligatorias_son_fijas(client_nutricion, db_session, receta, usuario):
-    token, _, _ = crear_access_token(str(usuario.id))
+def test_leyendas_obligatorias_son_fijas(client_nutricion, db_session, receta, usuario, super_admin):
+    token, _, _ = crear_access_token(str(super_admin.id))
     h = {"Authorization": f"Bearer {token}"}
     actuales = client_nutricion.get("/nutricion/parametros", headers=h).json()
     assert "profesional" in actuales["leyendas_fijas"]["leyenda_calculo"]
@@ -615,3 +627,11 @@ def test_frase_no_significativo_se_arma_sola(db_session, receta, usuario):
     assert "grasas trans" in info.leyenda_no_significativo
     assert "sodio" not in info.leyenda_no_significativo
 
+
+def test_solo_el_super_admin_cambia_las_reglas(client_nutricion, db_session, usuario):
+    token, _, _ = crear_access_token(str(usuario.id))
+    h = {"Authorization": f"Bearer {token}"}
+    actuales = client_nutricion.get("/nutricion/parametros", headers=h)
+    assert actuales.status_code == 200  # un admin las ve
+    r = client_nutricion.put("/nutricion/parametros", json=actuales.json(), headers=h)
+    assert r.status_code == 403  # pero no las cambia

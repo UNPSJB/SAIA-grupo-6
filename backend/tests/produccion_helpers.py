@@ -82,12 +82,37 @@ def _version_minima(db, lote):
     return version
 
 
+def _decidir_rotulado_frontal(db, producto_id):
+    """Regla vigente (si no hay) y producto de canal industrial: estado decidido."""
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from src.rotulado_frontal import constants as c
+    from src.rotulado_frontal.models import ConfiguracionRotuladoProducto, ReglaRotuladoFrontal
+
+    if db.scalar(select(ReglaRotuladoFrontal).where(ReglaRotuladoFrontal.vigente.is_(True))) is None:
+        db.add(ReglaRotuladoFrontal(
+            version=1, vigente=True, vigencia_desde=date(2022, 3, 23),
+            norma_origen="Ley 27.642 y Decreto 151/2022",
+        ))
+    configuracion = db.get(ConfiguracionRotuladoProducto, producto_id)
+    if configuracion is None:
+        db.add(ConfiguracionRotuladoProducto(
+            producto_id=producto_id, canal_comercializacion=c.CANAL_MAYORISTA_INDUSTRIAL,
+        ))
+    db.flush()
+
+
 def rotular_lote(db, lote):
     """Borrador de rotulado completo vinculado al lote (sin él, el lote no se vende).
 
     Completo incluye las declaraciones de alérgenos, gluten y conservación
     confirmadas: los ingredientes de la receta quedan evaluados, el producto
-    con su conservación y la revisión de las declaraciones, confirmada.
+    con su conservación y la revisión de las declaraciones, confirmada. Y el
+    rotulado frontal decidido: hay regla vigente y el producto se vende al
+    canal industrial (no lleva octógonos), así la evaluación no queda "sin
+    definir".
     """
     from datetime import date, timedelta
 
@@ -112,6 +137,7 @@ def rotular_lote(db, lote):
         producto = db.get(Producto, lote.producto_id)
         if not producto.conservacion:
             producto.conservacion = {"instrucciones": "Conservar en lugar fresco y seco."}
+        _decidir_rotulado_frontal(db, producto.id)
         borrador = BorradorRotulado(
             producto_id=lote.producto_id,
             version_receta_id=lote.version_receta_id,

@@ -93,6 +93,9 @@ export interface VistaPreviaAutocompletado {
   version_receta_numero: number | null;
   receta_encontrada: boolean;
   mensaje: string | null;
+  /** Del establecimiento activo. */
+  razon_social?: string | null;
+  domicilio?: string | null;
 }
 
 export interface BorradorRotuladoCreate {

@@ -27,6 +27,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -37,11 +38,11 @@ const ETIQUETAS_ORDEN: Record<ColumnaOrdenPlanLimpieza, string> = {
 
 export function PlanLimpiezaPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("PlanLimpiezaPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("PlanLimpiezaPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [equipoId, setEquipoId] = useState("");
+  const [equipoId, setEquipoId] = useEstadoNavegacion("PlanLimpiezaPage.equipoId", "");
   const orden = useOrdenTabla<ColumnaOrdenPlanLimpieza, "nombre_asc">(
     "nombre_asc"
   );

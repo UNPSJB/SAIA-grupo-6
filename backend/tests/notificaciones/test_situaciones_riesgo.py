@@ -541,7 +541,7 @@ def test_restaurar_vuelve_al_valor_sugerido(db_session):
 
     assert respuesta.impacto == 3
     assert respuesta.modificado is False
-    assert db_session.get(ConfiguracionImpacto, "PLAGAS") is None
+    assert db_session.get(ConfiguracionImpacto, {"establecimiento_id": 1, "tipo": "PLAGAS"}) is None
 
 
 def test_un_tipo_inexistente_es_404(db_session):

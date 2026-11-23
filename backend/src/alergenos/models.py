@@ -9,6 +9,7 @@ from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
 class Alergeno(ModeloBase):
@@ -25,7 +26,7 @@ class Alergeno(ModeloBase):
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class IngredienteAlergeno(ModeloBase):
+class IngredienteAlergeno(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "ingredientes_alergenos"
     __table_args__ = (
         CheckConstraint(
@@ -52,7 +53,7 @@ class IngredienteAlergeno(ModeloBase):
     alergeno: Mapped["Alergeno"] = relationship()
 
 
-class InsumoAlergeno(ModeloBase):
+class InsumoAlergeno(DatosDeEstablecimiento, ModeloBase):
     """Alérgeno que declara el rótulo de un insumo (marca).
 
     Se compara con los del ingrediente al homologar: no tienen tolerancia.

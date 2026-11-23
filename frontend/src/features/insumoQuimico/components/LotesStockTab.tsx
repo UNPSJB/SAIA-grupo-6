@@ -28,15 +28,16 @@ import { useLotesStock } from "../hooks/useLotesStock";
 import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
 import { formatoFecha } from "../../../common/utils/fechas";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function LotesStockTab() {
   const { proveedores } = useProveedores(true);
   const [insumos, setInsumos] = useState<InsumoQuimicoOpcion[]>([]);
-  const [proveedor, setProveedor] = useState("");
-  const [producto, setProducto] = useState("");
-  const [numeroLote, setNumeroLote] = useState("");
+  const [proveedor, setProveedor] = useEstadoNavegacion("LotesStockTab.proveedor", "");
+  const [producto, setProducto] = useEstadoNavegacion("LotesStockTab.producto", "");
+  const [numeroLote, setNumeroLote] = useEstadoNavegacion("LotesStockTab.numeroLote", "");
   const numeroLoteAplicado = useValorDebounced(numeroLote);
   const { lotes, total, page, setPage, hayVariasPaginas, loading, error } = useLotesStock({
     proveedor_id: proveedor ? Number(proveedor) : undefined,

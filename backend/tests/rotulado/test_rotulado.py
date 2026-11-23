@@ -313,3 +313,44 @@ def test_recalcular_reemplaza_solo_la_tabla_de_otra_version(datos, monkeypatch):
     assert despues.nutricion.tabla.version_id == version.id
     historial = services.obtener_historial_ediciones(db, borrador.id)
     assert any(c.campo == "datos_nutricionales_json" and c.valor_original == inicial for c in historial)
+
+
+def test_exportar_pdf_con_anexo_de_receta(datos):
+    # El anexo lista los ingredientes de la versión (antes leía `insumo` y
+    # la exportación fallaba con un 500).
+    from src.rotulado import exportacion
+
+    db, producto, _receta, version = datos
+    borrador = services.crear_borrador(
+        db, producto.id, schemas.BorradorRotuladoCreate(producto_id=producto.id, version_receta_id=version.id),
+    )
+    contenido = exportacion.exportar_borrador_pdf(db, borrador.id, None)
+    assert contenido.startswith(b"%PDF")
+
+
+def test_sin_lote_el_rotulo_queda_pendiente(datos):
+    db, producto, _receta, version = datos
+    borrador = services.crear_borrador(
+        db, producto.id, schemas.BorradorRotuladoCreate(producto_id=producto.id, version_receta_id=version.id),
+    )
+    completitud = services.calcular_completitud(db, borrador.id)
+    lote = next(c for c in completitud.campos if c.nombre == "lote_producto")
+    assert lote.estado == "pendiente"
+    assert completitud.estado_global == "pendiente"
+
+
+def test_autocompletar_trae_razon_social_y_domicilio_del_establecimiento(datos):
+    from src.establecimientos.models import ESTABLECIMIENTO_PRINCIPAL_ID, Establecimiento
+
+    db, producto, _receta, version = datos
+    sede = db.get(Establecimiento, ESTABLECIMIENTO_PRINCIPAL_ID)
+    sede.razon_social, sede.direccion = "Alimentos del Sur S.A.", "Parque Industrial, Trelew"
+    db.commit()
+    vista = services.preview_autocompletado(db, producto.id)
+    assert (vista.razon_social, vista.domicilio) == ("Alimentos del Sur S.A.", "Parque Industrial, Trelew")
+    borrador = services.crear_borrador(
+        db, producto.id, schemas.BorradorRotuladoCreate(producto_id=producto.id, version_receta_id=version.id, domicilio="Manual 1"),
+    )
+    services.autocompletar_borrador(db, borrador.id, version.id, None, False)
+    assert borrador.razon_social == "Alimentos del Sur S.A."
+    assert borrador.domicilio == "Manual 1"  # sin forzar no pisa lo cargado a mano

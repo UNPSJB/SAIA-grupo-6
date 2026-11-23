@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useEstadoNavegacion } from "./useEstadoNavegacion";
 import { usePaginas } from "./usePaginas";
 
 /**
@@ -36,7 +37,7 @@ export function usePaginacionConFiltro<T extends { activo: boolean }>(
   items: T[],
   pageSize = 10,
 ) {
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("usePaginacionConFiltro.verInactivos", false);
   const paginacion = usePaginacion(items, verInactivos, pageSize);
 
   const cambiarFiltro = useCallback(
@@ -46,7 +47,7 @@ export function usePaginacionConFiltro<T extends { activo: boolean }>(
       // página vacía.
       paginacion.primeraPagina();
     },
-    [paginacion],
+    [paginacion, setVerInactivos],
   );
 
   return { ...paginacion, verInactivos, cambiarFiltro };

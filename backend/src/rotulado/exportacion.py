@@ -31,9 +31,9 @@ def exportar_borrador_pdf(db: Session, borrador_id: int, usuario_id: int) -> byt
     )
     actual = schemas.InstantaneaNutricional.model_validate_json(services._serializar_nutricion(nutricion))
     guardada = vista.nutricion.tabla
-    coincide = guardada is not None and actual.model_dump(exclude={"calculado_en"}) == guardada.model_dump(
-        exclude={"calculado_en"},
-    )
+    coincide = guardada is not None and actual.model_dump(
+        exclude=services._SOLO_PRESENTACION
+    ) == guardada.model_dump(exclude=services._SOLO_PRESENTACION)
     generado = datetime.now(ZoneInfo(settings.ZONA_HORARIA))
     contenido = pdf.generar_pdf(vista, receta, composicion, nutricion, fuentes, coincide, generado)
     db.add(AuditLog(

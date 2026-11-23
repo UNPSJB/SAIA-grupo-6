@@ -8,8 +8,13 @@ from sqlalchemy.orm import Session
 from src.personal.models import Personal
 
 
+# El arranque mira la empresa entera, no la sede activa: con que haya un
+# administrador en cualquier sede, el sistema ya está gobernado.
+_TODAS = {"todos_los_establecimientos": True}
+
+
 def contar_personas(db: Session) -> int:
-    return db.scalar(select(func.count(Personal.id))) or 0
+    return db.scalar(select(func.count(Personal.id)).execution_options(**_TODAS)) or 0
 
 
 def hay_administradores(db: Session) -> bool:
@@ -26,7 +31,7 @@ def hay_administradores(db: Session) -> bool:
                 Personal.puede_administrar.is_(True),
                 Personal.es_super_admin.is_(True),
             )
-        )
+        ).execution_options(**_TODAS)
     )
 
     return (cantidad or 0) > 0

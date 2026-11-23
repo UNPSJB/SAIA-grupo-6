@@ -97,6 +97,8 @@ class TrazabilidadLoteInsumo(BaseModel):
     lote_insumo: LoteInsumoTraza
     cantidad_recibida: Decimal
     saldo: Decimal
+    # Símbolo de la unidad del ingrediente (para mostrar recibido y saldo).
+    unidad: str = ""
     lotes_producto: list[LoteProductoUsoIngrediente]
 
 

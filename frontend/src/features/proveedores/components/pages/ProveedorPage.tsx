@@ -24,13 +24,14 @@ import { useProveedores } from "../../hooks/useProveedores";
 import type { Proveedor } from "../../types/proveedor";
 import { ProveedorTable } from "../ProveedorTable";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function ProveedorPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("ProveedorPage.verInactivos", false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("ProveedorPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
 
   const { proveedores, loading, error, cargarProveedores } = useProveedores(

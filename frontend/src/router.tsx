@@ -20,6 +20,7 @@ import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
 // `lazyPrecargable` es `lazy()` + la posibilidad de bajar el chunk antes del
 // clic (al pasar el puntero por el enlace): ver `usePrecargaRutas`.
 import { lazyPrecargable, usePrecargaRutas } from "./common/hooks/usePrecargaRutas";
+import { useRegistrarHistorial } from "./common/hooks/historialNavegacion";
 import { DEGRADADO_MARCA, FONDO_PESTANA } from "./theme";
 
 
@@ -125,8 +126,11 @@ const RecetaDetallePage = lazyPrecargable(() =>
 const RecetaNuevaVersionPage = lazyPrecargable(() =>
   import("./features/recetas/components/pages/RecetaNuevaVersionPage").then((mod) => ({ default: mod.RecetaNuevaVersionPage })),
 );
-const StockInsumosPage = lazyPrecargable(() =>
-  import("./features/lotesInsumo/components/StockInsumosPage").then((mod) => ({ default: mod.StockInsumosPage })),
+const LotesInsumoPage = lazyPrecargable(() =>
+  import("./features/lotesInsumo/components/StockInsumosPage").then((mod) => ({ default: mod.LotesInsumoPage })),
+);
+const StockIngredientesPage = lazyPrecargable(() =>
+  import("./features/lotesInsumo/components/StockInsumosPage").then((mod) => ({ default: mod.StockIngredientesPage })),
 );
 const LoteInsumoCreatePage = lazyPrecargable(() =>
   import("./features/lotesInsumo/components/pages/LoteInsumoCreatePage").then((mod) => ({ default: mod.LoteInsumoCreatePage })),
@@ -318,6 +322,21 @@ const AptitudEditPage = lazyPrecargable(() =>
   import("./features/aptitud/components/pages/AptitudEditPage").then((mod) => ({ default: mod.AptitudEditPage })),
 );
 
+// Tablero comparativo entre sedes (gerentes y super admin)
+const ComparativoPage = lazyPrecargable(() =>
+  import("./features/comparativo/ComparativoPage").then((mod) => ({ default: mod.ComparativoPage })),
+);
+
+// Insumos: lo que se compra (marcas de cada ingrediente) y su homologación
+const InsumosPage = lazyPrecargable(() =>
+  import("./features/insumos/components/pages/InsumosPage").then((mod) => ({ default: mod.InsumosPage })),
+);
+
+// Establecimientos (solo super admin)
+const EstablecimientosPage = lazyPrecargable(() =>
+  import("./features/establecimientos/components/pages/EstablecimientosPage").then((mod) => ({ default: mod.EstablecimientosPage })),
+);
+
 //  Sector
 const SectorPage = lazyPrecargable(() =>
   import("./features/sector/components/pages/SectorPage").then((mod) => ({ default: mod.SectorPage })),
@@ -391,6 +410,8 @@ const leerRutas = () => router.routes;
 // y el contenido de la pantalla debajo.
 function LayoutPrincipal() {
   const { user } = useAuth();
+  // Para que las flechas de la app vuelvan de verdad (con los filtros).
+  useRegistrarHistorial();
   const contenidoRef = useRef<HTMLDivElement>(null);
   useTablasResponsivas(contenidoRef);
   // Baja el código de cada pantalla cuando el puntero pasa por su enlace, así
@@ -922,6 +943,22 @@ export const router = createBrowserRouter([
 
               // ---------------- SECTORES ----------------
               {
+                path: "/comparativo",
+                element: (
+                <ConSuspense>
+                  <ComparativoPage />
+                </ConSuspense>
+              ),
+              },
+              {
+                path: "/establecimientos",
+                element: (
+                <ConSuspense>
+                  <EstablecimientosPage />
+                </ConSuspense>
+              ),
+              },
+              {
                 path: "/sectores",
                 element: (
                 <ConSuspense>
@@ -1047,12 +1084,17 @@ export const router = createBrowserRouter([
                 element: <Navigate to="/rotulado?tab=reglas" replace />,
               },
               {
-                path: "/ingredientes/insumos/:id/homologacion",
+                path: "/insumos/:id/homologacion",
                 element: (
                   <ConSuspense>
                     <HomologacionInsumoPage />
                   </ConSuspense>
                 ),
+              },
+              // Ruta vieja, de cuando los insumos colgaban de la ficha del ingrediente.
+              {
+                path: "/ingredientes/insumos/:id/homologacion",
+                element: <RedirigirConId a={(id) => `/insumos/${id}/homologacion`} />,
               },
               {
                 path: "/ingredientes/:id/nutricion",
@@ -1065,7 +1107,7 @@ export const router = createBrowserRouter([
               {
                 // Los parámetros nutricionales son ahora pestañas de Recetas.
                 path: "/nutricion",
-                element: <Navigate to="/recetas?tab=parametros" replace />,
+                element: <Navigate to="/rotulado?tab=tabla" replace />,
               },
               {
                 path: "/recetas/nueva",
@@ -1106,12 +1148,34 @@ export const router = createBrowserRouter([
 
               // ---------------- LOTES DE INGREDIENTE Y TRAZABILIDAD ----------------
               {
-                path: "/stock-insumos",
+                path: "/lotes-insumo",
                 element: (
                   <ConSuspense>
-                    <StockInsumosPage />
+                    <LotesInsumoPage />
                   </ConSuspense>
                 ),
+              },
+              {
+                path: "/insumos",
+                element: (
+                  <ConSuspense>
+                    <InsumosPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/stock-ingredientes",
+                element: (
+                  <ConSuspense>
+                    <StockIngredientesPage />
+                  </ConSuspense>
+                ),
+              },
+              // Ruta vieja ("Stock de insumos", con pestañas): los enlaces y
+              // marcadores guardados siguen andando.
+              {
+                path: "/stock-insumos",
+                element: <Navigate to="/lotes-insumo" replace />,
               },
               {
                 path: "/lotes-insumo/nuevo",

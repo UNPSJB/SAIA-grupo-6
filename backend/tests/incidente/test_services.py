@@ -396,6 +396,28 @@ def test_listar_mis_incidentes_solo_del_usuario(db_session):
     assert resultado[0].usuario_id == u1.id
 
 
+def test_listar_incidentes_filtro_reportado_por(db_session):
+    # Arrange: el panel de Personas abre el listado filtrado por quien reportó.
+    u1 = _personal_admin(db_session, dni="11111111", email="u1@test.com")
+    u2 = _personal_admin(db_session, dni="22222222", email="u2@test.com")
+    sector = _sector(db_session)
+    equipo = _equipo(db_session, sector.id)
+    for _ in range(2):
+        crear_incidente(db_session, _datos_incidente(equipo_id=equipo.id), u1.id)
+    crear_incidente(db_session, _datos_incidente(equipo_id=equipo.id), u2.id)
+
+    # Act
+    todos = listar_incidentes(db_session, reportado_por=u1.id)
+    items, total = listar_incidentes_paginado(
+        db_session, None, None, None, None, None, 1, 10, reportado_por=u1.id,
+    )
+
+    # Assert
+    assert len(todos) == 2
+    assert total == 2
+    assert all(i.usuario_id == u1.id for i in [*todos, *items])
+
+
 # ---------------------------------------------------------------------------
 # listar_mis_incidentes_paginado
 # ---------------------------------------------------------------------------

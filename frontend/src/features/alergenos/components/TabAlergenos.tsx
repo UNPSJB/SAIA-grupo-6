@@ -24,19 +24,22 @@ import {
 } from "../services/alergenoService";
 import type { Alergeno } from "../types/alergeno";
 import { AlergenoDialog } from "./AlergenoDialog";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 /** Pestaña "Alérgenos" de Ingredientes: el catálogo que se asigna a cada ingrediente. */
 export function TabAlergenos() {
-  const [verBajas, setVerBajas] = useState(false);
+  const [verBajas, setVerBajas] = useEstadoNavegacion("TabAlergenos.verBajas", false);
   const [editando, setEditando] = useState<Alergeno | "nuevo" | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
   const cargar = useCallback(() => listarAlergenos(verBajas), [verBajas]);
-  const { items: alergenos, loading, error, recargar } = useLista<Alergeno[]>({
+  const { items: todos, loading, error, recargar } = useLista<Alergeno[]>({
     cargar,
     dependencias: [verBajas],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los alérgenos.",
   });
+  // "Ver dados de baja": solo los dados de baja (como en el resto de los listados).
+  const alergenos = todos.filter((a) => (verBajas ? !a.activo : a.activo));
 
   const accion = async (fn: () => Promise<unknown>) => {
     setErrorAccion(null);

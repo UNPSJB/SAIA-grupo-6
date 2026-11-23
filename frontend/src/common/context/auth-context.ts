@@ -22,6 +22,10 @@ export interface User {
   puede_operar: boolean;
   puede_administrar: boolean;
   es_super_admin: boolean;
+  /** Administrador máximo de su establecimiento (ve el tablero comparativo). */
+  es_gerente?: boolean;
+  /** Sede del usuario; `null` para el super admin, que es de la empresa. */
+  establecimiento_id?: number | null;
   debe_cambiar_password?: boolean;
 }
 

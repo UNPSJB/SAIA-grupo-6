@@ -11,6 +11,10 @@ cambia la marca. Cada marca carga lo que declara su rótulo y se compara:
   lo que el ingrediente *contiene*; lo que *puede contener*, entre lo que el
   ingrediente contiene o puede contener.
 
+Un insumo *sin rótulo* (no elaborado o a granel: frutas, verduras, huevos)
+no se compara: toma la composición y los alérgenos del ingrediente, así que
+resulta apto y la aprobación es solo la decisión registrada del admin.
+
 Resultado: apta (todo bien), observada (algún nutriente fuera de tolerancia o
 sin dato en el rótulo: se aprueba solo con justificación) o rechazada (los
 alérgenos no cumplen: no se puede aprobar). Solo un insumo aprobado recibe
@@ -47,6 +51,7 @@ ESTADO_FUERA = "fuera_de_tolerancia"
 ESTADO_SIN_DATO = "sin_dato"
 ESTADO_SIN_REFERENCIA = "sin_referencia"
 ESTADO_BAJO_UMBRAL = "bajo_umbral"
+ESTADO_SIN_ROTULO = "sin_rotulo"
 
 CIEN = Decimal(100)
 
@@ -146,6 +151,8 @@ def guardar_rotulo(
     from src.nutricion.services import _admitidos, asegurar_parametros
 
     insumo = _insumo(db, insumo_id)
+    if insumo.sin_rotulo:
+        raise exceptions.InsumoSinRotulo()
     asegurar_parametros(db)
     admitidos = _admitidos(insumo.ingrediente)
     vistos: set[str] = set()
@@ -220,7 +227,11 @@ def evaluar(db: Session, insumo: Insumo) -> schemas.ComparacionHomologacion:
         ref = referencia.get(clave)
         rot = rotulo.get(clave)
         desvio: Optional[Decimal] = None
-        if ref is None:
+        if insumo.sin_rotulo:
+            # Sin rótulo propio: se toma el valor del ingrediente tal cual.
+            estado = ESTADO_SIN_ROTULO
+            rot = None
+        elif ref is None:
             estado = ESTADO_SIN_REFERENCIA
         elif rot is None:
             estado = ESTADO_SIN_DATO
@@ -253,7 +264,8 @@ def evaluar(db: Session, insumo: Insumo) -> schemas.ComparacionHomologacion:
             .options(selectinload(IngredienteAlergeno.alergeno))
         ).all()
     }
-    del_insumo = _alergenos_de_insumo(db, insumo.id)
+    # Sin rótulo, la marca no declara alérgenos propios: rigen los del ingrediente.
+    del_insumo = {} if insumo.sin_rotulo else _alergenos_de_insumo(db, insumo.id)
     alergenos: list[schemas.FilaAlergeno] = []
     for alergeno_id in sorted(set(del_ingrediente) | set(del_insumo)):
         fila_ing = del_ingrediente.get(alergeno_id)
@@ -319,6 +331,7 @@ def obtener_homologacion(db: Session, insumo_id: int) -> schemas.HomologacionIns
         ingrediente_id=insumo.ingrediente_id,
         ingrediente_nombre=insumo.ingrediente.nombre,
         es_aditivo=insumo.ingrediente.es_aditivo,
+        sin_rotulo=insumo.sin_rotulo,
         estado=insumo.estado_homologacion,
         resultado_al_decidir=insumo.resultado_homologacion,
         justificacion=insumo.justificacion_homologacion,
@@ -370,6 +383,24 @@ def decidir(
 
     invalidar_notificaciones(db)
     return obtener_homologacion(db, insumo.id)
+
+
+def cambiar_sin_rotulo(db: Session, insumo: Insumo) -> None:
+    """Se marcó o desmarcó "sin rótulo". No hace commit.
+
+    Al marcarlo se borra el rótulo cargado (ya no se usa). Al desmarcarlo, una
+    aprobación previa no vale para un rótulo que nadie cargó: si estaba
+    aprobada, pasa a revisión.
+    """
+    if insumo.sin_rotulo:
+        insumo.rotulo_referencia = None
+        insumo.rotulo_porcion = None
+        insumo.valores_rotulo = []
+        for fila in _alergenos_de_insumo(db, insumo.id).values():
+            db.delete(fila)
+    elif insumo.estado_homologacion == ESTADO_APROBADA:
+        insumo.estado_homologacion = ESTADO_REQUIERE_REVISION
+    db.flush()
 
 
 # ── Revisión automática ────────────────────────────────────────────────────

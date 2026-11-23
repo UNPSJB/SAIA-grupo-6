@@ -104,6 +104,18 @@ def _actor(target: Any) -> Optional[int]:
     return sesion.info.get("usuario_id")
 
 
+def _establecimiento(target: Any) -> Optional[int]:
+    """Sede del evento: la de la fila auditada.
+
+    Un cambio sobre un catálogo global (alérgenos, unidades) no es de ninguna
+    sede: queda NULL y lo ven todas.
+    """
+    if hasattr(type(target), "establecimiento_id"):
+        valor = inspect(target).attrs["establecimiento_id"].loaded_value
+        return None if valor is NO_VALUE else valor
+    return None
+
+
 def _identidad(target: Any) -> str:
     """PK del objeto auditado; si es compuesta, unida con "-"."""
     estado = inspect(target)
@@ -159,6 +171,7 @@ def _registrar(
     """
     connection.execute(
         AuditLog.__table__.insert().values(
+            establecimiento_id=_establecimiento(target),
             usuario_id=_actor(target),
             entidad=type(target).__tablename__,
             entidad_id=_identidad(target),

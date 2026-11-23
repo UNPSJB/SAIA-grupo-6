@@ -14,6 +14,8 @@ class InsumoCreate(BaseModel):
     descripcion: str | None = Field(default=None, max_length=200)
     codigo_fabricante: str | None = Field(default=None, max_length=60)
     proveedor_ids: list[int] = Field(default_factory=list)
+    # Producto no elaborado o a granel, sin rótulo propio (ver el modelo).
+    sin_rotulo: bool = False
 
     @field_validator("marca")
     @classmethod
@@ -33,6 +35,7 @@ class InsumoUpdate(BaseModel):
     descripcion: str | None = Field(default=None, max_length=200)
     codigo_fabricante: str | None = Field(default=None, max_length=60)
     proveedor_ids: list[int] | None = None
+    sin_rotulo: bool | None = None
     activo: bool | None = None
 
     @field_validator("marca")
@@ -74,6 +77,7 @@ class InsumoResponse(BaseModel):
     codigo_fabricante: str | None
     nombre: str
     activo: bool
+    sin_rotulo: bool = False
     proveedores: list[ProveedorResumen] = []
     # pendiente / aprobada / rechazada / requiere_revision. Solo "aprobada" recibe lotes.
     estado_homologacion: str
@@ -166,6 +170,8 @@ class HomologacionInsumo(BaseModel):
     ingrediente_id: int
     ingrediente_nombre: str
     es_aditivo: bool
+    # Sin rótulo propio: no hay comparación, toma la composición del ingrediente.
+    sin_rotulo: bool = False
     estado: str
     resultado_al_decidir: str | None
     justificacion: str | None

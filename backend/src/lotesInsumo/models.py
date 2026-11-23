@@ -16,9 +16,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora, hoy
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class LoteInsumo(ModeloBase):
+class LoteInsumo(DatosDeEstablecimiento, ModeloBase):
     
     __tablename__ = "lotes_insumo"
     __table_args__ = (
@@ -78,7 +79,7 @@ class LoteInsumo(ModeloBase):
     )
 
 
-class BajaLoteInsumo(ModeloBase):
+class BajaLoteInsumo(DatosDeEstablecimiento, ModeloBase):
     """Registro auditado de baja parcial o total de un lote de insumo."""
 
     __tablename__ = "bajas_lote_insumo"

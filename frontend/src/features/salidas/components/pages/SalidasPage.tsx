@@ -41,6 +41,7 @@ import { ModalNuevoReclamo } from "../../../reclamos/components/ModalNuevoReclam
 import { notificarCambioIncidentes } from "../../../incidente/eventoIncidentes";
 import { SalidaTable } from "../SalidaTable";
 import type { Salida } from "../../types/salida";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -56,8 +57,8 @@ export function TabSalidas() {
   const puedeRegistrarRechazo = puedeOperar(user);
   const puedeResolverRechazo = puedeAdministrar(user);
 
-  const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState<EstadoSalida | "">("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("SalidasPage.busqueda", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoSalida | "">("SalidasPage.estado", "");
 
   const { salidas, loading, error, recargarSalidas } = useSalidas({
     estado: estado || undefined,

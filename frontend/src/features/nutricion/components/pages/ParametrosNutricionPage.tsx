@@ -46,6 +46,9 @@ import {
   type ResultadoImportacion,
 } from "../../types/nutricion";
 import { Aviso, Bloque } from "../piezas";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
+import { useAuth } from "../../../../common/context/useAuth";
+import { esSuperAdmin } from "../../../../common/api/permissions";
 
 /**
  * Parámetros de la tabla nutricional y base de composición (E11).
@@ -64,8 +67,22 @@ function ejemplo(valor: number, n: ParametroNutriente) {
   return valor.toLocaleString("es-AR", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
-/** Pestaña "Parámetros nutricionales" de Recetas: redondeo, valores diarios y notas. */
-export function PanelParametros() {
+/**
+ * Reglas que valen para todas las sedes, en dos lugares:
+ *   - `tabla`: pestaña "Tabla nutricional" de Rotulado (valores diarios,
+ *     umbrales, redondeo y formato de la tabla del rótulo);
+ *   - `homologacion`: "Reglas de homologación" de Insumos (tolerancia y
+ *     vigencia de la aprobación de una marca).
+ * Solo el super admin las cambia; el resto las ve en solo lectura.
+ */
+export function PanelParametros({
+  seccion = "tabla",
+  onGuardado,
+}: {
+  seccion?: "tabla" | "homologacion";
+  onGuardado?: () => void;
+}) {
+  const puedeEditar = esSuperAdmin(useAuth().user);
   const [datos, setDatos] = useState<Parametros | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -100,7 +117,14 @@ export function PanelParametros() {
         })),
       });
       setDatos(guardado);
-      toaster.create({ type: "success", title: "Parámetros guardados. Las tablas se calculan con ellos desde ahora." });
+      toaster.create({
+        type: "success",
+        title:
+          seccion === "tabla"
+            ? "Reglas guardadas. Las tablas se calculan con ellas desde ahora."
+            : "Reglas de homologación guardadas.",
+      });
+      onGuardado?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron guardar los parámetros.");
     } finally {
@@ -119,7 +143,15 @@ export function PanelParametros() {
   return (
     <Box as="form" {...{ noValidate: true }} onSubmit={guardar}>
       {error && <BannerError mb="4">{error}</BannerError>}
-
+      {!puedeEditar && (
+        <Aviso tono="info" mb="5">
+          Estas reglas valen para todas las sedes: solo el super administrador puede cambiarlas.
+        </Aviso>
+      )}
+      {/* Sin permiso, los controles quedan deshabilitados (solo lectura). */}
+      <fieldset disabled={!puedeEditar} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      {seccion === "tabla" && (
+      <>
       <Bloque
         titulo="Por nutriente"
         icono={LuSlidersHorizontal}
@@ -248,6 +280,10 @@ export function PanelParametros() {
         </Stack>
       </Bloque>
 
+      </>
+      )}
+
+      {seccion === "homologacion" && (
       <Bloque
         titulo="Homologación de insumos"
         icono={LuScale}
@@ -257,7 +293,7 @@ export function PanelParametros() {
           <CampoParametro
             titulo="Tolerancia de los valores nutricionales"
             descripcion="Desvío máximo, en más o en menos, entre el valor por 100 g del rótulo de la marca y el valor objetivo del ingrediente. Si un nutriente se pasa, la comparación queda «observada» y la marca solo se puede aprobar con una justificación. Los valores que en los dos casos están por debajo del umbral de «no significativo» se toman como iguales."
-            aparece={["Homologación de insumos (ficha del ingrediente)"]}
+            aparece={["Homologación de cada insumo"]}
             vacio="Más de 0 y hasta 100 %. El valor inicial es 20 %."
             obligatorio
           >
@@ -289,12 +325,16 @@ export function PanelParametros() {
             vacio="De 1 a 60 meses. El valor inicial es 12 meses."
             obligatorio
           >
-            <Box w="140px">
+            <Box w="170px">
               <InputGroup endElement="meses">
                 <FormInput
                   size="sm"
                   textAlign="right"
                   inputMode="numeric"
+                  // "meses" es más ancho que el lugar que el grupo reserva
+                  // para la unidad (pensado para "%"): sin esto, el número
+                  // quedaba debajo de la palabra.
+                  pe="20"
                   value={String(datos.generales.vigencia_homologacion_meses)}
                   onChange={(e) => {
                     if (/^\d{0,2}$/.test(e.target.value)) {
@@ -312,9 +352,14 @@ export function PanelParametros() {
         </Stack>
       </Bloque>
 
-      <HStack justify="flex-end">
-        <BotonGuardar loading={guardando}>Guardar parámetros</BotonGuardar>
-      </HStack>
+      )}
+      </fieldset>
+
+      {puedeEditar && (
+        <HStack justify="flex-end">
+          <BotonGuardar loading={guardando}>Guardar</BotonGuardar>
+        </HStack>
+      )}
     </Box>
   );
 }
@@ -342,11 +387,11 @@ function descargarPlantilla() {
   URL.revokeObjectURL(enlace);
 }
 
-/** Pestaña "Base de composición" de Recetas: importar y consultar alimentos. */
+/** Pestaña "Base de composición" de Ingredientes: importar y consultar alimentos. */
 export function PanelBase() {
   const [bases, setBases] = useState<string[]>([]);
   const [base, setBase] = useState("");
-  const [texto, setTexto] = useState("");
+  const [texto, setTexto] = useEstadoNavegacion("ParametrosNutricionPage.texto", "");
   const buscar = useValorDebounced(texto);
   const [alimentos, setAlimentos] = useState<AlimentoReferencia[]>([]);
   const [error, setError] = useState<string | null>(null);

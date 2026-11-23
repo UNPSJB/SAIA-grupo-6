@@ -90,7 +90,7 @@ export function UnidadMedidaForm({
     <FormularioAlta onSubmit={handleSubmit}>
       <SeccionFormulario>
         <GrillaFormulario>
-          <FormField label="Nombre" required>
+          <FormField label="Nombre" required completo="doble">
             <FormInput
               value={values.nombre}
               onChange={handleNombreChange}

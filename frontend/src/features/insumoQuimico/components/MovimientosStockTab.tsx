@@ -33,6 +33,7 @@ import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
 import type { TipoMovimientoStock } from "../types/stock";
 import { formatoConSigno } from "../../../common/utils/numeros";
 import { formatoFechaHora } from "../../../common/utils/fechas";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -50,11 +51,11 @@ function checklistDesdeMovimiento(checklistId: number, fecha: string | null): Hi
 
 export function MovimientosStockTab() {
   const [insumos, setInsumos] = useState<InsumoQuimicoOpcion[]>([]);
-  const [producto, setProducto] = useState("");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [filtros, setFiltros] = useState({ producto: "", fechaDesde: "", fechaHasta: "", tipo: "" });
+  const [producto, setProducto] = useEstadoNavegacion("MovimientosStockTab.producto", "");
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion("MovimientosStockTab.fechaDesde", "");
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion("MovimientosStockTab.fechaHasta", "");
+  const [tipo, setTipo] = useEstadoNavegacion("MovimientosStockTab.tipo", "");
+  const [filtros, setFiltros] = useEstadoNavegacion("MovimientosStockTab.filtros", { producto: "", fechaDesde: "", fechaHasta: "", tipo: "" });
   const [errorFiltro, setErrorFiltro] = useState<string | null>(null);
   const [checklistSeleccionado, setChecklistSeleccionado] = useState<HistorialChecklistItem | null>(null);
   const { movimientos, total, page, setPage, hayVariasPaginas, loading, error } = useMovimientosStock({

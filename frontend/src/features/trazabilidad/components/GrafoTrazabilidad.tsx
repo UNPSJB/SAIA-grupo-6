@@ -1,932 +1,958 @@
-import { useEffect, useMemo, useState } from "react";
-import { Badge, Box, HStack, Heading, SimpleGrid, Stack, Text } from "@chakra-ui/react";
-import { LuRotateCcw, LuShieldCheck, LuX } from "react-icons/lu";
-import { BotonCancelar, Tarjeta } from "../../../components/ui/patrones";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Badge,
+  Box,
+  Button,
+  HStack,
+  Heading,
+  SimpleGrid,
+  Stack,
+  Text,
+  useChakraContext,
+} from "@chakra-ui/react";
+import { LuArrowRight, LuRotateCcw, LuX } from "react-icons/lu";
+import { BotonCancelar, EtiquetaEstado, Tarjeta, type TonoEstado } from "../../../components/ui/patrones";
+import { formatoFecha, formatoFechaHora } from "../../../common/utils/fechas";
+import { cantidadConUnidad } from "../../../common/utils/numeros";
 import { getTimelineLote } from "../../lotes/services/loteService";
 import type { LoteTimelineResponse, NodoTimeline } from "../../lotes/types/timeline";
+import { ESTADOS_SALIDA } from "../../salidas/types/salida";
 import type { GrafoTrazabilidadResponse, NodoGrafo } from "../types/grafo";
 
 interface GrafoTrazabilidadProps {
   grafo: GrafoTrazabilidadResponse;
 }
 
-interface PosicionNodo {
+type TipoVisual = "P" | "L" | "Ini" | "Paso" | "Fin" | "S" | "C";
+
+interface Paleta {
+  bg: string;
+  borde: string;
+  texto: string;
+}
+
+interface NodoDibujo {
   id: string;
   x: number;
   y: number;
   radio: number;
-  tipoVisual: "P" | "L" | "Paso" | "Fin" | "R" | "D" | "C";
-  numeroPaso?: number | string;
+  tipo: TipoVisual;
+  /** Lo que va dentro del círculo. */
+  marca: string;
   linea1: string;
   linea2: string;
-  nodoRaw: NodoGrafo | NodoTimeline;
-  colorBg: string;
-  colorBorder: string;
-  colorText: string;
+  /** Texto completo, para el tooltip (las líneas se recortan). */
+  tooltip: string;
+  paleta: Paleta;
+  grafo?: NodoGrafo;
+  tarea?: NodoTimeline;
 }
 
-interface CurvaBezier {
+interface Arista {
   id: string;
   origenId: string;
   destinoId: string;
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  etiqueta?: string;
-  clienteId?: number;
+  d: string;
 }
 
-function truncar(texto: string, maxLen: number): string {
+interface Pastilla {
+  id: string;
+  /** La pastilla se apaga junto con esta arista. */
+  aristaId: string;
+  /** Punto de anclaje: el borde izquierdo ("inicio") o derecho ("fin") de la pastilla. */
+  x: number;
+  y: number;
+  alinear: "inicio" | "fin";
+  texto: string;
+}
+
+const RADIO = 22;
+const ESPACIADO_Y = 110;
+const MARGEN_Y = 70;
+const COL = 230;
+const PASO = 190;
+
+const PALETAS: Record<string, Paleta> = {
+  proveedor: { bg: "#FAF5FF", borde: "#9333EA", texto: "#7E22CE" },
+  insumo: { bg: "#EFF6FF", borde: "#2563EB", texto: "#1D4ED8" },
+  elaboracion: { bg: "#F0FDFA", borde: "#0D9488", texto: "#0F766E" },
+  completo: { bg: "#ECFDF5", borde: "#10B981", texto: "#047857" },
+  pendiente: { bg: "#FEF3C7", borde: "#F59E0B", texto: "#B45309" },
+  cancelado: { bg: "#FEF2F2", borde: "#DC2626", texto: "#B91C1C" },
+  salida: { bg: "#FFF7ED", borde: "#F97316", texto: "#C2410C" },
+  cliente: { bg: "#F0FDF4", borde: "#16A34A", texto: "#15803D" },
+};
+
+const LEYENDA: { color: string; texto: string }[] = [
+  { color: PALETAS.proveedor.borde, texto: "Proveedores" },
+  { color: PALETAS.insumo.borde, texto: "Lotes de insumo" },
+  { color: PALETAS.elaboracion.borde, texto: "Elaboración" },
+  { color: PALETAS.salida.borde, texto: "Salidas" },
+  { color: PALETAS.cliente.borde, texto: "Clientes" },
+];
+
+const NOMBRE_TIPO: Record<TipoVisual, string> = {
+  P: "Proveedor",
+  L: "Lote de insumo",
+  Ini: "Inicio de elaboración",
+  Paso: "Etapa de elaboración",
+  Fin: "Cierre del lote",
+  S: "Salida",
+  C: "Cliente",
+};
+
+const FORMA_ENTREGA: Record<string, string> = {
+  RETIRA_CLIENTE: "Retira el cliente en planta",
+  CON_TRANSPORTISTA: "Con transportista",
+};
+
+function truncar(texto: string | null | undefined, max: number): string {
   if (!texto) return "";
-  return texto.length > maxLen ? `${texto.slice(0, maxLen - 1)}…` : texto;
+  return texto.length > max ? `${texto.slice(0, max - 1)}…` : texto;
+}
+
+function etiquetaEstadoSalida(estado: string | null | undefined): string {
+  return ESTADOS_SALIDA.find((e) => e.valor === estado)?.etiqueta ?? estado ?? "-";
+}
+
+/**
+ * Ubica `n` nodos alrededor de las alturas deseadas sin que se pisen: respeta
+ * el orden, separa al menos `ESPACIADO_Y` y no se sale de [min, max].
+ */
+function repartir(deseadas: number[], min: number, max: number): number[] {
+  const ys = [...deseadas];
+  for (let i = 0; i < ys.length; i++) {
+    ys[i] = Math.max(ys[i], min, i > 0 ? ys[i - 1] + ESPACIADO_Y : min);
+  }
+  for (let i = ys.length - 1; i >= 0; i--) {
+    ys[i] = Math.min(ys[i], max, i < ys.length - 1 ? ys[i + 1] - ESPACIADO_Y : max);
+  }
+  return ys;
+}
+
+/** Curva horizontal suave entre dos puntos. */
+function curvaHorizontal(x1: number, y1: number, x2: number, y2: number): string {
+  const dx = Math.abs(x2 - x1) * 0.5;
+  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+}
+
+/** Sale horizontal y entra vertical (desde arriba o abajo) a un nodo del eje central. */
+function curvaHaciaEje(x1: number, y1: number, x2: number, y2: number): string {
+  return `M ${x1} ${y1} C ${x2} ${y1}, ${x2} ${y1}, ${x2} ${y2}`;
+}
+
+// Los globos y las pastillas son HTML dentro de un <foreignObject>: el
+// navegador calcula el ancho, el padding y el centrado (antes se estimaba el
+// ancho del texto y desbordaba). El foreignObject es una caja holgada y el
+// contenido se acomoda adentro con flex; lo que sobra es transparente.
+const CAJA_GLOBO = { ancho: 220, alto: 56 };
+const CAJA_PASTILLA = { ancho: 140, alto: 24 };
+
+/** Globo de dos renglones bajo el nodo. */
+function Globo({ titulo, detalle, elegido }: { titulo: string; detalle: string; elegido: boolean }) {
+  return (
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      gap="3px"
+      px="12px"
+      py="6px"
+      whiteSpace="nowrap"
+      lineHeight="1.25"
+      bg="bg.panel"
+      borderWidth={elegido ? "1.5px" : "1px"}
+      borderColor={elegido ? "#2563EB" : "border.emphasized"}
+      borderRadius="8px"
+    >
+      <Box as="span" fontSize="12px" fontWeight={elegido ? 700 : 600} color="fg">
+        {titulo}
+      </Box>
+      <Box as="span" fontSize="10.5px" fontWeight={400} color="fg.muted">
+        {detalle}
+      </Box>
+    </Box>
+  );
+}
+
+/** Pastilla de cantidad sobre una línea. */
+function PastillaCantidad({ texto, resaltada }: { texto: string; resaltada: boolean }) {
+  return (
+    <Box
+      display="inline-flex"
+      alignItems="center"
+      justifyContent="center"
+      h="20px"
+      px="10px"
+      whiteSpace="nowrap"
+      lineHeight="1"
+      fontSize="10.5px"
+      fontWeight={600}
+      color="fg"
+      bg="bg.panel"
+      borderWidth="1px"
+      borderColor={resaltada ? "#2563EB" : "border.emphasized"}
+      borderRadius="full"
+    >
+      {texto}
+    </Box>
+  );
 }
 
 export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
-  const [timeline, setTimeline] = useState<LoteTimelineResponse | null>(null);
-  const [nodoSeleccionadoId, setNodoSeleccionadoId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const system = useChakraContext();
+  const [respuesta, setRespuesta] = useState<{ loteId: number; timeline: LoteTimelineResponse | null } | null>(null);
+  const [seleccionId, setSeleccionId] = useState<string | null>(null);
 
-  // Cargar tareas/timeline del lote para renderizar los pasos intermedios (1, 2, 3...) del eje central
+  // Las etapas del checklist salen de la línea de tiempo del lote. Hasta que
+  // responde no se dibuja: si no, el grafo aparece sin etapas y salta.
   useEffect(() => {
     let montado = true;
     getTimelineLote(grafo.lote_id)
       .then((data) => {
-        if (montado) setTimeline(data);
+        if (montado) setRespuesta({ loteId: grafo.lote_id, timeline: data });
       })
       .catch(() => {
-        // En caso de fallo, se continúa con el eje central resumido
+        // Sin línea de tiempo los lotes de insumo se conectan al inicio.
+        if (montado) setRespuesta({ loteId: grafo.lote_id, timeline: null });
       });
     return () => {
       montado = false;
     };
   }, [grafo.lote_id]);
+  const timelineListo = respuesta?.loteId === grafo.lote_id;
+  const timeline = timelineListo ? respuesta.timeline : null;
 
-  // Construcción del Layout geométrico del Grafo (SVG DAG horizontal generoso)
-  const { nodosPosicionados, curvas, viewBoxWidth, viewBoxHeight, nodosPorId, adjAdelante, adjAtras } = useMemo(() => {
-    const nodosMap: Record<string, PosicionNodo> = {};
-    const curvasList: CurvaBezier[] = [];
-
-    // Grafos de adyacencia directa
+  const layout = useMemo(() => {
+    const nodos: Record<string, NodoDibujo> = {};
+    const aristas: Arista[] = [];
+    const pastillas: Pastilla[] = [];
     const adelante: Record<string, string[]> = {};
     const atras: Record<string, string[]> = {};
 
-    const registrarConexion = (origen: string, destino: string) => {
-      if (!adelante[origen]) adelante[origen] = [];
-      adelante[origen].push(destino);
-      if (!atras[destino]) atras[destino] = [];
-      atras[destino].push(origen);
+    const conectar = (origen: string, destino: string, d: string) => {
+      const id = `${origen}->${destino}`;
+      if (aristas.some((a) => a.id === id)) return id;
+      aristas.push({ id, origenId: origen, destinoId: destino, d });
+      (adelante[origen] ??= []).push(destino);
+      (atras[destino] ??= []).push(origen);
+      return id;
     };
 
-    // Extraer datos del grafo
-    const proveedores = grafo.nodos.filter((n) => n.columna === "proveedor");
-    const lotesInsumo = grafo.nodos.filter((n) => n.columna === "insumo");
-    const salidas = grafo.nodos.filter((n) => n.columna === "despacho");
-    const clientes = grafo.nodos.filter((n) => n.columna === "cliente");
-    const nodoLoteProd = grafo.nodos.find((n) => n.columna === "lote_producto");
+    const delTipo = (columna: NodoGrafo["columna"]) => grafo.nodos.filter((n) => n.columna === columna);
+    const proveedores = delTipo("proveedor");
+    const salidasRaw = delTipo("despacho");
+    const clientes = delTipo("cliente");
+    const nodoLote = grafo.nodos.find((n) => n.columna === "lote_producto");
 
-    // Eje central: Nodos de pasos (1, 2, 3...) desde timeline
-    const tareasTimeline = (timeline?.nodos || []).filter((n) => n.tipo === "tarea");
-    const nodoCierreTimeline = (timeline?.nodos || []).find((n) => n.tipo === "cierre");
+    const origenDe = (destino: string) => grafo.conexiones.find((c) => c.destino_id === destino);
+    const destinoDe = (origen: string) => grafo.conexiones.find((c) => c.origen_id === origen);
 
-    // Dimensiones y espaciados amplios
-    const cantIngredientes = Math.max(lotesInsumo.length, 1);
-    const cantSalidas = Math.max(salidas.length, 1);
-    const cantMaxLateral = Math.max(cantIngredientes, cantSalidas);
+    // Etapas: cada ítem del checklist es `tarea_<id>` en la línea de tiempo.
+    const tareas = (timeline?.nodos ?? []).filter((n) => n.tipo === "tarea");
+    const cierre = timeline?.nodos.find((n) => n.tipo === "cierre");
+    const indicePorItem = new Map<number, number>();
+    tareas.forEach((t, i) => {
+      const itemId = Number(t.id.replace("tarea_", ""));
+      if (Number.isFinite(itemId)) indicePorItem.set(itemId, i);
+    });
 
-    const espaciadoY = 120;
-    const altoMinimo = 480;
-    const altoCalculado = Math.max(altoMinimo, cantMaxLateral * espaciadoY + 120);
-    const centerY = altoCalculado / 2;
+    // Orden de los lotes de insumo: por la primera etapa que los usa y por
+    // proveedor, así las líneas casi no se cruzan.
+    const ordenProveedor = new Map(proveedores.map((p, i) => [p.id, i]));
+    const lotesInsumo = delTipo("insumo")
+      .map((li) => {
+        const pasos = (li.metadatos.checklist_items ?? [])
+          .map((item) => indicePorItem.get(item))
+          .filter((i): i is number => i !== undefined);
+        const proveedorId = origenDe(li.id)?.origen_id ?? null;
+        return { li, pasos, proveedorId };
+      })
+      .sort(
+        (a, b) =>
+          (a.pasos[0] ?? -1) - (b.pasos[0] ?? -1) ||
+          (ordenProveedor.get(a.proveedorId ?? "") ?? 0) - (ordenProveedor.get(b.proveedorId ?? "") ?? 0),
+      );
 
-    // Coordenadas X con separación amplia (mínimo 230px entre columnas)
-    const colGap = 240;
-    const xP = 120;
-    const xL = xP + colGap;
-    const xInicio = xL + colGap;
+    // Salidas agrupadas por cliente.
+    const ordenCliente = new Map(clientes.map((c, i) => [c.id, i]));
+    const salidas = salidasRaw
+      .map((s) => ({ s, clienteId: destinoDe(s.id)?.destino_id ?? null }))
+      .sort(
+        (a, b) =>
+          (ordenCliente.get(a.clienteId ?? "") ?? 999) - (ordenCliente.get(b.clienteId ?? "") ?? 999),
+      );
 
-    const pasoSpacing = 200;
-    const cantPasos = Math.max(tareasTimeline.length, 1);
-    const xPrimerPaso = xInicio + pasoSpacing;
-    const xFin = xPrimerPaso + cantPasos * pasoSpacing;
+    // Geometría
+    const filas = Math.max(lotesInsumo.length, salidas.length, proveedores.length, clientes.length, 3);
+    const alto = (filas - 1) * ESPACIADO_Y + MARGEN_Y * 2 + 30;
+    const minY = MARGEN_Y;
+    const maxY = alto - MARGEN_Y - 30;
+    const centroY = (minY + maxY) / 2;
+    const columna = (n: number) => centroY - ((n - 1) * ESPACIADO_Y) / 2;
 
-    const xR = xFin + colGap;
-    const xD = xR + colGap;
-    const xC = xD + colGap;
-    const anchoTotal = xC + 180;
+    const xP = 110;
+    const xL = xP + COL;
+    const xIni = xL + COL + 40;
+    const xPaso = (i: number) => xIni + PASO * (i + 1);
+    const xFin = xIni + PASO * (tareas.length + 1);
+    const xS = xFin + COL;
+    const xC = xS + COL;
+    const ancho = xC + 120;
 
-    // --- 1. ZONA IZQUIERDA: Ingredientes (P) -> (L) ---
-    const inicioYIngredientes = centerY - ((cantIngredientes - 1) * espaciadoY) / 2;
+    // Eje central
+    const estadoLote = grafo.estado_lote;
+    nodos.ini = {
+      id: "ini",
+      x: xIni,
+      y: centroY,
+      radio: RADIO,
+      tipo: "Ini",
+      marca: "Ini",
+      linea1: "Inicio",
+      linea2: truncar(nodoLote?.subtitulo ?? `Lote ${grafo.numero_lote}`, 20),
+      tooltip: `Inicio de elaboración · Lote ${grafo.numero_lote}`,
+      paleta: PALETAS.elaboracion,
+      grafo: nodoLote,
+    };
+    let previo = "ini";
+    tareas.forEach((t, i) => {
+      const id = `paso_${i}`;
+      const completa = t.estado === "completado";
+      nodos[id] = {
+        id,
+        x: xPaso(i),
+        y: centroY,
+        radio: RADIO,
+        tipo: "Paso",
+        marca: String(i + 1),
+        linea1: truncar(t.titulo, 20),
+        linea2: completa ? (t.tiene_desvio ? "Con desperdicio" : "Completada") : "Pendiente",
+        tooltip: t.titulo,
+        paleta: completa ? (t.tiene_desvio ? PALETAS.pendiente : PALETAS.completo) : PALETAS.pendiente,
+        tarea: t,
+      };
+      conectar(previo, id, curvaHorizontal(nodos[previo].x + RADIO, centroY, xPaso(i) - RADIO, centroY));
+      previo = id;
+    });
+    const terminado = estadoLote === "terminado";
+    const unidadLote = nodoLote?.metadatos.unidad;
+    nodos.fin = {
+      id: "fin",
+      x: xFin,
+      y: centroY,
+      radio: RADIO + 2,
+      tipo: "Fin",
+      marca: terminado ? "✓" : estadoLote === "cancelado" ? "✕" : "…",
+      linea1: terminado ? "Lote cerrado" : estadoLote === "cancelado" ? "Lote cancelado" : "Sin cerrar",
+      linea2: nodoLote?.metadatos.producido
+        ? `${cantidadConUnidad(nodoLote.metadatos.producido, unidadLote)} producidos`
+        : "Sin cantidad producida",
+      tooltip: `${grafo.producto_nombre} · Lote ${grafo.numero_lote}`,
+      paleta: terminado ? PALETAS.completo : estadoLote === "cancelado" ? PALETAS.cancelado : PALETAS.pendiente,
+      grafo: nodoLote,
+      tarea: cierre,
+    };
+    conectar(previo, "fin", curvaHorizontal(nodos[previo].x + RADIO, centroY, xFin - RADIO - 2, centroY));
 
-    // Mapeo ingrediente_id -> tarea_id donde se consumió
-    const ingredienteToTareaMap: Record<string, string> = {};
-    if (timeline) {
-      timeline.nodos.forEach((n) => {
-        if (n.tipo === "tarea" && n.detalle?.ingredientes_consumidos) {
-          n.detalle.ingredientes_consumidos.forEach((c) => {
-            const matchIngrediente = lotesInsumo.find(
-              (li) => li.metadatos?.numero_lote === c.lote_insumo_codigo || li.titulo.includes(c.ingrediente_nombre)
-            );
-            if (matchIngrediente) {
-              ingredienteToTareaMap[matchIngrediente.id] = n.id;
-            }
-          });
-        }
-      });
-    }
-
-    lotesInsumo.forEach((li, idx) => {
-      const yNodo = inicioYIngredientes + idx * espaciadoY;
-
-      // Buscar proveedor asociado
-      const conexionProv = grafo.conexiones.find((c) => c.destino_id === li.id);
-      const provId = conexionProv ? conexionProv.origen_id : null;
-      const prov = provId ? proveedores.find((p) => p.id === provId) : proveedores[idx % Math.max(proveedores.length, 1)];
-
-      const provNodoId = prov ? prov.id : `prov_auto_${idx}`;
-
-      // Nodo Proveedor (P)
-      if (prov && !nodosMap[provNodoId]) {
-        nodosMap[provNodoId] = {
-          id: provNodoId,
-          x: xP,
-          y: yNodo,
-          radio: 22,
-          tipoVisual: "P",
-          linea1: truncar(prov.titulo, 16),
-          linea2: truncar(prov.subtitulo || "Proveedor", 18),
-          nodoRaw: prov,
-          colorBg: "#FAF5FF",
-          colorBorder: "#9333EA",
-          colorText: "#7E22CE",
-        };
-      }
-
-      // Nodo Lote Insumo (L)
-      nodosMap[li.id] = {
+    // Lotes de insumo
+    const yInsumo = columna(lotesInsumo.length);
+    lotesInsumo.forEach(({ li, pasos }, i) => {
+      const y = yInsumo + i * ESPACIADO_Y;
+      nodos[li.id] = {
         id: li.id,
         x: xL,
-        y: yNodo,
-        radio: 22,
-        tipoVisual: "L",
-        linea1: truncar(li.titulo, 16),
-        linea2: truncar(`Lote: ${li.metadatos?.numero_lote || li.subtitulo || ""}`, 18),
-        nodoRaw: li,
-        colorBg: "#EFF6FF",
-        colorBorder: "#2563EB",
-        colorText: "#1D4ED8",
+        y,
+        radio: RADIO,
+        tipo: "L",
+        marca: "L",
+        linea1: truncar(li.titulo, 20),
+        linea2: truncar(li.metadatos.numero_lote ?? li.subtitulo, 20),
+        tooltip: `${li.titulo} · ${li.subtitulo ?? ""}`,
+        paleta: PALETAS.insumo,
+        grafo: li,
       };
-
-      // Curva (P) -> (L)
-      if (prov) {
-        curvasList.push({
-          id: `c_${provNodoId}_${li.id}`,
-          origenId: provNodoId,
-          destinoId: li.id,
-          x1: xP + 22,
-          y1: yNodo,
-          x2: xL - 22,
-          y2: yNodo,
-        });
-        registrarConexion(provNodoId, li.id);
-      }
-
-      // Conexión curva desde (L) hacia el paso correspondiente o hacia el Inicio
-      const tareaTargetId = ingredienteToTareaMap[li.id];
-      const targetPasoIdx = tareasTimeline.findIndex((t) => t.id === tareaTargetId);
-      const targetX = targetPasoIdx >= 0 ? xPrimerPaso + targetPasoIdx * pasoSpacing : xInicio;
-      const targetId = targetPasoIdx >= 0 ? `paso_${targetPasoIdx + 1}` : "lote_inicio";
-
-      // Formatear etiqueta de cantidad
-      let cantFormateada: string | undefined = undefined;
-      if (li.metadatos?.cantidad_usada) {
-        const num = parseFloat(li.metadatos.cantidad_usada);
-        cantFormateada = isNaN(num) ? li.metadatos.cantidad_usada : `${num.toFixed(2)} u`;
-      }
-
-      curvasList.push({
-        id: `c_${li.id}_${targetId}`,
-        origenId: li.id,
-        destinoId: targetId,
-        x1: xL + 22,
-        y1: yNodo,
-        x2: targetX,
-        y2: centerY - 22,
-        etiqueta: cantFormateada,
+      const destinos = pasos.length > 0 ? [...new Set(pasos)].map((p) => `paso_${p}`) : ["ini"];
+      let primera: string | null = null;
+      destinos.forEach((destino) => {
+        const n = nodos[destino];
+        const x1 = xL + RADIO;
+        let d: string;
+        if (Math.abs(y - centroY) < RADIO * 1.5) {
+          d = curvaHorizontal(x1, y, n.x - n.radio, centroY);
+        } else if (destino === "ini") {
+          d = curvaHorizontal(x1, y, n.x - n.radio, centroY);
+        } else {
+          d = curvaHaciaEje(x1, y, n.x, y < centroY ? centroY - n.radio : centroY + n.radio);
+        }
+        const id = conectar(li.id, destino, d);
+        primera ??= id;
       });
-      registrarConexion(li.id, targetId);
-    });
-
-    // --- 2. ZONA CENTRAL: Eje de producción (Inicio -> 1 -> 2 -> ... -> Fin) ---
-    // Nodo Inicio
-    nodosMap["lote_inicio"] = {
-      id: "lote_inicio",
-      x: xInicio,
-      y: centerY,
-      radio: 22,
-      tipoVisual: "Paso",
-      numeroPaso: "Ini",
-      linea1: "Inicio Elaboración",
-      linea2: truncar(nodoLoteProd?.subtitulo || `Lote #${grafo.numero_lote}`, 18),
-      nodoRaw: nodoLoteProd || {
-        id: "lote_inicio",
-        columna: "lote_producto",
-        tipo: "lote_elaboracion",
-        titulo: `Lote ${grafo.numero_lote}`,
-        metadatos: {},
-      },
-      colorBg: "#F0FDFA",
-      colorBorder: "#0D9488",
-      colorText: "#0F766E",
-    };
-
-    // Pasos de receta
-    let prevId = "lote_inicio";
-    let prevX = xInicio;
-
-    if (tareasTimeline.length > 0) {
-      tareasTimeline.forEach((tarea, idx) => {
-        const pasoId = `paso_${idx + 1}`;
-        const xActual = xPrimerPaso + idx * pasoSpacing;
-
-        nodosMap[pasoId] = {
-          id: pasoId,
-          x: xActual,
-          y: centerY,
-          radio: 22,
-          tipoVisual: "Paso",
-          numeroPaso: idx + 1,
-          linea1: truncar(tarea.titulo, 16),
-          linea2: `Paso ${idx + 1}`,
-          nodoRaw: tarea,
-          colorBg: tarea.estado === "completado" ? "#ECFDF5" : "#FEF3C7",
-          colorBorder: tarea.estado === "completado" ? "#10B981" : "#F59E0B",
-          colorText: tarea.estado === "completado" ? "#047857" : "#B45309",
-        };
-
-        curvasList.push({
-          id: `c_${prevId}_${pasoId}`,
-          origenId: prevId,
-          destinoId: pasoId,
-          x1: prevX + 22,
-          y1: centerY,
-          x2: xActual - 22,
-          y2: centerY,
-        });
-        registrarConexion(prevId, pasoId);
-
-        prevId = pasoId;
-        prevX = xActual;
-      });
-    }
-
-    // Nodo Fin / Cierre
-    nodosMap["lote_fin"] = {
-      id: "lote_fin",
-      x: xFin,
-      y: centerY,
-      radio: 24,
-      tipoVisual: "Fin",
-      numeroPaso: "Fin",
-      linea1: truncar(`Fin: ${grafo.producto_nombre}`, 16),
-      linea2: truncar(nodoLoteProd?.metadatos?.producido ? `${nodoLoteProd.metadatos.producido} u prod.` : "Sin cantidad", 18),
-      nodoRaw: nodoCierreTimeline || nodoLoteProd || {
-        id: "lote_fin",
-        columna: "lote_producto",
-        tipo: "cierre",
-        titulo: "Cierre de lote",
-        metadatos: {},
-      },
-      colorBg: "#ECFDF5",
-      colorBorder: "#059669",
-      colorText: "#047857",
-    };
-
-    curvasList.push({
-      id: `c_${prevId}_lote_fin`,
-      origenId: prevId,
-      destinoId: "lote_fin",
-      x1: prevX + 22,
-      y1: centerY,
-      x2: xFin - 24,
-      y2: centerY,
-    });
-    registrarConexion(prevId, "lote_fin");
-
-    // --- 3. ZONA DERECHA: Ramificaciones de Salidas (Fin -> R -> D -> C) ---
-    const inicioYSalidas = centerY - ((cantSalidas - 1) * espaciadoY) / 2;
-
-    salidas.forEach((salida, idx) => {
-      const yRama = inicioYSalidas + idx * espaciadoY;
-      const clienteConex = grafo.conexiones.find((c) => c.origen_id === salida.id);
-      const cliente = clienteConex
-        ? clientes.find((cli) => cli.id === clienteConex.destino_id)
-        : clientes[idx % Math.max(clientes.length, 1)];
-
-      const rId = `r_${salida.id}`;
-      const dId = `d_${salida.id}`;
-      const cId = cliente ? cliente.id : `c_auto_${idx}`;
-      const clienteIdNum = cliente?.metadatos?.cliente_id || salida.metadatos?.salida_id;
-
-      // Formato cantidad
-      const cantSalidaNum = parseFloat(salida.metadatos?.cantidad || "");
-      const cantSalidaFmt = isNaN(cantSalidaNum) ? salida.metadatos?.cantidad : `${cantSalidaNum.toFixed(0)} u`;
-
-      // Nodo (R) Reserva
-      nodosMap[rId] = {
-        id: rId,
-        x: xR,
-        y: yRama,
-        radio: 22,
-        tipoVisual: "R",
-        linea1: truncar(`Reserva #${salida.metadatos?.salida_id || salida.id}`, 16),
-        linea2: `${cantSalidaFmt || "—"}`,
-        nodoRaw: salida,
-        colorBg: "#EFF6FF",
-        colorBorder: "#3B82F6",
-        colorText: "#1D4ED8",
-      };
-
-      // Nodo (D) Despacho / Transporte
-      nodosMap[dId] = {
-        id: dId,
-        x: xD,
-        y: yRama,
-        radio: 22,
-        tipoVisual: "D",
-        linea1: truncar(salida.subtitulo || "Despacho", 16),
-        linea2: truncar(salida.badge || "Sin estado", 18),
-        nodoRaw: salida,
-        colorBg: "#FFF7ED",
-        colorBorder: "#F97316",
-        colorText: "#C2410C",
-      };
-
-      // Nodo (C) Cliente
-      if (cliente) {
-        nodosMap[cId] = {
-          id: cId,
-          x: xC,
-          y: yRama,
-          radio: 22,
-          tipoVisual: "C",
-          linea1: truncar(cliente.titulo, 16),
-          linea2: truncar(cliente.badge || "Cliente", 18),
-          nodoRaw: cliente,
-          colorBg: "#F0FDF4",
-          colorBorder: "#16A34A",
-          colorText: "#15803D",
-        };
-      }
-
-      // Conexiones de la rama
-      // (Fin) -> (R)
-      curvasList.push({
-        id: `c_fin_${rId}`,
-        origenId: "lote_fin",
-        destinoId: rId,
-        x1: xFin + 24,
-        y1: centerY,
-        x2: xR - 22,
-        y2: yRama,
-        clienteId: clienteIdNum,
-      });
-      registrarConexion("lote_fin", rId);
-
-      // (R) -> (D)
-      curvasList.push({
-        id: `c_${rId}_${dId}`,
-        origenId: rId,
-        destinoId: dId,
-        x1: xR + 22,
-        y1: yRama,
-        x2: xD - 22,
-        y2: yRama,
-        clienteId: clienteIdNum,
-      });
-      registrarConexion(rId, dId);
-
-      // (D) -> (C)
-      if (cliente) {
-        curvasList.push({
-          id: `c_${dId}_${cId}`,
-          origenId: dId,
-          destinoId: cId,
-          x1: xD + 22,
-          y1: yRama,
-          x2: xC - 22,
-          y2: yRama,
-          clienteId: clienteIdNum,
-        });
-        registrarConexion(dId, cId);
+      // Lo que salió de ese lote de insumo hacia este lote (consumo + desperdicio).
+      if (primera && li.metadatos.cantidad_usada !== undefined) {
+        const total = Number(li.metadatos.cantidad_usada) + Number(li.metadatos.cantidad_desperdicio ?? 0);
+        const texto = cantidadConUnidad(total, li.metadatos.unidad);
+        pastillas.push({ id: `p_${li.id}`, aristaId: primera, x: xL + RADIO + 10, y, alinear: "inicio", texto });
       }
     });
 
-    return {
-      nodosPosicionados: Object.values(nodosMap),
-      curvas: curvasList,
-      viewBoxWidth: Math.max(anchoTotal, 1400),
-      viewBoxHeight: altoCalculado,
-      nodosPorId: nodosMap,
-      adjAdelante: adelante,
-      adjAtras: atras,
-    };
+    // Proveedores: a la altura promedio de sus lotes, sin pisarse
+    const provOrdenados = proveedores
+      .map((p) => {
+        const hijos = lotesInsumo.filter((l) => l.proveedorId === p.id).map((l) => nodos[l.li.id].y);
+        const deseada = hijos.length ? hijos.reduce((a, b) => a + b, 0) / hijos.length : centroY;
+        return { p, deseada };
+      })
+      .sort((a, b) => a.deseada - b.deseada);
+    const yProv = repartir(provOrdenados.map((x) => x.deseada), minY, maxY);
+    provOrdenados.forEach(({ p }, i) => {
+      nodos[p.id] = {
+        id: p.id,
+        x: xP,
+        y: yProv[i],
+        radio: RADIO,
+        tipo: "P",
+        marca: "P",
+        linea1: truncar(p.titulo, 20),
+        linea2: p.badge ?? "Sin certificación",
+        tooltip: p.titulo,
+        paleta: PALETAS.proveedor,
+        grafo: p,
+      };
+    });
+    lotesInsumo.forEach(({ li, proveedorId }) => {
+      if (!proveedorId || !nodos[proveedorId]) return;
+      const p = nodos[proveedorId];
+      conectar(proveedorId, li.id, curvaHorizontal(p.x + RADIO, p.y, xL - RADIO, nodos[li.id].y));
+    });
+
+    // Salidas
+    const ySalida = columna(salidas.length);
+    salidas.forEach(({ s }, i) => {
+      const y = ySalida + i * ESPACIADO_Y;
+      const estado = s.metadatos.estado_salida ?? s.badge;
+      nodos[s.id] = {
+        id: s.id,
+        x: xS,
+        y,
+        radio: RADIO,
+        tipo: "S",
+        marca: "S",
+        linea1: s.titulo,
+        linea2: etiquetaEstadoSalida(estado),
+        tooltip: `${s.titulo} · ${s.subtitulo ?? ""}`,
+        paleta: estado === "RECHAZADA" ? PALETAS.cancelado : PALETAS.salida,
+        grafo: s,
+      };
+      const arista = conectar("fin", s.id, curvaHorizontal(xFin + RADIO + 2, centroY, xS - RADIO, y));
+      const texto = cantidadConUnidad(s.metadatos.cantidad, s.metadatos.unidad);
+      pastillas.push({ id: `p_${s.id}`, aristaId: arista, x: xS - RADIO - 10, y, alinear: "fin", texto });
+    });
+
+    // Clientes: a la altura promedio de sus salidas
+    const cliOrdenados = clientes
+      .map((c) => {
+        const hijas = salidas.filter((s) => s.clienteId === c.id).map((s) => nodos[s.s.id].y);
+        const deseada = hijas.length ? hijas.reduce((a, b) => a + b, 0) / hijas.length : centroY;
+        return { c, deseada };
+      })
+      .sort((a, b) => a.deseada - b.deseada);
+    const yCli = repartir(cliOrdenados.map((x) => x.deseada), minY, maxY);
+    cliOrdenados.forEach(({ c }, i) => {
+      const cantidad = salidas.filter((s) => s.clienteId === c.id).length;
+      nodos[c.id] = {
+        id: c.id,
+        x: xC,
+        y: yCli[i],
+        radio: RADIO,
+        tipo: "C",
+        marca: "C",
+        linea1: truncar(c.titulo, 20),
+        linea2: cantidad === 1 ? "1 salida" : `${cantidad} salidas`,
+        tooltip: c.titulo,
+        paleta: PALETAS.cliente,
+        grafo: c,
+      };
+    });
+    salidas.forEach(({ s, clienteId }) => {
+      if (!clienteId || !nodos[clienteId]) return;
+      const c = nodos[clienteId];
+      conectar(s.id, clienteId, curvaHorizontal(xS + RADIO, nodos[s.id].y, c.x - RADIO, c.y));
+    });
+
+    return { nodos, aristas, pastillas, adelante, atras, ancho, alto };
   }, [grafo, timeline]);
 
-  // ALGORITMO DE TRAZABILIDAD BIDIRECCIONAL COMPLETO:
-  // Al seleccionar cualquier nodo, busca todos sus ancestros (hacia atrás) y descendientes (hacia adelante)
-  const { caminoActivoNodos, caminoActivoConexiones } = useMemo(() => {
-    const nodosSet = new Set<string>();
-    const conexionesSet = new Set<string>();
-
-    if (!nodoSeleccionadoId) {
-      // Estado neutral: todos los elementos activos
-      nodosPosicionados.forEach((n) => nodosSet.add(n.id));
-      curvas.forEach((c) => conexionesSet.add(c.id));
-      return { caminoActivoNodos: nodosSet, caminoActivoConexiones: conexionesSet };
-    }
-
-    // Agregar el nodo seleccionado
-    nodosSet.add(nodoSeleccionadoId);
-
-    // 1. Explorar hacia atrás (ancestros)
-    const colaAtras = [nodoSeleccionadoId];
-    while (colaAtras.length > 0) {
-      const actual = colaAtras.shift()!;
-      const padres = adjAtras[actual] || [];
-      padres.forEach((p) => {
-        if (!nodosSet.has(p)) {
-          nodosSet.add(p);
-          colaAtras.push(p);
+  // Al elegir un nodo se iluminan todos sus ancestros y descendientes.
+  const activos = useMemo(() => {
+    if (!seleccionId) return null;
+    const visto = new Set<string>([seleccionId]);
+    for (const ady of [layout.atras, layout.adelante]) {
+      const cola = [seleccionId];
+      while (cola.length) {
+        const actual = cola.shift()!;
+        for (const vecino of ady[actual] ?? []) {
+          if (!visto.has(vecino)) {
+            visto.add(vecino);
+            cola.push(vecino);
+          }
         }
-      });
-    }
-
-    // 2. Explorar hacia adelante (descendientes)
-    const colaAdelante = [nodoSeleccionadoId];
-    while (colaAdelante.length > 0) {
-      const actual = colaAdelante.shift()!;
-      const hijos = adjAdelante[actual] || [];
-      hijos.forEach((h) => {
-        if (!nodosSet.has(h)) {
-          nodosSet.add(h);
-          colaAdelante.push(h);
-        }
-      });
-    }
-
-    // 3. Activar conexiones cuyos dos extremos estén en el conjunto activo
-    curvas.forEach((c) => {
-      if (nodosSet.has(c.origenId) && nodosSet.has(c.destinoId)) {
-        conexionesSet.add(c.id);
       }
-    });
+    }
+    return visto;
+  }, [seleccionId, layout]);
 
-    return { caminoActivoNodos: nodosSet, caminoActivoConexiones: conexionesSet };
-  }, [nodoSeleccionadoId, nodosPosicionados, curvas, adjAdelante, adjAtras]);
-
-  const handleToggleNodo = (nodoId: string) => {
-    setNodoSeleccionadoId(nodoSeleccionadoId === nodoId ? null : nodoId);
-  };
-
-  const nodoSeleccionado = nodoSeleccionadoId ? nodosPorId[nodoSeleccionadoId] : null;
+  const nodoActivo = (id: string) => !activos || activos.has(id);
+  const aristaActiva = (a: Arista) => !activos || (activos.has(a.origenId) && activos.has(a.destinoId));
+  const resaltar = !!activos;
+  const seleccionado = seleccionId ? layout.nodos[seleccionId] : null;
+  const alternar = (id: string) => setSeleccionId((actual) => (actual === id ? null : id));
+  const aristasPorId = new Map(layout.aristas.map((a) => [a.id, a]));
 
   return (
     <Box>
-      {/* 1. BARRA SUPERIOR DE CONTROL Y LEYENDA */}
-      <Tarjeta p="4" mb="4" bg="bg.panel" borderColor="border.subtle">
-        <HStack justify="space-between" align="center" flexWrap="wrap" gap="4">
-          <Box>
-            <HStack gap="2">
-              <Heading size="sm" color="fg">
-                Árbol de Trazabilidad Integral
-              </Heading>
-              {nodoSeleccionadoId && (
-                <Badge size="xs" colorPalette="blue" variant="solid">
-                  Filtro activo
-                </Badge>
-              )}
-            </HStack>
-            <Text fontSize="xs" color="fg.muted">
-              Hacé clic en cualquier nodo para trazar su origen y destino a lo largo de toda la cadena.
-            </Text>
-          </Box>
-
-          <HStack gap="3" flexWrap="wrap">
-            {/* Leyenda de colores */}
-            <HStack gap="1.5">
-              <Box w="10px" h="10px" rounded="full" bg="#9333EA" />
-              <Text fontSize="xs" color="fg.muted">Proveedores</Text>
-            </HStack>
-            <HStack gap="1.5">
-              <Box w="10px" h="10px" rounded="full" bg="#2563EB" />
-              <Text fontSize="xs" color="fg.muted">Materias Primas</Text>
-            </HStack>
-            <HStack gap="1.5">
-              <Box w="10px" h="10px" rounded="full" bg="#0D9488" />
-              <Text fontSize="xs" color="fg.muted">Elaboración</Text>
-            </HStack>
-            <HStack gap="1.5">
-              <Box w="10px" h="10px" rounded="full" bg="#F97316" />
-              <Text fontSize="xs" color="fg.muted">Logística</Text>
-            </HStack>
-            <HStack gap="1.5">
-              <Box w="10px" h="10px" rounded="full" bg="#16A34A" />
-              <Text fontSize="xs" color="fg.muted">Clientes</Text>
-            </HStack>
-
-            {nodoSeleccionadoId && (
-              <BotonCancelar size="xs" onClick={() => setNodoSeleccionadoId(null)}>
-                <LuRotateCcw /> Limpiar selección
-              </BotonCancelar>
+      <HStack justify="space-between" align="center" flexWrap="wrap" gap="3" mb="3">
+        <Box>
+          <HStack gap="2">
+            <Heading size="sm" color="fg">
+              Árbol de trazabilidad
+            </Heading>
+            {seleccionId && (
+              <Badge size="xs" colorPalette="blue" variant="solid">
+                Filtro activo
+              </Badge>
             )}
           </HStack>
+          <Text fontSize="xs" color="fg.muted">
+            Hacé clic en un nodo para ver de dónde viene, a dónde fue y sus datos.
+          </Text>
+        </Box>
+        <HStack gap="3" flexWrap="wrap">
+          {LEYENDA.map((l) => (
+            <HStack key={l.texto} gap="1.5">
+              <Box w="10px" h="10px" rounded="full" bg={l.color} />
+              <Text fontSize="xs" color="fg.muted">
+                {l.texto}
+              </Text>
+            </HStack>
+          ))}
+          {seleccionId && (
+            <BotonCancelar size="xs" onClick={() => setSeleccionId(null)}>
+              <LuRotateCcw /> Limpiar selección
+            </BotonCancelar>
+          )}
         </HStack>
-      </Tarjeta>
+      </HStack>
 
-      {/* 2. LIENZO SVG HORIZONTAL */}
       <Box
         overflowX="auto"
-        overflowY="hidden"
-        p="6"
         bg="bg.subtle"
-        borderRadius="xl"
+        borderRadius="lg"
         borderWidth="1px"
         borderColor="border.subtle"
-        boxShadow="xs"
+        minH="200px"
+        // Los tokens del tema con punto ("fg.muted", "bg.panel") no generan
+        // `--chakra-colors-fg-muted`: el SVG usaba ese nombre a mano, no
+        // existía y textos y pastillas salían negros en modo oscuro. El nombre
+        // real de cada variable lo da el sistema de Chakra.
+        style={{
+          ["--traza-borde" as string]: system.token.var("colors.border.emphasized"),
+        }}
       >
-        <svg
-          width={viewBoxWidth}
-          height={viewBoxHeight}
-          viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
-          style={{ display: "block", minWidth: `${viewBoxWidth}px` }}
-        >
-          <defs>
-            <filter id="shadow-node" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.08" />
-            </filter>
-          </defs>
-
-          {/* A. LÍNEAS / CURVAS BEZIER */}
-          <g className="conexiones">
-            {curvas.map((c) => {
-              const estaActiva = caminoActivoConexiones.has(c.id);
-              const dx = Math.abs(c.x2 - c.x1) * 0.5;
-              const dPath = `M ${c.x1} ${c.y1} C ${c.x1 + dx} ${c.y1}, ${c.x2 - dx} ${c.y2}, ${c.x2} ${c.y2}`;
-              const midX = (c.x1 + c.x2) / 2;
-              const midY = (c.y1 + c.y2) / 2;
-
-              return (
-                <g key={c.id} opacity={estaActiva ? 1 : 0.2} style={{ transition: "all 0.3s ease" }}>
+        {!timelineListo ? (
+          <Text p="6" fontSize="sm" color="fg.muted">
+            Armando el árbol…
+          </Text>
+        ) : (
+          <svg
+            width={layout.ancho}
+            height={layout.alto}
+            viewBox={`0 0 ${layout.ancho} ${layout.alto}`}
+            style={{ display: "block" }}
+            role="img"
+            aria-label={`Árbol de trazabilidad del lote ${grafo.numero_lote}`}
+          >
+            <g>
+              {layout.aristas.map((a) => {
+                const activa = aristaActiva(a);
+                return (
                   <path
-                    d={dPath}
+                    key={a.id}
+                    d={a.d}
                     fill="none"
-                    stroke={estaActiva && nodoSeleccionadoId ? "#2563EB" : "#CBD5E1"}
-                    strokeWidth={estaActiva && nodoSeleccionadoId ? 3.5 : 2.5}
+                    stroke={activa && resaltar ? "#2563EB" : "var(--traza-borde)"}
+                    strokeWidth={activa && resaltar ? 3 : 2}
                     strokeLinecap="round"
+                    opacity={activa ? 1 : 0.18}
+                    style={{ transition: "opacity 0.2s, stroke 0.2s" }}
                   />
+                );
+              })}
+            </g>
 
-                  {/* Pastilla de cantidad elegante sobre la curva */}
-                  {c.etiqueta && (
-                    <g transform={`translate(${midX}, ${midY})`}>
-                      <rect
-                        x="-26"
-                        y="-10"
-                        width="52"
-                        height="18"
-                        rx="5"
-                        fill="#FFFFFF"
-                        stroke={estaActiva && nodoSeleccionadoId ? "#2563EB" : "#CBD5E1"}
-                        strokeWidth="1.2"
-                      />
-                      <text
-                        x="0"
-                        y="3"
-                        fill="#475569"
-                        fontSize="9.5"
-                        fontWeight="600"
-                        textAnchor="middle"
-                        style={{ pointerEvents: "none", userSelect: "none" }}
-                      >
-                        {c.etiqueta}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-          </g>
+            <g>
+              {layout.pastillas.map((p) => {
+                const arista = aristasPorId.get(p.aristaId);
+                const activa = !arista || aristaActiva(arista);
+                const { ancho, alto } = CAJA_PASTILLA;
+                return (
+                  <foreignObject
+                    key={p.id}
+                    x={p.alinear === "inicio" ? p.x : p.x - ancho}
+                    y={p.y - alto / 2}
+                    width={ancho}
+                    height={alto}
+                    opacity={activa ? 1 : 0.18}
+                    style={{ pointerEvents: "none", userSelect: "none", overflow: "visible" }}
+                  >
+                    <Box
+                      h="full"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent={p.alinear === "inicio" ? "flex-start" : "flex-end"}
+                    >
+                      <PastillaCantidad texto={p.texto} resaltada={activa && resaltar} />
+                    </Box>
+                  </foreignObject>
+                );
+              })}
+            </g>
 
-          {/* B. NODOS CIRCULARES CON TEXTO EN 2 LÍNEAS CENTRADAS */}
-          <g className="nodos">
-            {nodosPosicionados.map((nodo) => {
-              const esActivo = caminoActivoNodos.has(nodo.id);
-              const esSeleccionado = nodoSeleccionadoId === nodo.id;
-
-              return (
-                <g
-                  key={nodo.id}
-                  transform={`translate(${nodo.x}, ${nodo.y})`}
-                  opacity={esActivo ? 1 : 0.2}
-                  cursor="pointer"
-                  onClick={() => handleToggleNodo(nodo.id)}
-                  style={{ transition: "all 0.2s ease" }}
-                >
-                  {/* Anillo de foco exterior si está seleccionado */}
-                  {esSeleccionado && (
+            <g>
+              {Object.values(layout.nodos).map((n) => {
+                const activo = nodoActivo(n.id);
+                const elegido = seleccionId === n.id;
+                return (
+                  <g
+                    key={n.id}
+                    transform={`translate(${n.x}, ${n.y})`}
+                    opacity={activo ? 1 : 0.25}
+                    cursor="pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${NOMBRE_TIPO[n.tipo]}: ${n.tooltip}`}
+                    onClick={() => alternar(n.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        alternar(n.id);
+                      }
+                    }}
+                    style={{ transition: "opacity 0.2s", outline: "none" }}
+                  >
+                    <title>{`${NOMBRE_TIPO[n.tipo]}: ${n.tooltip}`}</title>
+                    {elegido && (
+                      <circle r={n.radio + 7} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeDasharray="4 2" />
+                    )}
                     <circle
-                      r={nodo.radio + 7}
-                      fill="none"
-                      stroke="#2563EB"
-                      strokeWidth="2.5"
-                      strokeDasharray="4 2"
+                      r={n.radio}
+                      fill={n.paleta.bg}
+                      stroke={elegido ? "#2563EB" : n.paleta.borde}
+                      strokeWidth={elegido ? 3 : 2}
                     />
-                  )}
-
-                  {/* Círculo base del nodo */}
-                  <circle
-                    r={nodo.radio}
-                    fill={nodo.colorBg}
-                    stroke={esSeleccionado ? "#2563EB" : nodo.colorBorder}
-                    strokeWidth={esSeleccionado ? 3 : 2}
-                    filter="url(#shadow-node)"
-                  />
-
-                  {/* Letra o número identificador */}
-                  <text
-                    textAnchor="middle"
-                    dy="0.35em"
-                    fill={nodo.colorText}
-                    fontSize={nodo.tipoVisual === "Paso" || nodo.tipoVisual === "Fin" ? "12" : "13"}
-                    fontWeight="bold"
-                    style={{ pointerEvents: "none", userSelect: "none" }}
-                  >
-                    {nodo.tipoVisual === "Paso"
-                      ? nodo.numeroPaso
-                      : nodo.tipoVisual === "Fin"
-                        ? "✓"
-                        : nodo.tipoVisual}
-                  </text>
-
-                  {/* Texto Línea 1 (Título) */}
-                  <text
-                    y={nodo.radio + 16}
-                    textAnchor="middle"
-                    fill="var(--chakra-colors-fg)"
-                    fontSize="11.5"
-                    fontWeight={esSeleccionado ? "bold" : "600"}
-                    style={{ pointerEvents: "none", userSelect: "none" }}
-                  >
-                    {nodo.linea1}
-                  </text>
-
-                  {/* Texto Línea 2 (Subtítulo o detalle) */}
-                  <text
-                    y={nodo.radio + 30}
-                    textAnchor="middle"
-                    fill="#64748B"
-                    fontSize="10"
-                    fontWeight="normal"
-                    style={{ pointerEvents: "none", userSelect: "none" }}
-                  >
-                    {nodo.linea2}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        </svg>
+                    <text
+                      textAnchor="middle"
+                      dy="0.35em"
+                      fill={n.paleta.texto}
+                      fontSize="12"
+                      fontWeight="bold"
+                      style={{ pointerEvents: "none", userSelect: "none" }}
+                    >
+                      {n.marca}
+                    </text>
+                    {/* Globo con el nombre y el detalle, separado del círculo y de las líneas. */}
+                    <foreignObject
+                      x={-CAJA_GLOBO.ancho / 2}
+                      y={n.radio + 6}
+                      width={CAJA_GLOBO.ancho}
+                      height={CAJA_GLOBO.alto}
+                      style={{ pointerEvents: "none", userSelect: "none", overflow: "visible" }}
+                    >
+                      <Box display="flex" justifyContent="center" alignItems="flex-start">
+                        <Globo titulo={n.linea1} detalle={n.linea2} elegido={elegido} />
+                      </Box>
+                    </foreignObject>
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
+        )}
       </Box>
 
-      {/* 3. TARJETA DE DETALLE DE AUDITORÍA ENRIQUECIDA */}
       <Box mt="4">
-        {nodoSeleccionado ? (
-          <Tarjeta p="5" borderColor="brand.subtle" bg="bg.panel" boxShadow="sm">
-            <Stack gap="4">
-              <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap="2">
-                <HStack gap="3">
-                  <Box
-                    w="44px"
-                    h="44px"
-                    rounded="full"
-                    bg={nodoSeleccionado.colorBg}
-                    borderWidth="2px"
-                    borderColor={nodoSeleccionado.colorBorder}
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    color={nodoSeleccionado.colorText}
-                    fontWeight="bold"
-                    fontSize="lg"
-                  >
-                    {nodoSeleccionado.tipoVisual === "Paso"
-                      ? nodoSeleccionado.numeroPaso
-                      : nodoSeleccionado.tipoVisual === "Fin"
-                        ? "✓"
-                        : nodoSeleccionado.tipoVisual}
-                  </Box>
-                  <Box>
-                    <HStack gap="2">
-                      <Heading size="sm" color="fg">
-                        {nodoSeleccionado.nodoRaw.titulo}
-                      </Heading>
-                      <Badge size="xs" colorPalette="blue" variant="subtle">
-                        {nodoSeleccionado.tipoVisual === "P"
-                          ? "Proveedor"
-                          : nodoSeleccionado.tipoVisual === "L"
-                            ? "Lote de Materia Prima"
-                            : nodoSeleccionado.tipoVisual === "Paso"
-                              ? "Tarea de Elaboración"
-                              : nodoSeleccionado.tipoVisual === "Fin"
-                                ? "Cierre y Liberación"
-                                : nodoSeleccionado.tipoVisual === "R"
-                                  ? "Reserva Comercial"
-                                  : nodoSeleccionado.tipoVisual === "D"
-                                    ? "Logística y Transporte"
-                                    : "Cliente Destino"}
-                      </Badge>
-                    </HStack>
-                    <Text fontSize="xs" color="fg.muted">
-                      {nodoSeleccionado.nodoRaw.subtitulo || "Nodo de trazabilidad"}
-                    </Text>
-                  </Box>
-                </HStack>
-
-                <HStack gap="2">
-                  <BotonCancelar size="xs" onClick={() => setNodoSeleccionadoId(null)}>
-                    <LuX /> Cerrar ficha
-                  </BotonCancelar>
-                </HStack>
-              </HStack>
-
-              {/* CONTENIDO DETALLADO POR TIPO DE NODO */}
-              <Box bg="bg.muted" p="4" rounded="md">
-                {/* PROVEEDOR (P) */}
-                {nodoSeleccionado.tipoVisual === "P" && (
-                  <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4">
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">RAZÓN SOCIAL</Text>
-                      <Text fontSize="sm" fontWeight="medium">{nodoSeleccionado.nodoRaw.titulo}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">MATRÍCULA BROMATOLÓGICA (RPE/RNE)</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.matricula || "—"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">CUIT</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.cuit || "—"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">ESTADO</Text>
-                      {(() => {
-                        const datos = (nodoSeleccionado.nodoRaw as NodoGrafo).metadatos;
-                        const activo = datos?.activo !== false;
-                        return (
-                          <HStack gap="1" color={activo ? "green.fg" : "fg.muted"}>
-                            <LuShieldCheck />
-                            <Text fontSize="xs" fontWeight="bold">
-                              {datos?.es_certificado ? "Con certificación requerida" : "Sin certificación requerida"}
-                              {" · "}
-                              {activo ? "Activo" : "Dado de baja"}
-                            </Text>
-                          </HStack>
-                        );
-                      })()}
-                    </Box>
-                  </SimpleGrid>
-                )}
-
-                {/* LOTE DE INSUMO (L) */}
-                {nodoSeleccionado.tipoVisual === "L" && (
-                  <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4">
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">MATERIA PRIMA</Text>
-                      <Text fontSize="sm" fontWeight="medium">{nodoSeleccionado.nodoRaw.titulo}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">LOTE DE COMPRA</Text>
-                      <Text fontSize="sm" fontWeight="bold">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.numero_lote || "—"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">FECHA DE VENCIMIENTO</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.vence || "Sin vencimiento"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">CANTIDAD DOSIFICADA</Text>
-                      <Text fontSize="sm" fontWeight="bold" color="brand.fg">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.cantidad_usada || "—"}
-                      </Text>
-                    </Box>
-                  </SimpleGrid>
-                )}
-
-                {/* PASO DE ELABORACIÓN (1, 2, 3...) */}
-                {nodoSeleccionado.tipoVisual === "Paso" && (
-                  <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4">
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">ETAPA DE RECETA</Text>
-                      <Text fontSize="sm" fontWeight="medium">{nodoSeleccionado.nodoRaw.titulo}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">OPERARIO FIRMANTE</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoTimeline).detalle?.operario_nombre || "—"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">REGISTRO DE FIRMA</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoTimeline).fecha_hora
-                          ? new Date((nodoSeleccionado.nodoRaw as NodoTimeline).fecha_hora!).toLocaleString("es-AR")
-                          : "Completado conforme"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">CONTROL DE DESVÍOS</Text>
-                      <Text fontSize="xs" color="green.fg" fontWeight="bold">
-                        Sin desvíos de inocuidad ✓
-                      </Text>
-                    </Box>
-                  </SimpleGrid>
-                )}
-
-                {/* CIERRE / FIN */}
-                {nodoSeleccionado.tipoVisual === "Fin" && (
-                  <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4">
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">PRODUCTO TERMINADO</Text>
-                      <Text fontSize="sm" fontWeight="medium">{grafo.producto_nombre}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">CANTIDAD PRODUCIDA</Text>
-                      <Text fontSize="sm" fontWeight="bold" color="green.fg">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.producido
-                          ? `${(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos.producido} u`
-                          : "—"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">VENCIMIENTO COMERCIAL</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.vencimiento || "Sin vencimiento"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">LIBERACIÓN BROMATOLÓGICA</Text>
-                      <Badge size="xs" colorPalette="green" variant="subtle">Apto Distribución</Badge>
-                    </Box>
-                  </SimpleGrid>
-                )}
-
-                {/* RESERVA / DESPACHO / CLIENTE */}
-                {(nodoSeleccionado.tipoVisual === "R" ||
-                  nodoSeleccionado.tipoVisual === "D" ||
-                  nodoSeleccionado.tipoVisual === "C") && (
-                  <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4">
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">REFERENCIA</Text>
-                      <Text fontSize="sm" fontWeight="medium">{nodoSeleccionado.nodoRaw.titulo}</Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">TRANSPORTE Y HABILITACIÓN</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.transportista || "Sin transportista"}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">ESTADO LOGÍSTICO</Text>
-                      <Badge size="xs" colorPalette="teal" variant="subtle">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).badge || "—"}
-                      </Badge>
-                    </Box>
-                    <Box>
-                      <Text fontSize="2xs" color="fg.muted" fontWeight="bold">REMITO DE ENTREGA</Text>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos?.salida_id
-                          ? `#${(nodoSeleccionado.nodoRaw as NodoGrafo).metadatos.salida_id}`
-                          : "—"}
-                      </Text>
-                    </Box>
-                  </SimpleGrid>
-                )}
-              </Box>
-            </Stack>
-          </Tarjeta>
+        {seleccionado ? (
+          <FichaNodo
+            nodo={seleccionado}
+            grafo={grafo}
+            onCerrar={() => setSeleccionId(null)}
+            onIr={(ruta) => navigate(ruta)}
+          />
         ) : (
-          <Tarjeta p="4" textAlign="center" bg="bg.panel" borderColor="border.subtle">
-            <Text fontSize="xs" color="fg.muted">
-              💡 Hacé clic en cualquier nodo (proveedor, ingrediente, paso, lote final, transporte o cliente) para trazar su recorrido bidireccional y consultar sus datos de auditoría.
-            </Text>
-          </Tarjeta>
+          <Text fontSize="xs" color="fg.muted" textAlign="center">
+            Elegí un proveedor, lote de insumo, etapa, salida o cliente para ver su recorrido y sus datos.
+          </Text>
         )}
       </Box>
     </Box>
+  );
+}
+
+function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  return (
+    <Box minW="0">
+      <Text fontSize="xs" color="fg.muted" fontWeight="semibold">
+        {etiqueta}
+      </Text>
+      <Box fontSize="sm" fontWeight="medium" overflowWrap="anywhere">
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
+/** A dónde lleva "Ver detalle" según el tipo de nodo. Proveedores solo tienen pantalla de edición. */
+function accionDetalle(
+  nodo: NodoDibujo,
+  grafo: GrafoTrazabilidadResponse,
+): { texto: string; ruta: string } | null {
+  const m = nodo.grafo?.metadatos ?? {};
+  switch (nodo.tipo) {
+    case "P":
+      return m.id ? { texto: "Ver proveedor", ruta: `/proveedores/${m.id}/editar` } : null;
+    case "L":
+      return m.lote_insumo_id
+        ? { texto: "Ver lote de insumo", ruta: `/trazabilidad/lotes-insumo/${m.lote_insumo_id}` }
+        : null;
+    case "Ini":
+    case "Paso":
+    case "Fin":
+      return { texto: "Ver lote de producción", ruta: `/lotes/${grafo.lote_id}` };
+    case "S":
+      return m.salida_id ? { texto: "Ver salida", ruta: `/salidas/${m.salida_id}/detalle` } : null;
+    case "C":
+      return m.cliente_id ? { texto: "Ver cliente", ruta: `/clientes/${m.cliente_id}/detalle` } : null;
+  }
+}
+
+function FichaNodo({
+  nodo,
+  grafo,
+  onCerrar,
+  onIr,
+}: {
+  nodo: NodoDibujo;
+  grafo: GrafoTrazabilidadResponse;
+  onCerrar: () => void;
+  onIr: (ruta: string) => void;
+}) {
+  const g = nodo.grafo;
+  const m = g?.metadatos ?? {};
+  const tarea = nodo.tarea;
+  let titulo = g?.titulo ?? tarea?.titulo ?? "";
+  let subtitulo = g?.subtitulo ?? null;
+  let contenido: ReactNode = null;
+
+  switch (nodo.tipo) {
+    case "P":
+      contenido = (
+        <>
+          <Dato etiqueta="Razón social">{g?.titulo}</Dato>
+          <Dato etiqueta="Matrícula (RNE/RPE)">{m.matricula || "-"}</Dato>
+          <Dato etiqueta="CUIT">{m.cuit || "-"}</Dato>
+          <Dato etiqueta="Estado">
+            {m.es_certificado ? "Con certificación requerida" : "Sin certificación requerida"}
+            {" · "}
+            {m.activo === false ? "Dado de baja" : "Activo"}
+          </Dato>
+        </>
+      );
+      break;
+    case "L": {
+      const desperdicio = Number(m.cantidad_desperdicio ?? 0);
+      contenido = (
+        <>
+          <Dato etiqueta="Ingrediente">{g?.titulo}</Dato>
+          <Dato etiqueta="Marca">{m.marca || "-"}</Dato>
+          <Dato etiqueta="Lote del proveedor">{m.numero_lote || "-"}</Dato>
+          <Dato etiqueta="Ingreso">{formatoFecha(m.fecha_ingreso)}</Dato>
+          <Dato etiqueta="Vencimiento">{m.vence ? formatoFecha(m.vence) : "Sin vencimiento"}</Dato>
+          <Dato etiqueta="Usado en este lote">{cantidadConUnidad(m.cantidad_usada, m.unidad)}</Dato>
+          {desperdicio > 0 && <Dato etiqueta="Desperdicio">{cantidadConUnidad(desperdicio, m.unidad)}</Dato>}
+        </>
+      );
+      break;
+    }
+    case "Ini":
+      titulo = `Lote ${grafo.numero_lote}`;
+      subtitulo = grafo.producto_nombre;
+      contenido = (
+        <>
+          <Dato etiqueta="Producto">{grafo.producto_nombre}</Dato>
+          <Dato etiqueta="Receta">{m.version_receta ? `Versión ${m.version_receta}` : "-"}</Dato>
+          <Dato etiqueta="Inicio">{formatoFechaHora(m.inicio)}</Dato>
+          <Dato etiqueta="Creado por">{m.operario || "-"}</Dato>
+        </>
+      );
+      break;
+    case "Paso": {
+      const consumos = tarea?.detalle.ingredientes_consumidos ?? [];
+      const desperdicios = tarea?.detalle.desperdicios ?? [];
+      subtitulo = nodo.linea2;
+      contenido = (
+        <>
+          <Dato etiqueta="Etapa">{tarea?.titulo}</Dato>
+          <Dato etiqueta="Completada por">{tarea?.detalle.operario_nombre || "-"}</Dato>
+          <Dato etiqueta="Fecha">{tarea?.fecha_hora ? formatoFechaHora(tarea.fecha_hora) : "Pendiente"}</Dato>
+          <Dato etiqueta="Desperdicio">
+            {desperdicios.length === 0
+              ? "Sin desperdicio registrado"
+              : desperdicios.map((d, i) => (
+                  <Text key={i}>
+                    {cantidadConUnidad(d.cantidad, d.unidad_medida)}
+                    {d.motivo ? ` · ${d.motivo}` : ""}
+                  </Text>
+                ))}
+          </Dato>
+          {consumos.length > 0 && (
+            <Box gridColumn="1 / -1">
+              <Dato etiqueta="Insumos consumidos">
+                {consumos.map((c, i) => (
+                  <Text key={i} fontWeight="normal">
+                    {c.ingrediente_nombre} · lote {c.lote_insumo_codigo}: {cantidadConUnidad(c.cantidad, c.unidad_medida)}
+                  </Text>
+                ))}
+              </Dato>
+            </Box>
+          )}
+        </>
+      );
+      break;
+    }
+    case "Fin":
+      titulo = `${grafo.producto_nombre} · Lote ${grafo.numero_lote}`;
+      subtitulo = null;
+      contenido = (
+        <>
+          <Dato etiqueta="Estado del lote">
+            {g?.badge ? <EtiquetaEstado tono={(g.tono_badge ?? "neutro") as TonoEstado}>{g.badge}</EtiquetaEstado> : "-"}
+          </Dato>
+          <Dato etiqueta="Cantidad producida">
+            {m.producido ? cantidadConUnidad(m.producido, m.unidad) : "Sin registrar"}
+          </Dato>
+          <Dato etiqueta="Cantidad objetivo">{cantidadConUnidad(m.objetivo, m.unidad)}</Dato>
+          <Dato etiqueta="Vencimiento">{m.vencimiento ? formatoFecha(m.vencimiento) : "-"}</Dato>
+          <Dato etiqueta="Cierre">{tarea?.fecha_hora ? formatoFechaHora(tarea.fecha_hora) : "-"}</Dato>
+        </>
+      );
+      break;
+    case "S": {
+      const certificaciones = m.certificaciones_transportista ?? [];
+      contenido = (
+        <>
+          <Dato etiqueta="Cantidad">{cantidadConUnidad(m.cantidad, m.unidad)}</Dato>
+          <Dato etiqueta="Estado">
+            <EtiquetaEstado tono={(g?.tono_badge ?? "neutro") as TonoEstado}>
+              {etiquetaEstadoSalida(m.estado_salida)}
+            </EtiquetaEstado>
+          </Dato>
+          <Dato etiqueta="Entrega">{FORMA_ENTREGA[m.forma_entrega ?? ""] ?? m.forma_entrega ?? "-"}</Dato>
+          <Dato etiqueta="Transportista">
+            {m.transportista || "-"}
+            {certificaciones.length > 0 && (
+              <Text fontSize="xs" color="fg.muted" fontWeight="normal">
+                Certificaciones: {certificaciones.join(", ")}
+              </Text>
+            )}
+          </Dato>
+          <Dato etiqueta="Reserva">{formatoFecha(m.fecha_reserva)}</Dato>
+          <Dato etiqueta="Despacho">{formatoFecha(m.fecha_despacho)}</Dato>
+          <Dato etiqueta="Entrega">{formatoFecha(m.fecha_entrega)}</Dato>
+          <Dato etiqueta="Recibido por">{m.recibido_por || "-"}</Dato>
+        </>
+      );
+      break;
+    }
+    case "C": {
+      const salidas = grafo.nodos.filter(
+        (n) => n.columna === "despacho" && n.metadatos.cliente_id === m.cliente_id,
+      );
+      contenido = (
+        <>
+          <Dato etiqueta="Cliente">{g?.titulo}</Dato>
+          <Dato etiqueta="CUIT / DNI">{m.documento || "-"}</Dato>
+          <Dato etiqueta="Domicilio">{m.direccion || "-"}</Dato>
+          <Dato etiqueta="Salidas de este lote">
+            {salidas.map((s) => (
+              <Text key={s.id} fontWeight="normal">
+                {s.titulo}: {cantidadConUnidad(s.metadatos.cantidad, s.metadatos.unidad)} ·{" "}
+                {etiquetaEstadoSalida(s.metadatos.estado_salida)}
+              </Text>
+            ))}
+          </Dato>
+        </>
+      );
+      break;
+    }
+  }
+
+  const accion = accionDetalle(nodo, grafo);
+
+  return (
+    <Tarjeta p="5">
+      <Stack gap="4">
+        <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap="2">
+          <HStack gap="3" minW="0">
+            <Box
+              flexShrink={0}
+              w="40px"
+              h="40px"
+              rounded="full"
+              bg={nodo.paleta.bg}
+              borderWidth="2px"
+              borderColor={nodo.paleta.borde}
+              color={nodo.paleta.texto}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              fontWeight="bold"
+            >
+              {nodo.marca}
+            </Box>
+            <Box minW="0">
+              <HStack gap="2" flexWrap="wrap">
+                <Heading size="sm" color="fg">
+                  {titulo}
+                </Heading>
+                <Badge size="xs" colorPalette="blue" variant="subtle">
+                  {NOMBRE_TIPO[nodo.tipo]}
+                </Badge>
+              </HStack>
+              {subtitulo && (
+                <Text fontSize="xs" color="fg.muted">
+                  {subtitulo}
+                </Text>
+              )}
+            </Box>
+          </HStack>
+          <HStack gap="2">
+            {accion && (
+              <Button size="xs" variant="outline" onClick={() => onIr(accion.ruta)}>
+                {accion.texto} <LuArrowRight />
+              </Button>
+            )}
+            <BotonCancelar size="xs" onClick={onCerrar}>
+              <LuX /> Cerrar
+            </BotonCancelar>
+          </HStack>
+        </HStack>
+        <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap="4" bg="bg.muted" p="4" rounded="md">
+          {contenido}
+        </SimpleGrid>
+      </Stack>
+    </Tarjeta>
   );
 }

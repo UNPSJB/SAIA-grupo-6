@@ -18,9 +18,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class BorradorRotulado(ModeloBase):
+class BorradorRotulado(DatosDeEstablecimiento, ModeloBase):
     """Borrador de datos de rotulado de un producto (Capítulo V del CAA).
 
     Un producto puede tener varios borradores a lo largo del tiempo
@@ -110,7 +111,7 @@ class BorradorRotulado(ModeloBase):
         return self.lote_producto.numero_lote if self.lote_producto else None
 
 
-class CampoRotuladoEditado(ModeloBase):
+class CampoRotuladoEditado(DatosDeEstablecimiento, ModeloBase):
     """Trazabilidad de modificaciones sobre campos de un borrador de rotulado.
 
     Registra valor original, valor nuevo, origen del dato, tipo de operación,
@@ -147,7 +148,7 @@ class CampoRotuladoEditado(ModeloBase):
         return " ".join(p for p in (self.usuario.nombre, self.usuario.apellido) if p)
 
 
-class RevisionDeclaracionRotulado(ModeloBase):
+class RevisionDeclaracionRotulado(DatosDeEstablecimiento, ModeloBase):
     """Instantánea histórica; el contenido nunca se actualiza al regenerar."""
 
     __tablename__ = "revisiones_declaracion_rotulado"

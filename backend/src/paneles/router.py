@@ -4,7 +4,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin, require_operador
+from src.auth.dependencies import require_admin, require_gerente, require_operador
+from src.establecimientos.contexto import sede_efectiva
+from src.paneles import comparativo
 from src.database import get_db
 from src.incidente.constants import TipoIncidente
 from src.paneles import schemas, services
@@ -109,3 +111,17 @@ def panel_personas(
 ):
     """Personal, aptitudes, clientes y transportistas."""
     return services.panel_personas(db, periodo)
+
+
+@router.get("/comparativo", response_model=schemas.TableroComparativo)
+def tablero_comparativo(
+    periodo: schemas.Periodo = Depends(_periodo),
+    db: Session = Depends(get_db),
+    _usuario: Personal = Depends(require_gerente),
+):
+    """Indicadores de cada establecimiento lado a lado, con el promedio de la
+    empresa y el puesto de la sede propia. Solo gerentes y super admin.
+
+    La sede propia es la del gerente; para el super admin, la que eligió.
+    """
+    return comparativo.tablero_comparativo(db, periodo, sede_efectiva(db))

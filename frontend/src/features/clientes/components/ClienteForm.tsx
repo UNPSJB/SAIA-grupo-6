@@ -54,7 +54,7 @@ export function ClienteForm({
     <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
       <SeccionFormulario>
         <GrillaFormulario>
-          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo="doble">
             <FormInput
               value={values.nombre}
               onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}

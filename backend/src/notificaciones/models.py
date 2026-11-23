@@ -2,18 +2,23 @@ from datetime import date, datetime
 from sqlalchemy import DateTime, Date, Float, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento, columna_sede_pk
 
 
-class ConfiguracionAlerta(ModeloBase):
-    """Ajustes de las alertas que el usuario puede cambiar desde la app."""
+class ConfiguracionAlerta(DatosDeEstablecimiento, ModeloBase):
+    """Ajustes de las alertas que el usuario puede cambiar desde la app.
+
+    Una fila por sede y clave: cada establecimiento ajusta los suyos.
+    """
 
     __tablename__ = "configuracion_alertas"
 
+    establecimiento_id: Mapped[int] = columna_sede_pk()
     clave: Mapped[str] = mapped_column(String(60), primary_key=True)
     valor: Mapped[int] = mapped_column(Integer)
 
 
-class ConfiguracionImpacto(ModeloBase):
+class ConfiguracionImpacto(DatosDeEstablecimiento, ModeloBase):
     """Impacto base (1 bajo, 2 medio, 3 alto) que el administrador de este
     establecimiento le asigna a un tipo de situación.
 
@@ -24,11 +29,12 @@ class ConfiguracionImpacto(ModeloBase):
 
     __tablename__ = "configuracion_impacto"
 
+    establecimiento_id: Mapped[int] = columna_sede_pk()
     tipo: Mapped[str] = mapped_column(String(40), primary_key=True)
     impacto: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
-class SituacionRiesgo(ModeloBase):
+class SituacionRiesgo(DatosDeEstablecimiento, ModeloBase):
     """Historial de situaciones del motor de riesgos.
 
     Una situación es una instancia concreta: tipo + elemento + fecha de
@@ -61,7 +67,7 @@ class SituacionRiesgo(ModeloBase):
     )
 
 
-class NotificacionPersistida(ModeloBase):
+class NotificacionPersistida(DatosDeEstablecimiento, ModeloBase):
     """Notificación calculada y persistida para evitar recalcular en cada request.
 
     La tabla se sincroniza como diff (insert/update/delete de lo que cambió) en
@@ -78,7 +84,7 @@ class NotificacionPersistida(ModeloBase):
     __audit__ = False  # Tabla de caché derivada: no requiere bitácora de auditoría
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    id_notificacion: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    id_notificacion: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     tipo: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     entidad_id: Mapped[int] = mapped_column(Integer, nullable=False)
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -105,3 +111,8 @@ class NotificacionPersistida(ModeloBase):
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_notificaciones_persistidas_establecimiento_id_notificacion", NotificacionPersistida.establecimiento_id, NotificacionPersistida.id_notificacion, unique=True)

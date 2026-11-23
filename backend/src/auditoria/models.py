@@ -14,9 +14,10 @@ from sqlalchemy import DateTime, ForeignKey, Index, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimientoOpcional
 
 
-class AuditLog(ModeloBase):
+class AuditLog(DatosDeEstablecimientoOpcional, ModeloBase):
     """Un evento de escritura: quién cambió qué entidad, cuándo y cómo."""
 
     # La bitácora no se audita a sí misma: el listener de after_insert

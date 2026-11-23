@@ -3,10 +3,11 @@ from datetime import datetime
 from typing import Optional
 from src.common.fechas import ahora
 from src.models import AUDITORIA_REDACTAR, ModeloBase
+from src.establecimientos.models import DatosDeEstablecimientoOpcional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, DateTime
 
-class Personal(ModeloBase):
+class Personal(DatosDeEstablecimientoOpcional, ModeloBase):
     __tablename__ = "personal"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -27,10 +28,18 @@ class Personal(ModeloBase):
     puede_administrar: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Jerarquía de roles:
-    #   super admin -> administra todo y puede editar a cualquiera
+    #   super admin -> de la empresa (sin sede): administra todo y edita a cualquiera
+    #   gerente     -> administra su sede: edita a admins y operadores de ella
     #   admin       -> administra todo, pero solo edita a operadores y a sí mismo
     #   operador    -> solo se edita a sí mismo
     es_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Gerente: administrador máximo de su establecimiento y único (junto al
+    # super admin) que ve el tablero comparativo entre sedes. Siempre lleva
+    # también `puede_administrar` y `puede_operar`.
+    es_gerente: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default=sa.false()
+    )
 
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 

@@ -1,12 +1,13 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Badge, Box, Menu, Portal, Text } from "@chakra-ui/react";
-import { LuLogOut, LuSettings, LuUserRound } from "react-icons/lu";
+import { LuChartColumn, LuLogOut, LuSettings, LuUserRound } from "react-icons/lu";
 import type { IconType } from "react-icons/lib";
 import { useAuth } from "../context/useAuth";
-import { puedeAdministrar } from "../api/permissions";
+import { esGerente, esSuperAdmin, nombreDeRol, puedeAdministrar } from "../api/permissions";
 import { RUTA_CONFIGURACION } from "./menuEntradas";
 import { Tooltip } from "../../components/ui/tooltip";
+import { obtenerEstablecimientoActual } from "../../features/establecimientos/services/establecimientoService";
 
 interface OpcionMenuUsuario {
   valor: string;
@@ -19,24 +20,34 @@ interface OpcionMenuUsuario {
   separador?: boolean;
   /** Solo se muestra a quien puede administrar. Por defecto la ven todos. */
   soloAdministradores?: boolean;
+  /** Solo gerentes y super admin (el tablero comparativo entre sedes). */
+  soloGerentes?: boolean;
 }
 
 export function MenuUsuario() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [sede, setSede] = useState<string | null>(null);
+
+  // Nombre de la sede en la que se trabaja (la propia, o la elegida por el
+  // super admin), para que siempre se sepa de quién son los datos en pantalla.
+  useEffect(() => {
+    if (!user) return;
+    let vigente = true;
+    obtenerEstablecimientoActual()
+      .then((e) => vigente && setSede(e.nombre))
+      .catch(() => vigente && setSede(null));
+    return () => {
+      vigente = false;
+    };
+  }, [user]);
 
   if (!user) return null;
 
   const nombreCompleto = `${user.nombre} ${user.apellido}`;
 
   // Se muestra bajo el nombre, como el "Signed in as" de GitHub.
-  const rol = user.es_super_admin
-    ? "Super administrador"
-    : user.puede_administrar
-      ? "Administrador"
-      : user.puede_operar
-        ? "Operador"
-        : "Usuario";
+  const rol = nombreDeRol(user);
 
   // Para agregar una opción nueva, sumá una línea acá.
   const todasLasOpciones: OpcionMenuUsuario[] = [
@@ -45,6 +56,13 @@ export function MenuUsuario() {
       label: "Mi perfil",
       icon: LuUserRound,
       accion: () => navigate("/mi-perfil"),
+    },
+    {
+      valor: "comparativo",
+      label: "Comparar sedes",
+      icon: LuChartColumn,
+      accion: () => navigate("/comparativo"),
+      soloGerentes: true,
     },
     {
       valor: "configuracion",
@@ -64,7 +82,9 @@ export function MenuUsuario() {
   ];
 
   const opciones = todasLasOpciones.filter(
-    (opcion) => !opcion.soloAdministradores || puedeAdministrar(user),
+    (opcion) =>
+      (!opcion.soloAdministradores || puedeAdministrar(user)) &&
+      (!opcion.soloGerentes || esGerente(user) || esSuperAdmin(user)),
   );
 
   return (
@@ -114,6 +134,11 @@ export function MenuUsuario() {
               <Badge mt="1" colorPalette="brand" variant="subtle">
                 {rol}
               </Badge>
+              {sede && (
+                <Text fontSize="xs" color="fg.muted" mt="1">
+                  {user.es_super_admin ? "Trabajando en" : "Establecimiento"}: {sede}
+                </Text>
+              )}
             </Box>
             <Menu.Separator />
 

@@ -1,9 +1,10 @@
 import type { User } from "../context/auth-context";
 
 /**
- * Jerarquía de roles:
- *   super admin -> edita a cualquiera
- *   admin       -> edita a operadores y a sí mismo
+ * Jerarquía de roles (de mayor a menor):
+ *   super admin -> de la empresa, sin sede: edita a cualquiera
+ *   gerente     -> administra su sede: edita a admins y operadores de ella
+ *   admin       -> edita a operadores de su sede y a sí mismo
  *   operador    -> solo se edita a sí mismo
  *
  * Este módulo es la traducción en el frontend de las mismas reglas que
@@ -17,6 +18,8 @@ export interface ConRoles {
   puede_operar: boolean;
   puede_administrar: boolean;
   es_super_admin?: boolean;
+  es_gerente?: boolean;
+  establecimiento_id?: number | null;
 }
 
 export function esSuperAdmin(usuario: ConRoles | User | null | undefined): boolean {
@@ -29,18 +32,41 @@ export function esSuperAdmin(usuario: ConRoles | User | null | undefined): boole
  * admin con ambos flags en false (combinación legal) pasaba este guard y
  * recibía un 403.
  */
+export function esGerente(usuario: ConRoles | User | null | undefined): boolean {
+  return Boolean(usuario?.es_gerente);
+}
+
 export function puedeOperar(usuario: ConRoles | User | null | undefined): boolean {
-  return Boolean(usuario && (usuario.puede_operar || usuario.puede_administrar));
+  return Boolean(usuario && (usuario.puede_operar || usuario.puede_administrar || usuario.es_gerente));
 }
 
 export function puedeAdministrar(usuario: ConRoles | User | null | undefined): boolean {
-  return Boolean(usuario && (usuario.puede_administrar || usuario.es_super_admin));
+  return Boolean(usuario && (usuario.puede_administrar || usuario.es_gerente || usuario.es_super_admin));
 }
 
-export function nivelDe(usuario: ConRoles | User | null | undefined): "super admin" | "admin" | "operador" {
+export type Nivel = "super admin" | "gerente" | "admin" | "operador";
+
+export function nivelDe(usuario: ConRoles | User | null | undefined): Nivel {
   if (esSuperAdmin(usuario)) return "super admin";
+  if (esGerente(usuario)) return "gerente";
   if (usuario?.puede_administrar) return "admin";
   return "operador";
+}
+
+const RANGO: Record<Nivel, number> = { "super admin": 3, gerente: 2, admin: 1, operador: 0 };
+
+function rango(usuario: ConRoles | User | null | undefined): number {
+  return RANGO[nivelDe(usuario)];
+}
+
+/** Solo el super admin designa gerentes (y otros super admins). */
+export function puedeAsignarGerente(actor: ConRoles | User | null | undefined): boolean {
+  return esSuperAdmin(actor);
+}
+
+/** Dar o quitar "Administrar": el gerente de la sede o el super admin. */
+export function puedeAsignarAdministrar(actor: ConRoles | User | null | undefined): boolean {
+  return rango(actor) >= RANGO.gerente;
 }
 
 export type PersonaObjetivo = ConRoles;
@@ -53,12 +79,18 @@ export function puedeEditarA(
   if (actor.id === objetivo.id) return true;
   if (esSuperAdmin(actor)) return true;
 
-  // Un admin solo toca a operadores: nada de tocar a otro admin ni a un super admin.
-  if (actor.puede_administrar) {
-    return !objetivo.puede_administrar && !objetivo.es_super_admin;
+  if (!puedeAdministrar(actor)) return false;
+  // Gerente y admin trabajan dentro de su sede, y cada uno toca solo a quien
+  // está por debajo: el gerente a admins y operadores, el admin a operadores.
+  // (Una sesión guardada antes del multiestablecimiento no trae la sede: ahí
+  // se deja decidir al backend, que es quien valida de verdad.)
+  if (
+    actor.establecimiento_id !== undefined &&
+    (actor.establecimiento_id ?? null) !== (objetivo.establecimiento_id ?? null)
+  ) {
+    return false;
   }
-
-  return false;
+  return rango(objetivo) < rango(actor);
 }
 
 /** Quién puede cambiar capacidades/estado de una persona. */
@@ -85,4 +117,18 @@ export function puedeDarDeBajaA(
 
 export function etiquetaDeRol(usuario: ConRoles | User | null | undefined): string {
   return nivelDe(usuario);
+}
+
+/** Nombre del rol para mostrar ("Gerente", "Super administrador", ...). */
+export function nombreDeRol(usuario: ConRoles | User | null | undefined): string {
+  switch (nivelDe(usuario)) {
+    case "super admin":
+      return "Super administrador";
+    case "gerente":
+      return "Gerente";
+    case "admin":
+      return "Administrador";
+    default:
+      return usuario?.puede_operar ? "Operador" : "Usuario";
+  }
 }

@@ -42,7 +42,7 @@ export function ProveedorForm({ initialValues = emptyValues, onSubmit, isLoading
     <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
       <SeccionFormulario>
         <GrillaFormulario>
-          <FormField invalid={intentado && faltan.tiene("nombre")} label="Razón social / nombre" required completo>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Razón social / nombre" required completo="doble">
             <FormInput value={values.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej: Alimentos del Sur S.A." />
           </FormField>
           <FormField invalid={intentado && faltan.tiene("cuit")} label="CUIT" required helper="Se utiliza para evitar duplicados.">

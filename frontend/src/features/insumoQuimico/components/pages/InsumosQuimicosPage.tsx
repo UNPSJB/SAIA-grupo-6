@@ -33,17 +33,18 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function InsumosQuimicosPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("InsumosQuimicosPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("InsumosQuimicosPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [tipo, setTipo] = useState("");
-  const [unidadId, setUnidadId] = useState("");
+  const [tipo, setTipo] = useEstadoNavegacion("InsumosQuimicosPage.tipo", "");
+  const [unidadId, setUnidadId] = useEstadoNavegacion("InsumosQuimicosPage.unidadId", "");
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
   const orden = useOrdenTabla<ColumnaOrdenInsumoQuimico, "nombre_asc">(
     "nombre_asc"

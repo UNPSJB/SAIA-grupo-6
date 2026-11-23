@@ -267,6 +267,8 @@ class PanelPersonas(BaseModel):
     personal_inactivo: int
     aptitudes_vencidas: int
     aptitudes_proximas: int
+    # Aptitudes al día (ni vencidas ni por vencer): completa el reparto.
+    aptitudes_vigentes: int
     clientes_activos: int
     clientes_inactivos: int
     transportistas_activos: int
@@ -277,8 +279,15 @@ class PanelPersonas(BaseModel):
     cumplimiento_tareas: Optional[float]
     personal_por_rol: list[Conteo]
     cumplimiento_por_operador: list[Conteo]
+    # Por operador, tareas completadas (valor) en el período, de más a menos.
+    tareas_completadas_por_operador: list[Conteo]
+    # Incidentes reportados por alguien del personal en el período (todos, no solo el ranking).
+    incidentes_reportados: int
     incidentes_por_persona: list[Conteo]
     clientes_con_mas_salidas: list[Conteo]
+    # Por cliente (clave de `clientes_con_mas_salidas`): de sus salidas del
+    # período, cuántas tienen al menos un reclamo.
+    salidas_con_reclamo_por_cliente: dict[str, int]
     entregas_por_transportista: list[Conteo]
     certificaciones_transporte: list[Conteo]
     aptitudes_atencion: list[FilaAtencion]
@@ -350,3 +359,40 @@ class PanelInicio(BaseModel):
     vencen_hoy: Optional[list[FilaAtencion]] = None
     # Tareas de producción pendientes; solo para quien opera (sin administrar).
     tareas_produccion: Optional[list[TareaProduccionHoy]] = None
+
+
+# ────────────────────── Tablero comparativo entre sedes ──────────────────────
+
+
+class SedeComparada(BaseModel):
+    id: int
+    nombre: str
+
+
+class ValorSede(BaseModel):
+    establecimiento_id: int
+    # None: la sede no tiene datos para medir (p. ej. ningún equipo con planes).
+    valor: Optional[float] = None
+
+
+class IndicadorComparativo(BaseModel):
+    clave: str
+    etiqueta: str
+    descripcion: str
+    formato: Literal["porcentaje", "cantidad"]
+    # Si el número es mejor cuanto más alto (cumplimiento, lotes) o más bajo
+    # (incidentes, reclamos, retiros).
+    mejor: Literal["alto", "bajo"]
+    valores: list[ValorSede]
+    # Promedio de las sedes con dato.
+    promedio_empresa: Optional[float] = None
+    valor_propio: Optional[float] = None
+    # Puesto de la sede propia entre las que tienen dato (1 = la mejor).
+    posicion_propia: Optional[int] = None
+
+
+class TableroComparativo(BaseModel):
+    periodo: Periodo
+    establecimiento_propio_id: int
+    establecimientos: list[SedeComparada]
+    indicadores: list[IndicadorComparativo]

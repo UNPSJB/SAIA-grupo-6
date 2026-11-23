@@ -1,8 +1,8 @@
 import { useEnfocarFragmento } from "../../../../common/hooks/useEnfocarFragmento";
-import { Button } from "@chakra-ui/react";
+import { Box, Button } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PaginaDetalle } from "../../../../components/ui/plantillas";
+import { PADDING_PAGINA, PaginaDetalle } from "../../../../components/ui/plantillas";
 import {
   BannerError,
   BotonVolver,
@@ -10,7 +10,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { toaster } from "../../../../components/ui/toaster";
 import { useRotulado } from "../../hooks/useRotulado";
-import { RotuladoForm } from "../RotuladoForm";
+import { RotuladoForm, type SeccionId } from "../RotuladoForm";
 import { listarLotes } from "../../../lotes/services/loteService";
 import { previewAutocompletado, recalcularNutricionBorrador } from "../../services/rotuladoService";
 import type {
@@ -23,6 +23,10 @@ interface LoteSimple {
   numero_lote: string;
   producto_id: number;
   version_receta_id: number | null;
+  version_numero?: number | null;
+  fecha_inicio?: string | null;
+  fecha_cierre?: string | null;
+  fecha_vencimiento?: string | null;
 }
 
 export function RotuladoEditPage() {
@@ -32,6 +36,8 @@ export function RotuladoEditPage() {
 
 function RotuladoEditor() {
   const navigate = useNavigate();
+  // Sección del editor: sobrevive a que el formulario se vuelva a montar.
+  const [seccion, setSeccion] = useState<SeccionId | undefined>();
   const { id, producto_id } = useParams<{ id?: string; producto_id?: string }>();
   const borradorId = id ? Number(id) : null;
   const productoId = producto_id ? Number(producto_id) : null;
@@ -225,8 +231,9 @@ function RotuladoEditor() {
         lista_ingredientes: vistaPrevia.lista_ingredientes ?? "",
         contenido_neto: "",
         rnpa_rppa: "",
-        razon_social: "",
-        domicilio: "",
+        // Del establecimiento activo (Establecimientos → razón social y dirección).
+        razon_social: vistaPrevia.razon_social ?? "",
+        domicilio: vistaPrevia.domicilio ?? "",
         identificacion_lote: "",
         fecha_produccion: null,
         fecha_cierre: null,
@@ -245,25 +252,35 @@ function RotuladoEditor() {
       }
     : borrador ?? null;
 
+  // El encabezado (título, estado y acciones) lo pinta el formulario, fijo
+  // arriba mientras se recorren las secciones.
+  const accionesExtra = (
+    <>
+      {!esCreacion && borrador && (
+        <Button asChild variant="outline" size="sm">
+          <a href={`/rotulado/borradores/${borrador.id}/previsualizar`} target="_blank" rel="noopener noreferrer">
+            Previsualizar versión guardada
+          </a>
+        </Button>
+      )}
+      {/* Los octógonos se configuran en el producto. En otra pestaña para
+          no perder lo que se esté editando acá. */}
+      {borrador?.producto_id && (
+        <Button asChild variant="outline" size="sm">
+          <a
+            href={`/productos/${borrador.producto_id}/rotulado-frontal${borrador.id ? `?solo_lectura=true&borrador_id=${borrador.id}` : ""}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Rotulado frontal
+          </a>
+        </Button>
+      )}
+    </>
+  );
+
   return (
-    <PaginaDetalle
-      titulo={esCreacion ? "Nuevo borrador de rotulado" : `Rotulado — ${productoNombre}`}
-      acciones={
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          {!esCreacion && borrador && (
-            <Button asChild variant="outline">
-              <a href={`/rotulado/borradores/${borrador.id}/previsualizar`} target="_blank" rel="noopener noreferrer">
-                Previsualizar versión guardada
-              </a>
-            </Button>
-          )}
-          <Button type="submit" form="rotulado-form" loading={guardando}>
-            Guardar borrador
-          </Button>
-          <BotonVolver onClick={() => navigate(-1)}>Volver</BotonVolver>
-        </div>
-      }
-    >
+    <Box p={PADDING_PAGINA} pt="0" w="100%" minW="0">
       {vistaPrevia?.mensaje && <BannerError>{vistaPrevia.mensaje}</BannerError>}
       <RotuladoForm
         key={`${productoId}-${borradorId}-${borrador?.actualizado_en ?? "nuevo"}`}
@@ -283,7 +300,11 @@ function RotuladoEditor() {
         lotes={lotes}
         isLoading={guardando}
         hayFaltantes={false}
+        accionesExtra={accionesExtra}
+        onVolver={() => navigate(-1)}
+        seccionInicial={seccion}
+        onSeccionChange={setSeccion}
       />
-    </PaginaDetalle>
+    </Box>
   );
 }

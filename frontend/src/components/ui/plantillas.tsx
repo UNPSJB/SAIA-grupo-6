@@ -12,6 +12,7 @@ import { LuArrowLeft, LuLock } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 import { DEGRADADO_MARCA } from "../../theme";
 import { BannerError, PageHeader, Tarjeta } from "./patrones";
+import { hayPantallaAnterior, rutaAnterior } from "../../common/hooks/historialNavegacion";
 
 /**
  * Plantillas de página: el esqueleto de cada pantalla.
@@ -60,7 +61,7 @@ import { BannerError, PageHeader, Tarjeta } from "./patrones";
  * altas quedaban como una columna angosta en el centro de un monitor ancho,
  * desalineadas de los listados y paneles. Ahora todas las páginas tienen el
  * ancho de los listados y el reparto interno lo deciden `DisposicionDetalle`
- * y `PaginaAlta` (formulario 8/12, extenso 12/12).
+ * y `PaginaAlta` (todo el ancho; 8/4 o 9/3 con lateral).
  *
  *   completo   listado abierto desde el menú (lleva la franja teal)
  *   ancho      ajustes, fichas y formularios con tablas internas
@@ -104,7 +105,9 @@ export interface DestinoVolver {
 export function EnlaceVolver({ a, etiqueta, historial = false }: DestinoVolver) {
   const navigate = useNavigate();
   const volver = () => {
-    if (historial && window.history.length > 1) navigate(-1);
+    // Volver en el historial (y no abrir `a` de cero) recupera los filtros y
+    // la página con que se había dejado la pantalla anterior.
+    if ((historial && hayPantallaAnterior()) || rutaAnterior() === a) navigate(-1);
     else navigate(a);
   };
   return (

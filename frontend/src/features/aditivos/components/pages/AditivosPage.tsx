@@ -25,6 +25,7 @@ import {
 } from "../../services/aditivoService";
 import type { ClaseFuncional } from "../../types/aditivo";
 import { ClaseFuncionalDialog } from "../ClaseFuncionalDialog";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 /*
  * Antes esta página tenía también la pestaña "Aditivos" (la lista de
@@ -45,10 +46,12 @@ function useClases(incluirInactivas: boolean) {
 }
 
 export function TabClases() {
-  const [verBajas, setVerBajas] = useState(false);
+  const [verBajas, setVerBajas] = useEstadoNavegacion("AditivosPage.verBajas", false);
   const [editando, setEditando] = useState<ClaseFuncional | "nueva" | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
-  const { clases, loading, error, recargar } = useClases(verBajas);
+  const { clases: todas, loading, error, recargar } = useClases(verBajas);
+  // "Ver dados de baja": solo las dadas de baja (como en el resto de los listados).
+  const clases = todas.filter((c) => (verBajas ? !c.activo : c.activo));
 
   const accion = async (fn: () => Promise<unknown>) => {
     setErrorAccion(null);
@@ -74,7 +77,7 @@ export function TabClases() {
               nombreTabla="las clases funcionales"
               disabled={clases.length === 0}
               datos={() => ({
-                titulo: verBajas ? "Clases funcionales (con dadas de baja)" : "Clases funcionales",
+                titulo: verBajas ? "Clases funcionales dadas de baja" : "Clases funcionales",
                 nombre: "clases-funcionales",
                 encabezados: ["Clase funcional", "Número INS", "Estado"],
                 filas: clases.map((c) => [

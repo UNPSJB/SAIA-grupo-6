@@ -12,6 +12,9 @@ from .alergenos import migrar_alergenos
 from .base import crear_bitacora
 from .documentos import migrar_documentos
 from .equipos import migrar_equipos
+from .establecimientos import migrar_establecimientos
+from .insumos_sin_rotulo import migrar_insumos_sin_rotulo
+from .establecimientos_razon_social import migrar_establecimientos_razon_social
 from .incidentes import migrar_incidentes
 from .insumos_tipo import (
     migrar_aditivos_referencia,
@@ -58,6 +61,11 @@ from .lotes_insumo_bajas import migrar_lotes_insumo_bajas
 def run_migrations() -> None:
     crear_bitacora()
     migrar_columnas_personal()
+    # Multiestablecimiento: temprano, porque varias migraciones siguientes usan
+    # el ORM, cuyos modelos ya esperan `establecimiento_id`. Se repite al final.
+    migrar_establecimientos()
+    migrar_establecimientos_razon_social()
+    migrar_insumos_sin_rotulo()
     migrar_documentos()
     migrar_incidentes()
     migrar_tareas()
@@ -106,6 +114,12 @@ def run_migrations() -> None:
     migrar_retiros()
     migrar_proveedores()
     migrar_lotes_insumo_bajas()
+    # Multiestablecimiento: al final a propósito. Varias migraciones de arriba
+    # reconstruyen tablas copiando columnas conocidas; corriendo después, la
+    # columna `establecimiento_id` no se pierde en esas reconstrucciones.
+    migrar_establecimientos()
+    migrar_establecimientos_razon_social()
+    migrar_insumos_sin_rotulo()
 
 
 def crear_tablas_y_migrar() -> None:

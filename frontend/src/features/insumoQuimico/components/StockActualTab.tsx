@@ -34,6 +34,7 @@ import { useStockActual } from "../hooks/useStockActual";
 import type { ColumnaOrdenStock, StockInsumoQuimico } from "../types/stock";
 import { StockOperacionDialog, type TipoDialogoStock } from "./StockOperacionDialog";
 import { formatoCantidad } from "../../../common/utils/numeros";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -43,8 +44,8 @@ interface DialogoAbierto {
 }
 
 export function StockActualTab() {
-  const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("StockActualTab.busqueda", "");
+  const [estado, setEstado] = useEstadoNavegacion("StockActualTab.estado", "");
   const busquedaAplicada = useValorDebounced(busqueda);
   const orden = useOrdenTabla<ColumnaOrdenStock>("nombre_asc", "nombre");
   const stockBajo = estado === "bajo" ? true : estado === "normal" ? false : undefined;

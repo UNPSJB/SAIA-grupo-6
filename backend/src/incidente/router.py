@@ -113,6 +113,10 @@ def listar_incidentes(
         None,
         description="Fecha hasta para acotar el listado (inclusive).",
     ),
+    reportado_por: Optional[int] = Query(
+        None,
+        description="Id de la persona que reportó el incidente (lo usa el panel de Personas).",
+    ),
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -135,6 +139,7 @@ def listar_incidentes(
             buscar=buscar,
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
+            reportado_por=reportado_por,
         )
     items, total = services.listar_incidentes_paginado(
         db,
@@ -147,6 +152,7 @@ def listar_incidentes(
         page_size,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
+        reportado_por=reportado_por,
     )
     return schemas.IncidentePagina(
         items=items, total=total, page=page, page_size=page_size

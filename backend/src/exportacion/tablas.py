@@ -107,7 +107,7 @@ TABLAS_DOMINIO: list[tuple[type, str, str, OpcionesTabla]] = [
         exclude={"password", "password_changed_at"},
         column_order=[
             "id", "dni", "nombre", "apellido", "email", "telefono",
-            "activo", "puede_operar", "puede_administrar", "es_super_admin",
+            "activo", "puede_operar", "puede_administrar", "es_gerente", "es_super_admin", "establecimiento_id",
             "debe_cambiar_password", "fecha_creacion", "fecha_actualizacion",
         ],
         headers={"fecha_creacion": "Fecha Alta", "fecha_actualizacion": "Fecha Actualización"},
