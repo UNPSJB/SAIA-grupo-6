@@ -81,7 +81,7 @@ interface EncabezadoTarjetaProps {
  */
 export function EncabezadoTarjeta({ icono: Icono, fondoIcono, colorIcono, titulo, bajada, accion }: EncabezadoTarjetaProps) {
   return (
-    <Flex align="center" gap="3" mb={{ base: "4", lg: "2.5", "2xl": "4" }}>
+    <Flex data-no-exportar="" align="center" gap="3" mb={{ base: "4", lg: "2.5", "2xl": "4" }}>
       <Flex
         align="center"
         justify="center"

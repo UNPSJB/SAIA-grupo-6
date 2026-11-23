@@ -57,6 +57,7 @@ from src.lotes.router import router as lotes_router
 from src.salidas.router import router as salidas_router
 from src.reclamos.router import router as reclamos_router
 from src.retiros.router import router as retiros_router
+from src.reposiciones.router import router as reposiciones_router
 from src.productos.router import router as productos_router
 from src.aditivos.router import router as aditivos_router
 from src.recetas.router import router as recetas_router
@@ -186,6 +187,7 @@ app.include_router(lotes_router)
 app.include_router(salidas_router)
 app.include_router(reclamos_router)
 app.include_router(retiros_router)
+app.include_router(reposiciones_router)
 app.include_router(productos_router)
 app.include_router(aditivos_router)
 app.include_router(recetas_router)

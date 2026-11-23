@@ -6,6 +6,10 @@ MOTIVOS_RETIRO = (
     "Falla en el proceso de elaboración",
     "Insumo defectuoso",
     "Error de rotulado o alérgenos",
+    "Aviso o recall del proveedor",
+    "Resultado de análisis no conforme",
+    "Contaminación cruzada en origen",
+    "Insumo fuera de especificación o vencido",
     "Otro",
 )
 

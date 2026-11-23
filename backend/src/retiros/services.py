@@ -21,6 +21,7 @@ from src.lotes.models import LoteProducto
 from src.lotesInsumo.models import LoteInsumo
 from src.personal.models import Personal
 from src.reclamos.models import Reclamo
+from src.reposiciones.services import crear_reposicion_por_reserva_cancelada
 from src.retiros import exceptions, schemas
 from src.retiros.constants import (
     ESTADO_NOTIFICACION_NOTIFICADO,
@@ -121,15 +122,8 @@ def iniciar_retiro(
     lote.retirado = True
     db.add(lote)
 
-    # 8. Cancelar reservas (RESERVADO) del lote
-    salidas = list(lote.salidas) if lote.salidas is not None else []
-    salidas_reservadas = [s for s in salidas if s.estado == ESTADO_RESERVADO]
-    for salida in salidas_reservadas:
-        salidas_services._cancelar_sin_commit(
-            db, salida, f"Retiro del lote: {motivo}", usuario
-        )
-
-    # 9. Crear el retiro (flush para obtener el id antes de vincular afectados)
+    # 8. Crear el retiro (flush para obtener el id sin commitear: lo necesitan
+    #    las reposiciones y los afectados que se vinculan a continuación)
     retiro = Retiro(
         lote_id=lote_id,
         motivo=motivo,
@@ -143,6 +137,16 @@ def iniciar_retiro(
     )
     db.add(retiro)
     db.flush()
+
+    # 9. Cancelar reservas (RESERVADO) del lote y generar la reposición
+    #    comercial (deuda de stock con el cliente) por cada una.
+    salidas = list(lote.salidas) if lote.salidas is not None else []
+    salidas_reservadas = [s for s in salidas if s.estado == ESTADO_RESERVADO]
+    for salida in salidas_reservadas:
+        salidas_services._cancelar_sin_commit(
+            db, salida, f"Retiro del lote: {motivo}", usuario
+        )
+        crear_reposicion_por_reserva_cancelada(db, salida, retiro.id)
 
     # 10. Crear filas de RetiroAfectado para DESPACHADO y ENTREGADO
     salidas_afectadas = [

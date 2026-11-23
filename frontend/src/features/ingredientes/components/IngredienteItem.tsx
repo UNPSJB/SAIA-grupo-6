@@ -2,6 +2,7 @@ import { Badge, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import type { Ingrediente } from "../types/ingrediente";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
+import { EstadoEntidad } from "../../../components/ui/ResumenEntidadDialog";
 import {
   BotonAccion,
   Celda,
@@ -16,6 +17,7 @@ interface IngredienteItemProps {
   onDelete: (ingrediente: Ingrediente) => void;
   onReactivar: (ingrediente: Ingrediente) => void;
   onNutricion: (ingrediente: Ingrediente) => void;
+  onResumen: (id: number) => void;
 }
 
 export function IngredienteItem({
@@ -24,6 +26,7 @@ export function IngredienteItem({
   onDelete,
   onReactivar,
   onNutricion,
+  onResumen,
 }: IngredienteItemProps) {
   const unidadLabel = ingrediente.unidad_medida
     ? `${ingrediente.unidad_medida.nombre} (${ingrediente.unidad_medida.simbolo})`
@@ -32,7 +35,10 @@ export function IngredienteItem({
   return (
     <Table.Row borderBottomWidth="1px" borderColor="border.subtle" opacity={ingrediente.activo ? 1 : 0.65}>
       <Celda>
-        <DatoPrincipal titulo={ingrediente.nombre} />
+        <Stack gap="1" align="start">
+          <DatoPrincipal titulo={ingrediente.nombre} />
+          <EstadoEntidad activo={ingrediente.activo} />
+        </Stack>
       </Celda>
       <Celda>
         <Stack gap="1" align="flex-start">
@@ -79,6 +85,8 @@ export function IngredienteItem({
       </Celda>
       <Celda center>
         <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
+          <BotonAccion accion="ver" label={`Ver resumen de ${ingrediente.nombre}`} tooltip="Ver resumen"
+            onClick={() => onResumen(ingrediente.id)} />
           {ingrediente.activo && (
             <BotonAccion accion="editar" label="Modificar" onClick={() => onEdit(ingrediente)} />
           )}

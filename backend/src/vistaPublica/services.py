@@ -1,8 +1,8 @@
 import secrets
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Iterable, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.aptitud.models import Aptitud
@@ -15,11 +15,19 @@ from src.elementoLimpieza.models import ElementoLimpieza
 from src.establecimientos.contexto import OPCION_TODOS, sede_efectiva
 from src.Equipo.models import Equipo
 from src.exceptions import BadRequest, UnprocessableContent
+from src.lotes.constants import ESTADO_TERMINADO
+from src.lotes.models import LoteProducto
 from src.personal.models import Personal
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
+from src.productos.models import Producto
+from src.recetas.models import Receta, VersionReceta
+from src.rotulado.constants import CAMPO_COMPLETO
+from src.rotulado.exceptions import BorradorNoEncontrado
+from src.rotulado.models import BorradorRotulado
+from src.rotulado.services import previsualizar_borrador
 from src.vencimientoPersonal.models import VencimientoPersonal
 
-from .constants import CATALOGO, CATALOGO_POR_CLAVE
+from .constants import CATALOGO, CATALOGO_POR_CLAVE, DIAS_VENTANA_TRAZABILIDAD
 from .models import ConfiguracionVistaPublica, IndicadorVistaPublica
 
 
@@ -33,6 +41,7 @@ DIAS_VENTANA_POES = 30
 # de alguien en particular. Por debajo de este universo el indicador no se
 # publica: la vista pública es anónima y no puede identificar al personal.
 MINIMO_PERSONAS_PUBLICO = 5
+MINIMO_CONTROL_ALIMENTOS = 5
 
 
 # ───────────────────────── Configuración general ─────────────────────────
@@ -328,12 +337,81 @@ def _elementos_al_dia(db: Session) -> Optional[float]:
     return _porcentaje(al_dia, len(elementos))
 
 
+def _lotes_con_receta_trazable(db: Session) -> Optional[float]:
+    hoy_dia = hoy()
+    desde = datetime.combine(hoy_dia - timedelta(days=DIAS_VENTANA_TRAZABILIDAD - 1), time.min)
+    hasta = datetime.combine(hoy_dia + timedelta(days=1), time.min)
+    total, trazables = db.execute(
+        select(func.count(), func.count(LoteProducto.version_receta_id)).where(
+            LoteProducto.estado == ESTADO_TERMINADO,
+            LoteProducto.fecha_cierre >= desde,
+            LoteProducto.fecha_cierre < hasta,
+        )
+    ).one()
+    if total < MINIMO_CONTROL_ALIMENTOS:
+        return None
+    return _porcentaje(trazables, total)
+
+
+def _productos_con_rotulado_revisado(db: Session) -> Optional[float]:
+    total = db.scalar(select(func.count()).select_from(Producto).where(Producto.activo.is_(True)))
+    if total is None or total < MINIMO_CONTROL_ALIMENTOS:
+        return None
+
+    ultima_version = (
+        select(func.max(VersionReceta.numero))
+        .where(VersionReceta.receta_id == Receta.id)
+        .correlate(Receta)
+        .scalar_subquery()
+    )
+    candidatos = db.execute(
+        select(BorradorRotulado.id, Producto.id, VersionReceta.id)
+        .join(Producto, Producto.id == BorradorRotulado.producto_id)
+        .join(Receta, Receta.producto_id == Producto.id)
+        .join(VersionReceta, VersionReceta.receta_id == Receta.id)
+        .outerjoin(LoteProducto, LoteProducto.id == BorradorRotulado.lote_producto_id)
+        .where(
+            Producto.activo.is_(True),
+            BorradorRotulado.archivado.is_(False),
+            VersionReceta.numero == ultima_version,
+            VersionReceta.id == func.coalesce(
+                BorradorRotulado.version_receta_id, LoteProducto.version_receta_id,
+            ),
+        )
+        .order_by(BorradorRotulado.id.desc())
+    ).all()
+    revisados: set[int] = set()
+    for borrador_id, producto_id, version_id in candidatos:
+        if producto_id in revisados:
+            continue
+        try:
+            vista = previsualizar_borrador(db, borrador_id)
+        except BorradorNoEncontrado:
+            continue
+        declaracion = vista.declaraciones
+        if (
+            vista.origen.estado == "verificado"
+            and vista.origen.version_id == version_id
+            and not vista.origen.motivo
+            and vista.completitud.estado_global == CAMPO_COMPLETO
+            and vista.nutricion.estado == "completa"
+            and declaracion is not None
+            and declaracion.estado == "confirmada"
+            and declaracion.vigencia == "vigente"
+            and not declaracion.pendientes
+        ):
+            revisados.add(producto_id)
+    return _porcentaje(len(revisados), total)
+
+
 _CALCULADORES = {
     "cumplimiento_poes": _cumplimiento_poes,
     "equipos_al_dia": _equipos_al_dia,
     "personal_apto": _personal_apto,
     "documentos_vigentes": _documentos_vigentes,
     "elementos_al_dia": _elementos_al_dia,
+    "lotes_con_receta_trazable": _lotes_con_receta_trazable,
+    "productos_con_rotulado_revisado": _productos_con_rotulado_revisado,
 }
 
 # Indicadores que además informan cuánto mejoraron respecto del período

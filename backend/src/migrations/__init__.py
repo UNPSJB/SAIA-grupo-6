@@ -30,6 +30,7 @@ from .personal import bootstrap_super_admin, migrar_columnas_personal
 from .rotulado_frontal import migrar_rotulado_frontal
 from .reclamos import migrar_reclamos
 from .retiros import migrar_retiros
+from .reposiciones import migrar_reposiciones
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
@@ -112,6 +113,8 @@ def run_migrations() -> None:
     migrar_reclamos()
     # Retiros: después de reclamos, salidas y lotes porque depende de ellos.
     migrar_retiros()
+    # Reposiciones: depende de clientes, productos, salidas y retiros.
+    migrar_reposiciones()
     migrar_proveedores()
     migrar_lotes_insumo_bajas()
     # Multiestablecimiento: al final a propósito. Varias migraciones de arriba

@@ -602,7 +602,8 @@ export type AccionTabla =
   | "descargar"
   | "renovar"
   | "anular"
-  | "activar";
+  | "activar"
+  | "reponer";
 
 /**
  * Paleta por acción, uniforme en toda la app.
@@ -662,6 +663,8 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   anular: "red",
   // Activar una versión guardada: cierra el ciclo, como reactivar.
   activar: "green",
+  // Reponer stock: salda la deuda con el cliente creando la reserva.
+  reponer: "green",
 };
 
 /** Ícono de cada acción (Lucide: el set de íconos de toda la app). */
@@ -714,6 +717,8 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   renovar: LuCalendarClock,
   anular: LuBan,
   activar: LuPower,
+  // Reponer: ingreso de stock para saldar una deuda con el cliente.
+  reponer: LuPackagePlus,
 };
 
 /**

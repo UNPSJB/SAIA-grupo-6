@@ -9,6 +9,8 @@ import type { ChecklistHoy, FilaAtencion } from "../types/paneles";
 import { TEMAS_AREA } from "../types/temasArea";
 import { AnilloProgreso } from "./AnilloProgreso";
 import { EncabezadoTarjeta, TarjetaInicio } from "./TarjetaHoy";
+import { BotonDescargaGrafico } from "../../exportacion";
+
 
 const tema = TEMAS_AREA.limpieza;
 /** Ámbar claro de las advertencias de los paneles (fondo, borde, texto). */
@@ -110,6 +112,8 @@ function FilaPendiente({ tarea, miNombre }: { tarea: FilaAtencion; miNombre?: st
  * por estar debajo de la meta: la meta se muestra como referencia y el verde
  * aparece cuando se completa todo.
  */
+
+const TITULO = "Checklist de limpieza de hoy";
 export function ChecklistDeHoy({ checklist }: { checklist: ChecklistHoy }) {
   const { total, completadas, porcentaje, meta, por_momento, pendientes, pendientes_total } = checklist;
   const completo = total > 0 && completadas === total;
@@ -124,8 +128,9 @@ export function ChecklistDeHoy({ checklist }: { checklist: ChecklistHoy }) {
         icono={LuSprayCan}
         fondoIcono={tema.fondo[1]}
         colorIcono={tema.acento}
-        titulo="Checklist de limpieza de hoy"
+        titulo={TITULO}
         bajada={total === 0 ? "Hoy no hay tareas programadas" : `Meta de cumplimiento: ${meta}%`}
+        accion={total > 0 ? <BotonDescargaGrafico titulo={TITULO} rango={null} /> : undefined}
       />
 
       {total === 0 ? (

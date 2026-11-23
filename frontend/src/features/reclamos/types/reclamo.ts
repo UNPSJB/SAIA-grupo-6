@@ -11,6 +11,8 @@ export type MotivoReclamo =
   | "cuerpo_extrano"
   | "posible_afectacion_salud"
   | "rotulado_etiqueta"
+  | "devolucion_recall_retiro"
+  | "Devolución de lote por alerta de recall/retiro"
   | "otro";
 
 export const MOTIVOS_RECLAMO: { valor: MotivoReclamo; etiqueta: string }[] = [
@@ -22,6 +24,10 @@ export const MOTIVOS_RECLAMO: { valor: MotivoReclamo; etiqueta: string }[] = [
     etiqueta: "Posible afectación a la salud",
   },
   { valor: "rotulado_etiqueta", etiqueta: "Rotulado o etiqueta" },
+  {
+    valor: "Devolución de lote por alerta de recall/retiro",
+    etiqueta: "Devolución de lote por alerta de recall/retiro",
+  },
   { valor: "otro", etiqueta: "Otro" },
 ];
 
@@ -32,6 +38,12 @@ export const MOTIVO_RECLAMO_OTRO: MotivoReclamo = "otro";
 export const MOTIVO_AFECTACION_SALUD: MotivoReclamo = "posible_afectacion_salud";
 
 export function etiquetaMotivoReclamo(motivo: string): string {
+  if (
+    motivo === "devolucion_recall_retiro" ||
+    motivo === "Devolución de lote por alerta de recall/retiro"
+  ) {
+    return "Devolución de lote por alerta de recall/retiro";
+  }
   return (
     MOTIVOS_RECLAMO.find((m) => m.valor === motivo)?.etiqueta ?? motivo
   );

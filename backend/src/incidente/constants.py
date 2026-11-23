@@ -56,3 +56,14 @@ class ErrorCode:
 # exactamente el mismo criterio de validación.
 EXTENSIONES_FOTO = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 TAMANO_MAX_FOTO = 5 * 1024 * 1024  # 5 MB
+
+# Motivos asociados a reclamos de clientes (sincronizados con src.reclamos.constants)
+MOTIVOS_RECLAMO_CLIENTE = (
+    "Sabor, olor o aspecto anormal",
+    "Envase dañado",
+    "Cuerpo extraño",
+    "Posible afectación a la salud",
+    "Rotulado o etiqueta",
+    "Devolución de lote por alerta de recall/retiro",
+    "Otro",
+)
