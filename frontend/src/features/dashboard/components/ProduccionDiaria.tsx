@@ -299,7 +299,8 @@ export function ProduccionDiaria({
 
   return (
     <>
-      <HStack gap="4" mb={agregados.length ? "3" : "4"} flexWrap="wrap" align="flex-end">
+      {/* Controles: no salen en la imagen descargada (los productos elegidos sí, en los chips). */}
+      <HStack data-no-exportar="" gap="4" mb={agregados.length ? "3" : "4"} flexWrap="wrap" align="flex-end">
         <Box minW="220px" maxW="300px" flex="1">
           <LabelFiltro>{agregados.length ? "Agregar otro producto" : "Comparar productos"}</LabelFiltro>
           <FormNativeSelect

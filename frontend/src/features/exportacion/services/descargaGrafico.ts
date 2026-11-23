@@ -76,96 +76,99 @@ export async function descargarGrafico(
 }
 
 /**
- * Antes de capturar, expande temporalmente los contenedores con `overflow`
- * (auto / scroll / hidden) para que `html-to-image` dibuje todo el contenido
- * y no solo lo que cabe en el viewport.
+ * Antes de capturar, ensancha temporalmente los contenedores con scroll horizontal
+ * cuyo contenido no entra (p. ej. el grafo de trazabilidad completa de un lote),
+ * para que `html-to-image` dibuje todo y no solo la parte visible.
  *
- * Además de poner `overflow: visible`, fuerza el `width` de los contenedores
- * con scroll horizontal a `max-content` (o al ancho de su contenido si es
- * mayor), para que gráficos muy anchos (p. ej. el grafo de trazabilidad
- * completa de un lote) no queden recortados por el ancho de la pantalla.
+ * Solo toca lo que de verdad desborda: forzar `max-content` en todo hacía que la
+ * tarjeta se achicara al ancho de sus textos y recortaba los gráficos de Recharts,
+ * cuyo SVG tiene un ancho fijo en píxeles. Los `overflow: hidden` no se tocan: son
+ * recortes a propósito (textos truncados, esquinas redondeadas).
  *
  * Devuelve una función para restaurar los estilos originales tras la captura.
  */
 function expandirOverflow(nodo: HTMLElement): () => void {
-  const restauraciones: Array<{
-    elemento: HTMLElement;
-    overflow: string;
-    overflowX: string;
-    overflowY: string;
-    width: string;
-    minWidth: string;
-    maxWidth: string;
-  }> = [];
+  const restauraciones: Array<{ elemento: HTMLElement; overflowX: string; minWidth: string }> = [];
 
+  const ensanchar = (el: HTMLElement) => {
+    restauraciones.push({ elemento: el, overflowX: el.style.overflowX, minWidth: el.style.minWidth });
+    el.style.minWidth = `${el.scrollWidth}px`;
+    el.style.overflowX = "visible";
+  };
+
+  // Primero los de adentro: al ensancharlos, crece el contenido de los de afuera.
   const recorrer = (el: HTMLElement) => {
-    const estilo = getComputedStyle(el);
-    const oculta =
-      estilo.overflow === "auto" ||
-      estilo.overflow === "scroll" ||
-      estilo.overflow === "hidden" ||
-      estilo.overflowX === "auto" ||
-      estilo.overflowX === "scroll" ||
-      estilo.overflowX === "hidden" ||
-      estilo.overflowY === "auto" ||
-      estilo.overflowY === "scroll" ||
-      estilo.overflowY === "hidden";
-
-    if (oculta) {
-      const anchoContenido = el.scrollWidth;
-      const anchoActual = el.clientWidth;
-
-      restauraciones.push({
-        elemento: el,
-        overflow: estilo.overflow,
-        overflowX: estilo.overflowX,
-        overflowY: estilo.overflowY,
-        width: el.style.width,
-        minWidth: el.style.minWidth,
-        maxWidth: el.style.maxWidth,
-      });
-
-      el.style.overflow = "visible";
-      el.style.overflowX = "visible";
-      el.style.overflowY = "visible";
-      // Que el contenedor se estire al ancho del contenido, no al de la pantalla.
-      el.style.width = "max-content";
-      el.style.minWidth = "0";
-      el.style.maxWidth = "none";
-      // Si el contenido es más ancho que lo que se ve, asegurar que haya espacio.
-      if (anchoContenido > anchoActual) {
-        el.style.minWidth = `${anchoContenido}px`;
-      }
-    }
-
-    el.childNodes.forEach((hijo) => {
+    for (const hijo of el.children) {
       if (hijo instanceof HTMLElement) recorrer(hijo);
-    });
+    }
+    const { overflowX } = getComputedStyle(el);
+    const conScroll = overflowX === "auto" || overflowX === "scroll";
+    if (conScroll && el.scrollWidth > el.clientWidth + 1) ensanchar(el);
   };
 
   recorrer(nodo);
+  // La tarjeta misma puede quedar más angosta que lo que ahora contiene.
+  if (nodo.scrollWidth > nodo.clientWidth + 1) ensanchar(nodo);
 
   return () => {
-    for (const r of restauraciones) {
-      r.elemento.style.overflow = r.overflow;
+    for (const r of restauraciones.reverse()) {
       r.elemento.style.overflowX = r.overflowX;
-      r.elemento.style.overflowY = r.overflowY;
-      r.elemento.style.width = r.width;
       r.elemento.style.minWidth = r.minWidth;
-      r.elemento.style.maxWidth = r.maxWidth;
     }
+  };
+}
+
+/**
+ * Saca de la tarjeta lo que no se exporta (título, controles, botones) y la recorta
+ * hasta donde llega lo dibujado. Si no, en un tablero la tarjeta conserva el alto
+ * de su fila de la grilla y la imagen sale con un hueco vacío abajo.
+ *
+ * No se usa `height: auto`: los gráficos con `height="100%"` (el radar del
+ * comparativo) se achicarían y su SVG quedaría cortado. Se mide el borde inferior
+ * de lo que se ve (SVG, imágenes y elementos sin hijos), que no cambia al ocultar.
+ */
+function ajustarAlContenido(nodo: HTMLElement): () => void {
+  const ocultos = [...nodo.querySelectorAll<HTMLElement>(`[${ATRIBUTO_NO_EXPORTAR}]`)].map((el) => {
+    const display = el.style.display;
+    el.style.display = "none";
+    return () => { el.style.display = display; };
+  });
+  const restaurarOcultos = () => ocultos.forEach((restaurar) => restaurar());
+
+  const caja = nodo.getBoundingClientRect();
+  let fondo = caja.top;
+  const medir = (el: Element) => {
+    const esHoja = el instanceof SVGSVGElement || el instanceof HTMLImageElement
+      || el instanceof HTMLCanvasElement || el.children.length === 0;
+    if (esHoja) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) fondo = Math.max(fondo, r.bottom);
+      return;
+    }
+    for (const hijo of el.children) medir(hijo);
+  };
+  for (const hijo of nodo.children) medir(hijo);
+
+  const rellenoAbajo = parseFloat(getComputedStyle(nodo).paddingBottom) || 0;
+  const alto = Math.ceil(fondo - caja.top + rellenoAbajo);
+  if (alto >= caja.height - 1) return restaurarOcultos;
+
+  const { height, minHeight, alignSelf } = nodo.style;
+  nodo.style.height = `${alto}px`;
+  nodo.style.minHeight = "0";
+  nodo.style.alignSelf = "start";
+  return () => {
+    nodo.style.height = height;
+    nodo.style.minHeight = minHeight;
+    nodo.style.alignSelf = alignSelf;
+    restaurarOcultos();
   };
 }
 
 async function capturarNodo(nodo: HTMLElement): Promise<HTMLImageElement> {
   const { toPng } = await import("html-to-image");
+  const restaurarAlto = ajustarAlContenido(nodo);
   const restaurarOverflow = expandirOverflow(nodo);
-  // El nodo raíz (la tarjeta) también puede tener un ancho limitado por el
-  // layout de la página. Forzarlo a max-content para que no recorte el grafo.
-  const anchoRaiz = nodo.style.width;
-  const maxAnchoRaiz = nodo.style.maxWidth;
-  nodo.style.width = "max-content";
-  nodo.style.maxWidth = "none";
   try {
     const dataUrl = await toPng(nodo, {
       pixelRatio: ESCALA,
@@ -175,9 +178,8 @@ async function capturarNodo(nodo: HTMLElement): Promise<HTMLImageElement> {
     });
     return cargarImagen(dataUrl);
   } finally {
-    nodo.style.width = anchoRaiz;
-    nodo.style.maxWidth = maxAnchoRaiz;
     restaurarOverflow();
+    restaurarAlto();
   }
 }
 
