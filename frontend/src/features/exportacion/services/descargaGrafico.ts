@@ -75,15 +75,110 @@ export async function descargarGrafico(
   }
 }
 
+/**
+ * Antes de capturar, expande temporalmente los contenedores con `overflow`
+ * (auto / scroll / hidden) para que `html-to-image` dibuje todo el contenido
+ * y no solo lo que cabe en el viewport.
+ *
+ * Además de poner `overflow: visible`, fuerza el `width` de los contenedores
+ * con scroll horizontal a `max-content` (o al ancho de su contenido si es
+ * mayor), para que gráficos muy anchos (p. ej. el grafo de trazabilidad
+ * completa de un lote) no queden recortados por el ancho de la pantalla.
+ *
+ * Devuelve una función para restaurar los estilos originales tras la captura.
+ */
+function expandirOverflow(nodo: HTMLElement): () => void {
+  const restauraciones: Array<{
+    elemento: HTMLElement;
+    overflow: string;
+    overflowX: string;
+    overflowY: string;
+    width: string;
+    minWidth: string;
+    maxWidth: string;
+  }> = [];
+
+  const recorrer = (el: HTMLElement) => {
+    const estilo = getComputedStyle(el);
+    const oculta =
+      estilo.overflow === "auto" ||
+      estilo.overflow === "scroll" ||
+      estilo.overflow === "hidden" ||
+      estilo.overflowX === "auto" ||
+      estilo.overflowX === "scroll" ||
+      estilo.overflowX === "hidden" ||
+      estilo.overflowY === "auto" ||
+      estilo.overflowY === "scroll" ||
+      estilo.overflowY === "hidden";
+
+    if (oculta) {
+      const anchoContenido = el.scrollWidth;
+      const anchoActual = el.clientWidth;
+
+      restauraciones.push({
+        elemento: el,
+        overflow: estilo.overflow,
+        overflowX: estilo.overflowX,
+        overflowY: estilo.overflowY,
+        width: el.style.width,
+        minWidth: el.style.minWidth,
+        maxWidth: el.style.maxWidth,
+      });
+
+      el.style.overflow = "visible";
+      el.style.overflowX = "visible";
+      el.style.overflowY = "visible";
+      // Que el contenedor se estire al ancho del contenido, no al de la pantalla.
+      el.style.width = "max-content";
+      el.style.minWidth = "0";
+      el.style.maxWidth = "none";
+      // Si el contenido es más ancho que lo que se ve, asegurar que haya espacio.
+      if (anchoContenido > anchoActual) {
+        el.style.minWidth = `${anchoContenido}px`;
+      }
+    }
+
+    el.childNodes.forEach((hijo) => {
+      if (hijo instanceof HTMLElement) recorrer(hijo);
+    });
+  };
+
+  recorrer(nodo);
+
+  return () => {
+    for (const r of restauraciones) {
+      r.elemento.style.overflow = r.overflow;
+      r.elemento.style.overflowX = r.overflowX;
+      r.elemento.style.overflowY = r.overflowY;
+      r.elemento.style.width = r.width;
+      r.elemento.style.minWidth = r.minWidth;
+      r.elemento.style.maxWidth = r.maxWidth;
+    }
+  };
+}
+
 async function capturarNodo(nodo: HTMLElement): Promise<HTMLImageElement> {
   const { toPng } = await import("html-to-image");
-  const dataUrl = await toPng(nodo, {
-    pixelRatio: ESCALA,
-    cacheBust: true,
-    backgroundColor: fondoDe(nodo),
-    filter: (elemento) => !(elemento instanceof HTMLElement && elemento.hasAttribute(ATRIBUTO_NO_EXPORTAR)),
-  });
-  return cargarImagen(dataUrl);
+  const restaurarOverflow = expandirOverflow(nodo);
+  // El nodo raíz (la tarjeta) también puede tener un ancho limitado por el
+  // layout de la página. Forzarlo a max-content para que no recorte el grafo.
+  const anchoRaiz = nodo.style.width;
+  const maxAnchoRaiz = nodo.style.maxWidth;
+  nodo.style.width = "max-content";
+  nodo.style.maxWidth = "none";
+  try {
+    const dataUrl = await toPng(nodo, {
+      pixelRatio: ESCALA,
+      cacheBust: true,
+      backgroundColor: fondoDe(nodo),
+      filter: (elemento) => !(elemento instanceof HTMLElement && elemento.hasAttribute(ATRIBUTO_NO_EXPORTAR)),
+    });
+    return cargarImagen(dataUrl);
+  } finally {
+    nodo.style.width = anchoRaiz;
+    nodo.style.maxWidth = maxAnchoRaiz;
+    restaurarOverflow();
+  }
 }
 
 /** Color de fondo con el que se ve el gráfico, para que en modo oscuro no quede texto claro sobre blanco. */
