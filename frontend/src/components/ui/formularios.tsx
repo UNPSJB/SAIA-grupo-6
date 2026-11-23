@@ -283,7 +283,7 @@ const ESTILO_CONTROLES = {
     borderWidth: "1px",
     borderColor: "border.emphasized",
     borderRadius: "lg",
-    bg: "bg.panel",
+    bg: "control.fondo",
     transitionProperty: "border-color, box-shadow, background-color",
     transitionDuration: "moderate",
     "&:hover:not(:disabled):not(:focus-visible)": { borderColor: "brand.400" },

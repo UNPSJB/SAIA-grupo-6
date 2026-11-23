@@ -811,9 +811,9 @@ export function ModalIniciarRetiro({
 
                 <Box
                   border="1px solid"
-                  borderColor="gray.200"
+                  borderColor="border"
                   borderRadius="md"
-                  bg="white"
+                  bg="bg.subtle"
                   p={2}
                   maxH="240px"
                   overflowY="auto"

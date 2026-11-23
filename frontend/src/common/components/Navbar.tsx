@@ -71,7 +71,7 @@ const ANCHO_BASE = 100;
  * de la barra. En escritorio es la franja blanca de las migas de pan; en
  * celular esa franja no está y debajo queda el fondo de la página.
  */
-const FONDO_FUSION = { base: "brand.50", md: FONDO_PESTANA } as const;
+const FONDO_FUSION = { base: "pagina", md: FONDO_PESTANA } as const;
 
 /** Curva cóncava al pie de la pestaña seleccionada, del lado indicado. */
 function curva(lado: "left" | "right") {

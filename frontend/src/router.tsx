@@ -427,7 +427,7 @@ function LayoutPrincipal() {
   const fondoDe = useCallback(() => fondoRef.current, []);
 
   return (
-    <Flex h="100vh" overflow="hidden" bg="brand.50">
+    <Flex h="100vh" overflow="hidden" bg="pagina">
       <Flex
         ref={fondoRef}
         flex={1}
