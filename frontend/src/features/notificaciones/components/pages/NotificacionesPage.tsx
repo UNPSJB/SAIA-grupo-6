@@ -13,7 +13,10 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
+import { puedeOperar } from "../../../../common/api/permissions";
+import { useAuth } from "../../../../common/context/useAuth";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
+import { usePlanesDeAlertas } from "../../../planesAccion/hooks/usePlanesDeAlertas";
 import { obtenerCriticidadDashboard } from "../../services/notificacionService";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
@@ -25,6 +28,7 @@ import {
   LuBrush,
   LuCircle,
   LuCircleCheck,
+  LuClipboardCheck,
   LuFileText,
   LuListChecks,
   LuPackage,
@@ -166,8 +170,59 @@ function normalizar(texto: string) {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+/**
+ * Plan de acción de una alerta: el enlace al plan activo, o el botón para
+ * crear uno (resaltado cuando SAIA lo sugiere por criticidad alta o
+ * recurrencia). Frena el clic para no disparar la acción de la fila.
+ */
+function CeldaPlan({
+  planId,
+  sugerido,
+  elegible,
+  onVerPlan,
+  onCrearPlan,
+}: {
+  planId: number | null;
+  sugerido: boolean;
+  elegible: boolean;
+  onVerPlan: (id: number) => void;
+  onCrearPlan: () => void;
+}) {
+  if (planId === null && !elegible) {
+    return (
+      <Text as="span" fontSize="sm" color="fg.subtle">
+        —
+      </Text>
+    );
+  }
+  return (
+    <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      {planId !== null ? (
+        <Button size="xs" variant="outline" colorPalette="brand" onClick={() => onVerPlan(planId)}>
+          <LuClipboardCheck aria-hidden />
+          Plan #{planId}
+        </Button>
+      ) : (
+        <Button
+          size="xs"
+          variant={sugerido ? "solid" : "outline"}
+          colorPalette={sugerido ? "brand" : "neutral"}
+          onClick={onCrearPlan}
+          title={sugerido ? "SAIA sugiere un plan: riesgo alto o situación recurrente" : undefined}
+        >
+          <LuClipboardCheck aria-hidden />
+          Crear plan
+        </Button>
+      )}
+    </Box>
+  );
+}
+
 export function NotificacionesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const puedeTratar = puedeOperar(user);
+  const { disponiblesPorClave, planPorClave } = usePlanesDeAlertas(puedeTratar);
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
@@ -638,7 +693,7 @@ export function NotificacionesPage() {
       ) : (
         <>
           <Tarjeta overflowX="auto">
-            <Table.Root variant="outline" size="md" w="100%" minW="1100px">
+            <Table.Root variant="outline" size="md" w="100%" minW="1200px">
               <Table.Header>
                 <FilaEncabezado>
                   <EncabezadoOscuro ancho="angosta" onClick={() => handleSort("criticidad")}>
@@ -661,6 +716,7 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
+                  {puedeTratar ? <EncabezadoOscuro ancho="media">Plan de acción</EncabezadoOscuro> : null}
                 </FilaEncabezado>
               </Table.Header>
 
@@ -744,6 +800,20 @@ export function NotificacionesPage() {
                           </Text>
                         )}
                       </Celda>
+
+                      {puedeTratar ? (
+                        <Celda>
+                          <CeldaPlan
+                            planId={planPorClave.get(alerta.clave)?.plan_id ?? null}
+                            sugerido={disponiblesPorClave.get(alerta.clave)?.sugerir_plan ?? false}
+                            elegible={disponiblesPorClave.has(alerta.clave)}
+                            onVerPlan={(id) => navigate(`/planes-accion/${id}`)}
+                            onCrearPlan={() =>
+                              navigate(`/planes-accion/nuevo?situacion=${encodeURIComponent(alerta.clave)}`)
+                            }
+                          />
+                        </Celda>
+                      ) : null}
                     </Table.Row>
                   );
                 })}
