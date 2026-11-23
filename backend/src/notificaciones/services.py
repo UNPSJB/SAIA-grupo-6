@@ -1,12 +1,13 @@
 from datetime import date, timedelta
 from src.establecimientos.contexto import sede_efectiva
-from src.common.fechas import hoy
+from src.common.fechas import ahora, hoy
 from src.common.estado_documento import VENCIDO
 from typing import List
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 from src.Equipo.models import Equipo
 from src.elementoLimpieza.models import ElementoLimpieza
+from src.exceptions import NotFound
 from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
@@ -18,7 +19,7 @@ from src.notificaciones.invalidacion import (
     asegurar_notificaciones_al_dia,
     invalidar_notificaciones,
 )
-from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida
+from src.notificaciones.models import ConfiguracionAlerta, NotificacionLeida, NotificacionPersistida
 from src.personal.models import Personal
 from src.lotesInsumo.models import LoteInsumo
 from src.unidadMedida.models import UnidadMedida
@@ -416,8 +417,52 @@ def _filtrar_por_texto(
     ]
 
 
-def _filas_a_respuestas(filas) -> List[NotificacionResponse]:
+_GRAVEDAD_CRITICIDAD = {"baja": 1, "media": 2, "alta": 3}
+
+
+def _mapa_lecturas_usuario(
+    db: Session, usuario_id: int | None = None
+) -> dict[str, NotificacionLeida]:
+    """Consulta NotificacionLeida para ese usuario_id en la sede efectiva."""
+    if usuario_id is None:
+        usuario_id = db.info.get("usuario_id")
+    if usuario_id is None:
+        return {}
+
+    lecturas = db.scalars(
+        select(NotificacionLeida).where(
+            NotificacionLeida.establecimiento_id == sede_efectiva(db),
+            NotificacionLeida.usuario_id == usuario_id,
+        )
+    ).all()
+    return {l.id_notificacion: l for l in lecturas}
+
+
+def _esta_leida(
+    fila: NotificacionPersistida, lectura: NotificacionLeida | None
+) -> bool:
+    if lectura is None:
+        return False
+
+    # Re-activación automática si empeora:
+    # 1. Si no estaba vencido al leerse y ahora sí está vencido
+    if lectura.nivel_leido != "VENCIDO" and fila.nivel == "VENCIDO":
+        return False
+
+    # 2. Si la criticidad actual tiene mayor gravedad que la que se leyó
+    gravedad_actual = _GRAVEDAD_CRITICIDAD.get(fila.criticidad.lower(), 1)
+    gravedad_leida = _GRAVEDAD_CRITICIDAD.get(lectura.criticidad_leida.lower(), 1)
+    if gravedad_actual > gravedad_leida:
+        return False
+
+    return True
+
+
+def _filas_a_respuestas(
+    filas, lecturas: dict[str, NotificacionLeida] | None = None
+) -> List[NotificacionResponse]:
     """Convierte filas de NotificacionPersistida en NotificacionResponse."""
+    lecturas = lecturas or {}
     return [
         NotificacionResponse(
             id_notificacion=f.id_notificacion,
@@ -429,9 +474,11 @@ def _filas_a_respuestas(filas) -> List[NotificacionResponse]:
             link_destino=f.link_destino,
             fecha_referencia=f.fecha_referencia,
             grupo_clave=f.grupo_clave,
+            leida=_esta_leida(f, lecturas.get(f.id_notificacion)),
         )
         for f in filas
     ]
+
 
 
 def calcular_filas_notificaciones(db: Session) -> list[dict]:
@@ -525,7 +572,7 @@ def recalcular_notificaciones_persistidas(db: Session, inmediato: bool = False) 
 
 
 def obtener_todas_notificaciones(
-    db: Session, buscar: str | None = None
+    db: Session, buscar: str | None = None, usuario_id: int | None = None
 ) -> List[NotificacionResponse]:
     """Lee las notificaciones de la tabla persistida.
 
@@ -536,7 +583,112 @@ def obtener_todas_notificaciones(
     """
     asegurar_notificaciones_al_dia(db)
     filas = db.scalars(select(NotificacionPersistida)).all()
-    return _filtrar_por_texto(_filas_a_respuestas(filas), buscar)
+    lecturas = _mapa_lecturas_usuario(db, usuario_id)
+    return _filtrar_por_texto(_filas_a_respuestas(filas, lecturas), buscar)
+
+
+def marcar_notificacion_leida(
+    db: Session,
+    id_notificacion: str,
+    leida: bool = True,
+    usuario_id: int | None = None,
+) -> bool:
+    """Marca o desmarca una notificación como leída para el usuario."""
+    asegurar_notificaciones_al_dia(db)
+
+    if usuario_id is None:
+        usuario_id = db.info.get("usuario_id")
+    if usuario_id is None:
+        raise NotFound("Usuario no autenticado.")
+
+    sede = sede_efectiva(db)
+    fila = db.scalars(
+        select(NotificacionPersistida).where(
+            NotificacionPersistida.establecimiento_id == sede,
+            NotificacionPersistida.id_notificacion == id_notificacion,
+        )
+    ).first()
+
+    if fila is None:
+        raise NotFound("La notificación no existe o ya fue resuelta.")
+
+    lectura = db.get(
+        NotificacionLeida,
+        {
+            "establecimiento_id": sede,
+            "usuario_id": usuario_id,
+            "id_notificacion": id_notificacion,
+        },
+    )
+
+    if leida:
+        if lectura:
+            lectura.nivel_leido = fila.nivel
+            lectura.criticidad_leida = fila.criticidad
+            lectura.leida_en = ahora()
+        else:
+            db.add(
+                NotificacionLeida(
+                    establecimiento_id=sede,
+                    usuario_id=usuario_id,
+                    id_notificacion=id_notificacion,
+                    nivel_leido=fila.nivel,
+                    criticidad_leida=fila.criticidad,
+                    leida_en=ahora(),
+                )
+            )
+    else:
+        if lectura:
+            db.delete(lectura)
+
+    db.commit()
+    return leida
+
+
+def marcar_todas_notificaciones_leidas(
+    db: Session, usuario_id: int | None = None
+) -> int:
+    """Marca todas las notificaciones activas de la sede como leídas para el usuario."""
+    asegurar_notificaciones_al_dia(db)
+
+    if usuario_id is None:
+        usuario_id = db.info.get("usuario_id")
+    if usuario_id is None:
+        return 0
+
+    sede = sede_efectiva(db)
+    filas = db.scalars(
+        select(NotificacionPersistida).where(
+            NotificacionPersistida.establecimiento_id == sede
+        )
+    ).all()
+
+    ahora_dt = ahora()
+    existentes = _mapa_lecturas_usuario(db, usuario_id)
+
+    total_marcadas = 0
+    for f in filas:
+        lectura = existentes.get(f.id_notificacion)
+        if lectura:
+            lectura.nivel_leido = f.nivel
+            lectura.criticidad_leida = f.criticidad
+            lectura.leida_en = ahora_dt
+        else:
+            db.add(
+                NotificacionLeida(
+                    establecimiento_id=sede,
+                    usuario_id=usuario_id,
+                    id_notificacion=f.id_notificacion,
+                    nivel_leido=f.nivel,
+                    criticidad_leida=f.criticidad,
+                    leida_en=ahora_dt,
+                )
+            )
+        total_marcadas += 1
+
+    db.commit()
+    return total_marcadas
+
 
 
 # ────────────────────────── Listado paginado ──────────────────────────────

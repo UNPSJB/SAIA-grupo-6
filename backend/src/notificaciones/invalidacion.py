@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import date
 from itertools import chain
 
-from sqlalchemy import Boolean, Date, Integer, event, or_, select, update
+from sqlalchemy import Boolean, Date, Integer, delete, event, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -143,6 +143,17 @@ def _sincronizar_tabla(db: Session) -> None:
     for sobrante in existentes.values():  # ya no corresponden
         db.delete(sobrante)
         hubo_cambios = True
+
+    if existentes:
+        from src.notificaciones.models import NotificacionLeida
+        claves_eliminadas = list(existentes.keys())
+        db.execute(
+            delete(NotificacionLeida)
+            .where(
+                NotificacionLeida.establecimiento_id == sede_efectiva(db),
+                NotificacionLeida.id_notificacion.in_(claves_eliminadas),
+            )
+        )
 
     if hubo_cambios:
         db.execute(

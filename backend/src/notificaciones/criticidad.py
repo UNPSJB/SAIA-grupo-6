@@ -519,6 +519,7 @@ def _armar_dashboard(
         altas=sum(1 for a in alertas if a.puntaje > 0 and a.criticidad == "alta"),
         medias=sum(1 for a in alertas if a.puntaje > 0 and a.criticidad == "media"),
         bajas=sum(1 for a in alertas if a.puntaje > 0 and a.criticidad == "baja"),
+        no_leidas=sum(1 for a in alertas if not a.leida),
         alertas=alertas,
         elementos=elementos,
     )
@@ -526,8 +527,10 @@ def _armar_dashboard(
 
 def _reconstruir_desde_persistida(
     filas: list[NotificacionPersistida],
+    lecturas: dict[str, Any] | None = None,
 ) -> CriticidadDashboardResponse:
     """Reconstruye el CriticidadDashboardResponse desde la tabla persistida."""
+    lecturas = lecturas or {}
     return _armar_dashboard(
         [
             AlertaCriticidadResponse(
@@ -550,6 +553,7 @@ def _reconstruir_desde_persistida(
                 probabilidad=f.probabilidad,
                 puntaje=f.puntaje,
                 detectada_en=f.detectada_en,
+                leida=notificacion_services._esta_leida(f, lecturas.get(f.id_notificacion)),
             )
             for f in filas
         ]
@@ -558,13 +562,15 @@ def _reconstruir_desde_persistida(
 
 def obtener_criticidad_dashboard(
     db: Session,
+    usuario_id: int | None = None,
 ) -> CriticidadDashboardResponse:
     """Lee el dashboard desde la tabla persistida, recalculándola antes solo si
     está sucia (hubo cambios) o es de otro día. La campana y el panel muestran
     el mismo número porque leen de la misma tabla."""
     asegurar_notificaciones_al_dia(db)
     filas = db.scalars(select(NotificacionPersistida)).all()
-    return _reconstruir_desde_persistida(filas)
+    lecturas = notificacion_services._mapa_lecturas_usuario(db, usuario_id)
+    return _reconstruir_desde_persistida(filas, lecturas)
 
 
 def calcular_criticidad_dashboard(
