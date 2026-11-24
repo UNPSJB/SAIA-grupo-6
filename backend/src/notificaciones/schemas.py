@@ -26,6 +26,7 @@ class NotificacionResponse(BaseModel):
     nivel: str
     link_destino: str
     fecha_referencia: Optional[date] = None
+    leida: bool = False
     # Solo coordina agrupaciones del motor de criticidad; no es parte del
     # contrato público de notificaciones.
     grupo_clave: Optional[str] = Field(default=None, exclude=True)
@@ -45,6 +46,7 @@ class AlertaCriticidadResponse(BaseModel):
     fecha_referencia: Optional[date] = None
     destino: str
     recambio_id: Optional[int] = None
+    leida: bool = False
 
     # Evaluación de riesgo (Impacto × Probabilidad). `criticidad` es el nivel
     # de `puntaje` con su nombre histórico (alta/media/baja).
@@ -83,6 +85,7 @@ class CriticidadDashboardResponse(BaseModel):
     altas: int
     medias: int
     bajas: int
+    no_leidas: int = 0
     alertas: list[AlertaCriticidadResponse]
     #: Un renglón por elemento, del más al menos riesgoso.
     elementos: list[ResumenElementoResponse] = []
@@ -148,3 +151,7 @@ class ConfiguracionAlertasUpdate(BaseModel):
     dias_alerta_vencimiento_personal: int | None = Field(default=None, ge=1, le=365)
     plazo_reclamo_dias: int | None = Field(default=None, ge=1, le=365)
     meta_cumplimiento_limpieza: int | None = Field(default=None, ge=1, le=100)
+
+
+class MarcarNotificacionLeidaRequest(BaseModel):
+    leida: bool = True

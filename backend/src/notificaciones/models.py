@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from sqlalchemy import DateTime, Date, Float, Index, Integer, String, func
+from sqlalchemy import DateTime, Date, Float, ForeignKey, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 from src.models import ModeloBase
 from src.establecimientos.models import DatosDeEstablecimiento, columna_sede_pk
@@ -116,3 +116,22 @@ class NotificacionPersistida(DatosDeEstablecimiento, ModeloBase):
 # Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
 # sedes pueden repetir el valor (ver src/establecimientos).
 Index("uq_notificaciones_persistidas_establecimiento_id_notificacion", NotificacionPersistida.establecimiento_id, NotificacionPersistida.id_notificacion, unique=True)
+
+
+class NotificacionLeida(DatosDeEstablecimiento, ModeloBase):
+    """Estado de lectura de una notificación por usuario en un establecimiento."""
+
+    __tablename__ = "notificaciones_leidas"
+    __audit__ = False
+
+    establecimiento_id: Mapped[int] = columna_sede_pk()
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("personal.id", ondelete="CASCADE"), primary_key=True
+    )
+    id_notificacion: Mapped[str] = mapped_column(String(100), primary_key=True)
+    nivel_leido: Mapped[str] = mapped_column(String(20), nullable=False)
+    criticidad_leida: Mapped[str] = mapped_column(String(10), nullable=False, default="baja")
+    leida_en: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+

@@ -88,3 +88,26 @@ export async function obtenerCriticidadDashboard(): Promise<CriticidadDashboard>
     "Error al obtener el nivel de criticidad"
   );
 }
+
+export async function cambiarLecturaNotificacion(
+  idNotificacion: string,
+  leida: boolean = true
+): Promise<{ id_notificacion: string; leida: boolean }> {
+  const response = await apiFetch(
+    `${API_URL}/notificaciones/${encodeURIComponent(idNotificacion)}/lectura`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leida }),
+    }
+  );
+  return pedir(response, "Error al actualizar el estado de lectura de la notificación");
+}
+
+export async function marcarTodasNotificacionesLeidas(): Promise<{ marcadas: number }> {
+  const response = await apiFetch(`${API_URL}/notificaciones/marcar-todas-leidas`, {
+    method: "POST",
+  });
+  return pedir(response, "Error al marcar todas las notificaciones como leídas");
+}
+

@@ -90,6 +90,7 @@ from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 from src.vistaPublica.models import ConfiguracionVistaPublica, IndicadorVistaPublica  # noqa: F401
 from src.notificaciones.models import (  # noqa: F401
     ConfiguracionImpacto,
+    NotificacionLeida,
     NotificacionPersistida,
     SituacionRiesgo,
 )
@@ -170,6 +171,7 @@ __all__ = [
     "UnidadMedida",
     "VencimientoPersonal",
     "VersionDocumento",
+    "NotificacionLeida",
     "NotificacionPersistida",
     "EstadoNotificaciones",
     "BorradorRotulado",
