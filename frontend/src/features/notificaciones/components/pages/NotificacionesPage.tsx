@@ -10,11 +10,12 @@ import {
   HStack,
   IconButton,
   Spinner,
+  Stack,
   Table,
   Text,
-  VStack,
 } from "@chakra-ui/react";
 import { Tooltip } from "../../../../components/ui/tooltip";
+import { useEsCelular } from "../../../../common/hooks/useEsCelular";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
   cambiarLecturaNotificacion,
@@ -56,6 +57,7 @@ import {
 } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
 import {
+  BarraFiltros,
   ChipsFiltros,
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
@@ -540,7 +542,108 @@ export function NotificacionesPage() {
   const nivel = datos.nivel_riesgo;
   const nivelTexto = etiquetaNivelRiesgo(nivel);
   const nivelPaleta = paletaNivelRiesgo(nivel);
+  const esCelular = useEsCelular();
   const elementoMasRiesgoso = datos.elementos[0] ?? null;
+
+  const filtros = (
+    <>
+      <Box minW="220px">
+        <Field.Root>
+          <LabelFiltro>Origen</LabelFiltro>
+          <FormNativeSelect
+            value={filtroOrigen}
+            onChange={(e) =>
+              handleFiltroOrigen(e.target.value as FiltroOrigen)
+            }
+          >
+            <option value="todas">Todos ({contadores.todas})</option>
+            <option value="ELEMENTO_LIMPIEZA">Elementos ({contadores.elementos})</option>
+            <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
+            <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
+            <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
+            <option value="HOMOLOGACION_INSUMO">Homologaciones ({contadores.homologaciones})</option>
+            <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
+            <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
+            <option value="INCIDENTE">Incidentes ({contadores.incidentes})</option>
+          </FormNativeSelect>
+        </Field.Root>
+      </Box>
+
+      <Box minW="180px">
+        <Field.Root>
+          <LabelFiltro>Estado de lectura</LabelFiltro>
+          <FormNativeSelect
+            value={filtroLectura}
+            onChange={(e) => {
+              setFiltroLectura(e.target.value as FiltroLectura);
+              setPage(1);
+            }}
+          >
+            <option value="todas">Todas ({contadores.todas})</option>
+            <option value="no_leidas">No leídas ({contadores.no_leidas})</option>
+            <option value="leidas">Leídas ({contadores.leidas})</option>
+          </FormNativeSelect>
+        </Field.Root>
+      </Box>
+    </>
+  );
+
+  const campoBusqueda = (
+    <Box minW={{ base: "0", md: "250px" }} flex="1">
+      <Field.Root>
+        <Box hideBelow="md">
+          <LabelFiltro>Búsqueda</LabelFiltro>
+        </Box>
+        <FormInput
+          type="search"
+          aria-label="Buscar en las notificaciones"
+          value={busqueda}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Buscar situación, elemento o motivo..."
+        />
+      </Field.Root>
+    </Box>
+  );
+
+  const herramientas = (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        colorPalette="brand"
+        disabled={!datos.alertas.some((a) => !a.leida)}
+        onClick={handleMarcarTodasLeidas}
+        title="Marcar todas las alertas activas como leídas"
+      >
+        <LuCheckCheck aria-hidden size={16} />
+        Marcar todas como leídas
+      </Button>
+
+      {/* Exportar es de administración (el backend lo exige). */}
+      {esAdmin && (
+        <BotonExportar
+          nombreTabla="las notificaciones"
+          disabled={alertasFiltradas.length === 0}
+          datos={() => ({
+            titulo: "Centro de notificaciones",
+            nombre: "notificaciones",
+            encabezados: ["Criticidad", "Origen", "Situación", "Detalle", "Plazo", "Motivo"],
+            filas: alertasFiltradas.map((alerta) => [
+              etiquetaCriticidad(alerta.criticidad),
+              ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen,
+              alerta.titulo,
+              alerta.detalle,
+              alerta.fecha_referencia ? formatoFechaOCorta(alerta.fecha_referencia) : alerta.plazo,
+              alerta.motivo,
+            ]),
+          })}
+        />
+      )}
+    </>
+  );
 
   return (
     <Pagina
@@ -574,7 +677,7 @@ export function NotificacionesPage() {
         <Flex
           direction={{ base: "column", md: "row" }}
           align={{ base: "stretch", md: "center" }}
-          gap={{ base: "5", md: "8" }}
+          gap={{ base: "3", md: "8" }}
         >
           {/* Nivel general de riesgo: destacado a la izquierda. */}
           <Box flex="1" minW="0">
@@ -582,20 +685,20 @@ export function NotificacionesPage() {
               Nivel de riesgo general
             </Text>
             <Text
-              fontSize={{ base: "3xl", md: "4xl" }}
+              fontSize={{ base: "2xl", md: "4xl" }}
               lineHeight="1.1"
               fontWeight="extrabold"
               color={`${nivelPaleta}.fg`}
             >
               {nivelTexto}
             </Text>
-            <Text fontSize="sm" color="fg.muted" mt="2">
+            <Text fontSize="sm" color="fg.muted" mt={{ base: "1", md: "2" }} lineClamp={{ base: 2, md: "none" }}>
               {elementoMasRiesgoso
                 ? `${formatoPuntaje(datos.puntaje_maximo)} de ${RIESGO_MAXIMO} · ${elementoMasRiesgoso.etiqueta}`
                 : "No hay situaciones presentes"}
             </Text>
             {elementoMasRiesgoso && (
-              <Text fontSize="xs" color="fg.subtle" mt="1">
+              <Text fontSize="xs" color="fg.subtle" mt="1" hideBelow="md">
                 Es el riesgo del elemento en peor situación.
               </Text>
             )}
@@ -605,10 +708,10 @@ export function NotificacionesPage() {
           <Button
             flexShrink={0}
             minW={{ base: "100%", md: "170px" }}
-            minH="112px"
+            minH={{ base: "11", md: "112px" }}
             h="auto"
             px="6"
-            py="4"
+            py={{ base: "2", md: "4" }}
             borderRadius="xl"
             bg="bg.subtle"
             color="fg"
@@ -620,8 +723,8 @@ export function NotificacionesPage() {
             aria-label="Mostrar todas las situaciones y limpiar los filtros"
             title="Mostrar todas las situaciones"
           >
-            <VStack gap="1" align="center">
-              <Text fontSize="3xl" lineHeight="1" fontWeight="bold">
+            <Stack direction={{ base: "row", md: "column" }} gap={{ base: "2", md: "1" }} align="center">
+              <Text fontSize={{ base: "xl", md: "3xl" }} lineHeight="1" fontWeight="bold">
                 {alertasFiltradas.length}
               </Text>
               <Text fontSize="xs" letterSpacing="wider" fontWeight="bold">
@@ -630,16 +733,22 @@ export function NotificacionesPage() {
               <Text fontSize="xs" fontWeight="normal" color="fg.muted">
                 Ver todas
               </Text>
-            </VStack>
+            </Stack>
           </Button>
 
           {/* Filtros de criticidad acumulables, sin contadores individuales. */}
-          <VStack align="stretch" gap="2" minW={{ base: "100%", md: "145px" }}>
+          <Stack
+            direction={{ base: "row", md: "column" }}
+            align="stretch"
+            gap="2"
+            minW={{ base: "100%", md: "145px" }}
+            css={{ "& > *": { flex: { base: "1", md: "none" } } }}
+          >
             <Button
-              justifyContent="flex-start"
+              justifyContent={{ base: "center", md: "flex-start" }}
               variant={criticidadesSeleccionadas.includes("alta") ? "solid" : "ghost"}
               colorPalette="red"
-              size="sm"
+              size={{ base: "md", md: "sm" }}
               onClick={() => alternarCriticidad("alta")}
               aria-pressed={criticidadesSeleccionadas.includes("alta")}
               title="Filtrar situaciones de criticidad alta"
@@ -647,10 +756,10 @@ export function NotificacionesPage() {
               <LuCircle size={14} /> Alta
             </Button>
             <Button
-              justifyContent="flex-start"
+              justifyContent={{ base: "center", md: "flex-start" }}
               variant={criticidadesSeleccionadas.includes("media") ? "solid" : "ghost"}
               colorPalette="orange"
-              size="sm"
+              size={{ base: "md", md: "sm" }}
               onClick={() => alternarCriticidad("media")}
               aria-pressed={criticidadesSeleccionadas.includes("media")}
               title="Filtrar situaciones de criticidad media"
@@ -658,111 +767,37 @@ export function NotificacionesPage() {
               <LuCircle size={14} /> Media
             </Button>
             <Button
-              justifyContent="flex-start"
+              justifyContent={{ base: "center", md: "flex-start" }}
               variant={criticidadesSeleccionadas.includes("baja") ? "solid" : "ghost"}
               colorPalette="green"
-              size="sm"
+              size={{ base: "md", md: "sm" }}
               onClick={() => alternarCriticidad("baja")}
               aria-pressed={criticidadesSeleccionadas.includes("baja")}
               title="Filtrar situaciones de criticidad baja"
             >
               <LuCircle size={14} /> Baja
             </Button>
-          </VStack>
+          </Stack>
         </Flex>
       </Tarjeta>
 
       {/* Filtros de la gestión de riesgos. */}
-      <Tarjeta p="4" mb="6">
-        <HStack gap="4" flexWrap="wrap" align="flex-end">
-          <Box minW="220px">
-            <Field.Root>
-              <LabelFiltro>Origen</LabelFiltro>
-              <FormNativeSelect
-                value={filtroOrigen}
-                onChange={(e) =>
-                  handleFiltroOrigen(e.target.value as FiltroOrigen)
-                }
-              >
-                <option value="todas">Todos ({contadores.todas})</option>
-                <option value="ELEMENTO_LIMPIEZA">Elementos ({contadores.elementos})</option>
-                <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
-                <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
-                <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
-                <option value="HOMOLOGACION_INSUMO">Homologaciones ({contadores.homologaciones})</option>
-                <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
-                <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
-                <option value="INCIDENTE">Incidentes ({contadores.incidentes})</option>
-              </FormNativeSelect>
-            </Field.Root>
-          </Box>
-
-          <Box minW="180px">
-            <Field.Root>
-              <LabelFiltro>Estado de lectura</LabelFiltro>
-              <FormNativeSelect
-                value={filtroLectura}
-                onChange={(e) => {
-                  setFiltroLectura(e.target.value as FiltroLectura);
-                  setPage(1);
-                }}
-              >
-                <option value="todas">Todas ({contadores.todas})</option>
-                <option value="no_leidas">No leídas ({contadores.no_leidas})</option>
-                <option value="leidas">Leídas ({contadores.leidas})</option>
-              </FormNativeSelect>
-            </Field.Root>
-          </Box>
-
-          <Box minW="250px" flex="1">
-            <Field.Root>
-              <LabelFiltro>Búsqueda</LabelFiltro>
-              <FormInput
-                type="text"
-                value={busqueda}
-                onChange={(e) => {
-                  setBusqueda(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Buscar situación, elemento o motivo..."
-              />
-            </Field.Root>
-          </Box>
-
-          <Button
-            size="sm"
-            variant="outline"
-            colorPalette="brand"
-            disabled={!datos.alertas.some((a) => !a.leida)}
-            onClick={handleMarcarTodasLeidas}
-            title="Marcar todas las alertas activas como leídas"
-          >
-            <LuCheckCheck aria-hidden size={16} />
-            Marcar todas como leídas
-          </Button>
-
-          {/* Exportar es de administración (el backend lo exige). */}
-          {esAdmin && (
-            <BotonExportar
-              nombreTabla="las notificaciones"
-              disabled={alertasFiltradas.length === 0}
-              datos={() => ({
-                titulo: "Centro de notificaciones",
-                nombre: "notificaciones",
-                encabezados: ["Criticidad", "Origen", "Situación", "Detalle", "Plazo", "Motivo"],
-                filas: alertasFiltradas.map((alerta) => [
-                  etiquetaCriticidad(alerta.criticidad),
-                  ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen,
-                  alerta.titulo,
-                  alerta.detalle,
-                  alerta.fecha_referencia ? formatoFechaOCorta(alerta.fecha_referencia) : alerta.plazo,
-                  alerta.motivo,
-                ]),
-              })}
-            />
-          )}
-        </HStack>
-      </Tarjeta>
+      {esCelular ? (
+        <BarraFiltros
+          busqueda={campoBusqueda}
+          filtros={filtros}
+          herramientas={herramientas}
+          activos={(filtroOrigen !== "todas" ? 1 : 0) + (filtroLectura !== "todas" ? 1 : 0)}
+        />
+      ) : (
+        <Tarjeta p="4" mb="6">
+          <HStack gap="4" flexWrap="wrap" align="flex-end">
+            {filtros}
+            {campoBusqueda}
+            {herramientas}
+          </HStack>
+        </Tarjeta>
+      )}
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
@@ -913,13 +948,22 @@ export function NotificacionesPage() {
                           showArrow
                         >
                           <IconButton
-                            size="xs"
+                            size={{ base: "md", md: "xs" }}
                             variant="ghost"
+                            borderWidth={{ base: "1px", md: "0" }}
+                            borderColor="border"
+                            w={{ base: "auto", md: undefined }}
+                            px={{ base: "3", md: "0" }}
+                            gap="1.5"
+                            fontSize="sm"
                             colorPalette={noLeida ? "brand" : "gray"}
                             aria-label={noLeida ? "Marcar como leída" : "Marcar como no leída"}
                             onClick={() => void alternarLectura(alerta)}
                           >
                             {noLeida ? <LuCheck size={15} /> : <LuCircleDot size={15} />}
+                            <Box as="span" hideFrom="md">
+                              {noLeida ? "Marcar como leída" : "Marcar como no leída"}
+                            </Box>
                           </IconButton>
                         </Tooltip>
                       </Celda>

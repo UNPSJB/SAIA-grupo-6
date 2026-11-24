@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useEsCelular } from "../../../common/hooks/useEsCelular";
 import { useLista } from "../../../common/hooks/useLista";
 import {
   Badge,
@@ -29,6 +30,7 @@ import {
   FilaEncabezado,
   Tarjeta,
 } from "../../../components/ui/patrones";
+import { Desplazable } from "../../../components/ui/desplazable";
 import { getTimelineLote } from "../services/loteService";
 import type {
   EstadoNodoTimeline,
@@ -71,6 +73,7 @@ function iconoPorTipo(tipo: NodoTimeline["tipo"], estado: EstadoNodoTimeline) {
 }
 
 export function LoteProgressTracker({ loteId, version, unidad }: LoteProgressTrackerProps) {
+  const esCelular = useEsCelular();
   const cargar = useCallback(() => getTimelineLote(loteId), [loteId]);
   const { items: data, loading, error } = useLista<LoteTimelineResponse | null>({
     cargar,
@@ -104,8 +107,27 @@ export function LoteProgressTracker({ loteId, version, unidad }: LoteProgressTra
 
   return (
     <Stack gap="5">
+      {/* En el celular, las etapas van una debajo de la otra. */}
+      {esCelular && (
+        <Tarjeta p="3">
+          <Stack gap="0">
+            {data.nodos.map((nodo, idx) => (
+              <EtapaVertical
+                key={nodo.id}
+                nodo={nodo}
+                elegido={nodo.id === nodoSeleccionado?.id}
+                ultimo={idx === data.nodos.length - 1}
+                onElegir={() => setNodoSeleccionadoId(nodo.id)}
+              />
+            ))}
+          </Stack>
+        </Tarjeta>
+      )}
+
       {/* Tracker Horizontal Interactivo */}
-      <Tarjeta p="5" overflowX="auto">
+      {!esCelular && (
+      <Tarjeta p="5">
+        <Desplazable>
         <HStack align="flex-start" gap="0" minW="640px" py="2">
           {data.nodos.map((nodo, idx) => {
             const esSeleccionado = nodo.id === nodoSeleccionado?.id;
@@ -231,7 +253,9 @@ export function LoteProgressTracker({ loteId, version, unidad }: LoteProgressTra
             );
           })}
         </HStack>
+        </Desplazable>
       </Tarjeta>
+      )}
 
       {/* Detalle del Nodo Seleccionado */}
       {nodoSeleccionado && (
@@ -424,6 +448,81 @@ export function LoteProgressTracker({ loteId, version, unidad }: LoteProgressTra
         </Tarjeta>
       )}
     </Stack>
+  );
+}
+
+/** Una etapa en la línea de tiempo vertical del celular: círculo, nombre y estado. */
+function EtapaVertical({
+  nodo,
+  elegido,
+  ultimo,
+  onElegir,
+}: {
+  nodo: NodoTimeline;
+  elegido: boolean;
+  ultimo: boolean;
+  onElegir: () => void;
+}) {
+  const estado = COLOR_ESTADO[nodo.estado];
+  const pendiente = nodo.estado === "pendiente";
+  return (
+    <HStack
+      as="button"
+      onClick={onElegir}
+      aria-pressed={elegido}
+      align="stretch"
+      gap="3"
+      w="100%"
+      px="2"
+      pt="2"
+      rounded="md"
+      textAlign="left"
+      cursor="pointer"
+      bg={elegido ? "bg.muted" : undefined}
+      _focusVisible={{ outline: "2px solid", outlineColor: "brand.fg", outlineOffset: "-2px" }}
+    >
+      <Stack align="center" gap="1" flexShrink={0}>
+        <Box
+          boxSize="8"
+          rounded="full"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          borderWidth="2px"
+          borderColor={pendiente ? "border" : `${estado.palette}.solid`}
+          bg={pendiente ? "bg.muted" : `${estado.palette}.subtle`}
+          color={pendiente ? "fg.muted" : `${estado.palette}.fg`}
+        >
+          {iconoPorTipo(nodo.tipo, nodo.estado)}
+        </Box>
+        <Box
+          flex="1"
+          w="2px"
+          minH="2"
+          bg={ultimo ? "transparent" : nodo.estado === "completado" ? "teal.solid" : "border"}
+        />
+      </Stack>
+      <Stack gap="1" flex="1" minW="0" pb="3">
+        <Text fontSize="sm" fontWeight={elegido ? "bold" : "medium"} color="fg">
+          {nodo.titulo}
+        </Text>
+        <HStack gap="2" flexWrap="wrap">
+          <Badge size="sm" colorPalette={estado.palette} variant="subtle">
+            {estado.label}
+          </Badge>
+          {nodo.tiene_desvio && (
+            <Badge size="sm" colorPalette="orange" variant="subtle">
+              <LuTriangleAlert size={12} aria-hidden /> Con desvío
+            </Badge>
+          )}
+          {nodo.subtitulo && (
+            <Text fontSize="xs" color="fg.muted">
+              {nodo.subtitulo}
+            </Text>
+          )}
+        </HStack>
+      </Stack>
+    </HStack>
   );
 }
 

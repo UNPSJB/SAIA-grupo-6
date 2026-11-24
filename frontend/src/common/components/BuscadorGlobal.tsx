@@ -290,7 +290,7 @@ export function BuscadorGlobal(): ReactElement | null {
           right="0"
           top="0"
           zIndex="dropdown"
-          w={{ base: "min(260px, calc(100vw - 130px))", md: "full" }}
+          w={{ base: "min(260px, calc(100vw - 160px))", md: "full" }}
           h="10"
           px="3"
           gap="2"

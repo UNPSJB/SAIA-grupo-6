@@ -88,10 +88,17 @@ export async function descargarGrafico(
  * Devuelve una función para restaurar los estilos originales tras la captura.
  */
 function expandirOverflow(nodo: HTMLElement): () => void {
-  const restauraciones: Array<{ elemento: HTMLElement; overflowX: string; minWidth: string }> = [];
+  const restauraciones: Array<{ elemento: HTMLElement; overflowX: string; minWidth: string; maskImage: string }> = [];
 
   const ensanchar = (el: HTMLElement) => {
-    restauraciones.push({ elemento: el, overflowX: el.style.overflowX, minWidth: el.style.minWidth });
+    restauraciones.push({
+      elemento: el,
+      overflowX: el.style.overflowX,
+      minWidth: el.style.minWidth,
+      maskImage: el.style.maskImage,
+    });
+    // La pista de "hay más de costado" (`usePistaScroll`) no va en la imagen.
+    el.style.maskImage = "none";
     el.style.minWidth = `${el.scrollWidth}px`;
     el.style.overflowX = "visible";
   };
@@ -114,6 +121,7 @@ function expandirOverflow(nodo: HTMLElement): () => void {
     for (const r of restauraciones.reverse()) {
       r.elemento.style.overflowX = r.overflowX;
       r.elemento.style.minWidth = r.minWidth;
+      r.elemento.style.maskImage = r.maskImage;
     }
   };
 }

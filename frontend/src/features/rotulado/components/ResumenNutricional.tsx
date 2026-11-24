@@ -45,15 +45,18 @@ export function TablaInstantaneaNutricional({ datos, estado, previsualizacion = 
         {!sinEstado && typeof estadoMostrado === "string" && <Badge colorPalette={estadoMostrado === "completa" ? "green" : "orange"}>{estadoMostrado === "completa" ? "Datos completos" : "Datos incompletos"}</Badge>}
       </HStack>
       <Box overflowX="auto" tabIndex={0} role="region" aria-label="Tabla nutricional por porción"><Table.Root size="sm" variant="line" striped
-          minW={previsualizacion ? "520px" : undefined} tableLayout={previsualizacion ? "auto" : undefined}
+          minW={previsualizacion ? { base: "0", md: "520px" } : undefined} tableLayout={previsualizacion ? "auto" : undefined}
           data-sin-tarjetas={previsualizacion ? "" : undefined}
-          css={previsualizacion ? { "& :is(th, td)": { paddingBlock: "1", lineHeight: "short" }, "& td:not(:first-of-type)": { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } } : undefined}>
+          css={previsualizacion ? {
+            "& :is(th, td)": { paddingBlock: "1", paddingInline: { base: "1.5", md: "3" }, lineHeight: "short", whiteSpace: "normal" },
+            "& td:not(:first-of-type)": { whiteSpace: { base: "normal", md: "nowrap" }, fontVariantNumeric: "tabular-nums" },
+          } : undefined}>
         <Table.Caption p={previsualizacion ? "2" : "3"} textAlign="start">Instantánea de la información nutricional. VD: valor diario.</Table.Caption>
         <Table.Header><Table.Row>
-          <Table.ColumnHeader minW={previsualizacion ? "140px" : "180px"} w={previsualizacion ? "38%" : undefined}>Nutriente</Table.ColumnHeader>
-          <Table.ColumnHeader minW={previsualizacion ? "105px" : "130px"} textAlign="end">Por 100 {texto(datos?.expresar_en)}</Table.ColumnHeader>
-          <Table.ColumnHeader minW={previsualizacion ? "105px" : "130px"} textAlign="end">Por porción</Table.ColumnHeader>
-          <Table.ColumnHeader minW={previsualizacion ? "60px" : "90px"} textAlign="end">% VD</Table.ColumnHeader>
+          <Table.ColumnHeader minW={{ base: "0", md: previsualizacion ? "140px" : "180px" }} w={previsualizacion ? "38%" : undefined}>Nutriente</Table.ColumnHeader>
+          <Table.ColumnHeader minW={{ base: "0", md: previsualizacion ? "105px" : "130px" }} textAlign="end">Por 100 {texto(datos?.expresar_en)}</Table.ColumnHeader>
+          <Table.ColumnHeader minW={{ base: "0", md: previsualizacion ? "105px" : "130px" }} textAlign="end">Por porción</Table.ColumnHeader>
+          <Table.ColumnHeader minW={{ base: "0", md: previsualizacion ? "60px" : "90px" }} textAlign="end">% VD</Table.ColumnHeader>
         </Table.Row></Table.Header>
         <Table.Body>{filas.map((fila, index) => <Table.Row key={index} css={fila.faltan_datos === true ? { "& > td": { background: "var(--chakra-colors-orange-subtle)" } } : undefined}>
           <Table.Cell fontWeight="medium">{texto(fila.nombre)}<Text as={previsualizacion ? "span" : "p"} ms={previsualizacion ? "2" : undefined} fontSize="xs" color="fg.muted">{texto(fila.unidad)}</Text>

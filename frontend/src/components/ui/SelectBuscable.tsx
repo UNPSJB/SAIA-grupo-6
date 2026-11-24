@@ -203,7 +203,10 @@ export function SelectBuscable({
   };
 
   const titulo = ariaLabel || (vacia?.etiqueta ?? "Elegí una opción");
-  const textoBoton = elegida?.etiqueta || opciones.find((o) => o.deshabilitada)?.etiqueta || "Seleccioná una opción";
+  // Sin nada elegido se muestra el texto de ayuda ("-- Lote --"), nunca una
+  // opción real deshabilitada: un lote vencido parecía el elegido.
+  const ayuda = opciones.find((o) => o.deshabilitada && (o.valor === "" || o.valor === "0")) ?? vacia;
+  const textoBoton = elegida?.etiqueta || ayuda?.etiqueta || "Seleccioná una opción";
 
   return (
     <Box w={(caja.w as string) ?? "100%"} maxW={caja.maxW as string} minW={caja.minW as string} mt={caja.mt as string} mb={caja.mb as string}>

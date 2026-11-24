@@ -22,7 +22,7 @@ export function EstadoAlergenos({ declaracion }: { declaracion?: ResumenDeclarac
 
   return (
     <HStack gap="2" wrap="wrap" data-testid="estado-alergenos">
-      <Badge colorPalette={confirmada ? "green" : "orange"} variant="subtle">
+      <Badge colorPalette={confirmada ? "green" : "orange"} variant="subtle" whiteSpace="normal" h="auto" py="0.5">
         {etiqueta}
       </Badge>
       {sinAlergenos && (

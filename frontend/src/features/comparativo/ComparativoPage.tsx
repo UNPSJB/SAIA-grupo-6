@@ -50,7 +50,7 @@ function metricasLotes(lotes: IndicadorComparativo[]): Metrica[] {
  * cumplimiento (radar y detalle), producción (lotes por sede) y calidad y
  * riesgo, donde menos es mejor.
  *
- * Para el super admin, "su sede" es la que eligió en la barra superior.
+ * Para el super admin, "su sede" es la que eligió en Configuración.
  */
 export function ComparativoPage() {
   const { user } = useAuth();

@@ -36,8 +36,8 @@ const ID_PRINCIPAL = 1;
 /**
  * Sedes de producción de la empresa. Solo el super admin (que es de la
  * empresa, no de una sede) las da de alta, las modifica y las da de baja.
- * Para cargar el gerente de una sede: elegirla en el selector de la barra y
- * darlo de alta desde Personal.
+ * Para cargar el gerente de una sede: elegirla en Configuración → Sede de
+ * trabajo y darlo de alta desde Personal.
  */
 export function EstablecimientosPage() {
   const { user } = useAuth();
@@ -95,8 +95,8 @@ export function EstablecimientosPage() {
         }
       />
       <Text fontSize="sm" color="fg.muted" mb="4" maxW="720px">
-        Para cargar el gerente u otro personal de una sede, elegila en el selector de la barra
-        superior y dalo de alta desde Personal.
+        Para cargar el gerente u otro personal de una sede, elegila en Configuración → Sede de
+        trabajo y dalo de alta desde Personal.
       </Text>
 
       {error && <BannerError>{error}</BannerError>}

@@ -721,8 +721,56 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   reponer: LuPackagePlus,
 };
 
+/** Texto corto de cada acción: se escribe en el celular, donde no hay tooltip. */
+const TEXTO_ACCION: Record<AccionTabla, string> = {
+  ver: "Ver",
+  historial: "Historial",
+  foto: "Foto",
+  editar: "Modificar",
+  subir: "Nueva versión",
+  resolver: "Resolver",
+  recambio: "Recambio",
+  eliminar: "Eliminar",
+  reactivar: "Reactivar",
+  cerrar: "Cerrar",
+  reabrir: "Reabrir",
+  intervenir: "Intervenir",
+  ingreso: "Ingresar",
+  ajuste: "Ajustar",
+  minimo: "Mínimo",
+  asociar: "Asociar",
+  escalar: "Iniciar lote",
+  nutricion: "Nutrición",
+  rotulado: "Rotulado",
+  certificacion: "Certificar",
+  despachar: "Despachar",
+  cancelar: "Cancelar",
+  entregar: "Entregar",
+  rechazar: "Rechazar",
+  disposicion: "Resolver",
+  reclamar: "Reclamo",
+  notificar: "Notificado",
+  agregar: "Nuevo",
+  descargar: "Descargar",
+  renovar: "Renovar",
+  anular: "Anular",
+  activar: "Activar",
+  reponer: "Reponer",
+};
+
+/** "Dar de baja", "Quitar ingrediente" y "Borrar el consumo" no son "Eliminar". */
+function textoDeAccion(accion: AccionTabla, label: string): string {
+  if (accion === "eliminar") {
+    if (label.startsWith("Dar de baja")) return "Dar de baja";
+    if (label.startsWith("Quitar")) return "Quitar";
+    if (label.startsWith("Borrar")) return "Borrar";
+  }
+  return TEXTO_ACCION[accion];
+}
+
 /**
- * Botón de acción de una fila de tabla: ícono + tooltip, sin texto.
+ * Botón de acción de una fila de tabla: ícono + tooltip, sin texto. En el
+ * celular, donde no hay tooltip, lleva el texto corto al lado del ícono.
  *
  * Estilo *outline pastel*: en reposo, fondo apenas teñido, borde de 2px
  * (`palette.400`) e ícono de 18px en `palette.600`. El gris de solo lectura va
@@ -740,10 +788,13 @@ export function BotonAccion({
   accion,
   label,
   tooltip,
+  texto,
   onClick,
   ...rest
 }: {
   accion: AccionTabla;
+  /** Texto del botón en el celular, si el de la acción no alcanza. */
+  texto?: string;
   /** Nombre de la acción: se usa en el aria-label y por defecto en el tooltip. */
   label: string;
   /** Texto alternativo del tooltip cuando difiere del label de la acción. */
@@ -768,12 +819,15 @@ export function BotonAccion({
         variant="outline"
         size="sm"
         /*
-         * 44px de lado en pantallas chicas (el mínimo recomendado para tocar
-         * con el dedo); 34px desde `md`, donde se usa mouse.
+         * 44px de alto en pantallas chicas (el mínimo recomendado para tocar
+         * con el dedo), con el texto; 34px desde `md`, donde se usa mouse.
          */
         minW={{ base: "11", md: "34px" }}
-        w={{ base: "11", md: "34px" }}
+        w={{ base: "auto", md: "34px" }}
         h={{ base: "11", md: "34px" }}
+        px={{ base: "2.5", md: "0" }}
+        gap="1"
+        fontSize="sm"
         borderWidth="2px"
         bg={esGris ? "bg.muted" : `${paleta}.subtle`}
         borderColor={esGris ? "border.emphasized" : `${paleta}.400`}
@@ -793,6 +847,9 @@ export function BotonAccion({
         {...rest}
       >
         <Icono size={18} aria-hidden />
+        <Box as="span" hideFrom="md" fontWeight="medium">
+          {texto ?? textoDeAccion(accion, label)}
+        </Box>
       </IconButton>
     </Tooltip>
   );
@@ -1727,7 +1784,7 @@ export function DatoPrincipal({
   secundario?: ReactNode;
 }) {
   return (
-    <Box minW="0">
+    <Box minW="0" data-dato-principal="">
       <Text
         fontWeight="semibold"
         color={COLOR_TABLA.textoPrincipal}

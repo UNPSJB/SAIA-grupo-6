@@ -6,6 +6,8 @@ import {
   LabelFiltro,
   Tarjeta,
 } from "../../../../components/ui/patrones";
+import { FiltrosPlegables } from "../../../../components/ui/filtros";
+import { useEsCelular } from "../../../../common/hooks/useEsCelular";
 import { TIPOS_TAREA } from "../../../planLimpieza/types/planLimpieza";
 import {
   FILTROS_INICIALES,
@@ -60,6 +62,103 @@ export function CabeceraChecklist({
 }) {
   const porcentaje = total > 0 ? Math.round((hechas / total) * 100) : 0;
   const completo = total > 0 && hechas === total;
+  const esCelular = useEsCelular();
+  const activos =
+    [filtros.operador, filtros.etapa, filtros.misTareas].filter(Boolean).length +
+    (filtros.estado !== FILTROS_INICIALES.estado ? 1 : 0);
+
+  const campoBusqueda = (
+    <Box flex="1" minW={{ base: "auto", lg: "220px" }}>
+      <Box hideBelow="md">
+        <LabelFiltro>Buscar</LabelFiltro>
+      </Box>
+      <Box position="relative">
+        <Box
+          position="absolute"
+          left="3"
+          top="50%"
+          transform="translateY(-50%)"
+          color="fg.muted"
+          pointerEvents="none"
+          display="inline-flex"
+          // Por encima del fondo del input, que va después.
+          zIndex="1"
+          aria-hidden
+        >
+          <LuSearch size={16} />
+        </Box>
+        <FormInput
+          type="search"
+          value={filtros.texto}
+          onChange={(e) => onFiltros({ texto: e.target.value })}
+          placeholder="Equipo, plan o tarea..."
+          aria-label="Buscar por equipo, plan o tarea"
+          h={{ base: "10", md: "11" }}
+          ps="9"
+        />
+      </Box>
+    </Box>
+  );
+
+  const filtrosRapidos = (
+    <>
+      {mostrarFiltroOperador && (
+        <Box minW={{ base: "auto", lg: "190px" }}>
+          <LabelFiltro>Operador</LabelFiltro>
+          <FormNativeSelect
+            value={filtros.operador}
+            onChange={(e) => onFiltros({ operador: e.target.value, misTareas: false })}
+            aria-label="Filtrar por operador"
+          >
+            <option value="">Todos los operadores</option>
+            {operadores.map((nombre) => (
+              <option key={nombre} value={nombre}>
+                {nombre}
+              </option>
+            ))}
+            <option value={SIN_ASIGNAR}>Sin asignar</option>
+          </FormNativeSelect>
+        </Box>
+      )}
+
+      <Box minW={{ base: "auto", lg: "170px" }}>
+        <LabelFiltro>Etapa</LabelFiltro>
+        <FormNativeSelect
+          value={filtros.etapa}
+          onChange={(e) => onFiltros({ etapa: e.target.value })}
+          aria-label="Filtrar por etapa"
+        >
+          <option value="">Todas las etapas</option>
+          {TIPOS_TAREA.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </FormNativeSelect>
+      </Box>
+
+      <Box>
+        <LabelFiltro>Estado</LabelFiltro>
+        <SelectorEstado valor={filtros.estado} onCambio={(estado) => onFiltros({ estado })} />
+      </Box>
+    </>
+  );
+
+  const soloMisTareas = mostrarMisTareas && (
+  <Switch.Root
+    checked={filtros.misTareas}
+    onCheckedChange={(e) => onFiltros({ misTareas: e.checked, operador: "" })}
+    colorPalette="teal"
+    size="lg"
+  >
+    <Switch.HiddenInput />
+    {/* Apagado, la pista gris se distingue del fondo de la barra. */}
+    <Switch.Control bg="border.emphasized" _checked={{ bg: "teal.solid" }} />
+    <Switch.Label fontSize="sm" fontWeight="medium" color="fg">
+      Solo mis tareas
+    </Switch.Label>
+  </Switch.Root>
+);
 
   return (
     <Tarjeta mb="4" overflow="visible">
@@ -124,94 +223,21 @@ export function CabeceraChecklist({
       {/* Fila 2: filtros rápidos */}
       {mostrarFiltros && (
         <Box px="4" py="3" borderTopWidth="1px" borderColor="border.subtle" bg="bg.subtle" roundedBottom="lg">
-          <Stack direction={{ base: "column", lg: "row" }} align={{ base: "stretch", lg: "flex-end" }} gap="3">
-            <Box flex="1" minW={{ base: "auto", lg: "220px" }}>
-              <LabelFiltro>Buscar</LabelFiltro>
-              <Box position="relative">
-                <Box
-                  position="absolute"
-                  left="3"
-                  top="50%"
-                  transform="translateY(-50%)"
-                  color="fg.muted"
-                  pointerEvents="none"
-                  display="inline-flex"
-                  // Por encima del fondo del input, que va después.
-                  zIndex="1"
-                  aria-hidden
-                >
-                  <LuSearch size={16} />
-                </Box>
-                <FormInput
-                  type="search"
-                  value={filtros.texto}
-                  onChange={(e) => onFiltros({ texto: e.target.value })}
-                  placeholder="Equipo, plan o tarea..."
-                  aria-label="Buscar por equipo, plan o tarea"
-                  h="11"
-                  ps="9"
-                />
-              </Box>
-            </Box>
-
-            {mostrarFiltroOperador && (
-              <Box minW={{ base: "auto", lg: "190px" }}>
-                <LabelFiltro>Operador</LabelFiltro>
-                <FormNativeSelect
-                  value={filtros.operador}
-                  onChange={(e) => onFiltros({ operador: e.target.value, misTareas: false })}
-                  aria-label="Filtrar por operador"
-                >
-                  <option value="">Todos los operadores</option>
-                  {operadores.map((nombre) => (
-                    <option key={nombre} value={nombre}>
-                      {nombre}
-                    </option>
-                  ))}
-                  <option value={SIN_ASIGNAR}>Sin asignar</option>
-                </FormNativeSelect>
-              </Box>
-            )}
-
-            <Box minW={{ base: "auto", lg: "170px" }}>
-              <LabelFiltro>Etapa</LabelFiltro>
-              <FormNativeSelect
-                value={filtros.etapa}
-                onChange={(e) => onFiltros({ etapa: e.target.value })}
-                aria-label="Filtrar por etapa"
-              >
-                <option value="">Todas las etapas</option>
-                {TIPOS_TAREA.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </FormNativeSelect>
-            </Box>
-
-            <Box>
-              <LabelFiltro>Estado</LabelFiltro>
-              <SelectorEstado valor={filtros.estado} onCambio={(estado) => onFiltros({ estado })} />
-            </Box>
-          </Stack>
+          {esCelular ? (
+            <FiltrosPlegables busqueda={campoBusqueda} activos={activos}>
+              {filtrosRapidos}
+              {soloMisTareas}
+            </FiltrosPlegables>
+          ) : (
+            <Stack direction={{ base: "column", lg: "row" }} align={{ base: "stretch", lg: "flex-end" }} gap="3">
+              {campoBusqueda}
+              {filtrosRapidos}
+            </Stack>
+          )}
 
           <HStack justify="space-between" mt="3" gap="3" flexWrap="wrap">
             <HStack gap="4" flexWrap="wrap">
-              {mostrarMisTareas && (
-                <Switch.Root
-                  checked={filtros.misTareas}
-                  onCheckedChange={(e) => onFiltros({ misTareas: e.checked, operador: "" })}
-                  colorPalette="teal"
-                  size="lg"
-                >
-                  <Switch.HiddenInput />
-                  {/* Apagado, la pista gris se distingue del fondo de la barra. */}
-                  <Switch.Control bg="border.emphasized" _checked={{ bg: "teal.solid" }} />
-                  <Switch.Label fontSize="sm" fontWeight="medium" color="fg">
-                    Solo mis tareas
-                  </Switch.Label>
-                </Switch.Root>
-              )}
+              {!esCelular && soloMisTareas}
               {hayFiltros && (
                 <Text fontSize="sm" color="fg.muted" fontVariantNumeric="tabular-nums" aria-live="polite">
                   Mostrando <b>{visibles}</b> de {total} tareas

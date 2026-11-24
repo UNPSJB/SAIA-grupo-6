@@ -128,6 +128,7 @@ function SeccionTrazabilidad({ traza, loteId }: { traza: TrazabilidadLoteProduct
                     <BotonAccion
                       accion="historial"
                       label="Ver en qué otros lotes de producto se usó"
+                      texto="Otros usos"
                       onClick={() => navigate(`/trazabilidad/lotes-insumo/${l.id}`)}
                     />
                   </Celda>
@@ -209,6 +210,8 @@ export function LoteDetallePage() {
   const reservasDisponibles = lote ? terminado && Number(lote.saldo) > 0 && !lote.retirado : false;
   // Sin rotulado completo el lote no se vende (el backend lo exige al reservar).
   const sinRotulado = Boolean(lote && terminado && lote.rotulado_completo === false);
+  // Un lote vencido tampoco (el backend lo rechaza).
+  const vencido = Boolean(lote?.fecha_vencimiento && lote.fecha_vencimiento < hoyISO());
   // Reservar es comercial (cliente, cantidad): solo quien administra.
   const puedeReservar = esAdmin && reservasDisponibles;
 
@@ -329,13 +332,18 @@ export function LoteDetallePage() {
              vez terminado; retirar del mercado en los dos casos (no si se canceló).
              Van junto al título y el estado, alineadas a la derecha. */
           <HStack gap="3" flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }}>
-            {terminado && puedeReservar && sinRotulado && (
+            {terminado && puedeReservar && vencido && (
+              <Text fontSize="sm" color="fg.muted">
+                No se puede reservar: el lote está vencido.
+              </Text>
+            )}
+            {terminado && puedeReservar && !vencido && sinRotulado && (
               <Text fontSize="sm" color="fg.muted">
                 Para reservarlo falta el rotulado completo del lote
                 {" (Rotulado → nuevo borrador vinculado a este lote)."}
               </Text>
             )}
-            {terminado && puedeReservar && !sinRotulado && (
+            {terminado && puedeReservar && !vencido && !sinRotulado && (
               <Button
                 colorPalette="brand"
                 onClick={() => {
@@ -430,7 +438,7 @@ export function LoteDetallePage() {
               <DatoDetalle etiqueta="Tareas hechas">
                 {lote.items_completados} de {lote.items_total}
               </DatoDetalle>
-              {lote.fecha_vencimiento && lote.fecha_vencimiento < hoyISO() && (
+              {vencido && (
                 <Text fontSize="xs" color="red.fg" fontWeight="bold" mt="1">
                   ⚠ Vencido
                 </Text>

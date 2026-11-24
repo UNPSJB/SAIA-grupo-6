@@ -33,6 +33,17 @@ function useAncho<T extends HTMLElement>() {
   return [ref, ancho] as const;
 }
 
+/** Alto de una fecha en diagonal más su aire: lo que ocupa cada una en el eje. */
+const PASO_DIAGONAL = 16;
+
+/**
+ * Si en ese ancho entran todas las fechas en diagonal sin pisarse. Sin medir
+ * todavía (0) se supone que sí: el ancho se conoce antes de pintar.
+ */
+export function entranEnDiagonal(puntos: number, ancho: number): boolean {
+  return ancho === 0 || ancho >= puntos * PASO_DIAGONAL;
+}
+
 /** Si todavía no se pudo medir, un ancho típico de gráfico: mejor que dos fechas. */
 const ANCHO_SUPUESTO = 600;
 
@@ -107,5 +118,5 @@ export function useFechasEje(
       </text>
     );
   };
-  return { ref, ticks, tick };
+  return { ref, ticks, tick, ancho };
 }

@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { Box, Button, Field, HStack, SimpleGrid, Table, Text } from "@chakra-ui/react";
 import { LuSearch } from "react-icons/lu";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
+import { formatoFecha } from "../../../../common/utils/fechas";
 import { useConsumoInsumos } from "../../hooks/useConsumoInsumos";
 import { BotonExportar } from "../../../exportacion";
 import {
@@ -11,11 +13,14 @@ import {
   FilaEncabezado,
   FormInput,
   LabelFiltro,
+  Paginacion,
   Tarjeta,
   DatoPrincipal,
   CantidadConUnidad,
 } from "../../../../components/ui/patrones";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
+
+const FILAS_POR_PAGINA = 20;
 
 export function ConsumoInsumosPage() {
   const {
@@ -28,6 +33,12 @@ export function ConsumoInsumosPage() {
     error,
     cargar,
   } = useConsumoInsumos();
+  // Un mes son cientos de renglones (producto × día): de a 20.
+  const porDia = usePaginas(
+    consumo?.por_producto_fecha ?? [],
+    FILAS_POR_PAGINA,
+    consumo ? `${consumo.fecha_desde}|${consumo.fecha_hasta}` : "",
+  );
 
   useEffect(() => {
     cargar();
@@ -38,7 +49,7 @@ export function ConsumoInsumosPage() {
     <Box>
       <Tarjeta p="4" mb="6">
         <HStack gap="4" flexWrap="wrap" align="flex-end">
-          <Box>
+          <Box flex={{ base: "1 1 130px", md: "none" }}>
             <Field.Root>
               <LabelFiltro>Desde</LabelFiltro>
               <FormInput
@@ -46,12 +57,12 @@ export function ConsumoInsumosPage() {
                 value={fechaDesde}
                 max={fechaHasta}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                w="auto"
+                w={{ base: "100%", md: "auto" }}
               />
             </Field.Root>
           </Box>
 
-          <Box>
+          <Box flex={{ base: "1 1 130px", md: "none" }}>
             <Field.Root>
               <LabelFiltro>Hasta</LabelFiltro>
               <FormInput
@@ -59,7 +70,7 @@ export function ConsumoInsumosPage() {
                 value={fechaHasta}
                 min={fechaDesde}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                w="auto"
+                w={{ base: "100%", md: "auto" }}
               />
             </Field.Root>
           </Box>
@@ -141,6 +152,7 @@ export function ConsumoInsumosPage() {
           </Tarjeta>
 
           {consumo.por_producto_fecha.length > 0 && (
+            <>
             <Tarjeta mt="6">
               <Box p="4" borderBottomWidth="1px" borderColor="border">
                 <Text color="fg.muted" fontSize="sm" fontWeight="bold">
@@ -156,9 +168,9 @@ export function ConsumoInsumosPage() {
                   </FilaEncabezado>
                 </Table.Header>
                 <Table.Body>
-                  {consumo.por_producto_fecha.map((item) => (
+                  {porDia.paginados.map((item) => (
                     <Table.Row key={`${item.fecha}-${item.insumo_quimico_id}`}>
-                      <Celda>{item.fecha}</Celda>
+                      <Celda>{formatoFecha(item.fecha)}</Celda>
                       <Celda>
                         <DatoPrincipal titulo={item.nombre} />
                       </Celda>
@@ -170,6 +182,15 @@ export function ConsumoInsumosPage() {
                 </Table.Body>
               </Table.Root>
             </Tarjeta>
+            {porDia.hayVariasPaginas && (
+              <Paginacion
+                count={porDia.total}
+                pageSize={FILAS_POR_PAGINA}
+                page={porDia.page}
+                onPageChange={porDia.setPage}
+              />
+            )}
+            </>
           )}
         </>
       )}

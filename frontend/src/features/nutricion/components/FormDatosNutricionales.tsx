@@ -14,6 +14,8 @@ import {
   FormNativeSelect,
   MensajeError,
 } from "../../../components/ui/patrones";
+import { useEsCelular } from "../../../common/hooks/useEsCelular";
+import { Desplazable } from "../../../components/ui/desplazable";
 import { formatoFechaHora } from "../../../common/utils/fechas";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import { toaster } from "../../../components/ui/toaster";
@@ -108,6 +110,7 @@ interface Props {
  * lo hizo.
  */
 export function FormDatosNutricionales({ ingredienteId, onGuardado, onCancel, soloLectura = false }: Props) {
+  const esCelular = useEsCelular();
   const [datos, setDatos] = useState<DatosNutricionales | null>(null);
   const [parametros, setParametros] = useState<ParametroNutriente[]>([]);
   const [filas, setFilas] = useState<Record<string, Fila>>({});
@@ -616,8 +619,8 @@ export function FormDatosNutricionales({ ingredienteId, onGuardado, onCancel, so
             </Text>
           </HStack>
         )}
-        <Box overflowX="auto" mx={{ base: "-4", md: "-5" }} mb={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
-          <Table.Root size="sm" data-sin-tarjetas="" minW="640px">
+        <Desplazable mx={{ base: "-4", md: "-5" }} mb={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
+          <Table.Root size="sm" data-sin-tarjetas={esCelular ? undefined : ""} minW="640px">
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Nutriente</EncabezadoOscuro>
@@ -724,7 +727,7 @@ Cargado el ${formatoFechaHora(guardado.cargado_en)}${guardado.cargado_por ? ` po
               })}
             </Table.Body>
           </Table.Root>
-        </Box>
+        </Desplazable>
       </Bloque>
 
       {intentado && invalidos.length > 0 && (

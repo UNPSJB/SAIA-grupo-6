@@ -436,7 +436,7 @@ export function BarrasHorizontales({
             title={`${dato.etiqueta}: ${dato.detalle ?? `${texto(dato)}${unidad ? ` ${unidad}` : ""}`}`}
           >
             <Flex justify="space-between" align="baseline" gap="3" mb="1">
-              <Text fontSize="sm" color="fg" lineClamp={1}>
+              <Text fontSize="sm" color="fg" lineClamp={{ base: 2, md: 1 }}>
                 {dato.etiqueta}
               </Text>
               <HStack gap="2" flexShrink={0} align="baseline">
@@ -489,26 +489,27 @@ export function ListaPanel({
     <Stack as="ul" listStyleType="none" gap={acento ? (holgada ? "3" : "2") : "0"} m="0" p="0">
       {filas.map((fila) => {
         const contenido = (
-          // Holgada: si no entra todo en un renglón (celular), la etiqueta
-          // baja debajo del texto en vez de achicar el título a "P.".
+          // En el celular (y siempre en la holgada), si no entra todo en un
+          // renglón la etiqueta baja debajo del texto en vez de achicar el
+          // título a "P.".
           <HStack
             gap="3"
             rowGap="2"
             py={holgada ? "3" : "2.5"}
             px={acento ? (holgada ? "4" : "3") : undefined}
-            flexWrap={holgada ? "wrap" : undefined}
+            flexWrap={holgada ? "wrap" : { base: "wrap", md: "nowrap" }}
           >
-            <Box flex="1" minW="0" flexBasis={holgada ? "200px" : undefined}>
-              <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={1}>
+            <Box flex="1" minW="0" flexBasis={holgada ? "200px" : { base: "200px", md: "0" }}>
+              <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={{ base: 2, md: 1 }}>
                 {fila.titulo}
               </Text>
               {fila.detalle ? (
-                <Text fontSize="xs" color="fg.muted" lineClamp={1} mt={holgada ? "1" : undefined}>
+                <Text fontSize="xs" color="fg.muted" lineClamp={{ base: 2, md: 1 }} mt={holgada ? "1" : undefined}>
                   {fila.detalle}
                 </Text>
               ) : null}
             </Box>
-            <Box flexShrink={1} minW="0" ml={holgada ? "auto" : undefined}>
+            <Box flexShrink={1} minW="0" ml={holgada ? "auto" : { base: "auto", md: "0" }}>
               <EstadoFila tono={fila.tono}>{fila.estado}</EstadoFila>
             </Box>
             {fila.link ? (
@@ -632,7 +633,7 @@ export function ListaPendientes({ filas }: { filas: FilaAtencion[] }) {
         const contenido = (
           <HStack gap="3" py="3">
             <Stack flex="1" minW="0" gap="1.5">
-              <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={1}>
+              <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={{ base: 2, md: 1 }}>
                 {fila.titulo}
               </Text>
               {faltan.length > 0 ? (

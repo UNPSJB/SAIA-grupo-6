@@ -73,7 +73,10 @@ function FilaPendiente({ tarea, miNombre }: { tarea: FilaAtencion; miNombre?: st
         asChild
         display="flex"
         alignItems="center"
+        // En el celular, quién la hace va debajo: al costado cortaba el nombre.
+        flexWrap={{ base: "wrap", md: "nowrap" }}
         gap="3"
+        rowGap="0"
         px="2"
         mx="-2"
         py="1.5"
@@ -83,18 +86,27 @@ function FilaPendiente({ tarea, miNombre }: { tarea: FilaAtencion; miNombre?: st
         _hover={{ bg: "bg.subtle", textDecoration: "none" }}
       >
         <RouterLink to={tarea.link ?? "/checklist"}>
-          <Box flex="1" minW="0">
-            <Text truncate color="fg" title={tarea.titulo}>
+          <Box flex="1" minW="0" flexBasis={{ base: "100%", md: "0" }}>
+            <Text lineClamp={{ base: 2, md: 1 }} color="fg" title={tarea.titulo}>
               {tarea.titulo}
             </Text>
             {plan ? (
-              <Text truncate fontSize="xs" color="fg.muted" title={plan}>
+              <Text lineClamp={{ base: 2, md: 1 }} fontSize="xs" color="fg.muted" title={plan}>
                 {plan}
               </Text>
             ) : null}
           </Box>
           {operador ? (
-            <Text color="fg.muted" fontSize="xs" flexShrink={0} w="36" textAlign="right" truncate title={operador}>
+            <Text
+              color="fg.muted"
+              fontSize="xs"
+              fontWeight={{ base: "medium", md: "normal" }}
+              flexShrink={0}
+              w={{ base: "100%", md: "36" }}
+              textAlign={{ base: "left", md: "right" }}
+              truncate
+              title={operador}
+            >
               {operador}
             </Text>
           ) : null}

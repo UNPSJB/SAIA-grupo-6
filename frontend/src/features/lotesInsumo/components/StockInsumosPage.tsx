@@ -442,6 +442,7 @@ function TabLotes() {
                         <BotonAccion
                           accion="historial"
                           label="Ver trazabilidad hacia adelante"
+                          texto="Trazabilidad"
                           onClick={() =>
                             navigate(
                               `/trazabilidad/lotes-insumo/${l.lote_insumo_id}`,

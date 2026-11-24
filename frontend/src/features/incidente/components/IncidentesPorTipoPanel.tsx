@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Badge,
   Box,
@@ -11,6 +11,8 @@ import {
   Switch,
   Text,
 } from "@chakra-ui/react";
+import { LuChevronDown } from "react-icons/lu";
+import { useEsCelular } from "../../../common/hooks/useEsCelular";
 import { Tooltip } from "../../../components/ui/tooltip";
 import { useResumenIncidentesPorTipo } from "../hooks/useResumenIncidentesPorTipo";
 import { TIPOS_INCIDENTE, ETIQUETA_PERIODO, tipoColor, periodoLabel } from "../types/incidente";
@@ -97,6 +99,10 @@ export function IncidentesPorTipoPanel({
     setFechaHasta: onFechaHastaChange,
   } = gestion;
   const incluirCerrados = gestion.estado === "";
+  // En el celular arranca plegado: desplegado ocupa una pantalla entera y deja
+  // las pestañas y la tabla fuera de la vista.
+  const esCelular = useEsCelular();
+  const [abierto, setAbierto] = useState(false);
   const { resumen, loading, error } = useResumenIncidentesPorTipo(
     incluirCerrados,
     gestion.desde,
@@ -124,8 +130,37 @@ export function IncidentesPorTipoPanel({
     ? "Total de incidentes (abiertos y cerrados)"
     : "Solo incidentes sin acción correctiva registrada (abiertos)";
 
+  if (esCelular && !abierto) {
+    return (
+      <Tarjeta mb="4">
+        <Button
+          type="button"
+          variant="ghost"
+          colorPalette="neutral"
+          w="100%"
+          h="auto"
+          minH="12"
+          px="4"
+          py="2"
+          justifyContent="space-between"
+          aria-expanded={false}
+          onClick={() => setAbierto(true)}
+        >
+          <Text as="span" fontSize="sm" textAlign="left">
+            <b>{primeraCarga || error ? "–" : resumen.total}</b> incidentes{" "}
+            {incluirCerrados ? "registrados" : "abiertos"}
+          </Text>
+          <HStack as="span" gap="1" color="brand.fg" fontSize="sm">
+            Ver por tipo
+            <LuChevronDown size={16} aria-hidden />
+          </HStack>
+        </Button>
+      </Tarjeta>
+    );
+  }
+
   return (
-    <Tarjeta p="5" mb="6">
+    <Tarjeta p={{ base: "4", md: "5" }} mb={{ base: "4", md: "6" }}>
       <HStack justify="space-between" mb="4" flexWrap="wrap" gap="3">
         <Box>
           <Heading as="h3" size="sm" fontWeight="bold" color="brand.fg">
@@ -301,6 +336,12 @@ export function IncidentesPorTipoPanel({
             })}
           </Box>
         </>
+      )}
+
+      {esCelular && (
+        <Button type="button" variant="subtle" colorPalette="brand" w="100%" mt="1" onClick={() => setAbierto(false)}>
+          Ocultar resumen
+        </Button>
       )}
     </Tarjeta>
   );

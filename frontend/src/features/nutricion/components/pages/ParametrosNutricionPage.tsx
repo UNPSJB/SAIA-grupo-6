@@ -11,6 +11,7 @@ import {
   FiltroSelect,
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
+import { useEsCelular } from "../../../../common/hooks/useEsCelular";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import {
   BannerError,
@@ -83,6 +84,7 @@ export function PanelParametros({
   onGuardado?: () => void;
 }) {
   const puedeEditar = esSuperAdmin(useAuth().user);
+  const esCelular = useEsCelular();
   const [datos, setDatos] = useState<Parametros | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -158,7 +160,8 @@ export function PanelParametros({
         ayuda="El umbral de «no significativo» se compara con el valor por porción: si es menor o igual, se declara «0,0» (y, si está activada, se nombra en la frase de «no significativo»). Azúcares y grasas trans no tienen Valor Diario en la norma («No corresponde»): su %VD queda en blanco."
       >
         <Box overflowX="auto" mx={{ base: "-4", md: "-5" }} mb={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
-          <Table.Root size="sm" minW="900px" data-sin-tarjetas="">
+          {/* En el celular, una tarjeta por nutriente: en tabla se veían dos columnas de seis. */}
+          <Table.Root size="sm" minW="900px" data-sin-tarjetas={esCelular ? undefined : ""}>
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Nutriente</EncabezadoOscuro>

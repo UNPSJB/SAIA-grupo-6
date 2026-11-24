@@ -274,6 +274,14 @@ export function rutaPanel(grupo: Pick<GrupoMenu, "id">): string {
   return `${BASE_PANEL}/${grupo.id}`;
 }
 
+/** Pantallas que no están en el menú (se abren desde la barra o un enlace). */
+const TITULOS_FUERA_DEL_MENU: Record<string, string> = {
+  "/mi-perfil": "Mi perfil",
+  "/notificaciones": "Notificaciones",
+  "/configuracion": "Configuración",
+  "/trazabilidad": "Trazabilidad",
+};
+
 /** Enlaces sueltos, fuera de cualquier grupo. */
 export const MENU: EntradaMenu[] = [
   /*
@@ -344,6 +352,34 @@ export function esVisibleEntrada(
   return puedeAdministrar(user);
 }
 
+/** Las categorías con sus pantallas visibles para el usuario; sin ninguna, no va. */
+export function gruposVisibles(user: Parameters<typeof puedeOperar>[0]): GrupoMenu[] {
+  return GRUPOS.map((g) => ({
+    ...g,
+    entradas: g.entradas.filter((e) => esVisibleEntrada(e, user)),
+  })).filter((g) => g.entradas.length > 0);
+}
+
+/**
+ * Ruta activa del menú, de la más específica a la más general.
+ *
+ * `/checklist` y `/checklist/historial` son prefijos el uno del otro: con un
+ * `startsWith` ingenuo, "/checklist" se marcaría activo también en la página de
+ * historial. Ganarle a la entrada más larga resuelve el choque, y además no
+ * marca `/incidentes` cuando se está en `/incidentes/reportar`.
+ */
+export function entradaActiva(pathname: string, entradas: EntradaMenu[]): string | null {
+  let mejor: string | null = null;
+
+  for (const entrada of entradas) {
+    if (esDeEntrada(pathname, entrada) && (mejor === null || entrada.to.length > mejor.length)) {
+      mejor = entrada.to;
+    }
+  }
+
+  return mejor;
+}
+
 /** Los paneles de indicadores de cada área son solo para quien administra. */
 export function vePaneles(user: Parameters<typeof puedeOperar>[0]): boolean {
   return puedeAdministrar(user);
@@ -400,4 +436,29 @@ export function indiceRuta(pathname: string): number | null {
     });
   });
   return mejor;
+}
+
+/**
+ * Nombre de la sección de una ruta, para la barra superior del celular: ahí no
+ * hay migas ni pestañas que digan dónde se está. Una ficha lleva el nombre de
+ * su listado (`/lotes/12` → "Lotes de producción"). `null` en el Inicio y en
+ * las rutas que no son de ninguna sección.
+ */
+export function tituloDeRuta(pathname: string): string | null {
+  if (pathname === "/") return null;
+  const panel = GRUPOS.find((g) => rutaPanel(g) === pathname);
+  if (panel) return panel.label;
+
+  // La ficha de una pestaña (`/reclamos/5`) lleva el nombre de la pestaña.
+  const pestana = TODAS_LAS_ENTRADAS.flatMap((e) => e.pestanas ?? []).find(
+    (p) => p.ruta && esOCuelgaDe(pathname, p.ruta),
+  );
+  if (pestana) return pestana.label;
+
+  const activa = entradaActiva(pathname, TODAS_LAS_ENTRADAS);
+  const entrada = TODAS_LAS_ENTRADAS.find((e) => e.to === activa);
+  if (entrada) return entrada.label;
+
+  const fuera = Object.keys(TITULOS_FUERA_DEL_MENU).find((r) => esOCuelgaDe(pathname, r));
+  return fuera ? TITULOS_FUERA_DEL_MENU[fuera] : null;
 }

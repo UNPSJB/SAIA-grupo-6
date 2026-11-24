@@ -65,6 +65,13 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
     };
   }, []);
 
+  // Se puede saltear con un toque o con cualquier tecla.
+  useEffect(() => {
+    const saltear = () => onFinish();
+    window.addEventListener("keydown", saltear);
+    return () => window.removeEventListener("keydown", saltear);
+  }, [onFinish]);
+
   useEffect(() => {
     const reducido = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -97,6 +104,8 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       textAlign="center"
       role="status"
       aria-label="Bienvenida a SAIA"
+      cursor="pointer"
+      onClick={onFinish}
     >
       <Box className="saia-splash__orbit saia-splash__orbit--uno" aria-hidden />
       <Box className="saia-splash__orbit saia-splash__orbit--dos" aria-hidden />
@@ -152,6 +161,18 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
           </Box>
         </Box>
       </Box>
+
+      <Text
+        position="absolute"
+        top={{ base: "5", md: "6" }}
+        right={{ base: "5", md: "8" }}
+        zIndex="1"
+        m="0"
+        fontSize="sm"
+        color="whiteAlpha.800"
+      >
+        Tocá para continuar
+      </Text>
 
       <Box className="saia-splash__progress" aria-hidden>
         <Box className="saia-splash__progress-bar" />

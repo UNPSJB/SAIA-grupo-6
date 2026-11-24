@@ -285,7 +285,7 @@ export function ModalReservarLote({
               helper={ayudaLote}
             >
               <FormNativeSelect
-                value={String(values.lote_id)}
+                value={values.lote_id ? String(values.lote_id) : ""}
                 onChange={(e) => {
                   // Al cambiar de lote, una fecha futura vuelve a hoy.
                   const hoy = hoyISO();
@@ -323,7 +323,7 @@ export function ModalReservarLote({
               invalid={intentado && faltan.tiene("cliente_id")}
             >
               <FormNativeSelect
-                value={String(values.cliente_id)}
+                value={values.cliente_id ? String(values.cliente_id) : ""}
                 onChange={(e) =>
                   setValues({ ...values, cliente_id: Number(e.target.value) })
                 }

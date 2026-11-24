@@ -21,6 +21,7 @@ import {
 import { EtiquetaEstado, Tarjeta } from "../../components/ui/patrones";
 import { Tooltip as TooltipChakra } from "../../components/ui/tooltip";
 import { useColorModeValue } from "../../components/ui/color-mode";
+import { useEsCelular } from "../../common/hooks/useEsCelular";
 import { CajaTooltip, FilaTooltip, Punto } from "../dashboard/components/graficos";
 import {
   COLOR_OTRAS,
@@ -273,6 +274,9 @@ export function RadarCumplimiento({
   propia: number;
 }) {
   const colorPromedio = useColorModeValue(COLOR_PROMEDIO_RADAR.claro, COLOR_PROMEDIO_RADAR.oscuro);
+  // En el celular el polígono se achica para que entren los nombres de los
+  // ejes, y las marcas de la escala (que se pisaban) no se escriben.
+  const esCelular = useEsCelular();
   const datos = indicadores.map((i) => ({
     clave: i.clave,
     eje: ETIQUETA_CORTA[i.clave] ?? i.etiqueta,
@@ -331,16 +335,25 @@ export function RadarCumplimiento({
           .join(", ")}`}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={datos} outerRadius="72%" margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
+          <RadarChart
+            data={datos}
+            outerRadius={esCelular ? "54%" : "72%"}
+            margin={esCelular ? { top: 8, right: 8, bottom: 8, left: 8 } : { top: 8, right: 24, bottom: 8, left: 24 }}
+          >
             <PolarGrid stroke={COLOR_GRILLA} />
-            <PolarAngleAxis dataKey="eje" tick={{ fontSize: 12, fill: COLOR_EJE }} />
+            <PolarAngleAxis
+              dataKey="eje"
+              tick={{ fontSize: esCelular ? 11 : 12, fill: COLOR_EJE }}
+              // El más largo no entra a la izquierda del polígono en el celular.
+              tickFormatter={(v: string) => (esCelular && v === "Documentación" ? "Documentos" : v)}
+            />
             <PolarRadiusAxis
               domain={[0, 100]}
               tickCount={5}
               // Entre dos ejes (con cinco, cada 72°): las marcas no pisan los nombres.
               angle={54}
               axisLine={false}
-              tick={{ fontSize: 10, fill: COLOR_EJE }}
+              tick={esCelular ? false : { fontSize: 10, fill: COLOR_EJE }}
               tickFormatter={(v: number) => (v === 0 ? "" : `${v}%`)}
             />
             <Tooltip content={contenidoTooltip} />
@@ -672,6 +685,7 @@ export function BarrasRiesgo({
   propia: number;
 }) {
   const nombres = new Map(sedes.map((s) => [s.id, s.nombre]));
+  const esCelular = useEsCelular();
   const orden = [propia, ...sedes.map((s) => s.id).filter((id) => id !== propia)];
   const datos = orden.map((id) => ({
     id,
@@ -719,7 +733,7 @@ export function BarrasRiesgo({
               axisLine={false}
               interval={0}
               height={40}
-              tick={tickSede(nombres, propia, 12)}
+              tick={tickSede(nombres, propia, esCelular ? 10 : 12)}
             />
             <YAxis
               allowDecimals={false}

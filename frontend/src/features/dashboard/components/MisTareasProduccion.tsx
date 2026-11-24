@@ -62,10 +62,10 @@ export function MisTareasProduccion({ tareas }: { tareas: TareaProduccionHoy[] }
                 >
                   <RouterLink to={`/lotes/${t.lote_id}`}>
                     <Box flex="1" minW="0">
-                      <Text truncate color={t.habilitada ? "fg" : "fg.muted"}>
+                      <Text lineClamp={{ base: 2, md: 1 }} color={t.habilitada ? "fg" : "fg.muted"}>
                         {t.orden}. {t.descripcion}
                       </Text>
-                      <Text truncate fontSize="xs" color="fg.muted">
+                      <Text lineClamp={{ base: 2, md: 1 }} fontSize="xs" color="fg.muted">
                         Lote {t.numero_lote} · {t.producto}
                       </Text>
                     </Box>

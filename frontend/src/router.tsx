@@ -1,7 +1,15 @@
 /* eslint-disable react-refresh/only-export-components -- este archivo es el mapa de rutas: mezcla componentes con las declaraciones lazy() y el router. */
 import { Suspense, useCallback, useRef, type ReactNode } from "react";
-import { createBrowserRouter, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import { Box, Flex, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
+import {
+  createBrowserRouter,
+  Link as RouterLink,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+import { Box, Button, Flex, HStack, Spinner, Heading, Stack, Text } from "@chakra-ui/react";
 
 // La pantalla de login NO es lazy a propósito: es lo primero que ve quien
 // entra, y pedirla después de pintar el bundle agrega un round trip visible.
@@ -20,7 +28,7 @@ import { useTablasResponsivas } from "./common/hooks/useTablasResponsivas";
 // `lazyPrecargable` es `lazy()` + la posibilidad de bajar el chunk antes del
 // clic (al pasar el puntero por el enlace): ver `usePrecargaRutas`.
 import { lazyPrecargable, usePrecargaRutas } from "./common/hooks/usePrecargaRutas";
-import { useRegistrarHistorial } from "./common/hooks/historialNavegacion";
+import { hayPantallaAnterior, useRegistrarHistorial } from "./common/hooks/historialNavegacion";
 import { DEGRADADO_MARCA, FONDO_PESTANA } from "./theme";
 
 
@@ -427,7 +435,14 @@ function LayoutPrincipal() {
   const fondoDe = useCallback(() => fondoRef.current, []);
 
   return (
-    <Flex h="100vh" overflow="hidden" bg="pagina">
+    // `dvh` y no `vh`: en el celular, `vh` cuenta también la barra del
+    // navegador y el final de cada pantalla quedaba tapado.
+    <Flex
+      h="100dvh"
+      css={{ "@supports not (height: 100dvh)": { height: "100vh" } }}
+      overflow="hidden"
+      bg="pagina"
+    >
       <Flex
         ref={fondoRef}
         flex={1}
@@ -1509,20 +1524,38 @@ export const router = createBrowserRouter([
 ]);
 
 
+/** Botones para salir de una pantalla sin contenido (404, sin permisos). */
+function Salidas() {
+  const navigate = useNavigate();
+  return (
+    <HStack gap="3" mt="4" flexWrap="wrap">
+      <Button asChild colorPalette="brand">
+        <RouterLink to="/">Ir al inicio</RouterLink>
+      </Button>
+      {hayPantallaAnterior() && (
+        <Button type="button" variant="outline" colorPalette="neutral" onClick={() => navigate(-1)}>
+          Volver
+        </Button>
+      )}
+    </HStack>
+  );
+}
+
 function NotFoundPage() {
   return (
-    <Stack gap="2" mt="8" maxW="600px">
+    <Stack gap="2" mt="8" maxW="600px" px={{ base: "3", md: "0" }}>
       <Heading as="h1" size="2xl" color="fg">
         404
       </Heading>
       <Text color="fg.muted">La página que buscás no existe.</Text>
+      <Salidas />
     </Stack>
   );
 }
 
 function SinPermisosPage() {
   return (
-    <Stack gap="2" mt="8" maxW="600px">
+    <Stack gap="2" mt="8" maxW="600px" px={{ base: "3", md: "0" }}>
       <Heading as="h1" size="2xl" color="fg">
         No tenés permisos
       </Heading>
@@ -1530,6 +1563,7 @@ function SinPermisosPage() {
         Tu usuario no tiene el permiso necesario para ver esta sección.
         Comunicate con un administrador si necesitás acceso.
       </Text>
+      <Salidas />
     </Stack>
   );
 }

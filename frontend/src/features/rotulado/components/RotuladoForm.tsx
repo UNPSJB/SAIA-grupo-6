@@ -17,6 +17,7 @@ import {
   TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import { usePistaScroll } from "../../../common/hooks/usePistaScroll";
 import { IndicadorCompletitud } from "./IndicadorCompletitud";
 import { CampoOrigen } from "./CampoOrigen";
 import { ResumenNutricional } from "./ResumenNutricional";
@@ -205,6 +206,20 @@ export function RotuladoForm({
       }
     });
   }, [setSeccion]);
+  // En pantallas chicas los pasos van en una fila que se desplaza: el activo
+  // queda siempre a la vista (antes la fila se quedaba en el primero).
+  const listaPasosRef = useRef<HTMLElement | null>(null);
+  const { ref: refPista, mascara: mascaraPasos } = usePistaScroll();
+  const refPasos = useCallback((el: HTMLElement | null) => {
+    listaPasosRef.current = el;
+    refPista(el);
+  }, [refPista]);
+  useEffect(() => {
+    const lista = listaPasosRef.current;
+    const activo = lista?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!lista || !activo || lista.scrollWidth <= lista.clientWidth) return;
+    lista.scrollLeft = activo.offsetLeft - lista.offsetLeft - (lista.clientWidth - activo.offsetWidth) / 2;
+  }, [seccion]);
   // Un enlace con #campo (desde la previsualización) abre su sección.
   useEffect(() => {
     const alCambiar = () => setSeccion(seccionDelFragmento());
@@ -375,7 +390,7 @@ export function RotuladoForm({
         borderBottomWidth="1px" borderColor="border.subtle">
         <HStack justify="space-between" align="center" gap="3" flexWrap="wrap">
           <HStack gap="3" minW="0" flexWrap="wrap">
-            <Heading as="h1" size={{ base: "lg", md: "xl" }} lineClamp={1}>
+            <Heading as="h1" size={{ base: "lg", md: "xl" }} lineClamp={{ base: 3, md: 1 }}>
               {esCreacion ? "Nuevo borrador de rotulado" : "Rotulado"} — {nombreParaMostrar}
             </Heading>
             <Badge colorPalette={pendientesGlobales ? "orange" : "green"} rounded="full" px="3">
@@ -419,8 +434,12 @@ export function RotuladoForm({
             }}
           />
           <chakra.nav aria-label="Secciones del rótulo">
-            <Stack as="ul" listStyleType="none" m="0" p="0" direction={{ base: "row", lg: "column" }} gap="1"
-              overflowX={{ base: "auto", lg: "visible" }} pb={{ base: "1", lg: "0" }}>
+            <Text fontSize="xs" color="fg.muted" mb="1" hideFrom="lg">
+              Paso {indice + 1} de {SECCIONES.length}
+            </Text>
+            <Stack as="ul" ref={refPasos} listStyleType="none" m="0" p="0" direction={{ base: "row", lg: "column" }} gap="1"
+              overflowX={{ base: "auto", lg: "visible" }} pb={{ base: "1", lg: "0" }}
+              style={{ maskImage: mascaraPasos, WebkitMaskImage: mascaraPasos }}>
               {SECCIONES.map((x, i) => {
                 const est = estadoDe(x.id);
                 const activa = x.id === seccion;
@@ -720,7 +739,7 @@ function ConOrigen({ origen, children }: { origen: ReactNode; children: ReactNod
   return (
     <Box position="relative" minW="0" css={{ containerType: "inline-size" }}>
       <Box position="absolute" top="0" right="0" zIndex="1"
-        css={{ "@container (max-width: 320px)": { position: "static", marginBottom: "4px" } }}>
+        css={{ "@container (max-width: 320px)": { position: "static", marginTop: "8px", marginBottom: "4px" } }}>
         {origen}
       </Box>
       {children}

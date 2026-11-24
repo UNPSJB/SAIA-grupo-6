@@ -11,8 +11,10 @@ import {
   Text,
   useChakraContext,
 } from "@chakra-ui/react";
-import { LuArrowRight, LuRotateCcw, LuX } from "react-icons/lu";
+import { LuArrowRight, LuChevronDown, LuList, LuNetwork, LuRotateCcw, LuX } from "react-icons/lu";
 import { BotonCancelar, EtiquetaEstado, Tarjeta, type TonoEstado } from "../../../components/ui/patrones";
+import { Desplazable } from "../../../components/ui/desplazable";
+import { useEsCelular } from "../../../common/hooks/useEsCelular";
 import { formatoFecha, formatoFechaHora } from "../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../common/utils/numeros";
 import { getTimelineLote } from "../../lotes/services/loteService";
@@ -206,6 +208,11 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
   const system = useChakraContext();
   const [respuesta, setRespuesta] = useState<{ loteId: number; timeline: LoteTimelineResponse | null } | null>(null);
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
+  // En el celular el árbol (casi 2000px) no se puede recorrer: por defecto va
+  // en lista, por etapas. El dibujo sigue a un toque.
+  const esCelular = useEsCelular();
+  const [verDibujo, setVerDibujo] = useState(false);
+  const enLista = esCelular && !verDibujo;
 
   // Las etapas del checklist salen de la línea de tiempo del lote. Hasta que
   // responde no se dibuja: si no, el grafo aparece sin etapas y salta.
@@ -527,11 +534,25 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
             )}
           </HStack>
           <Text fontSize="xs" color="fg.muted">
-            Hacé clic en un nodo para ver de dónde viene, a dónde fue y sus datos.
+            {enLista
+              ? "Abrí una etapa y elegí un elemento para ver de dónde viene, a dónde fue y sus datos."
+              : "Hacé clic en un nodo para ver de dónde viene, a dónde fue y sus datos."}
           </Text>
         </Box>
         <HStack gap="3" flexWrap="wrap">
-          {LEYENDA.map((l) => (
+          {esCelular && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-no-exportar=""
+              onClick={() => setVerDibujo((v) => !v)}
+            >
+              {enLista ? <LuNetwork aria-hidden /> : <LuList aria-hidden />}
+              {enLista ? "Ver el dibujo" : "Ver la lista"}
+            </Button>
+          )}
+          {!enLista && LEYENDA.map((l) => (
             <HStack key={l.texto} gap="1.5">
               <Box w="10px" h="10px" rounded="full" bg={l.color} />
               <Text fontSize="xs" color="fg.muted">
@@ -547,8 +568,27 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
         </HStack>
       </HStack>
 
-      <Box
-        overflowX="auto"
+      {enLista && timelineListo && (
+        <ListaTrazabilidad
+          nodos={Object.values(layout.nodos)}
+          cantidades={new Map(layout.pastillas.map((p) => [p.id.replace(/^p_/, ""), p.texto]))}
+          activos={activos}
+          seleccionId={seleccionId}
+          onElegir={alternar}
+          ficha={
+            seleccionado ? (
+              <FichaNodo
+                nodo={seleccionado}
+                grafo={grafo}
+                onCerrar={() => setSeleccionId(null)}
+                onIr={(ruta) => navigate(ruta)}
+              />
+            ) : null
+          }
+        />
+      )}
+      {!enLista && (
+      <Desplazable
         bg="bg.subtle"
         borderRadius="lg"
         borderWidth="1px"
@@ -681,8 +721,10 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
             </g>
           </svg>
         )}
-      </Box>
+      </Desplazable>
+      )}
 
+      {!enLista && (
       <Box mt="4">
         {seleccionado ? (
           <FichaNodo
@@ -697,7 +739,144 @@ export function GrafoTrazabilidad({ grafo }: GrafoTrazabilidadProps) {
           </Text>
         )}
       </Box>
+      )}
     </Box>
+  );
+}
+
+/** Las etapas del recorrido, en el orden en que pasan las cosas. */
+const ETAPAS: { id: string; texto: string; color: string; tipos: TipoVisual[] }[] = [
+  { id: "proveedores", texto: "Proveedores", color: PALETAS.proveedor.borde, tipos: ["P"] },
+  { id: "insumos", texto: "Lotes de insumo", color: PALETAS.insumo.borde, tipos: ["L"] },
+  { id: "elaboracion", texto: "Elaboración", color: PALETAS.elaboracion.borde, tipos: ["Ini", "Paso", "Fin"] },
+  { id: "salidas", texto: "Salidas", color: PALETAS.salida.borde, tipos: ["S"] },
+  { id: "clientes", texto: "Clientes", color: PALETAS.cliente.borde, tipos: ["C"] },
+];
+
+/**
+ * El mismo recorrido del árbol, en lista: una sección plegable por etapa. Al
+ * elegir un elemento se abren todas y queda solo lo que está en su camino.
+ */
+function ListaTrazabilidad({
+  nodos,
+  cantidades,
+  activos,
+  seleccionId,
+  onElegir,
+  ficha,
+}: {
+  nodos: NodoDibujo[];
+  /** Cantidad usada o despachada, por id de nodo. */
+  cantidades: Map<string, string>;
+  /** Los relacionados con el elegido; `null` si no hay ninguno. */
+  activos: Set<string> | null;
+  seleccionId: string | null;
+  onElegir: (id: string) => void;
+  ficha: ReactNode;
+}) {
+  const [abiertas, setAbiertas] = useState<string[]>(["elaboracion"]);
+
+  return (
+    <Stack gap="2">
+      {ETAPAS.map((etapa) => {
+        const todos = nodos.filter((n) => etapa.tipos.includes(n.tipo));
+        const visibles = activos ? todos.filter((n) => activos.has(n.id)) : todos;
+        const abierta = activos !== null || abiertas.includes(etapa.id);
+        const idPanel = `trazabilidad-${etapa.id}`;
+        return (
+          <Box key={etapa.id} borderWidth="1px" borderColor="border.subtle" borderLeftWidth="4px" borderLeftColor={etapa.color} rounded="md">
+            <Button
+              type="button"
+              variant="ghost"
+              colorPalette="neutral"
+              w="100%"
+              h="12"
+              px="3"
+              justifyContent="space-between"
+              aria-expanded={abierta}
+              aria-controls={abierta ? idPanel : undefined}
+              // Con un elemento elegido están todas abiertas: es su recorrido.
+              disabled={activos !== null}
+              _disabled={{ opacity: 1, cursor: "default" }}
+              onClick={() =>
+                setAbiertas((a) => (a.includes(etapa.id) ? a.filter((x) => x !== etapa.id) : [...a, etapa.id]))
+              }
+            >
+              <Text as="span" fontWeight="semibold">
+                {etapa.texto}{" "}
+                <Text as="span" color="fg.muted" fontWeight="normal">
+                  ({activos ? `${visibles.length} de ${todos.length}` : todos.length})
+                </Text>
+              </Text>
+              {activos === null && (
+                <Box as="span" display="inline-flex" transform={abierta ? "rotate(180deg)" : undefined}>
+                  <LuChevronDown size={18} aria-hidden />
+                </Box>
+              )}
+            </Button>
+            {abierta && visibles.length > 0 && (
+              <Stack id={idPanel} gap="0" pb="2" px="2">
+                {visibles.map((n) => {
+                  const elegido = n.id === seleccionId;
+                  return (
+                    <Box key={n.id}>
+                      <HStack
+                        as="button"
+                        onClick={() => onElegir(n.id)}
+                        aria-pressed={elegido}
+                        aria-label={`${NOMBRE_TIPO[n.tipo]}: ${n.tooltip}`}
+                        gap="3"
+                        w="100%"
+                        minH="12"
+                        px="2"
+                        py="1.5"
+                        rounded="md"
+                        textAlign="left"
+                        cursor="pointer"
+                        bg={elegido ? "bg.muted" : undefined}
+                        _focusVisible={{ outline: "2px solid", outlineColor: "brand.fg", outlineOffset: "-2px" }}
+                      >
+                        <Box
+                          flexShrink={0}
+                          boxSize="8"
+                          rounded="full"
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          borderWidth="2px"
+                          borderColor={n.paleta.borde}
+                          bg={n.paleta.bg}
+                          color={n.paleta.texto}
+                          fontSize="xs"
+                          fontWeight="bold"
+                          aria-hidden
+                        >
+                          {n.marca}
+                        </Box>
+                        <Box flex="1" minW="0">
+                          <Text fontSize="sm" fontWeight={elegido ? "bold" : "medium"} color="fg">
+                            {n.tipo === "Ini" || n.tipo === "Fin" ? n.linea1 : (n.tarea?.titulo ?? n.grafo?.titulo ?? n.linea1)}
+                          </Text>
+                          <Text fontSize="xs" color="fg.muted">
+                            {n.linea2}
+                          </Text>
+                        </Box>
+                        {cantidades.has(n.id) && (
+                          <Text fontSize="xs" fontWeight="semibold" color="fg" whiteSpace="nowrap">
+                            {cantidades.get(n.id)}
+                          </Text>
+                        )}
+                      </HStack>
+                      {elegido && <Box my="2">{ficha}</Box>}
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Box>
+        );
+      })}
+    </Stack>
   );
 }
 

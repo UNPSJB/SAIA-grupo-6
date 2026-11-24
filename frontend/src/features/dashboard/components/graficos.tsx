@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { Box, Flex, HStack, Stack, Text } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,7 +19,8 @@ import type { TonoEstado } from "../../../components/ui/patrones";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import type { Conteo, MapaCalor as DatosMapa, Serie } from "../types/paneles";
 import { COLOR_ESTADO, type ParteDona } from "../types/coloresGraficos";
-import { esPeriodoDeUnMes, useFechasEje } from "./ejeFechas";
+import { usePistaScroll } from "../../../common/hooks/usePistaScroll";
+import { entranEnDiagonal, esPeriodoDeUnMes, useFechasEje } from "./ejeFechas";
 
 /*
  * Gráficos de los paneles de categoría. Cada forma responde a una pregunta:
@@ -191,8 +192,21 @@ export function GraficoSerie({
 }: GraficoSerieProps) {
   const esPorcentaje = unidad === "%";
   /** Período de 30 días mostrado día por día (no 7 días, ni 90, ni 12 meses). */
-  const diasDelMes =
-    fechasEnDiagonal && serie.granularidad === "dia" && esPeriodoDeUnMes(serie.puntos.length);
+  const unMes = fechasEnDiagonal && serie.granularidad === "dia" && esPeriodoDeUnMes(serie.puntos.length);
+  const {
+    ref: refEjeFechas,
+    ticks: ticksFechas,
+    tick: tickFecha,
+    ancho: anchoEje,
+  } = useFechasEje(
+    serie.puntos.map((p) => p.etiqueta),
+    12,
+    COLOR_EJE,
+    serie.granularidad === "semana" ? undefined : serie.puntos.map((p) => p.clave),
+    serie.granularidad === "mes",
+  );
+  // En el celular las 30 se pisaban: ahí se escriben solo las que entran.
+  const diasDelMes = unMes && entranEnDiagonal(serie.puntos.length, anchoEje);
   // En diagonal, la primera y la última fecha asoman unos píxeles por los
   // costados y por abajo: un poco de margen para que no se corten.
   const margen = diasDelMes
@@ -205,13 +219,6 @@ export function GraficoSerie({
   const datos = serie.puntos.map((p) => ({ clave: p.clave, etiqueta: p.etiqueta, ...p.valores }));
   const formato = (valor: number | null | undefined) =>
     valor === null || valor === undefined ? "Sin datos" : `${formatoCantidad(valor)}${unidad ?? ""}`;
-  const { ref: refEjeFechas, ticks: ticksFechas, tick: tickFecha } = useFechasEje(
-    serie.puntos.map((p) => p.etiqueta),
-    12,
-    COLOR_EJE,
-    serie.granularidad === "semana" ? undefined : serie.puntos.map((p) => p.clave),
-    serie.granularidad === "mes",
-  );
 
   const contenidoTooltip = ({
     active,
@@ -771,7 +778,8 @@ interface MapaCalorProps {
  * La intensidad del color es el valor. Una celda SIN dato (un sector sin
  * tareas ese día) se dibuja rayada, distinta de un cero. El valor exacto está
  * en el `title` de cada celda y en la tabla para lectores de pantalla. Con
- * muchos tramos el mapa se desplaza dentro de su bloque, sin ensanchar la página.
+ * muchos tramos el mapa se desplaza dentro de su bloque, sin ensanchar la
+ * página: arranca en lo más reciente y los nombres de las filas quedan fijos.
  */
 export function MapaCalor({ mapa, color, sufijo, unidad, resumen }: MapaCalorProps) {
   const valores = mapa.filas.flatMap((f) => f.valores).filter((v): v is number => v !== null);
@@ -780,17 +788,37 @@ export function MapaCalor({ mapa, color, sufijo, unidad, resumen }: MapaCalorPro
     v === null ? "sin datos" : `${formatoCantidad(v)}${sufijo ?? (unidad ? ` ${unidad}` : "")}`;
   // Una etiqueta de columna cada tantas, para que no se pisen.
   const paso = Math.ceil(mapa.columnas.length / 8);
-  const columnas = `minmax(96px, 150px) repeat(${mapa.columnas.length}, minmax(16px, 1fr))`;
+  const { ref: refPista, mascara } = usePistaScroll({ izquierda: false });
+  const refMapa = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el) el.scrollLeft = el.scrollWidth;
+      refPista(el);
+    },
+    [refPista],
+  );
+  const fijo = { position: "sticky", left: 0, zIndex: 1, bg: "bg.panel" } as const;
+  const tramos = `repeat(${mapa.columnas.length}, minmax(16px, 1fr))`;
+  const columnas = { base: `104px ${tramos}`, md: `minmax(96px, 150px) ${tramos}` };
 
   return (
     <Box minW="0">
-      <Box overflowX="auto" pb="1" role="img" aria-label={resumen}>
+      <Box
+        ref={refMapa}
+        overflowX="auto"
+        pb="1"
+        role="img"
+        aria-label={resumen}
+        style={{ maskImage: mascara, WebkitMaskImage: mascara }}
+      >
         <Box display="grid" gridTemplateColumns={columnas} gap="3px" alignItems="center" minW="max-content">
           {mapa.filas.map((fila) => (
             <Box display="contents" key={fila.clave}>
-              <Text fontSize="xs" color="fg" lineClamp={1} pr="2" title={fila.etiqueta}>
-                {fila.etiqueta}
-              </Text>
+              {/* A todo el alto de la fila: tapa las celdas que pasan por detrás. */}
+              <Box display="flex" alignItems="center" alignSelf="stretch" pr="2" {...fijo}>
+                <Text fontSize="xs" color="fg" lineClamp={{ base: 2, md: 1 }} lineHeight="1.15" title={fila.etiqueta}>
+                  {fila.etiqueta}
+                </Text>
+              </Box>
               {fila.valores.map((valor, i) => (
                 <Box
                   key={`${mapa.columnas[i]}-${i}`}
@@ -809,7 +837,7 @@ export function MapaCalor({ mapa, color, sufijo, unidad, resumen }: MapaCalorPro
               ))}
             </Box>
           ))}
-          <Box aria-hidden />
+          <Box aria-hidden alignSelf="stretch" {...fijo} />
           {mapa.columnas.map((columna, i) => (
             <Text
               key={`${columna}-${i}`}

@@ -2,7 +2,9 @@ import { Link as RouterLink } from "react-router-dom";
 import { Box, Button, Heading, HStack, Link, SimpleGrid, Text } from "@chakra-ui/react";
 import { LuChevronRight } from "react-icons/lu";
 import { CONFIGURACION, esVisibleEntrada, type EntradaMenu } from "../../../../common/components/menuEntradas";
+import { esSuperAdmin } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
+import { SedeDeTrabajoCard } from "../../../establecimientos/components/SedeDeTrabajoCard";
 import {
   BannerError,
   BannerExito,
@@ -72,7 +74,8 @@ function TarjetaAcceso({ entrada }: { entrada: EntradaMenu }) {
  *
  * Reúne todo lo que es configuración: los catálogos generales (sectores,
  * unidades de medida) y la vista pública, que tienen pantalla propia y acá
- * aparecen como accesos, y los ajustes que se editan en el lugar.
+ * aparecen como accesos, y los ajustes que se editan en el lugar. El super
+ * admin elige acá, además, en qué sede trabaja.
  *
  * Para sumar un acceso: una línea en `CONFIGURACION` (`menuEntradas.ts`).
  * Para sumar un ajuste: una tarjeta más dentro del `Stack` de "Alertas" (o
@@ -102,6 +105,14 @@ export function ConfiguracionPage() {
       titulo="Configuración"
       descripcion="Catálogos generales y ajustes del sistema."
     >
+      {/* El super admin es de la empresa: elige en qué sede trabajar. */}
+      {esSuperAdmin(user) ? (
+        <Box mb="8">
+          <TituloSeccion>Sede</TituloSeccion>
+          <SedeDeTrabajoCard />
+        </Box>
+      ) : null}
+
       {accesos.length > 0 ? (
         <Box mb="8">
           <TituloSeccion>Catálogos y vista pública</TituloSeccion>
