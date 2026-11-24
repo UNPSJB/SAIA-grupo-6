@@ -41,3 +41,19 @@ export const ETIQUETA_IMPACTO: Record<number, string> = {
   2: "Medio",
   3: "Alto",
 };
+
+/**
+ * Datos de identidad de la Pyme. Se cargan una sola vez y alimentan la
+ * cabecera de todos los documentos exportados.
+ */
+export interface ConfiguracionPyme {
+  razon_social: string | null;
+  domicilio: string | null;
+  telefono: string | null;
+  email: string | null;
+  web: string | null;
+  /** Opcional: no todas las Pymes tienen registro ante el organismo. */
+  rnpa_rppa: string | null;
+  /** Ruta relativa dentro de uploads/, o `null` si no hay logo. */
+  logo_url: string | null;
+}

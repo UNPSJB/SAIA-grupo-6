@@ -10,6 +10,8 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Flowable, LongTable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, TableStyle
 
+from src.pyme.pdf import fabrica_lienzo, nombre_usuario
+
 
 # Paleta clara de SAIA (frontend/src/theme/index.ts).
 _TINTA = colors.HexColor("#1E293B")
@@ -62,7 +64,17 @@ class Octogonos(Flowable):
             canvas.drawCentredString(centro_x, centro_y - 15, "Ministerio de Salud")
 
 
-def generar_pdf(vista, receta, composicion, nutricion_actual, fuentes, coincide, generado: datetime) -> bytes:
+def generar_pdf(
+    vista,
+    receta,
+    composicion,
+    nutricion_actual,
+    fuentes,
+    coincide,
+    generado: datetime,
+    cabecera=None,
+    usuario=None,
+) -> bytes:
     salida = BytesIO()
     borrador = vista.borrador
     frontal = vista.rotulado_frontal
@@ -141,8 +153,25 @@ def generar_pdf(vista, receta, composicion, nutricion_actual, fuentes, coincide,
         canvas.setFillColor(_ACENTO)
         canvas.rect(0, alto - 18 * mm, ancho, mm, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
+        nombre = cabecera.nombre if cabecera is not None else "SAIA"
+        texto_x = margen
+        if cabecera is not None and cabecera.logo:
+            try:
+                canvas.drawImage(
+                    str(cabecera.logo),
+                    margen,
+                    alto - 15 * mm,
+                    width=26 * mm,
+                    height=10 * mm,
+                    preserveAspectRatio=True,
+                    anchor="sw",
+                    mask="auto",
+                )
+                texto_x = margen + 30 * mm
+            except Exception:
+                pass
         canvas.setFont("Helvetica-Bold", 15)
-        canvas.drawString(margen, alto - 11 * mm, "SAIA")
+        canvas.drawString(texto_x, alto - 11 * mm, nombre[:60])
         canvas.setFont("Helvetica", 9)
         canvas.drawRightString(ancho - margen, alto - 11 * mm, "Rotulado de productos")
 
@@ -150,8 +179,17 @@ def generar_pdf(vista, receta, composicion, nutricion_actual, fuentes, coincide,
         canvas.line(margen, 13 * mm, ancho - margen, 13 * mm)
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(_SECUNDARIO)
-        canvas.drawString(margen, 8.5 * mm, f"Borrador para revisión · #{borrador.id} · Receta v{receta.numero}")
-        canvas.drawRightString(ancho - margen, 8.5 * mm, f"Página {documento.page}")
+        pie = f"Borrador para revisión · #{borrador.id} · Receta v{receta.numero}"
+        if cabecera is not None:
+            contacto = " · ".join(cabecera.lineas_contacto())
+            if contacto:
+                pie += f" · {contacto}"
+            quien = nombre_usuario(usuario)
+            if quien:
+                pie += f" · Generado por: {quien}"
+        canvas.drawString(margen, 8.5 * mm, pie[:190])
+        if cabecera is None:
+            canvas.drawRightString(ancho - margen, 8.5 * mm, f"Página {documento.page}")
         canvas.restoreState()
 
     agregar("Borrador para revisión", "Aviso")
@@ -279,5 +317,13 @@ def generar_pdf(vista, receta, composicion, nutricion_actual, fuentes, coincide,
                 for paso in sello.pasos:
                     valor = f": {paso.valor} {paso.unidad}" if paso.valor is not None else ""
                     agregar(paso.descripcion + valor)
-    doc.build(bloques, onFirstPage=marco_pagina, onLaterPages=marco_pagina)
+    if cabecera is not None:
+        doc.build(
+            bloques,
+            onFirstPage=marco_pagina,
+            onLaterPages=marco_pagina,
+            canvasmaker=fabrica_lienzo(cabecera, pie_completo=False),
+        )
+    else:
+        doc.build(bloques, onFirstPage=marco_pagina, onLaterPages=marco_pagina)
     return salida.getvalue()

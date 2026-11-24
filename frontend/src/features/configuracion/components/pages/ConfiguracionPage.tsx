@@ -11,6 +11,7 @@ import {
 import { Pagina } from "../../../../components/ui/plantillas";
 import { useConfiguracionAlertas } from "../../hooks/useConfiguracionAlertas";
 import { AlertasVencimientoPersonalCard } from "../AlertasVencimientoPersonalCard";
+import { DatosPymeCard } from "../DatosPymeCard";
 import { ImpactoSituacionesCard } from "../ImpactoSituacionesCard";
 import { MetaLimpiezaCard } from "../MetaLimpiezaCard";
 import { PlazoReclamoCard } from "../PlazoReclamoCard";
@@ -111,6 +112,11 @@ export function ConfiguracionPage() {
           </SimpleGrid>
         </Box>
       ) : null}
+
+      <TituloSeccion>Identidad de la Pyme</TituloSeccion>
+      <Box mb="8">
+        <DatosPymeCard />
+      </Box>
 
       <TituloSeccion>Alertas</TituloSeccion>
 

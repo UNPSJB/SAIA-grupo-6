@@ -135,7 +135,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
           px={{ base: "4", md: "6" }}
           py={{ base: "3", md: "3.5" }}
         >
-          <Text className="saia-splash__by">By:</Text>
+          <Text className="saia-splash__by">Desarrollado por:</Text>
           <Box className="saia-splash__names" ref={nombresRef}>
             {INTEGRANTES.map((nombre, indice) => (
               <Text

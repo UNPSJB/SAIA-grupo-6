@@ -72,6 +72,7 @@ from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
 from src.documentos.models import Documento, VersionDocumento  # noqa: F401
 from src.vistaPublica.models import ConfiguracionVistaPublica, IndicadorVistaPublica  # noqa: F401
+from src.pyme.models import ConfiguracionPyme  # noqa: F401
 from src.notificaciones.models import (  # noqa: F401
     ConfiguracionImpacto,
     NotificacionPersistida,
@@ -103,6 +104,7 @@ __all__ = [
     "Transportista",
     "CertificacionTransportista",
     "ConfiguracionVistaPublica",
+    "ConfiguracionPyme",
     "Documento",
     "ElementoLimpieza",
     "HitoLote",

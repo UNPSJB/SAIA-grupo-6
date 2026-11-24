@@ -38,6 +38,7 @@ from .unidades_medida_tipo_factor import (
 from .insumos_densidad_peso import migrar_insumos_densidad_peso
 from .nutricion_conversion_en_insumo import migrar_conversion_a_insumo
 from .vista_publica import migrar_vista_publica
+from .pyme import migrar_pyme
 from .rotulado import migrar_rotulado
 from .declaraciones_rotulado import migrar_declaraciones_rotulado
 from .clientes import migrar_clientes
@@ -82,6 +83,7 @@ def run_migrations() -> None:
     # Después de las columnas del insumo: les copia la densidad y el peso del perfil.
     migrar_conversion_a_insumo()
     migrar_vista_publica()
+    migrar_pyme()
     migrar_rotulado()
     migrar_declaraciones_rotulado()
     migrar_clientes()

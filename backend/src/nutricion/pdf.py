@@ -17,6 +17,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from src.nutricion import calculo, schemas
 from src.nutricion.constants import ESTADO_INCOMPLETA
+from src.pyme.pdf import fabrica_lienzo, flowables_cabecera
 
 _TEXTO = colors.HexColor("#1F2937")
 _TENUE = colors.HexColor("#5B6B6B")
@@ -55,7 +56,11 @@ def _caja(parrafos: list[Paragraph], fondo, borde) -> Table:
     return tabla
 
 
-def generar_pdf(info: schemas.InfoNutricionalResponse) -> bytes:
+def generar_pdf(
+    info: schemas.InfoNutricionalResponse,
+    cabecera=None,
+    usuario=None,
+) -> bytes:
     salida = io.BytesIO()
     doc = SimpleDocTemplate(
         salida,
@@ -68,8 +73,20 @@ def generar_pdf(info: schemas.InfoNutricionalResponse) -> bytes:
     )
     cfg = info.configuracion
     unidad_base = info.expresar_en
-    elementos = [
-        Paragraph("Información nutricional", _titulo),
+    elementos = []
+    if cabecera is not None:
+        elementos.extend(
+            flowables_cabecera(
+                cabecera,
+                "Información nutricional",
+                usuario=usuario,
+                generado=info.calculado_en,
+                ancho_util=doc.width,
+            )
+        )
+    else:
+        elementos.append(Paragraph("Información nutricional", _titulo))
+    elementos += [
         Paragraph(
             escape(
                 f"{info.producto}"
@@ -165,5 +182,8 @@ def generar_pdf(info: schemas.InfoNutricionalResponse) -> bytes:
         Spacer(1, 6 * mm),
         _caja([Paragraph(escape(info.leyenda_calculo), _aviso)], _AVISO_FONDO, _AVISO),
     ]
-    doc.build(elementos)
+    if cabecera is not None:
+        doc.build(elementos, canvasmaker=fabrica_lienzo(cabecera))
+    else:
+        doc.build(elementos)
     return salida.getvalue()

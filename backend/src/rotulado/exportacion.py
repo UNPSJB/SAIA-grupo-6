@@ -10,10 +10,12 @@ from src.nutricion.schemas import FuenteCalculo
 from src.nutricion.services import calcular_info_nutricional
 from src.recetas.composicion_services import calcular_composicion
 from src.recetas.services import obtener_version
+from src.pyme.pdf import cabecera_desde_db
 from src.rotulado import declaraciones_services, pdf, schemas, services
 
 
-def exportar_borrador_pdf(db: Session, borrador_id: int, usuario_id: int) -> bytes:
+def exportar_borrador_pdf(db: Session, borrador_id: int, usuario) -> bytes:
+    usuario_id = usuario.id
     declaraciones_services._reservar_escritura(db)
     vista = services.previsualizar_borrador(db, borrador_id)
     version_id = vista.origen.version_id
@@ -35,7 +37,17 @@ def exportar_borrador_pdf(db: Session, borrador_id: int, usuario_id: int) -> byt
         exclude={"calculado_en"},
     )
     generado = datetime.now(ZoneInfo(settings.ZONA_HORARIA))
-    contenido = pdf.generar_pdf(vista, receta, composicion, nutricion, fuentes, coincide, generado)
+    contenido = pdf.generar_pdf(
+        vista,
+        receta,
+        composicion,
+        nutricion,
+        fuentes,
+        coincide,
+        generado,
+        cabecera=cabecera_desde_db(db),
+        usuario=usuario,
+    )
     db.add(AuditLog(
         fecha=generado.astimezone(timezone.utc).replace(tzinfo=None),
         usuario_id=usuario_id,

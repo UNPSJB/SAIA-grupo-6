@@ -8,6 +8,7 @@ from src.auth.dependencies import require_admin
 from src.database import get_db
 from src.nutricion import pdf, schemas, services
 from src.personal.models import Personal
+from src.pyme.pdf import cabecera_desde_db
 
 # Toda la épica es de "persona con permiso de administrar".
 router = APIRouter(
@@ -117,11 +118,16 @@ def exportar_pdf(
     producto_id: int,
     version_id: Optional[int] = Query(None, ge=1),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     info = services.calcular_info_nutricional(db, producto_id, version_id)
     nombre = "".join(ch if ch.isalnum() else "_" for ch in info.producto)[:60]
     return Response(
-        content=pdf.generar_pdf(info),
+        content=pdf.generar_pdf(
+            info,
+            cabecera=cabecera_desde_db(db),
+            usuario=usuario,
+        ),
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="info_nutricional_{nombre}.pdf"'

@@ -72,6 +72,7 @@ from src.sector.router import router as sector_router
 
 from src.auditoria.router import router as auditoria_router
 from src.vistaPublica.router import router as vista_publica_router
+from src.pyme.router import router as pyme_router
 
 from src.exportacion.router import router as exportacion_router
 from src.rotulado.router import router as rotulado_router
@@ -199,3 +200,4 @@ app.include_router(exportacion_router)
 app.include_router(rotulado_router)
 app.include_router(paneles_router)
 app.include_router(vista_publica_router)
+app.include_router(pyme_router)

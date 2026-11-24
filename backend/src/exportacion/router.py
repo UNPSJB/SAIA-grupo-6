@@ -30,6 +30,8 @@ from src.exportacion import vistas
 from src.exportacion.formato import generar_csv
 from src.exportacion.motor import exportar_csv, exportar_pdf, pdf_desde_filas
 from src.insumoQuimico.models import TipoMovimientoStock
+from src.personal.models import Personal
+from src.pyme.pdf import cabecera_desde_db
 
 router = APIRouter(
     prefix="/exportacion",
@@ -59,14 +61,26 @@ def columnas_tabla(
     ]
 
 
-def _descarga(vista: vistas.Vista, formato: str, nombre: str) -> Response:
+def _descarga(
+    vista: vistas.Vista,
+    formato: str,
+    nombre: str,
+    db: Session,
+    usuario: Personal,
+) -> Response:
     """Respuesta de descarga (CSV o PDF) para una vista ya armada."""
     titulo, encabezados, filas = vista
     nombre_archivo = f"{nombre}_{datetime.now():%Y%m%d_%H%M%S}.{formato}"
     cabeceras = {"Content-Disposition": f'attachment; filename="{nombre_archivo}"'}
     if formato == "pdf":
         return Response(
-            content=pdf_desde_filas(titulo, encabezados, filas),
+            content=pdf_desde_filas(
+                titulo,
+                encabezados,
+                filas,
+                cabecera=cabecera_desde_db(db),
+                usuario=usuario,
+            ),
             media_type="application/pdf",
             headers=cabeceras,
         )
@@ -90,10 +104,11 @@ def exportar_vista_vencimientos(
     buscar: Optional[str] = Query(None, max_length=100),
     orden: Optional[str] = None,
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     """Vencimientos consolidados, con los mismos filtros que la tabla."""
     vista = vistas.vencimientos(db, tipo, persona_id, aptitud, estado, buscar, orden)
-    return _descarga(vista, formato, "vencimientos")
+    return _descarga(vista, formato, "vencimientos", db, usuario)
 
 
 @router.get("/vistas/stock-actual")
@@ -103,9 +118,10 @@ def exportar_vista_stock_actual(
     stock_bajo: Optional[bool] = None,
     orden: str = "nombre_asc",
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     vista = vistas.stock_actual(db, buscar, stock_bajo, orden)
-    return _descarga(vista, formato, "stock_actual")
+    return _descarga(vista, formato, "stock_actual", db, usuario)
 
 
 @router.get("/vistas/stock-movimientos")
@@ -116,9 +132,10 @@ def exportar_vista_stock_movimientos(
     fecha_hasta: Optional[date] = None,
     tipo: Optional[TipoMovimientoStock] = None,
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     vista = vistas.stock_movimientos(db, insumo_quimico_id, fecha_desde, fecha_hasta, tipo)
-    return _descarga(vista, formato, "stock_movimientos")
+    return _descarga(vista, formato, "stock_movimientos", db, usuario)
 
 
 @router.get("/vistas/stock-lotes")
@@ -128,9 +145,10 @@ def exportar_vista_stock_lotes(
     insumo_quimico_id: Optional[int] = None,
     numero_lote: Optional[str] = None,
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     vista = vistas.stock_lotes(db, proveedor_id, insumo_quimico_id, numero_lote)
-    return _descarga(vista, formato, "stock_lotes")
+    return _descarga(vista, formato, "stock_lotes", db, usuario)
 
 
 @router.get("/vistas/stock-consumo")
@@ -139,9 +157,10 @@ def exportar_vista_stock_consumo(
     fecha_hasta: date,
     formato: FormatoExportacion = "csv",
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     vista = vistas.stock_consumo(db, fecha_desde, fecha_hasta)
-    return _descarga(vista, formato, "stock_consumo")
+    return _descarga(vista, formato, "stock_consumo", db, usuario)
 
 # --- Producción ------------------------------------------------------------
 # Mismos filtros que cada listado; `buscar` replica la búsqueda de texto que
@@ -157,9 +176,10 @@ def exportar_vista_lotes_produccion(
     fecha_hasta: Optional[date] = None,
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     vista = vistas.lotes_produccion(db, producto_id, estado, fecha_desde, fecha_hasta, buscar)
-    return _descarga(vista, formato, "lotes_produccion")
+    return _descarga(vista, formato, "lotes_produccion", db, usuario)
 
 
 @router.get("/vistas/salidas")
@@ -168,8 +188,11 @@ def exportar_vista_salidas(
     estado: Optional[Literal["RESERVADO", "DESPACHADO", "ENTREGADO", "CANCELADO", "RECHAZADA"]] = None,
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.salidas_producto(db, estado, buscar), formato, "salidas")
+    return _descarga(
+        vistas.salidas_producto(db, estado, buscar), formato, "salidas", db, usuario
+    )
 
 
 @router.get("/vistas/retiros")
@@ -178,8 +201,11 @@ def exportar_vista_retiros(
     estado: Optional[Literal["EN_CURSO", "CERRADO"]] = None,
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.retiros_lotes(db, estado, buscar), formato, "retiros")
+    return _descarga(
+        vistas.retiros_lotes(db, estado, buscar), formato, "retiros", db, usuario
+    )
 
 
 @router.get("/vistas/recetas")
@@ -187,8 +213,9 @@ def exportar_vista_recetas(
     formato: FormatoExportacion = "csv",
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.recetas(db, buscar), formato, "recetas")
+    return _descarga(vistas.recetas(db, buscar), formato, "recetas", db, usuario)
 
 
 @router.get("/vistas/productos")
@@ -197,8 +224,11 @@ def exportar_vista_productos(
     incluir_inactivos: bool = False,
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.productos(db, incluir_inactivos, buscar), formato, "productos")
+    return _descarga(
+        vistas.productos(db, incluir_inactivos, buscar), formato, "productos", db, usuario
+    )
 
 
 @router.get("/vistas/alimentos")
@@ -207,8 +237,11 @@ def exportar_vista_alimentos(
     buscar: Optional[str] = Query(None, max_length=100),
     base: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.alimentos_referencia(db, buscar, base), formato, "alimentos")
+    return _descarga(
+        vistas.alimentos_referencia(db, buscar, base), formato, "alimentos", db, usuario
+    )
 
 
 @router.get("/vistas/rotulado")
@@ -216,8 +249,11 @@ def exportar_vista_rotulado(
     formato: FormatoExportacion = "csv",
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.rotulado_productos(db, buscar), formato, "rotulado")
+    return _descarga(
+        vistas.rotulado_productos(db, buscar), formato, "rotulado", db, usuario
+    )
 
 
 @router.get("/{nombre_tabla}")
@@ -228,6 +264,7 @@ def exportar_tabla(
         "csv", description="csv | pdf."
     ),
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     """Descarga la tabla completa en CSV o PDF.
 
@@ -257,7 +294,13 @@ def exportar_tabla(
 
     if formato == "pdf":
         return Response(
-            content=exportar_pdf(db, config, filtros),
+            content=exportar_pdf(
+                db,
+                config,
+                filtros,
+                cabecera=cabecera_desde_db(db),
+                usuario=usuario,
+            ),
             media_type="application/pdf",
             headers=cabeceras,
         )

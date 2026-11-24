@@ -237,7 +237,7 @@ def exportar_borrador_pdf(
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_admin),
 ):
-    contenido = exportacion.exportar_borrador_pdf(db, borrador_id, usuario.id)
+    contenido = exportacion.exportar_borrador_pdf(db, borrador_id, usuario)
     return Response(
         content=contenido,
         media_type="application/pdf",

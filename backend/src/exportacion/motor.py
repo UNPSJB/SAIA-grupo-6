@@ -27,6 +27,7 @@ from xml.sax.saxutils import escape
 
 from src.exportacion.configuracion import ConfigTabla
 from src.exportacion.formato import BOM, SEPARADOR_CSV, seguro, texto
+from src.pyme.pdf import CabeceraPyme, fabrica_lienzo, flowables_cabecera
 
 # Lote de filas que se leen de la base por consulta al exportar sin paginar.
 LOTE_EXPORTACION = 500
@@ -112,6 +113,8 @@ def exportar_pdf(
     db: Session,
     config: ConfigTabla,
     filtros: dict[str, Any] | None = None,
+    cabecera: CabeceraPyme | None = None,
+    usuario: Any = None,
 ) -> bytes:
     """Genera el PDF de la tabla con reportlab (misma estética que auditoría)."""
     filtros = filtros or {}
@@ -119,7 +122,14 @@ def exportar_pdf(
     encabezados = [campo.etiqueta for campo in config.campos]
     filas = [_formatear_fila(obj, config) for obj in filas_orm]
     anchos = [campo.ancho_pdf or 22 for campo in config.campos]
-    return pdf_desde_filas(config.etiqueta, encabezados, filas, anchos)
+    return pdf_desde_filas(
+        config.etiqueta,
+        encabezados,
+        filas,
+        anchos,
+        cabecera=cabecera,
+        usuario=usuario,
+    )
 
 
 def pdf_desde_filas(
@@ -127,18 +137,22 @@ def pdf_desde_filas(
     encabezados: list[str],
     filas: list[list[str]],
     anchos_mm: list[float] | None = None,
+    cabecera: CabeceraPyme | None = None,
+    usuario: Any = None,
 ) -> bytes:
     """PDF de una tabla ya armada (encabezados + filas de texto).
 
-    Sin `anchos_mm`, las columnas se reparten el ancho útil de la hoja.
+    Sin `anchos_mm`, las columnas se reparten el ancho útil de la hoja. Con
+    `cabecera`, el documento lleva la identidad de la Pyme, el usuario que lo
+    generó y la numeración "Página X de Y".
     """
     estilos = getSampleStyleSheet()
     celda = ParagraphStyle("celda", parent=estilos["BodyText"], fontSize=7, leading=8.5)
-    cabecera = ParagraphStyle(
+    cabecera_tabla = ParagraphStyle(
         "cabecera", parent=celda, textColor=colors.white, fontName="Helvetica-Bold"
     )
 
-    filas_pdf = [[parrafo(nombre, cabecera) for nombre in encabezados]]
+    filas_pdf = [[parrafo(nombre, cabecera_tabla) for nombre in encabezados]]
     for fila in filas:
         filas_pdf.append([parrafo(valor, celda) for valor in fila])
 
@@ -167,18 +181,29 @@ def pdf_desde_filas(
             ]
         )
     )
-    generado = datetime.now(timezone.utc).astimezone().strftime("%d/%m/%Y %H:%M")
-    doc.build(
-        [
-            Paragraph(titulo, estilos["Title"]),
-            Paragraph(
-                f"Generado el {generado} · {len(filas)} registros",
-                estilos["Normal"],
-            ),
-            Spacer(1, 4 * mm),
-            tabla,
-        ]
-    )
+    generado = datetime.now(timezone.utc).astimezone()
+    if cabecera is not None:
+        elementos = flowables_cabecera(
+            cabecera,
+            titulo,
+            usuario=usuario,
+            generado=generado,
+            ancho_util=doc.width,
+        )
+        elementos.append(tabla)
+        doc.build(elementos, canvasmaker=fabrica_lienzo(cabecera))
+    else:
+        doc.build(
+            [
+                Paragraph(titulo, estilos["Title"]),
+                Paragraph(
+                    f"Generado el {generado:%d/%m/%Y %H:%M} · {len(filas)} registros",
+                    estilos["Normal"],
+                ),
+                Spacer(1, 4 * mm),
+                tabla,
+            ]
+        )
     return salida.getvalue()
 
 def parrafo(texto_valor: str, estilo: ParagraphStyle) -> Paragraph:

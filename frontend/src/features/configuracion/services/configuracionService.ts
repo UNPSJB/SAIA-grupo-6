@@ -2,6 +2,7 @@ import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import type {
   ConfiguracionAlertas,
+  ConfiguracionPyme,
   ImpactoSituacion,
   PlazoReclamo,
 } from "../types/configuracion";
@@ -70,4 +71,43 @@ export async function restaurarImpactoSituacion(
     { method: "DELETE" }
   );
   return pedir<ImpactoSituacion>(response, "No se pudo restaurar el impacto");
+}
+
+/** Datos de identidad de la Pyme (los lee cualquier usuario autenticado). */
+export async function obtenerConfiguracionPyme(): Promise<ConfiguracionPyme> {
+  const response = await apiFetch(`${API_URL}/pyme`);
+  return pedir<ConfiguracionPyme>(
+    response,
+    "Error al obtener los datos de la Pyme"
+  );
+}
+
+export async function actualizarConfiguracionPyme(
+  cambios: Partial<Omit<ConfiguracionPyme, "logo_url">>
+): Promise<ConfiguracionPyme> {
+  const response = await apiFetch(`${API_URL}/pyme`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cambios),
+  });
+  return pedir<ConfiguracionPyme>(
+    response,
+    "No se pudieron guardar los datos de la Pyme"
+  );
+}
+
+export async function subirLogoPyme(archivo: File): Promise<ConfiguracionPyme> {
+  const formulario = new FormData();
+  formulario.append("archivo", archivo);
+  // Sin Content-Type manual: el navegador agrega el boundary del multipart.
+  const response = await apiFetch(`${API_URL}/pyme/logo`, {
+    method: "POST",
+    body: formulario,
+  });
+  return pedir<ConfiguracionPyme>(response, "No se pudo subir el logo");
+}
+
+export async function eliminarLogoPyme(): Promise<ConfiguracionPyme> {
+  const response = await apiFetch(`${API_URL}/pyme/logo`, { method: "DELETE" });
+  return pedir<ConfiguracionPyme>(response, "No se pudo quitar el logo");
 }
