@@ -88,6 +88,24 @@ def test_no_se_asocia_un_proveedor_dado_de_baja(escenario):
         _nuevo_insumo(escenario, "Cañuelas", [escenario.molino])
 
 
+def test_se_modifica_un_insumo_con_un_proveedor_dado_de_baja_despues(escenario):
+    insumo = _nuevo_insumo(escenario, "Cañuelas", [escenario.molino])
+    escenario.molino.activo = False
+    escenario.db.commit()
+
+    modificado = insumos_services.actualizar_insumo(
+        escenario.db,
+        insumo.id,
+        insumos_schemas.InsumoUpdate(sin_rotulo=True, proveedor_ids=[escenario.molino.id]),
+    )
+
+    # Se guarda y conserva la asociación, pero el proveedor no puede entregar lotes.
+    assert modificado.sin_rotulo is True
+    assert [p.id for p in modificado.proveedores] == [escenario.molino.id]
+    with pytest.raises(lotes_insumo_exceptions.ProveedorNoEncontrado):
+        _recibir(escenario, modificado, escenario.molino, "L-BAJA")
+
+
 def test_no_se_recibe_un_lote_de_un_proveedor_que_no_vende_ese_insumo(escenario):
     insumo = _nuevo_insumo(escenario, "Cañuelas", [escenario.molino])
 

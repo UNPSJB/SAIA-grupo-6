@@ -68,15 +68,23 @@ def listar_insumos(
     return list(db.scalars(consulta.order_by(Ingrediente.nombre, Insumo.marca, Insumo.id)).all())
 
 
-def _proveedores(db: Session, ids: list[int]) -> list[Proveedor]:
+def _proveedores(
+    db: Session, ids: list[int], ya_asociados: list[Proveedor] | None = None
+) -> list[Proveedor]:
+    """Proveedores activos con esos ids.
+
+    Uno dado de baja solo se acepta si ya estaba asociado: si no, el insumo no
+    se podría modificar después de dar de baja a uno de sus proveedores.
+    """
     unicos = set(ids)
     if not unicos:
         return []
-    proveedores = list(
-        db.scalars(
-            select(Proveedor).where(Proveedor.id.in_(unicos), Proveedor.activo.is_(True))
-        ).all()
-    )
+    previos = {p.id for p in ya_asociados or []}
+    proveedores = [
+        p
+        for p in db.scalars(select(Proveedor).where(Proveedor.id.in_(unicos))).all()
+        if p.activo or p.id in previos
+    ]
     if len(proveedores) != len(unicos):
         raise exceptions.ProveedoresNoValidos()
     return proveedores
@@ -136,7 +144,7 @@ def actualizar_insumo(db: Session, insumo_id: int, datos: schemas.InsumoUpdate) 
             excepto_id=insumo.id,
         )
     if "proveedor_ids" in cambios:
-        insumo.proveedores = _proveedores(db, cambios.pop("proveedor_ids"))
+        insumo.proveedores = _proveedores(db, cambios.pop("proveedor_ids"), insumo.proveedores)
     cambia_rotulo = "sin_rotulo" in cambios and cambios["sin_rotulo"] != insumo.sin_rotulo
     for campo, valor in cambios.items():
         setattr(insumo, campo, valor)
