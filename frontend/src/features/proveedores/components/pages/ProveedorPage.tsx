@@ -23,14 +23,15 @@ import { useProveedorABM } from "../../hooks/useProveedorABM";
 import { useProveedores } from "../../hooks/useProveedores";
 import type { Proveedor } from "../../types/proveedor";
 import { ProveedorTable } from "../ProveedorTable";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function ProveedorPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("ProveedorPage.verInactivos", false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("ProveedorPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
 
   const { proveedores, loading, error, cargarProveedores } = useProveedores(
@@ -136,7 +137,7 @@ export function ProveedorPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="proveedores"
               filtros={{
                 activo: String(!verInactivos),

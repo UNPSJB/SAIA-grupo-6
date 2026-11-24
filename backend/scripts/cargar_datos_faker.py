@@ -22,7 +22,7 @@ producto es la suma de sus ingresos (cada uno con su lote de proveedor), sus
 ajustes por conteo y los consumos que informaron los checklists.
 
 También carga la trazabilidad de producción (materias primas, productos con
-recetas versionadas, unidades con su tipo y factor e insumos con densidad o
+recetas versionadas, unidades con su tipo y factor e ingredientes con densidad o
 peso unitario para la composición porcentual, lotes de insumo por proveedor y lotes de producción con
 checklist, consumos reales y desperdicios en los tres estados), la
 información nutricional (E11: datos por 100 g de cada materia prima con su
@@ -31,7 +31,7 @@ laboratorio), la vista pública, sesiones de ejemplo (refresh tokens, revocacion
 login) y, al final, recalcula la caché de notificaciones.
 
 Y el circuito comercial: proveedores con CUIT, rubro, certificaciones y los
-insumos que abastecen; clientes; transportistas con sus certificaciones
+ingredientes que abastecen; clientes; transportistas con sus certificaciones
 (habilitados, vencidos, sin certificar); salidas de producto en todos los
 estados (reservada, despachada, entregada, cancelada, rechazada con y sin
 resolver), reclamos de clientes, retiros de lote con sus notificaciones y
@@ -49,6 +49,13 @@ favoritos en vez de salir todas por igual. `--dias-historia` y
 
 Por defecto reemplaza los datos (igual que `cargar_datos.py`); con `--agregar`
 conserva lo que hay y agrega nuevas filas sin chocar con los UNIQUE.
+
+Es multiestablecimiento: además del "Establecimiento principal" carga otras
+sedes (`ESTABLECIMIENTOS_EXTRA`, `--sedes-extra`), cada una con su propio
+personal, catálogos, producción, circuito comercial y su gerente. Todo el
+armado corre una vez por sede con la sede fijada en la sesión, así cada fila
+queda sellada en su establecimiento. El super admin es de la empresa (sin
+sede) y en la principal también hay un gerente.
 
 Después de las altas, `simular_actividad` opera sobre lo cargado como lo haría
 la gente en la app (modificar, dar de baja, reactivar, eliminar, cerrar
@@ -98,6 +105,11 @@ import src.all_models  # noqa: F401,E402  (registra los modelos)
 from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
+from src.establecimientos.contexto import fijar_establecimiento, sede_efectiva  # noqa: E402
+from src.establecimientos.models import (  # noqa: E402
+    ESTABLECIMIENTO_PRINCIPAL_ID,
+    Establecimiento,
+)
 from src.auditoria.models import AuditLog  # noqa: E402
 from src.sector.models import Sector  # noqa: E402
 from src.Equipo.models import Equipo, Calibracion  # noqa: E402
@@ -106,8 +118,9 @@ from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: E402
 from src.unidadMedida.cantidades import admite_fracciones  # noqa: E402
 from src.unidadMedida.constants import equivalencia_conocida  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
-from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo  # noqa: E402
-from src.aditivos.models import Aditivo  # noqa: E402
+from src.ingredientes.models import Ingrediente  # noqa: E402
+from src.aditivos.models import ClaseFuncional  # noqa: E402
+from src.aditivos.referencia import ADITIVOS as REFERENCIA_ADITIVOS  # noqa: E402
 from src.insumoQuimico.models import (  # noqa: E402
     InsumoQuimico,
     TipoQuimico,
@@ -134,11 +147,14 @@ from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.documentos.constants import TipoDocumento  # noqa: E402
 from src.documentos.pdf_generator import ContextoDocumento, generar_pdf_documento  # noqa: E402
-from src.proveedores.models import (  # noqa: E402
-    CertificacionProveedor,
-    Proveedor,
-    proveedores_insumos,
+from src.proveedores.models import CertificacionProveedor, Proveedor  # noqa: E402
+from src.insumos.models import Insumo, ValorRotuloInsumo, proveedores_insumos  # noqa: E402
+from src.alergenos.constants import (  # noqa: E402
+    EVALUACION_EVALUADA,
+    GLUTEN_AUSENCIA_DECLARADA,
+    GLUTEN_PRESENTE,
 )
+from src.alergenos.models import Alergeno, IngredienteAlergeno, InsumoAlergeno  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
 from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida  # noqa: E402
 from src.notificaciones.invalidacion import (  # noqa: E402
@@ -148,9 +164,9 @@ from src.notificaciones.invalidacion import (  # noqa: E402
 from src.productos.models import Producto  # noqa: E402
 from src.recetas.models import (  # noqa: E402
     Receta,
-    RecetaInsumo,
+    RecetaIngrediente,
     TareaReceta,
-    TareaRecetaInsumo,
+    TareaRecetaIngrediente,
     VersionReceta,
 )
 from src.lotesInsumo.models import BajaLoteInsumo, LoteInsumo  # noqa: E402
@@ -158,9 +174,9 @@ from src.lotesInsumo.constants import MOTIVOS_BAJA_INSUMO  # noqa: E402
 from src.nutricion.models import (  # noqa: E402
     AlimentoReferencia,
     InfoNutricionalProducto,
-    PerfilNutricionalInsumo,
+    PerfilNutricionalIngrediente,
     ValorLaboratorioProducto,
-    ValorNutricionalInsumo,
+    ValorNutricionalIngrediente,
 )
 from src.nutricion.constants import (  # noqa: E402
     CLAVES_NUTRIENTES,
@@ -229,8 +245,6 @@ from src.rotulado.constants import ESTADO_COMPLETADO  # noqa: E402
 from src.rotulado import declaraciones_services  # noqa: E402
 from src.rotulado.declaraciones_schemas import (  # noqa: E402
     ConservacionProducto,
-    MarcaAlergeno,
-    PerfilInsumoDeclaracion,
     RevisionEsperada,
 )
 from src.rotulado.models import RevisionDeclaracionRotulado  # noqa: E402
@@ -496,7 +510,7 @@ VOCAB_PLANES = [
     ("Desinfección de cámara de frío", "litro", (3, 5)),
     ("Mantenimiento de equipos de cocción", "litro", (3, 5)),
     ("Sanitización de zona de elaboración", "mililitro", (3, 6)),
-    ("Limpieza de zona deLavadero", "litro", (2, 4)),
+    ("Limpieza de zona de lavadero", "litro", (2, 4)),
     ("Control de cadena de frío", "unidad", (2, 4)),
     ("Limpieza de equipos de medición", "mililitro", (2, 4)),
     ("Higiene de mesas de trabajo", "litro", (2, 4)),
@@ -521,7 +535,7 @@ VOCAB_TAREAS = [
     "Reponer insumos de limpieza",
 ]
 
-# Palabras clave que definen el producto y el insumo que usa cada tarea.
+# Palabras clave que definen el producto químico que usa cada tarea.
 CONSUMO_POR_PALABRA = [
     (("temperatura", "termostato", "tarado", "verificar"), None),
     (("desengras", "grasa", "horno"), ("Desengrasante para hornos", "Quita grasa industrial")),
@@ -577,27 +591,9 @@ SIMBOLOS_ALTERNATIVOS = {
 # Trazabilidad de producción
 # ------------------------------------------------------------
 
-# Insumos generales (descartables y limpieza): (nombre base, clave de unidad,
-# conversión a gramos). Cada uno con una unidad que tenga sentido y el dato que
-# esa unidad exige: peso unitario (g) si se cuenta por unidad, densidad (g/ml)
-# si se mide en volumen. Valores aproximados.
-INSUMOS_GENERALES = [
-    ("Bolsa de consorcio", "unidad", {"peso_unitario_g": "35"}),
-    ("Bolsa negra", "unidad", {"peso_unitario_g": "20"}),
-    ("Papel film", "unidad", {"peso_unitario_g": "450"}),
-    ("Papel manteca", "unidad", {"peso_unitario_g": "300"}),
-    ("Rollo de cocina", "unidad", {"peso_unitario_g": "250"}),
-    ("Guantes descartables", "unidad", {"peso_unitario_g": "5"}),
-    ("Servilletas de papel", "unidad", {"peso_unitario_g": "2"}),
-    ("Alcohol en gel", "mililitro", {"densidad_g_ml": "0.88"}),
-    ("Limpia pisos neutro", "litro", {"densidad_g_ml": "1.01"}),
-    ("Desinfectante de pisos", "litro", {"densidad_g_ml": "1.02"}),
-    ("Quitamanchas de ropa de trabajo", "mililitro", {"densidad_g_ml": "1.05"}),
-    ("Aromatizador de ambientes", "mililitro", {"densidad_g_ml": "0.95"}),
-]
-
-# Materias primas alimentarias (insumos de tipo "insumo"): (nombre, clave de unidad).
-# Las de limpieza de `crear_insumos` no sirven para una receta.
+# Materias primas alimentarias (ingredientes que no son aditivos): (nombre, clave de unidad).
+# Los descartables y artículos de limpieza no son ingredientes: los químicos van
+# en Insumos químicos (con sus lotes) y los elementos, en Elementos de limpieza.
 VOCAB_INGREDIENTES = [
     ("Harina 000", "kilogramo"),
     ("Azúcar común", "kilogramo"),
@@ -660,8 +656,8 @@ PORCION_POR_PRODUCTO = {
 #   fuente        rótulo del proveedor o bibliografía, con su detalle
 #   corregir      {nutriente: valor} cambiado a mano respecto de la fuente
 #                 (queda "Modificado" con quién lo hizo)
-#   densidad / peso_unidad   se guardan en el Insumo (ver `_conversion_ingrediente`)
-#   anadidos / aporta        ver PerfilNutricionalInsumo
+#   densidad / peso_unidad   se guardan en el Ingrediente (ver `_conversion_ingrediente`)
+#   anadidos / aporta        ver PerfilNutricionalIngrediente
 #
 # Quedan incompletos a propósito el orégano (sin datos) y el coco rallado
 # (sin fibra): la salsa de tomate y los alfajores muestran la advertencia.
@@ -747,9 +743,9 @@ NUTRICION_LABORATORIO = {
     },
 }
 
-# Recetas base. Cada insumo es (nombre, cantidad para el rendimiento,
+# Recetas base. Cada ingrediente es (nombre, cantidad para el rendimiento,
 # clasificación, índice de la tarea donde se usa). La cantidad está en la
-# unidad del insumo, que es la que exige `receta_insumo`.
+# unidad del ingrediente, que es la que exige `receta_ingrediente`.
 VOCAB_RECETAS = [
     {
         "producto": "Mermelada de frutilla",
@@ -760,7 +756,7 @@ VOCAB_RECETAS = [
             "Cocinar la fruta con el azúcar y la pectina",
             "Corregir la acidez, conservar y envasar en caliente",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Frutilla fresca", "7", "ingrediente", 0),
             ("Azúcar común", "4", "ingrediente", 1),
             ("Pectina cítrica", "50", "aditivo", 1),
@@ -777,7 +773,7 @@ VOCAB_RECETAS = [
             "Cocinar con el azúcar hasta punto de gelificación",
             "Envasar en caliente y cerrar al vacío",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Durazno amarillo", "8.5", "ingrediente", 0),
             ("Azúcar común", "4.8", "ingrediente", 1),
             ("Pectina cítrica", "60", "aditivo", 1),
@@ -794,7 +790,7 @@ VOCAB_RECETAS = [
             "Incorporar la manteca y dejar levar en moldes",
             "Hornear, desmoldar y enfriar",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Harina 000", "10", "ingrediente", 0),
             ("Levadura fresca", "300", "ingrediente", 0),
             ("Sal fina", "0.2", "ingrediente", 0),
@@ -812,7 +808,7 @@ VOCAB_RECETAS = [
             "Incorporar los secos tamizados",
             "Hornear en moldes enmantecados",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Manteca", "1", "ingrediente", 0),
             ("Azúcar común", "1.5", "ingrediente", 0),
             ("Huevo fresco", "24", "ingrediente", 1),
@@ -830,7 +826,7 @@ VOCAB_RECETAS = [
             "Agregar el azúcar y reducir revolviendo",
             "Aromatizar, enfriar y envasar",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Leche entera", "20", "ingrediente", 0),
             ("Bicarbonato de sodio", "10", "aditivo", 0),
             ("Azúcar común", "4", "ingrediente", 1),
@@ -846,7 +842,7 @@ VOCAB_RECETAS = [
             "Cocinar el tomate a fuego lento",
             "Ajustar la acidez y envasar",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Aceite de girasol", "0.5", "ingrediente", 0),
             ("Orégano seco", "50", "ingrediente", 0),
             ("Tomate triturado", "14", "ingrediente", 1),
@@ -863,7 +859,7 @@ VOCAB_RECETAS = [
             "Estirar, cortar y hornear las tapas",
             "Rellenar con dulce de leche y pasar por coco",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Almidón de maíz", "2", "ingrediente", 0),
             ("Harina 000", "1", "ingrediente", 0),
             ("Manteca", "1", "ingrediente", 0),
@@ -883,7 +879,7 @@ VOCAB_RECETAS = [
             "Incorporar huevos, cacao y harina",
             "Formar, hornear y enfriar",
         ],
-        "insumos": [
+        "ingredientes": [
             ("Manteca", "1.2", "ingrediente", 0),
             ("Azúcar común", "1.5", "ingrediente", 0),
             ("Huevo fresco", "10", "ingrediente", 1),
@@ -1027,27 +1023,6 @@ DATOS_ROTULO = {
     "contenidos": ["250 g", "500 g", "1 kg", "750 ml", "6 unidades"],
 }
 
-# Perfiles completos para que las declaraciones se puedan confirmar. Se evita
-# sulfitos porque exige una evaluación con fundamento y respaldo.
-PERFILES_DECLARACION_ROTULO = [
-    {"evaluacion": "evaluada", "gluten": "ausencia_declarada", "marcas": []},
-    {
-        "evaluacion": "evaluada",
-        "gluten": "presente",
-        "marcas": [{"codigo": "leche", "forma": "derivado"}],
-    },
-    {
-        "evaluacion": "evaluada",
-        "gluten": "ausencia_declarada",
-        "marcas": [{"codigo": "soja", "forma": "directa"}],
-    },
-    {
-        "evaluacion": "evaluada",
-        "gluten": "ausencia_declarada",
-        "marcas": [{"codigo": "mani", "forma": "directa"}],
-    },
-]
-
 CONSERVACIONES_ROTULO = [
     {"instrucciones": "Conservar en lugar fresco y seco. Mantener el envase cerrado."},
     {
@@ -1061,13 +1036,33 @@ CONSERVACIONES_ROTULO = [
 
 
 def _preparar_declaraciones_rotulado(db, producto, version) -> None:
-    """Completa los maestros mínimos que exige la confirmación de declaraciones."""
+    """Completa los maestros mínimos que exige la confirmación de declaraciones.
+
+    Cada ingrediente de la receta queda evaluado: sus alérgenos ya están en
+    `ingredientes_alergenos` y el gluten sale de si contiene un cereal con gluten.
+    """
     if not producto.conservacion:
         producto.conservacion = random.choice(CONSERVACIONES_ROTULO)
-    for linea in version.insumos:
-        if not linea.insumo.perfil_declaracion:
-            linea.insumo.perfil_declaracion = random.choice(PERFILES_DECLARACION_ROTULO)
+    for linea in version.ingredientes:
+        _evaluar_alergenos_ficticio(db, linea.ingrediente)
     db.commit()
+
+
+def _evaluar_alergenos_ficticio(db, ingrediente) -> None:
+    if ingrediente.evaluacion_alergenos == EVALUACION_EVALUADA:
+        return
+    con_gluten = db.scalar(
+        select(IngredienteAlergeno.alergeno_id)
+        .join(Alergeno, Alergeno.id == IngredienteAlergeno.alergeno_id)
+        .where(
+            IngredienteAlergeno.ingrediente_id == ingrediente.id,
+            IngredienteAlergeno.nivel == "contiene",
+            Alergeno.codigo.in_(CEREALES_CON_GLUTEN),
+        )
+    )
+    ingrediente.evaluacion_alergenos = EVALUACION_EVALUADA
+    ingrediente.gluten = GLUTEN_PRESENTE if con_gluten else GLUTEN_AUSENCIA_DECLARADA
+    ingrediente.respaldo_alergenos = "Ficha técnica ficticia para datos de desarrollo."
 
 
 def _descripcion_tarea(equipo_nombre: str) -> str:
@@ -1113,11 +1108,6 @@ VOCAB_INCIDENTES = [
         "Se observaron marcas y residuo cerca de la zona de almacenamiento de secos.",
     ),
     (
-        TipoIncidente.DEVOLUCION_CLIENTE,
-        "Devolución por producto en mal estado",
-        "El cliente devolvió el producto por presentación y conservación deficientes.",
-    ),
-    (
         TipoIncidente.OTRO,
         "Falta de elemento de protección",
         "Se detectó que un elemento de limpieza del plan no está disponible en el sector.",
@@ -1152,6 +1142,36 @@ VOCAB_DOCUMENTOS = [
 # ============================================================
 # GENERADORES
 # ============================================================
+
+# Sedes que se cargan además del establecimiento principal: nombre, dirección y
+# tamaño relativo (multiplica `--cantidad`). Con tamaños distintos el tablero
+# comparativo del gerente muestra diferencias reales entre sedes.
+ESTABLECIMIENTOS_EXTRA = [
+    ("Planta Norte", "Ruta 9 km 12, Córdoba", 0.6, "Alimentos del Sur S.A. — Planta Norte"),
+    ("Planta Sur", "Av. Colón 1500, Mar del Plata", 1.4, "Alimentos del Sur S.A. — Planta Sur"),
+]
+
+
+def obtener_o_crear_establecimiento(
+    db, nombre: str, direccion: str, razon_social: Optional[str] = None
+) -> Establecimiento:
+    """La sede con ese nombre (activa); se crea si no existe.
+
+    Se reusa entre corridas: el personal no se borra y queda colgado de su
+    sede, así que borrarla rompería la FK.
+    """
+    sede = db.scalar(select(Establecimiento).where(Establecimiento.nombre == nombre))
+    if sede is None:
+        sede = Establecimiento(nombre=nombre, direccion=direccion, razon_social=razon_social, activo=True)
+        db.add(sede)
+        db.flush()
+    else:
+        sede.activo = True
+        # El rotulado toma razón social y domicilio de la sede.
+        sede.razon_social = sede.razon_social or razon_social
+        sede.direccion = sede.direccion or direccion
+    return sede
+
 
 def borrar_todo(db) -> None:
     """Limpia las tablas que el seed va a rellenar (orden: hijos primero)."""
@@ -1188,15 +1208,21 @@ def borrar_todo(db) -> None:
         # parámetros son de la migración y no se tocan.
         ValorLaboratorioProducto,
         InfoNutricionalProducto,
-        ValorNutricionalInsumo,
-        PerfilNutricionalInsumo,
+        ValorNutricionalIngrediente,
+        PerfilNutricionalIngrediente,
         ConsumoInsumo,
         BajaLoteInsumo,
         ChecklistProduccion,
         LoteProducto,
         LoteInsumo,
-        TareaRecetaInsumo,
-        RecetaInsumo,
+        # Las marcas compradas: cuelgan del ingrediente y las referencian los lotes.
+        ValorRotuloInsumo,
+        InsumoAlergeno,
+        Insumo,
+        # Alérgenos de cada ingrediente (el catálogo es de la migración y no se toca).
+        IngredienteAlergeno,
+        TareaRecetaIngrediente,
+        RecetaIngrediente,
         TareaReceta,
         VersionReceta,
         Receta,
@@ -1219,7 +1245,7 @@ def borrar_todo(db) -> None:
         Tarea,
         PlanLimpieza,
         InsumoQuimico,
-        Insumo,
+        Ingrediente,
         ElementoLimpieza,
         Aptitud,
         UnidadMedida,
@@ -1229,7 +1255,7 @@ def borrar_todo(db) -> None:
         # Personal NO se borra por defecto (script peligroso en producción).
     ]
     # Tablas legacy de la migración de trazabilidad (sin modelo ORM): siguen
-    # referenciando `insumos`, así que hay que vaciarlas antes del DELETE.
+    # referenciando `ingredientes`, así que hay que vaciarlas antes del DELETE.
     existentes = set(inspect(db.get_bind()).get_table_names())
     for tabla_vieja in ("lotes_insumos", "lotes"):
         if tabla_vieja in existentes:
@@ -1251,7 +1277,7 @@ def crear_unidades(db, vistos: dict) -> dict:
 
     Se crean las doce de `UNIDADES` (menos las que ya existan en modo
     `--agregar`): el resto del seed elige al azar entre ellas para las
-    unidades de los insumos.
+    unidades de los ingredientes.
     """
     print("⏳ Cargando unidades de medida...")
     for nombre, simbolo in UNIDADES:
@@ -1272,14 +1298,20 @@ def crear_configuracion_alertas(db):
         "alerta_insumo_bajo_stock": 10,
     }
     for clave, valor in defaults.items():
-        existente = db.get(ConfiguracionAlerta, clave)
+        existente = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": clave})
         if existente is None:
             db.add(ConfiguracionAlerta(clave=clave, valor=valor))
     db.flush()
 
 
-def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: str) -> list:
-    """Personas: 1 super admin, ~15% administradores y el resto operadores."""
+def crear_personal(
+    db, cantidad: int, fake: Faker, vistos: dict, hash_password: str, con_super_admin: bool = True
+) -> list:
+    """Personas de la sede activa: su gerente, ~15% administradores y el resto operadores.
+
+    En la principal la primera es además el super admin (de la empresa, sin
+    sede) y la segunda el gerente; en las otras sedes la primera es el gerente.
+    """
     print(f"⏳ Cargando {cantidad} personas...")
     personas = []
     emails, dnis = vistos["email"], vistos["dni"]
@@ -1288,9 +1320,10 @@ def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: 
         nombre = recortar(solo_letras(fake.first_name()), 40)
         apellido = recortar(solo_letras(fake.last_name()), 40)
 
-        es_super_admin = i == 0
-        es_admin = es_super_admin or bernoulli(0.15)
-        puede_operar = es_super_admin or bernoulli(0.8)
+        es_super_admin = con_super_admin and i == 0
+        es_gerente = i == (1 if con_super_admin else 0)
+        es_admin = es_super_admin or es_gerente or bernoulli(0.15)
+        puede_operar = es_super_admin or es_gerente or bernoulli(0.8)
         # La API exige al menos una capacidad por persona (`validar_capacidades`):
         # alguien sin ninguna no se podría volver a crear ni editar por el endpoint.
         if not es_admin and not puede_operar:
@@ -1316,6 +1349,7 @@ def crear_personal(db, cantidad: int, fake: Faker, vistos: dict, hash_password: 
             puede_operar=puede_operar,
             puede_administrar=es_admin,
             es_super_admin=es_super_admin,
+            es_gerente=es_gerente,
             # Se mantienen activos los que administran: un admin dado de baja
             # deja la base sin administración para probar.
             activo=bool(es_admin or not bernoulli(0.08)),
@@ -1472,29 +1506,6 @@ def crear_elementos(db, cantidad: int, vistos: dict) -> list:
     return elementos
 
 
-def crear_insumos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
-    print(f"⏳ Cargando {cantidad} insumos generales...")
-    insumos = []
-    for _ in range(cantidad):
-        base, clave_unidad, conversion = random.choice(INSUMOS_GENERALES)
-        nombre = unico(
-            lambda: recortar(f"{base} {random.choice('ABC')}", 100),
-            vistos["insumo"],
-            largo=100,
-        )
-        insumos.append(
-            Insumo(
-                nombre=nombre,
-                unidad_medida_id=unidades[clave_unidad].id,
-                activo=not bernoulli(0.06),
-                **{campo: Decimal(valor) for campo, valor in conversion.items()},
-            )
-        )
-    db.add_all(insumos)
-    db.flush()
-    return insumos
-
-
 def crear_planes_y_tareas(
     db, cantidad: int, equipos, admins, vistos: dict, operadores: list
 ) -> list:
@@ -1647,9 +1658,9 @@ def crear_checklists(
 
                 if not completado:
                     pendientes += 1
-                    insumo = cantidad = elemento = None
+                    quimico_usado = cantidad = elemento = None
                 else:
-                    insumo, cantidad, elemento = _consumo_para(tarea.nombre, quimicos, elementos)
+                    quimico_usado, cantidad, elemento = _consumo_para(tarea.nombre, quimicos, elementos)
 
                 # Operador asignado: hereda el de la plantilla de la tarea;
                 # si la tarea no tiene operador asignado, elige uno al azar.
@@ -1696,7 +1707,7 @@ def crear_checklists(
                     operador_id=operador.id,
                     reemplazado_por_id=reemplazado_por.id if reemplazado_por else None,
                     usuario_id=quien_hizo,
-                    insumo_quimico_id=insumo.id if insumo else None,
+                    insumo_quimico_id=quimico_usado.id if quimico_usado else None,
                     cantidad_consumida=cantidad,
                     elemento_limpieza_id=elemento.id if elemento else None,
                 )
@@ -2083,33 +2094,177 @@ def crear_proveedores(db, cantidad: int, fake: Faker, vistos: dict) -> list:
     return proveedores
 
 
-def asociar_proveedores_insumos(db, proveedores: list, insumos: list) -> int:
-    """Qué insumos abastece cada proveedor.
+# Alérgenos de las materias primas: (código en el catálogo, nivel, forma).
+# "puede_contener" son trazas por contacto cruzado en la planta del proveedor;
+# "derivado", que lo contiene a través de un derivado (la manteca, de la leche).
+# Se evitan los sulfitos: su declaración exige una evaluación con fundamento
+# y respaldo, y sin ella el rotulado no se completa.
+CEREALES_CON_GLUTEN = ("trigo", "centeno", "cebada", "avena")
+ALERGENOS_DE_INGREDIENTE = {
+    "Harina 000": [("trigo", "contiene", "directa"), ("soja", "puede_contener", "directa")],
+    "Manteca": [("leche", "contiene", "derivado")],
+    "Huevo fresco": [("huevo", "contiene", "directa")],
+    "Leche entera": [("leche", "contiene", "directa")],
+    "Dulce de leche repostero": [("leche", "contiene", "derivado")],
+    "Cacao amargo": [("leche", "puede_contener", "directa"), ("avellana", "puede_contener", "directa")],
+    "Almidón de maíz": [("trigo", "puede_contener", "directa")],
+    "Polvo de hornear": [("trigo", "puede_contener", "directa")],
+    "Coco rallado": [("almendra", "puede_contener", "directa"), ("nuez", "puede_contener", "directa")],
+    "Levadura fresca": [("trigo", "puede_contener", "directa")],
+}
 
-    Un proveedor abastece, como mínimo, los insumos de los que ya entregó un
-    lote; los insumos generales (sin lotes) reciben uno o dos al azar.
-    """
-    print("⏳ Asociando proveedores con sus insumos...")
-    por_id = {p.id: p for p in proveedores}
-    pares = set(
-        db.execute(select(LoteInsumo.insumo_id, LoteInsumo.proveedor_id).distinct()).all()
-    )
-    activos = [p for p in proveedores if p.activo] or proveedores
-    for insumo in insumos:
-        for proveedor in random.sample(activos, min(len(activos), random.randint(1, 2))):
-            pares.add((insumo.id, proveedor.id))
 
-    ya = set(db.execute(select(proveedores_insumos.c.insumo_id, proveedores_insumos.c.proveedor_id)).all())
-    nuevas = 0
-    for insumo_id, proveedor_id in sorted(pares - ya):
-        proveedor = por_id.get(proveedor_id) or db.get(Proveedor, proveedor_id)
-        insumo = db.get(Insumo, insumo_id)
-        if proveedor is None or insumo is None:
+def crear_alergenos_ingredientes(db, ingredientes: dict) -> int:
+    """Alérgenos de las materias primas de las recetas. Devuelve cuántos se asignaron."""
+    print("⏳ Asignando alérgenos a los ingredientes...")
+    catalogo = {a.codigo: a for a in db.scalars(select(Alergeno)).all()}
+    asignados = 0
+    for nombre, filas in ALERGENOS_DE_INGREDIENTE.items():
+        ingrediente = ingredientes.get(nombre)
+        if ingrediente is None:
             continue
-        proveedor.insumos.append(insumo)
-        nuevas += 1
+        for codigo, nivel, forma in filas:
+            alergeno = catalogo.get(codigo)
+            # Sin el catálogo cargado (base sin migrar) no se asigna nada.
+            if alergeno is None:
+                continue
+            db.add(IngredienteAlergeno(
+                ingrediente_id=ingrediente.id, alergeno_id=alergeno.id, nivel=nivel, forma=forma,
+            ))
+            asignados += 1
     db.flush()
-    return nuevas
+    # Con los alérgenos cargados, las materias primas quedan evaluadas.
+    for ingrediente in ingredientes.values():
+        _evaluar_alergenos_ficticio(db, ingrediente)
+    db.flush()
+    return asignados
+
+
+# Marcas inventadas para los insumos (no son marcas reales).
+MARCAS_INSUMO = [
+    "Don Ramón", "La Pradera", "Del Valle", "Santa Inés", "Granja Sur",
+    "El Molinero", "Sierra Alta", "Campo Nuevo", "Los Álamos", "Río Claro",
+]
+
+# Insumos (marcas) ya creados de cada ingrediente durante esta carga.
+_INSUMOS_DE: dict[int, list] = {}
+
+
+def _insumo_para(db, ingrediente, proveedor) -> Insumo:
+    """Marca de `ingrediente` que se le compra a `proveedor`.
+
+    Cada ingrediente tiene una o dos marcas. Si el proveedor todavía no vende
+    la marca elegida se le asocia, así cada lote recibido es coherente con la
+    regla del servicio (el proveedor tiene que vender ese insumo).
+    """
+    marcas = _INSUMOS_DE.setdefault(id(ingrediente), [])
+    if not marcas or (len(marcas) < 2 and bernoulli(0.35)):
+        usadas = {i.marca for i in marcas}
+        marca = random.choice([m for m in MARCAS_INSUMO if m not in usadas])
+        insumo = Insumo(ingrediente=ingrediente, marca=marca, proveedores=[])
+        db.add(insumo)
+        marcas.append(insumo)
+    else:
+        insumo = random.choice(marcas)
+    if proveedor not in insumo.proveedores:
+        insumo.proveedores.append(proveedor)
+    return insumo
+
+
+def homologar_insumos(db, admins: list) -> dict:
+    """Rótulo de cada marca y su homologación contra el ingrediente.
+
+    Las marcas con lotes recibidos tienen que estar aprobadas (si no, el
+    servicio no habría dejado recibirlos): su rótulo se arma con los valores
+    de referencia del ingrediente variados un poco, y los mismos alérgenos.
+    Una de cada ocho se aparta más en un nutriente y queda aprobada "con
+    observación", con su justificación. De las marcas sin lotes, algunas
+    quedan pendientes (sin rótulo), como pasaría con una marca nueva.
+    """
+    from src.insumos import homologacion
+
+    print("⏳ Homologando los insumos (marcas) contra sus ingredientes...")
+    con_lotes = set(db.scalars(select(LoteInsumo.insumo_id).distinct()).all())
+    resumen = {"aprobadas": 0, "observadas": 0, "pendientes": 0}
+    # Marcas con stock disponible: su homologación queda vigente, así todo lote
+    # con saldo se puede consumir.
+    from src.lotesInsumo.services import stock_por_lote
+
+    con_stock = {l.insumo_id for l in stock_por_lote(db) if l.saldo > 0 and not l.vencido}
+    for insumo in db.scalars(select(Insumo).order_by(Insumo.id)).all():
+        if insumo.id not in con_lotes and bernoulli(0.5):
+            resumen["pendientes"] += 1
+            continue
+        referencia = db.scalars(
+            select(ValorNutricionalIngrediente).where(ValorNutricionalIngrediente.ingrediente_id == insumo.ingrediente_id)
+        ).all()
+        apartado = random.choice(referencia).nutriente if referencia and bernoulli(1 / 8) else None
+        insumo.rotulo_referencia = f"Rótulo del envase de {insumo.marca}"
+        # Uno de cada cuatro rótulos declara por porción (50 g o ml), como
+        # muchos envases; el resto, por 100.
+        insumo.rotulo_porcion = Decimal("50") if bernoulli(0.25) else None
+        valores_rotulo = []
+        for v in referencia:
+            por_100 = Decimal(v.valor) * Decimal(str(1.35 if v.nutriente == apartado else random.uniform(0.92, 1.08)))
+            declarado = _q(por_100 * insumo.rotulo_porcion / 100 if insumo.rotulo_porcion else por_100)
+            valores_rotulo.append(
+                ValorRotuloInsumo(
+                    nutriente=v.nutriente,
+                    valor_declarado=declarado,
+                    valor_100=homologacion.a_100(declarado, insumo.rotulo_porcion),
+                )
+            )
+        insumo.valores_rotulo = valores_rotulo
+        for fila in db.scalars(
+            select(IngredienteAlergeno).where(IngredienteAlergeno.ingrediente_id == insumo.ingrediente_id)
+        ).all():
+            db.add(InsumoAlergeno(insumo_id=insumo.id, alergeno_id=fila.alergeno_id, nivel=fila.nivel))
+        db.flush()
+        comparacion = homologacion.evaluar(db, insumo)
+        insumo.estado_homologacion = "aprobada"
+        insumo.resultado_homologacion = comparacion.resultado
+        insumo.justificacion_homologacion = (
+            "Diferencia aceptada por la profesional de referencia: la marca se usa en poca proporción."
+            if comparacion.resultado != "apta"
+            else None
+        )
+        insumo.homologado_por_id = random.choice(admins).id
+        # Vigente (12 meses por defecto), salvo algunas marcas sin stock, que
+        # quedan vencidas para mostrar el aviso y el bloqueo.
+        vencer = insumo.id not in con_stock and bernoulli(1 / 3)
+        insumo.homologado_en = _momento(random.randint(370, 420) if vencer else random.randint(20, 330))
+        insumo.instantanea_homologacion = comparacion.model_dump(mode="json")
+        resumen["observadas" if comparacion.resultado != "apta" else "aprobadas"] += 1
+    db.flush()
+    return resumen
+
+
+def crear_marcas_sin_lotes(db, proveedores: list, ingredientes: dict) -> int:
+    """Una marca más, todavía sin lotes, para un tercio de los ingredientes.
+
+    Las marcas con lotes ya existen (se crean al recibir cada lote). Estas son
+    las que se están por empezar a comprar: la homologación deja algunas
+    pendientes, como pasaría con una marca nueva. Devuelve cuántas
+    asociaciones proveedor–insumo hay en total.
+    """
+    print("⏳ Cargando marcas nuevas (sin lotes) de algunos ingredientes...")
+    activos = [p for p in proveedores if p.activo] or proveedores
+    for ingrediente in ingredientes.values():
+        if not bernoulli(1 / 3):
+            continue
+        usadas = {i.marca for i in ingrediente.insumos}
+        libres = [m for m in MARCAS_INSUMO if m not in usadas]
+        if not libres:
+            continue
+        db.add(
+            Insumo(
+                ingrediente=ingrediente,
+                marca=random.choice(libres),
+                proveedores=random.sample(activos, min(len(activos), random.randint(1, 2))),
+            )
+        )
+    db.flush()
+    return db.scalar(select(func.count()).select_from(proveedores_insumos)) or 0
 
 
 def crear_clientes(db, cantidad: int, fake: Faker, vistos: dict) -> list:
@@ -2506,9 +2661,9 @@ def _momento(dias_atras: int, hora_min: int = 6, hora_max: int = 18) -> datetime
 
 
 def _conversion_ingrediente(nombre: str) -> dict:
-    """Densidad (g/ml) y peso unitario (g) del insumo, para llevarlo a gramos.
+    """Densidad (g/ml) y peso unitario (g) del ingrediente, para llevarlo a gramos.
 
-    El servicio de insumos las exige según el tipo de unidad (volumen -> densidad,
+    El servicio de ingredientes las exige según el tipo de unidad (volumen -> densidad,
     unidad -> peso) y las usan la composición porcentual y la tabla nutricional.
     Los valores están en `NUTRICION_INGREDIENTES`.
     """
@@ -2521,69 +2676,199 @@ def _conversion_ingrediente(nombre: str) -> dict:
     return conversion
 
 
-def perfil_declaracion_ficticio(nombre: str) -> dict:
-    alergenos = {
-        "Harina 000": ("trigo", "directa"),
-        "Huevo fresco": ("huevo", "directa"),
-        "Leche entera": ("leche", "directa"),
-        "Manteca": ("leche", "derivado"),
-        "Dulce de leche repostero": ("leche", "derivado"),
-    }
-    marca = alergenos.get(nombre)
-    return PerfilInsumoDeclaracion(
-        evaluacion="evaluada",
-        marcas=[MarcaAlergeno(codigo=marca[0], forma=marca[1])] if marca else [],
-        gluten="presente" if nombre == "Harina 000" else "ausencia_declarada",
-        respaldo="Ficha técnica ficticia para datos de desarrollo.",
-    ).model_dump(mode="json")
-
-
 def crear_ingredientes(db, unidades: dict, vistos: dict) -> dict:
     """Materias primas alimentarias que usan las recetas.
 
     En modo `--agregar` reutiliza las que ya existen con el mismo nombre.
-    Devuelve {nombre: Insumo}.
+    Devuelve {nombre: Ingrediente}.
     """
     print("⏳ Cargando materias primas para recetas...")
     existentes = {
         i.nombre: i
         for i in db.scalars(
-            select(Insumo).where(Insumo.nombre.in_([n for n, _ in VOCAB_INGREDIENTES]))
+            select(Ingrediente).where(Ingrediente.nombre.in_([n for n, _ in VOCAB_INGREDIENTES]))
         ).all()
     }
-    aditivos = {a.nombre: a for a in db.scalars(select(Aditivo)).all()}
+    # Clase e INS de cada aditivo, de la lista de referencia (Codex / CAA).
+    clases = {c.nombre: c for c in db.scalars(select(ClaseFuncional)).all()}
+    referencia_por_nombre = {nombre: (clase, ins) for clase, nombre, ins in REFERENCIA_ADITIVOS}
     for nombre, clave_unidad in VOCAB_INGREDIENTES:
         conversion = _conversion_ingrediente(nombre)
         if nombre in existentes:
             # `--agregar` sobre una base cargada antes de la composición
             # porcentual: se completa lo que falte, sin pisar lo cargado.
-            insumo = existentes[nombre]
+            ingrediente = existentes[nombre]
             for campo, valor in conversion.items():
-                if getattr(insumo, campo) is None:
-                    setattr(insumo, campo, valor)
+                if getattr(ingrediente, campo) is None:
+                    setattr(ingrediente, campo, valor)
             continue
-        referencia = aditivos.get(ADITIVO_DE_INGREDIENTE.get(nombre, ""))
-        insumo = Insumo(
+        clase_nombre, ins = referencia_por_nombre.get(ADITIVO_DE_INGREDIENTE.get(nombre, ""), (None, None))
+        clase = clases.get(clase_nombre) if clase_nombre else None
+        ingrediente = Ingrediente(
             nombre=nombre,
             unidad_medida_id=unidades[clave_unidad].id,
-            # Sin la referencia cargada (base sin migrar) queda como ingrediente.
-            tipo=TIPO_ADITIVO if referencia else TIPO_INGREDIENTE,
-            aditivo=referencia,
-            perfil_declaracion=perfil_declaracion_ficticio(nombre),
+            # Sin las clases cargadas (base sin migrar) no queda como aditivo.
+            es_aditivo=clase is not None,
+            clase_funcional=clase,
+            numero_ins=ins if clase is not None else None,
             **conversion,
         )
-        db.add(insumo)
-        existentes[nombre] = insumo
-        vistos["insumo"].add(nombre)
+        db.add(ingrediente)
+        existentes[nombre] = ingrediente
+        vistos["ingrediente"].add(nombre)
     db.flush()
     return existentes
 
+
+
+# Vida útil (días) de cada producto de las plantillas: va en la versión de la
+# receta y fija el vencimiento de cada lote al cerrarlo.
+VIDA_UTIL_POR_PRODUCTO = {
+    "Mermelada de frutilla": 365,
+    "Mermelada de durazno": 365,
+    "Pan de molde blanco": 7,
+    "Budín de vainilla": 30,
+    "Dulce de leche familiar": 180,
+    "Salsa de tomate": 540,
+    "Alfajor de maicena": 60,
+    "Galletitas de cacao": 120,
+}
+
+# Procedimiento de cada etapa de las recetas: lo que lee quien la ejecuta en
+# el lote. La clave es la descripción de la tarea en la plantilla.
+PROCEDIMIENTO_TAREA = {
+    "Lavar, despalillar y trozar la fruta": (
+        "1. Lavar la fruta en agua potable y escurrir.\n"
+        "2. Quitar cabitos, hojas y piezas dañadas.\n"
+        "3. Trozar en cuartos y pesar antes de pasar a cocción."
+    ),
+    "Cocinar la fruta con el azúcar y la pectina": (
+        "1. Volcar la fruta y el azúcar en la paila y llevar a hervor revolviendo.\n"
+        "2. Mezclar la pectina con parte del azúcar e incorporarla en lluvia.\n"
+        "3. Cocinar hasta 65 °Brix, controlando con refractómetro."
+    ),
+    "Corregir la acidez, conservar y envasar en caliente": (
+        "1. Medir el pH y agregar ácido cítrico hasta pH 3,0–3,3.\n"
+        "2. Incorporar el conservante disuelto en agua caliente.\n"
+        "3. Envasar a más de 85 °C, tapar e invertir los frascos 5 minutos."
+    ),
+    "Pelar, descarozar y trozar los duraznos": (
+        "1. Escaldar los duraznos 1 minuto y enfriar en agua para pelarlos.\n"
+        "2. Descarozar y descartar las piezas golpeadas.\n"
+        "3. Trozar en cubos de 2 cm."
+    ),
+    "Cocinar con el azúcar hasta punto de gelificación": (
+        "1. Cocinar la fruta con el azúcar a fuego medio revolviendo.\n"
+        "2. Espumar durante la cocción.\n"
+        "3. Retirar al llegar a 65 °Brix o cuando una gota en plato frío no se corra."
+    ),
+    "Envasar en caliente y cerrar al vacío": (
+        "1. Llenar los frascos esterilizados dejando 1 cm de espacio libre.\n"
+        "2. Cerrar enseguida y pasar por el túnel de vacío.\n"
+        "3. Verificar el sellado y rotular con el número de lote."
+    ),
+    "Amasar la harina con la levadura y la sal": (
+        "1. Tamizar la harina con la sal.\n"
+        "2. Disolver la levadura en agua tibia (30 °C) e incorporar.\n"
+        "3. Amasar 10 minutos hasta obtener una masa lisa y elástica."
+    ),
+    "Incorporar la manteca y dejar levar en moldes": (
+        "1. Agregar la manteca pomada y amasar hasta integrar.\n"
+        "2. Dividir, bollar y colocar en moldes enmantecados.\n"
+        "3. Levar 60 minutos a 28 °C, hasta duplicar el volumen."
+    ),
+    "Hornear, desmoldar y enfriar": (
+        "1. Hornear a 190 °C durante 35 minutos.\n"
+        "2. Desmoldar en caliente sobre rejilla.\n"
+        "3. Enfriar a temperatura ambiente antes de cortar y envasar."
+    ),
+    "Batir la manteca con el azúcar": (
+        "1. Llevar la manteca a punto pomada.\n"
+        "2. Batir con el azúcar a velocidad media 5 minutos.\n"
+        "3. Seguir hasta que la mezcla esté clara y cremosa."
+    ),
+    "Agregar los huevos y la esencia": (
+        "1. Incorporar los huevos de a uno, batiendo después de cada uno.\n"
+        "2. Agregar la esencia de vainilla.\n"
+        "3. Raspar el bowl para que no queden grumos de manteca."
+    ),
+    "Incorporar los secos tamizados": (
+        "1. Tamizar la harina con el polvo de hornear.\n"
+        "2. Incorporar en tres veces, con movimientos envolventes.\n"
+        "3. No batir de más: mezclar solo hasta integrar."
+    ),
+    "Hornear en moldes enmantecados": (
+        "1. Enmantecar y enharinar los moldes.\n"
+        "2. Llenar hasta 3/4 de la altura.\n"
+        "3. Hornear a 175 °C 40 minutos; controlar con palillo antes de retirar."
+    ),
+    "Calentar la leche con el bicarbonato": (
+        "1. Volcar la leche en la paila y encender el agitador.\n"
+        "2. Disolver el bicarbonato en un poco de leche fría e incorporarlo.\n"
+        "3. Calentar hasta 80 °C sin dejar de revolver."
+    ),
+    "Agregar el azúcar y reducir revolviendo": (
+        "1. Incorporar el azúcar de a poco, con el agitador en marcha.\n"
+        "2. Reducir a fuego medio revolviendo para que no se pegue.\n"
+        "3. Cocinar hasta 70 °Brix y color caramelo."
+    ),
+    "Aromatizar, enfriar y envasar": (
+        "1. Apagar el fuego y agregar la esencia de vainilla.\n"
+        "2. Enfriar revolviendo hasta 60 °C.\n"
+        "3. Envasar, tapar y rotular con el número de lote."
+    ),
+    "Calentar el aceite y sofreír los condimentos": (
+        "1. Calentar el aceite en la marmita a fuego medio.\n"
+        "2. Agregar cebolla y ajo y sofreír 5 minutos sin dorar.\n"
+        "3. Incorporar las especias y mezclar 1 minuto."
+    ),
+    "Cocinar el tomate a fuego lento": (
+        "1. Agregar el tomate triturado y llevar a hervor.\n"
+        "2. Bajar el fuego y cocinar 40 minutos revolviendo cada 10.\n"
+        "3. Controlar la consistencia: debe cubrir el dorso de la cuchara."
+    ),
+    "Ajustar la acidez y envasar": (
+        "1. Medir el pH y corregir con ácido cítrico hasta pH menor a 4,2.\n"
+        "2. Ajustar la sal.\n"
+        "3. Envasar en caliente y tapar de inmediato."
+    ),
+    "Preparar la masa y dejar reposar en frío": (
+        "1. Batir la manteca con el azúcar y agregar las yemas.\n"
+        "2. Incorporar la maicena y la harina tamizadas con el polvo de hornear.\n"
+        "3. Envolver en film y reposar 30 minutos en heladera."
+    ),
+    "Estirar, cortar y hornear las tapas": (
+        "1. Estirar la masa a 5 mm sobre mesa enharinada.\n"
+        "2. Cortar con cortante de 5 cm y acomodar en placas.\n"
+        "3. Hornear a 170 °C 10 minutos, sin que se doren."
+    ),
+    "Rellenar con dulce de leche y pasar por coco": (
+        "1. Dejar enfriar las tapas por completo.\n"
+        "2. Rellenar con dulce de leche repostero y unir de a dos.\n"
+        "3. Pasar el borde por coco rallado y envasar."
+    ),
+    "Cremar la manteca con el azúcar": (
+        "1. Llevar la manteca a punto pomada.\n"
+        "2. Cremar con el azúcar a velocidad media.\n"
+        "3. Batir hasta que la mezcla esté aireada."
+    ),
+    "Incorporar huevos, cacao y harina": (
+        "1. Agregar los huevos y batir hasta integrar.\n"
+        "2. Tamizar el cacao con la harina.\n"
+        "3. Incorporar los secos y mezclar solo hasta formar la masa."
+    ),
+    "Formar, hornear y enfriar": (
+        "1. Formar bolitas de 15 g y aplastarlas en las placas.\n"
+        "2. Hornear a 180 °C 12 minutos.\n"
+        "3. Enfriar sobre rejilla antes de envasar."
+    ),
+}
 
 def _agregar_version(
     db, receta: Receta, numero: int, plantilla: dict, ingredientes: dict,
     unidades: dict, autor: Personal, creada_en: datetime, ajuste: Optional[tuple] = None,
 ) -> VersionReceta:
-    """Crea una versión completa (insumos, tareas y reparto) a partir de la plantilla.
+    """Crea una versión completa (ingredientes, tareas y reparto) a partir de la plantilla.
 
     `ajuste` = (mínimo, máximo) varía las cantidades: así la versión 2 difiere
     de la 1 como pasaría al corregir una receta.
@@ -2597,27 +2882,32 @@ def _agregar_version(
         porcion_descripcion=porcion[0] if porcion else None,
         porcion_cantidad=_q(porcion[1]) if porcion else None,
         porcion_unidad_medida_id=unidades[porcion[2]].id if porcion else None,
+        # Sin vida útil, un lote cerrado desde la app queda sin vencimiento.
+        vida_util_dias=VIDA_UTIL_POR_PRODUCTO.get(plantilla["producto"], 180),
         creado_por_id=autor.id,
         creado_en=creada_en,
     )
     tareas = [
-        TareaReceta(version=version, orden=i, descripcion=descripcion)
+        TareaReceta(
+            version=version, orden=i, descripcion=descripcion,
+            procedimiento=PROCEDIMIENTO_TAREA.get(descripcion),
+        )
         for i, descripcion in enumerate(plantilla["tareas"], start=1)
     ]
-    for nombre, cantidad, _clasificacion, indice_tarea in plantilla["insumos"]:
-        insumo = ingredientes[nombre]
+    for nombre, cantidad, _clasificacion, indice_tarea in plantilla["ingredientes"]:
+        ingrediente = ingredientes[nombre]
         total = _q(cantidad) if ajuste is None else _variar(Decimal(cantidad), *ajuste)
-        receta_insumo = RecetaInsumo(
+        receta_ingrediente = RecetaIngrediente(
             version=version,
-            insumo=insumo,
+            ingrediente=ingrediente,
             cantidad=total,
-            unidad_medida_id=insumo.unidad_medida_id,
-            # Como el service: la clasificación sale del maestro de insumos.
-            clasificacion=insumo.tipo,
+            unidad_medida_id=ingrediente.unidad_medida_id,
+            # Como el service: si es aditivo sale del maestro de ingredientes.
+            es_aditivo=ingrediente.es_aditivo,
         )
-        # Todo el insumo va a la tarea indicada: el reparto suma el total,
+        # Todo el ingrediente va a la tarea indicada: el reparto suma el total,
         # que es lo que valida el service al crear la versión.
-        TareaRecetaInsumo(tarea=tareas[indice_tarea], receta_insumo=receta_insumo, cantidad=total)
+        TareaRecetaIngrediente(tarea=tareas[indice_tarea], receta_ingrediente=receta_ingrediente, cantidad=total)
     db.add(version)
     return version
 
@@ -2681,21 +2971,21 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
     """
     print("⏳ Cargando información nutricional...")
     alimentos = {a.nombre: a for a in db.scalars(select(AlimentoReferencia)).all()}
-    con_datos = set(db.scalars(select(ValorNutricionalInsumo.insumo_id).distinct()).all())
-    con_perfil = set(db.scalars(select(PerfilNutricionalInsumo.insumo_id)).all())
-    resumen = {"insumos": 0, "valores": 0, "modificados": 0, "productos": 0, "laboratorio": 0}
+    con_datos = set(db.scalars(select(ValorNutricionalIngrediente.ingrediente_id).distinct()).all())
+    con_perfil = set(db.scalars(select(PerfilNutricionalIngrediente.ingrediente_id)).all())
+    resumen = {"ingredientes": 0, "valores": 0, "modificados": 0, "productos": 0, "laboratorio": 0}
 
     for nombre, datos in NUTRICION_INGREDIENTES.items():
-        insumo = ingredientes.get(nombre)
-        if insumo is None:
+        ingrediente = ingredientes.get(nombre)
+        if ingrediente is None:
             continue
         autor = random.choice(admins)
         cargado_en = _momento(random.randint(20, 120))
-        if insumo.id not in con_perfil:
-            db.add(PerfilNutricionalInsumo(
-                # La densidad y el peso por unidad van en el insumo
+        if ingrediente.id not in con_perfil:
+            db.add(PerfilNutricionalIngrediente(
+                # La densidad y el peso por unidad van en el ingrediente
                 # (`_conversion_ingrediente`), no en el perfil.
-                insumo_id=insumo.id,
+                ingrediente_id=ingrediente.id,
                 aporta_energia_sodio=bool(datos.get("aporta")),
                 azucares_son_anadidos=bool(datos.get("anadidos")),
                 grasas_son_anadidas=bool(datos.get("grasas")),
@@ -2703,7 +2993,7 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
                 contiene_edulcorantes=bool(datos.get("edulcorantes")),
                 contiene_cafeina=bool(datos.get("cafeina")),
             ))
-        if insumo.id in con_datos:
+        if ingrediente.id in con_datos:
             continue
 
         alimento = alimentos.get(datos.get("base", ""))
@@ -2719,7 +3009,7 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
             )
         else:
             continue
-        if insumo.tipo == TIPO_ADITIVO:
+        if ingrediente.es_aditivo:
             valores = {k: v for k, v in valores.items() if k in ("energia", "sodio")}
         if datos.get("anadidos"):
             # Se calculan desde sus azúcares totales: no se cargan aparte.
@@ -2733,8 +3023,8 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
             corregido = datos.get("corregir", {}).get(clave)
             valor_final = Decimal(corregido) if corregido is not None else valor_fuente
             modificado = valor_final != valor_fuente
-            db.add(ValorNutricionalInsumo(
-                insumo_id=insumo.id,
+            db.add(ValorNutricionalIngrediente(
+                ingrediente_id=ingrediente.id,
                 nutriente=clave,
                 valor=valor_final,
                 fuente=fuente,
@@ -2750,7 +3040,7 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
             cargados += 1
             resumen["modificados"] += int(modificado)
         resumen["valores"] += cargados
-        resumen["insumos"] += int(cargados > 0)
+        resumen["ingredientes"] += int(cargados > 0)
 
     # Porción declarada: casi todos los productos; ~10 % queda sin declarar
     # para que se vea el aviso de "falta la porción".
@@ -2797,9 +3087,10 @@ def crear_lotes_insumo(
     registra una reposición (ver `_lote_para_consumir`).
     """
     print("⏳ Cargando lotes de insumo recibidos...")
+    _INSUMOS_DE.clear()
     activos = [p for p in proveedores if p.activo] or proveedores
     lotes = []
-    for nombre, insumo in ingredientes.items():
+    for nombre, ingrediente in ingredientes.items():
         clave_unidad = next(c for n, c in VOCAB_INGREDIENTES if n == nombre)
         # Cantidad recibida típica según la unidad (g y mL vienen en bolsas grandes).
         escala = {"gramo": (2000, 10000), "mililitro": (500, 3000), "unidad": (180, 720)}.get(
@@ -2809,7 +3100,7 @@ def crear_lotes_insumo(
             ingreso = HOY - timedelta(days=dia_con_ritmo(dias_historia + 20, 5))
             lotes.append(
                 _nuevo_lote_insumo(
-                    insumo, random.choice(activos), ingreso,
+                    db, ingrediente, random.choice(activos), ingreso,
                     _q(random.randint(*escala)), random.choice(admins), vistos,
                 )
             )
@@ -2818,19 +3109,22 @@ def crear_lotes_insumo(
     return lotes
 
 
-def _nuevo_lote_insumo(insumo, proveedor, ingreso: date, cantidad: Decimal, autor, vistos: dict) -> LoteInsumo:
+def _nuevo_lote_insumo(
+    db, ingrediente, proveedor, ingreso: date, cantidad: Decimal, autor, vistos: dict
+) -> LoteInsumo:
     numero = unico(
         lambda: f"{slug(proveedor.nombre)[:3].upper()}-{ingreso:%y%m}-{random.randint(100, 9999)}",
         vistos["lote_insumo"],
         largo=100,
     )
     return LoteInsumo(
-        insumo=insumo,
+        insumo=_insumo_para(db, ingrediente, proveedor),
+        ingrediente=ingrediente,
         proveedor=proveedor,
         numero_lote=numero,
         cantidad_recibida=cantidad,
         fecha_ingreso=ingreso,
-        # Unos pocos sin vencimiento (insumos no perecederos).
+        # Unos pocos sin vencimiento (ingredientes no perecederos).
         fecha_vencimiento=None if bernoulli(0.1) else ingreso + timedelta(days=random.randint(45, 365)),
         creado_por_id=autor.id,
         creado_en=datetime.combine(ingreso, datetime.min.time()) + timedelta(hours=9),
@@ -2838,7 +3132,7 @@ def _nuevo_lote_insumo(insumo, proveedor, ingreso: date, cantidad: Decimal, auto
 
 
 def _lote_para_consumir(
-    db, insumo, cuando: date, necesario: Decimal, saldos: dict, lotes: list,
+    db, ingrediente, cuando: date, necesario: Decimal, saldos: dict, lotes: list,
     proveedores: list, admins: list, vistos: dict,
 ) -> list[tuple]:
     """Elige de qué lotes sale `necesario`, por FEFO (primero el que vence antes).
@@ -2850,7 +3144,7 @@ def _lote_para_consumir(
     candidatos = sorted(
         (
             l for l in lotes
-            if l.insumo is insumo
+            if l.ingrediente is ingrediente
             and l.fecha_ingreso <= cuando
             and (l.fecha_vencimiento is None or l.fecha_vencimiento >= cuando)
             and saldos[l] > 0
@@ -2869,7 +3163,7 @@ def _lote_para_consumir(
     if pendiente > 0:
         activos = [p for p in proveedores if p.activo] or proveedores
         reposicion = _nuevo_lote_insumo(
-            insumo, random.choice(activos), cuando - timedelta(days=random.randint(1, 6)),
+            db, ingrediente, random.choice(activos), cuando - timedelta(days=random.randint(1, 6)),
             _q(pendiente * random.randint(4, 10)), random.choice(admins), vistos,
         )
         db.add(reposicion)
@@ -2888,7 +3182,7 @@ def crear_lotes_produccion(
 
     Sigue las reglas del service: el lote fija la versión vigente a su fecha,
     el checklist tiene una fila por tarea, los consumos salen de lotes de
-    insumo por FEFO y los lotes terminados/cancelados quedan de solo lectura.
+    ingrediente por FEFO y los lotes terminados/cancelados quedan de solo lectura.
     Se inserta `en_proceso` y se cierra después, porque los eventos del ORM
     rechazan checklist o consumos sobre un lote ya cerrado.
     """
@@ -2963,25 +3257,36 @@ def crear_lotes_produccion(
         else:
             hechas = random.randint(0, len(tareas))
 
+        # Asignación como la hace quien administra: la mayoría de los lotes
+        # tienen responsable (todas sus tareas), alguna tarea se reasigna a
+        # otra persona y el resto de los lotes quedan sin asignar (cualquiera).
+        responsable = random.choice(operadores) if bernoulli(0.7) else None
         momento = inicio
         for indice, tarea in enumerate(tareas):
+            asignado = responsable
+            if responsable is not None and len(operadores) > 1 and bernoulli(0.15):
+                asignado = random.choice([o for o in operadores if o.id != responsable.id])
             # `db.add` explícito: en SQLAlchemy 2.0 asignar `lote=` no mete el
             # objeto en la sesión (el lote ya estaba agregado).
-            item = ChecklistProduccion(lote=lote, tarea=tarea)
+            item = ChecklistProduccion(
+                lote=lote, tarea=tarea, asignado_a_id=asignado.id if asignado else None
+            )
             db.add(item)
             cuenta["items"] += 1
             if indice >= hechas:
                 continue
             momento += timedelta(minutes=random.randint(25, 150))
-            operador = random.choice(operadores)
+            # La hace quien la tiene asignada; si estaba libre, cualquiera.
+            operador = asignado or random.choice(operadores)
             item.completado_por_id = operador.id
             item.completado_en = momento
-            for reparto in tarea.insumos:
-                insumo = reparto.receta_insumo.insumo
+            for reparto in tarea.ingredientes:
+                ingrediente = reparto.receta_ingrediente.ingrediente
                 planificado = _q(Decimal(reparto.cantidad) * factor)
-                real = _variar(planificado, 0.95, 1.08)
+                # Como mínimo lo que pide la receta: si no, el service no deja completar la tarea.
+                real = max(planificado, _variar(planificado, 1.0, 1.08))
                 for lote_insumo, parte in _lote_para_consumir(
-                    db, insumo, momento.date(), real, saldos, lotes_insumo,
+                    db, ingrediente, momento.date(), real, saldos, lotes_insumo,
                     proveedores, admins, vistos,
                 ):
                     db.add(ConsumoInsumo(
@@ -2993,7 +3298,7 @@ def crear_lotes_produccion(
                 if bernoulli(0.12):
                     perdida = max(_variar(planificado, 0.02, 0.05), _MILESIMA)
                     for lote_insumo, parte in _lote_para_consumir(
-                        db, insumo, momento.date(), perdida, saldos, lotes_insumo,
+                        db, ingrediente, momento.date(), perdida, saldos, lotes_insumo,
                         proveedores, admins, vistos,
                     ):
                         db.add(ConsumoInsumo(
@@ -3013,7 +3318,7 @@ def crear_lotes_produccion(
             # Se carga junto con el cierre: un lote terminado ya no se edita.
             # Con vidas útiles cortas quedan lotes vencidos, que la app no
             # deja reservar ni despachar.
-            dias_vida = vida_util.setdefault(
+            dias_vida = version.vida_util_dias or vida_util.setdefault(
                 producto.id, random.choice([60, 120, 180, 365, 365, 540])
             )
             lote.fecha_vencimiento = lote.fecha_cierre.date() + timedelta(days=dias_vida)
@@ -3223,6 +3528,61 @@ def _fecha_entre(desde: date, hasta: date) -> date:
     return desde + timedelta(days=random.randint(0, max(0, (hasta - desde).days)))
 
 
+def rotular_lote(db, lote_id: int, fecha_duracion: date, usuario) -> int:
+    """Borrador de rotulado completo del lote, por los services (como en la app).
+
+    Sin él la reserva no deja vender el lote. El autocompletado trae la
+    denominación, los ingredientes, la nutrición y los datos del lote, y la
+    propuesta de declaraciones; a mano van los que no salen de ningún lado.
+    """
+    lote = db.get(LoteProducto, lote_id)
+    # El rotulado frontal tiene que estar decidido para que el rótulo quede
+    # completo (si no, la reserva no deja vender el lote). Si el producto
+    # todavía no tiene configuración, se vende envasado al canal minorista y
+    # las marcas se deducen de la receta. `crear_rotulado_frontal` después
+    # reparte los escenarios de la pantalla.
+    if db.get(ConfiguracionRotuladoProducto, lote.producto_id) is None:
+        rotulado_frontal_services.guardar_configuracion(
+            db, lote.producto_id,
+            ConfiguracionRotuladoIn(
+                envasado_sin_cliente=True,
+                canal_comercializacion=rotulado_frontal_constants.CANAL_MINORISTA,
+            ),
+        )
+    # Antes del borrador: la propuesta de declaraciones sale de estos maestros
+    # (conservación del producto y alérgenos evaluados de cada ingrediente).
+    _preparar_declaraciones_rotulado(
+        db, db.get(Producto, lote.producto_id), db.get(VersionReceta, lote.version_receta_id)
+    )
+    borrador_id = rotulado_services.crear_borrador(
+        db, lote.producto_id,
+        BorradorRotuladoCreate(
+            producto_id=lote.producto_id, version_receta_id=lote.version_receta_id, lote_producto_id=lote_id
+        ),
+        usuario,
+    ).id
+    rotulado_services.autocompletar_borrador(db, borrador_id, lote.version_receta_id, lote_id, False, usuario)
+    rotulado_services.actualizar_borrador(
+        db, borrador_id,
+        BorradorRotuladoUpdate(
+            contenido_neto=random.choice(DATOS_ROTULO["contenidos"]),
+            rnpa_rppa=f"RNPA 07-{random.randint(100000, 999999)}",
+            instrucciones_uso=random.choice(DATOS_ROTULO["instrucciones"]),
+            fecha_duracion=fecha_duracion,
+        ),
+        usuario,
+    )
+    # Completo exige las declaraciones de alérgenos confirmadas (HU106).
+    declaracion = declaraciones_services.consultar(db, borrador_id)
+    declaraciones_services.confirmar(
+        db, borrador_id, RevisionEsperada(revision=declaracion["revision"]), usuario
+    )
+    rotulado_services.actualizar_borrador(
+        db, borrador_id, BorradorRotuladoUpdate(estado=ESTADO_COMPLETADO), usuario
+    )
+    return borrador_id
+
+
 def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
     """Salidas de producto, reclamos y retiros, generados con los services.
 
@@ -3357,6 +3717,9 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
     try:
         for lote_id, cierre, unidad in elegidos:
             vencimiento = vencidos.get(lote_id)
+            # Sin rotulado completo el lote no se vende.
+            rotular_lote(db, lote_id, vencimiento or cierre + timedelta(days=180), actor())
+            cuenta["rotulados"] = cuenta.get("rotulados", 0) + 1
             for _ in range(random.randint(1, 4)):
                 saldo = salidas_services.calcular_cantidades_lote(db, lote_id)["saldo"]
                 cantidad_salida = _en_piezas_enteras(
@@ -3699,8 +4062,13 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
     """Configuración por producto e historial de evaluaciones de octógonos.
 
     Cubre los estados de la pantalla: aplica, corregido a mano, canal no
-    minorista, sin envasado, categoría exceptuada, sin definir y módulo
-    inactivo. Usa los services para que el snapshot quede igual que en la app.
+    minorista, sin envasado, categoría exceptuada y módulo inactivo. Usa los
+    services para que el snapshot quede igual que en la app.
+
+    TODOS los productos quedan configurados (envasado, canal y, según el
+    escenario, marcas o categoría): un producto "sin definir" deja su rótulo
+    incompleto y sus lotes no se pueden reservar. Por eso ya no hay escenario
+    "sin definir".
     """
     cuenta = {
         "configurados": 0,
@@ -3750,29 +4118,27 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
             "envasado": True,
             "categoria": "azucar_comun",
         },
-        {"nombre": "sin_definir"},
     ]
-    elegidos = random.sample(
-        productos, min(len(productos), max(len(escenarios), cantidad // 2))
-    )
+    # Todos los productos, en orden aleatorio: los escenarios se reparten y
+    # se repiten si hay más productos que escenarios.
+    elegidos = random.sample(productos, len(productos))
 
     for indice, producto in enumerate(elegidos):
         escenario = escenarios[indice % len(escenarios)]
         try:
-            if escenario["nombre"] != "sin_definir":
-                datos = {
-                    "envasado_sin_cliente": escenario["envasado"],
-                    "canal_comercializacion": escenario["canal"],
-                }
-                datos.update(escenario.get("marcas", {}))
-                if escenario.get("categoria"):
-                    datos["categoria_rotulado"] = escenario["categoria"]
-                respuesta = rotulado_frontal_services.guardar_configuracion(
-                    db, producto.id, ConfiguracionRotuladoIn(**datos)
-                )
-                cuenta["configurados"] += 1
-                cuenta["evaluaciones"] += 1
-                cuenta["estados"].add(respuesta.estado)
+            datos = {
+                "envasado_sin_cliente": escenario["envasado"],
+                "canal_comercializacion": escenario["canal"],
+            }
+            datos.update(escenario.get("marcas", {}))
+            if escenario.get("categoria"):
+                datos["categoria_rotulado"] = escenario["categoria"]
+            respuesta = rotulado_frontal_services.guardar_configuracion(
+                db, producto.id, ConfiguracionRotuladoIn(**datos)
+            )
+            cuenta["configurados"] += 1
+            cuenta["evaluaciones"] += 1
+            cuenta["estados"].add(respuesta.estado)
             for _ in range(random.randint(1, 2)):
                 respuesta = rotulado_frontal_services.evaluar(db, producto.id)
                 cuenta["evaluaciones"] += 1
@@ -3808,15 +4174,15 @@ def crear_vista_publica(db) -> int:
     Devuelve la cantidad de indicadores agregados.
     """
     print("⏳ Cargando configuración de la vista pública...")
-    if db.get(ConfiguracionVistaPublica, 1) is None:
+    if db.get(ConfiguracionVistaPublica, sede_efectiva(db)) is None:
         db.add(
             ConfiguracionVistaPublica(
-                id=1, habilitada=True, codigo_publico=secrets.token_urlsafe(32)
+                establecimiento_id=sede_efectiva(db), habilitada=True, codigo_publico=secrets.token_urlsafe(32)
             )
         )
     agregados = 0
     for definicion in CATALOGO_VISTA_PUBLICA:
-        if db.get(IndicadorVistaPublica, definicion.clave) is not None:
+        if db.get(IndicadorVistaPublica, {"establecimiento_id": sede_efectiva(db), "clave": definicion.clave}) is not None:
             continue
         # Mantiene la selección Faker histórica de limpieza. Los indicadores
         # nuevos que requieren habilitación explícita conservan su default.
@@ -3899,7 +4265,7 @@ def simular_actividad(
     aptitudes: list,
     quimicos: list,
     elementos: list,
-    insumos: list,
+    ingredientes: list,
     proveedores: Optional[list] = None,
     stocks: Optional[list] = None,
     lotes: Optional[list] = None,
@@ -3919,7 +4285,7 @@ def simular_actividad(
 
     Cubre todas las entidades auditadas con operaciones propias de cada una:
 
-      * catálogos (equipos, aptitudes, insumos, elementos, químicos, sectores,
+      * catálogos (equipos, aptitudes, ingredientes, elementos, químicos, sectores,
         unidades de medida, proveedores, configuración de alertas);
       * stock: consumos que bajan el saldo y dejan su movimiento de egreso,
         cambios del stock mínimo, corrección y borrado de lotes;
@@ -4021,15 +4387,6 @@ def simular_actividad(
                 lambda: f"{base} {random.choice(['Norte', 'Sur', 'Principal', 'Auxiliar'])}",
                 vistos["sector"],
                 largo=40,
-            )
-            como_admin_commit("modificados")
-
-        for insumo in muestra(insumos):
-            base = insumo.nombre
-            insumo.nombre = unico(
-                lambda: recortar(f"{base} {random.choice(['Pro', 'Plus', 'XL', 'Eco'])}", 100),
-                vistos["insumo"],
-                largo=100,
             )
             como_admin_commit("modificados")
 
@@ -4170,7 +4527,7 @@ def simular_actividad(
             ("alerta_calibracion_dias", (15, 45, 60)),
             ("alerta_insumo_bajo_stock", (5, 15, 20)),
         ):
-            config = db.get(ConfiguracionAlerta, clave)
+            config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": clave})
             if config is not None:
                 db.refresh(config)
                 config.valor = random.choice([v for v in opciones if v != config.valor])
@@ -4290,7 +4647,7 @@ def simular_actividad(
             p for p in personal if not p.puede_administrar and not p.es_super_admin
         ]
         grupos = [
-            equipos, insumos, quimicos, elementos, aptitudes, vencimientos, candidatos_baja,
+            equipos, ingredientes, quimicos, elementos, aptitudes, vencimientos, candidatos_baja,
             proveedores, calibraciones, planes, planes_cal,
         ]
         for grupo in grupos:
@@ -4308,8 +4665,8 @@ def simular_actividad(
 
         # ---------------- ELIMINAR ----------------
         # Solo se borra lo que nadie referencia: el resto se da de baja. Un
-        # insumo general y un vencimiento no los referencia nadie.
-        for objeto in chain(muestra(insumos), muestra(vencimientos)):
+        # vencimiento no lo referencia nadie (los ingredientes están en recetas).
+        for objeto in muestra(vencimientos):
             db.delete(objeto)
             como_admin_commit("eliminados")
 
@@ -4317,7 +4674,7 @@ def simular_actividad(
         for lote in muestra(lotes, max(1, len(lotes) // 6)):
             eliminar(lote)
 
-        # Proveedores que no tienen ningún lote (ni de químicos ni de insumos).
+        # Proveedores que no tienen ningún lote (ni de químicos ni de ingredientes).
         con_lotes = set(db.scalars(select(LoteStock.proveedor_id)).all()) | set(
             db.scalars(select(LoteInsumo.proveedor_id)).all()
         )
@@ -4355,7 +4712,7 @@ def simular_actividad(
 
         # Unidades sin uso. El catálogo tiene que seguir por encima de las 10
         # filas de una página (ver `UNIDADES`), así que solo se borra el excedente.
-        usadas = set(db.scalars(select(Insumo.unidad_medida_id)).all()) | set(
+        usadas = set(db.scalars(select(Ingrediente.unidad_medida_id)).all()) | set(
             db.scalars(select(InsumoQuimico.unidad_medida_id)).all()
         )
         sin_uso = [u for u in unidades.values() if u.id not in usadas]
@@ -4367,6 +4724,163 @@ def simular_actividad(
         db.info.pop("usuario_id", None)
 
     return cuenta
+
+
+def vistos_de_la_sede(db) -> dict:
+    """Valores ya usados en la sede activa, para no chocar con los UNIQUE por sede.
+
+    Las consultas salen filtradas por la sede fijada en la sesión: dos sedes
+    pueden repetir nombres de equipos, productos, lotes, etc.
+    """
+    return {
+        "incidente": set(db.scalars(select(Incidente.titulo)).all()),
+        "equipo": set(db.scalars(select(Equipo.nombre)).all()),
+        "aptitud": set(db.scalars(select(Aptitud.nombre)).all()),
+        "plan": set(db.scalars(select(PlanLimpieza.nombre)).all()),
+        "quimico": set(db.scalars(select(InsumoQuimico.nombre)).all()),
+        "elemento": set(db.scalars(select(ElementoLimpieza.nombre)).all()),
+        "ingrediente": set(db.scalars(select(Ingrediente.nombre)).all()),
+        "documento": set(db.scalars(select(Documento.nombre)).all()),
+        "proveedor": set(db.scalars(select(Proveedor.nombre)).all()),
+        "matricula": set(db.scalars(select(Proveedor.matricula)).all()),
+        "lote": set(db.scalars(select(LoteStock.numero_lote)).all()),
+        "sector": set(db.scalars(select(Sector.nombre)).all()),
+        "producto": set(db.scalars(select(Producto.nombre)).all()),
+        "lote_insumo": set(db.scalars(select(LoteInsumo.numero_lote)).all()),
+        "lote_producto": set(db.scalars(select(LoteProducto.numero_lote)).all()),
+        "cliente": set(db.scalars(select(Cliente.nombre)).all()),
+        "cliente_doc": set(db.scalars(select(Cliente.documento)).all()),
+        "transportista": set(db.scalars(select(Transportista.razon_social)).all()),
+        "transportista_cuit": set(db.scalars(select(Transportista.cuit)).all()),
+    }
+
+
+def cargar_establecimiento(
+    db, args, fake: Faker, vistos: dict, hash_password: str, con_super_admin: bool
+) -> dict:
+    """Todo el armado de datos de UNA sede: la que esté fijada en la sesión.
+
+    Las filas nuevas se sellan solas con esa sede y las consultas solo ven sus
+    datos (ver `src.establecimientos.contexto`), así que el mismo armado sirve
+    para cada establecimiento.
+    """
+    unidades = crear_unidades(db, vistos)
+    crear_configuracion_alertas(db)
+    personal = crear_personal(
+        db, args.cantidad, fake, vistos, hash_password, con_super_admin=con_super_admin
+    )
+    proveedores = crear_proveedores(db, args.cantidad, fake, vistos)
+    equipos = crear_equipos(db, args.cantidad, vistos)
+    calibraciones = crear_calibraciones(db, equipos, args.dias_historia)
+    aptitudes = crear_aptitudes(db, args.cantidad, vistos)
+
+    admins = [p for p in personal if p.puede_administrar]
+    operadores = [p for p in personal if not p.puede_administrar and p.puede_operar]
+    # Sin admins no se puede crear nada: el plan necesita un autor.
+    if not admins:
+        admins = personal[:1]
+    if not operadores:
+        operadores = admins
+
+    vencimientos = crear_vencimientos(db, personal, aptitudes)
+    quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
+    elementos = crear_elementos(db, args.cantidad, vistos)
+    planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
+    registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
+    # Después de los checklists: el saldo descuenta lo que ellos consumieron.
+    stocks, lotes, movimientos_stock = crear_stock_y_movimientos(
+        db, quimicos, proveedores, admins, args.dias_checklist, vistos
+    )
+    historial_registros = crear_historial_registro_tarea(db)
+    # Cinco veces la cantidad: con menos, la evolución mensual por tipo
+    # queda en ceros y unos.
+    incidentes = crear_incidentes(
+        db, args.cantidad * 5, equipos, personal, admins, operadores, vistos,
+        args.dias_historia,
+    )
+    historial_incidentes = crear_historial_incidente(db, admins)
+    documentos = crear_documentos(db, args.cantidad, admins, vistos)
+    cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
+    clientes = crear_clientes(db, args.cantidad, fake, vistos)
+    transporte = crear_transportistas(db, args.cantidad, fake, vistos, admins)
+
+    # Trazabilidad: productos -> recetas versionadas -> lotes de insumo ->
+    # lotes de producción con checklist y consumos.
+    ingredientes = crear_ingredientes(db, unidades, vistos)
+    alergenos_asignados = crear_alergenos_ingredientes(db, ingredientes)
+    productos, versiones = crear_productos_y_recetas(
+        db, args.cantidad, ingredientes, unidades, admins, vistos
+    )
+    nutricion = crear_datos_nutricionales(db, ingredientes, productos, admins)
+    lotes_insumo = crear_lotes_insumo(
+        db, ingredientes, proveedores, admins, vistos, args.dias_historia
+    )
+    produccion = crear_lotes_produccion(
+        db, args.cantidad * 8, productos, versiones, lotes_insumo,
+        proveedores, admins, operadores, vistos, args.dias_historia,
+    )
+    asociaciones = crear_marcas_sin_lotes(db, proveedores, ingredientes)
+    homologaciones = homologar_insumos(db, admins)
+    indicadores_vp = crear_vista_publica(db)
+
+    db.commit()
+
+    # Las altas ya están commiteadas (como "sistema"). Sobre ellas se simula
+    # lo que haría la gente en la app, para que la bitácora tenga historia.
+    actividad: dict = {}
+    if not args.sin_actividad:
+        actividad = simular_actividad(
+            db, fake, vistos, args.password, admins, personal, equipos,
+            aptitudes, quimicos, elementos, list(ingredientes.values()),
+            proveedores=proveedores, stocks=stocks, lotes=lotes,
+            calibraciones=calibraciones, planes=planes,
+            planes_cal=cal_mantenimiento, unidades=unidades,
+        )
+        for clave, n in simular_actividad_trazabilidad(
+            db, admins, productos, lotes_insumo
+        ).items():
+            actividad[clave] += n
+        for clave, n in simular_actividad_comercial(
+            db, fake, admins, clientes,
+            list(db.scalars(select(Transportista).order_by(Transportista.id)).all()),
+        ).items():
+            actividad[clave] += n
+
+    bajas_insumo = crear_bajas_lote_insumo(db, lotes_insumo, admins)
+
+    # Circuito comercial y rotulado: van después de la actividad simulada
+    # (que reclasifica y borra incidentes al azar) porque sus incidentes
+    # automáticos no se pueden editar. Cada service hace su propio commit.
+    db.info.pop("usuario_id", None)
+    comercial = crear_circuito_comercial(db, fake, args.cantidad)
+    rotulado = crear_rotulado(db, args.cantidad, productos)
+    rotulado_frontal = crear_rotulado_frontal(db, args.cantidad)
+
+    db.commit()
+
+    # La caché de notificaciones se recalcula sobre los datos finales, igual
+    # que en la primera lectura de la app.
+    print("⏳ Calculando notificaciones...")
+    asegurar_notificaciones_al_dia(db)
+    notificaciones = db.scalar(select(func.count()).select_from(NotificacionPersistida))
+
+    db.info.pop("usuario_id", None)
+    return {
+        "personal": personal, "equipos": equipos, "aptitudes": aptitudes,
+        "proveedores": proveedores, "vencimientos": vencimientos, "planes": planes,
+        "stocks": stocks, "lotes": lotes, "movimientos_stock": movimientos_stock,
+        "calibraciones": calibraciones, "registros": registros,
+        "historial_registros": historial_registros, "incidentes": incidentes,
+        "historial_incidentes": historial_incidentes, "documentos": documentos,
+        "cal_mantenimiento": cal_mantenimiento, "productos": productos,
+        "versiones": versiones, "ingredientes": ingredientes, "lotes_insumo": lotes_insumo,
+        "produccion": produccion, "bajas_insumo": bajas_insumo, "nutricion": nutricion,
+        "asociaciones": asociaciones, "alergenos_asignados": alergenos_asignados,
+        "homologaciones": homologaciones, "clientes": clientes, "transporte": transporte,
+        "comercial": comercial, "rotulado": rotulado, "rotulado_frontal": rotulado_frontal,
+        "indicadores_vp": indicadores_vp, "notificaciones": notificaciones,
+        "actividad": actividad, "admins": admins,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -4395,7 +4909,7 @@ def parse_args() -> argparse.Namespace:
         default=365,
         help=(
             "Días hacia atrás que abarcan los lotes de producción, los ingresos "
-            "de insumos, los incidentes y las calibraciones."
+            "de ingredientes, los incidentes y las calibraciones."
         ),
     )
     p.add_argument("--locale", default="es_AR", help="Locale de Faker.")
@@ -4406,6 +4920,13 @@ def parse_args() -> argparse.Namespace:
             "Solo altas: no simula modificaciones, bajas, reactivaciones ni "
             "eliminaciones (por defecto la bitácora trae todas las acciones)."
         ),
+    )
+    p.add_argument(
+        "--sedes-extra",
+        type=int,
+        default=len(ESTABLECIMIENTOS_EXTRA),
+        choices=range(0, len(ESTABLECIMIENTOS_EXTRA) + 1),
+        help="Cuántos establecimientos cargar además del principal (cada uno con sus datos y su gerente).",
     )
     p.add_argument(
         "--agregar",
@@ -4455,31 +4976,14 @@ def main(preparar_esquema: bool = True) -> int:
         else:
             print("➕ Modo agregar: se conserva lo que ya estaba cargado.")
 
-        # Valores ya usados, para no violar ningún UNIQUE en modo agregar.
-        vistos = {
+        # Valores únicos en TODA la empresa (DNI y email con los que se inicia
+        # sesión; las unidades de medida son un catálogo global). El resto se
+        # arma por sede (`vistos_de_la_sede`).
+        globales = {
             "dni": valores_existentes(db, Personal.dni),
             "email": valores_existentes(db, Personal.email),
             "telefono": set(),
-            "incidente": set(db.scalars(select(Incidente.titulo)).all()),
-            "equipo": set(db.scalars(select(Equipo.nombre)).all()),
-            "aptitud": set(db.scalars(select(Aptitud.nombre)).all()),
-            "plan": set(db.scalars(select(PlanLimpieza.nombre)).all()),
-            "quimico": set(db.scalars(select(InsumoQuimico.nombre)).all()),
-            "elemento": set(db.scalars(select(ElementoLimpieza.nombre)).all()),
-            "insumo": set(db.scalars(select(Insumo.nombre)).all()),
             "unidad": set(db.scalars(select(UnidadMedida.nombre)).all()),
-            "documento": set(db.scalars(select(Documento.nombre)).all()),
-            "proveedor": set(db.scalars(select(Proveedor.nombre)).all()),
-            "matricula": set(db.scalars(select(Proveedor.matricula)).all()),
-            "lote": set(db.scalars(select(LoteStock.numero_lote)).all()),
-            "sector": set(db.scalars(select(Sector.nombre)).all()),
-            "producto": set(db.scalars(select(Producto.nombre)).all()),
-            "lote_insumo": set(db.scalars(select(LoteInsumo.numero_lote)).all()),
-            "lote_producto": set(db.scalars(select(LoteProducto.numero_lote)).all()),
-            "cliente": set(db.scalars(select(Cliente.nombre)).all()),
-            "cliente_doc": set(db.scalars(select(Cliente.documento)).all()),
-            "transportista": set(db.scalars(select(Transportista.razon_social)).all()),
-            "transportista_cuit": set(db.scalars(select(Transportista.cuit)).all()),
         }
 
         # Un solo hash para todo el personal: bcrypt es lento (~0,3 s por
@@ -4487,104 +4991,56 @@ def main(preparar_esquema: bool = True) -> int:
         print("🔐 Hasheando la contraseña...")
         hash_password = hashear_password(args.password)
 
-        unidades = crear_unidades(db, vistos)
-        crear_configuracion_alertas(db)
-        personal = crear_personal(db, args.cantidad, fake, vistos, hash_password)
-        proveedores = crear_proveedores(db, args.cantidad, fake, vistos)
-        equipos = crear_equipos(db, args.cantidad, vistos)
-        calibraciones = crear_calibraciones(db, equipos, args.dias_historia)
-        aptitudes = crear_aptitudes(db, args.cantidad, vistos)
-
-        admins = [p for p in personal if p.puede_administrar]
-        operadores = [p for p in personal if not p.puede_administrar and p.puede_operar]
-        # Sin admins no se puede crear nada: el plan necesita un autor.
-        if not admins:
-            admins = personal[:1]
-        if not operadores:
-            operadores = admins
-
-        vencimientos = crear_vencimientos(db, personal, aptitudes)
-        quimicos = crear_quimicos(db, args.cantidad, unidades, vistos)
-        elementos = crear_elementos(db, args.cantidad, vistos)
-        insumos = crear_insumos(db, args.cantidad, unidades, vistos)
-        planes = crear_planes_y_tareas(db, args.cantidad, equipos, admins, vistos, operadores)
-        registros = crear_checklists(db, planes, operadores, quimicos, elementos, args.dias_checklist)
-        # Después de los checklists: el saldo descuenta lo que ellos consumieron.
-        stocks, lotes, movimientos_stock = crear_stock_y_movimientos(
-            db, quimicos, proveedores, admins, args.dias_checklist, vistos
-        )
-        historial_registros = crear_historial_registro_tarea(db)
-        # Cinco veces la cantidad: con menos, la evolución mensual por tipo
-        # queda en ceros y unos.
-        incidentes = crear_incidentes(
-            db, args.cantidad * 5, equipos, personal, admins, operadores, vistos,
-            args.dias_historia,
-        )
-        historial_incidentes = crear_historial_incidente(db, admins)
-        documentos = crear_documentos(db, args.cantidad, admins, vistos)
-        cal_mantenimiento = crear_planes_cal_mantenimiento(db, args.cantidad, equipos, admins)
-        clientes = crear_clientes(db, args.cantidad, fake, vistos)
-        transporte = crear_transportistas(db, args.cantidad, fake, vistos, admins)
-
-        # Trazabilidad: productos -> recetas versionadas -> lotes de insumo ->
-        # lotes de producción con checklist y consumos.
-        ingredientes = crear_ingredientes(db, unidades, vistos)
-        productos, versiones = crear_productos_y_recetas(
-            db, args.cantidad, ingredientes, unidades, admins, vistos
-        )
-        nutricion = crear_datos_nutricionales(db, ingredientes, productos, admins)
-        lotes_insumo = crear_lotes_insumo(
-            db, ingredientes, proveedores, admins, vistos, args.dias_historia
-        )
-        produccion = crear_lotes_produccion(
-            db, args.cantidad * 8, productos, versiones, lotes_insumo,
-            proveedores, admins, operadores, vistos, args.dias_historia,
-        )
-        asociaciones = asociar_proveedores_insumos(db, proveedores, insumos)
-        indicadores_vp = crear_vista_publica(db)
-
+        principal = db.get(Establecimiento, ESTABLECIMIENTO_PRINCIPAL_ID)
+        # Datos legales del elaborador: los rótulos los autocompletan de acá.
+        principal.razon_social = principal.razon_social or DATOS_ROTULO["razon_social"]
+        principal.direccion = principal.direccion or DATOS_ROTULO["domicilio"]
+        sedes = [principal]
+        tamano = {principal.id: 1.0}
+        for nombre, direccion, factor, razon_social in ESTABLECIMIENTOS_EXTRA[: args.sedes_extra]:
+            sede = obtener_o_crear_establecimiento(db, nombre, direccion, razon_social)
+            sedes.append(sede)
+            tamano[sede.id] = factor
         db.commit()
 
-        # Las altas ya están commiteadas (como "sistema"). Sobre ellas se simula
-        # lo que haría la gente en la app, para que la bitácora tenga historia.
-        actividad: dict = {}
-        if not args.sin_actividad:
-            actividad = simular_actividad(
-                db, fake, vistos, args.password, admins, personal, equipos,
-                aptitudes, quimicos, elementos, insumos,
-                proveedores=proveedores, stocks=stocks, lotes=lotes,
-                calibraciones=calibraciones, planes=planes,
-                planes_cal=cal_mantenimiento, unidades=unidades,
+        resultados: dict[int, dict] = {}
+        for sede in sedes:
+            print()
+            print(f"🏭 Establecimiento: {sede.nombre}")
+            fijar_establecimiento(db, sede.id)
+            vistos = {**globales, **vistos_de_la_sede(db)}
+            # Misma configuración, con el volumen escalado al tamaño de la sede.
+            args_sede = argparse.Namespace(
+                **{**vars(args), "cantidad": max(3, round(args.cantidad * tamano[sede.id]))}
             )
-            for clave, n in simular_actividad_trazabilidad(
-                db, admins, productos, lotes_insumo
-            ).items():
-                actividad[clave] += n
-            for clave, n in simular_actividad_comercial(
-                db, fake, admins, clientes,
-                list(db.scalars(select(Transportista).order_by(Transportista.id)).all()),
-            ).items():
-                actividad[clave] += n
+            resultados[sede.id] = cargar_establecimiento(
+                db, args_sede, fake, vistos, hash_password,
+                con_super_admin=sede.id == ESTABLECIMIENTO_PRINCIPAL_ID,
+            )
+        fijar_establecimiento(db, None)
 
-        bajas_insumo = crear_bajas_lote_insumo(db, lotes_insumo, admins)
-
-        # Circuito comercial y rotulado: van después de la actividad simulada
-        # (que reclasifica y borra incidentes al azar) porque sus incidentes
-        # automáticos no se pueden editar. Cada service hace su propio commit.
-        db.info.pop("usuario_id", None)
-        comercial = crear_circuito_comercial(db, fake, args.cantidad)
-        rotulado = crear_rotulado(db, args.cantidad, productos)
-        rotulado_frontal = crear_rotulado_frontal(db, args.cantidad)
-
-        # Sesiones de ejemplo, después de la actividad (que puede borrar personas).
+        # Sesiones de ejemplo de todo el personal, después de la actividad
+        # (que puede borrar personas).
         sesiones = crear_sesiones_auth(db, list(db.scalars(select(Personal)).all()))
         db.commit()
 
-        # La caché de notificaciones se recalcula sobre los datos finales, igual
-        # que en la primera lectura de la app.
-        print("⏳ Calculando notificaciones...")
-        asegurar_notificaciones_al_dia(db)
-        notificaciones = db.scalar(select(func.count()).select_from(NotificacionPersistida))
+        # El resumen detallado es el de la sede principal; de las demás, una línea.
+        fijar_establecimiento(db, ESTABLECIMIENTO_PRINCIPAL_ID)
+        r = resultados[ESTABLECIMIENTO_PRINCIPAL_ID]
+        personal, equipos, aptitudes = r["personal"], r["equipos"], r["aptitudes"]
+        proveedores, vencimientos, planes = r["proveedores"], r["vencimientos"], r["planes"]
+        stocks, lotes, movimientos_stock = r["stocks"], r["lotes"], r["movimientos_stock"]
+        calibraciones, registros = r["calibraciones"], r["registros"]
+        historial_registros, incidentes = r["historial_registros"], r["incidentes"]
+        historial_incidentes, documentos = r["historial_incidentes"], r["documentos"]
+        cal_mantenimiento, productos, versiones = r["cal_mantenimiento"], r["productos"], r["versiones"]
+        ingredientes, lotes_insumo, produccion = r["ingredientes"], r["lotes_insumo"], r["produccion"]
+        bajas_insumo, nutricion, asociaciones = r["bajas_insumo"], r["nutricion"], r["asociaciones"]
+        alergenos_asignados, homologaciones = r["alergenos_asignados"], r["homologaciones"]
+        clientes, transporte, comercial = r["clientes"], r["transporte"], r["comercial"]
+        rotulado, rotulado_frontal = r["rotulado"], r["rotulado_frontal"]
+        indicadores_vp, notificaciones = r["indicadores_vp"], r["notificaciones"]
+        actividad, admins = r["actividad"], r["admins"]
 
         # --------------------------------------------------------------
         # Resumen
@@ -4617,14 +5073,16 @@ def main(preparar_esquema: bool = True) -> int:
             f"   Consumos reales: {produccion['consumos']} · Desperdicios: {produccion['desperdicios']}"
         )
         print(
-            f"   Información nutricional: {nutricion['insumos']} materias primas con "
+            f"   Información nutricional: {nutricion['ingredientes']} materias primas con "
             f"{nutricion['valores']} valores ({nutricion['modificados']} corregidos a mano) · "
             f"{nutricion['productos']} productos con porción · "
             f"{nutricion['laboratorio']} valores de laboratorio"
         )
         print(
             f"   Proveedores certificados: {sum(1 for p in proveedores if p.es_certificado)} · "
-            f"Insumos asociados a proveedores: {asociaciones}"
+            f"Insumos asociados a proveedores: {asociaciones} · Alérgenos asignados: {alergenos_asignados}"
+            f"\n   Homologación de insumos: {homologaciones['aprobadas']} aprobados, "
+            f"{homologaciones['observadas']} aprobados con observación, {homologaciones['pendientes']} pendientes"
         )
         print(
             f"   Clientes: {len(clientes)} · Transportistas: {transporte['transportistas']} "
@@ -4676,8 +5134,27 @@ def main(preparar_esquema: bool = True) -> int:
             + " · ".join(f"{accion} {n}" for accion, n in sorted(por_accion.items()))
         )
         print()
+        print("🏭 Establecimientos:")
+        for sede in sedes:
+            datos = resultados[sede.id]
+            print(
+                f"   • {sede.nombre}: {len(datos['personal'])} personas · "
+                f"{len(datos['productos'])} productos · {datos['produccion']['lotes']} lotes · "
+                f"{datos['incidentes']} incidentes · {datos['comercial']['reclamos']} reclamos"
+            )
+        fijar_establecimiento(db, None)
+        print()
         print(f"🔑 Contraseña de todo el personal: {args.password}")
-        print("👤 Usuarios administradores (el login es con DNI):")
+        print("🏢 Super admin (de la empresa, elige la sede en la barra superior):")
+        for p in resultados[ESTABLECIMIENTO_PRINCIPAL_ID]["personal"]:
+            if p.es_super_admin:
+                print(f"   • {p.nombre} {p.apellido} — DNI {p.dni}")
+        print("👔 Gerentes (ven el tablero para comparar sedes):")
+        for sede in sedes:
+            for p in resultados[sede.id]["personal"]:
+                if p.es_gerente:
+                    print(f"   • {p.nombre} {p.apellido} — DNI {p.dni} · {sede.nombre}")
+        print("👤 Otros administradores de la principal (el login es con DNI):")
         for a in admins[:5]:
             print(f"   • {a.nombre} {a.apellido} — DNI {a.dni}")
         if len(admins) > 5:

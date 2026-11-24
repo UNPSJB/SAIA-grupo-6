@@ -6,7 +6,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuStore } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useCliente } from "../../hooks/useCliente";
 import { useClienteABM } from "../../hooks/useClienteABM";
 import type { ClienteFormValues } from "../../types/cliente";
@@ -35,9 +36,11 @@ export function ClienteEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/clientes", etiqueta: "Clientes" }}
+      icono={LuStore}
       titulo="Editar cliente"
+      descripcion="Modificá los datos de identificación y contacto del cliente."
     >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
@@ -62,7 +65,6 @@ export function ClienteEditPage() {
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar cliente"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/clientes")}
           />
@@ -70,6 +72,6 @@ export function ClienteEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Cliente modificado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

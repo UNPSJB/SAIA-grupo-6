@@ -21,6 +21,7 @@ interface PersonalItemProps {
 /** Resumen de capacidades en texto: "Operar | Administrar", "Ninguna", etc. */
 function resumenPermisos(persona: Persona) {
   if (esSuperAdminDe(persona)) return "Super admin";
+  if (persona.es_gerente) return "Gerente";
 
   const partes: string[] = [];
   if (persona.puede_operar) partes.push("Operar");

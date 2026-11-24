@@ -3,7 +3,7 @@ import { useListaPaginada } from "../../../common/hooks/useListaPaginada";
 import { useValorDebounced } from "../../../common/hooks/useValorDebounced";
 import { listarIncidentesPaginados } from "../services/incidenteService";
 import type { OrdenIncidente } from "../services/incidenteService";
-import type { Incidente, EstadoIncidente } from "../types/incidente";
+import type { Incidente, EstadoIncidente, OrigenIncidente } from "../types/incidente";
 
 /**
  * Página actual de incidentes, pedida al backend con todos los filtros
@@ -23,7 +23,9 @@ export function useIncidentes(
   fechaDesde?: string,
   fechaHasta?: string,
   pageSize = 10,
-  orden: OrdenIncidente = "antiguos"
+  orden: OrdenIncidente = "antiguos",
+  reportadoPor: number | null = null,
+  origen: OrigenIncidente | "" = ""
 ) {
   const buscarAplicado = useValorDebounced(buscar);
 
@@ -36,8 +38,10 @@ export function useIncidentes(
         fechaDesde,
         fechaHasta,
         orden,
+        reportadoPor,
+        origen,
       }),
-    [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden]
+    [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden, reportadoPor, origen]
   );
 
   const {
@@ -51,7 +55,7 @@ export function useIncidentes(
     recargar,
   } = useListaPaginada<Incidente>({
     cargar,
-    dependencias: [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden],
+    dependencias: [estado, tipo, buscarAplicado, fechaDesde, fechaHasta, orden, reportadoPor, origen],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los incidentes",
     pageSize,

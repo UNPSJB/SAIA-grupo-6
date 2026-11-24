@@ -9,7 +9,7 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react";
-import { LuPaperclip, LuX } from "react-icons/lu";
+import { LuPaperclip, LuSend, LuX } from "react-icons/lu";
 import type { IncidenteFormValues, TipoIncidente } from "../types/incidente";
 import {
   TIPOS_INCIDENTE_MANUALES,
@@ -19,21 +19,22 @@ import {
 import { listarEquipos } from "../../equipo/services/equipoService";
 import type { Equipo } from "../../equipo/types/equipo";
 import {
-  AccionesFormulario,
-  BotonGuardar,
   FormField,
   FormInput,
   FormNativeSelect,
   MensajeError,
-  TarjetaFormulario,
-  TituloFormulario,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface IncidenteFormProps {
   onSubmit: (values: IncidenteFormValues, foto?: File) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
 }
 
 const emptyValues: IncidenteFormValues = {
@@ -53,7 +54,6 @@ export function IncidenteForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Registrar incidente",
 
 }: IncidenteFormProps) {
   const [values, setValues] = useState<IncidenteFormValues>(emptyValues);
@@ -63,15 +63,6 @@ export function IncidenteForm({
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
-
-  /*
-   * Ancho del campo. Es layout, no estilo, así que queda como prop.
-   *
-   * La tarjeta sí ocupa toda la página, pero los campos no: un input de 1300px
-   * de largo es discomfortable de recorrer con la vista. Este es el mismo tope
-   * que usan los formularios de alta del resto de las features.
-   */
-  const anchoCampo = "500px";
 
   useEffect(() => {
     const cargarEquipos = async () => {
@@ -173,136 +164,124 @@ export function IncidenteForm({
   };
 
   return (
-    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-      <TituloFormulario>{title}</TituloFormulario>
-
-      <FormField label="Título" required>
-        <FormInput
-          type="text"
-          value={values.titulo}
-          onChange={handleTituloChange}
-          placeholder="Ej: Termostato de heladera roto"
-          maxLength={60}
-          maxW={anchoCampo}
-        />
-      </FormField>
-
-      <FormField label="Tipo de incidente" required>
-        <FormNativeSelect
-          value={values.tipo}
-          onChange={handleTipoChange}
-          maxW={anchoCampo}
-        >
-          {TIPOS_INCIDENTE_MANUALES.map((tipo) => (
-            <option key={tipo.value} value={tipo.value}>
-              {tipo.label}
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
-
-      {admiteEquipo(values.tipo) && (
-        <FormField
-          label={equipoObligatorio ? "Equipo" : "Equipo (opcional)"}
-          required={equipoObligatorio}
-          helper={errorEquipos ?? undefined}
-          invalid={Boolean(errorEquipos)}
-        >
-          <FormNativeSelect
-            value={values.equipo_id ?? ""}
-            onChange={handleEquipoChange}
-            disabled={cargandoEquipos}
-            invalid={Boolean(errorEquipos)}
-            maxW={anchoCampo}
-          >
-            <option value="">
-              {cargandoEquipos
-                ? "Cargando..."
-                : equipoObligatorio
-                  ? "Seleccionar equipo"
-                  : "Seleccionar equipo (opcional)"}
-            </option>
-            {equipos.map((equipo) => (
-              <option key={equipo.id} value={equipo.id}>
-                {equipo.nombre}
-              </option>
-            ))}
-          </FormNativeSelect>
-        </FormField>
-      )}
-
-      <FormField label="Descripción" required>
-        <Textarea
-          value={values.descripcion}
-          onChange={handleDescripcionChange}
-          placeholder="Ej: Describa lo ocurrido"
-          rows={4}
-          maxW={anchoCampo}
-          resize="vertical"
-        />
-      </FormField>
-
-      <FormField label="Foto (opcional)" invalid={Boolean(errorFoto)} mb="6">
-        <Input
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          display="none"
-          id="foto-incidente"
-          onChange={handleFotoChange}
-        />
-        <HStack gap="3">
-          <Button
-            type="button"
-            onClick={() => document.getElementById("foto-incidente")?.click()}
-            variant="outline"
-            colorPalette="neutral"
-            size="sm"
-          >
-            <LuPaperclip aria-hidden />
-            Adjuntar foto
-          </Button>
-          {foto && (
-            <Text fontSize="sm" color="brand.fg" fontWeight="medium">
-              {foto.name}
-            </Text>
-          )}
-        </HStack>
-
-        {errorFoto && <MensajeError>{errorFoto}</MensajeError>}
-
-        {/* Preview de la foto */}
-        {fotoPreview && (
-          <Box mt="4" position="relative" display="inline-block">
-            <Image
-              src={fotoPreview}
-              alt="Vista previa de la foto adjunta"
-              maxW="200px"
-              maxH="200px"
-              rounded="lg"
-              borderWidth="2px"
-              borderColor="brand.300"
-              display="block"
+    <FormularioAlta onSubmit={handleSubmit}>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField label="Título" required completo helper="Hasta 60 caracteres.">
+            <FormInput
+              type="text"
+              value={values.titulo}
+              onChange={handleTituloChange}
+              placeholder="Ej: Termostato de heladera roto"
+              maxLength={60}
             />
-            <IconButton
-              type="button"
-              onClick={handleRemoverFoto}
-              aria-label="Quitar foto adjunta"
-              position="absolute"
-              top="-2"
-              right="-2"
-              size="xs"
-              rounded="full"
-              colorPalette="red"
-            >
-              <LuX />
-            </IconButton>
-          </Box>
-        )}
-      </FormField>
+          </FormField>
 
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
-      </AccionesFormulario>
-    </TarjetaFormulario>
+          <FormField label="Tipo de incidente" required completo={!admiteEquipo(values.tipo)}>
+            <FormNativeSelect value={values.tipo} onChange={handleTipoChange}>
+              {TIPOS_INCIDENTE_MANUALES.map((tipo) => (
+                <option key={tipo.value} value={tipo.value}>
+                  {tipo.label}
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
+
+          {admiteEquipo(values.tipo) && (
+            <FormField
+              label="Equipo"
+              required={equipoObligatorio}
+              opcional={!equipoObligatorio}
+              error={errorEquipos ?? undefined}
+            >
+              <FormNativeSelect
+                value={values.equipo_id ?? ""}
+                onChange={handleEquipoChange}
+                disabled={cargandoEquipos}
+                invalid={Boolean(errorEquipos)}
+              >
+                <option value="">
+                  {cargandoEquipos ? "Cargando..." : "Seleccionar equipo"}
+                </option>
+                {equipos.map((equipo) => (
+                  <option key={equipo.id} value={equipo.id}>
+                    {equipo.nombre}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
+          )}
+
+          <FormField label="Descripción" required completo>
+            <Textarea
+              value={values.descripcion}
+              onChange={handleDescripcionChange}
+              placeholder="Ej: Describa lo ocurrido"
+              rows={4}
+              resize="vertical"
+            />
+          </FormField>
+
+          <FormField label="Foto" opcional completo invalid={Boolean(errorFoto)}>
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              display="none"
+              id="foto-incidente"
+              onChange={handleFotoChange}
+            />
+            <HStack gap="3">
+              <Button
+                type="button"
+                onClick={() => document.getElementById("foto-incidente")?.click()}
+                variant="outline"
+                colorPalette="neutral"
+                size="sm"
+              >
+                <LuPaperclip aria-hidden />
+                Adjuntar foto
+              </Button>
+              {foto && (
+                <Text fontSize="sm" color="brand.fg" fontWeight="medium">
+                  {foto.name}
+                </Text>
+              )}
+            </HStack>
+
+            {errorFoto && <MensajeError>{errorFoto}</MensajeError>}
+
+            {/* Preview de la foto */}
+            {fotoPreview && (
+              <Box mt="4" position="relative" display="inline-block">
+                <Image
+                  src={fotoPreview}
+                  alt="Vista previa de la foto adjunta"
+                  maxW="200px"
+                  maxH="200px"
+                  rounded="lg"
+                  borderWidth="1px"
+                  borderColor="border"
+                  display="block"
+                />
+                <IconButton
+                  type="button"
+                  onClick={handleRemoverFoto}
+                  aria-label="Quitar foto adjunta"
+                  position="absolute"
+                  top="-2"
+                  right="-2"
+                  size="xs"
+                  rounded="full"
+                  colorPalette="red"
+                >
+                  <LuX />
+                </IconButton>
+              </Box>
+            )}
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta etiqueta={submitLabel} icono={LuSend} guardando={isLoading} />
+    </FormularioAlta>
   );
 }

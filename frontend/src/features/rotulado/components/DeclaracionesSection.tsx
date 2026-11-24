@@ -1,5 +1,5 @@
-import { useContext, useEffect, useState } from "react";
-import { Badge, Box, Button, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
+import { useContext, useEffect, useState, type ReactNode } from "react";
+import { Alert, Badge, Box, Button, HStack, SimpleGrid, Stack, Text, Textarea, chakra } from "@chakra-ui/react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../../../common/context/auth-context";
 import { puedeAdministrar } from "../../../common/api/permissions";
@@ -11,12 +11,26 @@ import { catalogoAlergenos, confirmarDeclaraciones, consultarDeclaraciones, guar
 import { ConservacionFields } from "./ConservacionFields";
 import { CampoOrigen } from "./CampoOrigen";
 import { IndicadorCompletitud } from "./IndicadorCompletitud";
-import type { ResumenDeclaracion } from "./ListaIngredientesRotulo";
+import type { ResumenDeclaracion } from "../utils/textoRotulo";
 
-export function DeclaracionesSection({ borradorId, productoId, preview, formularioSucio, onEstado, onDirtyChange, onOrigenChange, onDeclaracion }: {
+/** Estado de la conservación para el menú del editor. */
+export type EstadoConservacion = "sin_guardar" | "cargada" | "vacia";
+
+/**
+ * Alérgenos, gluten y conservación del borrador (una sola revisión de
+ * declaraciones en el backend: se guardan y confirman juntas).
+ *
+ * `vista` separa lo que se muestra: el editor pone "alergenos" y
+ * "conservacion" en secciones distintas, pero es UN solo componente montado
+ * (el estado no se pierde al cambiar de sección). Sin `vista` se muestra todo
+ * en una tarjeta, como antes.
+ */
+export function DeclaracionesSection({ borradorId, productoId, preview, formularioSucio, vista, onEstado, onDirtyChange, onOrigenChange, onDeclaracion, onConservacion }: {
   borradorId: number; productoId: number; preview?: PropuestaDeclaraciones | null;
-  formularioSucio: boolean; onEstado?: (pendiente: boolean) => void; onDirtyChange?: (sucio: boolean) => void;
+  formularioSucio: boolean; vista?: "alergenos" | "conservacion";
+  onEstado?: (pendiente: boolean) => void; onDirtyChange?: (sucio: boolean) => void;
   onOrigenChange?: () => void; onDeclaracion?: (resumen: ResumenDeclaracion | null) => void;
+  onConservacion?: (estado: EstadoConservacion) => void;
 }) {
   const auth = useContext(AuthContext);
   const autorizado = puedeAdministrar(auth?.user);
@@ -56,11 +70,13 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
 
   useEffect(() => { onDirtyChange?.(sucio); }, [sucio, onDirtyChange]);
 
+  useEffect(() => {
+    onConservacion?.(sucio ? "sin_guardar" : conservacion?.instrucciones?.trim() ? "cargada" : "vacia");
+  }, [sucio, conservacion, onConservacion]);
 
-
- useEffect(() => {
+  useEffect(() => {
     onDeclaracion?.(
-   datos
+      datos
         ? { revision: datos.revision, texto: datos.declaracion ?? "", estado: datos.estado === "confirmada" ? "confirmada" : "sugerida", vigencia: datos.vigencia === "desactualizada" ? "desactualizada" : "vigente" }
         : null,
     );
@@ -83,98 +99,202 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
   const contenido = datos?.contenido ?? preview;
   const pendientes = datos?.pendientes ?? contenido?.pendientes_origen ?? ["Generá una propuesta."];
   const bloqueado = ocupado || sucio || formularioSucio || !autorizado;
+  const confirmadaVigente = datos?.estado === "confirmada" && datos.vigencia === "vigente" && !sucio;
+  const verAlergenos = vista !== "conservacion";
+  const verConservacion = vista !== "alergenos";
+  const versionOrigen = versiones.find(v => v.id === contenido?.version_receta_id)?.numero;
+
+  const insignias = <HStack gap="2" flexWrap="wrap">
+    <Badge colorPalette={confirmadaVigente ? "green" : "orange"} rounded="full">
+      {sucio ? "Cambios manuales sin guardar" : datos?.estado === "confirmada" ? "Confirmada" : "Sugerida por el sistema"}
+    </Badge>
+    {datos?.vigencia === "desactualizada" && <Badge colorPalette="red" rounded="full">Pendiente de revisión: origen desactualizado</Badge>}
+    {datos && <Badge variant="outline" rounded="full">Revisión {datos.revision}</Badge>}
+  </HStack>;
+
+  // Guardar / confirmar valen para toda la revisión (alérgenos y conservación).
+  const barraAcciones = borradorId > 0 && datos && <Stack gap="3" pt="4" borderTopWidth="1px" borderColor="border.subtle">
+    {(sucio || formularioSucio) && <Text fontSize="sm" color="orange.fg">Guardá los cambios pendientes antes de regenerar o confirmar. Guardar no confirma.</Text>}
+    <HStack flexWrap="wrap" gap="2" justify="flex-end">
+      {sucio && <Button type="button" variant="ghost" size="sm" disabled={ocupado} onClick={() => { setSucio(false); setIntento(n => n + 1); }}>Descartar cambios de declaraciones</Button>}
+      <Button type="button" variant="outline" size="sm" loading={ocupado} disabled={!sucio || !autorizado || datos.vigencia !== "vigente"}
+        onClick={() => operar(() => guardarDeclaraciones(borradorId, { revision: datos.revision, conservacion, contaminacion_cruzada: cruzadas, evaluaciones }))}>Guardar declaraciones</Button>
+      <Button type="button" colorPalette="brand" size="sm" disabled={bloqueado || pendientes.length > 0 || datos.estado === "confirmada"}
+        onClick={() => operar(() => confirmarDeclaraciones(borradorId, datos.revision))}>Confirmar declaraciones</Button>
+    </HStack>
+  </Stack>;
+
+  const cuerpo = <>
+    {error && <Text role="alert" color="red.fg">{error}</Text>}
+    {!borradorId && <Text fontSize="sm" color="fg.muted">Guardá el borrador para editar estas declaraciones y confirmarlas.</Text>}
+
+    {verAlergenos && <>
+      {/* Cabecera: estado de la revisión y acciones de consulta. */}
+      <HStack justify="space-between" align="start" gap="3" flexWrap="wrap">
+        <Stack gap="2">
+          {insignias}
+          <HStack gap="2" flexWrap="wrap">
+            <CampoOrigen origen="receta" version={versionOrigen} />
+            <Text fontSize="xs" color="fg.muted">Versión de receta de origen: {versionOrigen != null ? `v${versionOrigen}` : contenido?.version_receta_id ?? "sin versión"}</Text>
+          </HStack>
+        </Stack>
+        {borradorId > 0 && <HStack gap="2" flexWrap="wrap">
+          <Button type="button" size="sm" variant="outline" disabled={ocupado || sucio || formularioSucio}
+            onClick={() => setIntento(n => n + 1)}>Recargar declaraciones</Button>
+          {datos && <Button type="button" size="sm" variant="outline" disabled={ocupado} onClick={async () => {
+            try { setHistorial(await historialDeclaraciones(borradorId)); }
+            catch (e) { setError(e instanceof Error ? e.message : "Error al consultar historial"); }
+          }}>Ver historial de declaraciones</Button>}
+        </HStack>}
+      </HStack>
+
+      {historial.length > 0 && <Stack gap="2">{historial.map(h => <Box key={h.revision} as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
+        <Box as="summary" cursor="pointer" fontSize="sm">Revisión {h.revision}: {h.estado} — {h.vigencia}</Box>
+        <Text fontSize="sm">{h.declaracion || "Sin sustancias declaradas"}</Text><Text fontSize="sm">{h.declaracion_cruzada}</Text>
+        <Text fontSize="sm">Conservación: {h.contenido?.conservacion?.instrucciones ?? "sin informar"}</Text>
+        <Text fontSize="sm">{h.confirmado_por_nombre} {h.confirmado_en}</Text>
+      </Box>)}</Stack>}
+
+      {/* Propuesta destacada + gluten. */}
+      <Box borderWidth="1px" borderColor="brand.muted" bg="brand.subtle" rounded="lg" p="4">
+        {datos?.declaracion
+          ? <Text fontWeight="bold" fontSize="md">Propuesta: {datos.declaracion}</Text>
+          : <Text fontSize="sm" color="fg.muted">Sin propuesta de declaración todavía.</Text>}
+        <Text fontSize="sm" mt="2">
+          <Text as="span" fontWeight="semibold">Gluten: </Text>
+          {contenido?.gluten === "presente" ? "presencia declarada" : contenido?.gluten === "sin_presencia_declarada" ? "sin presencia declarada en los ingredientes evaluados" : "información insuficiente"}.
+        </Text>
+        <Text fontSize="xs" color="fg.muted" mt="1">Esta evaluación no certifica ni habilita declaraciones de producto libre de gluten.</Text>
+      </Box>
+
+      {/* Desglose: presentes y "puede contener". */}
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+        <Bloque titulo="Presentes" cantidad={contenido?.detectados.length}>
+          {!contenido && <Text fontSize="sm" color="fg.muted">Generá o recargá la propuesta para ver los alérgenos detectados.</Text>}
+          {contenido && !contenido.detectados.length && <Text fontSize="sm" color="fg.muted">Sin sustancias registradas en los ingredientes evaluados. Revisá los pendientes antes de confirmar.</Text>}
+          {contenido?.detectados.map(d => <Box key={d.codigo} borderWidth="1px" borderColor="border.subtle" rounded="md" px="3" py="2" bg="bg.panel">
+            <Text fontWeight="semibold" fontSize="sm">{d.nombre}</Text>
+            {d.fuentes.map((f, i) => <Text key={`${f.ingrediente_id}-${i}`} fontSize="xs" color="fg.muted">{f.nombre}: {f.forma}</Text>)}
+          </Box>)}
+        </Bloque>
+        <Bloque titulo="Puede contener" cantidad={contenido?.puede_contener?.length ?? 0}>
+          {!contenido?.puede_contener?.length && <Text fontSize="sm" color="fg.muted">Ningún ingrediente declara trazas.</Text>}
+          {contenido?.puede_contener?.map(p => <Box key={p.codigo} borderWidth="1px" borderColor="border.subtle" rounded="md" px="3" py="2" bg="bg.panel">
+            <Text fontWeight="semibold" fontSize="sm">{p.nombre}</Text>
+            <Text fontSize="xs" color="fg.muted">{p.fuentes.map(f => f.nombre).join(", ")}</Text>
+          </Box>)}
+          {!!contenido?.puede_contener?.length && <Text fontSize="xs" color="fg.muted">Declarado en los ingredientes.</Text>}
+        </Bloque>
+      </SimpleGrid>
+
+      {/* Revisión por ingrediente: colapsada para no ocupar media pantalla. */}
+      {!!contenido?.fuentes.length && <chakra.details borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
+        <Box as="summary" cursor="pointer" fontSize="sm" fontWeight="medium">Revisar alérgenos por ingrediente ({contenido.fuentes.length})</Box>
+        <SimpleGrid columns={{ base: 1, sm: 2, xl: 3 }} gap="2" mt="3">
+          {contenido.fuentes.map(f => <Text key={f.ingrediente_id} fontSize="sm">
+            <Link to={`/ingredientes/${f.ingrediente_id}/editar`}>Revisar alérgenos de {f.nombre}</Link>
+          </Text>)}
+        </SimpleGrid>
+      </chakra.details>}
+
+      <IndicadorCompletitud compacto titulo="Estado de declaraciones" completitud={{ estado_global: pendientes.length ? "pendiente" : "completo",
+        campos: [...pendientes.map((motivo, i) => ({ nombre: `declaracion-${i}`, etiqueta: motivo, estado: "pendiente" })),
+          { nombre: "confirmacion", etiqueta: "Confirmación administrativa vigente", estado: confirmadaVigente ? "completo" : "pendiente" }] }} />
+      {datos?.confirmado_en && <Text fontSize="sm" color="fg.muted">Confirmó {datos.confirmado_por_nombre} el {new Date(datos.confirmado_en).toLocaleString()}. La confirmación corresponde a esta revisión.</Text>}
+
+      {borradorId > 0 && datos && <>
+        {/* Contaminación cruzada (manual). */}
+        <Stack gap="3" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4">
+          <HStack justify="space-between" gap="2" flexWrap="wrap">
+            <HStack gap="2"><Text fontWeight="semibold">Posible contaminación cruzada</Text><CampoOrigen origen="manual" /></HStack>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setCruzadas([...cruzadas, { codigo: "", fundamento: "", respaldo: "" }]); setSucio(true); }}>Agregar contaminación cruzada</Button>
+          </HStack>
+          <Text fontSize="xs" color="fg.muted">Se registra por evaluación del proceso. La confirmación interna no sustituye la autorización sanitaria para utilizar “PUEDE CONTENER”.</Text>
+          {cruzadas.map((c, i) => <Stack key={i} gap="2" borderWidth="1px" borderColor="border.subtle" rounded="md" p="3">
+            <FormNativeSelect aria-label={`Alérgeno cruzado ${i + 1}`} value={c.codigo} onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, codigo: e.target.value } : v)); setSucio(true); }}>
+              <option value="">Seleccioná una sustancia</option>{catalogo.map(s => <option key={s.codigo} value={s.codigo}>{s.nombre}</option>)}
+            </FormNativeSelect>
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap="2">
+              <Textarea aria-label={`Fundamento cruzado ${i + 1}`} placeholder="Fundamento de la evaluación" value={c.fundamento}
+                onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, fundamento: e.target.value } : v)); setSucio(true); }} />
+              <Textarea aria-label={`Respaldo cruzado ${i + 1}`} placeholder="Referencia de autorización sanitaria" value={c.respaldo ?? ""}
+                onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, respaldo: e.target.value } : v)); setSucio(true); }} />
+            </SimpleGrid>
+            <Button type="button" size="xs" variant="ghost" colorPalette="red" alignSelf="flex-end" onClick={() => { setCruzadas(cruzadas.filter((_, j) => j !== i)); setSucio(true); }}>Eliminar declaración cruzada</Button>
+          </Stack>)}
+        </Stack>
+
+        {/* Regenerar con otra versión: selector y botón en la misma fila. */}
+        <Stack gap="1">
+          <HStack align="end" gap="2" flexWrap="wrap">
+            <Box flex="1 1 240px" maxW="360px">
+              <FormField label="Versión para regenerar" mb="0"><FormNativeSelect aria-label="Versión para regenerar" value={versionId ?? ""} disabled={bloqueado}
+                onChange={e => setVersionId(Number(e.target.value) || undefined)}>
+                <option value="">Versión actual del borrador</option>
+                {versiones.map(v => <option key={v.id} value={v.id}>Versión {v.numero}</option>)}
+              </FormNativeSelect></FormField>
+            </Box>
+            <Button type="button" variant="outline" disabled={bloqueado} onClick={() => operar(() => regenerarDeclaraciones(borradorId, datos.revision, versionId))}>Regenerar propuesta</Button>
+          </HStack>
+          <Text fontSize="xs" color="fg.muted">Una versión posterior no modifica este rótulo hasta que la selecciones y regeneres. La versión debe coincidir con el lote.</Text>
+        </Stack>
+
+        <Box as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3"><Box as="summary" cursor="pointer" fontSize="sm" fontWeight="medium">Evaluaciones normativas documentadas</Box>
+          <Text fontSize="sm" mt="2">Para sulfitos, evaluá el umbral en el producto final. Una excepción requiere fundamento y respaldo; no se deduce del nombre o INS.</Text>
+          {contenido?.detectados.map(d => {
+            const evaluacion = evaluaciones.find(e => e.codigo === d.codigo);
+            return <Stack key={d.codigo} p="3" gap="2">
+              <Text>{d.nombre}</Text>
+              <FormNativeSelect aria-label={`Evaluación de ${d.nombre}`} value={!evaluacion ? "" : evaluacion.declarar ? "si" : "no"}
+                onChange={e => { setEvaluaciones([...evaluaciones.filter(v => v.codigo !== d.codigo), ...(e.target.value ? [{ codigo: d.codigo, declarar: e.target.value === "si", fundamento: "", respaldo: "" }] : [])]); setSucio(true); }}>
+                <option value="">Sin evaluación adicional</option><option value="si">Corresponde declarar</option><option value="no">Excepción documentada: no declarar</option>
+              </FormNativeSelect>
+              {evaluacion && <><Textarea aria-label={`Fundamento de ${d.nombre}`} placeholder="Fundamento normativo" value={evaluacion.fundamento}
+                onChange={e => { setEvaluaciones(evaluaciones.map(v => v.codigo === d.codigo ? { ...v, fundamento: e.target.value } : v)); setSucio(true); }} />
+                <Textarea aria-label={`Respaldo de ${d.nombre}`} placeholder="Referencia documental" value={evaluacion.respaldo}
+                  onChange={e => { setEvaluaciones(evaluaciones.map(v => v.codigo === d.codigo ? { ...v, respaldo: e.target.value } : v)); setSucio(true); }} /></>}
+            </Stack>;
+          })}
+        </Box>
+      </>}
+    </>}
+
+    {verConservacion && borradorId > 0 && datos && <Stack gap="4" pt={vista ? "0" : "4"} borderTopWidth={vista ? "0" : "1px"} borderColor="border.subtle">
+      <HStack justify="space-between" align="start" gap="3" flexWrap="wrap">
+        <Stack gap="2">
+          {!vista && <Text fontWeight="semibold">Condiciones de conservación</Text>}
+          <CampoOrigen origen={sucio ? "manual" : contenido?.conservacion_origen ?? "producto"} />
+        </Stack>
+        <HStack gap="2" flexWrap="wrap">
+          <Button type="button" size="sm" variant="outline" disabled={bloqueado} onClick={() => operar(() => regenerarDeclaraciones(borradorId, datos.revision, versionId, true))}>Reemplazar conservación con datos del producto</Button>
+          {conservacion && <Button type="button" size="sm" variant="outline" onClick={() => { setConservacion(null); setSucio(true); }}>Quitar condiciones de conservación</Button>}
+        </HStack>
+      </HStack>
+      <ConservacionFields sinQuitar value={conservacion} onChange={v => { setConservacion(v); setSucio(true); }} />
+    </Stack>}
+    {verConservacion && vista === "conservacion" && !(borradorId > 0 && datos) && borradorId > 0 && <Text fontSize="sm" color="fg.muted">Cargando declaraciones...</Text>}
+
+    {barraAcciones}
+  </>;
+
+  if (vista) return <Stack data-declaraciones="true" gap="4" minW="0">{cuerpo}</Stack>;
   return <Stack as="section" data-declaraciones="true" gap="4" mb="6" p={{ base: "4", md: "6" }} borderWidth="1px" rounded="xl" bg="bg.panel">
     <Text as="h2" fontSize="lg" fontWeight="semibold" color="brand.fg">Alérgenos, gluten y conservación</Text>
-    <HStack flexWrap="wrap">
-      <Badge colorPalette={datos?.estado === "confirmada" && datos.vigencia === "vigente" && !sucio ? "green" : "orange"}>
-        {sucio ? "Cambios manuales sin guardar" : datos?.estado === "confirmada" ? "Confirmada" : "Sugerida por el sistema"}
-      </Badge>
-      {datos?.vigencia === "desactualizada" && <Badge colorPalette="red">Pendiente de revisión: origen desactualizado</Badge>}
-      {datos && <Text>Revisión {datos.revision}</Text>}
-    </HStack>
-    {error && <Text role="alert" color="red.fg">{error}</Text>}
-    {borradorId > 0 && <Button type="button" size="sm" alignSelf="start" disabled={ocupado || sucio || formularioSucio}
-      onClick={() => setIntento(n => n + 1)}>Recargar declaraciones</Button>}
-    <CampoOrigen origen="receta" version={versiones.find(v => v.id === contenido?.version_receta_id)?.numero} />
-    <Text>Versión de receta de origen: {contenido?.version_receta_id ?? "sin versión"}</Text>
-    {contenido?.detectados.map(d => <Box key={d.codigo}>
-      <Text fontWeight="medium">{d.nombre}</Text>
-      {d.fuentes.map((f, i) => <Text key={`${f.insumo_id}-${i}`} fontSize="sm">{f.nombre}: {f.forma}</Text>)}
-    </Box>)}
-    {contenido && !contenido.detectados.length && <Text>Sin sustancias registradas en los insumos evaluados. Revisá los pendientes antes de confirmar.</Text>}
-    <Text>Gluten: {contenido?.gluten === "presente" ? "presencia declarada" : contenido?.gluten === "sin_presencia_declarada" ? "sin presencia declarada en los insumos evaluados" : "información insuficiente"}.</Text>
-    <Text fontSize="sm" color="fg.muted">Esta evaluación no certifica ni habilita declaraciones de producto libre de gluten.</Text>
-    {datos?.declaracion && <Text fontWeight="bold">Propuesta: {datos.declaracion}</Text>}
-    {contenido?.fuentes.map(f => <Text key={f.insumo_id} fontSize="sm"><Link to={`/insumos/${f.insumo_id}/editar`}>Revisar {f.nombre}</Link></Text>)}
-    <IndicadorCompletitud completitud={{ estado_global: pendientes.length ? "pendiente" : "completo",
-      campos: [...pendientes.map((motivo, i) => ({ nombre: `declaracion-${i}`, etiqueta: motivo, estado: "pendiente" })),
-        { nombre: "confirmacion", etiqueta: "Confirmación administrativa vigente", estado: datos?.estado === "confirmada" && datos.vigencia === "vigente" && !sucio ? "completo" : "pendiente" }] }} />
-    {datos?.confirmado_en && <Text fontSize="sm">Confirmó {datos.confirmado_por_nombre} el {new Date(datos.confirmado_en).toLocaleString()}. La confirmación corresponde a esta revisión.</Text>}
-    {!borradorId && <Text>Guardá el borrador para editar estas declaraciones y confirmarlas.</Text>}
-    {borradorId > 0 && datos && <>
-      <FormField label="Versión para regenerar"><FormNativeSelect aria-label="Versión para regenerar" value={versionId ?? ""} disabled={bloqueado}
-        onChange={e => setVersionId(Number(e.target.value) || undefined)}>
-        <option value="">Versión actual del borrador</option>
-        {versiones.map(v => <option key={v.id} value={v.id}>Versión {v.numero}</option>)}
-      </FormNativeSelect></FormField>
-      <Text fontSize="sm">Una versión posterior no modifica este rótulo hasta que la selecciones y regeneres. La versión debe coincidir con el lote.</Text>
-      <Button type="button" disabled={bloqueado} onClick={() => operar(() => regenerarDeclaraciones(borradorId, datos.revision, versionId))}>Regenerar propuesta</Button>
-      <Box borderTopWidth="1px" pt="4">
-        <Text fontWeight="semibold">Posible contaminación cruzada</Text><CampoOrigen origen="manual" />
-        <Text fontSize="sm">Se registra por evaluación del proceso. La confirmación interna no sustituye la autorización sanitaria para utilizar “PUEDE CONTENER”.</Text>
-        {cruzadas.map((c, i) => <Stack key={i} mt="3" borderWidth="1px" p="3">
-          <FormNativeSelect aria-label={`Alérgeno cruzado ${i + 1}`} value={c.codigo} onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, codigo: e.target.value } : v)); setSucio(true); }}>
-            <option value="">Seleccioná una sustancia</option>{catalogo.map(s => <option key={s.codigo} value={s.codigo}>{s.nombre}</option>)}
-          </FormNativeSelect>
-          <Textarea aria-label={`Fundamento cruzado ${i + 1}`} placeholder="Fundamento de la evaluación" value={c.fundamento}
-            onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, fundamento: e.target.value } : v)); setSucio(true); }} />
-          <Textarea aria-label={`Respaldo cruzado ${i + 1}`} placeholder="Referencia de autorización sanitaria" value={c.respaldo ?? ""}
-            onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, respaldo: e.target.value } : v)); setSucio(true); }} />
-          <Button type="button" onClick={() => { setCruzadas(cruzadas.filter((_, j) => j !== i)); setSucio(true); }}>Eliminar declaración cruzada</Button>
-        </Stack>)}
-        <Button type="button" mt="3" onClick={() => { setCruzadas([...cruzadas, { codigo: "", fundamento: "", respaldo: "" }]); setSucio(true); }}>Agregar contaminación cruzada</Button>
-      </Box>
-      <Box borderTopWidth="1px" pt="4">
-        <Text fontWeight="semibold">Condiciones de conservación</Text>
-        <CampoOrigen origen={sucio ? "manual" : contenido?.conservacion_origen ?? "producto"} />
-        <ConservacionFields value={conservacion} onChange={v => { setConservacion(v); setSucio(true); }} />
-        <Button type="button" mt="3" disabled={bloqueado} onClick={() => operar(() => regenerarDeclaraciones(borradorId, datos.revision, versionId, true))}>Reemplazar conservación con datos del producto</Button>
-      </Box>
-      <Box as="details"><Box as="summary" cursor="pointer">Evaluaciones normativas documentadas</Box>
-        <Text fontSize="sm">Para sulfitos, evaluá el umbral en el producto final. Una excepción requiere fundamento y respaldo; no se deduce del nombre o INS.</Text>
-        {contenido?.detectados.map(d => {
-          const evaluacion = evaluaciones.find(e => e.codigo === d.codigo);
-          return <Stack key={d.codigo} p="3" gap="2">
-            <Text>{d.nombre}</Text>
-            <FormNativeSelect aria-label={`Evaluación de ${d.nombre}`} value={!evaluacion ? "" : evaluacion.declarar ? "si" : "no"}
-              onChange={e => { setEvaluaciones([...evaluaciones.filter(v => v.codigo !== d.codigo), ...(e.target.value ? [{ codigo: d.codigo, declarar: e.target.value === "si", fundamento: "", respaldo: "" }] : [])]); setSucio(true); }}>
-              <option value="">Sin evaluación adicional</option><option value="si">Corresponde declarar</option><option value="no">Excepción documentada: no declarar</option>
-            </FormNativeSelect>
-            {evaluacion && <><Textarea aria-label={`Fundamento de ${d.nombre}`} placeholder="Fundamento normativo" value={evaluacion.fundamento}
-              onChange={e => { setEvaluaciones(evaluaciones.map(v => v.codigo === d.codigo ? { ...v, fundamento: e.target.value } : v)); setSucio(true); }} />
-              <Textarea aria-label={`Respaldo de ${d.nombre}`} placeholder="Referencia documental" value={evaluacion.respaldo}
-                onChange={e => { setEvaluaciones(evaluaciones.map(v => v.codigo === d.codigo ? { ...v, respaldo: e.target.value } : v)); setSucio(true); }} /></>}
-          </Stack>;
-        })}
-      </Box>
-      {(sucio || formularioSucio) && <Text color="orange.fg">Guardá los cambios pendientes antes de regenerar o confirmar. Guardar no confirma.</Text>}
-      <HStack flexWrap="wrap">
-        <Button type="button" loading={ocupado} disabled={!sucio || !autorizado || datos.vigencia !== "vigente"}
-          onClick={() => operar(() => guardarDeclaraciones(borradorId, { revision: datos.revision, conservacion, contaminacion_cruzada: cruzadas, evaluaciones }))}>Guardar declaraciones</Button>
-        <Button type="button" disabled={bloqueado || pendientes.length > 0 || datos.estado === "confirmada"}
-          onClick={() => operar(() => confirmarDeclaraciones(borradorId, datos.revision))}>Confirmar declaraciones</Button>
-        {sucio && <Button type="button" disabled={ocupado} onClick={() => { setSucio(false); setIntento(n => n + 1); }}>Descartar cambios de declaraciones</Button>}
-        <Button type="button" disabled={ocupado} onClick={async () => {
-          try { setHistorial(await historialDeclaraciones(borradorId)); }
-          catch (e) { setError(e instanceof Error ? e.message : "Error al consultar historial"); }
-        }}>Ver historial de declaraciones</Button>
-      </HStack>
-      {historial.map(h => <Box key={h.revision} as="details" borderWidth="1px" p="3">
-        <Box as="summary">Revisión {h.revision}: {h.estado} — {h.vigencia}</Box>
-        <Text>{h.declaracion || "Sin sustancias declaradas"}</Text><Text>{h.declaracion_cruzada}</Text>
-        <Text>Conservación: {h.contenido?.conservacion?.instrucciones ?? "sin informar"}</Text>
-        <Text>{h.confirmado_por_nombre} {h.confirmado_en}</Text>
-      </Box>)}
-    </>}
+    {cuerpo}
   </Stack>;
+}
+
+function Bloque({ titulo, cantidad, children }: { titulo: string; cantidad?: number; children: ReactNode }) {
+  return <Stack gap="2" minW="0" bg="bg.subtle" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
+    <HStack gap="2"><Text fontWeight="semibold" fontSize="sm">{titulo}</Text>{cantidad != null && <Badge size="sm" variant="subtle">{cantidad}</Badge>}</HStack>
+    {children}
+  </Stack>;
+}
+
+/** Aviso discreto de declaraciones pendientes (cabecera de la sección del editor). */
+export function AvisoDeclaracionesPendientes() {
+  return <Alert.Root status="warning" size="sm" variant="subtle" rounded="lg">
+    <Alert.Indicator />
+    <Alert.Title fontWeight="normal">Declaraciones pendientes de revisión o confirmación.</Alert.Title>
+  </Alert.Root>;
 }

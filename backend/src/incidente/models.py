@@ -7,9 +7,10 @@ from src.incidente.constants import EstadoIncidente
 from src.Equipo.models import Equipo
 from src.personal.models import Personal
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class Incidente(ModeloBase):
+class Incidente(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "incidentes"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -50,7 +51,7 @@ class Incidente(ModeloBase):
     )
 
 
-class HistorialIncidente(ModeloBase):
+class HistorialIncidente(DatosDeEstablecimiento, ModeloBase):
     """Bitácora de cierre/reapertura de un incidente.
 
     A diferencia del incidente (que solo guarda el estado ACTUAL), acá se

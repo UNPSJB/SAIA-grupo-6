@@ -7,16 +7,7 @@ from src.auth.dependencies import require_admin
 from src.database import get_db
 from src.personal.models import Personal
 from src.rotulado import exportacion, schemas, services
-from src.rotulado.exceptions import (
-    BorradorNoEncontrado,
-    LoteNoEncontrado,
-    LoteNoPerteneceAlProducto,
-    LoteVersionIncompatible,
-    ProductoNoEncontrado,
-    VersionNoEncontrada,
-    VersionNoPerteneceAlProducto,
-)
-from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado
+from src.rotulado.exceptions import ProductoNoEncontrado
 
 router = APIRouter(
     prefix="/rotulado",
@@ -178,12 +169,20 @@ from src.rotulado import declaraciones_services as declaraciones
 from src.rotulado.declaraciones_schemas import (
     EditarDeclaraciones, RegenerarDeclaraciones, RevisionEsperada, DeclaracionesOut,
 )
-from src.rotulado.alergenos import catalogo, VERSION_REGLAS
+from src.alergenos.constants import VERSION_REGLAS
+from src.alergenos.services import listar_alergenos
 
 
 @router.get("/catalogo-alergenos")
-def catalogo_alergenos():
-    return {"version_reglas": VERSION_REGLAS, "sustancias": catalogo()}
+def catalogo_alergenos(db: Session = Depends(get_db)):
+    """Sustancias que se pueden declarar: el catálogo de alérgenos activos."""
+    return {
+        "version_reglas": VERSION_REGLAS,
+        "sustancias": [
+            {"codigo": a.codigo, "nombre": a.nombre, "condicionada": a.condicionada}
+            for a in listar_alergenos(db)
+        ],
+    }
 
 
 @router.get("/borradores/{borrador_id}/declaraciones", response_model=DeclaracionesOut)

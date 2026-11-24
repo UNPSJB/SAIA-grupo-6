@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from sqlalchemy import select, text
 
+from src.establecimientos.models import ESTABLECIMIENTO_PRINCIPAL_ID
 from src.database import SessionLocal
 from src.rotulado_frontal import constants as c
 from src.rotulado_frontal.models import (
@@ -55,9 +56,11 @@ def _sembrar_regla_inicial(db) -> None:
 
 
 def _sembrar_interruptor_modulo(db) -> None:
-    if db.get(ConfiguracionModuloRotulado, 1) is not None:
+    # El interruptor es por sede; la migración siembra el de la principal (las
+    # demás lo crean activo en su primer uso, ver `ajuste_modulo`).
+    if db.get(ConfiguracionModuloRotulado, ESTABLECIMIENTO_PRINCIPAL_ID) is not None:
         return
-    db.add(ConfiguracionModuloRotulado(id=1, modulo_activo=True))
+    db.add(ConfiguracionModuloRotulado(establecimiento_id=ESTABLECIMIENTO_PRINCIPAL_ID, modulo_activo=True))
     db.commit()
 
 

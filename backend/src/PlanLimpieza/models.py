@@ -3,20 +3,21 @@ from datetime import datetime
 from src.common.fechas import ahora
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Index, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.Equipo.models import Equipo
 from src.personal.models import Personal
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class PlanLimpieza(ModeloBase):
+class PlanLimpieza(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "plan_limpieza"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
-    nombre: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    nombre: Mapped[str] = mapped_column(String(60), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     equipo_id: Mapped[int] = mapped_column(ForeignKey("equipos.id"))
@@ -35,3 +36,8 @@ class PlanLimpieza(ModeloBase):
     fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True, onupdate=ahora
     )
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_plan_limpieza_establecimiento_nombre", PlanLimpieza.establecimiento_id, PlanLimpieza.nombre, unique=True)

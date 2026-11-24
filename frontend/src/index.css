@@ -86,28 +86,51 @@
     border-bottom: 1px solid var(--chakra-colors-border-subtle);
   }
 
+  /*
+   * Grilla de dos columnas y no `flex`: con `flex` en fila, una celda con
+   * varios renglones (norma + "Requiere envasado" + "6 umbrales…") ponía
+   * cada párrafo en una columna de 50px y el texto se partía palabra por
+   * palabra. En la grilla la etiqueta va a la izquierda y todo el contenido
+   * se apila a la derecha, uno debajo del otro.
+   */
   [data-contenido] table:not([data-sin-tarjetas]) tbody td {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: fit-content(45%) minmax(0, 1fr);
+    justify-items: end;
     align-items: center;
-    gap: 12px;
+    column-gap: 12px;
+    row-gap: 0;
     padding: 6px 12px !important;
     border: 0 !important;
     text-align: right !important;
     width: auto !important;
   }
 
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td > * {
+    grid-column: 2;
+    max-width: 100%;
+  }
+
   [data-contenido] table:not([data-sin-tarjetas]) tbody td::before {
     content: attr(data-label);
-    flex-shrink: 0;
-    max-width: 45%;
+    grid-column: 1;
+    grid-row: 1 / span 20;
+    justify-self: start;
     text-align: left;
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--chakra-colors-fg-muted);
   }
 
-  /* Celdas sin encabezado (acciones sin título) o que ocupan todo el ancho. */
+  /* Celdas sin encabezado (acciones sin título) o que ocupan todo el ancho:
+   * sin etiqueta, el contenido va en fila y alineado a la derecha. */
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-label=""],
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[colspan] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
   [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-label=""]::before,
   [data-contenido] table:not([data-sin-tarjetas]) tbody td[colspan]::before {
     content: none;

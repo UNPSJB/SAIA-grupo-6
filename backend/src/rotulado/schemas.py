@@ -99,17 +99,6 @@ class BorradorRotuladoOut(BorradorRotuladoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ProductoConBorrador(BaseModel):
-    producto_id: int
-    producto_nombre: str
-    unidad_simbolo: Optional[str]
-    borrador_id: Optional[int]
-    borrador_estado: Optional[str]
-    borrador_actualizado_en: Optional[datetime]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class AutocompletarIn(BaseModel):
     version_id: Optional[int] = Field(default=None, gt=0)
     lote_id: Optional[int] = Field(default=None, gt=0)
@@ -131,6 +120,9 @@ class VistaPreviaAutocompletado(BaseModel):
     sellos_disponibles: bool = False
     version_receta_id: Optional[int] = None
     version_receta_numero: Optional[int] = None
+    # Del establecimiento activo (razón social y dirección).
+    razon_social: Optional[str] = None
+    domicilio: Optional[str] = None
     declaraciones: dict | None = None
     receta_encontrada: bool = False
     mensaje: Optional[str] = None
@@ -170,6 +162,11 @@ class InstantaneaNutricional(BaseModel):
     medida_casera: str | None = None
     filas: list[FilaInstantaneaNutricional] = Field(default_factory=list)
     calculado_en: datetime | None = None
+    # Presentación (formato del rótulo); faltan en las instantáneas viejas.
+    mostrar_por_100: bool | None = None
+    leyenda_no_significativo: str | None = None
+    leyenda_vd: str | None = None
+    leyenda_laboratorio: str | None = None
 
 
 class NutricionPrevisualizacion(BaseModel):

@@ -154,7 +154,7 @@ TAMANO_MAX_ARCHIVO_ADJUNTO = 10 * 1024 * 1024  # 10 MB
     "/{equipo_id}/calibraciones",
     status_code=status.HTTP_201_CREATED,
     response_model=schemas.CalibracionResponse,
-    dependencies=[Depends(require_operador)]
+    dependencies=[Depends(require_admin)]
 )
 def registrar_intervencion_con_archivo(
     equipo_id: int,
@@ -251,7 +251,7 @@ def registrar_intervencion_con_archivo(
 @router.patch(
     "/{equipo_id}/calibraciones/{calibracion_id}",
     response_model=schemas.CalibracionResponse,
-    dependencies=[Depends(require_operador)]
+    dependencies=[Depends(require_admin)]
 )
 def editar_intervencion(
     equipo_id: int,
@@ -339,7 +339,7 @@ def editar_intervencion(
 @router.delete(
     "/{equipo_id}/calibraciones/{calibracion_id}",
     response_model=schemas.CalibracionResponse,
-    dependencies=[Depends(require_operador)]
+    dependencies=[Depends(require_admin)]
 )
 def eliminar_intervencion(
     equipo_id: int,

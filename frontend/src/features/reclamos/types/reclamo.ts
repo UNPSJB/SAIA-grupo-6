@@ -97,6 +97,15 @@ export interface ReclamoDetalle extends ReclamoResumen {
   fecha_registro: string | null;
   salida: ReclamoSalida;
   incidente: ReclamoIncidente | null;
+  /** Retiro del lote, si ya existe (un lote admite un solo retiro). */
+  retiro?: { id: number; estado: "EN_CURSO" | "CERRADO" } | null;
+  /** Reposición que ya generó (un reclamo admite una sola vigente). */
+  reposicion: {
+    id: number;
+    estado: string;
+    cantidad_original: string;
+    cantidad_pendiente: string;
+  } | null;
 }
 
 export interface ReclamoCreateValues {
@@ -104,6 +113,15 @@ export interface ReclamoCreateValues {
   motivo: MotivoReclamo;
   detalle: string;
   fecha_reclamo: string;
+}
+
+/** Cierre del reclamo: qué se hizo, con la mercadería y con el cliente. */
+export interface ReclamoCerrarValues {
+  accion_correctiva: string;
+  mercaderia_devuelta: boolean;
+  disposicion_fisica: "CUARENTENA" | "BAJA" | null;
+  generar_reposicion: boolean;
+  cantidad_a_reponer: number | null;
 }
 
 /** Reclamo incluido en la ficha de una salida (`Salida.reclamos`). */

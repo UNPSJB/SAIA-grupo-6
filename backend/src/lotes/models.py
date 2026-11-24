@@ -2,6 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Index,
     Boolean,
     CheckConstraint,
     Date,
@@ -27,9 +28,10 @@ from src.lotes.constants import (
 from src.lotes.exceptions import LoteCerradoError
 from sqlalchemy import inspect as sa_inspect
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class LoteProducto(ModeloBase):
+class LoteProducto(DatosDeEstablecimiento, ModeloBase):
     """Lote producido. Apunta a la VERSIÓN de receta usada, no a la receta.
 
     `version_receta_id` es NULL solo en lotes históricos migrados del esquema
@@ -54,7 +56,7 @@ class LoteProducto(ModeloBase):
     # Sin `index=True` en el id: el índice se llamaría `ix_lotes_producto_id`,
     # igual al de `lotes.producto_id` de la tabla vieja, que sigue en las bases migradas.
     id: Mapped[int] = mapped_column(primary_key=True)
-    numero_lote: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    numero_lote: Mapped[str] = mapped_column(String(50), index=True)
     producto_id: Mapped[int] = mapped_column(
         ForeignKey("productos.id", ondelete="RESTRICT"), index=True
     )
@@ -163,7 +165,7 @@ class LoteProducto(ModeloBase):
         )["estado_lote"]
 
 
-class ChecklistProduccion(ModeloBase):
+class ChecklistProduccion(DatosDeEstablecimiento, ModeloBase):
     """Una fila por cada tarea de la versión de receta del lote."""
 
     __tablename__ = "checklist_produccion"
@@ -184,16 +186,22 @@ class ChecklistProduccion(ModeloBase):
         ForeignKey("personal.id"), nullable=True
     )
     completado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Quién tiene que hacer la tarea (como en el checklist de limpieza). Sin
+    # asignar, la puede hacer cualquiera que opere.
+    asignado_a_id: Mapped[int | None] = mapped_column(
+        ForeignKey("personal.id"), nullable=True, index=True
+    )
 
     lote: Mapped["LoteProducto"] = relationship(back_populates="checklist")
     tarea: Mapped["TareaReceta"] = relationship()
-    completado_por: Mapped["Personal | None"] = relationship()
+    completado_por: Mapped["Personal | None"] = relationship(foreign_keys=[completado_por_id])
+    asignado_a: Mapped["Personal | None"] = relationship(foreign_keys=[asignado_a_id])
     consumos: Mapped[list["ConsumoInsumo"]] = relationship(
         back_populates="checklist", order_by="ConsumoInsumo.id"
     )
 
 
-class ConsumoInsumo(ModeloBase):
+class ConsumoInsumo(DatosDeEstablecimiento, ModeloBase):
     """Consumo real o desperdicio accidental de un lote de insumo en una tarea.
 
     El lote de producto se obtiene por `checklist_produccion`; no se duplica
@@ -276,3 +284,8 @@ def impedir_editar_checklist_de_lote_cerrado(mapper, connection, target):
 def impedir_editar_consumo_de_lote_cerrado(mapper, connection, target):
     if _estado_por_checklist(connection, target.checklist_produccion_id) in ESTADOS_LOTE_CERRADOS:
         raise LoteCerradoError()
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_lotes_producto_establecimiento_numero_lote", LoteProducto.establecimiento_id, LoteProducto.numero_lote, unique=True)

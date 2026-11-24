@@ -1,15 +1,7 @@
 import { useCallback } from "react";
 import { useLista } from "../../../common/hooks/useLista";
-import { listarLotes, obtenerDashboardLotes } from "../services/loteService";
-import type { DashboardLotes, FiltrosLotes, LoteResumen } from "../types/lote";
-
-const DASHBOARD_VACIO: DashboardLotes = {
-  total_lotes: 0,
-  total_cantidad_producida: 0,
-  total_por_unidad: [],
-  por_estado: [],
-  por_producto: [],
-};
+import { listarLotes } from "../services/loteService";
+import type { FiltrosLotes, LoteResumen } from "../types/lote";
 
 export function useLotes(filtros: FiltrosLotes = {}) {
   const { estado, fechaDesde, fechaHasta } = filtros;
@@ -27,22 +19,4 @@ export function useLotes(filtros: FiltrosLotes = {}) {
   });
 
   return { lotes: items, loading, error, recargar };
-}
-
-export function useDashboardLotes(filtros: FiltrosLotes = {}) {
-  const { fechaDesde, fechaHasta, productoId } = filtros;
-
-  const cargar = useCallback(
-    () => obtenerDashboardLotes({ fechaDesde, fechaHasta, productoId }),
-    [fechaDesde, fechaHasta, productoId],
-  );
-
-  const { items, loading, error, recargar } = useLista<DashboardLotes>({
-    cargar,
-    dependencias: [fechaDesde, fechaHasta, productoId],
-    valorInicial: DASHBOARD_VACIO,
-    mensajeError: "No se pudieron cargar las estadísticas de producción",
-  });
-
-  return { dashboard: items, loading, error, recargar };
 }

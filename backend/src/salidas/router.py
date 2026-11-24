@@ -3,17 +3,21 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from src.auth.dependencies import get_current_user, require_admin, require_operador
-from src.clientes.models import Cliente
+
+# Quién hace qué: lo comercial (reservar a un cliente, cancelar una reserva y
+# resolver un rechazo) es de quien administra; lo físico de expedición
+# (despachar, registrar la entrega o el rechazo en la puerta) lo registra
+# quien opera. Ver y consultar las salidas, ambos.
 from src.common.archivos import guardar_archivo
 from src.database import get_db
 from src.incidente.constants import EXTENSIONES_FOTO, TAMANO_MAX_FOTO
 from src.lotes.models import LoteProducto
 from src.personal.models import Personal
 from src.salidas import schemas, services
-from src.salidas.models import HitoLote, calcular_cantidades
+from src.salidas.models import HitoLote
 
 router = APIRouter(prefix="/salidas", tags=["Salidas de producto"])
 
@@ -35,7 +39,7 @@ def _eliminar_foto(ruta_foto: str | None) -> None:
     "/reservar",
     response_model=schemas.SalidaResumen,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_operador)],
+    dependencies=[Depends(require_admin)],
 )
 def reservar_salida(
     datos: schemas.SalidaCreate,
@@ -79,7 +83,7 @@ def listar_salidas(
 @router.get(
     "/clientes-disponibles",
     response_model=list[schemas.ClienteDisponible],
-    dependencies=[Depends(require_operador)],
+    dependencies=[Depends(require_admin)],
 )
 def listar_clientes_disponibles(db: Session = Depends(get_db)):
     """Lista básica de clientes activos para elegir al reservar una salida.
@@ -92,7 +96,7 @@ def listar_clientes_disponibles(db: Session = Depends(get_db)):
 @router.get(
     "/lotes-disponibles",
     response_model=list[schemas.LoteDisponible],
-    dependencies=[Depends(require_operador)],
+    dependencies=[Depends(require_admin)],
 )
 def listar_lotes_disponibles(db: Session = Depends(get_db)):
     """Lista de lotes con saldo disponible para reservar (puede_operar).
@@ -163,7 +167,7 @@ def entregar_salida(
 @router.post(
     "/{salida_id}/cancelar",
     response_model=schemas.SalidaResumen,
-    dependencies=[Depends(require_operador)],
+    dependencies=[Depends(require_admin)],
 )
 def cancelar_salida(
     salida_id: int,

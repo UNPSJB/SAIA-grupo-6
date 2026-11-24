@@ -13,6 +13,7 @@ def test_tarea_create_valido():
         "nombre": "Limpiar pisos",
         "frecuencia": 7,
         "tipo": TipoTarea.OPERACIONAL.value,
+        "operador_id": 1,
         "plan_limpieza_id": 1,
     }
 
@@ -30,6 +31,7 @@ def test_tarea_create_nombre_vacio():
         "nombre": "   ",
         "frecuencia": 7,
         "tipo": TipoTarea.OPERACIONAL.value,
+        "operador_id": 1,
         "plan_limpieza_id": 1,
     }
 
@@ -44,6 +46,7 @@ def test_tarea_create_frecuencia_cero():
         "nombre": "Limpiar",
         "frecuencia": 0,
         "tipo": TipoTarea.OPERACIONAL.value,
+        "operador_id": 1,
         "plan_limpieza_id": 1,
     }
 
@@ -58,6 +61,7 @@ def test_tarea_create_tipo_invalido():
         "nombre": "Limpiar",
         "frecuencia": 7,
         "tipo": "invalido",
+        "operador_id": 1,
         "plan_limpieza_id": 1,
     }
 
@@ -72,6 +76,7 @@ def test_tarea_create_plan_limpieza_id_cero():
         "nombre": "Limpiar",
         "frecuencia": 7,
         "tipo": TipoTarea.OPERACIONAL.value,
+        "operador_id": 1,
         "plan_limpieza_id": 0,
     }
 
@@ -108,6 +113,7 @@ def test_tarea_en_plan_input_con_id():
         "nombre": "Tarea Existente",
         "frecuencia": 7,
         "tipo": TipoTarea.OPERACIONAL.value,
+        "operador_id": 1,
     }
 
     # Act
@@ -124,6 +130,7 @@ def test_tarea_en_plan_input_sin_id():
         "nombre": "Tarea Nueva",
         "frecuencia": 7,
         "tipo": TipoTarea.OPERACIONAL.value,
+        "operador_id": 1,
     }
 
     # Act
@@ -144,6 +151,7 @@ def test_tarea_create_tipos_validos(tipo):
         "nombre": "Limpiar",
         "frecuencia": 7,
         "tipo": tipo,
+        "operador_id": 1,
         "plan_limpieza_id": 1,
     }
 
@@ -152,3 +160,16 @@ def test_tarea_create_tipos_validos(tipo):
 
     # Assert
     assert tarea.tipo == tipo
+
+
+def test_tarea_create_sin_operador_es_obligatorio():
+    datos = {"nombre": "Limpiar", "frecuencia": 1, "tipo": "operacional", "plan_limpieza_id": 1}
+    with pytest.raises(exceptions.OperadorObligatorio):
+        TareaCreate(**datos)
+
+
+def test_tarea_update_no_permite_quitar_el_operador():
+    with pytest.raises(exceptions.OperadorObligatorio):
+        TareaUpdate(operador_id=None)
+    # Sin mencionarlo, se conserva el que tenía.
+    assert TareaUpdate(frecuencia=3).operador_id is None

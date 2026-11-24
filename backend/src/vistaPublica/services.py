@@ -6,13 +6,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.aptitud.models import Aptitud
-from src.checklist.models import Checklist, RegistroTarea
 from src.checklist.services import conteo_cumplimiento_periodo
 from src.common.fechas import hoy
 from src.common.persistence import guardar
 from src.config import settings
 from src.documentos.models import VersionDocumento
 from src.elementoLimpieza.models import ElementoLimpieza
+from src.establecimientos.contexto import OPCION_TODOS, sede_efectiva
 from src.Equipo.models import Equipo
 from src.exceptions import BadRequest, UnprocessableContent
 from src.lotes.constants import ESTADO_TERMINADO
@@ -31,7 +31,6 @@ from .constants import CATALOGO, CATALOGO_POR_CLAVE, DIAS_VENTANA_TRAZABILIDAD
 from .models import ConfiguracionVistaPublica, IndicadorVistaPublica
 
 
-ID_CONFIGURACION_UNICA = 1
 RUTA_PUBLICA = "publico"
 
 # La vista pública mira una ventana fija y reciente de limpieza. No expone el
@@ -51,19 +50,18 @@ MINIMO_CONTROL_ALIMENTOS = 5
 def obtener_configuracion(
     db: Session,
 ) -> Optional[ConfiguracionVistaPublica]:
-    """Obtiene la configuración; la ausencia transitoria equivale a desactivada."""
-    return db.get(ConfiguracionVistaPublica, ID_CONFIGURACION_UNICA)
+    """Configuración de la sede; la ausencia equivale a desactivada."""
+    return db.get(ConfiguracionVistaPublica, sede_efectiva(db))
 
 
 def actualizar_configuracion(
     db: Session, habilitada: bool
 ) -> ConfiguracionVistaPublica:
-    """Activa o desactiva el único enlace público de la instalación."""
+    """Activa o desactiva el enlace público de la sede."""
     configuracion = obtener_configuracion(db)
     if configuracion is None:
-        # La migración crea la fila. Este fallback cubre bases de prueba o una
-        # instalación interrumpida sin permitir más de una configuración.
-        configuracion = ConfiguracionVistaPublica(id=ID_CONFIGURACION_UNICA)
+        # La migración crea la de la sede principal; las demás nacen acá.
+        configuracion = ConfiguracionVistaPublica(establecimiento_id=sede_efectiva(db))
         db.add(configuracion)
 
     if habilitada:
@@ -87,23 +85,47 @@ def construir_url_publica(codigo_publico: str) -> str:
     return f"{settings.PUBLIC_APP_URL.rstrip('/')}/{RUTA_PUBLICA}/{codigo_publico}"
 
 
+def sede_de_codigo(db: Session, codigo_publico: str) -> Optional[int]:
+    """Sede dueña de un enlace público vigente, o None.
+
+    El enlace es anónimo: nadie fijó la sede, y es justamente el código el que
+    dice de cuál es. Se busca entre todas las sedes; un código desactivado o
+    desconocido no se distingue (los dos son None).
+    """
+    if not codigo_publico:
+        return None
+    configuracion = db.scalar(
+        select(ConfiguracionVistaPublica)
+        .where(
+            ConfiguracionVistaPublica.codigo_publico == codigo_publico,
+            ConfiguracionVistaPublica.habilitada.is_(True),
+        )
+        .execution_options(**{OPCION_TODOS: True})
+    )
+    if configuracion is None or not secrets.compare_digest(
+        codigo_publico, configuracion.codigo_publico or ""
+    ):
+        return None
+    return configuracion.establecimiento_id
+
+
 def codigo_publico_valido(db: Session, codigo_publico: str) -> bool:
     """Verifica el enlace vigente sin revelar el estado de la configuración."""
-    configuracion = obtener_configuracion(db)
-    return bool(
-        configuracion
-        and configuracion.habilitada
-        and configuracion.codigo_publico
-        and secrets.compare_digest(codigo_publico, configuracion.codigo_publico)
-    )
+    return sede_de_codigo(db, codigo_publico) is not None
 
 
 # ───────────────────────── Configuración de indicadores ─────────────────────────
 
 
 def _estado_guardado(db: Session) -> dict[str, bool]:
-    filas = db.scalars(select(IndicadorVistaPublica)).all()
+    filas = db.scalars(_indicadores_de_la_sede(db)).all()
     return {fila.clave: fila.habilitado for fila in filas}
+
+
+def _indicadores_de_la_sede(db: Session):
+    return select(IndicadorVistaPublica).where(
+        IndicadorVistaPublica.establecimiento_id == sede_efectiva(db)
+    )
 
 
 def _indicador_con_datos(db: Session, clave: str) -> bool:
@@ -162,7 +184,7 @@ def actualizar_indicadores(
             )
 
     filas = {
-        fila.clave: fila for fila in db.scalars(select(IndicadorVistaPublica)).all()
+        fila.clave: fila for fila in db.scalars(_indicadores_de_la_sede(db)).all()
     }
     for clave, habilitado in por_clave.items():
         fila = filas.get(clave)

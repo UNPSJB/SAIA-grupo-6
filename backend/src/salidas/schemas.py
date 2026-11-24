@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.common.validators import texto_no_vacio, texto_opcional
+from src.common.validators import texto_no_vacio
 from src.salidas import exceptions
 
 
@@ -126,16 +126,6 @@ class SalidaCancelar(BaseModel):
         return texto_no_vacio(valor, vacio=exceptions.MotivoRequerido)
 
 
-class SalidaRechazar(BaseModel):
-    """Rechazo de entrega con opción de generar reposición de stock."""
-
-    motivo: str
-    detalle: str | None = None
-    fecha_rechazo: date
-    generar_reposicion: bool = False
-    cantidad_a_reponer: Decimal | None = None
-
-
 class SalidaResolverRechazo(BaseModel):
     """Resolución de un rechazo: reingresar la mercadería o desecharla."""
 
@@ -184,5 +174,7 @@ class LoteDisponible(BaseModel):
     fecha_vencimiento: date | None
     retirado: bool
     retiro_id: int | None
+    # Sin rotulado completo del lote no se puede reservar.
+    rotulado_completo: bool = True
 
     model_config = ConfigDict(from_attributes=True)

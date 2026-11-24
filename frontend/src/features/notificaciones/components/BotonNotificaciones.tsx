@@ -5,13 +5,22 @@ import {
   Box,
   Button,
   Flex,
+  HStack,
   IconButton,
   Popover,
   Portal,
   Spinner,
   Text,
 } from "@chakra-ui/react";
-import { LuBell, LuCircleCheck, LuClock, LuTriangleAlert } from "react-icons/lu";
+import {
+  LuBell,
+  LuCheck,
+  LuCheckCheck,
+  LuCircleCheck,
+  LuCircleDot,
+  LuClock,
+  LuTriangleAlert,
+} from "react-icons/lu";
 import { Tooltip } from "../../../components/ui/tooltip";
 import { formatoFechaOCorta } from "../../../common/utils/fechas";
 import { useNotificaciones } from "../hooks/useNotificaciones";
@@ -34,6 +43,11 @@ function destinoDe(notificacion: Notificacion): string {
   ) {
     return "/notificaciones";
   }
+  // El backend manda `/documentos/:id`, que no existe: igual que la página de
+  // notificaciones, se va a cargar la nueva versión del documento.
+  if (notificacion.tipo === "DOCUMENTO") {
+    return `/documentos/${notificacion.entidad_id}/nueva-version`;
+  }
   return notificacion.link_destino || "/notificaciones";
 }
 
@@ -47,17 +61,29 @@ interface BotonNotificacionesProps {
 
 export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps) {
   const navigate = useNavigate();
-  const { notificaciones, cantidad, loading, error, recargar } = useNotificaciones();
+  const {
+    notificaciones,
+    cantidad,
+    noLeidas,
+    marcarLeida,
+    marcarTodasLeidas,
+    loading,
+    error,
+    recargar,
+  } = useNotificaciones();
   const [abierto, setAbierto] = useState(false);
 
   useEffect(() => escucharCambioNotificaciones(() => void recargar()), [recargar]);
 
-  // Lo más urgente primero: VENCIDO antes que PRÓXIMO A VENCER y, dentro de cada
-  // nivel, la fecha más vieja arriba.
+  // Priorizar primero las no leídas, luego VENCIDO antes que PRÓXIMO A VENCER y,
+  // dentro de cada nivel, la fecha más vieja arriba.
   const visibles = useMemo(
     () =>
       [...notificaciones]
         .sort((a, b) => {
+          const aNoLeida = !a.leida;
+          const bNoLeida = !b.leida;
+          if (aNoLeida !== bNoLeida) return aNoLeida ? -1 : 1;
           if (a.nivel !== b.nivel) return a.nivel === "VENCIDO" ? -1 : 1;
           return (a.fecha_referencia ?? "").localeCompare(b.fecha_referencia ?? "");
         })
@@ -67,11 +93,23 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
 
   // El número va en el nombre accesible: el badge visual queda `aria-hidden`
   // para que el lector no anuncie la cantidad dos veces.
-  const etiqueta = cantidad > 0 ? `Notificaciones (${cantidad})` : "Notificaciones";
+  const etiqueta =
+    noLeidas > 0
+      ? `Notificaciones (${noLeidas} sin leer)`
+      : cantidad > 0
+        ? `Notificaciones (${cantidad})`
+        : "Notificaciones";
 
   const ir = (destino: string) => {
     setAbierto(false);
     navigate(destino);
+  };
+
+  const abrirNotificacion = (notificacion: Notificacion) => {
+    if (!notificacion.leida) {
+      void marcarLeida(notificacion.id_notificacion, true);
+    }
+    ir(destinoDe(notificacion));
   };
 
   return (
@@ -115,7 +153,7 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
             </IconButton>
           </Popover.Trigger>
 
-          {cantidad > 0 && (
+          {noLeidas > 0 && (
             <Badge
               aria-hidden
               pointerEvents="none"
@@ -137,7 +175,7 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
               borderStyle="solid"
               borderColor="white"
             >
-              {cantidad > 99 ? "99+" : cantidad}
+              {noLeidas > 99 ? "99+" : noLeidas}
             </Badge>
           )}
         </Box>
@@ -154,13 +192,31 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
               borderBottomWidth="1px"
               borderColor="border.subtle"
             >
-              <Popover.Title fontSize="sm" fontWeight="bold">
-                Notificaciones
-              </Popover.Title>
-              {cantidad > 0 && (
-                <Badge colorPalette="red" variant="subtle">
-                  {cantidad}
-                </Badge>
+              <HStack gap="2">
+                <Popover.Title fontSize="sm" fontWeight="bold">
+                  Notificaciones
+                </Popover.Title>
+                {noLeidas > 0 ? (
+                  <Badge colorPalette="red" variant="subtle">
+                    {noLeidas} sin leer
+                  </Badge>
+                ) : cantidad > 0 ? (
+                  <Badge colorPalette="gray" variant="subtle">
+                    {cantidad}
+                  </Badge>
+                ) : null}
+              </HStack>
+              {noLeidas > 0 && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="brand"
+                  onClick={() => void marcarTodasLeidas()}
+                  title="Marcar todas como leídas"
+                >
+                  <LuCheckCheck size={14} aria-hidden />
+                  Marcar leídas
+                </Button>
               )}
             </Flex>
 
@@ -186,6 +242,7 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
                 <Box as="ul" listStyleType="none" m={0} p={0}>
                   {visibles.map((notificacion, i) => {
                     const vencida = notificacion.nivel === "VENCIDO";
+                    const noLeida = !notificacion.leida;
                     const Icono = vencida ? LuTriangleAlert : LuClock;
                     return (
                       <Box
@@ -193,11 +250,16 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
                         key={notificacion.id_notificacion}
                         borderBottomWidth={i < visibles.length - 1 ? "1px" : "0"}
                         borderColor="border.subtle"
+                        borderLeftWidth={noLeida ? "3px" : "0"}
+                        borderLeftColor="brand.600"
+                        bg={noLeida ? "brand.50/40" : undefined}
+                        opacity={noLeida ? 1 : 0.72}
                       >
                         <Flex
                           as="button"
                           w="100%"
                           align="flex-start"
+                          justify="space-between"
                           gap="3"
                           px="4"
                           py="3"
@@ -209,38 +271,62 @@ export function BotonNotificaciones({ activa = false }: BotonNotificacionesProps
                             outlineColor: "brand.700",
                             outlineOffset: "-2px",
                           }}
-                          onClick={() => ir(destinoDe(notificacion))}
+                          onClick={() => abrirNotificacion(notificacion)}
                         >
-                          <Box
-                            mt="0.5"
-                            flexShrink={0}
-                            color={vencida ? "red.fg" : "orange.fg"}
-                            aria-hidden
-                          >
-                            <Icono size={18} />
-                          </Box>
-                          <Box flex="1" minW={0}>
-                            <Text fontSize="sm" fontWeight="bold" truncate>
-                              {notificacion.titulo}
-                            </Text>
-                            <Text fontSize="xs" color="fg.muted" lineClamp="2">
-                              {notificacion.mensaje}
-                            </Text>
-                            <Flex align="center" gap="2" mt="1">
-                              <Badge
-                                size="xs"
-                                variant="subtle"
-                                colorPalette={vencida ? "red" : "orange"}
+                          <Flex align="flex-start" gap="3" flex="1" minW="0">
+                            <Box
+                              mt="0.5"
+                              flexShrink={0}
+                              color={vencida ? "red.fg" : "orange.fg"}
+                              aria-hidden
+                            >
+                              <Icono size={18} />
+                            </Box>
+                            <Box flex="1" minW="0">
+                              <Text
+                                fontSize="sm"
+                                fontWeight={noLeida ? "bold" : "medium"}
+                                truncate
                               >
-                                {nivelLabel(notificacion.nivel)}
-                              </Badge>
-                              {notificacion.fecha_referencia && (
-                                <Text fontSize="xs" color="fg.muted">
-                                  {formatoFechaOCorta(notificacion.fecha_referencia)}
-                                </Text>
-                              )}
-                            </Flex>
-                          </Box>
+                                {notificacion.titulo}
+                              </Text>
+                              <Text fontSize="xs" color="fg.muted" lineClamp="2">
+                                {notificacion.mensaje}
+                              </Text>
+                              <Flex align="center" gap="2" mt="1">
+                                <Badge
+                                  size="xs"
+                                  variant="subtle"
+                                  colorPalette={vencida ? "red" : "orange"}
+                                >
+                                  {nivelLabel(notificacion.nivel)}
+                                </Badge>
+                                {notificacion.fecha_referencia && (
+                                  <Text fontSize="xs" color="fg.muted">
+                                    {formatoFechaOCorta(notificacion.fecha_referencia)}
+                                  </Text>
+                                )}
+                              </Flex>
+                            </Box>
+                          </Flex>
+
+                          <Tooltip
+                            content={noLeida ? "Marcar como leída" : "Marcar como no leída"}
+                            showArrow
+                          >
+                            <IconButton
+                              size="xs"
+                              variant="ghost"
+                              colorPalette={noLeida ? "brand" : "gray"}
+                              aria-label={noLeida ? "Marcar como leída" : "Marcar como no leída"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void marcarLeida(notificacion.id_notificacion, noLeida);
+                              }}
+                            >
+                              {noLeida ? <LuCheck size={14} /> : <LuCircleDot size={14} />}
+                            </IconButton>
+                          </Tooltip>
                         </Flex>
                       </Box>
                     );

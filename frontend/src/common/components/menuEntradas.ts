@@ -1,9 +1,7 @@
-import { puedeAdministrar, puedeOperar } from "../api/permissions";
+import { esGerente, esSuperAdmin, puedeAdministrar, puedeOperar } from "../api/permissions";
 import {
-  LuApple,
   LuArchive,
   LuBadgeCheck,
-  LuBeaker,
   LuBoxes,
   LuBrush,
   LuCalendarClock,
@@ -15,6 +13,8 @@ import {
   LuContainer,
   LuCookingPot,
   LuFactory,
+  LuBuilding2,
+  LuChartColumn,
   LuFileSearch,
   LuFileText,
   LuFlaskConical,
@@ -27,18 +27,18 @@ import {
   LuMicroscope,
   LuMessageSquareWarning,
   LuPackage,
+  LuPackageOpen,
   LuRuler,
   LuShieldCheck,
+  LuShoppingBasket,
   LuSparkles,
   LuSprayCan,
-  LuTag,
   LuTruck,
   LuPackageX,
   LuTriangleAlert,
   LuUsers,
   LuWarehouse,
   LuWrench,
-  LuPackagePlus,
   LuPackageCheck,
   LuHandshake,
 } from "react-icons/lu";
@@ -51,7 +51,7 @@ import type { IconType } from "react-icons/lib";
  * a mano: agregar una sección implicaba tocar el render del Navbar y el
  * router por separado, y se desincronizaban.
  */
-export type RolMenu = "todos" | "operar" | "administrar";
+export type RolMenu = "todos" | "operar" | "administrar" | "gerente" | "super_admin";
 
 export interface EntradaMenu {
   to: string;
@@ -64,6 +64,32 @@ export interface EntradaMenu {
   icon: IconType;
   /** Explicación corta, para las entradas que se muestran como tarjeta. */
   ayuda?: string;
+  /**
+   * Pestañas de la pantalla que se buscan por su nombre o que tienen fichas en
+   * otra ruta (`/reclamos/5` es de Gestión de incidentes).
+   */
+  pestanas?: PestanaMenu[];
+}
+
+export interface PestanaMenu {
+  to: string;
+  label: string;
+  icon: IconType;
+  /** Prefijo de las fichas que cuelgan de la pestaña, si no es el de la entrada. */
+  ruta?: string;
+}
+
+const esOCuelgaDe = (pathname: string, ruta: string) =>
+  pathname === ruta || pathname.startsWith(`${ruta}/`);
+
+/** Si una ruta es de la entrada: la pantalla, sus fichas o las de sus pestañas. */
+export function esDeEntrada(pathname: string, entrada: EntradaMenu): boolean {
+  // "/" es prefijo de todo: solo cuenta el match exacto.
+  if (entrada.to === "/") return pathname === "/";
+  return (
+    esOCuelgaDe(pathname, entrada.to) ||
+    (entrada.pestanas?.some((p) => p.ruta && esOCuelgaDe(pathname, p.ruta)) ?? false)
+  );
 }
 
 export interface GrupoMenu {
@@ -109,17 +135,12 @@ export const GRUPOS: GrupoMenu[] = [
     ayuda: "Lotes, recetas y productos",
     icon: LuChefHat,
     entradas: [
+      // Las salidas de producto son una pestaña de Lotes (`/lotes?tab=salidas`).
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
-      { to: "/salidas", label: "Salidas de producto", rol: "operar", icon: LuPackagePlus },
-      { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuPackageX },
       { to: "/reposiciones/pendientes", label: "Reposiciones pendientes", rol: "operar", icon: LuPackageCheck },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
       { to: "/productos", label: "Productos", rol: "administrar", icon: LuBoxes },
-      // E11: redondeo, valores diarios y base de composición de la tabla nutricional.
-      { to: "/nutricion", label: "Parámetros nutricionales", rol: "administrar", icon: LuApple },
-      // E12.1: versiones de las reglas que deciden si aplica el rotulado frontal.
-      { to: "/rotulado-frontal", label: "Reglas de rotulado frontal", rol: "administrar", icon: LuTag },
       // E13: rotulado según CAA (Capítulo V).
       { to: "/rotulado", label: "Rotulado de productos", rol: "administrar", icon: LuFileText },
     ],
@@ -130,9 +151,10 @@ export const GRUPOS: GrupoMenu[] = [
     ayuda: "Materia prima y proveedores",
     icon: LuArchive,
     entradas: [
-      { to: "/stock-insumos", label: "Stock de insumos", rol: "administrar", icon: LuWarehouse },
-      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuPackage },
-      { to: "/aditivos", label: "Aditivos", rol: "administrar", icon: LuBeaker },
+      { to: "/lotes-insumo", label: "Lotes de insumos", rol: "administrar", icon: LuPackageOpen },
+      { to: "/insumos", label: "Insumos", rol: "administrar", icon: LuShoppingBasket },
+      { to: "/stock-ingredientes", label: "Stock de ingredientes", rol: "administrar", icon: LuWarehouse },
+      { to: "/ingredientes", label: "Ingredientes", rol: "administrar", icon: LuPackage },
       { to: "/proveedores", label: "Proveedores", rol: "administrar", icon: LuTruck },
     ],
   },
@@ -195,10 +217,28 @@ export const GRUPOS: GrupoMenu[] = [
       {
         to: "/incidentes",
         label: "Gestión de incidentes",
-        rol: "administrar",
+        rol: "operar",
         icon: LuClipboardList,
+        pestanas: [
+          {
+            to: "/incidentes?tab=reclamos",
+            label: "Reclamos de clientes",
+            ruta: "/reclamos",
+            icon: LuMessageSquareWarning,
+          },
+          {
+            to: "/incidentes?tab=rechazos",
+            label: "Rechazos de entregas",
+            icon: LuTruck,
+          },
+          {
+            to: "/incidentes?tab=retiros",
+            label: "Retiros de lotes",
+            ruta: "/retiros",
+            icon: LuPackageX,
+          },
+        ],
       },
-      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquareWarning },
       { to: "/vencimientos", label: "Vencimientos", rol: "administrar", icon: LuCalendarClock },
       {
         to: "/consulta-documentos",
@@ -243,6 +283,8 @@ export const MENU: EntradaMenu[] = [
    */
   // { to: "/mi-perfil", label: "Mi perfil", rol: "todos", icon: LuUserRound },
   { to: "/", label: "Inicio", rol: "todos", icon: LuHouse },
+  // Tablero que compara la sede con el resto de la empresa.
+  { to: "/comparativo", label: "Comparar sedes", rol: "gerente", icon: LuChartColumn },
 ];
 
 /** Pantalla de configuración: se abre desde el menú de usuario (el avatar). */
@@ -267,7 +309,14 @@ export const CONFIGURACION: EntradaMenu[] = [
     label: "Unidades de medida",
     rol: "administrar",
     icon: LuRuler,
-    ayuda: "Unidades con las que se miden insumos, recetas y productos.",
+    ayuda: "Unidades con las que se miden ingredientes, recetas y productos.",
+  },
+  {
+    to: "/establecimientos",
+    label: "Establecimientos",
+    rol: "super_admin",
+    icon: LuBuilding2,
+    ayuda: "Sedes de producción de la empresa: alta, datos y baja.",
   },
   {
     to: "/vista-publica",
@@ -290,7 +339,27 @@ export function esVisibleEntrada(
 ): boolean {
   if (entrada.rol === "todos") return true;
   if (entrada.rol === "operar") return puedeOperar(user);
+  if (entrada.rol === "super_admin") return esSuperAdmin(user);
+  if (entrada.rol === "gerente") return esGerente(user) || esSuperAdmin(user);
   return puedeAdministrar(user);
+}
+
+/** Los paneles de indicadores de cada área son solo para quien administra. */
+export function vePaneles(user: Parameters<typeof puedeOperar>[0]): boolean {
+  return puedeAdministrar(user);
+}
+
+/**
+ * A dónde lleva una categoría de la barra: a su panel, para quien administra;
+ * para quien solo opera, a la primera pantalla de esa categoría que puede ver
+ * (Producción → Lotes, Limpieza → Checklist, Calidad → Reportar incidente).
+ */
+export function destinoCategoria(
+  grupo: Pick<GrupoMenu, "id" | "entradas">,
+  user: Parameters<typeof puedeOperar>[0],
+): string {
+  if (vePaneles(user)) return rutaPanel(grupo);
+  return grupo.entradas.find((e) => esVisibleEntrada(e, user))?.to ?? "/";
 }
 
 /**
@@ -300,11 +369,15 @@ export function esVisibleEntrada(
  * así nunca se desincroniza. Lo usa la transición entre pantallas para saber
  * hacia qué lado barrer.
  */
-const ORDEN_RUTAS: string[] = [
-  ...MENU.map((e) => e.to),
-  ...GRUPOS.flatMap((g) => [rutaPanel(g), ...g.entradas.map((e) => e.to)]),
-  RUTA_CONFIGURACION,
-  ...CONFIGURACION.map((e) => e.to),
+const ORDEN_RUTAS: string[][] = [
+  ...MENU.map((e) => [e.to]),
+  // Las fichas de una pestaña ocupan el lugar de la pantalla que la tiene.
+  ...GRUPOS.flatMap((g) => [
+    [rutaPanel(g)],
+    ...g.entradas.map((e) => [e.to, ...(e.pestanas ?? []).flatMap((p) => p.ruta ?? [])]),
+  ]),
+  [RUTA_CONFIGURACION],
+  ...CONFIGURACION.map((e) => [e.to]),
 ];
 
 /**
@@ -317,12 +390,14 @@ const ORDEN_RUTAS: string[] = [
 export function indiceRuta(pathname: string): number | null {
   let mejor: number | null = null;
   let largo = -1;
-  ORDEN_RUTAS.forEach((to, i) => {
-    const coincide = to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
-    if (coincide && to.length > largo) {
-      mejor = i;
-      largo = to.length;
-    }
+  ORDEN_RUTAS.forEach((rutas, i) => {
+    rutas.forEach((to) => {
+      const coincide = to === "/" ? pathname === "/" : esOCuelgaDe(pathname, to);
+      if (coincide && to.length > largo) {
+        mejor = i;
+        largo = to.length;
+      }
+    });
   });
   return mejor;
 }

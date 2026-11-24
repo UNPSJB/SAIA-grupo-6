@@ -6,7 +6,7 @@ atomicidad cuando se combinan varias operaciones (lote + salidas + incidente +
 hitos) en una sola transacción.
 """
 
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import select
@@ -16,7 +16,6 @@ from src.clientes.models import Cliente
 from src.common.fechas import ahora, hoy
 from src.exceptions import BadRequest, NotFound
 from src.incidente import services as incidente_services
-from src.incidente.constants import TipoIncidente
 from src.incidente.models import Incidente
 from src.lotes.models import LoteProducto
 from src.lotesInsumo.models import LoteInsumo
@@ -378,10 +377,6 @@ def _cantidad_con_unidad(cantidad, unidad: Optional[str]) -> str:
     if unidad:
         return f"{texto} {unidad}"
     return texto
-
-
-def _retiro_de_lote(db: Session, lote_id: int) -> Optional[Retiro]:
-    return db.scalar(select(Retiro).where(Retiro.lote_id == lote_id))
 
 
 def afectado_a_resumen(afectado: RetiroAfectado) -> schemas.RetiroAfectadoResumen:

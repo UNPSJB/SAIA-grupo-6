@@ -57,6 +57,7 @@ def crear_transportista(db: Session, datos: schemas.TransportistaCreate) -> Tran
 def listar_transportistas(
     db: Session,
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
@@ -80,10 +81,12 @@ def listar_transportistas(
     )
     if filtro is not None:
         consulta = consulta.where(filtro)
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Transportista.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Transportista.activo.is_(True))
 
-    # Ordenamiento por columna (patrón igual al de clientes/insumos/incidentes)
+    # Ordenamiento por columna (patrón igual al de clientes/ingredientes/incidentes)
     if orden == "razon_social_asc":
         consulta = consulta.order_by(
             sin_tildes(Transportista.razon_social).asc(), Transportista.id.asc()

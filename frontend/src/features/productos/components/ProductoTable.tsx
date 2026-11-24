@@ -52,7 +52,7 @@ export function ProductoTable({
         {/* Anchos proporcionales: nombre y descripción se reparten el espacio y
             la columna de acciones reserva espacio para los botones. */}
         <Table.Root variant="outline" w="100%" minW="760px">
-          <Table.Header background="teal.subtle" css={{ "& th": { color: "teal.fg", borderColor: "teal.muted" } }}>
+          <Table.Header>
             <FilaEncabezado>
               <EncabezadoOscuro width="32%">Nombre</EncabezadoOscuro>
               <EncabezadoOscuro>Descripción</EncabezadoOscuro>
@@ -75,7 +75,7 @@ export function ProductoTable({
                   </Stack>
                 </Celda>
                 <Celda>
-                  <TextoTruncado texto={producto.descripcion ?? "-"} color="#64748B" />
+                  <TextoTruncado texto={producto.descripcion ?? "-"} color="tabla.textoSecundario" />
                 </Celda>
                 <Celda center>
                   <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>

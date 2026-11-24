@@ -20,7 +20,7 @@ from src.checklist.exceptions import (
     ChecklistNoEncontrado,
 )
 from src.insumoQuimico.models import InsumoQuimico
-from src.insumoQuimico.stock_services import sincronizar_consumo_checklist
+from src.insumoQuimico.stock_services import sincronizar_consumos_checklist
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.personal.models import Personal
 from src.exceptions import PermissionDenied, BadRequest
@@ -42,27 +42,65 @@ def marcar_tarea(
     insumo_quimico_id: Optional[int] = None,
     cantidad_consumida: Optional[float] = None,
     elemento_limpieza_id: Optional[int] = None,
+    consumos: Optional[list[tuple[int, float]]] = None,
+    elementos_limpieza_ids: Optional[list[int]] = None,
 ) -> models.RegistroTarea:
+    """Marca o desmarca una tarea del checklist.
 
-    if cantidad_consumida is not None and cantidad_consumida <= 0:
-        raise CantidadConsumidaInvalida()
-    if (insumo_quimico_id is None) != (cantidad_consumida is None):
-        raise CantidadConsumidaInvalida()
-    if completado and insumo_quimico_id is not None:
-        insumo_validado = db.get(InsumoQuimico, insumo_quimico_id)
-        if insumo_validado is None or not insumo_validado.activo:
-            raise exceptions.InsumoQuimicoNoEncontrado()
-    if completado and elemento_limpieza_id is not None:
-        elemento_validado = db.get(ElementoLimpieza, elemento_limpieza_id)
-        if elemento_validado is None or not elemento_validado.activo:
-            raise exceptions.ElementoLimpiezaNoEncontrado()
+    Una tarea puede registrar varios productos químicos, cada uno con su
+    cantidad (`consumos`: `[(insumo_quimico_id, cantidad), ...]`), y varios
+    elementos de limpieza (`elementos_limpieza_ids`). `None` en cualquiera de
+    las dos listas conserva lo que ya tenía la tarea; una lista vacía la deja
+    sin nada. Los parámetros sueltos (`insumo_quimico_id`, `cantidad_consumida`,
+    `elemento_limpieza_id`) son el formato anterior, de un solo producto y un
+    solo elemento: se aceptan si no vienen las listas.
+    """
+    if consumos is None and (insumo_quimico_id is not None or cantidad_consumida is not None):
+        if insumo_quimico_id is None or cantidad_consumida is None:
+            raise CantidadConsumidaInvalida()
+        consumos = [(insumo_quimico_id, cantidad_consumida)]
+    if elementos_limpieza_ids is None and elemento_limpieza_id is not None:
+        elementos_limpieza_ids = [elemento_limpieza_id]
+
+    if consumos is not None:
+        ids_consumo = [insumo_id for insumo_id, _ in consumos]
+        if len(set(ids_consumo)) != len(ids_consumo):
+            raise BadRequest("Cada producto químico puede figurar una sola vez en la tarea.")
+        if any(cantidad is None or cantidad <= 0 for _, cantidad in consumos):
+            raise CantidadConsumidaInvalida()
+    if elementos_limpieza_ids is not None:
+        # Repetir un elemento no aporta nada: se toma una vez, en el orden dado.
+        elementos_limpieza_ids = list(dict.fromkeys(elementos_limpieza_ids))
+
+    if completado:
+        for insumo_id, _ in consumos or []:
+            insumo_validado = db.get(InsumoQuimico, insumo_id)
+            if insumo_validado is None or not insumo_validado.activo:
+                raise exceptions.InsumoQuimicoNoEncontrado()
+        for elemento_id in elementos_limpieza_ids or []:
+            elemento_validado = db.get(ElementoLimpieza, elemento_id)
+            if elemento_validado is None or not elemento_validado.activo:
+                raise exceptions.ElementoLimpiezaNoEncontrado()
 
     tarea = leer_tarea(db, tarea_id)
-    if not tarea.activo or not tarea.plan.activo:
-        raise TareaNoEncontrada()
-
     fecha_registro = fecha or hoy()
     hoy_val = hoy()
+
+    # Si la tarea o su plan se desactivaron después de armado el checklist de
+    # esa fecha, la tarea sigue siendo de ese día y se puede marcar; lo que no
+    # se hace es generar checklists nuevos para ella.
+    if not tarea.activo or not tarea.plan.activo:
+        ya_programada = db.scalar(
+            select(models.RegistroTarea.id)
+            .join(models.Checklist, models.Checklist.id == models.RegistroTarea.checklist_id)
+            .where(
+                models.Checklist.plan_id == tarea.plan.id,
+                models.Checklist.fecha == fecha_registro,
+                models.RegistroTarea.tarea_id == tarea.id,
+            )
+        )
+        if ya_programada is None:
+            raise TareaNoEncontrada()
 
     # No se pueden modificar checklists futuros
     if fecha_registro > hoy_val:
@@ -156,10 +194,9 @@ def marcar_tarea(
             f"Esta tarea está asignada a {operador_nombre or 'otro operador'} y no puede ser marcada por usted."
         )
 
-    consumo_anterior = (
-        registro.insumo_quimico_id,
-        Decimal(str(registro.cantidad_consumida)) if registro.cantidad_consumida is not None else None,
-    )
+    consumos_anteriores = {
+        c.insumo_quimico_id: Decimal(str(c.cantidad)) for c in registro.consumos
+    }
 
     version_anterior = registro.version_stock
     resultado_version = db.execute(
@@ -190,50 +227,54 @@ def marcar_tarea(
         registro.evidencia_url = None
 
     # ---------------------------------------------------------
-    # CONSUMO APROXIMADO DEL INSUMO QUÍMICO
+    # PRODUCTOS QUÍMICOS Y ELEMENTOS DE LIMPIEZA
     # ---------------------------------------------------------
-    # El consumo se guarda directamente en RegistroTarea.
-    # Ya no se maneja stock ni una tabla separada de consumos.
-    if completado:
-        # Si se envían datos de consumo, deben venir completos
-        if insumo_quimico_id is not None or cantidad_consumida is not None:
-            if insumo_quimico_id is None or cantidad_consumida is None:
-                raise CantidadConsumidaInvalida()
-            insumo = db.get(InsumoQuimico, insumo_quimico_id)
-            if insumo is None or not insumo.activo:
-                raise exceptions.InsumoQuimicoNoEncontrado()
-            registro.insumo_quimico_id = insumo_quimico_id
-            registro.cantidad_consumida = cantidad_consumida
-        # Si no se envían datos de consumo y el registro ya tenía valores,
-        # se mantienen (no se borran al completar sin enviar consumo).
-        # Si no había valores, quedan como están (None).
+    # Al completar, las listas recibidas reemplazan a las guardadas (si no se
+    # mandan, se conservan). Al desmarcar, la tarea queda sin consumos ni
+    # elementos, y el stock se devuelve.
+    if not completado:
+        registro.consumos.clear()
+        registro.elementos.clear()
     else:
-        # Al desmarcar, se limpia el consumo asociado
-        registro.insumo_quimico_id = None
-        registro.cantidad_consumida = None
-    # Registro del elemento de limpieza utilizado
+        if consumos is not None:
+            existentes = {c.insumo_quimico_id: c for c in registro.consumos}
+            nuevos_ids = {insumo_id for insumo_id, _ in consumos}
+            for consumo in list(registro.consumos):
+                if consumo.insumo_quimico_id not in nuevos_ids:
+                    registro.consumos.remove(consumo)
+            for insumo_id, cantidad in consumos:
+                if insumo_id in existentes:
+                    existentes[insumo_id].cantidad = cantidad
+                else:
+                    registro.consumos.append(
+                        models.RegistroTareaConsumo(insumo_quimico_id=insumo_id, cantidad=cantidad)
+                    )
+        if elementos_limpieza_ids is not None:
+            actuales = {e.elemento_limpieza_id: e for e in registro.elementos}
+            for elemento in list(registro.elementos):
+                if elemento.elemento_limpieza_id not in elementos_limpieza_ids:
+                    registro.elementos.remove(elemento)
+            for elemento_id in elementos_limpieza_ids:
+                if elemento_id not in actuales:
+                    registro.elementos.append(
+                        models.RegistroTareaElemento(elemento_limpieza_id=elemento_id)
+                    )
 
-    if completado and elemento_limpieza_id is not None:
-        registro.elemento_limpieza_id = elemento_limpieza_id
-    elif not completado:
-        registro.elemento_limpieza_id = None
-
-    consumo_nuevo = (
-        registro.insumo_quimico_id,
-        Decimal(str(registro.cantidad_consumida)) if registro.cantidad_consumida is not None else None,
-    )
+    consumos_nuevos = {
+        c.insumo_quimico_id: Decimal(str(c.cantidad)) for c in registro.consumos
+    }
 
     # El descuento y su trazabilidad son parte de la misma unidad de trabajo
     # que el estado de la tarea. Un reintento idéntico no genera diferencia.
     try:
-        sincronizar_consumo_checklist(
+        sincronizar_consumos_checklist(
             db,
             registro_id=registro.id,
             checklist_id=checklist.id,
             checklist_fecha=checklist.fecha,
             tarea_nombre=registro.nombre_tarea_historico,
-            consumo_anterior=consumo_anterior,
-            consumo_nuevo=consumo_nuevo,
+            consumos_anteriores=consumos_anteriores,
+            consumos_nuevos=consumos_nuevos,
             usuario_id=usuario_id,
             usuario_nombre=usuario_nombre,
         )
@@ -277,7 +318,7 @@ def marcar_tarea(
     # Un único commit guarda:
     # - estado de la tarea
     # - historial
-    # - producto químico utilizado y cantidad aproximada consumida
+    # - productos químicos (con su cantidad) y elementos de limpieza
     try:
         db.commit()
     except Exception:
@@ -318,16 +359,19 @@ def asignar_cobertura_tarea(
     db: Session,
     registro_id: int,
     operador_id: Optional[int],
-    reemplazado_por_id: int,
+    asignado_por_id: int,
 ) -> models.RegistroTarea:
-    """Asigna (o reasigna) el operador responsable de una tarea de hoy.
+    """Asigna (o quita) el suplente de una tarea de hoy.
 
-    Solo aplica sobre checklists del día actual (no cerrados). El
-    `reemplazado_por_id` registra al administrador que hizo el cambio, para
-    conservar rastro de quién cubrió la ausencia del operador original.
+    Solo aplica sobre checklists del día actual. El responsable original
+    (`operador_id`) no cambia: el operador elegido queda en
+    `reemplazado_por_id`, que es quien ve la tarea y la puede marcar. Elegir
+    al propio responsable, o ninguno (`operador_id=None`), quita la cobertura
+    y la tarea vuelve a su responsable.
 
-    Si `operador_id` es None, se desasigna el operador (cualquier operador
-    podrá tomar la tarea al marcarla).
+    Una tarea vieja sin responsable recibe al operador elegido como
+    responsable. Quién hizo el cambio (`asignado_por_id`, el administrador)
+    queda en el historial del registro.
     """
     registro = db.get(models.RegistroTarea, registro_id)
     if registro is None:
@@ -341,7 +385,7 @@ def asignar_cobertura_tarea(
     if checklist.fecha < hoy_val:
         raise ChecklistInmutable()
 
-    # Validar que el nuevo operador exista, esté activo y pueda operar.
+    # Validar que el operador elegido exista, esté activo y pueda operar.
     if operador_id is not None:
         nuevo_operador = db.get(Personal, operador_id)
         if (
@@ -353,22 +397,23 @@ def asignar_cobertura_tarea(
                 "El operador indicado no existe, está dado de baja o no tiene permiso de operar."
             )
 
-    # Si ya tiene operador asignado (responsable original), no lo cambiamos:
-    # solo registramos quién lo cubre en reemplazado_por_id.
-    if registro.operador_id is not None:
-        registro.reemplazado_por_id = reemplazado_por_id
-    else:
-        # No tiene operador asignado: asignamos el nuevo operador.
+    if registro.operador_id is None:
+        # Tarea sin responsable (anterior a que fuera obligatorio).
         registro.operador_id = operador_id
-        registro.reemplazado_por_id = reemplazado_por_id
+        registro.reemplazado_por_id = None
+    elif operador_id is None or operador_id == registro.operador_id:
+        # Sin suplente: la hace su responsable.
+        registro.reemplazado_por_id = None
+    else:
+        registro.reemplazado_por_id = operador_id
 
-    # Queda constancia en el historial de cobertura (sin cambiar el
-    # completado de la tarea).
+    # Queda constancia en el historial de quién cambió la cobertura (sin
+    # cambiar el completado de la tarea).
     db.add(
         models.HistorialRegistroTarea(
             registro_tarea_id=registro.id,
             completado=registro.completado,
-            usuario_id=reemplazado_por_id,
+            usuario_id=asignado_por_id,
             evidencia_url=None,
         )
     )

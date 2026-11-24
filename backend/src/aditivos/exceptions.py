@@ -10,18 +10,6 @@ class ClaseYaExiste(BadRequest):
     DETAIL = ErrorCode.CLASE_YA_EXISTE
 
 
-class ClaseInactiva(BadRequest):
-    DETAIL = ErrorCode.CLASE_INACTIVA
-
-
-class AditivoNoEncontrado(NotFound):
-    DETAIL = ErrorCode.ADITIVO_NO_ENCONTRADO
-
-
-class AditivoYaExiste(BadRequest):
-    DETAIL = ErrorCode.ADITIVO_YA_EXISTE
-
-
 class NombreVacio(BadRequest):
     DETAIL = ErrorCode.NOMBRE_VACIO
 

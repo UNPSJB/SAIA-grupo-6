@@ -9,18 +9,22 @@ import {
   type ReactNode,
 } from "react";
 import { Navigate, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Box, Flex, Link } from "@chakra-ui/react";
-import { LuArrowLeft } from "react-icons/lu";
+import { Box, Flex, Link, chakra } from "@chakra-ui/react";
+import { LuArrowLeft, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { useAuth } from "../context/useAuth";
 import { FONDO_PESTANA } from "../../theme";
 import {
   GRUPOS,
   MENU,
+  destinoCategoria,
+  esDeEntrada,
   esVisibleEntrada,
   rutaPanel,
+  vePaneles,
   type EntradaMenu,
   type GrupoMenu,
 } from "./menuEntradas";
+import { hayPantallaAnterior } from "../hooks/historialNavegacion";
 
 /**
  * Ruta activa del menú, de la más específica a la más general.
@@ -34,12 +38,7 @@ function entradaActiva(pathname: string, entradas: EntradaMenu[]): string | null
   let mejor: string | null = null;
 
   for (const entrada of entradas) {
-    // "/" es prefijo de todo: solo cuenta el match exacto.
-    const coincide =
-      entrada.to === "/"
-        ? pathname === "/"
-        : pathname === entrada.to || pathname.startsWith(`${entrada.to}/`);
-    if (coincide && (mejor === null || entrada.to.length > mejor.length)) {
+    if (esDeEntrada(pathname, entrada) && (mejor === null || entrada.to.length > mejor.length)) {
       mejor = entrada.to;
     }
   }
@@ -68,7 +67,7 @@ const ANCHO_BASE = 100;
  * de la barra. En escritorio es la franja blanca de las migas de pan; en
  * celular esa franja no está y debajo queda el fondo de la página.
  */
-const FONDO_FUSION = { base: "brand.50", md: FONDO_PESTANA } as const;
+const FONDO_FUSION = { base: "pagina", md: FONDO_PESTANA } as const;
 
 /** Curva cóncava al pie de la pestaña seleccionada, del lado indicado. */
 function curva(lado: "left" | "right") {
@@ -290,10 +289,13 @@ type AlIr = (e: MouseEvent<HTMLAnchorElement>, destino: string) => void;
  */
 function PestanaCategoria({
   grupo,
+  destino,
   contieneRutaActual,
   onIr,
 }: {
   grupo: GrupoMenu;
+  /** Su panel, o su primera pantalla para quien no ve los paneles. */
+  destino: string;
   contieneRutaActual: boolean;
   onIr: AlIr;
 }) {
@@ -311,9 +313,9 @@ function PestanaCategoria({
       roundedBottom={contieneRutaActual ? "none" : "md"}
     >
       <NavLink
-        to={rutaPanel(grupo)}
+        to={destino}
         data-pieza={clave}
-        onClick={(e) => onIr(e, rutaPanel(grupo))}
+        onClick={(e) => onIr(e, destino)}
       >
         <Capas activa={false} {...CAPAS_CATEGORIA}>
           <Icono size={20} aria-hidden style={{ flexShrink: 0 }} />
@@ -604,6 +606,49 @@ export default function Navbar() {
     }
   }, [abierta, ruta, grupos, colocarIndicador]);
 
+  /*
+   * Desborde de la barra: las pestañas que no entran se alcanzan
+   * desplazando de costado, con la barra de scroll oculta. Sin una pista, la
+   * última quedaba cortada al ras ("Consultar docume") y no se notaba que
+   * había más. Se desvanece el borde por el que sigue habiendo pestañas.
+   */
+  const [desborde, setDesborde] = useState({ izq: false, der: false });
+  const medirDesborde = useCallback(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    const izq = lista.scrollLeft > 1;
+    const der = lista.scrollLeft + lista.clientWidth < lista.scrollWidth - 1;
+    setDesborde((p) => (p.izq === izq && p.der === der ? p : { izq, der }));
+  }, []);
+  const mascara =
+    desborde.izq || desborde.der
+      ? `linear-gradient(to right, ${desborde.izq ? "transparent, black 40px" : "black"}, ${
+          desborde.der ? "black calc(100% - 40px), transparent" : "black"
+        })`
+      : undefined;
+
+  /** Desplaza la barra casi un ancho visible hacia un lado (-1 izq, 1 der). */
+  const desplazar = useCallback((sentido: -1 | 1) => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    lista.scrollBy({ left: sentido * lista.clientWidth * 0.7, behavior: "smooth" });
+  }, []);
+
+  // La rueda vertical del mouse desplaza la barra de costado cuando desborda
+  // (sin esto, solo se llegaba con trackpad). Listener no pasivo para poder
+  // evitar que además se mueva la página.
+  useEffect(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    const alGirar = (e: WheelEvent) => {
+      if (lista.scrollWidth <= lista.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      lista.scrollLeft += e.deltaY;
+    };
+    lista.addEventListener("wheel", alGirar, { passive: false });
+    return () => lista.removeEventListener("wheel", alGirar);
+  }, []);
+
   // Si cambia el ancho (ventana, buscador desplegado), el indicador se
   // reacomoda sin animar y las medidas se toman de nuevo.
   useLayoutEffect(() => {
@@ -614,10 +659,28 @@ export default function Navbar() {
       cajaRef.current = caja;
       colocarIndicador(caja);
       medidasRef.current = medir(lista);
+      medirDesborde();
     });
     observador.observe(lista);
     return () => observador.disconnect();
-  }, [colocarIndicador]);
+  }, [colocarIndicador, medirDesborde]);
+
+  // Al cambiar de pantalla, si la pestaña activa quedó fuera de la parte
+  // visible (barra con más opciones de las que entran), se la trae a la vista.
+  useEffect(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    const activa = lista.querySelector<HTMLElement>('[aria-current="page"]');
+    if (activa) {
+      const izq = activa.offsetLeft - RADIO;
+      const der = activa.offsetLeft + activa.offsetWidth + RADIO;
+      if (izq < lista.scrollLeft) lista.scrollLeft = izq;
+      else if (der > lista.scrollLeft + lista.clientWidth) {
+        lista.scrollLeft = der - lista.clientWidth;
+      }
+    }
+    medirDesborde();
+  }, [abierta, ruta, medirDesborde]);
 
   /**
    * Clic en un enlace de la barra. Primero se mueve la barra (que pasa a
@@ -653,7 +716,7 @@ export default function Navbar() {
     // Va dentro de la barra superior (`BarraSuperior`), entre el logo y las
     // herramientas: ocupa el espacio libre y, si las pestañas no entran,
     // scrollea de costado en vez de partirse en dos renglones.
-    <Box as="nav" aria-label="Menú principal" color="white" flex="1" minW={0} alignSelf="stretch">
+    <Box as="nav" aria-label="Menú principal" color="white" flex="1" minW={0} alignSelf="stretch" position="relative">
       <Flex
         as="ul"
         ref={listaRef}
@@ -673,7 +736,13 @@ export default function Navbar() {
         px={`${RADIO}px`}
         overflowX="auto"
         overflowY="hidden"
-        css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+        onScroll={medirDesborde}
+        css={{
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+          maskImage: mascara,
+          WebkitMaskImage: mascara,
+        }}
       >
         {/*
           Fondo de la pestaña seleccionada, como la de un navegador: llega
@@ -718,6 +787,7 @@ export default function Navbar() {
             <Box as="li" key={grupo.id}>
               <PestanaCategoria
                 grupo={grupo}
+                destino={destinoCategoria(grupo, user)}
                 contieneRutaActual={grupo.id === grupoDeRuta}
                 onIr={ir}
               />
@@ -725,12 +795,14 @@ export default function Navbar() {
           ))
         ) : (
           <>
-            {/* Flecha: vuelve al inicio, donde la barra muestra las categorías. */}
+            {/* Flecha: vuelve a la pantalla anterior tal como estaba (filtros
+                incluidos), como la del navegador. Sin pantalla anterior en la
+                app, va al inicio, donde la barra muestra las categorías. */}
             <Box as="li" flexShrink={0}>
               <Link
                 asChild
-                aria-label="Volver al inicio"
-                title="Volver al inicio"
+                aria-label="Volver"
+                title="Volver"
                 {...pestana(false)}
                 alignItems="center"
                 justifyContent="center"
@@ -739,7 +811,14 @@ export default function Navbar() {
                 <NavLink
                   to="/"
                   data-pieza="flecha"
-                  onClick={(e) => ir(e, "/")}
+                  onClick={(e) => {
+                    if (hayPantallaAnterior() && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                      e.preventDefault();
+                      navigate(-1);
+                    } else {
+                      ir(e, "/");
+                    }
+                  }}
                 >
                   <LuArrowLeft size={20} aria-hidden />
                 </NavLink>
@@ -753,29 +832,31 @@ export default function Navbar() {
               que en la fila de categorías (ícono incluido) para que la
               animación la traslade sin deformarla.
             */}
-            <Box as="li" flexShrink={0}>
-              <Link
-                asChild
-                aria-current={enPanel ? "page" : undefined}
-                title={`Panel de ${grupoAbierto.label}`}
-                {...pestana(enPanel)}
-                {...CATEGORIA}
-              >
-                <NavLink
-                  to={rutaPanel(grupoAbierto)}
-                  data-pieza={clavePanel(grupoAbierto.id)}
-                  data-activa={enPanel ? "" : undefined}
-                  onClick={(e) => ir(e, rutaPanel(grupoAbierto))}
+            {vePaneles(user) && (
+              <Box as="li" flexShrink={0}>
+                <Link
+                  asChild
+                  aria-current={enPanel ? "page" : undefined}
+                  title={`Panel de ${grupoAbierto.label}`}
+                  {...pestana(enPanel)}
+                  {...CATEGORIA}
                 >
-                  <Capas activa={enPanel} {...CAPAS_CATEGORIA}>
-                    {IconoAbierto && (
-                      <IconoAbierto size={20} aria-hidden style={{ flexShrink: 0 }} />
-                    )}
-                    {grupoAbierto.label}
-                  </Capas>
-                </NavLink>
-              </Link>
-            </Box>
+                  <NavLink
+                    to={rutaPanel(grupoAbierto)}
+                    data-pieza={clavePanel(grupoAbierto.id)}
+                    data-activa={enPanel ? "" : undefined}
+                    onClick={(e) => ir(e, rutaPanel(grupoAbierto))}
+                  >
+                    <Capas activa={enPanel} {...CAPAS_CATEGORIA}>
+                      {IconoAbierto && (
+                        <IconoAbierto size={20} aria-hidden style={{ flexShrink: 0 }} />
+                      )}
+                      {grupoAbierto.label}
+                    </Capas>
+                  </NavLink>
+                </Link>
+              </Box>
+            )}
 
             <Box
               as="li"
@@ -796,6 +877,40 @@ export default function Navbar() {
           </>
         )}
       </Flex>
+      {/* Flechas sobre el borde que desborda: con el mouse no hay scroll
+          horizontal a mano, y el desvanecido solo no alcanzaba (la última
+          pestaña quedaba tapada sin forma evidente de llegar). */}
+      {desborde.izq && <FlechaDesborde lado="izq" onClick={() => desplazar(-1)} />}
+      {desborde.der && <FlechaDesborde lado="der" onClick={() => desplazar(1)} />}
     </Box>
+  );
+}
+
+function FlechaDesborde({ lado, onClick }: { lado: "izq" | "der"; onClick: () => void }) {
+  const Icono = lado === "izq" ? LuChevronLeft : LuChevronRight;
+  return (
+    <chakra.button
+      type="button"
+      aria-label={lado === "izq" ? "Ver opciones anteriores del menú" : "Ver más opciones del menú"}
+      title={lado === "izq" ? "Opciones anteriores" : "Más opciones"}
+      onClick={onClick}
+      position="absolute"
+      top="50%"
+      transform="translateY(-50%)"
+      {...(lado === "izq" ? { left: "0" } : { right: "0" })}
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      w="7"
+      h="7"
+      rounded="full"
+      bg="blackAlpha.500"
+      color="white"
+      cursor="pointer"
+      _hover={{ bg: "blackAlpha.700" }}
+      zIndex={1}
+    >
+      <Icono aria-hidden />
+    </chakra.button>
   );
 }

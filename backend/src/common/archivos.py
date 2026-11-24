@@ -1,6 +1,5 @@
 from pathlib import Path
 import uuid
-from typing import Callable
 from fastapi import UploadFile, HTTPException
 from starlette.types import ASGIApp, Receive, Scope, Send
 from src.config import CARPETA_UPLOADS, settings

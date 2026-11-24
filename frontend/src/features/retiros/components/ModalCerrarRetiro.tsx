@@ -113,7 +113,7 @@ export function ModalCerrarRetiro({
 
         <DialogDescription color="fg.muted" mb="4">
           Al cerrar, el retiro queda como "Cerrado" y se cierra
-          automáticamente el incidente vinculado en E6. El retiro pasará a
+          automáticamente el incidente vinculado. El retiro pasará a
           solo lectura y la acción correctiva quedará registrada con tu
           usuario y la fecha actual.
         </DialogDescription>

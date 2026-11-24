@@ -8,6 +8,37 @@ export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const ACCESS_KEY = "saia_access_token";
 const REFRESH_KEY = "saia_refresh_token";
 
+/**
+ * Establecimiento elegido por el super admin (que es de la empresa y no tiene
+ * sede propia). Viaja en cada request como `X-Establecimiento-Id`; para el
+ * resto de los usuarios el backend lo ignora y usa siempre su propia sede.
+ */
+const ESTABLECIMIENTO_KEY = "saia_establecimiento";
+const CABECERA_ESTABLECIMIENTO = "X-Establecimiento-Id";
+
+export function getEstablecimientoElegido(): number | null {
+  try {
+    const valor = Number(localStorage.getItem(ESTABLECIMIENTO_KEY));
+    return Number.isInteger(valor) && valor > 0 ? valor : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setEstablecimientoElegido(id: number | null) {
+  try {
+    if (id === null) localStorage.removeItem(ESTABLECIMIENTO_KEY);
+    else localStorage.setItem(ESTABLECIMIENTO_KEY, String(id));
+  } catch {
+    // Sin storage se trabaja en el establecimiento por defecto.
+  }
+}
+
+function cabeceraEstablecimiento(): Record<string, string> {
+  const id = getEstablecimientoElegido();
+  return id ? { [CABECERA_ESTABLECIMIENTO]: String(id) } : {};
+}
+
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY);
 }
@@ -24,6 +55,8 @@ export function setTokens(accessToken: string, refreshToken: string) {
 export function clearTokens() {
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
+  // La sede elegida es de esa sesión: el próximo usuario arranca en la suya.
+  localStorage.removeItem(ESTABLECIMIENTO_KEY);
 }
 
 // Evita que varias requests 401 en paralelo disparen el redirect varias veces.
@@ -97,6 +130,7 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   const mergedInit: RequestInit = {
     ...init,
     headers: {
+      ...cabeceraEstablecimiento(),
       ...(init.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
@@ -111,6 +145,7 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       const retryInit: RequestInit = {
         ...init,
         headers: {
+          ...cabeceraEstablecimiento(),
           ...(init.headers || {}),
           ...(newToken ? { Authorization: `Bearer ${newToken}` } : {}),
         },

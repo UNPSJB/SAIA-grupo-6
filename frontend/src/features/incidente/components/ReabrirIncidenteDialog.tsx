@@ -10,12 +10,15 @@ import {
   AccionesFormulario,
   BotonCancelar,
   FormField,
+  MensajeError,
 } from "../../../components/ui/patrones";
-import type { Incidente } from "../types/incidente";
 
 interface ReabrirIncidenteDialogProps {
   isOpen: boolean;
-  incidente: Incidente | null;
+  incidente: { id: number } | null;
+  /** Qué se reabre: un reclamo se reabre desde su ficha. */
+  entidad?: "incidente" | "reclamo";
+  error?: string | null;
   isLoading?: boolean;
   onClose: () => void;
   onConfirm: (motivo: string) => void;
@@ -30,6 +33,8 @@ interface ReabrirIncidenteDialogProps {
 export function ReabrirIncidenteDialog({
   isOpen,
   incidente,
+  entidad = "incidente",
+  error,
   isLoading,
   onClose,
   onConfirm,
@@ -44,10 +49,6 @@ export function ReabrirIncidenteDialog({
   }
 
   if (!isOpen || !incidente) return null;
-  if (incidente.tipo === "entrega_rechazada" || (incidente.tipo as string) === "Entrega rechazada") {
-    return null;
-  }
-
   return (
     <DialogRoot
       open
@@ -66,13 +67,15 @@ export function ReabrirIncidenteDialog({
         textAlign="left"
       >
         <DialogTitle as="h3" mt={0} mb="4" fontSize="lg" fontWeight="bold" color="fg">
-          Reabrir incidente <strong>#{incidente.id}</strong>
+          Reabrir {entidad} <strong>#{incidente.id}</strong>
         </DialogTitle>
 
         <DialogDescription color="fg.muted" mb="4">
-          El incidente vuelve a estado abierto. Podés dejar un motivo
+          El {entidad} vuelve a estado abierto. Podés dejar un motivo
           (opcional) para dejar registro del cambio.
         </DialogDescription>
+
+        {error && <MensajeError>{error}</MensajeError>}
 
         <FormField label="Motivo de reapertura (opcional)" mb="6">
           <Textarea
@@ -94,7 +97,7 @@ export function ReabrirIncidenteDialog({
             colorPalette="orange"
             size="md"
           >
-            Reabrir incidente
+            Reabrir {entidad}
           </Button>
           <BotonCancelar onClick={onClose} disabled={isLoading}>
             Cancelar

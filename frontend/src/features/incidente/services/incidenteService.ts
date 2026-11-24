@@ -1,4 +1,4 @@
-import type { Incidente, IncidenteFormValues, EstadoIncidente, HistorialIncidenteResponse, IncidenteResumen } from "../types/incidente";
+import type { Incidente, IncidenteDetalle, OrigenIncidente, IncidenteFormValues, EstadoIncidente, HistorialIncidenteResponse, IncidenteResumen } from "../types/incidente";
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { queryPagina, type Pagina } from "../../../common/api/paginacion";
@@ -57,6 +57,9 @@ export async function listarIncidentesPaginados(
     fechaDesde?: string;
     fechaHasta?: string;
     orden?: OrdenIncidente;
+    /** Id de quien reportó. */
+    reportadoPor?: number | null;
+    origen?: OrigenIncidente | "";
   } = {}
 ): Promise<Pagina<Incidente>> {
   const query = queryPagina(page, pageSize, {
@@ -66,6 +69,8 @@ export async function listarIncidentesPaginados(
     fecha_desde: opciones.fechaDesde || undefined,
     fecha_hasta: opciones.fechaHasta || undefined,
     orden: opciones.orden || undefined,
+    reportado_por: opciones.reportadoPor ?? undefined,
+    origen: opciones.origen || undefined,
   });
   const response = await apiFetch(`${API_URL}/incidentes${query}`);
 
@@ -93,10 +98,10 @@ export async function listarMisIncidentesPaginados(
   return pedir<Pagina<Incidente>>(response, "Error al obtener tus incidentes");
 }
 
-export async function obtenerIncidente(id: number): Promise<Incidente> {
+export async function obtenerIncidente(id: number): Promise<IncidenteDetalle> {
   const response = await apiFetch(`${API_URL}/incidentes/${id}`);
 
-  return pedir<Incidente>(response, "Error al obtener el incidente");
+  return pedir<IncidenteDetalle>(response, "Error al obtener el incidente");
 }
 
 export async function crearIncidente(
@@ -127,9 +132,9 @@ export async function crearIncidente(
  * Cierra o reabre un incidente.
  *
  * La fecha de cierre y el responsable los completa el backend a partir del
- * token: el frontend solo manda el estado y la observación (la acción
- * correctiva al cerrar, o el motivo de reapertura al reabrir). El backend
- * guarda esa observación en el historial en ambos casos.
+ * token: el frontend manda el estado y la observación (la acción correctiva al
+ * cerrar, o el motivo de reapertura al reabrir), que el backend guarda en el
+ * historial.
  */
 export async function cambiarEstadoIncidente(
   id: number,
@@ -141,7 +146,7 @@ export async function cambiarEstadoIncidente(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       estado,
-      observacion_cierre: observacion_cierre?.trim() ? observacion_cierre.trim() : null,
+      observacion_cierre: observacion_cierre?.trim() || null,
     }),
   });
 

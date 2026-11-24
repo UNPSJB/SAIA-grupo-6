@@ -23,17 +23,30 @@ import {
   type TableRowProps,
   type TextProps,
 } from "@chakra-ui/react";
-import { useCallback, useEffect, useState, type ReactNode, type SelectHTMLAttributes } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from "react";
 import {
   LuArrowUpDown,
   LuApple,
   LuCalculator,
+  LuBan,
+  LuCalendarClock,
   LuChevronLeft,
   LuClock,
   LuChevronRight,
   LuChevronsLeft,
   LuChevronsRight,
+  LuCircleAlert,
   LuCircleCheck,
+  LuDownload,
   LuExternalLink,
   LuGauge,
   LuEye,
@@ -48,6 +61,7 @@ import {
   LuPackageCheck,
   LuPencil,
   LuPlus,
+  LuPower,
   LuRefreshCw,
   LuRepeat,
   LuRotateCcw,
@@ -61,6 +75,7 @@ import {
 import type { IconType } from "react-icons/lib";
 import { toaster } from "./toaster";
 import { Tooltip } from "./tooltip";
+import { leerOpciones, SelectBuscable, UMBRAL_SELECT_BUSCABLE } from "./SelectBuscable";
 
 /**
  * Patrones compartidos: la fuente de verdad del formato de toda la app.
@@ -272,6 +287,14 @@ export const COLOR_TABLA = {
  * comparen de un vistazo: "1.632,851 g" debajo de "16,243 Kg" con la coma en
  * el mismo lugar. Va con `numero` también en el encabezado de la columna.
  */
+/**
+ * Padding horizontal de celdas y encabezados: 16px desde 1280px de ventana y
+ * 12px por debajo. A 1024px una columna del 12% mide ~110px y con 16px por
+ * lado le quedaban 78px al contenido: "Abierto" o un CUIT de 11 dígitos ya no
+ * entraban. Los 8px que se recuperan por columna alcanzan para eso.
+ */
+const PADDING_CELDA = { base: "3", xl: "4" } as const;
+
 export function Celda({
   children,
   center = false,
@@ -280,7 +303,7 @@ export function Celda({
 }: { children?: ReactNode; center?: boolean; numero?: boolean } & BoxProps) {
   return (
     <Table.Cell
-      px="4"
+      px={PADDING_CELDA}
       /*
        * 15px arriba y abajo con texto de 14px: la fila respira (≈50px de
        * alto) y una tabla de 10 filas deja de verse apretada.
@@ -334,7 +357,12 @@ export function TextoTruncado({
   const excede = valor.length > max;
   return (
     <Text
-      title={valor.length > 30 ? valor : undefined}
+      /*
+       * `title` desde 16 caracteres y no desde 30: con `lineClamp={1}` en una
+       * columna angosta, "Fernandez Chavez and Sons" (25) ya se corta y no
+       * había forma de leerlo completo.
+       */
+      title={valor.length > 15 ? valor : undefined}
       lineClamp={2}
       wordBreak="break-word"
       maxW="100%"
@@ -386,7 +414,21 @@ export function TextoTruncado({
  * La columna principal (nombre, título, producto) NO lleva ancho a propósito:
  * se queda con lo que sobra y por eso siempre es la más ancha de la tabla.
  */
+/*
+ * `cifra` es para las tablas con muchas columnas de cantidades seguidas
+ * (stock: recibido, consumo, desperdicio, bajas, stock, vencido). Con seis
+ * `amplia` sumaban 96% y a la columna del ingrediente le quedaba el 4%: el
+ * encabezado se partía en "Insu/mo" y los nombres quedaban en "A…".
+ *
+ * Va en `rem` y no en porcentaje, a diferencia del resto: una cantidad con su
+ * unidad ("38.508,881 [gr]") mide ~100px sin importar el ancho de la tabla.
+ * En porcentaje sobraba espacio a 1440px y no entraba a 1024px; fija, la
+ * columna principal se queda con todo lo demás. La tabla que la usa necesita
+ * un `minW` de al menos (columnas × 8.75rem) + 200px para el nombre; por debajo
+ * de eso scrollea de costado dentro de su tarjeta.
+ */
 const ANCHO_COLUMNA = {
+  cifra: "8.75rem",
   angosta: "14%",
   media: "12%",
   amplia: "16%",
@@ -415,7 +457,7 @@ export function ColumnaHeader({
 } & BoxProps) {
   return (
     <Table.ColumnHeader
-      px="4"
+      px={PADDING_CELDA}
       py="3"
       color="white"
       fontWeight="bold"
@@ -466,7 +508,7 @@ export function EncabezadoOscuro({
 } & BoxProps) {
   return (
     <Table.ColumnHeader
-      px="4"
+      px={PADDING_CELDA}
       py="3"
       color="white"
       bg="transparent"
@@ -556,6 +598,11 @@ export type AccionTabla =
   | "disposicion"
   | "reclamar"
   | "notificar"
+  | "agregar"
+  | "descargar"
+  | "renovar"
+  | "anular"
+  | "activar"
   | "reponer";
 
 /**
@@ -606,6 +653,16 @@ const PALETA_ACCION: Record<AccionTabla, string> = {
   reclamar: "blue",
   // Notificar a un cliente afectado: confirma un contacto (cierra el pendiente).
   notificar: "green",
+  // Alta de algo que cuelga de la fila (un borrador nuevo de un producto).
+  agregar: "blue",
+  // Descargar un adjunto: solo lectura, como "ver".
+  descargar: "gray",
+  // Renovar una certificación: misma familia que darla de alta.
+  renovar: "yellow",
+  // Anular: deja sin efecto, como eliminar.
+  anular: "red",
+  // Activar una versión guardada: cierra el ciclo, como reactivar.
+  activar: "green",
   // Reponer stock: salda la deuda con el cliente creando la reserva.
   reponer: "green",
 };
@@ -634,7 +691,7 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   minimo: LuGauge,
   asociar: LuLink,
   escalar: LuCalculator,
-  // E11: datos e información nutricional (insumos y productos).
+  // E11: datos e información nutricional (ingredientes y productos).
   nutricion: LuApple,
   // E12.1: aplicabilidad del rotulado frontal.
   rotulado: LuTag,
@@ -654,6 +711,12 @@ const ICONO_ACCION: Record<AccionTabla, IconType> = {
   reclamar: LuMessageSquare,
   // Notificar: confirmación del contacto con el cliente afectado.
   notificar: LuCircleCheck,
+  agregar: LuPlus,
+  descargar: LuDownload,
+  // Reloj de calendario: extender la vigencia (no la flecha de "reactivar").
+  renovar: LuCalendarClock,
+  anular: LuBan,
+  activar: LuPower,
   // Reponer: ingreso de stock para saldar una deuda con el cliente.
   reponer: LuPackagePlus,
 };
@@ -814,16 +877,25 @@ export function EtiquetaEstado({
       colorPalette={paleta}
       variant="subtle"
       size="md"
-      gap="1.5"
-      px="2.5"
+      gap="1"
+      px="2"
       py="1"
       rounded="full"
       fontWeight="medium"
       whiteSpace="nowrap"
       maxW="100%"
+      title={typeof children === "string" ? children : undefined}
     >
-      <Icono size={14} aria-hidden />
-      {children}
+      <Icono size={14} aria-hidden style={{ flexShrink: 0 }} />
+      {/*
+        Con `nowrap` y sin recorte, en una columna angosta la píldora
+        ("Certificación vencida") se salía de la celda y pisaba la de al lado.
+        Ahora el texto se corta con elipsis dentro de la píldora y queda
+        completo en el `title`.
+      */}
+      <Box as="span" minW="0" overflow="hidden" textOverflow="ellipsis">
+        {children}
+      </Box>
     </Badge>
   );
 }
@@ -878,12 +950,52 @@ export function LabelFiltro({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Dónde está parado un `FormField`. Lo proveen las piezas de `formularios.tsx`
+ * (el estándar nuevo de las altas) para que el mismo `FormField` se adapte
+ * sin que cada página le pase props de layout:
+ *
+ *   enAlta    dentro de `FormularioAlta`: label en `fg` (más legible) y el
+ *             asterisco en teal suave en vez de rojo, que en una pantalla
+ *             llena de obligatorios se leía como error antes de tocar nada.
+ *   enGrilla  dentro de `GrillaFormulario`: sin margen inferior, porque el
+ *             espacio entre filas lo pone el `gap` de la grilla.
+ *
+ * Fuera de esas piezas vale el contexto por defecto y `FormField` queda
+ * exactamente como antes: los formularios todavía no migrados no cambian.
+ */
+export const ContextoCampo = createContext({ enAlta: false, enGrilla: false });
+
 interface FormFieldProps {
   id?: string;
   label: ReactNode;
   required?: boolean;
   invalid?: boolean;
   helper?: ReactNode;
+  /**
+   * Mensaje de error inline, debajo del control (con ícono). Si viene, el
+   * campo queda inválido aunque no se pase `invalid`.
+   */
+  error?: ReactNode;
+  /**
+   * Badge "Opcional" junto al label. Para formularios donde la mayoría de los
+   * campos son obligatorios y conviene señalar la excepción.
+   */
+  opcional?: boolean;
+  /**
+   * Dentro de `GrillaFormulario`, ocupa toda la fila. Para selectores
+   * principales, nombres largos y observaciones.
+   *
+   * `"hasta-xl"`: ocupa la fila mientras la grilla tiene dos columnas y pasa
+   * a una celda cuando tiene tres (altas `extenso` desde `xl`). Sirve para el
+   * tercer campo de un trío (Sector · Equipo · Autor): en dos columnas no
+   * deja un hueco al lado y en tres completa la fila.
+   *
+   * `"doble"`: toda la fila en dos columnas y dos de las tres desde `xl`.
+   * Para un campo largo (nombre, razón social) que comparte la fila con el
+   * siguiente en vez de dejarlo solo debajo.
+   */
+  completo?: boolean | "hasta-xl" | "doble";
   mb?: string;
   children: ReactNode;
 }
@@ -895,19 +1007,49 @@ export function FormField({
   required = false,
   invalid,
   helper,
-  mb = "6",
+  error,
+  opcional = false,
+  completo = false,
+  mb,
   children,
 }: FormFieldProps) {
+  const { enAlta, enGrilla } = useContext(ContextoCampo);
   return (
-    <Field.Root id={id} required={required} invalid={invalid} mb={mb}>
-      <Field.Label color="fg.muted" fontWeight="medium">
+    <Field.Root
+      id={id}
+      required={required}
+      invalid={invalid ?? (error ? true : undefined)}
+      mb={mb ?? (enGrilla ? "0" : "6")}
+      gridColumn={
+        completo === "hasta-xl"
+          ? { base: "1 / -1", xl: "auto" }
+          : completo === "doble"
+            ? { base: "1 / -1", xl: "span 2" }
+            : completo
+              ? "1 / -1"
+              : undefined
+      }
+      minW={enGrilla ? "0" : undefined}
+    >
+      <Field.Label color={enAlta ? "fg" : "fg.muted"} fontWeight="medium">
         {label}
         {/* Asterisco en todos los campos obligatorios: antes no lo tenía ninguno. */}
-        <Field.RequiredIndicator color="red.fg" />
+        <Field.RequiredIndicator color={enAlta ? "brand.fg" : "red.fg"} />
+        {opcional ? (
+          <Badge size="xs" variant="subtle" colorPalette="gray" fontWeight="normal" ms="1">
+            Opcional
+          </Badge>
+        ) : null}
       </Field.Label>
       {children}
+      {error ? (
+        <Field.ErrorText mt="1.5" fontSize="xs" color="red.fg" display="flex" alignItems="center" gap="1">
+          <LuCircleAlert aria-hidden size={14} />
+          {error}
+        </Field.ErrorText>
+      ) : null}
       {helper ? (
-        <Field.HelperText mt="2" fontSize="xs" color="fg.subtle">
+        <Field.HelperText mt={enAlta ? "1.5" : "2"} fontSize="xs" color="fg.subtle">
           {helper}
         </Field.HelperText>
       ) : null}
@@ -1000,6 +1142,28 @@ export function FormNativeSelect({
    * pero la flecha quedaba en el borde del Root, afuera del control (se veía
    * en "Nuevo lote", con selects de 500px en una tarjeta más ancha).
    */
+  // Lista larga: popup con búsqueda y orden alfabético (ver SelectBuscable).
+  const opciones = leerOpciones(children);
+  if (opciones && opciones.filter((o) => !o.deshabilitada && o.valor !== "").length > UMBRAL_SELECT_BUSCABLE) {
+    return (
+      <SelectBuscable
+        opciones={opciones}
+        value={rest.value}
+        onChange={rest.onChange}
+        disabled={disabled}
+        invalid={invalid}
+        id={rest.id}
+        name={rest.name}
+        ariaLabel={rest["aria-label"]}
+        w={w}
+        maxW={maxW}
+        minW={minW}
+        mt={mt}
+        mb={mb}
+      />
+    );
+  }
+
   return (
     <NativeSelect.Root
       disabled={disabled}
@@ -1090,7 +1254,9 @@ export function TituloFormulario({ children, ...rest }: HeadingProps) {
 
 export function AccionesFormulario({ children }: { children: ReactNode }) {
   return (
-    <HStack gap="4" flexWrap="wrap" mt="6">
+    // `data-acciones-formulario`: dentro de un modal, la fila queda pegada
+    // abajo al desplazarse (ver `PARTES_FIJAS` en `ui/dialog.tsx`).
+    <HStack gap="4" flexWrap="wrap" mt="6" data-acciones-formulario="">
       {children}
     </HStack>
   );
@@ -1151,8 +1317,25 @@ export function BannerError({
   children: ReactNode;
   mb?: string;
 }) {
+  // Al aparecer (o cambiar el mensaje) se trae a la vista: en formularios
+  // largos el banner queda arriba y quien tocó "Guardar" abajo no veía el error
+  // (parecía que el botón no hacía nada).
+  const ref = useRef<HTMLDivElement>(null);
+  const mensaje = typeof children === "string" ? children : null;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.scrollIntoView !== "function") return;
+    const caja = el.getBoundingClientRect();
+    // La barra superior es fija: lo que queda debajo de ella tampoco se ve.
+    const tope = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    if (caja.top < tope || caja.bottom > window.innerHeight) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [mensaje]);
+
   return (
     <Box
+      ref={ref}
       role="alert"
       bg="red.subtle"
       color="red.fg"
@@ -1480,6 +1663,9 @@ export function PieTabla({
  * (`#0F766E`) para la acción principal de la fila, `secundario` con borde
  * suave para el resto. Frena la propagación: no activa la fila clickeable.
  */
+const FONDO_PRIMARIO = { base: "tabla.accion", _dark: "brandLight.700" };
+const FONDO_PRIMARIO_HOVER = { base: "tabla.accionHover", _dark: "brandLight.800" };
+
 export function BotonFila({
   variante = "secundario",
   onClick,
@@ -1500,12 +1686,17 @@ export function BotonFila({
       gap="1.5"
       rounded="md"
       fontWeight="medium"
-      bg={primario ? COLOR_TABLA.accion : "bg.panel"}
+      /*
+       * Primario: en oscuro `tabla.accion` es un teal claro (pensado para
+       * texto e íconos) y el blanco encima quedaba en 2:1. El relleno usa el
+       * teal profundo de la marca en los dos modos.
+       */
+      bg={primario ? FONDO_PRIMARIO : "bg.panel"}
       color={primario ? "white" : COLOR_TABLA.accion}
       borderWidth="1px"
-      borderColor={primario ? COLOR_TABLA.accion : "tabla.bordeBoton"}
+      borderColor={primario ? FONDO_PRIMARIO : "tabla.bordeBoton"}
       transition="background-color 0.15s ease, border-color 0.15s ease"
-      _hover={primario ? { bg: "tabla.accionHover", borderColor: "tabla.accionHover" } : { bg: COLOR_TABLA.hoverFila, borderColor: "tabla.bordeBotonHover" }}
+      _hover={primario ? { bg: FONDO_PRIMARIO_HOVER, borderColor: FONDO_PRIMARIO_HOVER } : { bg: COLOR_TABLA.hoverFila, borderColor: "tabla.bordeBotonHover" }}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
@@ -1597,8 +1788,17 @@ export function PildoraNeutra({ children, mono = false }: { children: ReactNode;
       fontFamily={mono ? "mono" : undefined}
       lineHeight="1.4"
       whiteSpace="nowrap"
+      /*
+       * Sin tope, en una columna angosta la píldora ("kilogramo (Kg)",
+       * "Operar | Administrar") se salía de la celda y pisaba la de al lado.
+       * Ahora se corta con elipsis y el texto completo queda en el `title`.
+       */
+      maxW="100%"
+      title={typeof children === "string" ? children : undefined}
     >
-      {children}
+      <Box as="span" minW="0" overflow="hidden" textOverflow="ellipsis">
+        {children}
+      </Box>
     </Box>
   );
 }
@@ -1682,17 +1882,34 @@ export function ToggleInactivos({
 }) {
   return (
     <HStack justify="flex-end" mb={enBarra ? "0" : "6"}>
+      {/*
+        Antes llevaba `colorPalette="neutral"`, una paleta que el tema no
+        define: el riel quedaba sin color y en modo oscuro solo se veía la
+        bolita blanca, sin forma de interruptor. Ahora el riel apagado tiene
+        fondo y borde propios en los dos modos, y encendido usa el teal de la
+        marca, como el resto de los controles activos.
+      */}
       <Switch.Root
         checked={checked}
         onCheckedChange={(e) => onChange(e.checked)}
-        colorPalette="neutral"
+        colorPalette="brand"
+        cursor="pointer"
       >
         <Switch.HiddenInput />
-        <Switch.Control />
+        <Switch.Control
+          bg={{ base: "gray.300", _dark: "gray.600" }}
+          borderWidth="1px"
+          borderColor={{ base: "gray.400", _dark: "gray.500" }}
+          transition="background 0.2s, border-color 0.2s"
+          _checked={{ bg: "brand.solid", borderColor: "brand.solid" }}
+        >
+          <Switch.Thumb bg="white" boxShadow="sm" />
+        </Switch.Control>
         <Switch.Label
           fontSize="sm"
-          color="fg.muted"
-          fontWeight={checked ? "bold" : "normal"}
+          color={checked ? "fg" : "fg.muted"}
+          fontWeight={checked ? "semibold" : "normal"}
+          whiteSpace="nowrap"
         >
           {children}
         </Switch.Label>
@@ -1719,9 +1936,15 @@ export function DialogoExito({
   mensaje: string;
 }) {
   useEffect(() => {
-    if (isOpen) {
-      toaster.create({ type: "success", title: mensaje, duration: 4000 });
-    }
+    if (isOpen) avisarExito(mensaje);
   }, [isOpen, mensaje]);
   return null;
+}
+
+/**
+ * El mismo aviso de éxito que `DialogoExito`, para llamar directo después de
+ * una acción (baja, cierre, registro en un diálogo) sin manejar un estado.
+ */
+export function avisarExito(mensaje: string) {
+  toaster.create({ type: "success", title: mensaje, duration: 4000 });
 }

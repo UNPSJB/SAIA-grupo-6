@@ -38,9 +38,10 @@ ETIQUETA_ESTADO_SALIDA = {
     "RECHAZADA": "Rechazadas",
 }
 
-ETIQUETA_TIPO_INSUMO = {
-    "ingrediente": "Ingredientes",
+# Clave del conteo de ingredientes según sean aditivos o no.
+ETIQUETA_ADITIVO = {
     "aditivo": "Aditivos",
+    "otro": "No aditivos",
 }
 
 ETIQUETA_ESTADO_CHECKLIST = {
@@ -59,7 +60,6 @@ ETIQUETA_MOMENTO_TAREA = {
 ETIQUETA_TIPO_INCIDENTE = {
     "plagas": "Plagas",
     "falla_equipo": "Falla de equipo",
-    "devolucion_cliente": "Devolución de cliente",
     "higiene_contaminacion": "Higiene o contaminación",
     "entrega_rechazada": "Entrega rechazada",
     "reclamo_cliente": "Reclamo de cliente",

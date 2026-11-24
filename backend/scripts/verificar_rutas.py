@@ -43,7 +43,9 @@ PUBLICOS_ESPERADOS = {
 CATALOGOS = {
     "/equipos": "/equipos/{equipo_id}",
     "/aptitudes": "/aptitudes/{aptitud_id}",
+    "/ingredientes": "/ingredientes/{ingrediente_id}",
     "/insumos": "/insumos/{insumo_id}",
+    "/alergenos": "/alergenos/{alergeno_id}",
     "/unidades-medida": "/unidades-medida/{unidad_id}",
     "/insumos-quimicos": "/insumos-quimicos/{insumo_id}",
     "/elementos-limpieza": "/elementos-limpieza/{elemento_id}",

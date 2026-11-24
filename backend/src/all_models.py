@@ -27,21 +27,25 @@ Uso:
 """
 
 # Orden sin dependencias entre sí: primero las hojas, después las que las usan.
+# Los establecimientos van primero: casi todas las tablas tienen FK a ellos.
+from src.establecimientos.models import Establecimiento  # noqa: F401
 from src.personal.models import Personal  # noqa: F401
 from src.unidadMedida.models import UnidadMedida  # noqa: F401
 from src.aptitud.models import Aptitud  # noqa: F401
 from src.vencimientoPersonal.models import VencimientoPersonal  # noqa: F401
 from src.sector.models import Sector
 from src.Equipo.models import Calibracion, Equipo  # noqa: F401
-from src.aditivos.models import Aditivo, ClaseFuncional  # noqa: F401
-from src.insumos.models import Insumo  # noqa: F401
+from src.aditivos.models import ClaseFuncional  # noqa: F401
+from src.ingredientes.models import Ingrediente  # noqa: F401
+from src.insumos.models import Insumo, ValorRotuloInsumo, proveedores_insumos  # noqa: F401
+from src.alergenos.models import Alergeno, IngredienteAlergeno, InsumoAlergeno  # noqa: F401
 from src.proveedores.models import Proveedor, CertificacionProveedor  # noqa: F401
 from src.productos.models import Producto  # noqa: F401
 from src.recetas.models import (  # noqa: F401
     Receta,
-    RecetaInsumo,
+    RecetaIngrediente,
     TareaReceta,
-    TareaRecetaInsumo,
+    TareaRecetaIngrediente,
     VersionReceta,
 )
 from src.nutricion.models import (  # noqa: F401
@@ -49,9 +53,15 @@ from src.nutricion.models import (  # noqa: F401
     InfoNutricionalProducto,
     ParametroNutricion,
     ParametroNutriente,
-    PerfilNutricionalInsumo,
+    PerfilNutricionalIngrediente,
     ValorLaboratorioProducto,
-    ValorNutricionalInsumo,
+    ValorNutricionalIngrediente,
+)
+from src.rotulado_frontal.models import (  # noqa: F401
+    ConfiguracionModuloRotulado,
+    ConfiguracionRotuladoProducto,
+    EvaluacionRotulado,
+    ReglaRotuladoFrontal,
 )
 from src.lotesInsumo.models import LoteInsumo  # noqa: F401
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto  # noqa: F401
@@ -67,7 +77,13 @@ from src.salidas.models import HitoLote, Salida, SalidaCertificacion  # noqa: F4
 from src.reclamos.models import Reclamo  # noqa: F401
 from src.retiros.models import Retiro, RetiroAfectado  # noqa: F401
 from src.reposiciones.models import Reposicion  # noqa: F401
-from src.checklist.models import Checklist, HistorialRegistroTarea, RegistroTarea  # noqa: F401
+from src.checklist.models import (  # noqa: F401
+    Checklist,
+    HistorialRegistroTarea,
+    RegistroTarea,
+    RegistroTareaConsumo,
+    RegistroTareaElemento,
+)
 from src.incidente.models import Incidente, HistorialIncidente  # noqa: F401
 from src.auth.models import TokenRevocado  # noqa: F401
 from src.documentos.models import Documento, VersionDocumento  # noqa: F401
@@ -75,6 +91,7 @@ from src.vistaPublica.models import ConfiguracionVistaPublica, IndicadorVistaPub
 from src.pyme.models import ConfiguracionPyme  # noqa: F401
 from src.notificaciones.models import (  # noqa: F401
     ConfiguracionImpacto,
+    NotificacionLeida,
     NotificacionPersistida,
     SituacionRiesgo,
 )
@@ -87,15 +104,17 @@ from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: 
 from src.auditoria.models import AuditLog  # noqa: F401
 import src.auditoria.listeners  # noqa: F401
 
+# Filtro y sellado automático por establecimiento (ver su docstring).
+import src.establecimientos.contexto  # noqa: F401
+
 __all__ = [
-    "Aditivo",
     "AlimentoReferencia",
     "InfoNutricionalProducto",
     "ParametroNutricion",
     "ParametroNutriente",
-    "PerfilNutricionalInsumo",
+    "PerfilNutricionalIngrediente",
     "ValorLaboratorioProducto",
-    "ValorNutricionalInsumo",
+    "ValorNutricionalIngrediente",
     "Aptitud",
     "AuditLog",
     "Calibracion",
@@ -116,11 +135,17 @@ __all__ = [
     "Reposicion",
     "Sector",
     "Equipo",
+    "Establecimiento",
     "HistorialRegistroTarea",
     "Incidente",
     "HistorialIncidente",
     "IndicadorVistaPublica",
+    "Ingrediente",
     "Insumo",
+    "Alergeno",
+    "IngredienteAlergeno",
+    "InsumoAlergeno",
+    "ValorRotuloInsumo",
     "InsumoQuimico",
     "ChecklistProduccion",
     "ClaseFuncional",
@@ -130,9 +155,10 @@ __all__ = [
     "LoteStock",
     "Producto",
     "Receta",
-    "RecetaInsumo",
+    "RecetaIngrediente",
+    "ReglaRotuladoFrontal",
     "TareaReceta",
-    "TareaRecetaInsumo",
+    "TareaRecetaIngrediente",
     "VersionReceta",
     "Personal",
     "PlanCalibracionMantenimiento",
@@ -140,11 +166,14 @@ __all__ = [
     "Proveedor",
     "CertificacionProveedor",
     "RegistroTarea",
+    "RegistroTareaConsumo",
+    "RegistroTareaElemento",
     "Tarea",
     "TokenRevocado",
     "UnidadMedida",
     "VencimientoPersonal",
     "VersionDocumento",
+    "NotificacionLeida",
     "NotificacionPersistida",
     "EstadoNotificaciones",
     "BorradorRotulado",

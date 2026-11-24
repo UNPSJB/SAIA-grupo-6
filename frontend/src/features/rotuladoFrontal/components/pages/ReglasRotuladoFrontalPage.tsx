@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Badge, Box, Button, Checkbox, HStack, Stack, Table, Text, Textarea } from "@chakra-ui/react";
-import { LuCheck, LuScale } from "react-icons/lu";
+import { Badge, Box, Checkbox, HStack, Stack, Table, Text, Textarea } from "@chakra-ui/react";
+import { LuScale } from "react-icons/lu";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../../components/ui/dialog";
 import { DialogForm } from "../../../../common/components/DialogForm";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { BotonExportar } from "../../../exportacion";
 import {
   AccionesFormulario,
   BannerError,
+  BotonAccion,
   BotonAgregar,
   BotonCancelar,
   BotonGuardar,
@@ -284,7 +285,7 @@ function NuevaVersionDialog({
 
             <FormField
               label="Ingredientes con cafeína intrínseca"
-              helper="Separados por coma. Se comparan por palabra completa sobre el nombre del insumo."
+              helper="Separados por coma. Se comparan por palabra completa sobre el nombre del ingrediente."
               mb="0"
             >
               <FormInput
@@ -385,7 +386,8 @@ function NuevaVersionDialog({
   );
 }
 
-export function ReglasRotuladoFrontalPage() {
+/** Pestaña "Reglas de rotulado frontal" de Rotulado de productos. */
+export function TabReglasRotuladoFrontal() {
   const [reglas, setReglas] = useState<ReglaRotulado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -461,12 +463,13 @@ export function ReglasRotuladoFrontalPage() {
   };
 
   return (
-    <Pagina
-      titulo="Reglas de rotulado frontal"
-      descripcion="Versiones de las reglas que deciden si corresponde el rotulado frontal. Las versiones anteriores no se editan."
-      acciones={<BotonAgregar onClick={() => setCreando(true)}>Nueva versión</BotonAgregar>}
-    >
+    <>
+      {/* La primera pieza es la tarjeta: la lengüeta de la pestaña se apoya sobre ella. */}
       <Tarjeta p="4" mb="4">
+        <Text fontSize="sm" color="fg.muted" mb="3" pb="3" borderBottomWidth="1px" borderColor="border.subtle">
+          Versiones de las reglas que deciden si corresponde el rotulado frontal. Las versiones
+          anteriores no se editan.
+        </Text>
         <HStack justify="space-between" align="center" gap="4" flexWrap="wrap">
           <Box>
             <HStack gap="2">
@@ -492,6 +495,30 @@ export function ReglasRotuladoFrontalPage() {
               {guardandoModulo ? "Guardando..." : "Módulo activo"}
             </Checkbox.Label>
           </Checkbox.Root>
+          {/* Dentro de una pestaña, el alta va en la tarjeta de arriba. */}
+          <HStack gap="2">
+            <BotonAgregar onClick={() => setCreando(true)}>Nueva versión</BotonAgregar>
+            <BotonExportar
+              nombreTabla="las reglas de rotulado frontal"
+              disabled={reglas.length === 0}
+              datos={() => ({
+                titulo: "Reglas de rotulado frontal",
+                nombre: "reglas-rotulado-frontal",
+                encabezados: ["Versión", "Norma", "Envasado", "Vigencia", "Marcas obligatorias", "Estado"],
+                filas: reglas.map((regla) => {
+                  const obligatorias = reglasObligatorias(regla);
+                  return [
+                    `v${regla.version}`,
+                    regla.norma_origen,
+                    regla.requiere_envasado ? "Requiere envasado" : "No requiere envasado",
+                    formatoFecha(regla.vigencia_desde),
+                    obligatorias.length ? obligatorias.join(", ") : "Ninguna",
+                    regla.vigente ? "Vigente" : regla.programada ? "Programada" : "Histórica",
+                  ];
+                }),
+              })}
+            />
+          </HStack>
         </HStack>
       </Tarjeta>
 
@@ -573,15 +600,13 @@ export function ReglasRotuladoFrontalPage() {
                           Se activa el {formatoFecha(regla.vigencia_desde)}
                         </Text>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          colorPalette="green"
+                        <BotonAccion
+                          accion="activar"
+                          label={`Activar la versión ${regla.version}`}
+                          tooltip="Activar esta versión"
                           loading={activando === regla.id}
                           onClick={() => void activar(regla)}
-                        >
-                          <LuCheck aria-hidden /> Activar
-                        </Button>
+                        />
                       )}
                     </Celda>
                   </Table.Row>
@@ -602,6 +627,6 @@ export function ReglasRotuladoFrontalPage() {
           }}
         />
       )}
-    </Pagina>
+    </>
   );
 }

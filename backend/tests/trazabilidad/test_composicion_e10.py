@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.aditivos.models import Aditivo, ClaseFuncional
-from src.insumos.models import TIPO_ADITIVO, Insumo
+from src.aditivos.models import ClaseFuncional
+from src.ingredientes.models import Ingrediente
 from src.productos.models import Producto
 from src.recetas import schemas
 from src.recetas.composicion_services import calcular_composicion
@@ -23,18 +23,18 @@ from src.unidadMedida.models import UnidadMedida
 
 
 def _version(c, renglones, rendimiento="1"):
-    """Versión con una sola tarea que usa todo. `renglones`: [(insumo, cantidad)]."""
+    """Versión con una sola tarea que usa todo. `renglones`: [(ingrediente, cantidad)]."""
     return schemas.VersionRecetaIn(
         rendimiento=Decimal(rendimiento),
         unidad_medida_id=c.kg.id,
-        insumos=[
-            {"insumo_id": i.id, "cantidad": cantidad, "unidad_medida_id": i.unidad_medida_id}
+        ingredientes=[
+            {"ingrediente_id": i.id, "cantidad": cantidad, "unidad_medida_id": i.unidad_medida_id}
             for i, cantidad in renglones
         ],
         tareas=[
             {
                 "descripcion": "Elaborar",
-                "insumos": [{"insumo_id": i.id, "cantidad": cantidad} for i, cantidad in renglones],
+                "ingredientes": [{"ingrediente_id": i.id, "cantidad": cantidad} for i, cantidad in renglones],
             }
         ],
     )
@@ -42,7 +42,7 @@ def _version(c, renglones, rendimiento="1"):
 
 @pytest.fixture
 def catalogo(escenario):
-    """Unidades con su tipo y factor reales e insumos con sus equivalencias."""
+    """Unidades con su tipo y factor reales e ingredientes con sus equivalencias."""
     db = escenario.db
     kg = UnidadMedida(nombre="kilogramo e10", simbolo="KG10", tipo="masa", factor_a_base=1000)
     g = UnidadMedida(nombre="gramo e10", simbolo="G10", tipo="masa", factor_a_base=1)
@@ -50,22 +50,22 @@ def catalogo(escenario):
     unidad = UnidadMedida(nombre="unidad e10", simbolo="U10", tipo="unidad", factor_a_base=1)
     docena = UnidadMedida(nombre="docena e10", simbolo="DOC10", tipo="unidad", factor_a_base=12)
     conservante = ClaseFuncional(nombre="Conservante e10")
-    sorbato_ref = Aditivo(clase_funcional=conservante, nombre="Sorbato de potasio", numero_ins="202")
 
     c = SimpleNamespace(db=db, kg=kg, g=g, litro=litro, unidad=unidad, docena=docena)
-    c.harina = Insumo(nombre="Harina e10", unidad_medida=kg)
-    c.azucar = Insumo(nombre="Azúcar e10", unidad_medida=g)
-    c.leche = Insumo(nombre="Leche e10", unidad_medida=litro, densidad_g_ml=1.03)
-    c.huevo = Insumo(nombre="Huevo e10", unidad_medida=unidad, peso_unitario_g=50)
-    c.huevos_docena = Insumo(nombre="Huevos por docena e10", unidad_medida=docena, peso_unitario_g=50)
-    c.sorbato = Insumo(
-        nombre="Sorbato e10", tipo=TIPO_ADITIVO, aditivo=sorbato_ref, unidad_medida=g
+    c.harina = Ingrediente(nombre="Harina e10", unidad_medida=kg)
+    c.azucar = Ingrediente(nombre="Azúcar e10", unidad_medida=g)
+    c.leche = Ingrediente(nombre="Leche e10", unidad_medida=litro, densidad_g_ml=1.03)
+    c.huevo = Ingrediente(nombre="Huevo e10", unidad_medida=unidad, peso_unitario_g=50)
+    c.huevos_docena = Ingrediente(nombre="Huevos por docena e10", unidad_medida=docena, peso_unitario_g=50)
+    c.sorbato = Ingrediente(
+        nombre="Sorbato e10", es_aditivo=True, clase_funcional=conservante, numero_ins="202",
+        unidad_medida=g,
     )
     c.producto = Producto(nombre="Budín e10", unidad_medida=kg)
     db.info["sin_auditoria"] = True
     try:
         db.add_all([
-            kg, g, litro, unidad, docena, conservante, sorbato_ref, c.harina, c.azucar,
+            kg, g, litro, unidad, docena, conservante, c.harina, c.azucar,
             c.leche, c.huevo, c.huevos_docena, c.sorbato, c.producto,
         ])
         db.commit()
@@ -85,7 +85,7 @@ def _receta(c, renglones):
 
 
 def _por_nombre(items):
-    return {i.insumo.nombre: i for i in items}
+    return {i.ingrediente.nombre: i for i in items}
 
 
 # --------------------------------------------------------------------------
@@ -112,7 +112,7 @@ def test_convierte_todas_las_unidades_y_separa_ingredientes_de_aditivos(catalogo
     }
     assert ingredientes["Harina e10"].porcentaje == Decimal("41.67")
     assert ingredientes["Leche e10"].porcentaje == Decimal("17.17")
-    assert [a.insumo.nombre for a in comp.aditivos] == ["Sorbato e10"]
+    assert [a.ingrediente.nombre for a in comp.aditivos] == ["Sorbato e10"]
     assert comp.aditivos[0].porcentaje == Decimal("3.67")
 
 
@@ -166,7 +166,7 @@ def test_sin_densidad_avisa_y_no_calcula(catalogo):
     assert comp.completa is False
     assert comp.ingredientes == [] and comp.aditivos == []
     assert comp.total_gramos is None
-    assert [(f.insumo.nombre, f.motivo) for f in comp.faltantes] == [
+    assert [(f.ingrediente.nombre, f.motivo) for f in comp.faltantes] == [
         ("Leche e10", MotivoFaltante.SIN_DENSIDAD)
     ]
 
@@ -231,8 +231,8 @@ def test_la_api_devuelve_la_composicion_a_quien_administra(client, catalogo):
     cuerpo = respuesta.json()
     assert cuerpo["completa"] is True
     assert cuerpo["producto_nombre"] == "Budín e10"
-    assert [i["insumo"]["nombre"] for i in cuerpo["ingredientes"]] == ["Harina e10"]
-    assert [i["insumo"]["nombre"] for i in cuerpo["aditivos"]] == ["Sorbato e10"]
+    assert [i["ingrediente"]["nombre"] for i in cuerpo["ingredientes"]] == ["Harina e10"]
+    assert [i["ingrediente"]["nombre"] for i in cuerpo["aditivos"]] == ["Sorbato e10"]
 
 
 def test_quien_solo_opera_no_ve_la_composicion(client, catalogo):
@@ -250,3 +250,29 @@ def test_version_inexistente_da_404(client, catalogo):
     respuesta = client.get("/recetas/versiones/99999/composicion", headers=catalogo.escenario.h_admin)
 
     assert respuesta.status_code == 404
+
+
+# --------------------------------------------------------------------------
+# Orden de la lista: a igual masa decide una persona, sin tocar la versión
+# --------------------------------------------------------------------------
+
+def test_a_igual_masa_el_orden_lo_decide_una_persona(catalogo):
+    from src.recetas import exceptions
+    from src.recetas.composicion_services import decidir_orden_empate
+
+    c = catalogo
+    # 0,25 kg de harina y 250 g de azúcar: la misma masa, empatados.
+    _, version = _receta(c, [(c.harina, "0.25"), (c.azucar, "250"), (c.sorbato, "10")])
+
+    comp = calcular_composicion(c.db, version.id)
+    empatados = [i for i in comp.ingredientes if i.grupo_empate is not None]
+    assert {i.ingrediente.nombre for i in empatados} == {"Harina e10", "Azúcar e10"}
+    assert comp.aditivos[0].aditivo.clase_funcional == "Conservante e10"
+
+    comp = decidir_orden_empate(c.db, version.id, [c.azucar.id, c.harina.id], c.escenario.admin)
+    assert [i.ingrediente.nombre for i in comp.ingredientes] == ["Azúcar e10", "Harina e10"]
+    assert comp.ingredientes[0].orden_decidido_por is not None
+
+    # Solo un grupo empatado completo: el aditivo no está empatado con ellos.
+    with pytest.raises(exceptions.OrdenEmpateInvalido):
+        decidir_orden_empate(c.db, version.id, [c.azucar.id, c.sorbato.id], c.escenario.admin)

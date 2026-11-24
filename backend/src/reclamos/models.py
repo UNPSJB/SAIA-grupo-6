@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 if TYPE_CHECKING:  # pragma: no cover - solo para tipado
     from src.clientes.models import Cliente
@@ -17,7 +18,7 @@ if TYPE_CHECKING:  # pragma: no cover - solo para tipado
     from src.salidas.models import Salida
 
 
-class Reclamo(ModeloBase):
+class Reclamo(DatosDeEstablecimiento, ModeloBase):
     """Reclamo de un cliente sobre una entrega (`Salida` en ENTREGADO).
 
     Los datos del cliente y del lote se heredan de la salida: no se eligen a

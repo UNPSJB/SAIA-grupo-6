@@ -31,7 +31,7 @@ export function useClientes(
   const cargar = useCallback(
     (page: number, pageSize: number) =>
       listarClientesPaginados(page, pageSize, {
-        incluirInactivos,
+        soloInactivos: incluirInactivos,
         buscar: buscarAplicado,
         orden,
       }),

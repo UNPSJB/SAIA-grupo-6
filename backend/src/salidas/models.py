@@ -10,27 +10,24 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Numeric,
     String,
-    event,
-    select,
-    text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.lotes.models import LoteProducto
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.personal.models import Personal
 
 
-class Salida(ModeloBase):
+class Salida(DatosDeEstablecimiento, ModeloBase):
     """Salida de producto: parte de un lote asignada a un cliente."""
 
     __tablename__ = "salidas"
@@ -132,7 +129,7 @@ class Salida(ModeloBase):
     reclamos: Mapped[list["Reclamo"]] = relationship(back_populates="salida")
 
 
-class HitoLote(ModeloBase):
+class HitoLote(DatosDeEstablecimiento, ModeloBase):
     """Hito de la línea de tiempo del lote. Inmutable: sin PUT ni DELETE."""
 
     __tablename__ = "historial_lotes"
@@ -156,7 +153,7 @@ class HitoLote(ModeloBase):
     usuario: Mapped[Personal] = relationship()
 
 
-class SalidaCertificacion(ModeloBase):
+class SalidaCertificacion(DatosDeEstablecimiento, ModeloBase):
     """Tabla de enlace: certificaciones del transportista vigentes al despachar.
 
     No se duplica el dato de la certificación, solo la referencia, para poder

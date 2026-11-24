@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Flex,
   Grid,
   GridItem,
@@ -11,15 +12,18 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { LuRefreshCw } from "react-icons/lu";
+import { Link as RouterLink } from "react-router-dom";
+import { LuChartColumn, LuRefreshCw } from "react-icons/lu";
 import { useAuth } from "../../../../common/context/useAuth";
-import { puedeAdministrar, puedeOperar } from "../../../../common/api/permissions";
+import { esGerente, esSuperAdmin, puedeAdministrar, puedeOperar } from "../../../../common/api/permissions";
 import {
   EstadoVacio,
   MensajeError,
 } from "../../../../components/ui/patrones";
 import { useInicio } from "../../hooks/useInicio";
 import { ChecklistDeHoy } from "../ChecklistDeHoy";
+import { MiCumplimiento } from "../MiCumplimiento";
+import { MisTareasProduccion } from "../MisTareasProduccion";
 import { TarjetaHoy, VencenHoy } from "../TarjetaHoy";
 
 function saludo(hora: number): string {
@@ -38,12 +42,12 @@ function horaCorta(fecha: Date): string {
 }
 
 /**
- * Inicio: SOLO lo del día de hoy, en una sola pantalla (sin scroll en
- * pantallas anchas).
+ * Inicio: SOLO lo del día de hoy. En pantallas anchas llena el alto de la
+ * pantalla; si no entra, se scrollea hacia abajo.
  *
  * A la izquierda, el checklist de limpieza de hoy (lo que más se mira en el
  * día); a la derecha, las cifras de hoy de cada área (lotes iniciados y
- * terminados, salidas, insumos recibidos, incidentes, reclamos, retiros) y,
+ * terminados, salidas, ingredientes recibidos, incidentes, reclamos, retiros) y,
  * para quien administra, lo que vence hoy. Las tendencias y el análisis del
  * período están en el panel de cada área, no acá.
  */
@@ -74,17 +78,30 @@ export function InicioPage() {
   const grilla = (
     <Grid
       flex="1"
-      minH="0"
       templateColumns="repeat(12, minmax(0, 1fr))"
-      templateRows={{ base: "auto", lg: "minmax(0, 1fr)" }}
+      // `1fr` (y no `minmax(0, 1fr)`): la fila estira las tarjetas hasta el
+      // pie de la pantalla, pero nunca por debajo de su alto natural.
+      templateRows={{ base: "auto", lg: "1fr" }}
       gap={separacion}
     >
-      <GridItem gridColumn={{ base: "span 12", lg: "span 5" }} minH="0">
+      <GridItem gridColumn={{ base: "span 12", lg: "span 5" }}>
         <ChecklistDeHoy checklist={inicio.checklist} />
       </GridItem>
 
-      <GridItem gridColumn={{ base: "span 12", lg: "span 7" }} minH="0">
-        <Stack gap={separacion} h="full" minH="0">
+      <GridItem gridColumn={{ base: "span 12", lg: "span 7" }}>
+        {!puedeAdministrar(user) ? (
+          // Quien solo opera no ve las cifras de cada área: ve sus tareas de
+          // producción pendientes y cuánto cumplió de las de limpieza.
+          <Stack gap={separacion} h="full">
+            {cargado ? (
+              <Box flexShrink={0}>
+                <MisTareasProduccion tareas={inicio.tareas_produccion ?? []} />
+              </Box>
+            ) : null}
+            <MiCumplimiento />
+          </Stack>
+        ) : (
+        <Stack gap={separacion} h="full">
           {/* Producción y Calidad con su alto natural; la última fila
               (Inventario y Vence hoy) ocupa lo que sobra, así la columna
               termina a la par del checklist. */}
@@ -99,21 +116,23 @@ export function InicioPage() {
             </Box>
           ) : null}
           {inventario || inicio.vencen_hoy ? (
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap={separacion} flex="1" minH="0">
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap={separacion} flex="1">
               {inventario ? <TarjetaHoy grupo={inventario} /> : null}
               {inicio.vencen_hoy ? <VencenHoy filas={inicio.vencen_hoy} /> : null}
             </SimpleGrid>
           ) : null}
         </Stack>
+        )}
       </GridItem>
     </Grid>
   );
 
   return (
-    // En pantallas anchas el inicio ocupa justo el alto disponible (sin
-    // scroll): `minH="0"` deja que la columna se achique al alto del <main>
-    // y las tarjetas se reparten el espacio. En el celular, alto natural.
-    <Box flex="1" display="flex" flexDirection="column" gap="4" minH={{ base: "auto", lg: "0" }}>
+    // En pantallas anchas el inicio ocupa al menos el alto disponible (las
+    // tarjetas se estiran hasta el pie), pero si su contenido no entra crece
+    // y el <main> scrollea. Antes la columna se achicaba al alto del <main>
+    // (`minH="0"`) y en pantallas bajas las tarjetas quedaban cortadas.
+    <Box flex="1" display="flex" flexDirection="column" gap="4">
       {/* Saludo sobre el degradado de la página (lo pone el layout en el
           Inicio): sin caja propia, texto blanco directo sobre el fondo. */}
       <Flex align="center" justify="space-between" gap="4" wrap="wrap" flexShrink={0} color="white">
@@ -127,6 +146,22 @@ export function InicioPage() {
           </Text>
         </Box>
         <Flex align="center" gap="3" wrap="wrap">
+          {/* El gerente compara su sede con el resto de la empresa. */}
+          {(esGerente(user) || esSuperAdmin(user)) && (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              color="white"
+              borderColor="whiteAlpha.600"
+              _hover={{ bg: "whiteAlpha.200" }}
+            >
+              <RouterLink to="/comparativo">
+                <LuChartColumn aria-hidden />
+                Comparar sedes
+              </RouterLink>
+            </Button>
+          )}
           {actualizado ? (
             // Blanco pleno: a la derecha el degradado es más claro.
             <Flex align="center" gap="1" color="white" fontSize="xs" fontWeight="medium">
@@ -161,7 +196,6 @@ export function InicioPage() {
         // ellas quedan sobre el fondo claro.
         <Box
           flex="1"
-          minH="0"
           display="flex"
           flexDirection="column"
           mx={{ base: "-2", md: "-30px" }}
@@ -199,9 +233,8 @@ function EsqueletoInicio() {
   return (
     <Grid
       flex="1"
-      minH={{ base: "auto", lg: "0" }}
       templateColumns="repeat(12, minmax(0, 1fr))"
-      templateRows={{ base: "auto", lg: "minmax(0, 1fr)" }}
+      templateRows={{ base: "auto", lg: "1fr" }}
       gap="4"
       aria-busy="true"
       aria-label="Cargando lo de hoy"

@@ -1,4 +1,4 @@
-﻿"""Exportación de la bitácora de auditoría a CSV o PDF."""
+"""Exportación de la bitácora de auditoría a CSV o PDF."""
 
 import csv
 import io

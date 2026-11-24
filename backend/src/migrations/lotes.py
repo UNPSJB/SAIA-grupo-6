@@ -11,13 +11,13 @@ from sqlalchemy import text
 
 from src.database import engine
 
-from .base import agregar_columna, tablas
+from .base import agregar_columna, hay_insumos_viejo
 
 logger = logging.getLogger(__name__)
 
 
 def migrar_lotes() -> None:
-    if "insumos" not in tablas():
+    if not hay_insumos_viejo():
         return
     agregar_columna("insumos", "tipo", "VARCHAR(20) NOT NULL DEFAULT 'insumo'")
     with engine.begin() as conexion:

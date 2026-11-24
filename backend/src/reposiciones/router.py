@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Literal, Optional
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -19,6 +21,8 @@ from src.reposiciones.schemas import (
 
 router = APIRouter(prefix="/reposiciones", tags=["Reposiciones"])
 
+OrigenReposicionParam = Literal["RETIRO_LOTE", "RECHAZO_ENTREGA", "POR_RECLAMO"]
+
 
 @router.get(
     "/pendientes",
@@ -26,6 +30,9 @@ router = APIRouter(prefix="/reposiciones", tags=["Reposiciones"])
     dependencies=[Depends(get_current_user)],
 )
 def listar_reposiciones_pendientes(
+    origen: Optional[OrigenReposicionParam] = Query(
+        None, description="Filtrar por origen de la reposición."
+    ),
     db: Session = Depends(get_db),
 ) -> list[Reposicion]:
     """Listado de reposiciones en estado PENDIENTE o PARCIAL.
@@ -48,8 +55,11 @@ def listar_reposiciones_pendientes(
                 [ESTADO_REPOSICION_PENDIENTE, ESTADO_REPOSICION_PARCIAL]
             )
         )
-        .order_by(orden_prioridad.asc(), Reposicion.fecha_registro.asc())
     )
+    if origen is not None:
+        stmt = stmt.where(Reposicion.origen == origen)
+
+    stmt = stmt.order_by(orden_prioridad.asc(), Reposicion.fecha_registro.asc())
     return list(db.scalars(stmt).all())
 
 

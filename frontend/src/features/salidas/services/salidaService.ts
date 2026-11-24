@@ -164,6 +164,8 @@ export async function listarLotesDisponibles(): Promise<{
   fecha_inicio: string | null;
   fecha_vencimiento: string | null;
   retirado: boolean;
+  /** Sin rotulado completo del lote no se puede reservar. */
+  rotulado_completo?: boolean;
 }[]> {
   const response = await apiFetch(`${API_URL}/salidas/lotes-disponibles`);
   return pedir<
@@ -176,6 +178,7 @@ export async function listarLotesDisponibles(): Promise<{
       fecha_inicio: string | null;
       fecha_vencimiento: string | null;
       retirado: boolean;
+      rotulado_completo?: boolean;
     }[]
   >(response, "Error al obtener los lotes disponibles");
 }

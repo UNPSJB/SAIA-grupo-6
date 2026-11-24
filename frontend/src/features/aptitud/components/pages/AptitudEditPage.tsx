@@ -10,7 +10,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBadgeCheck } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function AptitudEditPage() {
   const navigate = useNavigate();
@@ -33,9 +34,11 @@ export function AptitudEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/aptitudes", etiqueta: "Aptitudes" }}
+      icono={LuBadgeCheck}
       titulo="Editar aptitud"
+      descripcion="Modificá los datos de la aptitud."
     >
       {!cargando && errorCarga && <BannerError>{errorCarga}</BannerError>}
       {cargando && (
@@ -54,7 +57,6 @@ export function AptitudEditPage() {
             initialValues={{ nombre: aptitud.nombre, descripcion: aptitud.descripcion || "" }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar aptitud"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/aptitudes")}
           />
@@ -62,6 +64,6 @@ export function AptitudEditPage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Aptitud modificada correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

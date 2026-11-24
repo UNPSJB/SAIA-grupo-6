@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { HStack, Table } from "@chakra-ui/react";
-import { BotonesExportar } from "../../../exportacion";
+import { BotonExportar } from "../../../exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -31,6 +31,7 @@ import {
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import { useRecetas } from "../../hooks/useRecetas";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -40,12 +41,13 @@ function normalizar(texto: string): string {
 }
 
 
-export function RecetasPage() {
+/** Pestaña "Recetas": el listado de recetas. */
+function TabRecetas() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const esAdmin = puedeAdministrar(user);
   const { recetas, loading, error } = useRecetas();
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("RecetasPage.busqueda", "");
   const visibles = useMemo(() => {
     const texto = normalizar(busqueda);
     return texto ? recetas.filter((r) => normalizar(r.producto_nombre).includes(texto)) : recetas;
@@ -56,28 +58,20 @@ export function RecetasPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Recetas"
-      descripcion={
-          esAdmin
-            ? "Cada producto tiene una receta. Al modificarla se crea una versión nueva y las anteriores quedan de solo lectura."
-            : "Consultá la versión vigente antes de elaborar y escalala a la cantidad que vas a producir."
-        }
-      acciones={
-        esAdmin ? (
-          <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
-        ) : undefined
-      }
-    >
+    <>
       <BarraFiltros
         busqueda={<CampoBusqueda valor={busqueda} onCambio={setBusqueda} placeholder="Buscar por producto..." />}
         herramientas={
           esAdmin ? (
-            <BotonesExportar
-              nombreTabla="recetas"
-              vista="recetas"
-              filtros={{ buscar: busqueda.trim() || undefined }}
-            />
+            <>
+              {/* Dentro de una pestaña, el alta va en la barra. */}
+              <BotonAgregar onClick={() => navigate("/recetas/nueva")}>Nueva receta</BotonAgregar>
+              <BotonExportar
+                nombreTabla="recetas"
+                vista="recetas"
+                filtros={{ buscar: busqueda.trim() || undefined }}
+              />
+            </>
           ) : undefined
         }
       />
@@ -172,6 +166,32 @@ export function RecetasPage() {
           </Table.Root>
         </TarjetaTabla>
       )}
+    </>
+  );
+}
+
+/**
+ * Recetas. Antes tenía también las pestañas "Parámetros nutricionales" y
+ * "Base de composición"; ahora cada una está donde se usa: la tabla
+ * nutricional en Rotulado, la base de composición en Ingredientes y las
+ * reglas de homologación en Insumos. Los enlaces viejos redirigen.
+ */
+export function RecetasPage() {
+  const esAdmin = puedeAdministrar(useAuth().user);
+  const [params] = useSearchParams();
+  const tabVieja = params.get("tab");
+  if (tabVieja === "parametros") return <Navigate to="/rotulado?tab=tabla" replace />;
+  if (tabVieja === "base") return <Navigate to="/ingredientes?tab=base" replace />;
+  return (
+    <Pagina
+      titulo="Recetas"
+      descripcion={
+        esAdmin
+          ? "Cada producto tiene una receta. Al modificarla se crea una versión nueva y las anteriores quedan de solo lectura."
+          : "Consultá la versión vigente antes de elaborar y escalala a la cantidad que vas a producir."
+      }
+    >
+      <TabRecetas />
     </Pagina>
   );
 }

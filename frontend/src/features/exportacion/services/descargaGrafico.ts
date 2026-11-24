@@ -75,15 +75,112 @@ export async function descargarGrafico(
   }
 }
 
+/**
+ * Antes de capturar, ensancha temporalmente los contenedores con scroll horizontal
+ * cuyo contenido no entra (p. ej. el grafo de trazabilidad completa de un lote),
+ * para que `html-to-image` dibuje todo y no solo la parte visible.
+ *
+ * Solo toca lo que de verdad desborda: forzar `max-content` en todo hacía que la
+ * tarjeta se achicara al ancho de sus textos y recortaba los gráficos de Recharts,
+ * cuyo SVG tiene un ancho fijo en píxeles. Los `overflow: hidden` no se tocan: son
+ * recortes a propósito (textos truncados, esquinas redondeadas).
+ *
+ * Devuelve una función para restaurar los estilos originales tras la captura.
+ */
+function expandirOverflow(nodo: HTMLElement): () => void {
+  const restauraciones: Array<{ elemento: HTMLElement; overflowX: string; minWidth: string }> = [];
+
+  const ensanchar = (el: HTMLElement) => {
+    restauraciones.push({ elemento: el, overflowX: el.style.overflowX, minWidth: el.style.minWidth });
+    el.style.minWidth = `${el.scrollWidth}px`;
+    el.style.overflowX = "visible";
+  };
+
+  // Primero los de adentro: al ensancharlos, crece el contenido de los de afuera.
+  const recorrer = (el: HTMLElement) => {
+    for (const hijo of el.children) {
+      if (hijo instanceof HTMLElement) recorrer(hijo);
+    }
+    const { overflowX } = getComputedStyle(el);
+    const conScroll = overflowX === "auto" || overflowX === "scroll";
+    if (conScroll && el.scrollWidth > el.clientWidth + 1) ensanchar(el);
+  };
+
+  recorrer(nodo);
+  // La tarjeta misma puede quedar más angosta que lo que ahora contiene.
+  if (nodo.scrollWidth > nodo.clientWidth + 1) ensanchar(nodo);
+
+  return () => {
+    for (const r of restauraciones.reverse()) {
+      r.elemento.style.overflowX = r.overflowX;
+      r.elemento.style.minWidth = r.minWidth;
+    }
+  };
+}
+
+/**
+ * Saca de la tarjeta lo que no se exporta (título, controles, botones) y la recorta
+ * hasta donde llega lo dibujado. Si no, en un tablero la tarjeta conserva el alto
+ * de su fila de la grilla y la imagen sale con un hueco vacío abajo.
+ *
+ * No se usa `height: auto`: los gráficos con `height="100%"` (el radar del
+ * comparativo) se achicarían y su SVG quedaría cortado. Se mide el borde inferior
+ * de lo que se ve (SVG, imágenes y elementos sin hijos), que no cambia al ocultar.
+ */
+function ajustarAlContenido(nodo: HTMLElement): () => void {
+  const ocultos = [...nodo.querySelectorAll<HTMLElement>(`[${ATRIBUTO_NO_EXPORTAR}]`)].map((el) => {
+    const display = el.style.display;
+    el.style.display = "none";
+    return () => { el.style.display = display; };
+  });
+  const restaurarOcultos = () => ocultos.forEach((restaurar) => restaurar());
+
+  const caja = nodo.getBoundingClientRect();
+  let fondo = caja.top;
+  const medir = (el: Element) => {
+    const esHoja = el instanceof SVGSVGElement || el instanceof HTMLImageElement
+      || el instanceof HTMLCanvasElement || el.children.length === 0;
+    if (esHoja) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) fondo = Math.max(fondo, r.bottom);
+      return;
+    }
+    for (const hijo of el.children) medir(hijo);
+  };
+  for (const hijo of nodo.children) medir(hijo);
+
+  const rellenoAbajo = parseFloat(getComputedStyle(nodo).paddingBottom) || 0;
+  const alto = Math.ceil(fondo - caja.top + rellenoAbajo);
+  if (alto >= caja.height - 1) return restaurarOcultos;
+
+  const { height, minHeight, alignSelf } = nodo.style;
+  nodo.style.height = `${alto}px`;
+  nodo.style.minHeight = "0";
+  nodo.style.alignSelf = "start";
+  return () => {
+    nodo.style.height = height;
+    nodo.style.minHeight = minHeight;
+    nodo.style.alignSelf = alignSelf;
+    restaurarOcultos();
+  };
+}
+
 async function capturarNodo(nodo: HTMLElement): Promise<HTMLImageElement> {
   const { toPng } = await import("html-to-image");
-  const dataUrl = await toPng(nodo, {
-    pixelRatio: ESCALA,
-    cacheBust: true,
-    backgroundColor: fondoDe(nodo),
-    filter: (elemento) => !(elemento instanceof HTMLElement && elemento.hasAttribute(ATRIBUTO_NO_EXPORTAR)),
-  });
-  return cargarImagen(dataUrl);
+  const restaurarAlto = ajustarAlContenido(nodo);
+  const restaurarOverflow = expandirOverflow(nodo);
+  try {
+    const dataUrl = await toPng(nodo, {
+      pixelRatio: ESCALA,
+      cacheBust: true,
+      backgroundColor: fondoDe(nodo),
+      filter: (elemento) => !(elemento instanceof HTMLElement && elemento.hasAttribute(ATRIBUTO_NO_EXPORTAR)),
+    });
+    return cargarImagen(dataUrl);
+  } finally {
+    restaurarOverflow();
+    restaurarAlto();
+  }
 }
 
 /** Color de fondo con el que se ve el gráfico, para que en modo oscuro no quede texto claro sobre blanco. */

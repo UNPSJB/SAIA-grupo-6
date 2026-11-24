@@ -6,12 +6,13 @@ import type { IconType } from "react-icons/lib";
 import { useAuth } from "../context/useAuth";
 import { puedeAdministrar, puedeOperar } from "../api/permissions";
 import { useValorDebounced } from "../hooks/useValorDebounced";
+import { normalizar } from "../utils/texto";
 import { TODAS_LAS_ENTRADAS, esVisibleEntrada } from "./menuEntradas";
 import { listarLotes } from "../../features/lotes/services/loteService";
 import { listarRecetas } from "../../features/recetas/services/recetaService";
 import { listarEquiposPaginados } from "../../features/equipo/services/equipoService";
 import { listarPersonal } from "../../features/personal/services/personalService";
-import { listarInsumos } from "../../features/insumos/services/insumoService";
+import { listarIngredientes } from "../../features/ingredientes/services/ingredienteService";
 import { listarProveedores } from "../../features/proveedores/services/proveedorService";
 import { listarIncidentesPaginados } from "../../features/incidente/services/incidenteService";
 
@@ -26,8 +27,9 @@ interface Resultado {
 
 const POR_GRUPO = 5;
 
+/** `consulta` ya viene normalizada: sin tildes ni mayúsculas en ambos lados. */
 function contiene(texto: string | null | undefined, consulta: string) {
-  return (texto ?? "").toLocaleLowerCase("es").includes(consulta);
+  return normalizar(texto).includes(consulta);
 }
 
 /**
@@ -36,7 +38,7 @@ function contiene(texto: string | null | undefined, consulta: string) {
  * backend. Si una fuente falla, las otras se muestran igual.
  */
 async function buscar(consulta: string, esAdmin: boolean, esOperador: boolean): Promise<Resultado[]> {
-  const q = consulta.toLocaleLowerCase("es");
+  const q = normalizar(consulta);
   const tareas: Promise<Resultado[]>[] = [];
 
   if (esOperador) {
@@ -88,13 +90,13 @@ async function buscar(consulta: string, esAdmin: boolean, esOperador: boolean): 
           destino: `/personal/detalle/${persona.id}`,
         })),
       ),
-      listarInsumos(1, POR_GRUPO, { buscar: consulta }).then((p) =>
+      listarIngredientes(1, POR_GRUPO, { buscar: consulta }).then((p) =>
         p.items.map((i) => ({
-          clave: `insumo-${i.id}`,
-          grupo: "Insumos",
+          clave: `ingrediente-${i.id}`,
+          grupo: "Ingredientes",
           titulo: i.nombre,
           detalle: i.unidad_medida?.nombre,
-          destino: `/insumos/${i.id}/editar`,
+          destino: `/ingredientes/${i.id}/editar`,
         })),
       ),
       listarProveedores(false, consulta).then((lista) =>
@@ -163,9 +165,11 @@ export function BuscadorGlobal(): ReactElement | null {
 
   // Secciones del menú que coinciden: no necesitan backend.
   const secciones = useMemo<Resultado[]>(() => {
-    const q = aplicada.toLocaleLowerCase("es");
+    const q = normalizar(aplicada);
     if (q.length < 2) return [];
-    return TODAS_LAS_ENTRADAS.filter((e) => esVisibleEntrada(e, user) && contiene(e.label, q))
+    return TODAS_LAS_ENTRADAS.filter((e) => esVisibleEntrada(e, user))
+      .flatMap((e) => [e, ...(e.pestanas ?? [])])
+      .filter((e) => contiene(e.label, q))
       .slice(0, POR_GRUPO)
       .map((e) => ({
         clave: `seccion-${e.to}`,

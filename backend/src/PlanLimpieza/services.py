@@ -16,6 +16,7 @@ from src.PlanLimpieza import models, schemas, exceptions
 from src.personal.models import Personal
 from src.tareas.models import Tarea
 from src.tareas.schemas import TareaBase as TareaInput
+from src.tareas.services import verificar_operador
 
 # Claves del query string -> expresión de orden. El nombre del equipo vive en
 # otra tabla, así que el JOIN de `_consulta_planes` también sirve para ordenar.
@@ -95,6 +96,7 @@ def _crear_tareas_del_plan(tareas: List[TareaInput]) -> List[Tarea]:
             tipo=t.tipo,
             descripcion=t.descripcion,
             observaciones=t.observaciones,
+            operador_id=t.operador_id,
         )
         for t in tareas
     ]
@@ -105,6 +107,8 @@ def crear_plan_limpieza(
 ) -> models.PlanLimpieza:
     _verificar_autor_administrador(db, autor_id)
     _verificar_equipo_activo(db, plan.equipo_id)
+    for operador_id in {t.operador_id for t in plan.tareas}:
+        verificar_operador(db, operador_id)
 
     datos_plan = plan.model_dump(exclude={"tareas"})
     datos_plan["autor_id"] = autor_id
@@ -265,6 +269,8 @@ def modificar_plan_limpieza(
     # Se matchea por id (no por nombre): así renombrar una tarea actualiza
     # la fila existente en vez de desactivarla y crear una tarea nueva.
     if tareas_input is not ... and tareas_input is not None:
+        for operador_id in {t["operador_id"] for t in tareas_input}:
+            verificar_operador(db, operador_id)
         tareas_actuales_por_id = {t.id: t for t in db_plan.tareas}
         ids_recibidos = {
             t["id"] for t in tareas_input if t.get("id") is not None
@@ -285,6 +291,7 @@ def modificar_plan_limpieza(
                 tarea.tipo = t["tipo"]
                 tarea.descripcion = t.get("descripcion")
                 tarea.observaciones = t.get("observaciones")
+                tarea.operador_id = t["operador_id"]
                 tarea.activo = True
             else:
                 db_plan.tareas.append(
@@ -294,6 +301,7 @@ def modificar_plan_limpieza(
                         tipo=t["tipo"],
                         descripcion=t.get("descripcion"),
                         observaciones=t.get("observaciones"),
+                        operador_id=t["operador_id"],
                     )
                 )
 

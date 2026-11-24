@@ -28,7 +28,8 @@ import {
   Paginacion,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -51,10 +52,10 @@ const ETIQUETAS_ORDEN: Record<ColumnaOrdenPlanCalibracion, string> = {
 export function PlanCalibracionMantenimientoPage() {
   const navigate = useNavigate();
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("PlanCalibracionMantenimientoPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [tipo, setTipo] = useState<TipoPlanCalibracionMantenimiento | "">("");
-  const [equipoId, setEquipoId] = useState("");
+  const [tipo, setTipo] = useEstadoNavegacion<TipoPlanCalibracionMantenimiento | "">("PlanCalibracionMantenimientoPage.tipo", "");
+  const [equipoId, setEquipoId] = useEstadoNavegacion("PlanCalibracionMantenimientoPage.equipoId", "");
   const orden = useOrdenTabla<
     ColumnaOrdenPlanCalibracion,
     "vencimiento_asc"
@@ -206,12 +207,14 @@ export function PlanCalibracionMantenimientoPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
-            nombreTabla="planes_calibracion_mantenimiento" // (o el nombre de tabla que use tu backend)
+          <BotonExportar
+            nombreTabla="planes_calibracion_mantenimiento"
             filtros={{
+              activo: "true",
               buscar: busquedaAplicada,
               tipo: tipo || undefined,
               equipo_id: equipoId || undefined,
+              orden: orden.orden,
             }}
           />
         }

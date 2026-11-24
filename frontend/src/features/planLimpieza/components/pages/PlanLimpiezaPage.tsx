@@ -26,7 +26,8 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -37,11 +38,11 @@ const ETIQUETAS_ORDEN: Record<ColumnaOrdenPlanLimpieza, string> = {
 
 export function PlanLimpiezaPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("PlanLimpiezaPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("PlanLimpiezaPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [equipoId, setEquipoId] = useState("");
+  const [equipoId, setEquipoId] = useEstadoNavegacion("PlanLimpiezaPage.equipoId", "");
   const orden = useOrdenTabla<ColumnaOrdenPlanLimpieza, "nombre_asc">(
     "nombre_asc"
   );
@@ -149,6 +150,7 @@ export function PlanLimpiezaPage() {
           tipo: t.tipo,
           descripcion: t.descripcion ?? undefined,
           observaciones: t.observaciones ?? undefined,
+          operador_id: t.operador_id ?? null,
         })),
         equipo_id: planAReactivar.equipo_id,
         autor_id: planAReactivar.autor_id,
@@ -195,12 +197,13 @@ export function PlanLimpiezaPage() {
               onChange={handleToggleInactivos}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="planes_limpieza"
               filtros={{
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
                 equipo_id: equipoId || undefined,
+                orden: orden.orden,
               }}
             />
           </>

@@ -99,6 +99,39 @@ def test_cerrar_lote_sin_vida_util_en_receta_deja_vencimiento_none(db_session):
     assert cerrado.fecha_vencimiento is None
 
 
+def test_cerrar_lote_sin_vida_util_guarda_vencimiento_cargado_a_mano(db_session):
+    db = db_session
+    e = _escenario(db, vida_util_dias=None)
+    vence = date.today() + timedelta(days=30)
+
+    cerrado = services.cerrar_lote(
+        db,
+        e["lote"].id,
+        schemas.LoteCierre(cantidad_producida=Decimal("40"), fecha_vencimiento=vence),
+    )
+
+    assert cerrado.fecha_vencimiento == vence
+
+
+def test_cerrar_lote_rechaza_vencimiento_anterior_al_cierre(db_session):
+    import pytest
+
+    from src.lotes import exceptions
+
+    db = db_session
+    e = _escenario(db, vida_util_dias=None)
+
+    with pytest.raises(exceptions.VencimientoAnteriorAlCierre):
+        services.cerrar_lote(
+            db,
+            e["lote"].id,
+            schemas.LoteCierre(
+                cantidad_producida=Decimal("40"),
+                fecha_vencimiento=date.today() - timedelta(days=1),
+            ),
+        )
+
+
 def test_resumen_y_detalle_lote_exponen_vida_util_dias(db_session):
     db = db_session
     e = _escenario(db, vida_util_dias=14)

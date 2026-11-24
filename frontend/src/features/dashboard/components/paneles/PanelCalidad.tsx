@@ -166,7 +166,7 @@ export function PanelCalidad() {
               }
             >
               <BarrasHorizontales datos={d.motivos_reclamo} unidad="reclamos" />
-              <VerTodos to="/reclamos">Ver los reclamos</VerTodos>
+              <VerTodos to="/incidentes?tab=reclamos">Ver los reclamos</VerTodos>
             </Bloque>
 
             <Bloque

@@ -184,12 +184,21 @@ def _resolver_nombres(
         if modelo is None or not ids:
             continue
 
+        etiquetas: dict[int, str] = {}
+        if "nombre" not in sa_inspect(modelo).columns:
+            # `nombre` es una propiedad calculada (p. ej. Insumo: "marca · descripción"):
+            # no se puede seleccionar como columna, se arma desde el objeto.
+            for obj in db.execute(select(modelo).where(modelo.id.in_(list(ids)))).scalars():
+                if obj.nombre:
+                    etiquetas[obj.id] = obj.nombre
+            nombres[tabla] = etiquetas
+            continue
+
         con_apellido = tabla == "personal" and hasattr(modelo, "apellido")
         columnas = [modelo.id, modelo.nombre]
         if con_apellido:
             columnas.append(modelo.apellido)
 
-        etiquetas: dict[int, str] = {}
         for fila in db.execute(select(*columnas).where(modelo.id.in_(list(ids)))).all():
             partes = (fila.nombre, fila.apellido) if con_apellido else (fila.nombre,)
             etiqueta = " ".join(p for p in partes if p)

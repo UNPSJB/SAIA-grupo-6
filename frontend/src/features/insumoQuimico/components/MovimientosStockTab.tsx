@@ -26,13 +26,14 @@ import {
   DatoPrincipal,
   PildoraNeutra,
 } from "../../../components/ui/patrones";
-import { BotonesExportar } from "../../exportacion";
+import { BotonExportar } from "../../exportacion";
 import { useMovimientosStock } from "../hooks/useMovimientosStock";
 import { listarOpcionesInsumosQuimicos } from "../services/insumoQuimicoService";
 import type { InsumoQuimicoOpcion } from "../types/insumoQuimico";
 import type { TipoMovimientoStock } from "../types/stock";
 import { formatoConSigno } from "../../../common/utils/numeros";
 import { formatoFechaHora } from "../../../common/utils/fechas";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -50,11 +51,11 @@ function checklistDesdeMovimiento(checklistId: number, fecha: string | null): Hi
 
 export function MovimientosStockTab() {
   const [insumos, setInsumos] = useState<InsumoQuimicoOpcion[]>([]);
-  const [producto, setProducto] = useState("");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [filtros, setFiltros] = useState({ producto: "", fechaDesde: "", fechaHasta: "", tipo: "" });
+  const [producto, setProducto] = useEstadoNavegacion("MovimientosStockTab.producto", "");
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion("MovimientosStockTab.fechaDesde", "");
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion("MovimientosStockTab.fechaHasta", "");
+  const [tipo, setTipo] = useEstadoNavegacion("MovimientosStockTab.tipo", "");
+  const [filtros, setFiltros] = useEstadoNavegacion("MovimientosStockTab.filtros", { producto: "", fechaDesde: "", fechaHasta: "", tipo: "" });
   const [errorFiltro, setErrorFiltro] = useState<string | null>(null);
   const [checklistSeleccionado, setChecklistSeleccionado] = useState<HistorialChecklistItem | null>(null);
   const { movimientos, total, page, setPage, hayVariasPaginas, loading, error } = useMovimientosStock({
@@ -95,7 +96,7 @@ export function MovimientosStockTab() {
   return (
     <>
       <BarraFiltros
-        herramientas={<BotonesExportar nombreTabla="stock_movimientos" vista="stock-movimientos" filtros={{ insumo_quimico_id: filtros.producto, fecha_desde: filtros.fechaDesde, fecha_hasta: filtros.fechaHasta, tipo: filtros.tipo }} />}
+        herramientas={<BotonExportar nombreTabla="stock_movimientos" vista="stock-movimientos" filtros={{ insumo_quimico_id: filtros.producto, fecha_desde: filtros.fechaDesde, fecha_hasta: filtros.fechaHasta, tipo: filtros.tipo }} />}
         filtros={<>
           <FiltroSelect label="Producto" valor={producto} onCambio={setProducto} opciones={insumos.map((insumo) => ({ valor: String(insumo.id), etiqueta: `${insumo.nombre}${insumo.unidad_simbolo ? ` (${insumo.unidad_simbolo})` : ""}` }))} todos="Todos los productos" />
           <Box minW="150px"><LabelFiltro>Desde</LabelFiltro><FormInput type="date" value={fechaDesde} max={fechaHasta} onChange={(event) => setFechaDesde(event.target.value)} /></Box>

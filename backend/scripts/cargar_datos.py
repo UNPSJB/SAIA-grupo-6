@@ -35,7 +35,7 @@ from src.aptitud.models import Aptitud
 from src.vencimientoPersonal.models import VencimientoPersonal
 from src.unidadMedida.constants import equivalencia_conocida
 from src.unidadMedida.models import UnidadMedida
-from src.insumos.models import Insumo
+from src.ingredientes.models import Ingrediente
 from src.insumoQuimico.models import InsumoQuimico, TipoQuimico
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.PlanLimpieza.models import PlanLimpieza
@@ -83,7 +83,7 @@ def _borrar_previamente() -> None:
         Tarea,
         PlanLimpieza,
         InsumoQuimico,
-        Insumo,
+        Ingrediente,
         ElementoLimpieza,
         Aptitud,
         UnidadMedida,
@@ -360,32 +360,7 @@ try:
     db.flush()
 
     # ------------------------------------------------------------------
-    # 8) Insumos generales (15)
-    # ------------------------------------------------------------------
-    print("⏳ Cargando 15 insumos generales...")
-    insumos_generales = [
-        ("Bolsa de consorcio 60x90", unidad_u),
-        ("Bolsa negra 45x60", unidad_u),
-        ("Papel film", unidad_u),
-        ("Papel manteca", unidad_u),
-        ("Rollo de cocina", unidad_u),
-        ("Guantes descartables", unidad_u),
-        ("Servilletas de papel", unidad_u),
-        ("Jabón líquido para vajilla", unidad_l),
-        ("Detergente para lavavajillas", unidad_l),
-        ("Alcohol en gel", unidad_ml),
-        ("Limpia pisos neutro", unidad_l),
-        ("Desinfectante de pisos", unidad_l),
-        ("Quitamanchas de ropa de trabajo", unidad_l),
-        ("Aromatizador de ambientes", unidad_ml),
-        ("Desengrasante para campanas", unidad_l),
-    ]
-    for nombre, unidad in insumos_generales:
-        db.add(Insumo(nombre=nombre, unidad_medida_id=unidad.id, activo=True))
-    db.flush()
-
-    # ------------------------------------------------------------------
-    # 9) Planes de limpieza (15) con tareas (tipo + observaciones)
+    # 8) Planes de limpieza (15) con tareas (tipo + observaciones)
     # ------------------------------------------------------------------
     print("⏳ Cargando 15 planes de limpieza con sus tareas...")
     autor = admins[0]
@@ -607,27 +582,27 @@ try:
     db.flush()
 
     # ------------------------------------------------------------------
-    # 10) Checklists de los últimos 7 días (hoy incluido)
+    # 9) Checklists de los últimos 7 días (hoy incluido)
     # ------------------------------------------------------------------
     print("⏳ Cargando checklists de los últimos 7 días...")
-    DETALLE_INSUMO = {i.nombre: i for i in quimicos_obj}
+    DETALLE_QUIMICO = {i.nombre: i for i in quimicos_obj}
     ELEM = {e.nombre: e for e in elementos_obj}
 
     def _consumo_para(tarea_nombre: str) -> tuple:
-        """Devuelve (insumo, cantidad, elemento) coherentes con la tarea."""
+        """Devuelve (químico, cantidad, elemento) coherentes con la tarea."""
         if "temperatura" in tarea_nombre or "termostato" in tarea_nombre or "tarado" in tarea_nombre:
             return None, None, None
         if "desengrasar" in tarea_nombre or "desengrasante" in tarea_nombre or "quemador" in tarea_nombre:
-            return DETALLE_INSUMO["Quita grasa industrial"], 0.5, ELEM["Cepillo de cerdas duras"]
+            return DETALLE_QUIMICO["Quita grasa industrial"], 0.5, ELEM["Cepillo de cerdas duras"]
         if "sanitizar" in tarea_nombre or "manijas" in tarea_nombre or "desinfección" in tarea_nombre or "desinfectar" in tarea_nombre:
-            return DETALLE_INSUMO["Lavandina concentrada"], 0.25, ELEM["Trapo de microfibra"]
+            return DETALLE_QUIMICO["Lavandina concentrada"], 0.25, ELEM["Trapo de microfibra"]
         if "piso" in tarea_nombre or "desagüe" in tarea_nombre:
-            return DETALLE_INSUMO["Desinfectante de superficies"], 0.5, ELEM["Trapeador de piso"]
+            return DETALLE_QUIMICO["Desinfectante de superficies"], 0.5, ELEM["Trapeador de piso"]
         if "vidrio" in tarea_nombre or "cuchil" in tarea_nombre or "bandeja" in tarea_nombre:
-            return DETALLE_INSUMO["Detergente biodegradable"], 0.1, ELEM["Esponja multiuso"]
+            return DETALLE_QUIMICO["Detergente biodegradable"], 0.1, ELEM["Esponja multiuso"]
         if "lavar" in tarea_nombre or "limpiar" in tarea_nombre:
-            return DETALLE_INSUMO["Limpiador multiuso"], 0.3, ELEM["Esponja multiuso"]
-        return DETALLE_INSUMO["Desinfectante de superficies"], 0.2, ELEM["Paño de algodón"]
+            return DETALLE_QUIMICO["Limpiador multiuso"], 0.3, ELEM["Esponja multiuso"]
+        return DETALLE_QUIMICO["Desinfectante de superficies"], 0.2, ELEM["Paño de algodón"]
 
     for plan in planes_obj:
         for delta in range(6, -1, -1):
@@ -666,7 +641,7 @@ try:
                 else:
                     abiertas += 1
 
-                insumo, cantidad, elemento = _consumo_para(tarea.nombre) if completado else (None, None, None)
+                quimico, cantidad, elemento = _consumo_para(tarea.nombre) if completado else (None, None, None)
 
                 registro = RegistroTarea(
                     checklist_id=cabecera.id,
@@ -678,7 +653,7 @@ try:
                     completado=completado,
                     fecha_completado=datetime.combine(fecha, datetime.min.time()).replace(hour=11) if completado else None,
                     usuario_id=operadores[plan.id % len(operadores)].id if completado else None,
-                    insumo_quimico_id=insumo.id if insumo else None,
+                    insumo_quimico_id=quimico.id if quimico else None,
                     cantidad_consumida=cantidad,
                     elemento_limpieza_id=elemento.id if elemento else None,
                 )
@@ -700,7 +675,7 @@ try:
         db.flush()
 
     # ------------------------------------------------------------------
-    # 11) Incidentes (15)
+    # 10) Incidentes (15)
     # ------------------------------------------------------------------
     print("⏳ Cargando 15 incidentes...")
     incidentes = [
@@ -716,8 +691,8 @@ try:
          TipoIncidente.FALLA_EQUIPO, "Balanza de plataforma", 3, EstadoIncidente.ABIERTO, None, None),
         ("Luz quemada en zona de elaboración", "Un tubo fluorescente parpadea sobre la mesa de trabajo.",
          TipoIncidente.OTRO, "Horno combinado", 2, EstadoIncidente.CERRADO, 1, "Se reemplazó el tubo y el cebador."),
-        ("Devolución de clienta por producto frío", "Cliente devuelve una porción que llegó a temperatura ambiente.",
-         TipoIncidente.DEVOLUCION_CLIENTE, None, 3, EstadoIncidente.CERRADO, 3, "Se reforzó el control de temperatura al servir."),
+        ("Porciones servidas frías", "Salieron porciones a temperatura ambiente del área de servicio.",
+         TipoIncidente.OTRO, None, 3, EstadoIncidente.CERRADO, 3, "Se reforzó el control de temperatura al servir."),
         ("Superficie de corte contaminada", "Se detectó residuo de masa en la mesa de corte sin sanitizar.",
          TipoIncidente.HIGIENE_CONTAMINACION, "Amasadora", 4, EstadoIncidente.CERRADO, 2, "Se reforzó el protocolo de sanitizado cada cambio de turno."),
         ("Roedores en el depósito", "Se ven marcas de roedores cerca de la zona de almacenamiento de secos.",
@@ -771,7 +746,7 @@ try:
     db.flush()
 
     # ------------------------------------------------------------------
-    # 12) Planes de calibración / mantenimiento (15)
+    # 11) Planes de calibración / mantenimiento (15)
     # ------------------------------------------------------------------
     print("⏳ Cargando 15 planes de calibración/mantenimiento...")
     cal_mant = [

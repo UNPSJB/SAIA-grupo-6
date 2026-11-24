@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { avisarExito } from "../../../../components/ui/patrones";
+import { useCallback, useState } from "react";
+import { useLista } from "../../../../common/hooks/useLista";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Badge,
   Box,
   Button,
   HStack,
-  SimpleGrid,
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { LuEye } from "react-icons/lu";
+import { LuCircleCheck, LuEye } from "react-icons/lu";
 import { formatoFecha, formatoFechaHora, hoyISO } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -20,12 +21,18 @@ import {
 } from "../../../../common/api/permissions";
 import {
   BannerError,
+  BotonGuardar,
   BotonTexto,
   EstadoCargando,
   EtiquetaEstado,
   type TonoEstado,
 } from "../../../../components/ui/patrones";
-import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
+import {
+  DisposicionDetalle,
+  GrillaDatos,
+  PaginaDetalle,
+  SeccionDetalle,
+} from "../../../../components/ui/plantillas";
 import { MiniaturaFoto } from "../../../incidente/components/MiniaturaFoto";
 import { obtenerSalida } from "../../services/salidaService";
 import {
@@ -64,9 +71,28 @@ export function SalidaDetallePage() {
 
   const idValido = Number.isFinite(salidaId) ? salidaId : null;
 
-  const [salida, setSalida] = useState<Salida | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Una salida rechazada también se abre desde la pestaña de rechazos.
+  const location = useLocation();
+  const volver =
+    location.state?.from === "rechazos"
+      ? { a: "/incidentes?tab=rechazos", etiqueta: "Rechazos" }
+      : { a: "/lotes?tab=salidas", etiqueta: "Salidas" };
+
+  const cargarSalida = useCallback(async () => {
+    if (!idValido) throw new Error("ID de salida inválido.");
+    return obtenerSalida(idValido);
+  }, [idValido]);
+  const { items: cargada, loading, error } = useLista<Salida | null>({
+    cargar: cargarSalida,
+    dependencias: [idValido],
+    valorInicial: null,
+    mensajeError: "No se pudo obtener la salida.",
+    preferirMensajeDelBackend: true,
+  });
+  // Después de cada acción se trae la salida de nuevo sin volver a mostrar
+  // "Cargando...": la versión actualizada pisa a la cargada (si es la misma).
+  const [actualizada, setSalida] = useState<Salida | null>(null);
+  const salida = actualizada && actualizada.id === idValido ? actualizada : cargada;
 
   // Modales de acciones
   const [modalDespachar, setModalDespachar] = useState(false);
@@ -82,39 +108,10 @@ export function SalidaDetallePage() {
     setSalida(actualizada);
   };
 
-  useEffect(() => {
-    if (!idValido) {
-      setError("ID de salida inválido.");
-      setLoading(false);
-      return;
-    }
-
-    let vigente = true;
-    obtenerSalida(idValido)
-      .then((s) => {
-        if (vigente) {
-          setSalida(s);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (vigente) {
-          setError(
-            err instanceof Error ? err.message : "No se pudo obtener la salida."
-          );
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, [idValido]);
-
-  if (loading) {
+  if (loading && !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/salidas", etiqueta: "Salidas" }}
+        volver={volver}
         titulo="Salida de producto"
       >
         <EstadoCargando>Cargando salida...</EstadoCargando>
@@ -125,7 +122,7 @@ export function SalidaDetallePage() {
   if (error || !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/salidas", etiqueta: "Salidas" }}
+        volver={volver}
         titulo="Salida de producto"
       >
         <BannerError>{error || "No se encontró la salida"}</BannerError>
@@ -135,7 +132,8 @@ export function SalidaDetallePage() {
 
   const puedeDespachar = salida.estado === "RESERVADO";
   const puedeEntregar = salida.estado === "DESPACHADO";
-  const puedeCancelar = salida.estado === "RESERVADO";
+  // Cancelar una reserva es comercial: solo quien administra.
+  const puedeCancelar = salida.estado === "RESERVADO" && puedeResolverRechazo;
   const rechazoPendiente =
     salida.estado === "RECHAZADA" && salida.disposicion === null;
   const puedeRechazar = salida.estado === "DESPACHADO" && puedeRegistrarRechazo;
@@ -167,7 +165,7 @@ export function SalidaDetallePage() {
   const textoSeguimiento: string = (() => {
     switch (salida.estado) {
       case "RESERVADO":
-        return "Despachar la reserva o cancelarla.";
+        return puedeResolverRechazo ? "Despachar la reserva o cancelarla." : "Despachar la reserva.";
       case "DESPACHADO":
         if (esRetiraCliente) {
           return "El cliente retira en planta. Pendiente confirmar el retiro o registrar un rechazo.";
@@ -208,7 +206,7 @@ export function SalidaDetallePage() {
 
   return (
     <PaginaDetalle
-      volver={{ a: "/salidas", etiqueta: "Salidas" }}
+      volver={volver}
       titulo={tituloPagina}
       estado={
         <EtiquetaEstado
@@ -274,14 +272,10 @@ export function SalidaDetallePage() {
             </Button>
           )}
           {puedeResolver && (
-            <Button
-              variant="solid"
-              colorPalette="blue"
-              size="sm"
-              onClick={() => setModalResolver(true)}
-            >
+            <BotonGuardar type="button" size="sm" onClick={() => setModalResolver(true)}>
+              <LuCircleCheck aria-hidden />
               Resolver rechazo
-            </Button>
+            </BotonGuardar>
           )}
         </HStack>
       }
@@ -307,11 +301,100 @@ export function SalidaDetallePage() {
           </Alert.Content>
         </Alert.Root>
       )}
-      <Stack gap="6">
+      {/* Principal: la reserva, el rechazo, el seguimiento y los reclamos;
+          lateral: el lote de origen y la información del sistema. */}
+      <DisposicionDetalle
+        lateral={
+          <>
+            {/* Tarjeta 3: Datos del Lote de Origen */}
+            <SeccionDetalle titulo="Datos del Lote de Origen">
+              <GrillaDatos columnasMax={2}>
+                <Box>
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Código del lote
+                  </Text>
+                  <Text fontSize="sm" fontWeight="medium" color="fg" fontFamily="mono">
+                    {salida.lote_numero}
+                  </Text>
+                </Box>
+                <Box gridColumn="1 / -1">
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Producto
+                  </Text>
+                  <Text fontSize="sm" fontWeight="medium" color="fg">
+                    {salida.producto_nombre}
+                  </Text>
+                  <Text fontSize="xs" color="fg.muted" mt="1">
+                    Unidad de medida: {salida.unidad_medida}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Fecha de elaboración
+                  </Text>
+                  <Text fontSize="sm" fontWeight="medium" color="fg">
+                    {formatoFecha(salida.fecha_elaboracion)}
+                  </Text>
+                </Box>
+                <Box gridColumn="1 / -1">
+                  <BotonTexto
+                    onClick={() => navigate(`/lotes/${salida.lote_id}`)}
+                    title="Ver ficha completa del lote original"
+                  >
+                    <LuEye size={16} aria-hidden />{" "}
+                    Ver ficha completa del lote original
+                  </BotonTexto>
+                </Box>
+              </GrillaDatos>
+            </SeccionDetalle>
 
+            {/* Tarjeta 5: Información del sistema / Auditoría */}
+            <SeccionDetalle titulo="Información del sistema">
+              <GrillaDatos columnasMax={2}>
+                <Box>
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Fecha y hora de creación
+                  </Text>
+                  <Text fontSize="sm" fontWeight="medium" color="fg">
+                    {salida.creado_en ? formatoFechaHora(salida.creado_en) : "—"}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    ID de salida
+                  </Text>
+                  <Text fontSize="sm" fontWeight="medium" color="fg" fontFamily="mono">
+                    #{salida.id}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text fontSize="xs" color="fg.muted" mb="1">
+                    Estado del circuito
+                  </Text>
+                  <EtiquetaEstado
+                    tono={TONO_ESTADO[salida.estado] ?? "neutro"}
+                  >
+                    {salida.estado}
+                  </EtiquetaEstado>
+                </Box>
+                {salida.fecha_cancelacion && (
+                  <Box>
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      Fecha de cancelación
+                    </Text>
+                    <Text fontSize="sm" fontWeight="medium" color="fg">
+                      {formatoFechaHora(salida.fecha_cancelacion)}
+                    </Text>
+                  </Box>
+                )}
+              </GrillaDatos>
+            </SeccionDetalle>
+          </>
+        }
+      >
         {/* Tarjeta 1: Información de la Reserva */}
         <SeccionDetalle titulo="Información de la Reserva">
-          <SimpleGrid columns={{ base: 1, md: 3, lg: 5 }} gap="6">
+          <GrillaDatos minimo="170px" columnasMax={4}>
             <Box>
               <Text fontSize="xs" color="fg.muted" mb="1">
                 Cliente
@@ -440,13 +523,13 @@ export function SalidaDetallePage() {
                 )}
               </Box>
             )}
-          </SimpleGrid>
+          </GrillaDatos>
         </SeccionDetalle>
 
         {/* Tarjeta 2: Rechazo y disposición (solo si hubo rechazo) */}
         {(salida.estado === "RECHAZADA" || salida.motivo_rechazo) && (
           <SeccionDetalle titulo="Rechazo y destino de la mercadería">
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
+            <GrillaDatos minimo="170px" columnasMax={3}>
               <Box>
                 <Text fontSize="xs" color="fg.muted" mb="1">
                   Motivo del rechazo
@@ -572,55 +655,13 @@ export function SalidaDetallePage() {
                   </Alert.Root>
                 )}
               </Box>
-            </SimpleGrid>
+            </GrillaDatos>
           </SeccionDetalle>
         )}
 
-        {/* Tarjeta 3: Datos del Lote de Origen */}
-        <SeccionDetalle titulo="Datos del Lote de Origen">
-          <SimpleGrid columns={{ base: 1, md: 3, lg: 4 }} gap="6">
-            <Box>
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                Código del lote
-              </Text>
-              <Text fontSize="sm" fontWeight="medium" color="fg" fontFamily="mono">
-                {salida.lote_numero}
-              </Text>
-            </Box>
-            <Box gridColumn="1 / -1">
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                Producto
-              </Text>
-              <Text fontSize="sm" fontWeight="medium" color="fg">
-                {salida.producto_nombre}
-              </Text>
-              <Text fontSize="xs" color="fg.muted" mt="1">
-                Unidad de medida: {salida.unidad_medida}
-              </Text>
-            </Box>
-            <Box>
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                Fecha de elaboración
-              </Text>
-              <Text fontSize="sm" fontWeight="medium" color="fg">
-                {formatoFecha(salida.fecha_elaboracion)}
-              </Text>
-            </Box>
-            <Box gridColumn="1 / -1">
-              <BotonTexto
-                onClick={() => navigate(`/lotes/${salida.lote_id}`)}
-                title="Ver ficha completa del lote original"
-              >
-                <LuEye size={16} aria-hidden />{" "}
-                Ver ficha completa del lote original
-              </BotonTexto>
-            </Box>
-          </SimpleGrid>
-        </SeccionDetalle>
-
         {/* Tarjeta 4: Seguimiento y Próximos pasos */}
         <SeccionDetalle titulo="Seguimiento y Próximos pasos">
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="6">
+          <GrillaDatos minimo="170px" columnasMax={2}>
             <Box>
               <Text fontSize="xs" color="fg.muted" mb="1">
                 Transportista asignado
@@ -679,7 +720,7 @@ export function SalidaDetallePage() {
                 {textoSeguimiento}
               </Text>
             </Box>
-          </SimpleGrid>
+          </GrillaDatos>
         </SeccionDetalle>
 
         {/* Reclamos de cliente sobre esta entrega (Historia 20) */}
@@ -743,49 +784,8 @@ export function SalidaDetallePage() {
           </SeccionDetalle>
         )}
 
-        {/* Tarjeta 5: Información del sistema / Auditoría */}
-        <SeccionDetalle titulo="Información del sistema">
-          <SimpleGrid columns={{ base: 1, md: 3, lg: 3 }} gap="6">
-            <Box>
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                Fecha y hora de creación
-              </Text>
-              <Text fontSize="sm" fontWeight="medium" color="fg">
-                {salida.creado_en ? formatoFechaHora(salida.creado_en) : "—"}
-              </Text>
-            </Box>
-            <Box>
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                ID de salida
-              </Text>
-              <Text fontSize="sm" fontWeight="medium" color="fg" fontFamily="mono">
-                #{salida.id}
-              </Text>
-            </Box>
-            <Box>
-              <Text fontSize="xs" color="fg.muted" mb="1">
-                Estado del circuito
-              </Text>
-              <EtiquetaEstado
-                tono={TONO_ESTADO[salida.estado] ?? "neutro"}
-              >
-                {salida.estado}
-              </EtiquetaEstado>
-            </Box>
-            {salida.fecha_cancelacion && (
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb="1">
-                  Fecha de cancelación
-                </Text>
-                <Text fontSize="sm" fontWeight="medium" color="fg">
-                  {formatoFechaHora(salida.fecha_cancelacion)}
-                </Text>
-              </Box>
-            )}
-          </SimpleGrid>
-        </SeccionDetalle>
 
-      </Stack>
+      </DisposicionDetalle>
 
       <ModalDespacharSalida
         isOpen={modalDespachar}
@@ -883,6 +883,7 @@ export function SalidaDetallePage() {
         salidaInicial={salida}
         onClose={() => setModalReclamo(false)}
         onReclamoRegistrado={() => {
+          avisarExito("Reclamo registrado correctamente.");
           setModalReclamo(false);
           void recargarSalida();
           notificarCambioIncidentes();

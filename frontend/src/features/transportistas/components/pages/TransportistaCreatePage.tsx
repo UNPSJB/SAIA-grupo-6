@@ -6,7 +6,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuTruck } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useTransportistaABM } from "../../hooks/useTransportistaABM";
 import type { TransportistaFormValues } from "../../types/transportista";
 import { TransportistaForm } from "../TransportistaForm";
@@ -46,16 +47,17 @@ export function TransportistaCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/transportistas", etiqueta: "Transportistas" }}
+      icono={LuTruck}
       titulo="Nuevo transportista"
+      descripcion="Cargá los datos fiscales y de contacto del transportista."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <TransportistaForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de transportista"
         submitLabel="Crear transportista"
         onCancel={() => navigate("/transportistas")}
       />
@@ -69,6 +71,6 @@ export function TransportistaCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

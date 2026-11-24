@@ -27,7 +27,7 @@ export function TrazabilidadLoteCompletoPage() {
     <PaginaDetalle
       volver={{ a: `/lotes/${id}`, etiqueta: `Lote #${grafo?.numero_lote || id}` }}
       titulo={`Trazabilidad Completa: Lote ${grafo?.numero_lote || ""}`}
-      descripcion={`Árbol genealógico de inocuidad: origen de insumos, transformación en planta y distribución a clientes de ${grafo?.producto_nombre || ""}.`}
+      descripcion={`Árbol genealógico de inocuidad: origen de ingredientes, transformación en planta y distribución a clientes de ${grafo?.producto_nombre || ""}.`}
       acciones={
         <HStack gap="2">
           <Button

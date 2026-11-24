@@ -1,5 +1,6 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { Box, Checkbox, HStack, Image, Input, Stack, Text } from "@chakra-ui/react";
+import { HStack, Image, Input, Stack, Text } from "@chakra-ui/react";
 import { DialogForm } from "../../../../common/components/DialogForm";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../../components/ui/dialog";
@@ -19,8 +20,14 @@ import {
   type StockLoteInsumo,
 } from "../../types/loteInsumo";
 
+/** Lo que el diálogo necesita del lote (viene de la ficha del lote). */
+export type LoteParaBaja = Pick<
+  StockLoteInsumo,
+  "lote_insumo_id" | "numero_lote" | "ingrediente_nombre" | "proveedor_nombre" | "saldo" | "unidad" | "vencido"
+>;
+
 interface BajaLoteInsumoDialogProps {
-  lote: StockLoteInsumo;
+  lote: LoteParaBaja;
   onConfirmado: () => Promise<void> | void;
   onClose: () => void;
 }
@@ -32,13 +39,10 @@ export function BajaLoteInsumoDialog({
   onConfirmado,
   onClose,
 }: BajaLoteInsumoDialogProps) {
-  const saldoNum = Number(lote.saldo);
   const [motivo, setMotivo] = useState<MotivoBajaInsumo>(
     lote.vencido ? "vencido" : "danado",
   );
-  const [cantidad, setCantidad] = useState<string>(saldoNum > 0 ? String(saldoNum) : "");
   const [observaciones, setObservaciones] = useState("");
-  const [bajaCompleta, setBajaCompleta] = useState(true);
   const [fotoDataUrl, setFotoDataUrl] = useState<string | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -74,27 +78,17 @@ export function BajaLoteInsumoDialog({
     e.preventDefault();
     setError(null);
 
-    const cantNum = Number(cantidad);
-    if (!(cantNum > 0)) {
-      setError("La cantidad a dar de baja debe ser mayor a cero.");
-      return;
-    }
-    if (cantNum > saldoNum) {
-      setError(
-        `La cantidad supera el saldo disponible (${cantidadConUnidad(lote.saldo, lote.unidad)}).`,
-      );
-      return;
-    }
-
     setGuardando(true);
     try {
       await darDeBajaLoteInsumo(lote.lote_insumo_id, {
         motivo,
-        cantidad,
+        // Se da de baja el lote entero: todo su saldo, y queda inhabilitado.
+        cantidad: lote.saldo,
         observaciones: observaciones.trim() || null,
         foto_data_url: fotoDataUrl,
-        dar_de_baja_lote_completo: bajaCompleta || cantNum >= saldoNum,
+        dar_de_baja_lote_completo: true,
       });
+      avisarExito("Baja del lote de insumo registrada correctamente.");
       await onConfirmado();
       onClose();
     } catch (err) {
@@ -125,13 +119,17 @@ export function BajaLoteInsumoDialog({
       >
         <DialogForm onSubmit={handleSubmit}>
           <DialogTitle as="h3" mt={0} mb="1" fontSize="lg" fontWeight="bold" color="fg">
-            Dar de baja insumo — Lote {lote.numero_lote}
+            Dar de baja el lote {lote.numero_lote}
           </DialogTitle>
-          <Text mb="4" fontSize="sm" color="fg.muted">
-            {lote.insumo_nombre} · Proveedor: {lote.proveedor_nombre} · Saldo disponible:{" "}
-            <Text as="span" fontWeight="semibold" color="fg">
+          <Text mb="2" fontSize="sm" color="fg.muted">
+            {lote.ingrediente_nombre} · Proveedor: {lote.proveedor_nombre}
+          </Text>
+          <Text mb="4" fontSize="sm" color="fg">
+            Se da de baja el lote entero: su saldo de{" "}
+            <Text as="span" fontWeight="semibold">
               {cantidadConUnidad(lote.saldo, lote.unidad)}
-            </Text>
+            </Text>{" "}
+            sale del stock y el lote ya no se puede usar en producción.
           </Text>
 
           {error && <BannerError mb="4">{error}</BannerError>}
@@ -148,41 +146,6 @@ export function BajaLoteInsumoDialog({
               ))}
             </FormNativeSelect>
           </FormField>
-
-          <FormField
-            label={`Cantidad a dar de baja (${lote.unidad})`}
-            required
-            mb="4"
-            helper="Descuenta del stock del lote. Si se da de baja el total, el lote queda bloqueado para producción."
-          >
-            <FormInput
-              type="number"
-              min="0"
-              max={saldoNum}
-              step="any"
-              inputMode="decimal"
-              value={cantidad}
-              onChange={(e) => {
-                setCantidad(e.target.value);
-                if (Number(e.target.value) >= saldoNum) {
-                  setBajaCompleta(true);
-                }
-              }}
-            />
-          </FormField>
-
-          <Box mb="4">
-            <Checkbox.Root
-              checked={bajaCompleta}
-              onCheckedChange={(details) => setBajaCompleta(Boolean(details.checked))}
-            >
-              <Checkbox.HiddenInput />
-              <Checkbox.Control />
-              <Checkbox.Label fontSize="sm">
-                Inhabilitar lote completo (impide volver a usarlo en lotes de producción)
-              </Checkbox.Label>
-            </Checkbox.Root>
-          </Box>
 
           <FormField label="Observaciones (opcional)" mb="4">
             <FormInput

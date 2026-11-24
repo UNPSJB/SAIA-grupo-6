@@ -102,7 +102,8 @@ export function PersonalDetailPage() {
           )}
 
           {!cargandoVencimientos && vencimientos.length > 0 && (
-            <Table.Root variant="outline" w="100%">
+            <Box overflowX="auto">
+            <Table.Root variant="outline" w="100%" minW="420px">
               <Table.Header>
                 {/* Es una tabla de detalle embebida en la ficha, no un
                     listado: va con el encabezado claro. */}
@@ -131,6 +132,7 @@ export function PersonalDetailPage() {
                 })}
               </Table.Body>
             </Table.Root>
+            </Box>
           )}
       </SeccionDetalle>
     </PaginaDetalle>

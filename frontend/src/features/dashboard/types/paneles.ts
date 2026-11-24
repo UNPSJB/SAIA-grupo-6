@@ -1,3 +1,4 @@
+import { formatoCantidad } from "../../../common/utils/numeros";
 import type { TonoEstado } from "../../../components/ui/patrones";
 
 /*
@@ -116,8 +117,8 @@ export interface PanelProduccion {
 
 export interface PanelInventario {
   periodo: Periodo;
-  insumos_activos: number;
-  insumos_sin_stock: number;
+  ingredientes_activos: number;
+  ingredientes_sin_stock: number;
   lotes_vencidos: number;
   lotes_por_vencer: number;
   lotes_recibidos: number;
@@ -125,7 +126,7 @@ export interface PanelInventario {
   proveedores_certificacion_vencida: number;
   serie_movimientos: Serie;
   lotes_por_vencimiento: Conteo[];
-  insumos_por_tipo: Conteo[];
+  ingredientes_segun_aditivo: Conteo[];
   estado_stock: Conteo[];
   mas_movimiento: Conteo[];
   recepciones_por_proveedor: Conteo[];
@@ -214,6 +215,8 @@ export interface PanelPersonas {
   personal_inactivo: number;
   aptitudes_vencidas: number;
   aptitudes_proximas: number;
+  /** Aptitudes al día: ni vencidas ni por vencer. */
+  aptitudes_vigentes: number;
   clientes_activos: number;
   clientes_inactivos: number;
   transportistas_activos: number;
@@ -224,8 +227,14 @@ export interface PanelPersonas {
   cumplimiento_tareas: number | null;
   personal_por_rol: Conteo[];
   cumplimiento_por_operador: Conteo[];
+  /** Por operador, tareas completadas (valor) en el período, de más a menos. */
+  tareas_completadas_por_operador: Conteo[];
+  /** Incidentes reportados por el personal en el período (todos, no solo el ranking). */
+  incidentes_reportados: number;
   incidentes_por_persona: Conteo[];
   clientes_con_mas_salidas: Conteo[];
+  /** Por clave de cliente: de sus salidas del período, cuántas tienen algún reclamo. */
+  salidas_con_reclamo_por_cliente: Record<string, number>;
   entregas_por_transportista: Conteo[];
   certificaciones_transporte: Conteo[];
   aptitudes_atencion: FilaAtencion[];
@@ -303,11 +312,26 @@ export interface PanelInicio {
   grupos: GrupoHoy[];
   /** Lo que vence hoy; null para quien no administra. */
   vencen_hoy: FilaAtencion[] | null;
+  /** Tareas pendientes de lotes en proceso (suyas o sin asignar); null para quien administra. */
+  tareas_produccion?: TareaProduccionHoy[] | null;
+}
+
+/** Una tarea pendiente de un lote en proceso, para quien opera. */
+export interface TareaProduccionHoy {
+  lote_id: number;
+  numero_lote: string;
+  producto: string;
+  orden: number;
+  descripcion: string;
+  /** true: asignada a quien pide; false: sin asignar (la puede hacer cualquiera). */
+  asignada: boolean;
+  /** false mientras alguna etapa anterior del lote siga pendiente. */
+  habilitada: boolean;
 }
 
 /** `1 lote` / `3 lotes`. */
 export function plural(n: number, uno: string, muchos: string): string {
-  return `${n} ${n === 1 ? uno : muchos}`;
+  return `${formatoCantidad(n)} ${n === 1 ? uno : muchos}`;
 }
 
 /** `true` si ningún conteo tiene valor: el gráfico no tendría nada que mostrar. */

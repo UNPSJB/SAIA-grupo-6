@@ -1,10 +1,12 @@
 from datetime import date
-from typing import Literal, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin, require_operador
+from src.auth.dependencies import require_admin, require_gerente, require_operador
+from src.establecimientos.contexto import sede_efectiva
+from src.paneles import comparativo
 from src.database import get_db
 from src.incidente.constants import TipoIncidente
 from src.paneles import schemas, services
@@ -38,9 +40,10 @@ def panel_produccion(
     periodo: schemas.Periodo = Depends(_periodo),
     producto_id: Optional[int] = Query(None, ge=1),
     db: Session = Depends(get_db),
-    usuario: Personal = Depends(require_operador),
+    usuario: Personal = Depends(require_admin),
 ):
-    """Lotes, salidas y retiros. El estado del catálogo solo para quien administra."""
+    """Lotes, salidas y retiros. Solo para quien administra (E8: la estadística
+    de producción es del tablero de administración)."""
     return services.panel_produccion(db, periodo, producto_id, _administra(usuario))
 
 
@@ -51,11 +54,11 @@ def panel_produccion(
 )
 def panel_inventario(
     periodo: schemas.Periodo = Depends(_periodo),
-    tipo: Optional[Literal["ingrediente", "aditivo"]] = None,
+    es_aditivo: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
     """Stock de materia prima, vencimientos de lotes y movimientos."""
-    return services.panel_inventario(db, periodo, tipo)
+    return services.panel_inventario(db, periodo, es_aditivo)
 
 
 @router.get("/limpieza", response_model=schemas.PanelLimpieza)
@@ -65,7 +68,8 @@ def panel_limpieza(
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_operador),
 ):
-    """Cumplimiento del checklist. Quien solo opera ve sus tareas asignadas."""
+    """Cumplimiento del checklist. Quien solo opera ve sus tareas asignadas
+    (es lo único de los paneles que ve: su propio cumplimiento, en el Inicio)."""
     return services.panel_limpieza(db, periodo, sector_id, usuario, _administra(usuario))
 
 
@@ -88,9 +92,9 @@ def panel_calidad(
     periodo: schemas.Periodo = Depends(_periodo),
     tipo: Optional[TipoIncidente] = None,
     db: Session = Depends(get_db),
-    usuario: Personal = Depends(require_operador),
+    usuario: Personal = Depends(require_admin),
 ):
-    """Incidentes y reclamos. Quien solo opera ve los incidentes que reportó."""
+    """Incidentes y reclamos. Solo para quien administra (E7)."""
     return services.panel_calidad(
         db, periodo, tipo.value if tipo else None, usuario, _administra(usuario)
     )
@@ -107,3 +111,17 @@ def panel_personas(
 ):
     """Personal, aptitudes, clientes y transportistas."""
     return services.panel_personas(db, periodo)
+
+
+@router.get("/comparativo", response_model=schemas.TableroComparativo)
+def tablero_comparativo(
+    periodo: schemas.Periodo = Depends(_periodo),
+    db: Session = Depends(get_db),
+    _usuario: Personal = Depends(require_gerente),
+):
+    """Indicadores de cada establecimiento lado a lado, con el promedio de la
+    empresa y el puesto de la sede propia. Solo gerentes y super admin.
+
+    La sede propia es la del gerente; para el super admin, la que eligió.
+    """
+    return comparativo.tablero_comparativo(db, periodo, sede_efectiva(db))

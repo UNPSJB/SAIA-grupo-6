@@ -3,6 +3,7 @@ from datetime import date
 from typing import Optional, List, Literal, Union
 
 from fastapi import APIRouter, Depends, Query, File, UploadFile, Form, HTTPException
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
@@ -25,6 +26,20 @@ _DEP_OPERAR = [Depends(require_operador)]
 # Historial de checklists y consumo acumulado: solo quien administra
 # (HU "Consultar historial de checklists" y "Registrar consumo de productos").
 _DEP_ADMIN = [Depends(require_admin)]
+
+_LISTA_CONSUMOS = TypeAdapter(List[schemas.ConsumoTareaItem])
+_LISTA_IDS = TypeAdapter(List[int])
+
+
+def _leer_json(valor: Optional[str], adaptador: TypeAdapter, campo: str):
+    """Las listas viajan como JSON dentro del formulario (multipart, por la foto)."""
+    if valor is None:
+        return None
+    try:
+        return adaptador.validate_json(valor)
+    except ValidationError:
+        raise HTTPException(status_code=422, detail=f"El campo «{campo}» no tiene un formato válido.")
+
 
 # Extensiones y tamaño máximo permitido para la evidencia fotográfica.
 EXTENSIONES_EVIDENCIA = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -64,7 +79,12 @@ def marcar_tarea(
     completado: bool = Form(...),
     evidencia: Optional[UploadFile] = File(None),
 
-    # NUEVOS CAMPOS PARA EL CONSUMO
+    # Productos químicos con su cantidad y elementos de limpieza, como JSON:
+    #   consumos='[{"insumo_quimico_id": 3, "cantidad": 1.5}, ...]'
+    #   elementos_limpieza_ids='[2, 5]'
+    consumos: Optional[str] = Form(None),
+    elementos_limpieza_ids: Optional[str] = Form(None),
+    # Formato anterior (un solo producto y un solo elemento): se sigue aceptando.
     insumo_quimico_id: Optional[int] = Form(None),
     cantidad_consumida: Optional[float] = Form(None, gt=0),
     elemento_limpieza_id: Optional[int] = Form(None),
@@ -74,6 +94,9 @@ def marcar_tarea(
     # no se pueda atribuir una tarea a otro usuario (HU "Registrar autoría").
     current_user: Personal = Depends(require_operador),
 ):
+    lista_consumos = _leer_json(consumos, _LISTA_CONSUMOS, "consumos")
+    lista_elementos = _leer_json(elementos_limpieza_ids, _LISTA_IDS, "elementos_limpieza_ids")
+
     # Validar existencia de tarea antes de guardar archivo
     tarea = db.get(Tarea, tarea_id)
     if not tarea:
@@ -102,6 +125,12 @@ def marcar_tarea(
             insumo_quimico_id=insumo_quimico_id,
             cantidad_consumida=cantidad_consumida,
             elemento_limpieza_id=elemento_limpieza_id,
+            consumos=(
+                [(c.insumo_quimico_id, c.cantidad) for c in lista_consumos]
+                if lista_consumos is not None
+                else None
+            ),
+            elementos_limpieza_ids=lista_elementos,
         )
     except Exception:
         # Eliminar archivo huérfano si el servicio falla
@@ -126,12 +155,12 @@ def asignar_cobertura(
     db: Session = Depends(get_db),
     current_user: Personal = Depends(require_admin),
 ):
-    """Asigna o reasigna el operador responsable de una tarea de hoy.
+    """Asigna o quita el suplente de una tarea de hoy.
 
-    Solo administradores. Permite cubrir la ausencia del operador asignado:
-    se registra `reemplazado_por_id` con el administrador que hace el cambio.
-    Si `operador_id` se envía vacío (null), se desasigna el operador y
-    cualquier operador podrá tomar la tarea al marcarla.
+    Solo administradores. Cubre la ausencia del responsable: el operador
+    elegido queda como suplente (`reemplazado_por_id`) y es quien la ve y la
+    marca. Vacío (null), o el propio responsable, quita la cobertura. Quién
+    hizo el cambio queda en el historial del registro.
 
     No se permite sobre checklists de días anteriores (históricos).
     """
@@ -139,7 +168,7 @@ def asignar_cobertura(
         db=db,
         registro_id=registro_id,
         operador_id=operador_id,
-        reemplazado_por_id=current_user.id,
+        asignado_por_id=current_user.id,
     )
 
     operador_nombre = None

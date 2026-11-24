@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -6,7 +7,6 @@ import {
   Box,
   Flex,
   HStack,
-  SimpleGrid,
   Stack,
   Table,
   Text,
@@ -30,6 +30,7 @@ import {
 } from "../../../../components/ui/patrones";
 import {
   DatoDetalle,
+  GrillaDatos,
   PaginaDetalle,
   SeccionDetalle,
 } from "../../../../components/ui/plantillas";
@@ -115,6 +116,7 @@ export function RetiroDetallePage() {
     setProcesando(true);
     try {
       await cerrarRetiro(retiroId, { accion_correctiva: accionCorrectiva });
+      avisarExito("Retiro cerrado correctamente.");
       setModalCerrar(false);
       await recargar();
     } catch (err) {
@@ -126,7 +128,7 @@ export function RetiroDetallePage() {
 
   if (loading) {
     return (
-      <PaginaDetalle volver={{ a: "/retiros", etiqueta: "Retiros" }} titulo="Retiro">
+      <PaginaDetalle volver={{ a: "/incidentes?tab=retiros", etiqueta: "Retiros" }} titulo="Retiro">
         <EstadoCargando>Cargando retiro...</EstadoCargando>
       </PaginaDetalle>
     );
@@ -134,7 +136,7 @@ export function RetiroDetallePage() {
 
   if (error || !retiro) {
     return (
-      <PaginaDetalle volver={{ a: "/retiros", etiqueta: "Retiros" }} titulo="Retiro">
+      <PaginaDetalle volver={{ a: "/incidentes?tab=retiros", etiqueta: "Retiros" }} titulo="Retiro">
         <BannerError>{error || "No se encontró el retiro"}</BannerError>
       </PaginaDetalle>
     );
@@ -145,7 +147,7 @@ export function RetiroDetallePage() {
   return (
     <>
       <PaginaDetalle
-        volver={{ a: "/retiros", etiqueta: "Retiros" }}
+        volver={{ a: "/incidentes?tab=retiros", etiqueta: "Retiros" }}
         titulo={`Retiro #${retiro.id}`}
         descripcion={`Lote ${retiro.lote_codigo} · ${retiro.lote_producto_nombre}`}
         estado={
@@ -170,7 +172,7 @@ export function RetiroDetallePage() {
               </BotonGuardar>
             )}
             <BotonCancelar
-              onClick={() => navigate("/retiros")}
+              onClick={() => navigate("/incidentes?tab=retiros")}
               disabled={procesando}
             >
               Volver a la lista
@@ -202,19 +204,21 @@ export function RetiroDetallePage() {
               <HStack gap="3" flexWrap="wrap" mt="3">
                 <BotonTexto
                   onClick={() => navigate(`/incidentes/${retiro.incidente_id}`)}
-                  title="Ver el incidente asociado en E6"
+                  title="Ver el incidente asociado"
                 >
-                  Ver incidente #{retiro.incidente_id} en E6
+                  Ver incidente #{retiro.incidente_id}
                 </BotonTexto>
               </HStack>
             )}
           </Alert.Content>
         </Alert.Root>
 
+        {/* Resumen y afectados a todo el ancho, uno debajo del otro: con
+            pocos afectados, la tabla al lado del resumen dejaba media columna
+            vacía. */}
         <Stack gap="6">
-          {/* Tarjeta resumen */}
           <SeccionDetalle titulo="Resumen del retiro">
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="6">
+            <GrillaDatos>
               <DatoDetalle etiqueta="Lote">
                 <BotonTexto
                   onClick={() => navigate(`/lotes/${retiro.lote_id}`)}
@@ -264,11 +268,11 @@ export function RetiroDetallePage() {
                 </DatoDetalle>
               )}
               {retiro.detalle?.trim() && (
-                <Box mt="6" gridColumn="1 / -1">
+                <Box gridColumn="1 / -1">
                   <DatoDetalle etiqueta="Detalle">{retiro.detalle}</DatoDetalle>
                 </Box>
               )}
-            </SimpleGrid>
+            </GrillaDatos>
           </SeccionDetalle>
 
           {/* Tabla de afectados */}
@@ -280,7 +284,7 @@ export function RetiroDetallePage() {
               </Text>
             ) : (
               <Tarjeta overflowX="auto">
-                <Table.Root variant="outline" w="100%" minW="980px">
+                <Table.Root variant="outline" w="100%" minW="760px">
                   <Table.Header>
                     <FilaEncabezado>
                       <EncabezadoOscuro ancho="amplia">Cliente</EncabezadoOscuro>

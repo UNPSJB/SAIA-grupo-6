@@ -1,8 +1,7 @@
+import { normalizar } from "../../../../common/utils/texto";
 import { useMemo, useState } from "react";
-import { Button } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { BotonExportar } from "../../../exportacion";
 import { LuRefreshCw } from "react-icons/lu";
 import {
   BarraFiltros,
@@ -14,6 +13,7 @@ import {
 } from "../../../../components/ui/filtros";
 import {
   BannerError,
+  BotonAgregar,
   BotonCancelar,
   EstadoCargando,
   EstadoVacio,
@@ -41,31 +41,38 @@ import { ModalNuevoReclamo } from "../../../reclamos/components/ModalNuevoReclam
 import { notificarCambioIncidentes } from "../../../incidente/eventoIncidentes";
 import { SalidaTable } from "../SalidaTable";
 import type { Salida } from "../../types/salida";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
-export function SalidasPage() {
+/**
+ * Pestaña "Salidas de producto" de Lotes de producción (`/lotes?tab=salidas`).
+ * Antes era una entrada aparte del menú de Producción, aunque cada salida es
+ * una parte de un lote: ahora es una sub-opción del listado de lotes.
+ * `/salidas` redirige acá.
+ */
+export function TabSalidas() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const puedeRegistrarRechazo = puedeOperar(user);
   const puedeResolverRechazo = puedeAdministrar(user);
 
-  const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState<EstadoSalida | "">("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("SalidasPage.busqueda", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoSalida | "">("SalidasPage.estado", "");
 
   const { salidas, loading, error, recargarSalidas } = useSalidas({
     estado: estado || undefined,
   });
 
   const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+    const texto = normalizar(busqueda);
     return salidas.filter(
       (s) =>
         (!estado || s.estado === estado) &&
         (!texto ||
-          s.lote_numero.toLowerCase().includes(texto) ||
-          s.producto_nombre.toLowerCase().includes(texto) ||
-          s.cliente_nombre.toLowerCase().includes(texto))
+          normalizar(s.lote_numero).includes(texto) ||
+          normalizar(s.producto_nombre).includes(texto) ||
+          normalizar(s.cliente_nombre).includes(texto))
     );
   }, [salidas, estado, busqueda]);
 
@@ -127,21 +134,7 @@ export function SalidasPage() {
   }>({ open: false, salida: null });
 
   return (
-    <Pagina
-      titulo="Salidas de producto"
-      descripcion="Reserva de partes de lotes para clientes. Cada salida pasa por los estados Reservado → Despachado → Entregado, o termina en Cancelado o Rechazada."
-      acciones={
-        <>
-          <Button
-            colorPalette="brand"
-            size="md"
-            onClick={() => {
-              setLotePreseleccionado(null);
-              setModalReservar(true);
-            }}
-          >
-            Nueva reserva
-          </Button>
+    <>
           <ModalReservarLote
             isOpen={modalReservar}
             loteIdInicial={lotePreseleccionado}
@@ -260,9 +253,6 @@ export function SalidasPage() {
               notificarCambioIncidentes();
             }}
           />
-        </>
-      }
-    >
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -286,8 +276,20 @@ export function SalidasPage() {
         }
         herramientas={
           <>
+            {/* Dentro de una pestaña, el alta va en la barra. Reservar es una
+                decisión comercial: solo quien administra. */}
             {puedeResolverRechazo && (
-              <BotonesExportar
+              <BotonAgregar
+                onClick={() => {
+                  setLotePreseleccionado(null);
+                  setModalReservar(true);
+                }}
+              >
+                Nueva reserva
+              </BotonAgregar>
+            )}
+            {puedeResolverRechazo && (
+              <BotonExportar
                 nombreTabla="salidas"
                 vista="salidas"
                 filtros={{ estado: estado || undefined, buscar: busqueda.trim() || undefined }}
@@ -339,12 +341,16 @@ export function SalidasPage() {
                 setModalDespachar({ open: true, salida });
               }
             }}
-            onCancelar={(salidaId) => {
-              const salida = paginados.find((s) => s.id === salidaId);
-              if (salida) {
-                setModalCancelar({ open: true, salida });
-              }
-            }}
+            onCancelar={
+              puedeResolverRechazo
+                ? (salidaId) => {
+                    const salida = paginados.find((s) => s.id === salidaId);
+                    if (salida) {
+                      setModalCancelar({ open: true, salida });
+                    }
+                  }
+                : undefined
+            }
             onEntregar={(salidaId) => {
               const salida = paginados.find((s) => s.id === salidaId);
               if (salida) {
@@ -384,6 +390,6 @@ export function SalidasPage() {
           />
         </>
       )}
-    </Pagina>
+    </>
   );
 }

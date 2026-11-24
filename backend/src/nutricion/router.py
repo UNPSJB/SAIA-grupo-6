@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import require_admin
+from src.auth.dependencies import require_admin, require_super_admin
 from src.database import get_db
 from src.nutricion import pdf, schemas, services
 from src.personal.models import Personal
@@ -26,7 +26,13 @@ def obtener_parametros(db: Session = Depends(get_db)):
     return services.obtener_parametros(db)
 
 
-@router.put("/parametros", response_model=schemas.ParametrosResponse)
+@router.put(
+    "/parametros",
+    response_model=schemas.ParametrosResponse,
+    # Valen para todas las sedes (tabla nutricional y homologación): las
+    # cambia solo el super admin; el resto las ve en solo lectura.
+    dependencies=[Depends(require_super_admin)],
+)
 def actualizar_parametros(datos: schemas.ParametrosUpdate, db: Session = Depends(get_db)):
     return services.actualizar_parametros(db, datos)
 
@@ -59,22 +65,22 @@ async def importar_alimentos(
     return services.importar_alimentos(db, base, contenido)
 
 
-# ── Datos nutricionales del insumo ─────────────────────────────────────────
+# ── Datos nutricionales del ingrediente ─────────────────────────────────────────
 
 
-@router.get("/insumos/{insumo_id}", response_model=schemas.DatosNutricionalesResponse)
-def obtener_datos_insumo(insumo_id: int, db: Session = Depends(get_db)):
-    return services.obtener_datos_insumo(db, insumo_id)
+@router.get("/ingredientes/{ingrediente_id}", response_model=schemas.DatosNutricionalesResponse)
+def obtener_datos_ingrediente(ingrediente_id: int, db: Session = Depends(get_db)):
+    return services.obtener_datos_ingrediente(db, ingrediente_id)
 
 
-@router.put("/insumos/{insumo_id}", response_model=schemas.DatosNutricionalesResponse)
-def guardar_datos_insumo(
-    insumo_id: int,
+@router.put("/ingredientes/{ingrediente_id}", response_model=schemas.DatosNutricionalesResponse)
+def guardar_datos_ingrediente(
+    ingrediente_id: int,
     datos: schemas.DatosNutricionalesIn,
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_admin),
 ):
-    return services.guardar_datos_insumo(db, insumo_id, datos, usuario)
+    return services.guardar_datos_ingrediente(db, ingrediente_id, datos, usuario)
 
 
 # ── Información nutricional del producto ───────────────────────────────────

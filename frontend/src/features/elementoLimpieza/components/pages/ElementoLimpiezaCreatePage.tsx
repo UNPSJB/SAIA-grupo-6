@@ -9,7 +9,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuSprayCan } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function ElementoLimpiezaCreatePage() {
   const navigate = useNavigate();
@@ -49,16 +50,17 @@ export function ElementoLimpiezaCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/elementos-limpieza", etiqueta: "Elementos de limpieza" }}
+      icono={LuSprayCan}
       titulo="Nuevo elemento de limpieza"
+      descripcion="Cargá el elemento y cada cuánto se recambia."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <ElementoLimpiezaForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de elemento de limpieza"
         submitLabel="Crear elemento"
         onCancel={() => navigate("/elementos-limpieza")}
       />
@@ -76,6 +78,6 @@ export function ElementoLimpiezaCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

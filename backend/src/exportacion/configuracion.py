@@ -17,8 +17,10 @@ Convenciones:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Callable
+
+from sqlalchemy.orm import Session
 
 from src.models import ModeloBase
 
@@ -43,6 +45,8 @@ class ConfigTabla:
     campos: list[CampoExport]
     pk: str = "id"
     orden_por: str = "id"
+    # Listado de la pantalla (ver `listados.py`): si está, decide filas y orden.
+    listar: Callable[[Session, Any], list[Any]] | None = None
 
 
 # ---------------------------------------------------------------------------

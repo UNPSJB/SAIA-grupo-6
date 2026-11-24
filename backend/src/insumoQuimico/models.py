@@ -2,10 +2,11 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Numeric, String
+from sqlalchemy import Index, Boolean, CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.unidadMedida.models import UnidadMedida
 
 
@@ -24,11 +25,11 @@ class TipoMovimientoStock(str, Enum):
     REVERSO_CONSUMO = "reverso_consumo"
 
 
-class InsumoQuimico(ModeloBase):
+class InsumoQuimico(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "insumos_quimicos"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    nombre: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    nombre: Mapped[str] = mapped_column(String(100), index=True)
     tipo: Mapped[TipoQuimico] = mapped_column()
     unidad_medida_id: Mapped[int] = mapped_column(ForeignKey("unidades_medida.id"), nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -36,7 +37,7 @@ class InsumoQuimico(ModeloBase):
     unidad_medida: Mapped["UnidadMedida"] = relationship()
 
 
-class StockInsumoQuimico(ModeloBase):
+class StockInsumoQuimico(DatosDeEstablecimiento, ModeloBase):
     """Saldo actual independiente del catálogo del producto."""
 
     __tablename__ = "stock_insumos_quimicos"
@@ -62,7 +63,7 @@ class StockInsumoQuimico(ModeloBase):
     insumo_quimico: Mapped["InsumoQuimico"] = relationship()
 
 
-class MovimientoStockInsumoQuimico(ModeloBase):
+class MovimientoStockInsumoQuimico(DatosDeEstablecimiento, ModeloBase):
     """Libro mayor inmutable de variaciones de stock."""
 
     __tablename__ = "movimientos_stock_insumos_quimicos"
@@ -93,7 +94,7 @@ class MovimientoStockInsumoQuimico(ModeloBase):
     lote_ingreso: Mapped["LoteStock | None"] = relationship(back_populates="movimiento_ingreso")
 
 
-class LoteStock(ModeloBase):
+class LoteStock(DatosDeEstablecimiento, ModeloBase):
     """Registro inmutable de la recepción identificada por un lote."""
 
     __tablename__ = "lotes_stock"
@@ -119,3 +120,8 @@ class LoteStock(ModeloBase):
     movimiento_ingreso: Mapped["MovimientoStockInsumoQuimico"] = relationship(
         back_populates="lote_ingreso"
     )
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_insumos_quimicos_establecimiento_nombre", InsumoQuimico.establecimiento_id, InsumoQuimico.nombre, unique=True)

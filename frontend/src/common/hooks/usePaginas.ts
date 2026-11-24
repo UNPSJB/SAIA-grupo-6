@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useEstadoNavegacion } from "./useEstadoNavegacion";
 
 /**
  * Pagina una lista que ya viene filtrada.
@@ -23,7 +24,8 @@ export function usePaginas<T>(
   pageSize = 10,
   resetKey?: string,
 ) {
-  const [paginaPedida, setPaginaPedida] = useState(1);
+  // La página sobrevive a ir y volver con "atrás" (ver useEstadoNavegacion).
+  const [paginaPedida, setPaginaPedida] = useEstadoNavegacion("usePaginas.pagina", 1);
 
   /*
    * Volver a la primera se ajusta durante el render, no en un `useEffect`: con
@@ -53,8 +55,8 @@ export function usePaginas<T>(
     return items.slice(inicio, inicio + pageSize);
   }, [items, page, pageSize]);
 
-  const setPage = useCallback((nueva: number) => setPaginaPedida(nueva), []);
-  const primeraPagina = useCallback(() => setPaginaPedida(1), []);
+  const setPage = useCallback((nueva: number) => setPaginaPedida(nueva), [setPaginaPedida]);
+  const primeraPagina = useCallback(() => setPaginaPedida(1), [setPaginaPedida]);
 
   return {
     paginados,

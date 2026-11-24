@@ -1,9 +1,14 @@
 import { useParams, useLocation } from "react-router-dom";
-import { Box, SimpleGrid, Text } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 import { LuCircleCheck, LuMinus } from "react-icons/lu";
 import { useCliente } from "../../hooks/useCliente";
 import { BannerError, EstadoCargando } from "../../../../components/ui/patrones";
-import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
+import {
+  DatoDetalle,
+  GrillaDatos,
+  PaginaDetalle,
+  SeccionDetalle,
+} from "../../../../components/ui/plantillas";
 import { formatoFechaHora } from "../../../../common/utils/fechas";
 
 export function ClienteDetailPage() {
@@ -39,87 +44,34 @@ export function ClienteDetailPage() {
       titulo={cliente.nombre}
       descripcion={`Cliente ${cliente.activo ? "activo" : "dado de baja"}`}
     >
-      {/* Sección: Datos principales */}
-      <SeccionDetalle titulo="Datos principales">
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Nombre
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {cliente.nombre}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Documento (DNI / CUIT)
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {cliente.documento}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Teléfono
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {cliente.telefono}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Email
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {cliente.email ?? "-"}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Domicilio
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {cliente.domicilio ?? "-"}
-            </Text>
-          </Box>
-        </SimpleGrid>
-      </SeccionDetalle>
-
-      {/* Sección: Información del sistema */}
+        <SeccionDetalle titulo="Datos principales">
+          <GrillaDatos>
+            <DatoDetalle etiqueta="Nombre">{cliente.nombre}</DatoDetalle>
+            <DatoDetalle etiqueta="Documento (DNI / CUIT)">{cliente.documento}</DatoDetalle>
+            <DatoDetalle etiqueta="Teléfono">{cliente.telefono}</DatoDetalle>
+            <DatoDetalle etiqueta="Email">{cliente.email ?? "-"}</DatoDetalle>
+            <DatoDetalle etiqueta="Domicilio">{cliente.domicilio ?? "-"}</DatoDetalle>
+          </GrillaDatos>
+        </SeccionDetalle>
       <SeccionDetalle titulo="Información del sistema">
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Estado
-            </Text>
+        <GrillaDatos>
+          <DatoDetalle etiqueta="Estado">
             <Box display="flex" alignItems="center" gap="2">
               {cliente.activo ? (
                 <LuCircleCheck size={14} color="green.fg" aria-hidden />
               ) : (
                 <LuMinus size={14} color="gray.fg" aria-hidden />
               )}
-              <Text fontSize="sm" fontWeight="medium" color={cliente.activo ? "green.fg" : "gray.fg"}>
+              <Text as="span" fontSize="sm" fontWeight="medium" color={cliente.activo ? "green.fg" : "gray.fg"}>
                 {cliente.activo ? "Activo" : "Inactivo"}
               </Text>
             </Box>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Fecha de creación
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {formatoFechaHora(cliente.fecha_creacion)}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="xs" color="fg.muted" mb="1">
-              Última actualización
-            </Text>
-            <Text fontSize="sm" fontWeight="medium" color="fg" wordBreak="break-word">
-              {formatoFechaHora(cliente.fecha_actualizacion) ?? "-"}
-            </Text>
-          </Box>
-        </SimpleGrid>
+          </DatoDetalle>
+          <DatoDetalle etiqueta="Fecha de creación">{formatoFechaHora(cliente.fecha_creacion)}</DatoDetalle>
+          <DatoDetalle etiqueta="Última actualización">
+            {formatoFechaHora(cliente.fecha_actualizacion) ?? "-"}
+          </DatoDetalle>
+        </GrillaDatos>
       </SeccionDetalle>
     </PaginaDetalle>
   );

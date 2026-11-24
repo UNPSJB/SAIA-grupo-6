@@ -1,4 +1,4 @@
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/common/context/useAuth";
 import {
   Badge,
@@ -34,13 +34,12 @@ import { formatoFecha, hoyISO } from "../../../common/utils/fechas";
 import { toaster } from "../../../components/ui/toaster";
 import * as retiroService from "../services/retiroService";
 import type { RetiroCreateValues, ImpactoRetiro } from "../types/retiro";
-import { MOTIVOS_RETIRO } from "../types/retiro";
 import { listarStockLotes } from "../../lotesInsumo/services/loteInsumoService";
 import type { StockLoteInsumo } from "../../lotesInsumo/types/loteInsumo";
 import { trazarLoteInsumo } from "../../trazabilidad/services/trazabilidadService";
-import type { LoteProductoUsoInsumo } from "../../trazabilidad/types/trazabilidad";
+import type { LoteProductoUsoIngrediente } from "../../trazabilidad/types/trazabilidad";
 
-export const MOTIVOS_PRODUCTO = [
+const MOTIVOS_PRODUCTO = [
   "Contaminación o cuerpo extraño",
   "Falla en el proceso de elaboración",
   "Reclamos de clientes",
@@ -48,7 +47,7 @@ export const MOTIVOS_PRODUCTO = [
   "Otro",
 ];
 
-export const MOTIVOS_INSUMO = [
+const MOTIVOS_INSUMO = [
   "Aviso o recall del proveedor",
   "Resultado de análisis no conforme",
   "Contaminación cruzada en origen",
@@ -131,10 +130,19 @@ export function ModalIniciarRetiro({
   // MODO 2: INSUMO MASIVO
   // ---------------------------------------------------------
   const [lotesInsumo, setLotesInsumo] = useState<StockLoteInsumo[]>([]);
-  const [cargandoInsumos, setCargandoInsumos] = useState(false);
+  const [insumosListos, setInsumosListos] = useState(false);
+  const cargandoInsumos = isOpen && modo === "insumo" && !insumosListos;
   const [loteInsumoId, setLoteInsumoId] = useState<number>(0);
-  const [lotesAfectados, setLotesAfectados] = useState<LoteProductoUsoInsumo[]>([]);
-  const [cargandoAfectados, setCargandoAfectados] = useState(false);
+  // La trazabilidad se guarda junto al lote consultado: así la lista y el
+  // estado de carga se derivan en el render, sin resetear estado en un efecto.
+  const [traza, setTraza] = useState<{
+    loteInsumoId: number;
+    lista: LoteProductoUsoIngrediente[];
+  } | null>(null);
+  const consultaTrazaActiva = isOpen && modo === "insumo" && loteInsumoId > 0;
+  const lotesAfectados =
+    consultaTrazaActiva && traza?.loteInsumoId === loteInsumoId ? traza.lista : [];
+  const cargandoAfectados = consultaTrazaActiva && traza?.loteInsumoId !== loteInsumoId;
   const [seleccionadosIds, setSeleccionadosIds] = useState<number[]>([]);
   const [mapaImpactos, setMapaImpactos] = useState<Record<number, ImpactoRetiro>>({});
   const [cargandoImpactosMasivos, setCargandoImpactosMasivos] = useState(false);
@@ -161,7 +169,8 @@ export function ModalIniciarRetiro({
       setLoteSeleccionado(null);
       setCodigoConfirmar("");
       setLoteInsumoId(loteInsumoInicialId ?? 0);
-      setLotesAfectados([]);
+      setInsumosListos(false);
+      setTraza(null);
       setSeleccionadosIds([]);
       setMapaImpactos({});
       setCodigoConfirmarMasivo("");
@@ -246,7 +255,6 @@ export function ModalIniciarRetiro({
   useEffect(() => {
     if (!isOpen || modo !== "insumo") return;
     let vigente = true;
-    setCargandoInsumos(true);
     listarStockLotes(undefined, true)
       .then((lotes) => {
         if (!vigente) return;
@@ -256,7 +264,7 @@ export function ModalIniciarRetiro({
         if (vigente) setErrorMasivo("Error al cargar los lotes de insumo.");
       })
       .finally(() => {
-        if (vigente) setCargandoInsumos(false);
+        if (vigente) setInsumosListos(true);
       });
     return () => {
       vigente = false;
@@ -265,20 +273,13 @@ export function ModalIniciarRetiro({
 
   // Al seleccionar lote de insumo, consultar trazabilidad
   useEffect(() => {
-    if (!isOpen || modo !== "insumo" || !loteInsumoId || loteInsumoId <= 0) {
-      setLotesAfectados([]);
-      setSeleccionadosIds([]);
-      setMapaImpactos({});
-      return;
-    }
+    if (!consultaTrazaActiva) return;
     let vigente = true;
-    setCargandoAfectados(true);
-    setErrorMasivo(null);
     trazarLoteInsumo(loteInsumoId)
-      .then((traza) => {
+      .then((resultado) => {
         if (!vigente) return;
-        const lista = traza.lotes_producto || [];
-        setLotesAfectados(lista);
+        const lista = resultado.lotes_producto || [];
+        setTraza({ loteInsumoId, lista });
         // Pre-seleccionar todos los que NO estén ya retirados
         const elegibles = lista
           .filter((l) => !(l as { retirado?: boolean; retiro_id?: number | null }).retirado && !(l as { retiro_id?: number | null }).retiro_id)
@@ -308,19 +309,24 @@ export function ModalIniciarRetiro({
       .catch((err) => {
         if (vigente) {
           setErrorMasivo(err instanceof Error ? err.message : "Error al trazar el lote de insumo.");
-          setLotesAfectados([]);
+          setTraza({ loteInsumoId, lista: [] });
           setSeleccionadosIds([]);
           setMapaImpactos({});
         }
-      })
-      .finally(() => {
-        if (vigente) setCargandoAfectados(false);
       });
 
     return () => {
       vigente = false;
     };
-  }, [isOpen, modo, loteInsumoId]);
+  }, [consultaTrazaActiva, loteInsumoId]);
+
+  // Cambiar de lote descarta la selección y los impactos del lote anterior.
+  const seleccionarLoteInsumo = (id: number) => {
+    setLoteInsumoId(id);
+    setSeleccionadosIds([]);
+    setMapaImpactos({});
+    setErrorMasivo(null);
+  };
 
   // ---------------------------------------------------------
   // HANDLERS MODO PRODUCTO
@@ -754,7 +760,7 @@ export function ModalIniciarRetiro({
               <FormNativeSelect
                 value={loteInsumoId === 0 ? "" : String(loteInsumoId)}
                 disabled={cargandoInsumos || Boolean(loteInsumoInicialId)}
-                onChange={(e) => setLoteInsumoId(Number(e.target.value))}
+                onChange={(e) => seleccionarLoteInsumo(Number(e.target.value))}
               >
                 <option value="">-- Seleccionar Lote de Insumo --</option>
                 {lotesInsumo.map((li) => (
@@ -805,9 +811,9 @@ export function ModalIniciarRetiro({
 
                 <Box
                   border="1px solid"
-                  borderColor="gray.200"
+                  borderColor="border"
                   borderRadius="md"
-                  bg="white"
+                  bg="bg.subtle"
                   p={2}
                   maxH="240px"
                   overflowY="auto"
@@ -908,8 +914,6 @@ export function ModalIniciarRetiro({
             <FormField label="Motivo del retiro masivo" required mb="3">
               <FormNativeSelect
                 value={motivoInsumo}
-                fontWeight="medium"
-                color="fg"
                 onChange={(e) => setMotivoInsumo(e.target.value)}
               >
                 {MOTIVOS_INSUMO.map((m) => (

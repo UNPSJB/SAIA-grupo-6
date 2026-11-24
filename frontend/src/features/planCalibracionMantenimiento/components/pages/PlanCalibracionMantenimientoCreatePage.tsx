@@ -9,7 +9,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuGauge } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function PlanCalibracionMantenimientoCreatePage() {
   const navigate = useNavigate();
@@ -28,8 +29,9 @@ export function PlanCalibracionMantenimientoCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/planes-calibracion-mantenimiento", etiqueta: "Calibración y mantenimiento" }}
+      icono={LuGauge}
       titulo="Nuevo plan de calibración/mantenimiento"
       descripcion="Asociá un plan de calibración o de mantenimiento a un equipo."
     >
@@ -43,10 +45,9 @@ export function PlanCalibracionMantenimientoCreatePage() {
       <PlanCalibracionMantenimientoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de Plan de Calibración/Mantenimiento"
         submitLabel="Crear plan"
         onCancel={() => navigate("/planes-calibracion-mantenimiento")}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

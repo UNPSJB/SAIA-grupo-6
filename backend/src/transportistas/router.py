@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import get_current_user_activo_completo, require_admin
-from src.common.paginacion import ParamsPaginacion, Pagina
+from src.common.paginacion import Pagina
 from src.database import get_db
 from src.transportistas import schemas, services
 
@@ -32,6 +32,8 @@ def crear_transportista(datos: schemas.TransportistaCreate, db: Session = Depend
 )
 def listar_transportistas(
     incluir_inactivos: bool = False,
+    # "Ver dados de baja" del listado: solo los dados de baja.
+    solo_inactivos: bool = False,
     buscar: Optional[str] = Query(
         None,
         max_length=100,
@@ -58,6 +60,7 @@ def listar_transportistas(
         items, total = services.listar_transportistas(
             db,
             incluir_inactivos=incluir_inactivos,
+            solo_inactivos=solo_inactivos,
             buscar=buscar,
             page=page,
             page_size=page_size,
@@ -72,6 +75,7 @@ def listar_transportistas(
     return services.listar_transportistas(
         db,
         incluir_inactivos=incluir_inactivos,
+            solo_inactivos=solo_inactivos,
         buscar=buscar,
         orden=orden,
     )

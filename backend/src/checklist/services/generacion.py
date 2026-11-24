@@ -179,9 +179,10 @@ def obtener_o_crear_checklists_del_dia(
 ) -> List[schemas.ChecklistResponse]:
     """Devuelve los checklists del día para un equipo (solo lectura).
 
-    No crea ni persiste nada. Si un plan no tiene checklist para la fecha
-    consultada, se devuelve una vista calculada con las tareas del día
-    (registro_id=0, completado=False) sin escribir en la base.
+    No crea ni persiste nada. Si un plan no tiene checklist para hoy o una
+    fecha futura, se devuelve una vista calculada con las tareas del día
+    (registro_id=0, completado=False) sin escribir en la base. Para una fecha
+    pasada sin checklist no se devuelve nada.
     """
     obtener_equipo(db, equipo_id)
     fecha_consulta = fecha or hoy()
@@ -222,7 +223,11 @@ def obtener_o_crear_checklists_del_dia(
             if not tareas_del_dia:
                 # No hay tareas para mostrar y no hay checklist previo.
                 continue
-            # Vista calculada sin persistencia.
+            if fecha_consulta < hoy():
+                # Día pasado sin checklist: no quedó nada registrado, y
+                # reconstruirlo con los planes de hoy no sería fiel a ese día.
+                continue
+            # Vista calculada sin persistencia (hoy o una fecha futura).
             resultados.append(schemas.ChecklistResponse(
                 checklist_id=None,
                 fecha=fecha_consulta,
@@ -244,7 +249,6 @@ def obtener_o_crear_checklists_del_dia(
                         descripcion=t.descripcion,
                         tipo=t.tipo,
                         observaciones=t.observaciones,
-                        elemento_limpieza_id=None,
                     )
                     for t in tareas_del_dia
                 ],
@@ -269,9 +273,11 @@ def obtener_o_crear_checklists_del_dia(
                     fecha_completado=reg.fecha_completado,
                     usuario_id=reg.usuario_id,
                     evidencia_url=reg.evidencia_url,
-                    insumo_quimico_id=reg.insumo_quimico_id,
-                    cantidad_consumida=reg.cantidad_consumida,
-                    elemento_limpieza_id=reg.elemento_limpieza_id,
+                    consumos=[
+                        schemas.ConsumoTareaItem(insumo_quimico_id=c.insumo_quimico_id, cantidad=c.cantidad)
+                        for c in reg.consumos
+                    ],
+                    elementos_limpieza_ids=reg.elementos_limpieza_ids,
                     descripcion=reg.descripcion_tarea_historico,
                     tipo=reg.tipo_tarea_historico,
                     observaciones=reg.observaciones_tarea_historico,

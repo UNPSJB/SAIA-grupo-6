@@ -21,6 +21,20 @@ export interface TablaExport {
 
 export type FormatoExport = "csv" | "pdf";
 
+/**
+ * Tabla ya armada en el frontend, con las celdas en texto (como se leen en
+ * pantalla). Se manda a `POST /exportacion/filas`.
+ */
+export interface DatosExport {
+  /** Título del PDF. */
+  titulo: string;
+  /** Prefijo del archivo: minúsculas, números, `-` y `_` (ej. "reclamos"). */
+  nombre: string;
+  encabezados: string[];
+  /** Una celda por encabezado en cada fila. */
+  filas: string[][];
+}
+
 export interface FiltrosExport {
   [columna: string]: string | undefined;
 }

@@ -35,7 +35,7 @@ from src.all_models import (  # noqa: F401  (garantiza que los modelos estén ma
     HistorialRegistroTarea,
     Incidente,
     IndicadorVistaPublica,
-    Insumo,
+    Ingrediente,
     InsumoQuimico,
     LoteStock,
     NotificacionPersistida,
@@ -52,6 +52,7 @@ from src.all_models import (  # noqa: F401  (garantiza que los modelos estén ma
     VersionDocumento,
 )
 from src.exportacion.configuracion import CampoExport, ConfigTabla, registrar
+from src.exportacion.listados import LISTADOS
 
 # ---------------------------------------------------------------------------
 # Columnas sensibles que nunca se exportan (coincide con AUDITORIA_REDACTAR
@@ -107,7 +108,7 @@ TABLAS_DOMINIO: list[tuple[type, str, str, OpcionesTabla]] = [
         exclude={"password", "password_changed_at"},
         column_order=[
             "id", "dni", "nombre", "apellido", "email", "telefono",
-            "activo", "puede_operar", "puede_administrar", "es_super_admin",
+            "activo", "puede_operar", "puede_administrar", "es_gerente", "es_super_admin", "establecimiento_id",
             "debe_cambiar_password", "fecha_creacion", "fecha_actualizacion",
         ],
         headers={"fecha_creacion": "Fecha Alta", "fecha_actualizacion": "Fecha Actualización"},
@@ -122,7 +123,7 @@ TABLAS_DOMINIO: list[tuple[type, str, str, OpcionesTabla]] = [
     (Calibracion, "calibraciones", "Calibraciones", OpcionesTabla(
         column_order=["id", "equipo_id", "fecha_realizacion", "proximo_vencimiento", "tipo", "activo", "certificado_url"],
     )),
-    (Insumo, "insumos", "Insumos", OpcionesTabla(
+    (Ingrediente, "ingredientes", "Ingredientes", OpcionesTabla(
         column_order=["id", "nombre", "unidad_medida_id", "activo"],
     )),
     (Proveedor, "proveedores", "Proveedores", OpcionesTabla(
@@ -182,6 +183,7 @@ def _registrar_todas() -> None:
                 campos=campos,
                 pk="id",
                 orden_por="id",
+                listar=LISTADOS.get(nombre_tabla),
             )
         )
 

@@ -58,6 +58,7 @@ def crear_cliente(db: Session, datos: schemas.ClienteCreate) -> Cliente:
 def listar_clientes(
     db: Session,
     incluir_inactivos: bool = False,
+    solo_inactivos: bool = False,
     buscar: Optional[str] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
@@ -72,10 +73,12 @@ def listar_clientes(
     )
     if filtro is not None:
         consulta = consulta.where(filtro)
-    if not incluir_inactivos:
+    if solo_inactivos:
+        consulta = consulta.where(Cliente.activo.is_(False))
+    elif not incluir_inactivos:
         consulta = consulta.where(Cliente.activo.is_(True))
 
-    # Ordenamiento por columna (patrón igual al de insumos/incidentes)
+    # Ordenamiento por columna (patrón igual al de ingredientes/incidentes)
     if orden == "nombre_asc":
         consulta = consulta.order_by(sin_tildes(Cliente.nombre).asc(), Cliente.id.asc())
     elif orden == "nombre_desc":

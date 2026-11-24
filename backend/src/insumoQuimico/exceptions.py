@@ -26,10 +26,6 @@ class StockInsuficiente(DetailedHTTPException):
     DETAIL = ErrorCode.STOCK_INSUFICIENTE
 
 
-class CantidadStockInvalida(BadRequest):
-    DETAIL = ErrorCode.CANTIDAD_STOCK_INVALIDA
-
-
 class MotivoAjusteRequerido(BadRequest):
     DETAIL = ErrorCode.MOTIVO_AJUSTE_REQUERIDO
 

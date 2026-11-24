@@ -15,6 +15,10 @@ from src.tareas.services import (
 )
 from tests.database import db_session
 
+# Las tablas se recrean en cada test: el primer Personal (el administrador de
+# `_plan_con_tarea`, que también opera) es el id 1.
+OPERADOR = 1
+
 
 def _personal_admin(db, dni="12345678", email="a@test.com"):
     fila = Personal(
@@ -47,7 +51,7 @@ def _plan_con_tarea(db):
         db,
         PlanLimpiezaCreate(
             nombre="PlanLimpieza", equipo_id=equipo.id,
-            tareas=[TareaInput(nombre="TareaExistente", frecuencia=7, tipo="operacional")],
+            tareas=[TareaInput(nombre="TareaExistente", frecuencia=7, tipo="operacional", operador_id=autor.id)],
         ),
         autor.id,
     )
@@ -62,7 +66,7 @@ def test_crear_tarea_caso_feliz(db_session):
     # Arrange
     plan, _, _ = _plan_con_tarea(db_session)
     datos = schemas.TareaCreate(
-        nombre="NuevaTarea", frecuencia=14, tipo="operacional",
+        nombre="NuevaTarea", frecuencia=14, tipo="operacional", operador_id=OPERADOR,
         plan_limpieza_id=plan.id,
     )
 
@@ -79,7 +83,7 @@ def test_crear_tarea_nombre_duplicado_en_mismo_plan(db_session):
     # Arrange
     plan, _, _ = _plan_con_tarea(db_session)
     datos = schemas.TareaCreate(
-        nombre="TareaExistente", frecuencia=7, tipo="operacional",
+        nombre="TareaExistente", frecuencia=7, tipo="operacional", operador_id=OPERADOR,
         plan_limpieza_id=plan.id,
     )
 
@@ -95,7 +99,7 @@ def test_crear_tarea_nombre_duplicado_en_mismo_plan(db_session):
 def test_crear_tarea_plan_inexistente_lanza_error(db_session):
     # Arrange
     datos = schemas.TareaCreate(
-        nombre="Nueva", frecuencia=7, tipo="operacional", plan_limpieza_id=9999,
+        nombre="Nueva", frecuencia=7, tipo="operacional", operador_id=OPERADOR, plan_limpieza_id=9999,
     )
 
     # Act / Assert
@@ -114,7 +118,7 @@ def test_crear_tarea_tipo_invalido(db_session):
     # Act / Assert
     try:
         datos = schemas.TareaCreate(
-            nombre="Nueva", frecuencia=7, tipo="invalido", plan_limpieza_id=plan.id,
+            nombre="Nueva", frecuencia=7, tipo="invalido", operador_id=OPERADOR, plan_limpieza_id=plan.id,
         )
         crear_tarea(db_session, datos)
     except exceptions.TipoInvalido:
@@ -244,3 +248,29 @@ def test_eliminar_tarea_no_existe(db_session):
         pass
     else:
         raise AssertionError("Se esperaba TareaNoEncontrada")
+
+
+def test_crear_tarea_operador_que_no_opera_lanza_error(db_session):
+    plan, _, _ = _plan_con_tarea(db_session)
+    supervisor = Personal(
+        nombre="Sin", apellido="Operar", dni="87654321", email="s@test.com", password="h",
+        puede_operar=False, puede_administrar=True, es_super_admin=False,
+    )
+    db_session.info["sin_auditoria"] = True
+    db_session.add(supervisor)
+    db_session.commit()
+
+    try:
+        crear_tarea(db_session, schemas.TareaCreate(
+            nombre="Nueva", frecuencia=7, tipo="operacional",
+            plan_limpieza_id=plan.id, operador_id=supervisor.id,
+        ))
+    except exceptions.OperadorInvalido:
+        pass
+    else:
+        raise AssertionError("Se esperaba OperadorInvalido")
+
+
+def test_crear_plan_guarda_el_operador_de_cada_tarea(db_session):
+    plan, _, autor = _plan_con_tarea(db_session)
+    assert [t.operador_id for t in plan.tareas] == [autor.id]

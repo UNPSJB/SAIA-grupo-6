@@ -19,6 +19,7 @@ export interface ContadoresNotificaciones {
     PLAN_CALIBRACION: number;
     PLAN_MANTENIMIENTO: number;
     STOCK_BAJO: number;
+    HOMOLOGACION_INSUMO: number;
   };
 }
 
@@ -46,7 +47,8 @@ export type OrigenNotificacion =
   | "VENCIMIENTO_PERSONAL"
   | "PLAN_CALIBRACION"
   | "PLAN_MANTENIMIENTO"
-  | "STOCK_BAJO";
+  | "STOCK_BAJO"
+  | "HOMOLOGACION_INSUMO";
 
 /** El listado completo (lo usa la campana del navbar, no la tabla). */
 export async function obtenerNotificaciones(): Promise<Notificacion[]> {
@@ -86,3 +88,26 @@ export async function obtenerCriticidadDashboard(): Promise<CriticidadDashboard>
     "Error al obtener el nivel de criticidad"
   );
 }
+
+export async function cambiarLecturaNotificacion(
+  idNotificacion: string,
+  leida: boolean = true
+): Promise<{ id_notificacion: string; leida: boolean }> {
+  const response = await apiFetch(
+    `${API_URL}/notificaciones/${encodeURIComponent(idNotificacion)}/lectura`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leida }),
+    }
+  );
+  return pedir(response, "Error al actualizar el estado de lectura de la notificación");
+}
+
+export async function marcarTodasNotificacionesLeidas(): Promise<{ marcadas: number }> {
+  const response = await apiFetch(`${API_URL}/notificaciones/marcar-todas-leidas`, {
+    method: "POST",
+  });
+  return pedir(response, "Error al marcar todas las notificaciones como leídas");
+}
+

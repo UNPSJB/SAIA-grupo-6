@@ -27,6 +27,7 @@ from xml.sax.saxutils import escape
 
 from src.exportacion.configuracion import ConfigTabla
 from src.exportacion.formato import BOM, SEPARADOR_CSV, seguro, texto
+from src.exportacion.listados import FiltrosListado
 from src.pyme.pdf import CabeceraPyme, fabrica_lienzo, flowables_cabecera
 
 # Lote de filas que se leen de la base por consulta al exportar sin paginar.
@@ -59,7 +60,14 @@ def _consulta_base(db: Session, config: ConfigTabla, filtros: dict[str, Any]):
 
 
 def _iterar_filas(db: Session, config: ConfigTabla, filtros: dict[str, Any]):
-    """Itera todas las filas que cumplen los filtros, en lotes, sin paginar."""
+    """Itera todas las filas que cumplen los filtros, sin paginar.
+
+    Con el listado de la pantalla si la tabla tiene uno; si no, por lotes.
+    """
+    if config.listar is not None:
+        yield from config.listar(db, FiltrosListado.model_validate(filtros))
+        return
+
     consulta = _consulta_base(db, config, filtros)
     pagina = 1
     while True:

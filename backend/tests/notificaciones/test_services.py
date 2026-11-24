@@ -164,7 +164,7 @@ def test_actualizar_dias_alerta_crea_configuracion(db_session, monkeypatch):
 
     # Assert
     assert resultado == 20
-    config = db_session.get(ConfiguracionAlerta, "dias_alerta_vencimiento_personal")
+    config = db_session.get(ConfiguracionAlerta, {"establecimiento_id": 1, "clave": "dias_alerta_vencimiento_personal"})
     assert config is not None
     assert config.valor == 20
 
@@ -187,7 +187,7 @@ def test_actualizar_dias_alerta_actualiza_existente(db_session, monkeypatch):
 
     # Assert
     assert resultado == 30
-    config = db_session.get(ConfiguracionAlerta, "dias_alerta_vencimiento_personal")
+    config = db_session.get(ConfiguracionAlerta, {"establecimiento_id": 1, "clave": "dias_alerta_vencimiento_personal"})
     assert config.valor == 30
 
 
@@ -730,3 +730,154 @@ def test_recalcular_notificaciones_persistidas_sin_inmediato(db_session, monkeyp
 
     # Assert
     assert total == 0  # No se recalcó inmediatamente
+
+
+# ---------------------------------------------------------------------------
+# Notificaciones leídas / no leídas
+# ---------------------------------------------------------------------------
+
+def test_marcar_notificacion_leida_por_usuario(db_session, monkeypatch):
+    from src.notificaciones.criticidad import obtener_criticidad_dashboard
+    from src.notificaciones.services import (
+        marcar_notificacion_leida,
+    )
+
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    u1 = _personal_admin(db_session, dni="11111111", email="u1@test.com")
+    u2 = _personal_admin(db_session, dni="22222222", email="u2@test.com")
+
+    elem = ElementoLimpieza(
+        nombre="Detergente",
+        frecuencia_recambio_dias=30,
+        fecha_ultimo_recambio=date(2025, 5, 1),
+        activo=True,
+    )
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(elem)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+
+    recalcular_notificaciones_persistidas(db_session, inmediato=True)
+    notifs = obtener_todas_notificaciones(db_session, usuario_id=u1.id)
+    assert len(notifs) >= 1
+    target_id = notifs[0].id_notificacion
+    assert notifs[0].leida is False
+
+    # Marcar leída para u1
+    marcar_notificacion_leida(db_session, target_id, leida=True, usuario_id=u1.id)
+
+    # u1 la ve leída
+    notifs_u1 = obtener_todas_notificaciones(db_session, usuario_id=u1.id)
+    n1 = next(n for n in notifs_u1 if n.id_notificacion == target_id)
+    assert n1.leida is True
+
+    dash_u1 = obtener_criticidad_dashboard(db_session, usuario_id=u1.id)
+    a1 = next(a for a in dash_u1.alertas if a.clave == target_id)
+    assert a1.leida is True
+
+    # u2 la ve NO leída
+    notifs_u2 = obtener_todas_notificaciones(db_session, usuario_id=u2.id)
+    n2 = next(n for n in notifs_u2 if n.id_notificacion == target_id)
+    assert n2.leida is False
+
+    dash_u2 = obtener_criticidad_dashboard(db_session, usuario_id=u2.id)
+    a2 = next(a for a in dash_u2.alertas if a.clave == target_id)
+    assert a2.leida is False
+
+
+def test_desmarcar_notificacion_leida(db_session, monkeypatch):
+    from src.notificaciones.services import marcar_notificacion_leida
+
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    u1 = _personal_admin(db_session, dni="33333333", email="u3@test.com")
+
+    elem = ElementoLimpieza(
+        nombre="Lavandina",
+        frecuencia_recambio_dias=30,
+        fecha_ultimo_recambio=date(2025, 5, 1),
+        activo=True,
+    )
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(elem)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+
+    recalcular_notificaciones_persistidas(db_session, inmediato=True)
+    notifs = obtener_todas_notificaciones(db_session, usuario_id=u1.id)
+    target_id = notifs[0].id_notificacion
+
+    marcar_notificacion_leida(db_session, target_id, leida=True, usuario_id=u1.id)
+    assert obtener_todas_notificaciones(db_session, usuario_id=u1.id)[0].leida is True
+
+    marcar_notificacion_leida(db_session, target_id, leida=False, usuario_id=u1.id)
+    assert obtener_todas_notificaciones(db_session, usuario_id=u1.id)[0].leida is False
+
+
+def test_reactivacion_automatica_al_empeorar(db_session, monkeypatch):
+    from src.notificaciones.services import marcar_notificacion_leida
+
+    # 1. Alerta próxima a vencer el 2025-06-10 (recambio cada 3 días, hecho el 2025-06-09 -> vence 2025-06-12)
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    u1 = _personal_admin(db_session, dni="44444444", email="u4@test.com")
+
+    elem = ElementoLimpieza(
+        nombre="Esponja",
+        frecuencia_recambio_dias=3,
+        fecha_ultimo_recambio=date(2025, 6, 9),
+        activo=True,
+    )
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(elem)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+
+    recalcular_notificaciones_persistidas(db_session, inmediato=True)
+    notifs = obtener_todas_notificaciones(db_session, usuario_id=u1.id)
+    target = next(n for n in notifs if n.tipo == "ELEMENTO_LIMPIEZA")
+    assert target.nivel == "PROXIMO_A_VENCER"
+
+    # Marcar leída cuando estaba próxima a vencer
+    marcar_notificacion_leida(db_session, target.id_notificacion, leida=True, usuario_id=u1.id)
+    assert next(n for n in obtener_todas_notificaciones(db_session, usuario_id=u1.id) if n.id_notificacion == target.id_notificacion).leida is True
+
+    # 2. Avanzar fecha a 2025-06-15 (ahora está VENCIDO)
+    _mock_hoy(monkeypatch, date(2025, 6, 15))
+    recalcular_notificaciones_persistidas(db_session, inmediato=True)
+
+    notifs_vencidas = obtener_todas_notificaciones(db_session, usuario_id=u1.id)
+    target_vencida = next(n for n in notifs_vencidas if n.id_notificacion == target.id_notificacion)
+    assert target_vencida.nivel == "VENCIDO"
+    # Debe haberse reactivado (leida == False) automáticamente
+    assert target_vencida.leida is False
+
+
+def test_marcar_todas_notificaciones_leidas(db_session, monkeypatch):
+    from src.notificaciones.services import marcar_todas_notificaciones_leidas
+
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    u1 = _personal_admin(db_session, dni="55555555", email="u5@test.com")
+
+    e1 = ElementoLimpieza(nombre="E1", frecuencia_recambio_dias=1, fecha_ultimo_recambio=date(2025, 6, 1), activo=True)
+    e2 = ElementoLimpieza(nombre="E2", frecuencia_recambio_dias=1, fecha_ultimo_recambio=date(2025, 6, 1), activo=True)
+    db_session.info["sin_auditoria"] = True
+    try:
+        db_session.add(e1)
+        db_session.add(e2)
+        db_session.commit()
+    finally:
+        db_session.info.pop("sin_auditoria", None)
+
+    recalcular_notificaciones_persistidas(db_session, inmediato=True)
+    marcadas = marcar_todas_notificaciones_leidas(db_session, usuario_id=u1.id)
+    assert marcadas >= 2
+
+    notifs = obtener_todas_notificaciones(db_session, usuario_id=u1.id)
+    assert len(notifs) >= 2
+    assert all(n.leida is True for n in notifs)
+

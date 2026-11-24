@@ -5,8 +5,8 @@ import type {
   HistorialRegistroTareaResponse,
   ConsumoInsumosResponse,
   HistorialChecklistPagina,
-  HistorialChecklistResponse,
   CoberturaTareaResponse,
+  ConsumoTarea,
 } from "../types/checklist";
 
 
@@ -40,9 +40,8 @@ export async function marcarTarea(
   completado: boolean,
   evidencia?: File,
   fecha?: string,
-  insumoQuimicoId?: number,
-  cantidadConsumida?: number,
-  elementoLimpiezaId?: number
+  consumos?: ConsumoTarea[],
+  elementosLimpiezaIds?: number[]
 ): Promise<RegistroTareaResponse> {
 
   const params = fecha ? `?fecha=${fecha}` : "";
@@ -67,30 +66,15 @@ export async function marcarTarea(
     );
   }
 
-  // Producto químico utilizado
-  if (insumoQuimicoId !== undefined) {
-    formData.append(
-      "insumo_quimico_id",
-      String(insumoQuimicoId)
-    );
+  // Productos químicos (cada uno con su cantidad) y elementos de limpieza.
+  // Viajan como JSON dentro del formulario: sin mandarlos, el backend
+  // conserva lo que la tarea ya tenía.
+  if (consumos !== undefined) {
+    formData.append("consumos", JSON.stringify(consumos));
   }
-
-  // Cantidad aproximada consumida
-  if (cantidadConsumida !== undefined) {
-    formData.append(
-      "cantidad_consumida",
-      String(cantidadConsumida)
-    );
+  if (elementosLimpiezaIds !== undefined) {
+    formData.append("elementos_limpieza_ids", JSON.stringify(elementosLimpiezaIds));
   }
-  
-  // Elemento Limpieza utilizado
-  if (elementoLimpiezaId !== undefined){
-    formData.append(
-      "elemento_limpieza_id",
-      String(elementoLimpiezaId)
-    );
-  } 
-
 
   const response = await apiFetch(
     `${API_URL}/checklist/tarea/${tareaId}${params}`,
@@ -200,22 +184,6 @@ export async function obtenerConsumoInsumos(
   return pedir<ConsumoInsumosResponse>(
     response,
     "Error al obtener el consumo"
-  );
-}
-export async function obtenerHistorialDelRango(
-  fechaDesde: string,
-  fechaHasta: string
-): Promise<HistorialChecklistResponse> {
-  const params = new URLSearchParams({
-    fecha_desde: fechaDesde,
-    fecha_hasta: fechaHasta,
-  });
-
-  const response = await apiFetch(`${API_URL}/checklist/historial?${params}`);
-
-  return pedir<HistorialChecklistResponse>(
-    response,
-    "Error al obtener el cumplimiento de limpieza"
   );
 }
 

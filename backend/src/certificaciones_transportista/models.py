@@ -15,9 +15,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class CertificacionTransportista(ModeloBase):
+class CertificacionTransportista(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "certificaciones_transportista"
 
     # Una sola certificación activa por transportista y tipo normalizado.

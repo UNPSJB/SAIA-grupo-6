@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { normalizar } from "../../../../common/utils/texto";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Box, HStack, Table } from "@chakra-ui/react";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { Badge, Box, HStack, Table, Text } from "@chakra-ui/react";
+import { BotonExportar } from "../../../exportacion";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { TabSalidas } from "../../../salidas/components/pages/SalidasPage";
 import { LuRefreshCw } from "react-icons/lu";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
@@ -37,21 +39,23 @@ import {
 import { useAuth } from "../../../../common/context/useAuth";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { useLotes } from "../../hooks/useLotes";
-import { ESTADOS_LOTE, type EstadoLote } from "../../types/lote";
+import { ESTADOS_LOTE, type EstadoLote, type LoteResumen } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
-export function LotesPage() {
+/** Pestaña "Lotes de producción": el listado de lotes. */
+function TabLotes() {
   const navigate = useNavigate();
   // Exportar es de administración (el backend lo exige).
   const esAdmin = puedeAdministrar(useAuth().user);
 
-  const [busqueda, setBusqueda] = useState("");
-  const [producto, setProducto] = useState("");
-  const [estado, setEstado] = useState<EstadoLote | "">("");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("LotesPage.busqueda", "");
+  const [producto, setProducto] = useEstadoNavegacion("LotesPage.producto", "");
+  const [estado, setEstado] = useEstadoNavegacion<EstadoLote | "">("LotesPage.estado", "");
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion("LotesPage.fechaDesde", "");
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion("LotesPage.fechaHasta", "");
 
   const { lotes, loading, error, recargar } = useLotes({ estado, fechaDesde, fechaHasta });
 
@@ -72,13 +76,13 @@ export function LotesPage() {
    * "Trazabilidad", con un desplegable de todos los lotes.
    */
   const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+    const texto = normalizar(busqueda);
     return lotes.filter(
       (l) =>
         (!producto || String(l.producto_id) === producto) &&
         (!texto ||
-          l.numero_lote.toLowerCase().includes(texto) ||
-          l.producto_nombre.toLowerCase().includes(texto)),
+          normalizar(l.numero_lote).includes(texto) ||
+          normalizar(l.producto_nombre).includes(texto)),
     );
   }, [lotes, producto, busqueda]);
   const { paginados, page, setPage } = usePaginas(
@@ -131,14 +135,7 @@ export function LotesPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Lotes de producción"
-      descripcion="Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos."
-      // Quien opera también inicia lotes (la ruta es de "operar"). Antes el
-      // botón era solo de administración y el operador llegaba por la entrada
-      // "Registrar Lote" del menú, que ya no existe.
-      acciones={<BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>}
-    >
+    <>
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -156,14 +153,17 @@ export function LotesPage() {
               opciones={productos}
               todos="Todos los productos"
             />
-            <FiltroSelect
-              label="Estado"
-              valor={estado}
-              onCambio={(v) => setEstado(v as EstadoLote | "")}
-              opciones={ESTADOS_LOTE.map((e) => ({ valor: e.valor, etiqueta: e.etiqueta }))}
-              todos="Todos los estados"
-              minW="180px"
-            />
+            {/* Quien opera solo ve lotes en proceso: el estado no filtra nada. */}
+            {esAdmin && (
+              <FiltroSelect
+                label="Estado"
+                valor={estado}
+                onCambio={(v) => setEstado(v as EstadoLote | "")}
+                opciones={ESTADOS_LOTE.map((e) => ({ valor: e.valor, etiqueta: e.etiqueta }))}
+                todos="Todos los estados"
+                minW="180px"
+              />
+            )}
             <Box minW="150px">
               <LabelFiltro>Desde</LabelFiltro>
               <FormInput
@@ -186,8 +186,13 @@ export function LotesPage() {
         }
         herramientas={
           <>
+            {/*
+              Dentro de una pestaña, el alta va en la barra. Quien opera
+              también inicia lotes (la ruta es de "operar").
+            */}
+            <BotonAgregar onClick={() => navigate("/lotes/nuevo")}>Nuevo lote</BotonAgregar>
             {esAdmin && (
-              <BotonesExportar
+              <BotonExportar
                 nombreTabla="lotes de producción"
                 vista="lotes-produccion"
                 filtros={{
@@ -209,6 +214,13 @@ export function LotesPage() {
 
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiarTodo} />
 
+      {!esAdmin && (
+        <Text fontSize="sm" color="fg.muted">
+          Ves los lotes en proceso con tareas asignadas a vos o sin asignar. Los lotes cerrados se
+          consultan desde sus salidas, reclamos o retiros.
+        </Text>
+      )}
+
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando pagina>Cargando lotes...</EstadoCargando>}
 
@@ -218,7 +230,11 @@ export function LotesPage() {
             No hay lotes que coincidan con los filtros aplicados.
           </EstadoVacioFiltrado>
         ) : (
-          <EstadoVacio>Todavía no hay lotes de producción registrados.</EstadoVacio>
+          <EstadoVacio>
+            {esAdmin
+              ? "Todavía no hay lotes de producción registrados."
+              : "No hay lotes en proceso con tareas para vos."}
+          </EstadoVacio>
         ))}
 
       {!loading && !error && filtrados.length > 0 && (
@@ -242,7 +258,9 @@ export function LotesPage() {
                 <EncabezadoOscuro numero ancho="media">Objetivo</EncabezadoOscuro>
                 <EncabezadoOscuro center width="12%">Tareas</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
-                <EncabezadoOscuro center ancho="amplia">Estado</EncabezadoOscuro>
+                {/* Quien opera solo ve lotes en proceso: la columna diría
+                    siempre lo mismo. */}
+                {esAdmin && <EncabezadoOscuro center ancho="amplia">Estado</EncabezadoOscuro>}
                 <EncabezadoOscuro center width="10%">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
@@ -268,34 +286,21 @@ export function LotesPage() {
                   </Celda>
                   <Celda whiteSpace="nowrap">
                     {lote.fecha_vencimiento ? formatoFecha(lote.fecha_vencimiento) : "-"}
+                    {/* Sin columna Estado, el aviso va junto a la fecha. */}
+                    {!esAdmin && (
+                      <Box mt="1">
+                        <AvisoVencimiento lote={lote} />
+                      </Box>
+                    )}
                   </Celda>
-                  <Celda center>
-                    <HStack justify="center" gap="1" flexWrap="wrap">
-                      <BadgeEstadoLote estado={lote.estado} />
-                      {(() => {
-                        if (!lote.fecha_vencimiento) return null;
-                        if (lote.fecha_vencimiento < hoyISO()) {
-                          return (
-                            <Badge colorPalette="red" variant="subtle" size="sm" rounded="full">
-                              Vencido
-                            </Badge>
-                          );
-                        }
-                        const diasDiff = Math.ceil(
-                          (new Date(lote.fecha_vencimiento).getTime() - new Date(hoyISO()).getTime()) /
-                            (1000 * 60 * 60 * 24)
-                        );
-                        if (diasDiff <= 15 && Number(lote.saldo) > 0) {
-                          return (
-                            <Badge colorPalette="yellow" variant="subtle" size="sm" rounded="full">
-                              Próximo a vencer
-                            </Badge>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </HStack>
-                  </Celda>
+                  {esAdmin && (
+                    <Celda center>
+                      <HStack justify="center" gap="1" flexWrap="wrap">
+                        <BadgeEstadoLote estado={lote.estado} />
+                        <AvisoVencimiento lote={lote} />
+                      </HStack>
+                    </Celda>
+                  )}
                   <Celda center>
                     <BotonAccion
                       accion="ver"
@@ -309,6 +314,55 @@ export function LotesPage() {
           </Table.Root>
         </TarjetaTabla>
       )}
+    </>
+  );
+}
+
+/** Aviso de un lote vencido o próximo a vencer (con saldo), o nada. */
+function AvisoVencimiento({ lote }: { lote: LoteResumen }) {
+  if (!lote.fecha_vencimiento) return null;
+  if (lote.fecha_vencimiento < hoyISO()) {
+    return (
+      <Badge colorPalette="red" variant="subtle" size="sm" rounded="full">
+        Vencido
+      </Badge>
+    );
+  }
+  const diasDiff = Math.ceil(
+    (new Date(lote.fecha_vencimiento).getTime() - new Date(hoyISO()).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (diasDiff <= 15 && Number(lote.saldo) > 0) {
+    return (
+      <Badge colorPalette="yellow" variant="subtle" size="sm" rounded="full">
+        Próximo a vencer
+      </Badge>
+    );
+  }
+  return null;
+}
+
+/**
+ * Lotes de producción, con las salidas de producto como sub-opción: antes
+ * "Salidas de producto" era una entrada aparte del menú de Producción, aunque
+ * cada salida reserva una parte de un lote. `/salidas` redirige acá.
+ */
+export function LotesPage() {
+  // Reservar una salida es solo de administración; quien opera despacha y
+  // registra la entrega de las reservas que ya existen.
+  const esAdmin = puedeAdministrar(useAuth().user);
+  return (
+    <Pagina
+      titulo="Lotes de producción"
+      descripcion={`Cada lote fija la versión de receta con la que se elaboró. Abrí uno para completar sus tareas y registrar los consumos; desde Salidas se ${
+        esAdmin ? "reservan y despachan partes de los lotes a clientes" : "despachan y entregan las reservas de los lotes a clientes"
+      }.`}
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "lotes", etiqueta: "Lotes de producción", contenido: <TabLotes /> },
+          { valor: "salidas", etiqueta: "Salidas de producto", contenido: <TabSalidas /> },
+        ]}
+      />
     </Pagina>
   );
 }

@@ -32,7 +32,9 @@ import src.exportacion.tablas  # noqa: F401
 from src.personal.router import router as personal_router
 from src.auth.router import router as auth_router
 from src.Equipo.router import router as equipo_router
+from src.ingredientes.router import router as ingredientes_router
 from src.insumos.router import router as insumos_router
+from src.alergenos.router import router as alergenos_router
 from src.elementoLimpieza.router import router as elementosLimpieza_router
 from src.PlanLimpieza.router import router as plan_limpieza_router
 from src.PlanCalibracionMantenimiento.router import (
@@ -77,6 +79,7 @@ from src.pyme.router import router as pyme_router
 from src.exportacion.router import router as exportacion_router
 from src.rotulado.router import router as rotulado_router
 from src.paneles.router import router as paneles_router
+from src.establecimientos.router import router as establecimientos_router
 
 # Mapeo explícito en vez de f"ROOT_PATH_{ENV}": antes, un ENV mal escrito
 # (por ejemplo "DEV", que es lo que tiene el .env local) buscaba una clave
@@ -158,7 +161,9 @@ app.add_middleware(LimiteTamanoSubidaMiddleware)
 app.include_router(auth_router)
 app.include_router(uploads_router)
 app.include_router(personal_router)
+app.include_router(ingredientes_router)
 app.include_router(insumos_router)
+app.include_router(alergenos_router)
 app.include_router(equipo_router)
 app.include_router(elementosLimpieza_router)
 
@@ -199,5 +204,6 @@ app.include_router(auditoria_router)
 app.include_router(exportacion_router)
 app.include_router(rotulado_router)
 app.include_router(paneles_router)
+app.include_router(establecimientos_router)
 app.include_router(vista_publica_router)
 app.include_router(pyme_router)

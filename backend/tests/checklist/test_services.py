@@ -8,7 +8,7 @@ from src.personal.models import Personal
 from src.sector.models import Sector
 from src.tareas.models import Tarea
 from src.checklist import exceptions
-from src.checklist.models import EstadoChecklist, Checklist, RegistroTarea
+from src.checklist.models import EstadoChecklist, Checklist, HistorialRegistroTarea, RegistroTarea
 from src.checklist.services.generacion import obtener_o_crear_checklists_del_dia
 from src.checklist.services.marcado import (
     marcar_tarea,
@@ -352,9 +352,9 @@ def test_asignar_cobertura_tarea_asigna_operador(db_session, monkeypatch):
         db_session, registro_id, operador.id, autor.id,
     )
 
-    # Assert
+    # Assert: la tarea no tenía responsable, así que el elegido pasa a serlo.
     assert actualizado.operador_id == operador.id
-    assert actualizado.reemplazado_por_id == autor.id
+    assert actualizado.reemplazado_por_id is None
 
 
 def test_asignar_cobertura_tarea_checklist_pasado_es_inmutable(db_session, monkeypatch):
@@ -477,3 +477,148 @@ def test_listar_tareas_del_dia_sin_equipos(db_session, monkeypatch):
 
     # Assert
     assert resultado.tareas == []
+
+
+def _desactivar(db, fila):
+    fila.activo = False
+    db.info["sin_auditoria"] = True
+    try:
+        db.commit()
+    finally:
+        db.info.pop("sin_auditoria", None)
+
+
+def test_tareas_del_dia_conserva_checklist_de_plan_desactivado_hoy(db_session, monkeypatch):
+    # Arrange: el checklist de hoy ya estaba armado cuando se desactivó el plan.
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    _mock_ahora(monkeypatch, datetime(2025, 6, 10, 10, 0))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=7, fecha_creacion=date(2025, 6, 3),
+    )
+    listar_tareas_del_dia(db_session, date(2025, 6, 10))
+    _desactivar(db_session, plan)
+
+    # Act
+    hoy_ = listar_tareas_del_dia(db_session, date(2025, 6, 10))
+    registro = marcar_tarea(
+        db_session, tarea.id, True, autor.id, "Admin A", None, fecha=date(2025, 6, 10),
+    )
+
+    # Assert: sigue siendo tarea de hoy y se puede marcar.
+    assert [t.nombre for t in hoy_.tareas] == ["Tarea Limpieza"]
+    assert hoy_.tareas[0].plan_nombre == "Plan Limpieza"
+    assert registro.completado is True
+
+
+def test_tareas_del_dia_conserva_checklist_de_equipo_desactivado_hoy(db_session, monkeypatch):
+    # Arrange
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=7, fecha_creacion=date(2025, 6, 3),
+    )
+    listar_tareas_del_dia(db_session, date(2025, 6, 10))
+    _desactivar(db_session, equipo)
+
+    # Act
+    hoy_ = listar_tareas_del_dia(db_session, date(2025, 6, 10))
+
+    # Assert
+    assert [(t.nombre, t.equipo_nombre) for t in hoy_.tareas] == [("Tarea Limpieza", "Equipo 1")]
+
+
+def test_plan_desactivado_no_genera_checklist_al_dia_siguiente(db_session, monkeypatch):
+    # Arrange: frecuencia diaria; el plan se desactiva con el checklist de hoy armado.
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=1, fecha_creacion=date(2025, 6, 3),
+    )
+    listar_tareas_del_dia(db_session, date(2025, 6, 10))
+    _desactivar(db_session, plan)
+    _mock_hoy(monkeypatch, date(2025, 6, 11))
+
+    # Act
+    manana = listar_tareas_del_dia(db_session, date(2025, 6, 11))
+
+    # Assert
+    assert manana.tareas == []
+    try:
+        marcar_tarea(db_session, tarea.id, True, autor.id, "Admin A", None, fecha=date(2025, 6, 11))
+        assert False, "una tarea de un plan desactivado no debería generar checklist nuevo"
+    except Exception as error:
+        assert type(error).__name__ == "TareaNoEncontrada"
+
+
+def test_tareas_del_dia_fecha_pasada_sin_checklist_no_se_reconstruye(db_session, monkeypatch):
+    # Arrange: el 2025-06-10 tocaba la tarea, pero nadie abrió el checklist.
+    _mock_hoy(monkeypatch, date(2025, 6, 12))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=7, fecha_creacion=date(2025, 6, 3),
+    )
+
+    # Act
+    del_dia = listar_tareas_del_dia(db_session, date(2025, 6, 10), current_user=autor)
+    del_equipo = obtener_o_crear_checklists_del_dia(db_session, equipo.id, fecha=date(2025, 6, 10))
+
+    # Assert
+    assert del_dia.tareas == []
+    assert del_equipo == []
+
+
+def test_tareas_del_dia_fecha_futura_muestra_vista_calculada(db_session, monkeypatch):
+    # Arrange
+    _mock_hoy(monkeypatch, date(2025, 6, 12))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=7, fecha_creacion=date(2025, 6, 3),
+    )
+
+    # Act
+    resultado = listar_tareas_del_dia(db_session, date(2025, 6, 17), current_user=autor)
+
+    # Assert: se ve lo que va a tocar, sin persistir nada.
+    assert [(t.nombre, t.registro_id) for t in resultado.tareas] == [("Tarea Limpieza", 0)]
+    assert db_session.query(Checklist).count() == 0
+
+
+def _operador(db, dni, email, nombre="Oper"):
+    fila = Personal(
+        nombre=nombre, apellido="Ar", dni=dni, email=email,
+        password="h", puede_operar=True, puede_administrar=False, es_super_admin=False,
+    )
+    db.info["sin_auditoria"] = True
+    try:
+        db.add(fila)
+        db.commit()
+        db.refresh(fila)
+    finally:
+        db.info.pop("sin_auditoria", None)
+    return fila
+
+
+def test_asignar_cobertura_el_elegido_queda_como_suplente(db_session, monkeypatch):
+    # Arrange: la tarea tiene responsable; el admin elige a otro operador.
+    _mock_hoy(monkeypatch, date(2025, 6, 10))
+    plan, equipo, tarea, autor = _plan_con_tarea(
+        db_session, frecuencia=7, fecha_creacion=date(2025, 6, 3),
+    )
+    responsable = _operador(db_session, "11111111", "r@test.com", "Responsable")
+    suplente = _operador(db_session, "22222222", "s@test.com", "Suplente")
+    tarea.operador_id = responsable.id
+    db_session.commit()
+    registro_id = listar_tareas_del_dia(db_session, date(2025, 6, 10)).tareas[0].registro_id
+
+    # Act
+    cubierta = asignar_cobertura_tarea(db_session, registro_id, suplente.id, autor.id)
+
+    # Assert: responsable intacto, suplente el elegido, el admin en el historial.
+    assert (cubierta.operador_id, cubierta.reemplazado_por_id) == (responsable.id, suplente.id)
+    historial = db_session.query(HistorialRegistroTarea).filter_by(registro_tarea_id=registro_id).all()
+    assert [h.usuario_id for h in historial] == [autor.id]
+    # El suplente la ve en su checklist.
+    del_suplente = listar_tareas_del_dia(db_session, date(2025, 6, 10), current_user=suplente)
+    assert [t.registro_id for t in del_suplente.tareas] == [registro_id]
+
+    # Act: sin suplente, vuelve a su responsable.
+    sin_cobertura = asignar_cobertura_tarea(db_session, registro_id, None, autor.id)
+
+    # Assert
+    assert (sin_cobertura.operador_id, sin_cobertura.reemplazado_por_id) == (responsable.id, None)

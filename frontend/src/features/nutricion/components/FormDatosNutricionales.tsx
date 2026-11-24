@@ -17,7 +17,7 @@ import {
 import { formatoFechaHora } from "../../../common/utils/fechas";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import { toaster } from "../../../components/ui/toaster";
-import { guardarDatosInsumo, obtenerDatosInsumo, obtenerParametros } from "../services/nutricionService";
+import { guardarDatosIngrediente, obtenerDatosIngrediente, obtenerParametros } from "../services/nutricionService";
 import {
   FUENTES,
   SUBNUTRIENTES,
@@ -86,20 +86,20 @@ interface ResultadoTomar {
 }
 
 interface Props {
-  insumoId: number;
+  ingredienteId: number;
   /** Se llama con los datos guardados (el diálogo se cierra, la página recalcula). */
   onGuardado?: (datos: DatosNutricionales) => void;
   onCancel?: () => void;
   /**
    * Solo para consultar: los campos quedan congelados y no hay botón de
    * guardar. Lo usa el detalle del cálculo del producto; los datos se editan
-   * desde Insumos → Datos nutricionales (o desde "Completar datos" si faltan).
+   * desde Ingredientes → Datos nutricionales (o desde "Completar datos" si faltan).
    */
   soloLectura?: boolean;
 }
 
 /**
- * Carga de los datos nutricionales por 100 g de un insumo (E11, historia 1).
+ * Carga de los datos nutricionales por 100 g de un ingrediente (E11, historia 1).
  *
  * Arriba se elige la fuente: de una base de composición se toman todos los
  * valores del alimento elegido; con rótulo, bibliografía o valor propio se
@@ -107,7 +107,7 @@ interface Props {
  * respecto de lo que dijo la fuente, queda marcado como modificado con quién
  * lo hizo.
  */
-export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLectura = false }: Props) {
+export function FormDatosNutricionales({ ingredienteId, onGuardado, onCancel, soloLectura = false }: Props) {
   const [datos, setDatos] = useState<DatosNutricionales | null>(null);
   const [parametros, setParametros] = useState<ParametroNutriente[]>([]);
   const [filas, setFilas] = useState<Record<string, Fila>>({});
@@ -163,7 +163,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
 
   useEffect(() => {
     let vigente = true;
-    Promise.all([obtenerDatosInsumo(insumoId), obtenerParametros()])
+    Promise.all([obtenerDatosIngrediente(ingredienteId), obtenerParametros()])
       .then(([d, p]) => {
         if (!vigente) return;
         setParametros(p.nutrientes);
@@ -174,14 +174,14 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     return () => {
       vigente = false;
     };
-  }, [insumoId]);
+  }, [ingredienteId]);
 
   if (cargando) return <Text color="fg.muted" fontStyle="italic">Cargando datos nutricionales...</Text>;
   if (!datos) return <BannerError>{error ?? "No se pudieron cargar los datos."}</BannerError>;
 
   const admitidos = parametros.filter((p) => datos.nutrientes_admitidos.includes(p.clave));
   const guardados = Object.fromEntries(datos.valores.map((v) => [v.nutriente, v]));
-  const esAditivo = datos.tipo === "aditivo";
+  const esAditivo = datos.es_aditivo;
   // Ingrediente cuyo azúcar es todo añadido: sus azúcares añadidos son los
   // totales (guía de rotulado) y no se cargan aparte.
   const derivado = (clave: string) => anadidos && !esAditivo && clave === "azucares_anadidos";
@@ -221,7 +221,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
           const previa = nuevas[p.clave];
           /*
            * Un valor tomado antes de otro alimento de una base no puede quedar
-           * mezclado con el nuevo: el insumo figuraría completo con datos de
+           * mezclado con el nuevo: el ingrediente figuraría completo con datos de
            * dos alimentos. Lo cargado con otra fuente (rótulo, bibliografía, a
            * mano) sí se conserva: es lo que completa lo que la base no trae.
            */
@@ -287,7 +287,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     setGuardando(true);
     setError(null);
     try {
-      const guardado = await guardarDatosInsumo(insumoId, {
+      const guardado = await guardarDatosIngrediente(ingredienteId, {
         peso_unidad_g: peso ? aDecimal(peso) : null,
         densidad_g_ml: densidad ? aDecimal(densidad) : null,
         aporta_energia_sodio: aporta,
@@ -354,7 +354,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
     <Box as="form" {...{ noValidate: true }} onSubmit={handleSubmit}>
       {error && <BannerError mb="4">{error}</BannerError>}
 
-      {/* Encabezado: qué insumo es y cómo están sus datos. */}
+      {/* Encabezado: qué ingrediente es y cómo están sus datos. */}
       <Box
         display="grid"
         gridTemplateColumns={{ base: "1fr", md: "1fr 240px" }}
@@ -410,12 +410,12 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
         <Bloque
           titulo="Equivalencia a gramos"
           icono={LuScale}
-          ayuda={`La receta usa este insumo en ${datos.unidad}; para sumar su aporte hay que saber cuántos gramos son. Es el mismo dato de la ficha del insumo y de la composición porcentual: cambiarlo acá lo cambia allá.`}
+          ayuda={`La receta usa este ingrediente en ${datos.unidad}; para sumar su aporte hay que saber cuántos gramos son. Es el mismo dato de la ficha del ingrediente y de la composición porcentual: cambiarlo acá lo cambia allá.`}
         >
           {datos.unidad_tipo === null ? (
             <Aviso tono="peligro">
               La unidad «{datos.unidad}» no tiene tipo ni factor. Completalos en Unidades de medida para poder
-              usar este insumo en el cálculo.
+              usar este ingrediente en el cálculo.
             </Aviso>
           ) : necesitaDensidad ? (
             <FormField label="Densidad" required mb="0" invalid={intentado && !!densidad && !numeroValido(densidad)}>
@@ -601,7 +601,7 @@ export function FormDatosNutricionales({ insumoId, onGuardado, onCancel, soloLec
         icono={LuListChecks}
         ayuda={
           soloLectura
-            ? "Solo lectura. Para cambiar estos datos, editá el insumo desde Insumos → Datos nutricionales."
+            ? "Solo lectura. Para cambiar estos datos, editá el ingrediente desde Ingredientes → Datos nutricionales."
             : "Dejá vacío lo que no tengas. Si cambiás un número que vino de una fuente, queda marcado como modificado y se registra quién lo cambió."
         }
       >
@@ -734,7 +734,7 @@ Cargado el ${formatoFechaHora(guardado.cargado_en)}${guardado.cargado_por ? ` po
       {soloLectura ? (
         <HStack gap="3" flexWrap="wrap" justify="space-between" pt="2">
           <Text fontSize="sm" color="fg.muted">
-            Solo lectura: los datos se editan desde Insumos → Datos nutricionales.
+            Solo lectura: los datos se editan desde Ingredientes → Datos nutricionales.
           </Text>
           {onCancel && (
             <BotonCancelar onClick={onCancel}>Cerrar</BotonCancelar>

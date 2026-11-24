@@ -8,13 +8,20 @@ import {
   Field,
   Flex,
   HStack,
+  IconButton,
   Spinner,
   Table,
   Text,
   VStack,
 } from "@chakra-ui/react";
+import { Tooltip } from "../../../../components/ui/tooltip";
 import { usePaginas } from "../../../../common/hooks/usePaginas";
-import { obtenerCriticidadDashboard } from "../../services/notificacionService";
+import {
+  cambiarLecturaNotificacion,
+  marcarTodasNotificacionesLeidas,
+  obtenerCriticidadDashboard,
+} from "../../services/notificacionService";
+import { notificarCambioNotificaciones } from "../../eventoNotificaciones";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import {
@@ -23,8 +30,11 @@ import {
   LuArrowUpDown,
   LuBell,
   LuBrush,
+  LuCheck,
+  LuCheckCheck,
   LuCircle,
   LuCircleCheck,
+  LuCircleDot,
   LuFileText,
   LuListChecks,
   LuPackage,
@@ -63,8 +73,13 @@ import {
   TextoTruncado,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
+import { BotonExportar } from "../../../exportacion";
 
 const PAGE_SIZE = 10;
+
+type FiltroLectura = "todas" | "no_leidas" | "leidas";
 
 type FiltroOrigen =
   | "todas"
@@ -72,6 +87,7 @@ type FiltroOrigen =
   | "VENCIMIENTO_PERSONAL"
   | "PLAN_CALIBRACION"
   | "PLAN_MANTENIMIENTO"
+  | "HOMOLOGACION_INSUMO"
   | "DOCUMENTO"
   | "CHECKLIST"
   | "INCIDENTE";
@@ -99,6 +115,7 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
   VENCIMIENTO_PERSONAL: "Vencimiento de personal",
   PLAN_CALIBRACION: "Calibración",
   PLAN_MANTENIMIENTO: "Mantenimiento",
+  HOMOLOGACION_INSUMO: "Homologación de insumo",
   DOCUMENTO: "Documento",
   CHECKLIST: "Checklist",
   INCIDENTE: "Incidente",
@@ -168,6 +185,7 @@ function normalizar(texto: string) {
 
 export function NotificacionesPage() {
   const navigate = useNavigate();
+  const esAdmin = puedeAdministrar(useAuth().user);
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
@@ -187,6 +205,7 @@ export function NotificacionesPage() {
 
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<Criticidad[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
+  const [filtroLectura, setFiltroLectura] = useState<FiltroLectura>("todas");
   const [busqueda, setBusqueda] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -222,7 +241,58 @@ export function NotificacionesPage() {
     }, 1500);
   };
 
+  const alternarLectura = async (alerta: AlertaCriticidad) => {
+    const nuevoEstado = !alerta.leida;
+    try {
+      await cambiarLecturaNotificacion(alerta.clave, nuevoEstado);
+      setDatos((prev) => ({
+        ...prev,
+        alertas: prev.alertas.map((a) =>
+          a.clave === alerta.clave ? { ...a, leida: nuevoEstado } : a
+        ),
+      }));
+      notificarCambioNotificaciones();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "No se pudo actualizar el estado de lectura"
+      );
+    }
+  };
+
+  const handleMarcarTodasLeidas = async () => {
+    try {
+      await marcarTodasNotificacionesLeidas();
+      setDatos((prev) => ({
+        ...prev,
+        alertas: prev.alertas.map((a) => ({ ...a, leida: true })),
+      }));
+      notificarCambioNotificaciones();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "No se pudieron marcar todas las notificaciones como leídas"
+      );
+    }
+  };
+
   const handleResolver = async (alerta: AlertaCriticidad) => {
+    if (!alerta.leida) {
+      void cambiarLecturaNotificacion(alerta.clave, true)
+        .then(() => {
+          setDatos((prev) => ({
+            ...prev,
+            alertas: prev.alertas.map((a) =>
+              a.clave === alerta.clave ? { ...a, leida: true } : a
+            ),
+          }));
+          notificarCambioNotificaciones();
+        })
+        .catch(() => {});
+    }
+
     if (alerta.origen === "ELEMENTO_LIMPIEZA" && alerta.recambio_id !== null) {
       try {
         await registrarRecambioElemento(alerta.recambio_id);
@@ -279,6 +349,12 @@ export function NotificacionesPage() {
       resultado = resultado.filter((alerta) => alerta.origen === filtroOrigen);
     }
 
+    if (filtroLectura === "no_leidas") {
+      resultado = resultado.filter((alerta) => !alerta.leida);
+    } else if (filtroLectura === "leidas") {
+      resultado = resultado.filter((alerta) => Boolean(alerta.leida));
+    }
+
     if (sortColumn === "criticidad") {
       resultado.sort((a, b) => {
         // "asc": primero lo más riesgoso, igual que el orden por defecto.
@@ -303,7 +379,7 @@ export function NotificacionesPage() {
     }
 
     return resultado;
-  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, busqueda, sortColumn, sortDirection]);
+  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, filtroLectura, busqueda, sortColumn, sortDirection]);
 
   const contadores = useMemo(() => {
     // Los contadores de origen siempre representan el conjunto que se está
@@ -334,10 +410,13 @@ export function NotificacionesPage() {
 
     return {
       todas: base.length,
+      no_leidas: base.filter((a) => !a.leida).length,
+      leidas: base.filter((a) => Boolean(a.leida)).length,
       elementos: base.filter((a) => a.origen === "ELEMENTO_LIMPIEZA").length,
       personal: base.filter((a) => a.origen === "VENCIMIENTO_PERSONAL").length,
       calibracion: base.filter((a) => a.origen === "PLAN_CALIBRACION").length,
       mantenimiento: base.filter((a) => a.origen === "PLAN_MANTENIMIENTO").length,
+      homologaciones: base.filter((a) => a.origen === "HOMOLOGACION_INSUMO").length,
       documentos: base.filter((a) => a.origen === "DOCUMENTO").length,
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
@@ -379,6 +458,7 @@ export function NotificacionesPage() {
   const mostrarTodasLasSituaciones = () => {
     setCriticidadesSeleccionadas([]);
     setFiltroOrigen("todas");
+    setFiltroLectura("todas");
     setBusqueda("");
     setPage(1);
   };
@@ -425,6 +505,20 @@ export function NotificacionesPage() {
           ? (ETIQUETA_ORIGEN[filtroOrigen] ?? filtroOrigen)
           : "",
       onQuitar: () => handleFiltroOrigen("todas"),
+    },
+    {
+      clave: "lectura",
+      etiqueta: "Estado",
+      valor:
+        filtroLectura === "no_leidas"
+          ? "No leídas"
+          : filtroLectura === "leidas"
+            ? "Leídas"
+            : "",
+      onQuitar: () => {
+        setFiltroLectura("todas");
+        setPage(1);
+      },
     },
     {
       clave: "orden",
@@ -595,9 +689,27 @@ export function NotificacionesPage() {
                 <option value="VENCIMIENTO_PERSONAL">Personal ({contadores.personal})</option>
                 <option value="PLAN_CALIBRACION">Calibración ({contadores.calibracion})</option>
                 <option value="PLAN_MANTENIMIENTO">Mantenimiento ({contadores.mantenimiento})</option>
+                <option value="HOMOLOGACION_INSUMO">Homologaciones ({contadores.homologaciones})</option>
                 <option value="DOCUMENTO">Documentos ({contadores.documentos})</option>
                 <option value="CHECKLIST">Checklists ({contadores.checklists})</option>
                 <option value="INCIDENTE">Incidentes ({contadores.incidentes})</option>
+              </FormNativeSelect>
+            </Field.Root>
+          </Box>
+
+          <Box minW="180px">
+            <Field.Root>
+              <LabelFiltro>Estado de lectura</LabelFiltro>
+              <FormNativeSelect
+                value={filtroLectura}
+                onChange={(e) => {
+                  setFiltroLectura(e.target.value as FiltroLectura);
+                  setPage(1);
+                }}
+              >
+                <option value="todas">Todas ({contadores.todas})</option>
+                <option value="no_leidas">No leídas ({contadores.no_leidas})</option>
+                <option value="leidas">Leídas ({contadores.leidas})</option>
               </FormNativeSelect>
             </Field.Root>
           </Box>
@@ -616,6 +728,39 @@ export function NotificacionesPage() {
               />
             </Field.Root>
           </Box>
+
+          <Button
+            size="sm"
+            variant="outline"
+            colorPalette="brand"
+            disabled={!datos.alertas.some((a) => !a.leida)}
+            onClick={handleMarcarTodasLeidas}
+            title="Marcar todas las alertas activas como leídas"
+          >
+            <LuCheckCheck aria-hidden size={16} />
+            Marcar todas como leídas
+          </Button>
+
+          {/* Exportar es de administración (el backend lo exige). */}
+          {esAdmin && (
+            <BotonExportar
+              nombreTabla="las notificaciones"
+              disabled={alertasFiltradas.length === 0}
+              datos={() => ({
+                titulo: "Centro de notificaciones",
+                nombre: "notificaciones",
+                encabezados: ["Criticidad", "Origen", "Situación", "Detalle", "Plazo", "Motivo"],
+                filas: alertasFiltradas.map((alerta) => [
+                  etiquetaCriticidad(alerta.criticidad),
+                  ETIQUETA_ORIGEN[alerta.origen] ?? alerta.origen,
+                  alerta.titulo,
+                  alerta.detalle,
+                  alerta.fecha_referencia ? formatoFechaOCorta(alerta.fecha_referencia) : alerta.plazo,
+                  alerta.motivo,
+                ]),
+              })}
+            />
+          )}
         </HStack>
       </Tarjeta>
 
@@ -641,7 +786,7 @@ export function NotificacionesPage() {
             <Table.Root variant="outline" size="md" w="100%" minW="1100px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro ancho="angosta" onClick={() => handleSort("criticidad")}>
+                  <EncabezadoOscuro width="10%" onClick={() => handleSort("criticidad")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Criticidad
                       <SortIcon column="criticidad" sortColumn={sortColumn} sortDirection={sortDirection} />
@@ -661,6 +806,9 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
+                  <EncabezadoOscuro width="50px" textAlign="center">
+                    <Box as="span" srOnly>Acción</Box>
+                  </EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
 
@@ -670,6 +818,7 @@ export function NotificacionesPage() {
                     alerta.origen === "ELEMENTO_LIMPIEZA" ||
                     alerta.origen === "VENCIMIENTO_PERSONAL" ||
                     Boolean(alerta.destino);
+                  const noLeida = !alerta.leida;
 
                   return (
                     <Table.Row
@@ -691,6 +840,7 @@ export function NotificacionesPage() {
                       }}
                       transition="background 0.2s"
                       cursor={accionable ? "pointer" : "default"}
+                      opacity={alerta.leida ? 0.75 : 1}
                     >
                       <Celda>
                         <Badge
@@ -719,7 +869,19 @@ export function NotificacionesPage() {
                       </Celda>
 
                       <Celda>
-                        <TextoTruncado fontWeight="bold" color="fg" mb="1" texto={alerta.titulo} />
+                        <HStack gap="2" align="center" mb="1">
+                          {noLeida && (
+                            <Box
+                              w="2"
+                              h="2"
+                              rounded="full"
+                              bg="brand.600"
+                              flexShrink={0}
+                              title="No leída"
+                            />
+                          )}
+                          <TextoTruncado fontWeight={noLeida ? "bold" : "semibold"} color="fg" texto={alerta.titulo} />
+                        </HStack>
                         <TextoTruncado fontSize="sm" color="fg.muted" max={90} texto={alerta.detalle} />
                       </Celda>
 
@@ -743,6 +905,23 @@ export function NotificacionesPage() {
                             Riesgo del elemento: {formatoPuntaje(alerta.puntaje_elemento)}
                           </Text>
                         )}
+                      </Celda>
+
+                      <Celda textAlign="center" onClick={(e) => e.stopPropagation()}>
+                        <Tooltip
+                          content={noLeida ? "Marcar como leída" : "Marcar como no leída"}
+                          showArrow
+                        >
+                          <IconButton
+                            size="xs"
+                            variant="ghost"
+                            colorPalette={noLeida ? "brand" : "gray"}
+                            aria-label={noLeida ? "Marcar como leída" : "Marcar como no leída"}
+                            onClick={() => void alternarLectura(alerta)}
+                          >
+                            {noLeida ? <LuCheck size={15} /> : <LuCircleDot size={15} />}
+                          </IconButton>
+                        </Tooltip>
                       </Celda>
                     </Table.Row>
                   );

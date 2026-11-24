@@ -5,7 +5,8 @@ from src.aditivos.constants import RE_NUMERO_INS
 from src.common.validators import texto_no_vacio
 
 
-def _normalizar_ins(valor: str | None) -> str | None:
+def normalizar_ins(valor: str | None) -> str | None:
+    """"INS 500 (ii)" -> "500(ii)". Vacío -> None. Formato inválido -> error."""
     if valor is None:
         return None
     limpio = valor.strip().lower().replace(" ", "").removeprefix("ins")
@@ -46,51 +47,18 @@ class ClaseFuncionalResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AditivoCreate(BaseModel):
-    clase_funcional_id: int = Field(gt=0)
-    nombre: str = Field(max_length=150)
-    numero_ins: str | None = Field(default=None, max_length=20)
+class SugerenciaAditivo(BaseModel):
+    """Una entrada de la lista de referencia, para completar un ingrediente aditivo."""
 
-    @field_validator("nombre")
-    @classmethod
-    def validar_nombre(cls, valor: str) -> str:
-        return texto_no_vacio(valor, vacio=exceptions.NombreVacio)
-
-    @field_validator("numero_ins")
-    @classmethod
-    def validar_ins(cls, valor: str | None) -> str | None:
-        return _normalizar_ins(valor)
-
-
-class AditivoUpdate(BaseModel):
-    clase_funcional_id: int | None = Field(default=None, gt=0)
-    nombre: str | None = Field(default=None, max_length=150)
-    numero_ins: str | None = Field(default=None, max_length=20)
-    activo: bool | None = None
-
-    @field_validator("nombre")
-    @classmethod
-    def validar_nombre(cls, valor: str | None) -> str | None:
-        return None if valor is None else texto_no_vacio(valor, vacio=exceptions.NombreVacio)
-
-    @field_validator("numero_ins")
-    @classmethod
-    def validar_ins(cls, valor: str | None) -> str | None:
-        return _normalizar_ins(valor)
-
-
-class AditivoResponse(BaseModel):
-    id: int
     nombre: str
     numero_ins: str | None
-    activo: bool
-    clase_funcional: ClaseFuncionalResponse
-
-    model_config = ConfigDict(from_attributes=True)
+    clase_funcional: str
+    # None si la clase no existe o está dada de baja en la app.
+    clase_funcional_id: int | None
 
 
 class AditivoResumen(BaseModel):
-    """Lo que se muestra de un aditivo dentro de un insumo o una receta."""
+    """Lo que se muestra de un ingrediente aditivo dentro de un listado o una receta."""
 
     id: int
     nombre: str

@@ -41,8 +41,9 @@ import {
   ProgresoTareas,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import { formatoPorcentaje } from "../../../../common/utils/numeros";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -56,7 +57,7 @@ const ETIQUETAS_ORDEN: Record<ColumnaHistorial, string> = {
 /** Verde/ámbar/rojo del cumplimiento, con los tokens del tema. */
 function colorPorcentaje(pct: number): string {
   if (pct >= 80) return "green.fg";
-  if (pct >= 50) return "orange.400";
+  if (pct >= 50) return "orange.fg";
   return "red.fg";
 }
 
@@ -76,16 +77,16 @@ export function HistorialChecklistPage() {
     return equipoId > 0 && fecha ? { equipoId, fecha } : null;
   });
 
-  const [fechaDesde, setFechaDesde] = useState(
+  const [fechaDesde, setFechaDesde] = useEstadoNavegacion("HistorialChecklistPage.fechaDesde", 
     pendienteAbrir?.fecha ?? rangoInicial.desde
   );
-  const [fechaHasta, setFechaHasta] = useState(
+  const [fechaHasta, setFechaHasta] = useEstadoNavegacion("HistorialChecklistPage.fechaHasta", 
     pendienteAbrir?.fecha ?? rangoInicial.hasta
   );
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>(
     pendienteAbrir ? String(pendienteAbrir.equipoId) : ""
   );
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("HistorialChecklistPage.busqueda", "");
   const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
   const [checklistSeleccionado, setChecklistSeleccionado] =
     useState<HistorialChecklistItem | null>(null);
@@ -110,7 +111,7 @@ export function HistorialChecklistPage() {
 
   const { equipos } = useEquipos();
 
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useEstadoNavegacion("HistorialChecklistPage.page", 1);
 
   // La tabla abre por fecha descendente (lo más reciente arriba). Al ordenar
   // se vuelve a la página 1: `alCambiar` replica lo que hace
@@ -331,13 +332,14 @@ export function HistorialChecklistPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="checklists"
             filtros={{
               buscar: busqueda || undefined,
-              fechaDesde: fechaDesde || undefined,
-              fechaHasta: fechaHasta || undefined,
+              fecha_desde: fechaDesde || undefined,
+              fecha_hasta: fechaHasta || undefined,
               equipo_id: equipoSeleccionado || undefined,
+              orden: orden.orden,
             }}
           />
         }

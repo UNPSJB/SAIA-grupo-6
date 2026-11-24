@@ -10,7 +10,8 @@ import {
   BannerExito,
   EstadoCargando,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuSparkles } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function PlanLimpiezaEditPage() {
   const navigate = useNavigate();
@@ -45,8 +46,10 @@ export function PlanLimpiezaEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/planes-limpieza", etiqueta: "Planes de limpieza" }}
+      icono={LuSparkles}
+      ancho="extenso"
       titulo="Editar Plan de Limpieza"
       descripcion="Los cambios rigen para los checklists que se generen desde mañana."
     >
@@ -79,18 +82,18 @@ export function PlanLimpiezaEditPage() {
                   tipo: tarea.tipo,
                   descripcion: tarea.descripcion ?? "",
                   observaciones: tarea.observaciones ?? "",
+                  operador_id: tarea.operador_id ?? null,
                 })),
               equipo_id: plan.equipo_id,
               autor_id: plan.autor_id,
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Plan de Limpieza"
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/planes-limpieza")}
           />
         </>
       )}
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

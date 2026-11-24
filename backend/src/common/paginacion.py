@@ -12,17 +12,17 @@ consumidores que necesitan todo siguen funcionando sin cambios.
 
 Uso en un router:
 
-    @router.get("", response_model=Union[List[schemas.Insumo], schemas.InsumoPagina])
-    def read_insumos(
+    @router.get("", response_model=Union[List[schemas.Ingrediente], schemas.IngredientePagina])
+    def read_ingredientes(
         incluir_inactivos: bool = False,
         page: Optional[int] = Query(None, ge=1),
         page_size: int = Query(PAGE_SIZE_POR_DEFECTO, ge=1, le=PAGE_SIZE_MAXIMO),
         db: Session = Depends(get_db),
     ):
         if page is None:
-            return services.listar_insumos(db, incluir_inactivos)
-        items, total = services.listar_insumos_paginado(db, incluir_inactivos, page, page_size)
-        return schemas.InsumoPagina(
+            return services.listar_ingredientes(db, incluir_inactivos)
+        items, total = services.listar_ingredientes_paginado(db, incluir_inactivos, page, page_size)
+        return schemas.IngredientePagina(
             items=items, total=total, page=page, page_size=page_size
         )
 """

@@ -7,8 +7,8 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { apiFetch, API_URL } from "../../../common/api/apiClient";
-import { pedir } from "../../../common/api/errors";
+import { listarInsumos } from "../../insumos/services/insumoService";
+import type { Insumo } from "../../insumos/types/insumo";
 import {
   FormField,
   FormInput,
@@ -20,8 +20,6 @@ import {
   cargarCertificacionProveedor,
 } from "../services/proveedorService";
 import type { Proveedor } from "../types/proveedor";
-
-type Insumo = { id: number; nombre: string; activo: boolean };
 
 export function ProveedorComplementos({
   proveedor,
@@ -36,7 +34,7 @@ export function ProveedorComplementos({
   const [seleccionados, setSeleccionados] = useState<number[]>(() =>
     proveedor.insumos.map((i) => i.id)
   );
-  const [busquedaInsumos, setBusquedaInsumos] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const [tipo, setTipo] = useState("");
   const [numero, setNumero] = useState("");
   const [vencimiento, setVencimiento] = useState("");
@@ -47,14 +45,13 @@ export function ProveedorComplementos({
   useEffect(() => {
     let activo = true;
 
-    apiFetch(`${API_URL}/insumos`)
-      .then((r) => pedir<Insumo[]>(r, "No se pudieron cargar los insumos"))
+    listarInsumos()
       .then((data) => {
-        if (activo) setInsumos(data.filter((i) => i.activo));
+        if (activo) setInsumos(data);
       })
       .catch((e) => {
         if (activo) {
-          setError(e instanceof Error ? e.message : "Error al cargar insumos");
+          setError(e instanceof Error ? e.message : "Error al cargar los insumos");
         }
       });
 
@@ -63,10 +60,11 @@ export function ProveedorComplementos({
     };
   }, []);
 
+  // Se busca por ingrediente o por marca.
   const insumosFiltrados = insumos.filter((insumo) =>
-    insumo.nombre.toLocaleLowerCase("es").includes(
-      busquedaInsumos.trim().toLocaleLowerCase("es")
-    )
+    `${insumo.ingrediente_nombre} ${insumo.nombre}`
+      .toLocaleLowerCase("es")
+      .includes(busqueda.trim().toLocaleLowerCase("es"))
   );
 
   const seleccionarResultados = () => {
@@ -130,17 +128,17 @@ export function ProveedorComplementos({
   return (
     <Stack gap="5" mt="5">
       <TarjetaFormulario mb="0">
-        <TituloFormulario>Insumos que provee</TituloFormulario>
+        <TituloFormulario>Insumos que vende</TituloFormulario>
         <Text color="fg.muted" fontSize="sm" mb="3">
-          Buscá los insumos por nombre y seleccioná aquellos que este proveedor
-          está habilitado para suministrar.
+          Buscá por ingrediente o marca y seleccioná los insumos que este proveedor
+          vende. Solo se le pueden recibir lotes de esos insumos.
         </Text>
 
         <Stack gap="3" mb="3">
           <Input
-            value={busquedaInsumos}
-            onChange={(e) => setBusquedaInsumos(e.target.value)}
-            placeholder="Buscar insumo por nombre..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por ingrediente o marca..."
             aria-label="Buscar insumos"
             bg="bg.subtle"
             borderColor="border.subtle"
@@ -172,7 +170,7 @@ export function ProveedorComplementos({
 
           <Text color="fg.muted" fontSize="xs">
             {seleccionados.length} insumo(s) seleccionado(s)
-            {busquedaInsumos.trim()
+            {busqueda.trim()
               ? ` · ${insumosFiltrados.length} resultado(s)`
               : ""}
           </Text>
@@ -224,14 +222,14 @@ export function ProveedorComplementos({
                   <Checkbox.HiddenInput />
                   <Checkbox.Control />
                   <Checkbox.Label color="fg.default" fontSize="sm">
-                    {i.nombre}
+                    {i.ingrediente_nombre} — {i.nombre}
                   </Checkbox.Label>
                 </Checkbox.Root>
               ))
             ) : (
               <Text color="fg.muted" fontSize="sm">
                 {insumos.length === 0
-                  ? "No hay insumos activos para asociar."
+                  ? "No hay insumos activos. Los insumos (marcas) se cargan en la ficha de cada ingrediente."
                   : "No se encontraron insumos con esa búsqueda."}
               </Text>
             )}

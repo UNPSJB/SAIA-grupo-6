@@ -18,6 +18,7 @@ export interface Tarea {
   descripcion?: string | null;
   tipo: TipoTarea;
   observaciones?: string | null;
+  operador_id?: number | null;
   activo: boolean;
   plan_limpieza_id: number;
 }
@@ -31,6 +32,8 @@ export interface TareaInput {
   tipo: TipoTarea;
   descripcion?: string;
   observaciones?: string;
+  /** Operador responsable: obligatorio (null = todavía sin elegir). */
+  operador_id: number | null;
 }
 
 export interface PlanLimpieza {
@@ -66,4 +69,6 @@ export interface PersonalOption {
    */
   puede_administrar?: boolean;
   es_super_admin?: boolean;
+  /** Quién puede ser responsable de una tarea de limpieza. */
+  puede_operar?: boolean;
 }

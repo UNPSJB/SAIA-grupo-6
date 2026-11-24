@@ -1,4 +1,3 @@
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
@@ -9,11 +8,6 @@ from src.database import get_db
 from src.incidente.models import Incidente
 from src.personal.models import Personal
 from src.retiros import schemas, services
-from src.retiros.constants import (
-    ESTADO_NOTIFICACION_PENDIENTE,
-    ESTADO_RETIRO_CERRADO,
-    ESTADO_RETIRO_EN_CURSO,
-)
 
 router = APIRouter(prefix="/retiros", tags=["Retiros de lote"])
 

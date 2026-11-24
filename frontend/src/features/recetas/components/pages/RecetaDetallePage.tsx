@@ -217,7 +217,7 @@ export function RecetaDetallePage() {
           )}
           {cargandoVersion && <EstadoCargando>Cargando versión...</EstadoCargando>}
           {errorVersion && <BannerError>{errorVersion}</BannerError>}
-          {version && !cargandoVersion && <VersionDetalleView version={version} />}
+          {version && !cargandoVersion && <VersionDetalleView version={version} vigente={esVigente} />}
         </SeccionDetalle>
       )}
     </PaginaDetalle>

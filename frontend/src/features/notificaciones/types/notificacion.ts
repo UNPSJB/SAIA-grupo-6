@@ -8,7 +8,9 @@ export interface Notificacion {
     mensaje: string; 
     nivel: NivelNotificacion;
     link_destino: string; 
-    fecha_referencia?: string; }
+    fecha_referencia?: string;
+    leida?: boolean;
+}
 
 /**
  * Etiqueta del nivel de la alerta.
@@ -79,6 +81,7 @@ export interface AlertaCriticidad {
   fecha_referencia?: string;
   destino: string;
   recambio_id: number | null;
+  leida?: boolean;
 
   /** Impacto del tipo de situación: 1 bajo, 2 medio, 3 alto. */
   impacto: number;
@@ -114,6 +117,7 @@ export interface CriticidadDashboard {
   altas: number;
   medias: number;
   bajas: number;
+  no_leidas?: number;
   alertas: AlertaCriticidad[];
   elementos: ResumenElemento[];
 }

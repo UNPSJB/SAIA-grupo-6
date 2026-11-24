@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
  * Carga de un registro único por id, genérica.
  *
  * Reemplaza el `useEffect` + `useState` + `try/catch` que estaba repetido en los
- * nueve hooks de detalle (`useInsumo`, `useEquipo`, `usePersonal`, ...).
+ * nueve hooks de detalle (`useIngrediente`, `useEquipo`, `usePersonal`, ...).
  *
  * A diferencia de los hooks de listado, estos hooks NO tienen guarda de
  * cancelación: si el usuario abre el registro A y enseguida el B, la respuesta
@@ -21,7 +21,7 @@ export interface OpcionesRegistro<T> {
   cargar: (id: number) => Promise<T>;
   /** Id a cargar, o `null`/`undefined` si todavía no hay uno válido. */
   id: number | null | undefined;
-  /** Cómo se llama la entidad en el mensaje de error, con artículo: "el insumo". */
+  /** Cómo se llama la entidad en el mensaje de error, con artículo: "el ingrediente". */
   etiqueta: string;
 }
 

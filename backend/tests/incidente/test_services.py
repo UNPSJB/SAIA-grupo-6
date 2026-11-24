@@ -2,6 +2,8 @@
 
 from datetime import date, datetime
 
+import pytest
+
 from src.incidente import exceptions, schemas
 from src.incidente.models import Incidente, HistorialIncidente
 from src.incidente.services import (
@@ -15,7 +17,7 @@ from src.incidente.services import (
     obtener_incidente,
     resumen_por_tipo,
 )
-from src.incidente.constants import EstadoIncidente, TipoIncidente
+from src.incidente.constants import EstadoIncidente, OrigenIncidente, TipoIncidente
 from src.Equipo.models import Equipo
 from src.Equipo.services import crear_equipo
 from src.personal.models import Personal
@@ -396,6 +398,28 @@ def test_listar_mis_incidentes_solo_del_usuario(db_session):
     assert resultado[0].usuario_id == u1.id
 
 
+def test_listar_incidentes_filtro_reportado_por(db_session):
+    # Arrange: el panel de Personas abre el listado filtrado por quien reportó.
+    u1 = _personal_admin(db_session, dni="11111111", email="u1@test.com")
+    u2 = _personal_admin(db_session, dni="22222222", email="u2@test.com")
+    sector = _sector(db_session)
+    equipo = _equipo(db_session, sector.id)
+    for _ in range(2):
+        crear_incidente(db_session, _datos_incidente(equipo_id=equipo.id), u1.id)
+    crear_incidente(db_session, _datos_incidente(equipo_id=equipo.id), u2.id)
+
+    # Act
+    todos = listar_incidentes(db_session, reportado_por=u1.id)
+    items, total = listar_incidentes_paginado(
+        db_session, None, None, None, None, None, 1, 10, reportado_por=u1.id,
+    )
+
+    # Assert
+    assert len(todos) == 2
+    assert total == 2
+    assert all(i.usuario_id == u1.id for i in [*todos, *items])
+
+
 # ---------------------------------------------------------------------------
 # listar_mis_incidentes_paginado
 # ---------------------------------------------------------------------------
@@ -477,3 +501,86 @@ def test_obtener_historial_incidente_no_existe(db_session):
     else:
         raise AssertionError("Se esperaba IncidenteNoEncontrado")
 
+
+# ---------------------------------------------------------------------------
+# Origen: reportados por una persona o abiertos por un circuito
+# ---------------------------------------------------------------------------
+
+def _uno_de_cada_tipo(db):
+    usuario = _personal_admin(db)
+    for tipo in TipoIncidente:
+        db.add(
+            Incidente(titulo="T", descripcion="D", tipo=tipo.value, usuario_id=usuario.id)
+        )
+    db.commit()
+    return usuario
+
+
+DE_CIRCUITO = {"entrega_rechazada", "reclamo_cliente", "retiro_lote"}
+
+
+def test_listar_por_origen_separa_reportados_y_de_circuito(db_session):
+    _uno_de_cada_tipo(db_session)
+
+    reportados = {i.tipo for i in listar_incidentes(db_session, origen=OrigenIncidente.REPORTADO)}
+    circuito = {i.tipo for i in listar_incidentes(db_session, origen=OrigenIncidente.CIRCUITO)}
+
+    assert circuito == DE_CIRCUITO
+    assert reportados == {t.value for t in TipoIncidente} - DE_CIRCUITO
+    assert len(listar_incidentes(db_session)) == len(TipoIncidente)
+
+
+def test_el_resumen_cuenta_todos_los_tipos(db_session):
+    _uno_de_cada_tipo(db_session)
+
+    resumen = resumen_por_tipo(db_session)
+
+    assert {t.tipo: t.cantidad for t in resumen.por_tipo} == {t: 1 for t in TipoIncidente}
+
+
+def test_paginado_cuenta_lo_mismo_que_el_listado(db_session):
+    _uno_de_cada_tipo(db_session)
+
+    for origen in (OrigenIncidente.REPORTADO, OrigenIncidente.CIRCUITO, None):
+        esperado = len(listar_incidentes(db_session, origen=origen))
+        _, total = listar_incidentes_paginado(
+            db_session, None, None, None, None, None, 1, 5, origen=origen
+        )
+        assert total == esperado
+
+
+@pytest.mark.parametrize("tipo", sorted(DE_CIRCUITO))
+@pytest.mark.parametrize("estado", list(EstadoIncidente))
+def test_los_de_circuito_son_de_solo_lectura(db_session, tipo, estado):
+    usuario = _personal_admin(db_session)
+    fila = Incidente(titulo="T", descripcion="D", tipo=tipo, usuario_id=usuario.id)
+    db_session.add(fila)
+    db_session.commit()
+
+    with pytest.raises(exceptions.IncidenteInmutable):
+        cambiar_estado_incidente(db_session, fila.id, estado, usuario, "Listo")
+
+
+def test_devolucion_de_cliente_ya_no_es_un_tipo():
+    assert "devolucion_cliente" not in {t.value for t in TipoIncidente}
+
+
+def test_migracion_reclasifica_las_devoluciones_sin_perder_el_tipo(db_session, monkeypatch):
+    from src.migrations import incidentes as migracion
+
+    usuario = _personal_admin(db_session)
+    fila = Incidente(
+        titulo="T", descripcion="Vino mal", tipo="devolucion_cliente", usuario_id=usuario.id
+    )
+    db_session.add(fila)
+    db_session.commit()
+    monkeypatch.setattr(migracion, "engine", db_session.get_bind())
+
+    migracion._reclasificar_devoluciones()
+    migracion._reclasificar_devoluciones()  # la segunda no toca nada
+
+    db_session.refresh(fila)
+    assert fila.tipo == "otro"
+    assert fila.descripcion == (
+        "Vino mal\n\n(Registrado originalmente como Devolución de cliente.)"
+    )

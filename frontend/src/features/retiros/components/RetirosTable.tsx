@@ -41,7 +41,7 @@ export function RetirosTable({
             <EncabezadoOscuro width="16%">Origen</EncabezadoOscuro>
             <EncabezadoOscuro width="24%">Motivo</EncabezadoOscuro>
             <EncabezadoOscuro center ancho="amplia">Notificados</EncabezadoOscuro>
-            <EncabezadoOscuro center ancho="media">Estado</EncabezadoOscuro>
+            <EncabezadoOscuro center ancho="angosta">Estado</EncabezadoOscuro>
             <EncabezadoOscuro center width="10%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
@@ -68,6 +68,14 @@ export function RetirosTable({
               ? retiro.motivo.match(/\[Insumo:\s*(.*?)\]/)
               : null;
             const textoInsumo = matchInsumo ? matchInsumo[1] : null;
+
+            // Si el motivo es el genérico de su origen ("Reclamos de clientes"
+            // en uno por reclamo, "Insumo defectuoso" en uno por insumo), la
+            // columna Origen ya lo dice: se muestra el detalle, si lo hay.
+            const motivoRepiteOrigen =
+              (esReclamo && motivoTexto === "Reclamos de clientes") ||
+              (esInsumo && motivoTexto === "Insumo defectuoso");
+            const detalleSinInsumo = detalleTexto.replace(/\[Insumo:\s*.*?\]/, "").trim();
 
             return (
               <FilaClickeable key={retiro.id} onAbrir={() => onVerDetalle(retiro.id)}>
@@ -100,7 +108,7 @@ export function RetirosTable({
                           textDecoration="underline"
                           textUnderlineOffset="2px"
                           _hover={{ color: "teal.800" }}
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          onClick={(e) => {
                             e.stopPropagation();
                             if (onSearchChange) {
                               onSearchChange(textoInsumo);
@@ -122,7 +130,13 @@ export function RetirosTable({
                   )}
                 </Celda>
                 <Celda verticalAlign="top">
-                  <TextoTruncado texto={retiro.motivo} />
+                  {!motivoRepiteOrigen ? (
+                    <TextoTruncado texto={retiro.motivo} />
+                  ) : detalleSinInsumo ? (
+                    <TextoTruncado texto={detalleSinInsumo} />
+                  ) : (
+                    <Text color="fg.muted">—</Text>
+                  )}
                 </Celda>
                 <Celda verticalAlign="top" center whiteSpace="nowrap">
                   {retiro.total_afectados === 0 ? (

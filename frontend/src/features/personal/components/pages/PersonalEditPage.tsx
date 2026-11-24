@@ -10,6 +10,8 @@ import { useAuth } from "../../../../common/context/useAuth";
 import {
   esSuperAdmin,
   puedeModificarRoles,
+  puedeAsignarAdministrar,
+  puedeAsignarGerente,
 } from "../../../../common/api/permissions";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 
@@ -24,7 +26,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuUserPen } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function PersonalEditPage() {
   const navigate = useNavigate();
@@ -107,6 +110,8 @@ export function PersonalEditPage() {
           puede_operar: usuarioActualizado.puede_operar,
           puede_administrar: usuarioActualizado.puede_administrar,
           es_super_admin: Boolean(usuarioActualizado.es_super_admin),
+          es_gerente: Boolean(usuarioActualizado.es_gerente),
+          establecimiento_id: usuarioActualizado.establecimiento_id ?? null,
         });
       }
 
@@ -121,9 +126,11 @@ export function PersonalEditPage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/personal", etiqueta: "Personal" }}
+      icono={LuUserPen}
       titulo="Editar personal"
+      descripcion="Modificá los datos, permisos y vencimientos de aptitud de la persona."
     >
       {cargando && (
         <Stack direction="row" gap="3" align="center" color="fg.muted">
@@ -156,12 +163,14 @@ export function PersonalEditPage() {
               puede_operar: persona.puede_operar,
               puede_administrar: persona.puede_administrar,
               es_super_admin: Boolean(persona.es_super_admin),
+              es_gerente: Boolean(persona.es_gerente),
             }}
             onSubmit={handleSubmit}
             isLoading={guardando}
-            title="Modificar Personal"
             puedeEditarCapacidades={puedeEditarCapacidades}
             puedeAsignarSuperAdmin={puedeAsignarSuperAdmin}
+            puedeAsignarAdministrar={puedeAsignarAdministrar(user)}
+            puedeAsignarGerente={puedeAsignarGerente(user)}
             submitLabel="Guardar cambios"
             onCancel={() => navigate("/personal")}
             esMiPerfil={esMiPerfil}
@@ -179,6 +188,6 @@ export function PersonalEditPage() {
         isOpen={exito}
         mensaje="Personal modificado correctamente."
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

@@ -7,9 +7,9 @@ import {
   Tarjeta,
 } from "../../../components/ui/patrones";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
-import { ETIQUETA_CLASIFICACION, type RecetaEscalada } from "../types/receta";
+import { etiquetaEsAditivo, type RecetaEscalada } from "../types/receta";
 
-/** Cantidades de la receta escalada: por insumo y por tarea. */
+/** Cantidades de la receta escalada: por ingrediente y por tarea. */
 export function TablaEscalado({
   escalado,
   conTareas = true,
@@ -17,8 +17,8 @@ export function TablaEscalado({
   escalado: RecetaEscalada;
   conTareas?: boolean;
 }) {
-  const insumos = [...escalado.insumos].sort(
-    (a, b) => Number(a.clasificacion === "aditivo") - Number(b.clasificacion === "aditivo"),
+  const ingredientes = [...escalado.ingredientes].sort(
+    (a, b) => Number(a.es_aditivo) - Number(b.es_aditivo),
   );
 
   return (
@@ -31,17 +31,24 @@ export function TablaEscalado({
           <Table.Root variant="outline" w="100%" minW="640px">
             <Table.Header>
               <FilaEncabezado>
-                <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-                <EncabezadoOscuro ancho="media">Clasificación</EncabezadoOscuro>
+                <EncabezadoOscuro>Ingrediente</EncabezadoOscuro>
+                <EncabezadoOscuro ancho="angosta">Aditivo</EncabezadoOscuro>
                 <EncabezadoOscuro numero ancho="media">Receta (v{escalado.version.numero})</EncabezadoOscuro>
                 <EncabezadoOscuro numero ancho="media">Para tu lote</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
-              {insumos.map((i) => (
-                <Table.Row key={i.insumo.id}>
+              {ingredientes.map((i) => (
+                <Table.Row key={i.ingrediente.id}>
                   <Celda>
-                    <Text>{i.insumo.nombre}</Text>
+                    <Text>
+                      {i.ingrediente.nombre}
+                      {i.ingrediente.activo === false && (
+                        <Badge colorPalette="orange" variant="subtle" ml="2">
+                          Dado de baja
+                        </Badge>
+                      )}
+                    </Text>
                     {i.aditivo && (
                       <Text fontSize="xs" color="fg.muted">
                         {etiquetaAditivo(i.aditivo)}
@@ -49,8 +56,8 @@ export function TablaEscalado({
                     )}
                   </Celda>
                   <Celda>
-                    <Badge colorPalette={i.clasificacion === "aditivo" ? "purple" : "gray"} variant="subtle">
-                      {ETIQUETA_CLASIFICACION[i.clasificacion]}
+                    <Badge colorPalette={i.es_aditivo ? "purple" : "gray"} variant="subtle">
+                      {etiquetaEsAditivo(i.es_aditivo)}
                     </Badge>
                   </Celda>
                   <Celda numero color="fg.muted">{cantidadConUnidad(i.cantidad_receta, i.unidad_medida.simbolo)}</Celda>
@@ -75,15 +82,15 @@ export function TablaEscalado({
                 <Text fontWeight="bold" color="fg">
                   {t.orden}. {t.descripcion}
                 </Text>
-                {t.insumos.length === 0 ? (
+                {t.ingredientes.length === 0 ? (
                   <Text fontSize="sm" color="fg.subtle" mt="1">
-                    Sin insumos asignados.
+                    Sin ingredientes asignados.
                   </Text>
                 ) : (
                   <Stack gap="1" mt="2">
-                    {t.insumos.map((u) => (
-                      <Text key={u.insumo.id} fontSize="sm" color="fg.muted">
-                        {u.insumo.nombre}:{" "}
+                    {t.ingredientes.map((u) => (
+                      <Text key={u.ingrediente.id} fontSize="sm" color="fg.muted">
+                        {u.ingrediente.nombre}:{" "}
                         <Text as="span" fontWeight="bold" color="fg">
                           {cantidadConUnidad(u.cantidad_escalada, u.unidad_medida.simbolo)}
                         </Text>

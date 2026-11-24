@@ -1,18 +1,14 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from src.certificaciones_transportista import (
-    schemas as certificaciones_schemas,
-)
 from src.certificaciones_transportista.estado import (
     ESTADO_HABILITADO,
     estado_habilitacion,
 )
-from src.certificaciones_transportista.models import CertificacionTransportista
 from src.clientes.models import Cliente
 from src.common.fechas import ahora, hoy
 from src.incidente import services as incidente_services
@@ -30,7 +26,6 @@ from src.reposiciones.constants import (
 from src.reposiciones.models import Reposicion
 from src.salidas import exceptions, schemas
 from src.salidas.constants import (
-    DISPOSICION_DESECHADA,
     DISPOSICION_REINGRESADA,
     DISPOSICIONES,
     ESTADO_CANCELADO,
@@ -150,6 +145,7 @@ def reservar(
 
     Validaciones:
     - Lote existe y no está retirado.
+    - El lote tiene un borrador de rotulado completo.
     - Cliente existe y está activo.
     - cantidad > 0.
     - cantidad <= saldo del lote.
@@ -164,6 +160,12 @@ def reservar(
 
     if lote.fecha_vencimiento is not None and lote.fecha_vencimiento < hoy():
         raise exceptions.LoteVencidoError()
+
+    # Sin rotulado completo del lote no se vende.
+    from src.rotulado.services import borrador_completo_del_lote
+
+    if borrador_completo_del_lote(db, lote.id) is None:
+        raise exceptions.LoteSinRotulado()
 
     cliente = _obtener_cliente_o_error(db, cliente_id)
 
@@ -955,6 +957,8 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
         .order_by(LoteProducto.numero_lote.asc())
     ).all()
 
+    from src.rotulado.services import borrador_completo_del_lote
+
     disponibles: list[schemas.LoteDisponible] = []
     for lote in lotes:
         producto = lote.producto
@@ -977,6 +981,7 @@ def obtener_lotes_disponibles(db: Session) -> list[schemas.LoteDisponible]:
                     fecha_vencimiento=lote.fecha_vencimiento,
                     retirado=lote.retirado,
                     retiro_id=None,
+                    rotulado_completo=borrador_completo_del_lote(db, lote.id) is not None,
                 )
             )
     return disponibles

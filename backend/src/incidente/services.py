@@ -1,6 +1,5 @@
 import logging
 from datetime import date
-from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
@@ -9,15 +8,16 @@ from src.common.listados import ColumnaOrden, aplicar_orden, filtro_busqueda
 from src.common.paginacion import paginar
 from src.common.persistence import guardar
 from src.incidente import models, schemas, exceptions
-from src.incidente.constants import EstadoIncidente, TipoIncidente
+from src.incidente.constants import (
+    EstadoIncidente,
+    OrigenIncidente,
+    TIPOS_DE_CIRCUITO,
+    TipoIncidente,
+)
 from src.Equipo.models import Equipo
 from src.personal.models import Personal
-from src.reposiciones.constants import (
-    ESTADO_REPOSICION_PENDIENTE,
-    ORIGEN_REPOSICION_RECLAMO,
-    PRIORIDAD_ALTA,
-)
-from src.reposiciones.models import Reposicion
+from src.reclamos.models import Reclamo
+from src.retiros.models import Retiro
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,34 @@ def _completar_nombres(incidentes: List[models.Incidente]) -> List[models.Incide
             inc.equipo_nombre = inc.equipo.nombre
         inc.usuario_nombre = _nombre_completo(inc.usuario)
         inc.responsable_cierre_nombre = _nombre_completo(inc.responsable_cierre)
+    return incidentes
+
+
+def _completar_circuito(
+    db: Session, incidentes: List[models.Incidente]
+) -> List[models.Incidente]:
+    """Agrega el reclamo o el retiro donde se resuelve cada incidente.
+
+    El vínculo se guarda del otro lado (`reclamos.incidente_id`,
+    `retiros.incidente_id`): una consulta por tabla para todo el listado.
+    """
+    for modelo, atributo, tipo in (
+        (Reclamo, "reclamo_id", TipoIncidente.RECLAMO_CLIENTE),
+        (Retiro, "retiro_id", TipoIncidente.RETIRO_LOTE),
+    ):
+        ids = [i.id for i in incidentes if i.tipo == tipo.value]
+        if not ids:
+            continue
+        por_incidente = dict(
+            db.execute(
+                select(modelo.incidente_id, modelo.id).where(
+                    modelo.incidente_id.in_(ids)
+                )
+            ).all()
+        )
+        for incidente in incidentes:
+            if incidente.id in por_incidente:
+                setattr(incidente, atributo, por_incidente[incidente.id])
     return incidentes
 
 
@@ -162,6 +190,16 @@ def _aplicar_rango_fechas(
     return consulta
 
 
+def _aplicar_origen(consulta, origen: Optional[OrigenIncidente]):
+    """Acota a los reportados por una persona o a los abiertos por un circuito."""
+    if origen is None:
+        return consulta
+    tipos = [tipo.value for tipo in TIPOS_DE_CIRCUITO]
+    if origen == OrigenIncidente.CIRCUITO:
+        return consulta.where(models.Incidente.tipo.in_(tipos))
+    return consulta.where(models.Incidente.tipo.not_in(tipos))
+
+
 def _consulta_incidentes(
     estado: Optional[EstadoIncidente],
     tipo: Optional[str],
@@ -229,6 +267,8 @@ def listar_incidentes(
     buscar: Optional[str] = None,
     fecha_desde: Optional[date] = None,
     fecha_hasta: Optional[date] = None,
+    reportado_por: Optional[int] = None,
+    origen: Optional[OrigenIncidente] = None,
 ) -> List[models.Incidente]:
     """Lista los incidentes, por defecto del más reciente al más viejo.
 
@@ -244,7 +284,11 @@ def listar_incidentes(
     _validar_rango_fechas(fecha_desde, fecha_hasta)
     consulta = _consulta_incidentes(estado, tipo, equipo_id, orden, buscar)
     consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
-    return _completar_nombres(list(db.scalars(consulta).all()))
+    consulta = _aplicar_origen(consulta, origen)
+    if reportado_por is not None:
+        consulta = consulta.where(models.Incidente.usuario_id == reportado_por)
+    incidentes = list(db.scalars(consulta).all())
+    return _completar_circuito(db, _completar_nombres(incidentes))
 
 
 def listar_incidentes_paginado(
@@ -258,6 +302,8 @@ def listar_incidentes_paginado(
     page_size: int,
     fecha_desde: Optional[date] = None,
     fecha_hasta: Optional[date] = None,
+    reportado_por: Optional[int] = None,
+    origen: Optional[OrigenIncidente] = None,
 ) -> tuple[List[models.Incidente], int]:
     """Página del listado, recortada por la BASE (COUNT + OFFSET/LIMIT).
 
@@ -271,8 +317,11 @@ def listar_incidentes_paginado(
     _validar_rango_fechas(fecha_desde, fecha_hasta)
     consulta = _consulta_incidentes(estado, tipo, equipo_id, orden, buscar)
     consulta = _aplicar_rango_fechas(consulta, fecha_desde, fecha_hasta)
+    consulta = _aplicar_origen(consulta, origen)
+    if reportado_por is not None:
+        consulta = consulta.where(models.Incidente.usuario_id == reportado_por)
     incidentes, total = paginar(db, consulta, page, page_size)
-    return _completar_nombres(incidentes), total
+    return _completar_circuito(db, _completar_nombres(incidentes)), total
 
 
 def obtener_incidente(db: Session, incidente_id: int, current_user: Personal) -> models.Incidente:
@@ -353,7 +402,7 @@ def resumen_por_tipo(
 ) -> schemas.IncidenteResumenResponse:
     """Cuenta incidentes por tipo para el indicador del tablero (E7).
 
-    Devuelve los cinco tipos siempre, con 0 si no hay registros. Por
+    Devuelve todos los tipos siempre, con 0 si no hay registros. Por
     defecto es el universo de los abiertos (la historia de "incidentes abiertos":
     que ninguno quede reportado y olvidado). `fecha_desde`/`fecha_hasta`
     acotan por fecha de reporte (inclusive).
@@ -387,44 +436,27 @@ def cerrar_incidente(
     incidente: models.Incidente,
     current_user: Personal,
     observacion_cierre: Optional[str] = None,
-    *,
-    mercaderia_devuelta: bool = False,
-    disposicion_fisica: Optional[str] = None,
-    generar_reposicion: bool = False,
-    cantidad_a_reponer: Optional[Decimal] = None,
 ) -> models.Incidente:
     """Cierra un incidente y asienta la acción correctiva, SIN commitear.
 
-    Concentra la lógica de cierre que antes vivía dentro de
-    `cambiar_estado_incidente`, para que el rechazo de una entrega pueda
-    cerrar el incidente vinculado dentro de su propia transacción sin
-    duplicar el comportamiento. Deja el incidente en `flush`.
+    La usan también los circuitos que abren incidentes (rechazo, reclamo y
+    retiro), para cerrarlo dentro de su propia transacción. Deja el incidente
+    en `flush`.
     """
     if incidente.estado == EstadoIncidente.CERRADO.value:
         return incidente
 
+    observacion = (observacion_cierre or "").strip() or None
     # Un reclamo de cliente no se cierra sin asentar la acción correctiva.
-    if (
-        incidente.tipo == TipoIncidente.RECLAMO_CLIENTE.value
-        and not (observacion_cierre or "").strip()
-    ):
+    if incidente.tipo == TipoIncidente.RECLAMO_CLIENTE.value and observacion is None:
         raise exceptions.ObservacionCierreRequerida()
-
-    # Traza de resolución: anexar disposición física si hubo devolución de mercadería
-    observacion_final = (observacion_cierre or "").strip() or None
-    if mercaderia_devuelta:
-        traza_devolucion = f"Mercadería devuelta a planta. Disposición física: {disposicion_fisica}"
-        if observacion_final:
-            observacion_final = f"{observacion_final} | {traza_devolucion}"
-        else:
-            observacion_final = traza_devolucion
 
     _verificar_usuario(db, current_user.id)
     estado_anterior = incidente.estado
     incidente.estado = EstadoIncidente.CERRADO.value
     incidente.fecha_cierre = ahora()
     incidente.responsable_cierre_id = current_user.id
-    incidente.observacion_cierre = observacion_final
+    incidente.observacion_cierre = observacion
 
     db.add(
         models.HistorialIncidente(
@@ -432,61 +464,44 @@ def cerrar_incidente(
             estado_anterior=estado_anterior,
             estado_nuevo=EstadoIncidente.CERRADO.value,
             usuario_id=current_user.id,
-            observacion=observacion_final,
+            observacion=observacion,
         )
     )
-
-    # Conexión con Reposiciones si se solicita generar reposición
-    if (
-        generar_reposicion
-        and cantidad_a_reponer is not None
-        and Decimal(str(cantidad_a_reponer)) > Decimal("0")
-    ):
-        from src.lotes.models import LoteProducto
-        from src.reclamos.models import Reclamo
-        from src.salidas.models import Salida
-
-        cliente_id: Optional[int] = None
-        producto_id: Optional[int] = None
-
-        if incidente.salida_id is not None:
-            salida = db.get(Salida, incidente.salida_id)
-            if salida is not None:
-                cliente_id = salida.cliente_id
-                if salida.lote is not None:
-                    producto_id = salida.lote.producto_id
-
-        if producto_id is None and incidente.lote_id is not None:
-            lote = db.get(LoteProducto, incidente.lote_id)
-            if lote is not None:
-                producto_id = lote.producto_id
-
-        if cliente_id is None:
-            reclamo = db.scalar(
-                select(Reclamo).where(Reclamo.incidente_id == incidente.id)
-            )
-            if reclamo is not None:
-                cliente_id = reclamo.cliente_id
-                if producto_id is None and reclamo.lote is not None:
-                    producto_id = reclamo.lote.producto_id
-
-        if cliente_id is not None and producto_id is not None:
-            cantidad_dec = Decimal(str(cantidad_a_reponer))
-            nueva_reposicion = Reposicion(
-                cliente_id=cliente_id,
-                producto_id=producto_id,
-                cantidad_original=cantidad_dec,
-                cantidad_pendiente=cantidad_dec,
-                estado=ESTADO_REPOSICION_PENDIENTE,
-                prioridad=PRIORIDAD_ALTA,
-                origen=ORIGEN_REPOSICION_RECLAMO,
-                salida_origen_id=incidente.salida_id,
-                incidente_origen_id=incidente.id,
-            )
-            db.add(nueva_reposicion)
-
     db.flush()
     logger.info("Incidente %s cerrado por %s", incidente.id, current_user.id)
+    return incidente
+
+
+def reabrir_incidente(
+    db: Session,
+    incidente: models.Incidente,
+    current_user: Personal,
+    motivo: Optional[str] = None,
+) -> models.Incidente:
+    """Vuelve a abrir un incidente cerrado, SIN commitear.
+
+    Limpia los datos del cierre para que no queden desactualizados: el cierre
+    anterior sigue en el historial.
+    """
+    if incidente.estado == EstadoIncidente.ABIERTO.value:
+        return incidente
+
+    estado_anterior = incidente.estado
+    incidente.estado = EstadoIncidente.ABIERTO.value
+    incidente.fecha_cierre = None
+    incidente.responsable_cierre_id = None
+    incidente.observacion_cierre = None
+    db.add(
+        models.HistorialIncidente(
+            incidente_id=incidente.id,
+            estado_anterior=estado_anterior,
+            estado_nuevo=EstadoIncidente.ABIERTO.value,
+            usuario_id=current_user.id,
+            observacion=motivo,
+        )
+    )
+    db.flush()
+    logger.info("Incidente %s reabierto por %s", incidente.id, current_user.id)
     return incidente
 
 
@@ -496,17 +511,10 @@ def cambiar_estado_incidente(
     estado: EstadoIncidente,
     current_user: Personal,
     observacion_cierre: Optional[str] = None,
-    *,
-    mercaderia_devuelta: bool = False,
-    disposicion_fisica: Optional[str] = None,
-    generar_reposicion: bool = False,
-    cantidad_a_reponer: Optional[Decimal] = None,
 ) -> models.Incidente:
-    """Cierra o reabre un incidente.
+    """Cierra o reabre un incidente reportado, y lo asienta en el historial.
 
-    Al cerrar se asienta la acción correctiva, cuándo se cerró y quién lo
-    resolvió. Al reabrir se limpia esa información para que no quede
-    desactualizada. Además, guarda un evento en el historial de incidentes.
+    Los de un circuito no pasan por acá: se resuelven donde se originaron.
     """
     incidente = db.scalar(
         select(models.Incidente)
@@ -516,15 +524,9 @@ def cambiar_estado_incidente(
     if incidente is None:
         raise exceptions.IncidenteNoEncontrado()
 
-    # Los incidentes originados por un rechazo de mercadería o por un retiro
-    # de lote no se cierran ni se reabren desde E6: su resolución vive en
-    # "Resolver rechazo" de Salidas y en "Cerrar retiro" de Retiros.
     # Va antes del early return de "mismo estado" para que reabrir uno ya
     # cerrado también devuelva el error y no un 200 silencioso.
-    if incidente.tipo in (
-        TipoIncidente.ENTREGA_RECHAZADA.value,
-        TipoIncidente.RETIRO_LOTE.value,
-    ):
+    if incidente.tipo in {tipo.value for tipo in TIPOS_DE_CIRCUITO}:
         raise exceptions.IncidenteInmutable()
 
     if incidente.estado == estado.value:
@@ -535,32 +537,9 @@ def cambiar_estado_incidente(
         return _completar_nombres([incidente])[0]
 
     if estado == EstadoIncidente.CERRADO:
-        cerrar_incidente(
-            db,
-            incidente,
-            current_user,
-            observacion_cierre,
-            mercaderia_devuelta=mercaderia_devuelta,
-            disposicion_fisica=disposicion_fisica,
-            generar_reposicion=generar_reposicion,
-            cantidad_a_reponer=cantidad_a_reponer,
-        )
+        cerrar_incidente(db, incidente, current_user, observacion_cierre)
     else:
-        estado_anterior = incidente.estado
-        incidente.estado = EstadoIncidente.ABIERTO.value
-        incidente.fecha_cierre = None
-        incidente.responsable_cierre_id = None
-        incidente.observacion_cierre = None
-        db.add(
-            models.HistorialIncidente(
-                incidente_id=incidente.id,
-                estado_anterior=estado_anterior,
-                estado_nuevo=EstadoIncidente.ABIERTO.value,
-                usuario_id=current_user.id,
-                observacion=observacion_cierre,
-            )
-        )
-        logger.info("Incidente %s reabierto por %s", incidente.id, current_user.id)
+        reabrir_incidente(db, incidente, current_user, observacion_cierre)
 
     guardar(db, incidente)
 

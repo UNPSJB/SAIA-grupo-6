@@ -20,9 +20,9 @@ import {
   VerTodos,
 } from "../piezasPanel";
 
-const TIPOS_INSUMO = [
-  { valor: "ingrediente", etiqueta: "Ingredientes" },
-  { valor: "aditivo", etiqueta: "Aditivos" },
+const OPCIONES_ADITIVO = [
+  { valor: "true", etiqueta: "Aditivos" },
+  { valor: "false", etiqueta: "No aditivos" },
 ];
 
 const SERIES_MOVIMIENTOS = [
@@ -41,17 +41,17 @@ const COLOR_STOCK = {
  * Panel de Inventario: con qué materia prima se cuenta, qué se está por
  * vencer y cuánto se mueve el depósito.
  *
- * Los movimientos se cuentan en registros y no en cantidades: cada insumo
- * tiene su unidad (kg, l, un) y sumarlas entre insumos no significa nada.
+ * Los movimientos se cuentan en registros y no en cantidades: cada ingrediente
+ * tiene su unidad (kg, l, un) y sumarlas entre ingredientes no significa nada.
  */
 export function PanelInventario() {
-  const panel = usePanel<DatosInventario>("inventario", "tipo");
+  const panel = usePanel<DatosInventario>("inventario", "es_aditivo");
   const periodo = textoPeriodo(panel.dias);
 
   return (
     <MarcoPanel
       panel={panel}
-      filtro={{ label: "Tipo de insumo", todos: "Todos los tipos", opciones: TIPOS_INSUMO }}
+      filtro={{ label: "Ingredientes", todos: "Todos los ingredientes", opciones: OPCIONES_ADITIVO }}
     >
       {(d) => (
         <>
@@ -68,11 +68,11 @@ export function PanelInventario() {
                   enCabecera
                   metricas={[
                     {
-                      clave: "insumos",
-                      etiqueta: "Insumos activos",
-                      valor: formatoCantidad(d.insumos_activos),
+                      clave: "ingredientes",
+                      etiqueta: "Ingredientes activos",
+                      valor: formatoCantidad(d.ingredientes_activos),
                       icono: LuPackage,
-                      detalle: `${plural(d.insumos_sin_stock, "sin stock", "sin stock")}`,
+                      detalle: `${plural(d.ingredientes_sin_stock, "sin stock", "sin stock")}`,
                     },
                     {
                       clave: "por_vencer",
@@ -95,10 +95,10 @@ export function PanelInventario() {
 
             <Bloque
               titulo="Estado general del stock"
-              descripcion="Insumos activos según el stock que tienen hoy"
-              vacio={sinValores(d.estado_stock) && "No hay insumos activos."}
+              descripcion="Ingredientes activos según el stock que tienen hoy"
+              vacio={sinValores(d.estado_stock) && "No hay ingredientes activos."}
             >
-              <GraficoDona partes={conColor(d.estado_stock, COLOR_STOCK)} unidad="insumos" />
+              <GraficoDona partes={conColor(d.estado_stock, COLOR_STOCK)} unidad="ingredientes" />
             </Bloque>
           </GrillaBloques>
 
@@ -109,13 +109,13 @@ export function PanelInventario() {
               vacio={d.vencen_primero.length === 0 && "No hay lotes con fecha de vencimiento."}
             >
               <ListaPanel filas={d.vencen_primero} acento />
-              <VerTodos to="/stock-insumos">Ver el stock de insumos</VerTodos>
+              <VerTodos to="/lotes-insumo">Ver los lotes de insumos</VerTodos>
             </Bloque>
           </GrillaBloques>
 
           <GrillaBloques>
             <Bloque
-              titulo="Insumos con más movimiento"
+              titulo="Ingredientes con más movimiento"
               descripcion={`Consumos registrados en producción en los ${periodo}`}
               vacio={d.mas_movimiento.length === 0 && "No se registraron consumos en el período."}
             >

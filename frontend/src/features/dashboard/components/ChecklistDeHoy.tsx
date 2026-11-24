@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Badge, Box, Flex, Link, Stack, Text } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import { LuArrowRight, LuCircleCheck, LuSprayCan } from "react-icons/lu";
+import { puedeAdministrar } from "../../../common/api/permissions";
+import { useAuth } from "../../../common/context/useAuth";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import type { ChecklistHoy, FilaAtencion } from "../types/paneles";
 import { TEMAS_AREA } from "../types/temasArea";
@@ -58,41 +60,47 @@ function useFilasQueEntran(cantidad: number) {
  * Una tarea pendiente: el nombre y, debajo, el plan de limpieza al que
  * pertenece (en una segunda línea, porque los nombres de plan son largos y
  * en una etiqueta quedaban cortados); el operador a la derecha. El `detalle`
- * llega como "Plan · Operador" desde el backend.
+ * llega como "Plan · Operador" desde el backend. Toda la fila lleva a esa
+ * tarea en el checklist diario, como las de producción llevan a su lote.
  */
-function FilaPendiente({ tarea }: { tarea: FilaAtencion }) {
-  const [plan, operador] = (tarea.detalle ?? "").split(" · ");
+function FilaPendiente({ tarea, miNombre }: { tarea: FilaAtencion; miNombre?: string }) {
+  const [plan, responsable] = (tarea.detalle ?? "").split(" · ");
+  // A quien solo opera no se le repite su propio nombre en cada fila.
+  const operador = responsable === miNombre ? undefined : responsable;
   return (
-    <Flex
-      as="li"
-      align="center"
-      gap="3"
-      px="2"
-      mx="-2"
-      py="1.5"
-      rounded="md"
-      borderTopWidth="1px"
-      borderColor="border.subtle"
-      _first={{ borderTopWidth: "0" }}
-      _hover={{ bg: "bg.subtle" }}
-      fontSize="sm"
-    >
-      <Box flex="1" minW="0">
-        <Text truncate color="fg" title={tarea.titulo}>
-          {tarea.titulo}
-        </Text>
-        {plan ? (
-          <Text truncate fontSize="xs" color="fg.muted" title={plan}>
-            {plan}
-          </Text>
-        ) : null}
-      </Box>
-      {operador ? (
-        <Text color="fg.muted" fontSize="xs" flexShrink={0} w="28" textAlign="right" truncate title={operador}>
-          {operador}
-        </Text>
-      ) : null}
-    </Flex>
+    <Box as="li" borderTopWidth="1px" borderColor="border.subtle" _first={{ borderTopWidth: "0" }}>
+      <Link
+        asChild
+        display="flex"
+        alignItems="center"
+        gap="3"
+        px="2"
+        mx="-2"
+        py="1.5"
+        rounded="md"
+        fontSize="sm"
+        textDecoration="none"
+        _hover={{ bg: "bg.subtle", textDecoration: "none" }}
+      >
+        <RouterLink to={tarea.link ?? "/checklist"}>
+          <Box flex="1" minW="0">
+            <Text truncate color="fg" title={tarea.titulo}>
+              {tarea.titulo}
+            </Text>
+            {plan ? (
+              <Text truncate fontSize="xs" color="fg.muted" title={plan}>
+                {plan}
+              </Text>
+            ) : null}
+          </Box>
+          {operador ? (
+            <Text color="fg.muted" fontSize="xs" flexShrink={0} w="36" textAlign="right" truncate title={operador}>
+              {operador}
+            </Text>
+          ) : null}
+        </RouterLink>
+      </Link>
+    </Box>
   );
 }
 
@@ -111,6 +119,8 @@ export function ChecklistDeHoy({ checklist }: { checklist: ChecklistHoy }) {
   const completo = total > 0 && completadas === total;
   const color = completo ? "var(--chakra-colors-green-500)" : tema.acento;
   const { contenedor, visibles } = useFilasQueEntran(pendientes.length);
+  const { user } = useAuth();
+  const miNombre = user && !puedeAdministrar(user) ? `${user.nombre} ${user.apellido ?? ""}`.trim() : undefined;
 
   return (
     <TarjetaInicio>
@@ -203,7 +213,7 @@ export function ChecklistDeHoy({ checklist }: { checklist: ChecklistHoy }) {
               >
                 <Stack gap="0" as="ul" listStyleType="none" m="0" p="0">
                   {pendientes.slice(0, visibles).map((t) => (
-                    <FilaPendiente key={t.clave} tarea={t} />
+                    <FilaPendiente key={t.clave} tarea={t} miNombre={miNombre} />
                   ))}
                 </Stack>
               </Box>

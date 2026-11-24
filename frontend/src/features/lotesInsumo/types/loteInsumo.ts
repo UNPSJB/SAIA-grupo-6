@@ -14,7 +14,10 @@ export const MOTIVOS_BAJA_INSUMO: { valor: MotivoBajaInsumo; etiqueta: string }[
 export interface StockLoteInsumo {
   lote_insumo_id: number;
   insumo_id: number;
+  /** Marca (y descripción, si hay) del insumo recibido. */
   insumo_nombre: string;
+  ingrediente_id: number;
+  ingrediente_nombre: string;
   unidad: string;
   proveedor_id: number;
   proveedor_nombre: string;
@@ -22,6 +25,8 @@ export interface StockLoteInsumo {
   fecha_vencimiento: string | null;
   activo: boolean;
   vencido: boolean;
+  /** Por qué la marca no se puede consumir (homologación no aprobada o vencida); null si se puede. */
+  marca_no_utilizable?: string | null;
   motivo_baja: string | null;
   fecha_baja: string | null;
   dado_de_baja_por_nombre: string | null;
@@ -32,9 +37,9 @@ export interface StockLoteInsumo {
   saldo: string;
 }
 
-export interface StockInsumo {
-  insumo_id: number;
-  insumo_nombre: string;
+export interface StockIngrediente {
+  ingrediente_id: number;
+  ingrediente_nombre: string;
   unidad: string;
   cantidad_recibida: string;
   consumo_real: string;
@@ -45,6 +50,7 @@ export interface StockInsumo {
 }
 
 export interface LoteInsumoInput {
+  /** El insumo (marca) recibido; el ingrediente sale de él. */
   insumo_id: number;
   proveedor_id: number;
   numero_lote: string;
@@ -75,19 +81,7 @@ export interface BajaLoteInsumoRegistro {
   registrado_en: string;
 }
 
-export interface IndicadorBajasPorMotivoItem {
-  motivo: MotivoBajaInsumo;
-  etiqueta: string;
-  cantidad_registros: number;
-  cantidad_total: string;
-}
-
-export interface IndicadorBajasResponse {
-  total_registros: number;
-  por_motivo: IndicadorBajasPorMotivoItem[];
-}
-
-export interface InsumoOpcion {
+export interface IngredienteOpcion {
   id: number;
   nombre: string;
   unidad_medida: { id: number; nombre: string; simbolo: string };

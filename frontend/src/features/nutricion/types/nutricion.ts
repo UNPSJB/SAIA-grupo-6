@@ -48,6 +48,10 @@ export interface ParametrosGenerales {
   mostrar_por_100: boolean;
   /** Agrega la frase «No aporta cantidades significativas de…» (texto fijo). */
   frase_no_significativo: boolean;
+  /** Desvío admitido (%) entre el rótulo de una marca y el objetivo de su ingrediente. */
+  tolerancia_homologacion_pct: string;
+  /** Meses que dura una homologación aprobada (avisa al vencer). */
+  vigencia_homologacion_meses: number | string;
 }
 
 export interface Parametros {
@@ -97,9 +101,9 @@ export interface Completitud {
 }
 
 export interface DatosNutricionales {
-  insumo_id: number;
+  ingrediente_id: number;
   nombre: string;
-  tipo: "ingrediente" | "aditivo";
+  es_aditivo: boolean;
   unidad: string;
   unidad_tipo: "masa" | "volumen" | "unidad" | null;
   peso_unidad_g: string | null;
@@ -147,9 +151,9 @@ export interface ConfiguracionProducto {
 export type ConfiguracionProductoInput = Omit<ConfiguracionProducto, "configurada">;
 
 export interface IngredienteCalculo {
-  insumo_id: number;
+  ingrediente_id: number;
   nombre: string;
-  tipo: "ingrediente" | "aditivo";
+  es_aditivo: boolean;
   cantidad: string;
   unidad: string;
   gramos: string | null;
@@ -171,7 +175,7 @@ export interface FilaTabla {
   vd_texto: string;
   no_significativo: boolean;
   vd_establecido: boolean;
-  /** Algún insumo no tiene este nutriente: la fila va sin valores. */
+  /** Algún ingrediente no tiene este nutriente: la fila va sin valores. */
   faltan_datos: boolean;
   /** Sale de un análisis del producto, no de los ingredientes. */
   de_laboratorio: boolean;

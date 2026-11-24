@@ -3,12 +3,18 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import get_current_user_activo_completo
 from src.config import CARPETA_UPLOADS
 from src.database import get_db
+from src.certificaciones_transportista.models import CertificacionTransportista
+from src.checklist.models import HistorialRegistroTarea, RegistroTarea
 from src.documentos.models import VersionDocumento
+from src.Equipo.models import Calibracion
+from src.incidente.models import Incidente
+from src.proveedores.models import CertificacionProveedor
 
 router = APIRouter(prefix="/uploads", tags=["evidencias"])
 
@@ -16,6 +22,30 @@ router = APIRouter(prefix="/uploads", tags=["evidencias"])
 # otra carpeta hacia que las evidencias se guardaran (y se sirvieran) en un
 # lugar distinto al esperado.
 CARPETA_BASE = CARPETA_UPLOADS.resolve()
+
+
+# Columnas que guardan la ruta (`uploads/...`) de un archivo subido. Un archivo
+# se sirve solo si alguna fila de la sede del usuario lo referencia: las
+# consultas ya vienen filtradas por sede (src.establecimientos.contexto), así
+# que el archivo de otra sede "no existe" aunque se conozca la ruta.
+REFERENCIAS_A_ARCHIVOS = (
+    VersionDocumento.archivo_url,
+    Calibracion.certificado_url,
+    CertificacionTransportista.archivo_url,
+    CertificacionProveedor.archivo_url,
+    RegistroTarea.evidencia_url,
+    HistorialRegistroTarea.evidencia_url,
+    Incidente.foto_url,
+)
+
+
+def _referenciado_en_la_sede(db: Session, ruta_para_bd: str) -> bool:
+    return any(
+        # `select(...).exists()` y no `exists().where(...)`: este último no
+        # recibe el filtro de sede (ver src.establecimientos.contexto).
+        db.scalar(select(select(columna).where(columna == ruta_para_bd).exists()))
+        for columna in REFERENCIAS_A_ARCHIVOS
+    )
 
 
 def _resolver_ruta_segura(ruta_relativa: str) -> Path:
@@ -92,6 +122,14 @@ def obtener_evidencia(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Se requiere permiso de operar para acceder a documentos.",
                 )
+
+    # Todo archivo (no solo los documentos) tiene que pertenecer a la sede de
+    # quien lo pide. Sin referencia en su sede: 404, sin revelar si existe.
+    if not _referenciado_en_la_sede(db, f"uploads/{ruta_relativa_norm}"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El archivo no existe.",
+        )
 
     ruta = ruta_absoluta
 

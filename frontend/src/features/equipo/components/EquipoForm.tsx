@@ -1,22 +1,23 @@
 import { useState } from "react";
-import { Box, Switch } from "@chakra-ui/react";
+import { Switch } from "@chakra-ui/react";
 import type { EquipoInput } from "../types/equipo";
 import type { SectorResumen } from "../../sector/types/sector";
 import { useSectores } from "../../sector/hooks/useSectores";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  CeldaCompleta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 type EquipoFormValues = EquipoInput;
 
@@ -25,7 +26,6 @@ interface EquipoFormProps {
   onSubmit: (values: EquipoFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
   mostrarBaja?: boolean;
   /** La baja requiere confirmación: la pide la página, no el formulario. */
@@ -46,14 +46,13 @@ const emptyValues: EquipoFormValues = {
 /**
  * El aspecto del input lo aporta la receta `input` del tema
  * (`src/theme/index.ts`), así que acá no hay ningún objeto de estilo. El
- * ancho (`maxW="500px"`) sí es una decisión de layout y queda como prop.
+ * layout lo dan las piezas de `formularios.tsx`.
  */
 export function EquipoForm({
   initialValues = emptyValues,
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de Equipo",
   onCancel,
   mostrarBaja = false,
   onSolicitarBaja,
@@ -115,74 +114,68 @@ export function EquipoForm({
   };
 
   return (
-    <TarjetaFormulario as="form" onSubmit={handleSubmit}>
-      <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo>
+            <FormInput
+              value={values.nombre}
+              onChange={handleNombreChange}
+              placeholder="Ej: Heladera industrial"
+            />
+          </FormField>
 
-      {/* Nombre */}
-      <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required mb="4">
-        <FormInput
-          value={values.nombre}
-          onChange={handleNombreChange}
-          placeholder="Ej: Heladera industrial"
-          maxW="500px"
-        />
-      </FormField>
+          <FormField invalid={intentado && faltan.tiene("tipo")} label="Tipo" required>
+            <FormInput
+              value={values.tipo}
+              onChange={handleTipoChange}
+              placeholder="Ej: Heladera, horno, freidora..."
+            />
+          </FormField>
 
-      {/* Tipo */}
-      <FormField invalid={intentado && faltan.tiene("tipo")} label="Tipo" required mb="4">
-        <FormInput
-          value={values.tipo}
-          onChange={handleTipoChange}
-          placeholder="Ej: Heladera, horno, freidora..."
-          maxW="500px"
-        />
-      </FormField>
+          <FormField invalid={intentado && faltan.tiene("sector")} label="Sector" required>
+            <FormNativeSelect
+              invalid={intentado && faltan.tiene("sector")}
+              value={values.sector_id}
+              onChange={handleSectorChange}
+              disabled={cargandoSectores}
+            >
+              <SelectPlaceholder>
+                {cargandoSectores ? "Cargando sectores..." : "Seleccioná un sector"}
+              </SelectPlaceholder>
+              {opcionesSector.map((sector) => (
+                <option key={sector.id} value={sector.id}>
+                  {sector.nombre}
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
 
-      {/* Sector */}
-      <FormField invalid={intentado && faltan.tiene("sector")} label="Sector" required mb={mostrarBaja ? "4" : "0"}>
-        <FormNativeSelect
-          invalid={intentado && faltan.tiene("sector")}
-          value={values.sector_id}
-          onChange={handleSectorChange}
-          disabled={cargandoSectores}
-          maxW="500px"
-        >
-          <SelectPlaceholder>
-            {cargandoSectores ? "Cargando sectores..." : "Seleccioná un sector"}
-          </SelectPlaceholder>
-          {opcionesSector.map((sector) => (
-            <option key={sector.id} value={sector.id}>
-              {sector.nombre}
-            </option>
-          ))}
-        </FormNativeSelect>
-      </FormField>
-
-      {/* Dar de baja - solo aparece al modificar */}
-      {mostrarBaja && (
-        <Box mb="0">
-          <Switch.Root
-            checked={!values.activo || bajaConfirmada}
-            onCheckedChange={(details) => handleBajaChange(details.checked)}
-            colorPalette={values.activo && !bajaConfirmada ? "green" : "red"}
-          >
-            <Switch.HiddenInput />
-            <Switch.Control />
-            <Switch.Label fontSize="sm" fontWeight="bold" color="fg.muted">
-              Dar de baja
-            </Switch.Label>
-          </Switch.Root>
-        </Box>
-      )}
-
-      {/* Botones */}
-      <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-      <AccionesFormulario>
-        <BotonGuardar loading={isLoading}>
-          {submitLabel}
-        </BotonGuardar>
-        {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-      </AccionesFormulario>
-    </TarjetaFormulario>
+          {/* Dar de baja - solo aparece al modificar */}
+          {mostrarBaja && (
+            <CeldaCompleta>
+              <Switch.Root
+                checked={!values.activo || bajaConfirmada}
+                onCheckedChange={(details) => handleBajaChange(details.checked)}
+                colorPalette={values.activo && !bajaConfirmada ? "green" : "red"}
+              >
+                <Switch.HiddenInput />
+                <Switch.Control />
+                <Switch.Label fontSize="sm" fontWeight="bold" color="fg.muted">
+                  Dar de baja
+                </Switch.Label>
+              </Switch.Root>
+            </CeldaCompleta>
+          )}
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

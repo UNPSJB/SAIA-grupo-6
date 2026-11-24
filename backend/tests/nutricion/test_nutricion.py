@@ -11,16 +11,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.aditivos.models import Aditivo, ClaseFuncional
+from src.aditivos.models import ClaseFuncional
 from src.auth.services import crear_access_token
 from src.database import get_db
-from src.insumos.models import TIPO_ADITIVO, Insumo
+from src.ingredientes.models import Ingrediente
 from src.nutricion import calculo, exceptions, schemas, services
 from src.nutricion.models import AlimentoReferencia, ParametroNutriente
 from src.nutricion.router import router as nutricion_router
 from src.personal.models import Personal
 from src.productos.models import Producto
-from src.recetas.models import Receta, RecetaInsumo, VersionReceta
+from src.recetas.models import Receta, RecetaIngrediente, VersionReceta
 from src.unidadMedida.constants import equivalencia_conocida
 from src.unidadMedida.models import UnidadMedida
 
@@ -63,6 +63,18 @@ def usuario(db_session):
     return persona
 
 
+@pytest.fixture
+def super_admin(db_session):
+    """Las reglas de la tabla y de homologación valen para todas las sedes:
+    solo el super admin las cambia."""
+    persona = Personal(
+        nombre="Sara", apellido="Super", dni="44556688", email="sara@test.local",
+        password="x", puede_operar=True, puede_administrar=True, es_super_admin=True,
+    )
+    _sin_auditoria(db_session, persona)
+    return persona
+
+
 def _unidad(nombre: str, simbolo: str) -> UnidadMedida:
     """Unidad con su tipo y factor reales: el cálculo los toma de la unidad."""
     return UnidadMedida(nombre=nombre, simbolo=simbolo, **equivalencia_conocida(nombre, simbolo))
@@ -75,34 +87,34 @@ def receta(db_session, usuario):
     g = _unidad("gramo", "g")
     kg = _unidad("kilogramo", "Kg")
     clase = ClaseFuncional(nombre="Leudante")
-    bicarb = Aditivo(clase_funcional=clase, nombre="Bicarbonato de sodio", numero_ins="500ii")
-    sorbato_ref = Aditivo(clase_funcional=clase, nombre="Sorbato", numero_ins="202")
-    harina = Insumo(nombre="Harina", unidad_medida=g)
-    azucar = Insumo(nombre="Azúcar", unidad_medida=g)
-    huevo = Insumo(nombre="Huevo", unidad_medida=g)
-    bicarbonato = Insumo(nombre="Bicarbonato", tipo=TIPO_ADITIVO, aditivo=bicarb, unidad_medida=g)
-    sorbato = Insumo(nombre="Sorbato", tipo=TIPO_ADITIVO, aditivo=sorbato_ref, unidad_medida=g)
+    harina = Ingrediente(nombre="Harina", unidad_medida=g)
+    azucar = Ingrediente(nombre="Azúcar", unidad_medida=g)
+    huevo = Ingrediente(nombre="Huevo", unidad_medida=g)
+    bicarbonato = Ingrediente(nombre="Bicarbonato", es_aditivo=True, clase_funcional=clase,
+                              numero_ins="500(ii)", unidad_medida=g)
+    sorbato = Ingrediente(nombre="Sorbato", es_aditivo=True, clase_funcional=clase,
+                          numero_ins="202", unidad_medida=g)
     producto = Producto(nombre="Bizcochuelo", unidad_medida=kg)
     rec = Receta(producto=producto)
     version = VersionReceta(receta=rec, numero=1, rendimiento=Decimal("0.7"), unidad_medida=kg)
     renglones = [
-        RecetaInsumo(version=version, insumo=i, cantidad=Decimal(q), unidad_medida=g,
-                     clasificacion=i.tipo or "ingrediente")
+        RecetaIngrediente(version=version, ingrediente=i, cantidad=Decimal(q), unidad_medida=g,
+                     es_aditivo=i.es_aditivo)
         for i, q in ((harina, "250"), (azucar, "250"), (huevo, "300"),
                      (bicarbonato, "5"), (sorbato, "2"))
     ]
-    _sin_auditoria(db_session, g, kg, clase, bicarb, sorbato_ref, harina, azucar, huevo,
+    _sin_auditoria(db_session, g, kg, clase, harina, azucar, huevo,
                    bicarbonato, sorbato, producto, rec, version, *renglones)
     return dict(producto=producto, harina=harina, azucar=azucar, huevo=huevo,
                 bicarbonato=bicarbonato, sorbato=sorbato, version=version, g=g)
 
 
 def _cargar_todo(db, r, usuario):
-    for insumo, datos in ((r["harina"], HARINA), (r["azucar"], AZUCAR), (r["huevo"], HUEVO)):
-        services.guardar_datos_insumo(
-            db, insumo.id, schemas.DatosNutricionalesIn(valores=_valores(datos)), usuario
+    for ingrediente, datos in ((r["harina"], HARINA), (r["azucar"], AZUCAR), (r["huevo"], HUEVO)):
+        services.guardar_datos_ingrediente(
+            db, ingrediente.id, schemas.DatosNutricionalesIn(valores=_valores(datos)), usuario
         )
-    services.guardar_datos_insumo(
+    services.guardar_datos_ingrediente(
         db, r["bicarbonato"].id,
         schemas.DatosNutricionalesIn(
             aporta_energia_sodio=True,
@@ -184,8 +196,8 @@ def test_rendimiento_en_unidades_necesita_peso_por_unidad(db_session, receta, us
     _sin_auditoria(db_session, un)
     version = VersionReceta(receta_id=receta["version"].receta_id, numero=2,
                             rendimiento=Decimal("2"), unidad_medida=un)
-    renglon = RecetaInsumo(version=version, insumo=receta["harina"], cantidad=Decimal("100"),
-                           unidad_medida=receta["g"], clasificacion="ingrediente")
+    renglon = RecetaIngrediente(version=version, ingrediente=receta["harina"], cantidad=Decimal("100"),
+                           unidad_medida=receta["g"], es_aditivo=False)
     _sin_auditoria(db_session, version, renglon)
 
     info = services.calcular_info_nutricional(db_session, receta["producto"].id)
@@ -210,7 +222,7 @@ def test_detecta_ingredientes_incompletos_y_recalcula_al_completar(db_session, r
     _cargar_todo(db_session, receta, usuario)
     # Al huevo le falta el sodio.
     sin_sodio = {k: v for k, v in HUEVO.items() if k != "sodio"}
-    services.guardar_datos_insumo(
+    services.guardar_datos_ingrediente(
         db_session, receta["huevo"].id,
         schemas.DatosNutricionalesIn(valores=_valores(sin_sodio)), usuario,
     )
@@ -227,7 +239,7 @@ def test_detecta_ingredientes_incompletos_y_recalcula_al_completar(db_session, r
     sorbato = next(i for i in info.ingredientes if i.nombre == "Sorbato")
     assert sorbato.completo and not sorbato.exige_datos and not sorbato.incluido
 
-    services.guardar_datos_insumo(
+    services.guardar_datos_ingrediente(
         db_session, receta["huevo"].id,
         schemas.DatosNutricionalesIn(valores=_valores(HUEVO)), usuario,
     )
@@ -236,40 +248,40 @@ def test_detecta_ingredientes_incompletos_y_recalcula_al_completar(db_session, r
 
 
 def test_aditivo_marcado_como_aportante_exige_energia_y_sodio(db_session, receta, usuario):
-    services.guardar_datos_insumo(
+    services.guardar_datos_ingrediente(
         db_session, receta["sorbato"].id,
         schemas.DatosNutricionalesIn(aporta_energia_sodio=True, valores=[]), usuario,
     )
-    datos = services.obtener_datos_insumo(db_session, receta["sorbato"].id)
+    datos = services.obtener_datos_ingrediente(db_session, receta["sorbato"].id)
     assert datos.completitud.exige_datos
     assert datos.completitud.faltantes == ["Valor energético", "Sodio"]
 
 
-def test_insumo_en_litros_necesita_densidad(db_session, usuario):
+def test_ingrediente_en_litros_necesita_densidad(db_session, usuario):
     litro = _unidad("litro", "L")
-    leche = Insumo(nombre="Leche", unidad_medida=litro)
+    leche = Ingrediente(nombre="Leche", unidad_medida=litro)
     _sin_auditoria(db_session, litro, leche)
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, leche.id, schemas.DatosNutricionalesIn(valores=_valores(HUEVO)), usuario
     )
     assert datos.completitud.faltantes == ["la densidad (g/ml)"]
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, leche.id,
         schemas.DatosNutricionalesIn(densidad_g_ml=Decimal("1.03"), valores=_valores(HUEVO)),
         usuario,
     )
     assert datos.completitud.completo
-    # Queda en el insumo: es el mismo dato que usa la composición porcentual.
+    # Queda en el ingrediente: es el mismo dato que usa la composición porcentual.
     db_session.refresh(leche)
     assert Decimal(str(leche.densidad_g_ml)) == Decimal("1.03")
 
 
-def test_guardar_sin_densidad_no_borra_la_del_insumo(db_session, usuario):
+def test_guardar_sin_densidad_no_borra_la_del_ingrediente(db_session, usuario):
     litro = _unidad("litro", "L")
-    leche = Insumo(nombre="Leche", unidad_medida=litro, densidad_g_ml=1.03)
+    leche = Ingrediente(nombre="Leche", unidad_medida=litro, densidad_g_ml=1.03)
     _sin_auditoria(db_session, litro, leche)
 
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, leche.id, schemas.DatosNutricionalesIn(valores=_valores(HUEVO)), usuario
     )
 
@@ -283,8 +295,8 @@ def test_rendimiento_por_docena_cuenta_doce_unidades(db_session, receta, usuario
     _sin_auditoria(db_session, docena)
     version = VersionReceta(receta_id=receta["version"].receta_id, numero=2,
                             rendimiento=Decimal("1"), unidad_medida=docena)
-    renglon = RecetaInsumo(version=version, insumo=receta["harina"], cantidad=Decimal("120"),
-                           unidad_medida=receta["g"], clasificacion="ingrediente")
+    renglon = RecetaIngrediente(version=version, ingrediente=receta["harina"], cantidad=Decimal("120"),
+                           unidad_medida=receta["g"], es_aditivo=False)
     _sin_auditoria(db_session, version, renglon)
     services.guardar_configuracion(
         db_session, receta["producto"].id,
@@ -312,7 +324,7 @@ def test_carga_desde_base_registra_fuente_y_marca_modificados(db_session, receta
     valores = [desde_base(k, v) for k, v in HARINA.items()]
     # La persona corrige la fibra respecto de la base.
     valores[8] = desde_base("fibra", "3.1")
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, receta["harina"].id, schemas.DatosNutricionalesIn(valores=valores), usuario
     )
     fibra = next(v for v in datos.valores if v.nutriente == "fibra")
@@ -324,7 +336,7 @@ def test_carga_desde_base_registra_fuente_y_marca_modificados(db_session, receta
 
     # Editar después un valor de la misma carga también queda marcado.
     valores[0] = desde_base("energia", 350)
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, receta["harina"].id, schemas.DatosNutricionalesIn(valores=valores), usuario
     )
     energia = next(v for v in datos.valores if v.nutriente == "energia")
@@ -335,7 +347,7 @@ def test_aditivo_solo_admite_energia_y_sodio(db_session, receta, usuario):
     from src.nutricion.exceptions import NutrienteNoAdmitidoAditivo
 
     with pytest.raises(NutrienteNoAdmitidoAditivo):
-        services.guardar_datos_insumo(
+        services.guardar_datos_ingrediente(
             db_session, receta["bicarbonato"].id,
             schemas.DatosNutricionalesIn(valores=_valores({"proteinas": 1})), usuario,
         )
@@ -402,7 +414,7 @@ def test_importar_otro_csv_de_sara1_sin_alimentos_falla(db_session):
 
 
 def test_alimento_de_sara1_completa_lo_que_tiene(db_session, receta, usuario):
-    """Tomar valores de SARA 1 deja al insumo incompleto hasta cargar los azúcares
+    """Tomar valores de SARA 1 deja al ingrediente incompleto hasta cargar los azúcares
     y las grasas trans con otra fuente."""
     services.importar_alimentos(db_session, "SARA 1", SARA1.encode())
     almidon = services.listar_alimentos(db_session, "almidón")[0]
@@ -412,14 +424,14 @@ def test_alimento_de_sara1_completa_lo_que_tiene(db_session, receta, usuario):
         for k in ("energia", "carbohidratos", "proteinas", "grasas_totales",
                   "grasas_saturadas", "fibra", "sodio")
     ]
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, receta["harina"].id, schemas.DatosNutricionalesIn(valores=desde_base), usuario
     )
     assert not datos.completitud.completo
     assert set(datos.completitud.faltantes) == {"Azúcares totales", "Azúcares añadidos", "Grasas trans"}
 
     rotulo = _valores({"azucares_totales": 0, "azucares_anadidos": 0, "grasas_trans": 0})
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, receta["harina"].id,
         schemas.DatosNutricionalesIn(valores=desde_base + rotulo), usuario,
     )
@@ -492,7 +504,7 @@ def test_grasas_totales_cero_solo_si_saturadas_y_trans_tambien(db_session, recet
 def test_laboratorio_reemplaza_el_calculo_y_cubre_el_faltante(db_session, receta, usuario):
     _cargar_todo(db_session, receta, usuario)
     sin_sodio = {k: v for k, v in HUEVO.items() if k != "sodio"}
-    services.guardar_datos_insumo(
+    services.guardar_datos_ingrediente(
         db_session, receta["huevo"].id,
         schemas.DatosNutricionalesIn(valores=_valores(sin_sodio)), usuario,
     )
@@ -527,7 +539,7 @@ def test_azucares_anadidos_salen_de_los_ingredientes_que_los_aportan(db_session,
     # El azúcar se marca como ingrediente de azúcar añadido: no hace falta
     # cargarle "azúcares añadidos", se toman sus azúcares totales.
     sin_anadidos = {k: v for k, v in AZUCAR.items() if k != "azucares_anadidos"}
-    datos = services.guardar_datos_insumo(
+    datos = services.guardar_datos_ingrediente(
         db_session, receta["azucar"].id,
         schemas.DatosNutricionalesIn(azucares_son_anadidos=True, valores=_valores(sin_anadidos)),
         usuario,
@@ -539,8 +551,8 @@ def test_azucares_anadidos_salen_de_los_ingredientes_que_los_aportan(db_session,
     _cerca(_fila(info, "azucares_anadidos").por_100, "35.714")
 
 
-def test_columna_por_100_es_optativa(client_nutricion, db_session, usuario):
-    token, _, _ = crear_access_token(str(usuario.id))
+def test_columna_por_100_es_optativa(client_nutricion, db_session, usuario, super_admin):
+    token, _, _ = crear_access_token(str(super_admin.id))
     h = {"Authorization": f"Bearer {token}"}
     actuales = client_nutricion.get("/nutricion/parametros", headers=h).json()
     assert actuales["generales"]["mostrar_por_100"] is True
@@ -550,8 +562,8 @@ def test_columna_por_100_es_optativa(client_nutricion, db_session, usuario):
     assert r.json()["generales"]["mostrar_por_100"] is False
 
 
-def test_azucares_y_grasas_trans_no_admiten_valor_diario(client_nutricion, db_session, receta, usuario):
-    token, _, _ = crear_access_token(str(usuario.id))
+def test_azucares_y_grasas_trans_no_admiten_valor_diario(client_nutricion, db_session, receta, usuario, super_admin):
+    token, _, _ = crear_access_token(str(super_admin.id))
     h = {"Authorization": f"Bearer {token}"}
     actuales = client_nutricion.get("/nutricion/parametros", headers=h).json()
     trans = next(n for n in actuales["nutrientes"] if n["clave"] == "grasas_trans")
@@ -572,8 +584,8 @@ def test_azucares_y_grasas_trans_no_admiten_valor_diario(client_nutricion, db_se
     assert _fila(info, "azucares_totales").vd_texto == ""
 
 
-def test_leyendas_obligatorias_son_fijas(client_nutricion, db_session, receta, usuario):
-    token, _, _ = crear_access_token(str(usuario.id))
+def test_leyendas_obligatorias_son_fijas(client_nutricion, db_session, receta, usuario, super_admin):
+    token, _, _ = crear_access_token(str(super_admin.id))
     h = {"Authorization": f"Bearer {token}"}
     actuales = client_nutricion.get("/nutricion/parametros", headers=h).json()
     assert "profesional" in actuales["leyendas_fijas"]["leyenda_calculo"]
@@ -615,3 +627,11 @@ def test_frase_no_significativo_se_arma_sola(db_session, receta, usuario):
     assert "grasas trans" in info.leyenda_no_significativo
     assert "sodio" not in info.leyenda_no_significativo
 
+
+def test_solo_el_super_admin_cambia_las_reglas(client_nutricion, db_session, usuario):
+    token, _, _ = crear_access_token(str(usuario.id))
+    h = {"Authorization": f"Bearer {token}"}
+    actuales = client_nutricion.get("/nutricion/parametros", headers=h)
+    assert actuales.status_code == 200  # un admin las ve
+    r = client_nutricion.put("/nutricion/parametros", json=actuales.json(), headers=h)
+    assert r.status_code == 403  # pero no las cambia

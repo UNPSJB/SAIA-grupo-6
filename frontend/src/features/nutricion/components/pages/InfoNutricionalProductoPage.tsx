@@ -29,6 +29,7 @@ import { DatosNutricionalesDialog } from "../DatosNutricionalesDialog";
 import { LaboratorioProducto } from "../LaboratorioProducto";
 import { Aviso, Bloque } from "../piezas";
 import { TablaNutricional } from "../TablaNutricional";
+import { AlergenosDelProducto } from "../../../alergenos/components/AlergenosDelProducto";
 
 const limpio = (v: string | null) => (v === null ? "" : String(Number(v)));
 const aDecimal = (t: string) => (t.trim() ? t.trim().replace(",", ".") : null);
@@ -162,7 +163,7 @@ export function InfoNutricionalProductoPage() {
               <Stack gap="0" bg="bg.panel">
                 {info.incompletos.map((ing) => (
                   <HStack
-                    key={ing.insumo_id}
+                    key={ing.ingrediente_id}
                     justify="space-between"
                     gap="3"
                     flexWrap="wrap"
@@ -175,12 +176,12 @@ export function InfoNutricionalProductoPage() {
                       <Text fontWeight="medium">
                         {ing.nombre}{" "}
                         <Text as="span" fontWeight="normal" color="fg.muted" fontSize="sm">
-                          · {ing.tipo === "aditivo" ? "aditivo con aporte de energía o sodio" : "ingrediente"}
+                          {ing.es_aditivo ? "· aditivo con aporte de energía o sodio" : ""}
                         </Text>
                       </Text>
                       <Text fontSize="sm" color="red.fg">Falta: {ing.faltantes.join(", ")}</Text>
                     </Box>
-                    <Button size="sm" colorPalette="brand" onClick={() => setCompletar(ing.insumo_id)}>
+                    <Button size="sm" colorPalette="brand" onClick={() => setCompletar(ing.ingrediente_id)}>
                       Completar datos
                     </Button>
                   </HStack>
@@ -230,6 +231,7 @@ export function InfoNutricionalProductoPage() {
                   <DatoDetalle etiqueta="Calculada">{formatoFechaHora(info.calculado_en)}</DatoDetalle>
                 </Box>
               </SeccionDetalle>
+              <AlergenosDelProducto productoId={info.producto_id} />
               <ConfiguracionProducto key={JSON.stringify(info.configuracion)} info={info} onGuardado={recalcular} />
             </Stack>
           </Box>
@@ -242,13 +244,13 @@ export function InfoNutricionalProductoPage() {
             mt="6"
             titulo="Detalle del cálculo"
             icono={LuCalculator}
-            ayuda="Se suma el aporte de cada insumo según su cantidad en la receta y se divide por el rendimiento. No se modelan pérdidas por cocción."
+            ayuda="Se suma el aporte de cada ingrediente según su cantidad en la receta y se divide por el rendimiento. No se modelan pérdidas por cocción."
           >
             <Box overflowX="auto" mx={{ base: "-4", md: "-5" }} mb={{ base: "-4", md: "-5" }} borderTopWidth="1px" borderColor="border.subtle">
               <Table.Root size="sm" minW="640px">
                 <Table.Header>
                   <FilaEncabezado>
-                    <EncabezadoOscuro>Insumo</EncabezadoOscuro>
+                    <EncabezadoOscuro>Ingrediente</EncabezadoOscuro>
                     <EncabezadoOscuro ancho="media" numero>Cantidad</EncabezadoOscuro>
                     <EncabezadoOscuro ancho="media" numero>En gramos</EncabezadoOscuro>
                     <EncabezadoOscuro>Datos nutricionales</EncabezadoOscuro>
@@ -257,10 +259,10 @@ export function InfoNutricionalProductoPage() {
                 </Table.Header>
                 <Table.Body>
                   {info.ingredientes.map((ing) => (
-                    <Table.Row key={ing.insumo_id} borderBottomWidth="1px" borderColor="border.subtle">
+                    <Table.Row key={ing.ingrediente_id} borderBottomWidth="1px" borderColor="border.subtle">
                       <Celda py="2.5" px="4">
                         <Text fontWeight="medium">{ing.nombre}</Text>
-                        <Text fontSize="xs" color="fg.muted">{ing.tipo === "aditivo" ? "Aditivo" : "Ingrediente"}</Text>
+                        {ing.es_aditivo && <Text fontSize="xs" color="fg.muted">Aditivo</Text>}
                       </Celda>
                       <Celda py="2.5" px="4" numero>{formatoCantidad(ing.cantidad)} {ing.unidad}</Celda>
                       <Celda py="2.5" px="4" numero>{ing.gramos ? `${formatoCantidad(ing.gramos)} g` : "—"}</Celda>
@@ -279,7 +281,7 @@ export function InfoNutricionalProductoPage() {
                         <BotonAccion
                           accion="ver"
                           label={`Ver datos nutricionales de ${ing.nombre}`}
-                          onClick={() => setConsultar(ing.insumo_id)}
+                          onClick={() => setConsultar(ing.ingrediente_id)}
                         />
                       </Celda>
                     </Table.Row>
@@ -292,12 +294,12 @@ export function InfoNutricionalProductoPage() {
       )}
 
       {consultar !== null && (
-        <DatosNutricionalesDialog insumoId={consultar} soloLectura onCerrar={() => setConsultar(null)} />
+        <DatosNutricionalesDialog ingredienteId={consultar} soloLectura onCerrar={() => setConsultar(null)} />
       )}
 
       {completar !== null && (
         <DatosNutricionalesDialog
-          insumoId={completar}
+          ingredienteId={completar}
           onCerrar={() => setCompletar(null)}
           onGuardado={() => {
             setCompletar(null);

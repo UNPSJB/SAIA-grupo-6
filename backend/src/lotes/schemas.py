@@ -15,10 +15,23 @@ class LoteCreate(BaseModel):
     producto_id: int = Field(gt=0)
     cantidad_objetivo: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=3)
     factor: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=6)
+    # Persona que hace todas las tareas del lote (solo quien administra la
+    # elige; después se puede reasignar tarea por tarea). Sin ella, las tareas
+    # quedan sin asignar y las puede hacer cualquiera que opere.
+    responsable_id: int | None = Field(default=None, gt=0)
+
+
+class AsignacionTarea(BaseModel):
+    """`null` deja la tarea sin asignar."""
+
+    asignado_a_id: int | None = Field(default=None, gt=0)
 
 
 class LoteCierre(BaseModel):
     cantidad_producida: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+    # Solo se usa si la receta no tiene vida útil: el vencimiento se carga a mano
+    # (con vida útil se calcula y este valor se ignora).
+    fecha_vencimiento: date | None = None
 
 
 class LoteCancelacion(BaseModel):
@@ -42,11 +55,26 @@ class ConsumoCreate(BaseModel):
         return texto_opcional(valor, largo_maximo=300)
 
 
+class ConsumoUpdate(BaseModel):
+    """Corrección de un consumo mal cargado: la cantidad y el motivo. Para
+    cambiar el lote de insumo o el tipo se borra y se vuelve a registrar."""
+
+    cantidad: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+    motivo: str | None = Field(default=None, max_length=300)
+
+    @field_validator("motivo")
+    @classmethod
+    def validar_motivo(cls, valor: str | None) -> str | None:
+        return texto_opcional(valor, largo_maximo=300)
+
+
 class ConsumoResponse(BaseModel):
     id: int
     checklist_produccion_id: int
     lote_insumo_id: int
-    insumo_id: int
+    ingrediente_id: int
+    ingrediente_nombre: str
+    # Marca del insumo del lote consumido.
     insumo_nombre: str
     numero_lote_insumo: str
     proveedor_nombre: str
@@ -59,9 +87,9 @@ class ConsumoResponse(BaseModel):
     advertencias: list[str] = Field(default_factory=list)
 
 
-class InsumoPlanificado(BaseModel):
-    insumo_id: int
-    insumo_nombre: str
+class IngredientePlanificado(BaseModel):
+    ingrediente_id: int
+    ingrediente_nombre: str
     unidad: str
     cantidad_planificada: Decimal
     consumo_real: Decimal
@@ -73,11 +101,14 @@ class ItemChecklist(BaseModel):
     tarea_receta_id: int
     orden: int
     descripcion: str
+    procedimiento: str | None = None
     completado: bool
     completado_por_id: int | None
     completado_por_nombre: str | None = None
     completado_en: datetime | None
-    insumos: list[InsumoPlanificado]
+    asignado_a_id: int | None = None
+    asignado_a_nombre: str | None = None
+    ingredientes: list[IngredientePlanificado]
     consumos: list[ConsumoResponse]
 
 
@@ -149,6 +180,8 @@ class ImpactoRetiro(BaseModel):
 
 class LoteDetalle(LoteResumen):
     checklist: list[ItemChecklist]
+    # Solo en lotes terminados: sin rotulado completo no se reserva (salidas).
+    rotulado_completo: bool | None = None
 
 
 class LoteResumenEstado(BaseModel):
@@ -190,7 +223,7 @@ TipoNodoTimeline = Literal["inicio", "tarea", "cierre"]
 
 
 class ConsumoInsumoTimelineItem(BaseModel):
-    insumo_nombre: str
+    ingrediente_nombre: str
     cantidad: Decimal
     unidad_medida: str
     lote_insumo_codigo: str
@@ -218,7 +251,7 @@ class RendimientoTimeline(BaseModel):
 class DetalleNodoTimeline(BaseModel):
     operario_nombre: str | None = None
     descripcion: str | None = None
-    insumos_consumidos: list[ConsumoInsumoTimelineItem] = Field(default_factory=list)
+    ingredientes_consumidos: list[ConsumoInsumoTimelineItem] = Field(default_factory=list)
     desperdicios: list[DesperdicioTimelineItem] = Field(default_factory=list)
     rendimiento: RendimientoTimeline | None = None
 

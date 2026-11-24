@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Box } from "@chakra-ui/react";
 import {
-  AccionesFormulario,
-  BotonCancelar,
-  BotonGuardar,
   FormField,
   FormInput,
   FormNativeSelect,
-  TarjetaFormulario,
-  TituloFormulario,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 import type {
   TipoUnidadMedida,
   UnidadMedidaFormValues,
@@ -21,7 +21,6 @@ interface UnidadMedidaFormProps {
   onSubmit: (values: UnidadMedidaInput) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -43,7 +42,6 @@ export function UnidadMedidaForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de unidad de medida",
   onCancel,
 }: UnidadMedidaFormProps) {
   const [values, setValues] = useState<UnidadMedidaFormValues>(initialValues);
@@ -89,58 +87,47 @@ export function UnidadMedidaForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit}>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField label="Nombre" required completo="doble">
+            <FormInput
+              value={values.nombre}
+              onChange={handleNombreChange}
+              placeholder="Ej: Litros, Kilogramos, Gramos"
+            />
+          </FormField>
 
-        <FormField label="Nombre" required>
-          <FormInput
-            value={values.nombre}
-            onChange={handleNombreChange}
-            placeholder="Ej: Litros, Kilogramos, Gramos"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField label="Símbolo" required>
+            <FormInput
+              value={values.simbolo}
+              onChange={handleSimboloChange}
+              placeholder="Ej: L, KG, G"
+            />
+          </FormField>
 
-        <FormField label="Símbolo" required mb="0">
-          <FormInput
-            value={values.simbolo}
-            onChange={handleSimboloChange}
-            placeholder="Ej: L, KG, G"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField label="Tipo">
+            <FormNativeSelect value={values.tipo} onChange={handleTipoChange}>
+              {TIPO_UNIDAD_OPCIONES.map((opcion) => (
+                <option key={opcion.valor} value={opcion.valor}>
+                  {opcion.etiqueta}
+                </option>
+              ))}
+            </FormNativeSelect>
+          </FormField>
 
-        <FormField label="Tipo">
-          <FormNativeSelect
-            value={values.tipo}
-            onChange={handleTipoChange}
-            maxW="500px"
-          >
-            {TIPO_UNIDAD_OPCIONES.map((opcion) => (
-              <option key={opcion.valor} value={opcion.valor}>
-                {opcion.etiqueta}
-              </option>
-            ))}
-          </FormNativeSelect>
-        </FormField>
-
-        <FormField label="Factor a base" required mb="0">
-          <FormInput
-            type="text"
-            inputMode="decimal"
-            value={values.factor_a_base}
-            onChange={handleFactorChange}
-            placeholder="Ej: 1.0000"
-            maxW="500px"
-          />
-        </FormField>
-
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>{submitLabel}</BotonGuardar>
-          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+          <FormField label="Factor a base" required>
+            <FormInput
+              type="text"
+              inputMode="decimal"
+              value={values.factor_a_base}
+              onChange={handleFactorChange}
+              placeholder="Ej: 1.0000"
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta etiqueta={submitLabel} guardando={isLoading} onCancelar={onCancel} />
+    </FormularioAlta>
   );
 }

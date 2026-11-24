@@ -24,15 +24,16 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function UnidadMedidaPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("UnidadMedidaPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("UnidadMedidaPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
   const orden = useOrdenTabla<ColumnaOrdenUnidadMedida, "nombre_asc">(
     "nombre_asc"
@@ -142,7 +143,7 @@ export function UnidadMedidaPage() {
           ? "Unidades de medida dadas de baja"
           : "Gestión de unidades de medida"
       }
-      descripcion="Catálogo de unidades con las que se miden los insumos."
+      descripcion="Catálogo de unidades con las que se miden los ingredientes."
       acciones={
         <BotonAgregar onClick={() => navigate("/unidades-medida/nuevo")}>Nueva unidad</BotonAgregar>
       }
@@ -165,7 +166,7 @@ export function UnidadMedidaPage() {
               checked={verInactivos}
               onChange={handleToggleInactivos}
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="unidades_medida"
                filtros={{
               activo: String(!verInactivos),

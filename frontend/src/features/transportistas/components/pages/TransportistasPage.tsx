@@ -25,14 +25,15 @@ import type { OrdenTransportista } from "../../services/transportistaService";
 import type { Transportista } from "../../types/transportista";
 import { TransportistaTable } from "../TransportistaTable";
 import { ModalNuevaCertificacion } from "../ModalNuevaCertificacion";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function TransportistasPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("TransportistasPage.verInactivos", false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("TransportistasPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
 
   const orden = useOrdenTabla<string, OrdenTransportista>(
@@ -197,11 +198,13 @@ export function TransportistasPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="transportistas"
+              vista="transportistas"
               filtros={{
-                activo: String(!verInactivos),
+                solo_inactivos: String(verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

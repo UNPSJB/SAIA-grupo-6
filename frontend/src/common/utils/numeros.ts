@@ -91,3 +91,12 @@ export function propsCampoCantidad(simbolo: string | null | undefined) {
 export function cantidadValidaParaUnidad(valor: string, simbolo: string | null | undefined): boolean {
   return !seCuentaPorPieza(simbolo) || Number.isInteger(Number(valor));
 }
+
+/**
+ * Redondea a milésimas, la precisión con que el backend guarda las cantidades.
+ * Las cuentas con decimales en JavaScript dejan colas (56,208 − 55 da
+ * 1,2079999999999984) que el backend rechaza por tener demasiados dígitos.
+ */
+export function redondear(valor: number): number {
+  return Math.round(valor * 1000) / 1000;
+}

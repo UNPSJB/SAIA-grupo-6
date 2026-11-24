@@ -6,7 +6,7 @@ import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
 import { ConfirmarReactivacionDialog } from "../../../../common/components/ConfirmarReactivacionDialog";
 import { usePersonales } from "../../hooks/usePersonales";
 import { usePersonalABM } from "../../hooks/usePersonalABM";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import {
   ROLES_PERSONAL,
   type Persona,
@@ -30,17 +30,18 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 
 const PAGE_SIZE = 10;
 
 export function PersonalPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("PersonalPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("PersonalPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [rol, setRol] = useState("");
+  const [rol, setRol] = useEstadoNavegacion("PersonalPage.rol", "");
   const orden = useOrdenTabla<ColumnaOrdenPersonal, "nombre_asc">("nombre_asc");
 
   const {
@@ -197,7 +198,7 @@ export function PersonalPage() {
               onChange={handleToggleInactivos}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
             nombreTabla="personal"
             filtros={{
                activo: String(!verInactivos),

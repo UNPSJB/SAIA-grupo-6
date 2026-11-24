@@ -24,15 +24,16 @@ import {
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function SectorPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("SectorPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("SectorPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
   const orden = useOrdenTabla<ColumnaOrdenSector, "nombre_asc">("nombre_asc");
 
@@ -154,11 +155,12 @@ export function SectorPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="sectores"
               filtros={{
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

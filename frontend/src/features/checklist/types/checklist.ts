@@ -4,6 +4,20 @@ export type EstadoChecklist =
   | "observado"
   | "cerrado";
 
+/** Un producto químico usado en una tarea, con su cantidad aproximada. */
+export interface ConsumoTarea {
+  insumo_quimico_id: number;
+  cantidad: number;
+}
+
+/** Consumo con nombre y unidad, para el detalle de un checklist histórico. */
+export interface ConsumoTareaDetalle {
+  insumo_quimico_id: number;
+  nombre: string;
+  cantidad: number;
+  unidad_medida_simbolo?: string | null;
+}
+
 export interface ChecklistTareaItem {
   id: number;
   registro_id: number;
@@ -16,9 +30,8 @@ export interface ChecklistTareaItem {
   descripcion?: string | null;
   tipo?: string | null;
   observaciones?: string | null;
-  insumo_quimico_id?: number | null;
-  cantidad_consumida?: number | null;
-  elemento_limpieza_id?: number | null;
+  consumos?: ConsumoTarea[];
+  elementos_limpieza_ids?: number[];
 
   // Asignación de operador y cobertura
   operador_id?: number | null;
@@ -41,9 +54,8 @@ export interface ChecklistResponse {
 export interface RegistroTareaUpdate {
   completado: boolean;
   usuario_id?: number | null;
-  insumo_quimico_id?: number | null;
-  cantidad_consumida?: number | null;
-  elemento_limpieza_id?: number | null;
+  consumos?: ConsumoTarea[];
+  elementos_limpieza_ids?: number[];
 }
 
 export interface RegistroTareaResponse {
@@ -55,8 +67,8 @@ export interface RegistroTareaResponse {
   fecha_completado?: string | null;
   usuario_id?: number | null;
   evidencia_url?: string | null;
-  insumo_quimico_id?: number | null;
-  cantidad_consumida?: number | null;
+  consumos?: ConsumoTarea[];
+  elementos_limpieza_ids?: number[];
 }
 
 export interface TareaDelDia {
@@ -71,9 +83,8 @@ export interface TareaDelDia {
   fecha_completado?: string | null;
   usuario_id?: number | null;
   evidencia_url?: string | null;
-  insumo_quimico_id?: number | null;
-  cantidad_consumida?: number | null;
-  elemento_limpieza_id?: number | null;
+  consumos?: ConsumoTarea[];
+  elementos_limpieza_ids?: number[];
   checklist_estado?: EstadoChecklist | null;
   descripcion?: string | null;
   tipo?: string | null;
@@ -154,14 +165,6 @@ export interface HistorialChecklistItem {
   tareas_incumplidas: TareaIncumplidaItem[];
 }
 
-export interface HistorialChecklistResponse {
-  fecha_desde: string;
-  fecha_hasta: string;
-  equipo_id: number | null;
-  porcentaje_cumplimiento_general: number;
-  checklists: HistorialChecklistItem[];
-}
-
 /**
  * Versión paginada del historial: `items` trae una sola página y el
  * cumplimiento general sigue siendo del PERÍODO completo (no cambia con la
@@ -187,10 +190,8 @@ export interface DetalleChecklistTareaItem {
   fecha_completado?: string | null;
   usuario_nombre?: string | null;
   evidencia_url?: string | null;
-  insumo_quimico_nombre?: string | null;
-  cantidad_consumida?: number | null;
-  unidad_medida_simbolo?: string | null;
-  elemento_limpieza_nombre?: string | null;
+  consumos?: ConsumoTareaDetalle[];
+  elementos_limpieza_nombres?: string[];
 }
 
 export interface DetalleChecklistResponse {

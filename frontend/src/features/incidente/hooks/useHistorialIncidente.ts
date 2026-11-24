@@ -1,30 +1,14 @@
-import { useState } from "react";
+import { useRegistro } from "../../../common/hooks/useRegistro";
 import { obtenerHistorialIncidente } from "../services/incidenteService";
-import type { HistorialIncidenteItem } from "../types/incidente";
+import type { HistorialIncidenteResponse } from "../types/incidente";
 
-export function useHistorialIncidente() {
-  const [historial, setHistorial] = useState<HistorialIncidenteItem[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+/** Cierres y reaperturas de un incidente, del más viejo al más nuevo. */
+export function useHistorialIncidente(id: number) {
+  const { registro, loading, error } = useRegistro<HistorialIncidenteResponse>({
+    cargar: obtenerHistorialIncidente,
+    id,
+    etiqueta: "el historial",
+  });
 
-  const cargarHistorial = async (id: number) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await obtenerHistorialIncidente(id);
-      setHistorial(data.eventos);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar el historial");
-      setHistorial([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const limpiarHistorial = () => {
-    setHistorial(null);
-    setError(null);
-  };
-
-  return { historial, loading, error, cargarHistorial, limpiarHistorial };
+  return { historial: registro?.eventos ?? [], loading, error };
 }

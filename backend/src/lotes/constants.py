@@ -9,7 +9,6 @@ ESTADOS_LOTE_CERRADOS = (ESTADO_TERMINADO, ESTADO_CANCELADO)
 
 TIPO_CONSUMO_REAL = "real"
 TIPO_CONSUMO_DESPERDICIO = "desperdicio"
-TIPOS_CONSUMO = (TIPO_CONSUMO_REAL, TIPO_CONSUMO_DESPERDICIO)
 
 PREFIJO_NUMERO_LOTE = "LP"
 
@@ -26,12 +25,13 @@ class ErrorCode:
     CANTIDAD_PRODUCIDA_NO_ENTERA = (
         "El producto se elabora por unidad: la cantidad producida tiene que ser un número entero."
     )
+    VENCIMIENTO_ANTERIOR_AL_CIERRE = "La fecha de vencimiento no puede ser anterior al cierre del lote."
     CANTIDAD_OBJETIVO_NO_ENTERA = (
         "El producto se elabora por unidad: la cantidad objetivo tiene que ser un número entero."
     )
     MOTIVO_VACIO = "El motivo de cancelación no puede estar vacío."
     LOTE_INSUMO_NO_ENCONTRADO = "El lote de insumo no existe."
     LOTE_INSUMO_DADO_DE_BAJA = "El lote de insumo está dado de baja y no se puede consumir."
-    INSUMO_NO_PREVISTO = "El insumo de ese lote no está asignado a esta tarea de la receta."
+    INGREDIENTE_NO_PREVISTO = "El ingrediente de ese lote no está asignado a esta tarea de la receta."
     NUMERO_LOTE_NO_GENERADO = "No se pudo generar un número de lote único."
     TIPO_CONSUMO_INVALIDO = "El tipo de consumo debe ser 'real' o 'desperdicio'."

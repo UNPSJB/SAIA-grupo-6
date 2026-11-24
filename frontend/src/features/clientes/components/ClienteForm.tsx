@@ -1,26 +1,23 @@
 import { useState } from "react";
-import { Box } from "@chakra-ui/react";
 import type { ClienteFormValues } from "../types/cliente";
 import {
-  AccionesFormulario,
-  AvisoFaltantes,
-  BotonCancelar,
-  BotonGuardar,
   faltantes,
   FormField,
   FormInput,
-  SIN_VALIDACION_NATIVA,
-  TarjetaFormulario,
-  TituloFormulario,
   useIntentoEnvio,
 } from "../../../components/ui/patrones";
+import {
+  AccionesAlta,
+  FormularioAlta,
+  GrillaFormulario,
+  SeccionFormulario,
+} from "../../../components/ui/formularios";
 
 interface ClienteFormProps {
   initialValues?: ClienteFormValues;
   onSubmit: (values: ClienteFormValues) => Promise<void> | void;
   isLoading?: boolean;
   submitLabel?: string;
-  title?: string;
   onCancel?: () => void;
 }
 
@@ -37,7 +34,6 @@ export function ClienteForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Guardar",
-  title = "Alta de cliente",
   onCancel,
 }: ClienteFormProps) {
   const [values, setValues] = useState<ClienteFormValues>(initialValues);
@@ -55,82 +51,61 @@ export function ClienteForm({
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} {...SIN_VALIDACION_NATIVA}>
-      <TarjetaFormulario>
-        <TituloFormulario>{title}</TituloFormulario>
+    <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+      <SeccionFormulario>
+        <GrillaFormulario>
+          <FormField invalid={intentado && faltan.tiene("nombre")} label="Nombre" required completo="doble">
+            <FormInput
+              value={values.nombre}
+              onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Ej: Supermercado Centro"
+            />
+          </FormField>
 
-        <FormField
-          invalid={intentado && faltan.tiene("nombre")}
-          label="Nombre"
-          required
-          mb="4"
-        >
-          <FormInput
-            value={values.nombre}
-            onChange={(e) => setValues((prev) => ({ ...prev, nombre: e.target.value }))}
-            placeholder="Ej: Supermercado Centro"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField invalid={intentado && faltan.tiene("documento")} label="Documento (DNI o CUIT)" required>
+            <FormInput
+              value={values.documento}
+              onChange={(e) => setValues((prev) => ({ ...prev, documento: e.target.value }))}
+              placeholder="Ej: 12345678 o 20123456789"
+            />
+          </FormField>
 
-        <FormField
-          invalid={intentado && faltan.tiene("documento")}
-          label="Documento (DNI o CUIT)"
-          required
-          mb="4"
-        >
-          <FormInput
-            value={values.documento}
-            onChange={(e) => setValues((prev) => ({ ...prev, documento: e.target.value }))}
-            placeholder="Ej: 12345678 (DNI) o 20123456789 (CUIT)"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField invalid={intentado && faltan.tiene("telefono")} label="Teléfono" required>
+            <FormInput
+              value={values.telefono}
+              onChange={(e) => setValues((prev) => ({ ...prev, telefono: e.target.value }))}
+              placeholder="Ej: 11-2233-4455"
+            />
+          </FormField>
 
-        <FormField
-          invalid={intentado && faltan.tiene("telefono")}
-          label="Teléfono"
-          required
-          mb="4"
-        >
-          <FormInput
-            value={values.telefono}
-            onChange={(e) => setValues((prev) => ({ ...prev, telefono: e.target.value }))}
-            placeholder="Ej: 11-2233-4455"
-            maxW="500px"
-          />
-        </FormField>
+          <FormField label="Email">
+            <FormInput
+              value={values.email ?? ""}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, email: e.target.value || null }))
+              }
+              placeholder="Ej: contacto@cliente.com"
+            />
+          </FormField>
 
-        <FormField label="Email" mb="4">
-          <FormInput
-            value={values.email ?? ""}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, email: e.target.value || null }))
-            }
-            placeholder="Ej: contacto@cliente.com"
-            maxW="500px"
-          />
-        </FormField>
-
-        <FormField label="Domicilio" mb="0">
-          <FormInput
-            value={values.domicilio ?? ""}
-            onChange={(e) =>
-              setValues((prev) => ({ ...prev, domicilio: e.target.value || null }))
-            }
-            placeholder="Ej: Av. Siempre Viva 123, CABA"
-            maxW="500px"
-          />
-        </FormField>
-
-        <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
-        <AccionesFormulario>
-          <BotonGuardar loading={isLoading}>
-            {submitLabel}
-          </BotonGuardar>
-          {onCancel && <BotonCancelar onClick={onCancel}>Cancelar</BotonCancelar>}
-        </AccionesFormulario>
-      </TarjetaFormulario>
-    </Box>
+          <FormField label="Domicilio">
+            <FormInput
+              value={values.domicilio ?? ""}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, domicilio: e.target.value || null }))
+              }
+              placeholder="Ej: Av. Siempre Viva 123, CABA"
+            />
+          </FormField>
+        </GrillaFormulario>
+      </SeccionFormulario>
+      <AccionesAlta
+        etiqueta={submitLabel}
+        guardando={isLoading}
+        onCancelar={onCancel}
+        faltantes={faltan.lista}
+        mostrarFaltantes={intentado}
+      />
+    </FormularioAlta>
   );
 }

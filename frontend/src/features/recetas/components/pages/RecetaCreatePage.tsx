@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBookOpen } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
 import {
   BannerError,
@@ -14,7 +15,7 @@ import { listarProductos } from "../../../productos/services/productoService";
 import type { Producto } from "../../../productos/types/producto";
 import { listarUnidadesMedida } from "../../../unidadMedida/services/unidadMedidaService";
 import type { UnidadMedida } from "../../../unidadMedida/types/unidadMedida";
-import { useInsumosParaReceta, useRecetas } from "../../hooks/useRecetas";
+import { useIngredientesParaReceta, useRecetas } from "../../hooks/useRecetas";
 import { crearReceta } from "../../services/recetaService";
 import type { VersionInput } from "../../types/receta";
 import { estadoInicial } from "../../utils/versionForm";
@@ -23,7 +24,7 @@ import { RecetaVersionForm } from "../RecetaVersionForm";
 export function RecetaCreatePage() {
   const navigate = useNavigate();
   const delayedNavigate = useDelayedNavigate();
-  const { insumos, loading: cargandoInsumos, error: errorInsumos } = useInsumosParaReceta();
+  const { ingredientes, loading: cargandoIngredientes, error: errorIngredientes } = useIngredientesParaReceta();
   const { recetas, loading: cargandoRecetas } = useRecetas();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [unidades, setUnidades] = useState<UnidadMedida[]>([]);
@@ -58,23 +59,25 @@ export function RecetaCreatePage() {
     [productoId, delayedNavigate],
   );
 
-  const cargando = cargandoInsumos || cargandoRecetas;
+  const cargando = cargandoIngredientes || cargandoRecetas;
 
   return (
-    <PaginaFormulario
-      ancho="ancho"
+    <PaginaAlta
+      ancho="extenso"
       volver={{ a: "/recetas", etiqueta: "Recetas" }}
+      icono={LuBookOpen}
       titulo="Nueva receta"
+      descripcion="Definí los ingredientes y las tareas de elaboración de un producto."
       error={error}
     >
-      {errorInsumos && <BannerError>{errorInsumos}</BannerError>}
+      {errorIngredientes && <BannerError>{errorIngredientes}</BannerError>}
       {cargando && <EstadoCargando>Cargando datos...</EstadoCargando>}
 
-      {!cargando && !errorInsumos && (
+      {!cargando && !errorIngredientes && (
         <RecetaVersionForm
           titulo="Receta del producto (versión 1)"
           inicial={estadoInicial()}
-          insumos={insumos}
+          ingredientes={ingredientes}
           unidades={unidades}
           onSubmit={guardar}
           isLoading={guardando}
@@ -85,6 +88,7 @@ export function RecetaCreatePage() {
             <FormField
               label="Producto"
               required
+              completo
               helper={
                 disponibles.length === 0
                   ? "No hay productos sin receta. Creá primero el producto en Producción → Productos."
@@ -94,7 +98,6 @@ export function RecetaCreatePage() {
               <FormNativeSelect
                 value={productoId}
                 onChange={(e) => setProductoId(Number(e.target.value))}
-                maxW="500px"
               >
                 <SelectPlaceholder>Seleccioná un producto</SelectPlaceholder>
                 {disponibles.map((p) => (
@@ -109,6 +112,6 @@ export function RecetaCreatePage() {
       )}
 
       <DialogoExito isOpen={exito} mensaje="Receta creada correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

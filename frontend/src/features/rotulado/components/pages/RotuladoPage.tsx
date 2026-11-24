@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Heading, HStack, Table, Text } from "@chakra-ui/react";
-import { LuArrowLeft, LuFileText, LuPencil, LuPlus } from "react-icons/lu";
-import { BotonesExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
+import { LuArrowLeft, LuPlus } from "react-icons/lu";
+import { BotonExportar } from "../../../exportacion";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { TabReglasRotuladoFrontal } from "../../../rotuladoFrontal/components/pages/ReglasRotuladoFrontalPage";
 import {
   BannerError,
+  BotonAccion,
   BotonFila,
   BotonVolver,
   COLOR_TABLA,
@@ -18,6 +20,7 @@ import {
   EncabezadoOscuro,
   PieTabla,
   PildoraNeutra,
+  Tarjeta,
   TarjetaTabla,
 } from "../../../../components/ui/patrones";
 import {
@@ -34,15 +37,18 @@ import { listarProductos } from "../../../productos/services/productoService";
 import { listarBorradoresPorProducto } from "../../services/rotuladoService";
 import type { Producto } from "../../../productos/types/producto";
 import type { BorradorRotuladoOut } from "../../types/rotulado";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
+import { PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
 
 interface ProductoConBorradores extends Producto {
   borradores: BorradorRotuladoOut[];
 }
 
-export function RotuladoPage() {
+/** Pestaña "Rotulado de productos": productos y sus borradores. */
+function TabRotulado() {
   const navigate = useNavigate();
   const [errorBorradores, setErrorBorradores] = useState<string | null>(null);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("RotuladoPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
   const [productosConBorradores, setProductosConBorradores] = useState<
     ProductoConBorradores[]
@@ -101,25 +107,11 @@ export function RotuladoPage() {
   };
 
   if (loading) {
-    return (
-      <Pagina
-      titulo="Rotulado de productos"
-        descripcion="Listado de productos y sus borradores de rotulado."
-      >
-        <EstadoCargando pagina>Cargando productos...</EstadoCargando>
-      </Pagina>
-    );
+    return <EstadoCargando pagina>Cargando productos...</EstadoCargando>;
   }
 
   if (error || errorBorradores) {
-    return (
-      <Pagina
-      titulo="Rotulado de productos"
-        descripcion="Listado de productos y sus borradores de rotulado."
-      >
-        <BannerError>{error ?? errorBorradores}</BannerError>
-      </Pagina>
-    );
+    return <BannerError>{error ?? errorBorradores}</BannerError>;
   }
 
   const chips = chipsDeFiltros([
@@ -135,23 +127,11 @@ export function RotuladoPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Rotulado de productos"
-      descripcion="Completá los datos de rotulado de los productos según el Capítulo V del CAA."
-      acciones={
-        <>
-          {productoSeleccionado && (
-            <BotonVolver onClick={cerrarSeleccion}>
-              <LuArrowLeft aria-hidden />
-              Volver al listado
-            </BotonVolver>
-          )}
-        </>
-      }
-    >
+    <>
       {productoSeleccionado ? (
         <VistaProductoSeleccionado
           producto={productoSeleccionado}
+          onVolver={cerrarSeleccion}
           onCrearBorrador={crearNuevo}
           onEditarBorrador={abrirEdicion}
           onPrevisualizar={(id) => navigate(`/rotulado/borradores/${id}/previsualizar`)}
@@ -166,6 +146,28 @@ export function RotuladoPage() {
           onCrearBorrador={crearNuevo}
         />
       )}
+    </>
+  );
+}
+
+/**
+ * Rotulado de productos, con las reglas de rotulado frontal como sub-opción:
+ * antes eran una entrada aparte del menú de Producción. `/rotulado-frontal`
+ * redirige a la pestaña.
+ */
+export function RotuladoPage() {
+  return (
+    <Pagina
+      titulo="Rotulado de productos"
+      descripcion="Completá los datos de rotulado de los productos según el Capítulo V del CAA."
+    >
+      <PestanasPagina
+        pestanas={[
+          { valor: "productos", etiqueta: "Rotulado de productos", contenido: <TabRotulado /> },
+          { valor: "reglas", etiqueta: "Reglas de rotulado frontal", contenido: <TabReglasRotuladoFrontal /> },
+          { valor: "tabla", etiqueta: "Tabla nutricional", contenido: <PanelParametros seccion="tabla" /> },
+        ]}
+      />
     </Pagina>
   );
 }
@@ -196,7 +198,7 @@ function VistaListadoProductos({
           />
         }
         herramientas={
-          <BotonesExportar
+          <BotonExportar
             nombreTabla="rotulado"
             vista="rotulado"
             filtros={{ buscar: busqueda.trim() || undefined }}
@@ -251,7 +253,7 @@ function TablaProductosRotulado({
             <EncabezadoOscuro>Nombre</EncabezadoOscuro>
             <EncabezadoOscuro center width="12%">Unidad</EncabezadoOscuro>
             <EncabezadoOscuro center width="13%">Borradores</EncabezadoOscuro>
-            <EncabezadoOscuro width="28%">Acciones</EncabezadoOscuro>
+            <EncabezadoOscuro width="14%">Acciones</EncabezadoOscuro>
           </FilaEncabezado>
         </Table.Header>
         <Table.Body>
@@ -272,19 +274,20 @@ function TablaProductosRotulado({
               <Celda>
                 {/* Alineadas a la izquierda: "Nuevo borrador" queda siempre en
                     el mismo lugar, haya o no "Ver borradores" al lado. */}
-                <HStack gap="2" flexWrap="wrap">
-                  <BotonFila
-                    variante="primario"
+                <HStack gap="2">
+                  <BotonAccion
+                    accion="agregar"
+                    label={`Nuevo borrador de ${producto.nombre}`}
+                    tooltip="Nuevo borrador"
                     onClick={() => onCrearBorrador(producto.id)}
-                  >
-                    <LuPlus aria-hidden />
-                    Nuevo borrador
-                  </BotonFila>
+                  />
                   {producto.borradores.length > 0 && (
-                    <BotonFila onClick={() => onSeleccionarProducto(producto)}>
-                      <LuFileText aria-hidden />
-                      Ver borradores
-                    </BotonFila>
+                    <BotonAccion
+                      accion="ver"
+                      label={`Ver borradores de ${producto.nombre}`}
+                      tooltip="Ver borradores"
+                      onClick={() => onSeleccionarProducto(producto)}
+                    />
                   )}
                 </HStack>
               </Celda>
@@ -311,7 +314,7 @@ function BadgeBorradores({ count }: { count: number }) {
       fontWeight="semibold"
       fontVariantNumeric="tabular-nums"
       bg={count > 0 ? "green.subtle" : COLOR_TABLA.fondoEncabezado}
-      color={count > 0 ? "green.fg" : COLOR_TABLA.textoSecundario}
+      color={count > 0 ? "green.fg" : COLOR_TABLA.textoEncabezado}
       borderWidth="1px"
       borderColor={count > 0 ? "green.muted" : COLOR_TABLA.bordeEncabezado}
       aria-label={`${count} borrador${count === 1 ? "" : "es"}`}
@@ -323,32 +326,46 @@ function BadgeBorradores({ count }: { count: number }) {
 
 function VistaProductoSeleccionado({
   producto,
+  onVolver,
   onCrearBorrador,
   onEditarBorrador,
   onPrevisualizar,
 }: {
   producto: ProductoConBorradores;
+  onVolver: () => void;
   onCrearBorrador: (productoId: number) => void;
   onEditarBorrador: (borradorId: number) => void;
   onPrevisualizar: (borradorId: number) => void;
 }) {
   return (
     <>
-      <HStack justify="space-between" align="flex-end" gap="4" mb="6" flexWrap="wrap">
-        <Box>
-          <Heading as="h3" size="lg" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal} mb="1">
-            {producto.nombre}
-          </Heading>
-          <HStack gap="2">
-            <Text fontSize="sm" color={COLOR_TABLA.textoSecundario}>Unidad</Text>
-            <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>
+      {/* Lo primero de la pestaña es una tarjeta, igual que la barra de
+          filtros del listado: la lengüeta de la pestaña se apoya sobre ella.
+          "Volver" va acá dentro porque el encabezado de la página es común a
+          las dos pestañas. */}
+      <Tarjeta p="4" mb="4">
+        <HStack justify="space-between" align="center" gap="4" flexWrap="wrap">
+          <HStack gap="4" align="center" flexWrap="wrap" minW="0">
+            <BotonVolver onClick={onVolver}>
+              <LuArrowLeft aria-hidden />
+              Volver al listado
+            </BotonVolver>
+            <Box minW="0">
+              <Heading as="h3" size="lg" fontWeight="semibold" color={COLOR_TABLA.textoPrincipal} mb="1">
+                {producto.nombre}
+              </Heading>
+              <HStack gap="2">
+                <Text fontSize="sm" color={COLOR_TABLA.textoSecundario}>Unidad</Text>
+                <PildoraNeutra>{producto.unidad_medida.simbolo}</PildoraNeutra>
+              </HStack>
+            </Box>
           </HStack>
-        </Box>
-        <BotonFila variante="primario" onClick={() => onCrearBorrador(producto.id)}>
-          <LuPlus aria-hidden />
-          Crear nuevo borrador
-        </BotonFila>
-      </HStack>
+          <BotonFila variante="primario" onClick={() => onCrearBorrador(producto.id)}>
+            <LuPlus aria-hidden />
+            Crear nuevo borrador
+          </BotonFila>
+        </HStack>
+      </Tarjeta>
 
       {producto.borradores.length === 0 ? (
         <EstadoVacio>
@@ -367,8 +384,9 @@ function VistaProductoSeleccionado({
             <Table.Header>
               <FilaEncabezado>
                 <EncabezadoOscuro>Borrador</EncabezadoOscuro>
-                <EncabezadoOscuro center width="18%">Estado</EncabezadoOscuro>
-                <EncabezadoOscuro width="22%">Actualizado</EncabezadoOscuro>
+                <EncabezadoOscuro width="22%">Lote</EncabezadoOscuro>
+                <EncabezadoOscuro center width="16%">Estado</EncabezadoOscuro>
+                <EncabezadoOscuro width="20%">Actualizado</EncabezadoOscuro>
                 <EncabezadoOscuro center width="16%">Acciones</EncabezadoOscuro>
               </FilaEncabezado>
             </Table.Header>
@@ -376,7 +394,18 @@ function VistaProductoSeleccionado({
               {producto.borradores.map((b) => (
                 <FilaClickeable key={b.id} onAbrir={() => onEditarBorrador(b.id)}>
                   <Celda>
-                    <DatoPrincipal titulo={`Borrador #${b.id}`} />
+                    <DatoPrincipal
+                      titulo={`Borrador #${b.id}`}
+                      secundario={b.version_receta_numero != null ? `Receta versión ${b.version_receta_numero}` : undefined}
+                    />
+                  </Celda>
+                  {/* Cada lote lleva su rótulo (identificación y fechas propias). */}
+                  <Celda>
+                    {b.lote_numero ? (
+                      <Text fontFamily="mono" fontSize="sm">{b.lote_numero}</Text>
+                    ) : (
+                      <Text fontSize="sm" color="fg.muted">Sin lote</Text>
+                    )}
                   </Celda>
                   <Celda center>
                     <PildoraNeutra>{b.estado.replaceAll("_", " ")}</PildoraNeutra>
@@ -385,11 +414,18 @@ function VistaProductoSeleccionado({
                     {b.actualizado_en ? formatoFechaHora(b.actualizado_en) : "-"}
                   </Celda>
                   <Celda center>
-                    <BotonFila onClick={() => onPrevisualizar(b.id)}>Previsualizar</BotonFila>
-                    <BotonFila onClick={() => onEditarBorrador(b.id)}>
-                      <LuPencil aria-hidden />
-                      Editar
-                    </BotonFila>
+                    <BotonAccion
+                      accion="ver"
+                      label={`Previsualizar borrador #${b.id}`}
+                      tooltip="Previsualizar"
+                      onClick={() => onPrevisualizar(b.id)}
+                    />
+                    <BotonAccion
+                      accion="editar"
+                      label={`Editar borrador #${b.id}`}
+                      tooltip="Editar"
+                      onClick={() => onEditarBorrador(b.id)}
+                    />
                   </Celda>
                 </FilaClickeable>
               ))}

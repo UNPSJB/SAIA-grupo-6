@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { GRUPOS, esVisibleEntrada } from "../../../../common/components/menuEntradas";
+import { GRUPOS, destinoCategoria, esVisibleEntrada, vePaneles } from "../../../../common/components/menuEntradas";
 import { useAuth } from "../../../../common/context/useAuth";
 import { Box } from "@chakra-ui/react";
 import { BannerPanel } from "../BannerPanel";
@@ -39,6 +39,9 @@ export function PanelCategoriaPage() {
   const grupo = GRUPOS.find((g) => g.id === categoria);
   const visible = grupo?.entradas.some((e) => esVisibleEntrada(e, user)) ?? false;
   if (!grupo || !visible) return <Navigate to="/" replace />;
+  // Quien solo opera no ve los paneles de indicadores: va a la primera
+  // pantalla de la categoría (su cumplimiento lo ve en el Inicio).
+  if (!vePaneles(user)) return <Navigate to={destinoCategoria(grupo, user)} replace />;
 
   const paneles: Record<string, ReactElement> = {
     produccion: <PanelProduccion />,

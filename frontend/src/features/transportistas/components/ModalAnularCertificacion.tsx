@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState } from "react";
 import { Text, Textarea, VStack } from "@chakra-ui/react";
 import {
@@ -61,6 +62,7 @@ export function ModalAnularCertificacion({
     setError(null);
     try {
       await anularCertificacion(certificacion.id, motivo.trim());
+      avisarExito("Certificación anulada correctamente.");
       onAnulada();
       onClose();
     } catch (err) {

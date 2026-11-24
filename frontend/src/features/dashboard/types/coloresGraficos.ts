@@ -34,6 +34,21 @@ export const COLOR_CALIDO = {
   piedra: "#a69d8f",
 } as const;
 
+/** Teal de cumplimiento: el de las barras horizontales y las paletas. */
+export const COLOR_CUMPLIMIENTO = "#009b8f";
+
+/**
+ * Los cinco primeros tonos de la paleta categórica de referencia, en su orden
+ * fijo (azul, naranja, aqua, amarillo, magenta), para repartir un total entre
+ * entidades distintas (p. ej. salidas por transportista). Validados juntos,
+ * también para daltonismo; el oscuro tiene sus propios pasos contra el fondo
+ * oscuro. Van siempre con la leyenda al lado (nombre y valor).
+ */
+export const CATEGORICO = {
+  claro: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"],
+  oscuro: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"],
+} as const;
+
 export interface ParteDona extends Conteo {
   color: string;
 }

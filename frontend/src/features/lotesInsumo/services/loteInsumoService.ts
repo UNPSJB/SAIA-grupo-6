@@ -3,33 +3,32 @@ import { pedir } from "../../../common/api/errors";
 import type {
   BajaLoteInsumoInput,
   BajaLoteInsumoRegistro,
-  IndicadorBajasResponse,
-  InsumoOpcion,
+  IngredienteOpcion,
   LoteInsumoInput,
-  StockInsumo,
+  StockIngrediente,
   StockLoteInsumo,
 } from "../types/loteInsumo";
 
-export async function listarStockInsumos(): Promise<StockInsumo[]> {
-  const response = await apiFetch(`${API_URL}/stock/insumos`);
-  return pedir<StockInsumo[]>(response, "Error al obtener el stock de insumos");
+export async function listarStockInsumos(): Promise<StockIngrediente[]> {
+  const response = await apiFetch(`${API_URL}/stock/ingredientes`);
+  return pedir<StockIngrediente[]>(response, "Error al obtener el stock de insumos");
 }
 
 export async function listarStockLotes(
-  insumoId?: number,
+  ingredienteId?: number,
   incluirInactivos = false,
 ): Promise<StockLoteInsumo[]> {
   const params = new URLSearchParams();
-  if (insumoId) params.set("insumo_id", String(insumoId));
+  if (ingredienteId) params.set("ingrediente_id", String(ingredienteId));
   if (incluirInactivos) params.set("incluir_inactivos", "true");
   const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await apiFetch(`${API_URL}/stock/lotes-insumo${query}`);
   return pedir<StockLoteInsumo[]>(response, "Error al obtener los lotes de insumo");
 }
 
-export async function listarLotesSugeridos(insumoId: number): Promise<StockLoteInsumo[]> {
+export async function listarLotesSugeridos(ingredienteId: number): Promise<StockLoteInsumo[]> {
   const response = await apiFetch(
-    `${API_URL}/lotes-insumo/sugeridos?insumo_id=${insumoId}&todos=true`,
+    `${API_URL}/lotes-insumo/sugeridos?ingrediente_id=${ingredienteId}&todos=true`,
   );
   return pedir<StockLoteInsumo[]>(response, "Error al obtener los lotes sugeridos");
 }
@@ -65,19 +64,7 @@ export async function listarBajasLoteInsumo(
   );
 }
 
-export async function obtenerIndicadorBajas(
-  fechaDesde?: string,
-  fechaHasta?: string,
-): Promise<IndicadorBajasResponse> {
-  const params = new URLSearchParams();
-  if (fechaDesde) params.set("fecha_desde", fechaDesde);
-  if (fechaHasta) params.set("fecha_hasta", fechaHasta);
-  const query = params.size > 0 ? `?${params.toString()}` : "";
-  const response = await apiFetch(`${API_URL}/stock/bajas-por-motivo${query}`);
-  return pedir<IndicadorBajasResponse>(response, "Error al obtener el indicador de bajas");
-}
-
-export async function listarInsumosActivos(): Promise<InsumoOpcion[]> {
-  const response = await apiFetch(`${API_URL}/insumos`);
-  return pedir<InsumoOpcion[]>(response, "Error al obtener los insumos");
+export async function listarIngredientesActivos(): Promise<IngredienteOpcion[]> {
+  const response = await apiFetch(`${API_URL}/ingredientes`);
+  return pedir<IngredienteOpcion[]>(response, "Error al obtener los ingredientes");
 }

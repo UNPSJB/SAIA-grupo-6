@@ -53,7 +53,7 @@ const escala = (valores: Record<number, string>) =>
  * tonos distintos). Es el token `bg.panel`: blanco en claro y el teal casi
  * negro de las tarjetas en oscuro.
  */
-export const FONDO_PESTANA = "bg.panel";
+export const FONDO_PESTANA = "pestana";
 
 /**
  * Degradado del teal de la marca para el fondo del Inicio (barra superior
@@ -194,6 +194,13 @@ const config = defineConfig({
           contrast: { value: "{colors.white}" },
         },
 
+        /* Lo mismo con el teal de Chakra (`colorPalette="teal"`, p. ej. el
+         * filtro "Todas" del checklist): blanco sobre teal.600 daba 3.7:1. */
+        teal: {
+          solid: { value: "{colors.teal.700}" },
+          contrast: { value: "{colors.white}" },
+        },
+
         /*
          * Escala de texto neutra. Tres niveles, todos por encima de 4.5:1
          * sobre superficie blanca:
@@ -205,27 +212,55 @@ const config = defineConfig({
          * Antes `fg.muted` era gray.400 y `fg.subtle` gray.300: a 12-14px no
          * llegaban a 4.5:1.
          */
-        fg: { value: { _light: "{colors.gray.900}", _dark: "{colors.gray.50}" } },
-        "fg.muted": { value: { _light: "{colors.gray.600}", _dark: "{colors.gray.300}" } },
-        "fg.subtle": { value: { _light: "{colors.gray.500}", _dark: "{colors.gray.400}" } },
+        /*
+         * Modo claro sin negro ni blanco puros: menos brillo, menos cansancio.
+         * Contraste medido sobre la página (#EBF1F1), el fondo más oscuro:
+         * fg 12.8:1, fg.muted 5.6:1 y fg.subtle 4.8:1.
+         */
+        fg: { value: { _light: "#1E293B", _dark: "{colors.gray.50}" } },
+        "fg.muted": { value: { _light: "#52606D", _dark: "{colors.gray.300}" } },
+        "fg.subtle": { value: { _light: "#5F6B78", _dark: "{colors.gray.400}" } },
 
-        /* Superficies. En claro: página teal muy suave y tarjetas blancas.
+        /* Superficies. En claro: blanco quebrado con un matiz teal apenas
+         * perceptible (página #EBF1F1, tarjetas #F7FAFA, secundarias #EFF5F5).
          * En oscuro: página casi negra y tarjetas un escalón más claras. */
-        bg: { value: { _light: "{colors.white}", _dark: "{colors.brandDark.50}" } },
-        "bg.panel": { value: { _light: "{colors.white}", _dark: "{colors.brandDark.100}" } },
-        "bg.subtle": { value: { _light: "{colors.gray.50}", _dark: "{colors.brandDark.200}" } },
-        "bg.muted": { value: { _light: "{colors.gray.100}", _dark: "{colors.brandDark.200}" } },
+        bg: { value: { _light: "#F7FAFA", _dark: "{colors.brandDark.50}" } },
+        "bg.panel": { value: { _light: "#F7FAFA", _dark: "{colors.brandDark.100}" } },
+        "bg.subtle": { value: { _light: "#EFF5F5", _dark: "{colors.brandDark.200}" } },
+        /* Un poco más oscuro que `bg.subtle`: pistas de barras y estados
+         * deshabilitados tienen que verse sobre la tarjeta. */
+        "bg.muted": { value: { _light: "#E6EEEE", _dark: "{colors.brandDark.200}" } },
+
+        /* Fondo de la página. */
+        pagina: { value: { _light: "#EBF1F1", _dark: "{colors.brandDark.50}" } },
+        /* Franja de las migas de pan y pestaña activa de la barra: en claro,
+         * el mismo tono de la página (continuidad sin corte); en oscuro, el
+         * de las tarjetas, como antes. */
+        pestana: { value: { _light: "#EBF1F1", _dark: "{colors.brandDark.100}" } },
+        /* Campos de formulario (input, select, textarea): superficie
+         * secundaria en claro; en oscuro, el de las tarjetas, como antes. */
+        control: {
+          fondo: { value: { _light: "#EFF5F5", _dark: "{colors.brandDark.100}" } },
+        },
+
+        /* Bordes y divisores. En oscuro quedan los valores de Chakra. */
+        border: {
+          DEFAULT: { value: { _light: "#D6E2E2", _dark: "{colors.gray.800}" } },
+          muted: { value: { _light: "#DFE8E8", _dark: "{colors.gray.900}" } },
+          subtle: { value: { _light: "#E3ECEC", _dark: "{colors.gray.950}" } },
+          emphasized: { value: { _light: "#C3D3D3", _dark: "{colors.gray.700}" } },
+        },
 
         /* Tablas (`COLOR_TABLA` en patrones.tsx). En claro, los grises pizarra
          * del rediseño; en oscuro, los mismos escalones que bg/fg. */
         tabla: {
-          fondoEncabezado: { value: { _light: "#F1F5F9", _dark: "{colors.brandDark.200}" } },
+          fondoEncabezado: { value: { _light: "#EFF5F5", _dark: "{colors.brandDark.200}" } },
           textoEncabezado: { value: { _light: "#475569", _dark: "{colors.gray.300}" } },
-          bordeEncabezado: { value: { _light: "#E2E8F0", _dark: "{colors.brandDark.300}" } },
-          bordeFila: { value: { _light: "#EEF2F6", _dark: "{colors.brandDark.200}" } },
-          hoverFila: { value: { _light: "#F0FDFA", _dark: "{colors.brandDark.200}" } },
+          bordeEncabezado: { value: { _light: "#D6E2E2", _dark: "{colors.brandDark.300}" } },
+          bordeFila: { value: { _light: "#E3ECEC", _dark: "{colors.brandDark.200}" } },
+          hoverFila: { value: { _light: "#EFF5F5", _dark: "{colors.brandDark.200}" } },
           textoPrincipal: { value: { _light: "#1E293B", _dark: "{colors.gray.50}" } },
-          textoSecundario: { value: { _light: "#64748B", _dark: "{colors.gray.400}" } },
+          textoSecundario: { value: { _light: "#52606D", _dark: "{colors.gray.400}" } },
           accion: { value: { _light: "#0F766E", _dark: "{colors.brandDark.700}" } },
           accionHover: { value: { _light: "#115E59", _dark: "{colors.brandDark.800}" } },
           bordeBoton: { value: { _light: "#CBD5E1", _dark: "{colors.brandDark.300}" } },
@@ -244,7 +279,7 @@ const config = defineConfig({
 
         /* Fondo claro del Inicio, debajo del degradado de la marca. */
         inicio: {
-          fondo: { value: { _light: "#EEF3F3", _dark: "{colors.brandDark.50}" } },
+          fondo: { value: { _light: "#EBF1F1", _dark: "{colors.brandDark.50}" } },
         },
 
         /* Un tema por área de los paneles (`features/dashboard/types/temasArea.ts`). */
@@ -308,6 +343,17 @@ const config = defineConfig({
             titulo: { value: { _light: "#3A1F2C", _dark: "#F3E8ED" } },
             bajada: { value: { _light: "#674453", _dark: "#D2BBC5" } },
             arco3: { value: { _light: "#F0DBE4", _dark: "#6A394E" } },
+          },
+          // Comparativa entre establecimientos: teal de la marca y pizarra.
+          empresa: {
+            fondo0: { value: { _light: "#EEF6F5", _dark: "#142120" } },
+            fondo1: { value: { _light: "#D9ECEA", _dark: "#1A2E2C" } },
+            fondo2: { value: { _light: "#E5EDF3", _dark: "#172330" } },
+            borde: { value: { _light: "#C3DCD9", _dark: "#2F524D" } },
+            acento: { value: { _light: "#1D6A64", _dark: "#8FD0C8" } },
+            titulo: { value: { _light: "#132D2B", _dark: "#E6F2F0" } },
+            bajada: { value: { _light: "#3B5A57", _dark: "#B7CFCB" } },
+            arco3: { value: { _light: "#D3E9E6", _dark: "#2E5752" } },
           },
         },
       },
@@ -390,7 +436,7 @@ const config = defineConfig({
         variants: {
           variant: {
             outline: {
-              bg: "bg.panel",
+              bg: "control.fondo",
               borderWidth: "2px",
               borderStyle: "solid",
               borderColor: "brand.300",
@@ -429,7 +475,7 @@ const config = defineConfig({
         variants: {
           variant: {
             outline: {
-              bg: "bg.panel",
+              bg: "control.fondo",
               borderWidth: "2px",
               borderStyle: "solid",
               borderColor: "brand.300",
@@ -458,6 +504,24 @@ const config = defineConfig({
      * dibujarlo la `Tarjeta` que envuelve a la tabla.
      */
     slotRecipes: {
+      /*
+       * Pista del switch apagado. La de Chakra (`bg.emphasized`) en oscuro es
+       * casi el color de las tarjetas: se veía un punto blanco suelto. Estos
+       * dan 3:1 o más contra la tarjeta y contra el botón blanco.
+       */
+      switch: {
+        slots: ["root", "label", "control", "thumb", "indicator"],
+        variants: {
+          variant: {
+            solid: {
+              control: {
+                bg: { _light: "#7F9092", _dark: "#6B8085" },
+                _checked: { bg: "colorPalette.solid" },
+              },
+            },
+          },
+        },
+      },
       table: {
         slots: ["root", "header", "row", "cell", "columnHeader", "caption", "footer"],
         base: {
@@ -554,7 +618,7 @@ const config = defineConfig({
   },
   globalCss: {
     "html, body": {
-      backgroundColor: "{colors.brand.50}",
+      backgroundColor: "pagina",
       color: "fg",
       fontFamily: "body",
     },

@@ -313,11 +313,6 @@ def test_los_incidentes_de_higiene_equipos_plagas_y_otros_generan_riesgo(tipo, e
     assert tipo_situacion_de_incidente(tipo, "otro") == esperado
 
 
-def test_las_devoluciones_de_cliente_no_generan_riesgo():
-    assert tipo_situacion_de_incidente("devolucion_cliente") is None
-    assert tipo_situacion_de_incidente("devolucion_cliente", "cuerpo_extrano") is None
-
-
 @pytest.mark.parametrize("tipo", ["reclamo_cliente", "retiro_lote", "entrega_rechazada"])
 def test_reclamos_retiros_y_rechazos_no_generan_riesgo_por_si_mismos(tipo):
     assert tipo_situacion_de_incidente(tipo) is None

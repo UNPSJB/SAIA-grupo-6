@@ -1,15 +1,16 @@
-from datetime import date, datetime, timedelta
-from src.common.fechas import hoy
-from src.common.estado_documento import estado_documento, VENCIDO, PROXIMO
+from datetime import date, timedelta
+from src.establecimientos.contexto import sede_efectiva
+from src.common.fechas import ahora, hoy
+from src.common.estado_documento import VENCIDO
 from typing import List
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 from src.Equipo.models import Equipo
 from src.elementoLimpieza.models import ElementoLimpieza
+from src.exceptions import NotFound
 from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
 from src.notificaciones.schemas import NotificacionResponse
 from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
-from src.documentos.models import Documento, VersionDocumento
 
 from src.aptitud.models import Aptitud
 from src.common.texto import coincide_terminos
@@ -18,7 +19,7 @@ from src.notificaciones.invalidacion import (
     asegurar_notificaciones_al_dia,
     invalidar_notificaciones,
 )
-from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida
+from src.notificaciones.models import ConfiguracionAlerta, NotificacionLeida, NotificacionPersistida
 from src.personal.models import Personal
 from src.lotesInsumo.models import LoteInsumo
 from src.unidadMedida.models import UnidadMedida
@@ -143,12 +144,12 @@ def obtener_notificaciones_planes_calibracion_mantenimiento(
     return notificaciones
 
 def obtener_dias_alerta_vencimiento_personal(db: Session) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_DIAS_VENCIMIENTO_PERSONAL)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_DIAS_VENCIMIENTO_PERSONAL})
     return config.valor if config else DIAS_VENCIMIENTO_PERSONAL_POR_DEFECTO
 
 
 def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_DIAS_VENCIMIENTO_PERSONAL)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_DIAS_VENCIMIENTO_PERSONAL})
     if config:
         config.valor = dias
     else:
@@ -159,12 +160,12 @@ def actualizar_dias_alerta_vencimiento_personal(db: Session, dias: int) -> int:
 
 def obtener_plazo_reclamo_dias(db: Session) -> int:
     """Días de referencia para marcar un reclamo como fuera de plazo."""
-    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_PLAZO_RECLAMO_DIAS})
     return config.valor if config else PLAZO_RECLAMO_DIAS_POR_DEFECTO
 
 
 def actualizar_plazo_reclamo_dias(db: Session, dias: int) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_PLAZO_RECLAMO_DIAS)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_PLAZO_RECLAMO_DIAS})
     if config:
         config.valor = dias
     else:
@@ -175,12 +176,12 @@ def actualizar_plazo_reclamo_dias(db: Session, dias: int) -> int:
 
 def obtener_meta_cumplimiento_limpieza(db: Session) -> int:
     """Porcentaje de tareas de limpieza que se espera completar."""
-    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_META_CUMPLIMIENTO_LIMPIEZA})
     return config.valor if config else META_CUMPLIMIENTO_LIMPIEZA_POR_DEFECTO
 
 
 def actualizar_meta_cumplimiento_limpieza(db: Session, porcentaje: int) -> int:
-    config = db.get(ConfiguracionAlerta, CLAVE_META_CUMPLIMIENTO_LIMPIEZA)
+    config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": CLAVE_META_CUMPLIMIENTO_LIMPIEZA})
     if config:
         config.valor = porcentaje
     else:
@@ -254,7 +255,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
     lotes = db.scalars(
         select(LoteInsumo)
         .options(
-            selectinload(LoteInsumo.insumo),
+            selectinload(LoteInsumo.ingrediente),
             selectinload(LoteInsumo.proveedor),
         )
         .where(
@@ -274,7 +275,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
             titulo = "Lote de insumo vencido"
             nivel = "VENCIDO"
             mensaje = (
-                f"El lote '{lote.numero_lote}' de '{lote.insumo.nombre}' "
+                f"El lote '{lote.numero_lote}' de '{lote.ingrediente.nombre}' "
                 f"del proveedor '{lote.proveedor.nombre}' venció el "
                 f"{lote.fecha_vencimiento:%d/%m/%Y}."
             )
@@ -282,7 +283,7 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
             titulo = "Lote de insumo próximo a vencer"
             nivel = "PROXIMO_A_VENCER"
             mensaje = (
-                f"El lote '{lote.numero_lote}' de '{lote.insumo.nombre}' "
+                f"El lote '{lote.numero_lote}' de '{lote.ingrediente.nombre}' "
                 f"del proveedor '{lote.proveedor.nombre}' vence en "
                 f"{dias_restantes} día(s), el "
                 f"{lote.fecha_vencimiento:%d/%m/%Y}."
@@ -296,13 +297,69 @@ def obtener_notificaciones_vencimiento_lotes_insumo(
                 titulo=titulo,
                 mensaje=mensaje,
                 nivel=nivel,
-                link_destino="/gestion-stock/lotes-insumo",
+                link_destino="/lotes-insumo",
                 fecha_referencia=lote.fecha_vencimiento,
                 grupo_clave=f"lote-insumo:{lote.id}",
             )
         )
 
     return notificaciones
+
+def obtener_notificaciones_homologacion_insumos(db: Session) -> List[NotificacionResponse]:
+    """Marcas aprobadas cuya homologación venció o está por vencer.
+
+    La vigencia sale de Parámetros nutricionales (12 meses por defecto) y el
+    margen de "próximo" es el mismo de los documentos. Vencida, la marca no
+    recibe lotes ni se consume hasta que alguien revise su rótulo y vuelva a aprobarla.
+    """
+    from src.insumos.homologacion import vigencia_meses, vigente_hasta
+    from src.insumos.models import ESTADO_APROBADA, Insumo
+
+    hoy_dia = hoy()
+    margen = obtener_dias_alerta_vencimiento_personal(db)
+    meses = vigencia_meses(db)
+    insumos = db.scalars(
+        select(Insumo)
+        .options(selectinload(Insumo.ingrediente))
+        .where(Insumo.activo.is_(True), Insumo.estado_homologacion == ESTADO_APROBADA)
+        .order_by(Insumo.id)
+    ).all()
+
+    notificaciones = []
+    for insumo in insumos:
+        vence = vigente_hasta(insumo, meses)
+        if vence is None or vence > hoy_dia + timedelta(days=margen):
+            continue
+        dias = (vence - hoy_dia).days
+        marca = f"'{insumo.nombre}' de '{insumo.ingrediente.nombre}'"
+        if dias < 0:
+            titulo, nivel = "Homologación de insumo vencida", "VENCIDO"
+            mensaje = (
+                f"La homologación de la marca {marca} venció el {vence:%d/%m/%Y}: "
+                "no se pueden recibir ni consumir sus lotes hasta revisar el rótulo y volver a aprobarla."
+            )
+        else:
+            titulo, nivel = "Homologación de insumo próxima a vencer", "PROXIMO_A_VENCER"
+            mensaje = (
+                f"La homologación de la marca {marca} vence en {dias} día(s), el {vence:%d/%m/%Y}. "
+                "Revisá su rótulo y volvé a aprobarla: vencida, no se pueden recibir ni consumir sus lotes."
+            )
+        notificaciones.append(
+            NotificacionResponse(
+                id_notificacion=f"homologacion-insumo-{insumo.id}",
+                tipo="HOMOLOGACION_INSUMO",
+                entidad_id=insumo.id,
+                entidad_nombre=insumo.nombre,
+                titulo=titulo,
+                mensaje=mensaje,
+                nivel=nivel,
+                link_destino=f"/insumos/{insumo.id}/homologacion",
+                fecha_referencia=vence,
+                grupo_clave=f"homologacion-insumo:{insumo.id}",
+            )
+        )
+    return notificaciones
+
 
 def obtener_notificaciones_stock_bajo(db: Session) -> List[NotificacionResponse]:
     filas = db.execute(
@@ -360,8 +417,52 @@ def _filtrar_por_texto(
     ]
 
 
-def _filas_a_respuestas(filas) -> List[NotificacionResponse]:
+_GRAVEDAD_CRITICIDAD = {"baja": 1, "media": 2, "alta": 3}
+
+
+def _mapa_lecturas_usuario(
+    db: Session, usuario_id: int | None = None
+) -> dict[str, NotificacionLeida]:
+    """Consulta NotificacionLeida para ese usuario_id en la sede efectiva."""
+    if usuario_id is None:
+        usuario_id = db.info.get("usuario_id")
+    if usuario_id is None:
+        return {}
+
+    lecturas = db.scalars(
+        select(NotificacionLeida).where(
+            NotificacionLeida.establecimiento_id == sede_efectiva(db),
+            NotificacionLeida.usuario_id == usuario_id,
+        )
+    ).all()
+    return {l.id_notificacion: l for l in lecturas}
+
+
+def _esta_leida(
+    fila: NotificacionPersistida, lectura: NotificacionLeida | None
+) -> bool:
+    if lectura is None:
+        return False
+
+    # Re-activación automática si empeora:
+    # 1. Si no estaba vencido al leerse y ahora sí está vencido
+    if lectura.nivel_leido != "VENCIDO" and fila.nivel == "VENCIDO":
+        return False
+
+    # 2. Si la criticidad actual tiene mayor gravedad que la que se leyó
+    gravedad_actual = _GRAVEDAD_CRITICIDAD.get(fila.criticidad.lower(), 1)
+    gravedad_leida = _GRAVEDAD_CRITICIDAD.get(lectura.criticidad_leida.lower(), 1)
+    if gravedad_actual > gravedad_leida:
+        return False
+
+    return True
+
+
+def _filas_a_respuestas(
+    filas, lecturas: dict[str, NotificacionLeida] | None = None
+) -> List[NotificacionResponse]:
     """Convierte filas de NotificacionPersistida en NotificacionResponse."""
+    lecturas = lecturas or {}
     return [
         NotificacionResponse(
             id_notificacion=f.id_notificacion,
@@ -373,9 +474,11 @@ def _filas_a_respuestas(filas) -> List[NotificacionResponse]:
             link_destino=f.link_destino,
             fecha_referencia=f.fecha_referencia,
             grupo_clave=f.grupo_clave,
+            leida=_esta_leida(f, lecturas.get(f.id_notificacion)),
         )
         for f in filas
     ]
+
 
 
 def calcular_filas_notificaciones(db: Session) -> list[dict]:
@@ -405,6 +508,7 @@ def calcular_filas_notificaciones(db: Session) -> list[dict]:
     notificaciones_originales.extend(obtener_notificaciones_vencimientos_personal(db))
     notificaciones_originales.extend(obtener_notificaciones_stock_bajo(db))
     notificaciones_originales.extend(obtener_notificaciones_vencimiento_lotes_insumo(db))
+    notificaciones_originales.extend(obtener_notificaciones_homologacion_insumos(db))
     por_id = {n.id_notificacion: n for n in notificaciones_originales}
 
     def _recortar(texto: str | None, largo: int) -> str | None:
@@ -468,7 +572,7 @@ def recalcular_notificaciones_persistidas(db: Session, inmediato: bool = False) 
 
 
 def obtener_todas_notificaciones(
-    db: Session, buscar: str | None = None
+    db: Session, buscar: str | None = None, usuario_id: int | None = None
 ) -> List[NotificacionResponse]:
     """Lee las notificaciones de la tabla persistida.
 
@@ -479,7 +583,112 @@ def obtener_todas_notificaciones(
     """
     asegurar_notificaciones_al_dia(db)
     filas = db.scalars(select(NotificacionPersistida)).all()
-    return _filtrar_por_texto(_filas_a_respuestas(filas), buscar)
+    lecturas = _mapa_lecturas_usuario(db, usuario_id)
+    return _filtrar_por_texto(_filas_a_respuestas(filas, lecturas), buscar)
+
+
+def marcar_notificacion_leida(
+    db: Session,
+    id_notificacion: str,
+    leida: bool = True,
+    usuario_id: int | None = None,
+) -> bool:
+    """Marca o desmarca una notificación como leída para el usuario."""
+    asegurar_notificaciones_al_dia(db)
+
+    if usuario_id is None:
+        usuario_id = db.info.get("usuario_id")
+    if usuario_id is None:
+        raise NotFound("Usuario no autenticado.")
+
+    sede = sede_efectiva(db)
+    fila = db.scalars(
+        select(NotificacionPersistida).where(
+            NotificacionPersistida.establecimiento_id == sede,
+            NotificacionPersistida.id_notificacion == id_notificacion,
+        )
+    ).first()
+
+    if fila is None:
+        raise NotFound("La notificación no existe o ya fue resuelta.")
+
+    lectura = db.get(
+        NotificacionLeida,
+        {
+            "establecimiento_id": sede,
+            "usuario_id": usuario_id,
+            "id_notificacion": id_notificacion,
+        },
+    )
+
+    if leida:
+        if lectura:
+            lectura.nivel_leido = fila.nivel
+            lectura.criticidad_leida = fila.criticidad
+            lectura.leida_en = ahora()
+        else:
+            db.add(
+                NotificacionLeida(
+                    establecimiento_id=sede,
+                    usuario_id=usuario_id,
+                    id_notificacion=id_notificacion,
+                    nivel_leido=fila.nivel,
+                    criticidad_leida=fila.criticidad,
+                    leida_en=ahora(),
+                )
+            )
+    else:
+        if lectura:
+            db.delete(lectura)
+
+    db.commit()
+    return leida
+
+
+def marcar_todas_notificaciones_leidas(
+    db: Session, usuario_id: int | None = None
+) -> int:
+    """Marca todas las notificaciones activas de la sede como leídas para el usuario."""
+    asegurar_notificaciones_al_dia(db)
+
+    if usuario_id is None:
+        usuario_id = db.info.get("usuario_id")
+    if usuario_id is None:
+        return 0
+
+    sede = sede_efectiva(db)
+    filas = db.scalars(
+        select(NotificacionPersistida).where(
+            NotificacionPersistida.establecimiento_id == sede
+        )
+    ).all()
+
+    ahora_dt = ahora()
+    existentes = _mapa_lecturas_usuario(db, usuario_id)
+
+    total_marcadas = 0
+    for f in filas:
+        lectura = existentes.get(f.id_notificacion)
+        if lectura:
+            lectura.nivel_leido = f.nivel
+            lectura.criticidad_leida = f.criticidad
+            lectura.leida_en = ahora_dt
+        else:
+            db.add(
+                NotificacionLeida(
+                    establecimiento_id=sede,
+                    usuario_id=usuario_id,
+                    id_notificacion=f.id_notificacion,
+                    nivel_leido=f.nivel,
+                    criticidad_leida=f.criticidad,
+                    leida_en=ahora_dt,
+                )
+            )
+        total_marcadas += 1
+
+    db.commit()
+    return total_marcadas
+
 
 
 # ────────────────────────── Listado paginado ──────────────────────────────
@@ -507,6 +716,7 @@ _TIPOS_ORIGEN = (
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
+    "HOMOLOGACION_INSUMO",
     "DOCUMENTO",
     "CHECKLIST",
     "INCIDENTE",

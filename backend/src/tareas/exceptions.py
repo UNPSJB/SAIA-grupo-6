@@ -32,3 +32,11 @@ class FrecuenciaInvalida(BadRequest):
 
 class TipoInvalido(BadRequest):
     DETAIL = ErrorCode.TIPO_INVALIDO
+
+
+class OperadorObligatorio(BadRequest):
+    DETAIL = ErrorCode.OPERADOR_OBLIGATORIO
+
+
+class OperadorInvalido(BadRequest):
+    DETAIL = ErrorCode.OPERADOR_INVALIDO

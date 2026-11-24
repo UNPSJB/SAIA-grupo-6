@@ -24,14 +24,15 @@ import { useClientes } from "../../hooks/useClientes";
 import type { OrdenCliente } from "../../services/clienteService";
 import type { Cliente } from "../../types/cliente";
 import { ClienteTable } from "../ClienteTable";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
 export function ClientesPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("ClientesPage.verInactivos", false);
+  const [busqueda, setBusqueda] = useEstadoNavegacion("ClientesPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
 
   // Orden por defecto: nombre ascendente, con el header de Nombre activo.
@@ -161,11 +162,13 @@ export function ClientesPage() {
               }}
               children="Ver dados de baja"
             />
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="clientes"
+              vista="clientes"
               filtros={{
-                activo: String(!verInactivos),
+                solo_inactivos: String(verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

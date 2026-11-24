@@ -174,6 +174,8 @@ export function MiPerfilPage() {
         puede_operar: actualizada.puede_operar,
         puede_administrar: actualizada.puede_administrar,
         es_super_admin: actualizada.es_super_admin,
+        es_gerente: Boolean(actualizada.es_gerente),
+        establecimiento_id: actualizada.establecimiento_id ?? null,
       });
       setExito(true);
     } catch (err) {
@@ -213,7 +215,6 @@ export function MiPerfilPage() {
         }}
         onSubmit={handleGuardar}
         isLoading={guardando}
-        title="Mis datos"
         submitLabel="Guardar cambios"
         esMiPerfil
       />

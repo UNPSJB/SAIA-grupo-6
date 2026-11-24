@@ -1,63 +1,121 @@
+"""Insumo: el producto concreto que se compra (una marca de un ingrediente).
+
+El ingrediente es la especificación ("Pan lactal", "Bicarbonato de sodio"):
+lo usa la receta y de él sale la tabla nutricional. El insumo es lo que
+llega del proveedor ("Pan lactal Marca A"): se recibe en lotes y la
+trazabilidad dice qué marca exacta entró en cada lote de producto.
+"""
+
 from datetime import datetime
-from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, JSON, DateTime
+from decimal import Decimal
+
+from sqlalchemy import text, JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Numeric, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.aditivos.models import Aditivo
 from src.models import ModeloBase
-from src.unidadMedida.models import UnidadMedida
+from src.establecimientos.models import DatosDeEstablecimiento
 
-# Tipo del insumo (E9). Antes era insumo/producto: los productos tienen su
-# propia tabla desde la trazabilidad (ver migrations/insumos_tipo.py).
-TIPO_INGREDIENTE = "ingrediente"
-TIPO_ADITIVO = "aditivo"
-TIPOS_INSUMO = (TIPO_INGREDIENTE, TIPO_ADITIVO)
+# Qué proveedores venden cada insumo: una misma marca puede comprarse a más de
+# un distribuidor, y un proveedor vende varias.
+proveedores_insumos = Table(
+    "proveedores_insumos",
+    ModeloBase.metadata,
+    Column("proveedor_id", ForeignKey("proveedores.id", ondelete="CASCADE"), primary_key=True),
+    Column("insumo_id", ForeignKey("insumos.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
-class Insumo(ModeloBase):
+# Estados de la homologación de un insumo contra su ingrediente.
+ESTADO_PENDIENTE = "pendiente"
+ESTADO_APROBADA = "aprobada"
+ESTADO_RECHAZADA = "rechazada"
+# Estaba aprobado, pero cambió la referencia del ingrediente (o su rótulo) y
+# la comparación empeoró: hay que volver a revisarlo antes de recibir lotes.
+ESTADO_REQUIERE_REVISION = "requiere_revision"
+
+
+class Insumo(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "insumos"
     __table_args__ = (
         CheckConstraint(
-            "tipo IN ('ingrediente', 'aditivo')",
-            name="ck_insumos_tipo_valido",
-        ),
-        # Un aditivo siempre apunta a la lista de referencia (clase funcional,
-        # nombre completo e INS); un ingrediente nunca.
-        CheckConstraint(
-            "(tipo = 'aditivo' AND aditivo_id IS NOT NULL) "
-            "OR (tipo = 'ingrediente' AND aditivo_id IS NULL)",
-            name="ck_insumos_aditivo_segun_tipo",
+            "estado_homologacion IN ('pendiente', 'aprobada', 'rechazada', 'requiere_revision')",
+            name="ck_insumos_estado_homologacion",
         ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    perfil_declaracion: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    perfil_actualizado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    perfil_actualizado_por_id: Mapped[int | None] = mapped_column(ForeignKey("personal.id"), nullable=True)
-    nombre: Mapped[str] = mapped_column(index=True, unique=True)
-    unidad_medida_id: Mapped[int] = mapped_column(ForeignKey("unidades_medida.id"), nullable=False)
-    activo: Mapped[bool] = mapped_column(default=True)
-    tipo: Mapped[str] = mapped_column(
-        String(20),
-        default=TIPO_INGREDIENTE,
-        server_default=TIPO_INGREDIENTE,
-        index=True,
+    ingrediente_id: Mapped[int] = mapped_column(
+        ForeignKey("ingredientes.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    aditivo_id: Mapped[int | None] = mapped_column(
-        ForeignKey("aditivos.id", ondelete="RESTRICT"), nullable=True, index=True
+    marca: Mapped[str] = mapped_column(String(120), index=True)
+    # Para distinguir dos productos de la misma marca (p. ej. "blanco" e "integral").
+    descripcion: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    codigo_fabricante: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Producto no elaborado o a granel (frutas, verduras, huevos, carne): no
+    # tiene rótulo propio. No se compara contra el ingrediente: toma su
+    # composición y sus alérgenos, que son los que ya usa la tabla del producto.
+    sin_rotulo: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0"), nullable=False
     )
 
-    unidad_medida: Mapped["UnidadMedida"] = relationship()
-    aditivo: Mapped["Aditivo | None"] = relationship()
+    # Rótulo del fabricante: de dónde salen sus valores (los valores van en
+    # `valores_rotulo_insumo`; los alérgenos, en `insumos_alergenos`).
+    rotulo_referencia: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Porción (g o ml) por la que el rótulo declara sus valores; NULL = por 100.
+    # Los valores se guardan tal como figuran y también convertidos a 100.
+    rotulo_porcion: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+
+    # Homologación contra el ingrediente. Solo un insumo aprobado recibe lotes.
+    estado_homologacion: Mapped[str] = mapped_column(
+        String(20), default=ESTADO_PENDIENTE, server_default=ESTADO_PENDIENTE, index=True
+    )
+    # Resultado de la comparación al decidir (apta / observada / rechazada).
+    resultado_homologacion: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    justificacion_homologacion: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    homologado_por_id: Mapped[int | None] = mapped_column(ForeignKey("personal.id"), nullable=True)
+    homologado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # La comparación tal como estaba al decidir.
+    instantanea_homologacion: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    ingrediente: Mapped["Ingrediente"] = relationship(back_populates="insumos")
+    homologado_por: Mapped["Personal | None"] = relationship()
+    valores_rotulo: Mapped[list["ValorRotuloInsumo"]] = relationship(
+        cascade="all, delete-orphan", order_by="ValorRotuloInsumo.nutriente"
+    )
     proveedores: Mapped[list["Proveedor"]] = relationship(
-        "Proveedor", secondary="proveedores_insumos", back_populates="insumos"
+        secondary=proveedores_insumos, back_populates="insumos", order_by="Proveedor.nombre"
     )
 
-    # Campos opcionales según tipo de unidad de medida:
-    #  - volumen -> densidad_g_ml es obligatorio
-    #  - unidad  -> peso_unitario_g es obligatorio
-    densidad_g_ml: Mapped[float | None] = mapped_column(
-        Numeric(10, 4), nullable=True
+    @property
+    def ingrediente_nombre(self) -> str:
+        return self.ingrediente.nombre
+
+    @property
+    def nombre(self) -> str:
+        """Cómo se muestra: la marca y, si hay, la descripción."""
+        return f"{self.marca} · {self.descripcion}" if self.descripcion else self.marca
+
+
+class ValorRotuloInsumo(DatosDeEstablecimiento, ModeloBase):
+    """Un nutriente del rótulo del fabricante del insumo.
+
+    `valor_declarado` es el número tal como figura en el rótulo (por la porción
+    del insumo, o por 100 si no tiene); `valor_100` es el que se compara.
+    """
+
+    __tablename__ = "valores_rotulo_insumo"
+    __table_args__ = (
+        CheckConstraint("valor_100 >= 0", name="ck_valores_rotulo_insumo_no_negativo"),
+        CheckConstraint("valor_declarado >= 0", name="ck_valores_rotulo_insumo_declarado_no_negativo"),
     )
-    peso_unitario_g: Mapped[float | None] = mapped_column(
-        Numeric(10, 4), nullable=True
+
+    insumo_id: Mapped[int] = mapped_column(
+        ForeignKey("insumos.id", ondelete="CASCADE"), primary_key=True
     )
+    nutriente: Mapped[str] = mapped_column(
+        ForeignKey("parametros_nutrientes.clave"), primary_key=True
+    )
+    valor_declarado: Mapped[Decimal] = mapped_column(Numeric(14, 4))
+    valor_100: Mapped[Decimal] = mapped_column(Numeric(14, 4))

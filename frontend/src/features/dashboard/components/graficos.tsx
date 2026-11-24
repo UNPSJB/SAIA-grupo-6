@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Box, Flex, HStack, Stack, Text } from "@chakra-ui/react";
+import { useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -18,6 +19,7 @@ import type { TonoEstado } from "../../../components/ui/patrones";
 import { formatoCantidad } from "../../../common/utils/numeros";
 import type { Conteo, MapaCalor as DatosMapa, Serie } from "../types/paneles";
 import { COLOR_ESTADO, type ParteDona } from "../types/coloresGraficos";
+import { esPeriodoDeUnMes, useFechasEje } from "./ejeFechas";
 
 /*
  * Gráficos de los paneles de categoría. Cada forma responde a una pregunta:
@@ -58,11 +60,11 @@ function esTopeDePila(punto: Record<string, unknown> | undefined, clave: string,
 
 /* ─────────────────────────── Leyenda y tooltip ─────────────────────────── */
 
-function Punto({ color }: { color: string }) {
+export function Punto({ color }: { color: string }) {
   return <Box as="span" w="2.5" h="2.5" rounded="full" bg={color} flexShrink={0} aria-hidden />;
 }
 
-function FilaTooltip({ color, texto, valor }: { color: string; texto: string; valor: string }) {
+export function FilaTooltip({ color, texto, valor }: { color: string; texto: string; valor: string }) {
   return (
     <HStack justify="space-between" gap="4" fontSize="xs">
       <HStack gap="1.5">
@@ -78,7 +80,7 @@ function FilaTooltip({ color, texto, valor }: { color: string; texto: string; va
   );
 }
 
-function CajaTooltip({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+export function CajaTooltip({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <Box
       bg="bg.panel"
@@ -107,7 +109,28 @@ export interface SerieGrafico {
   color: string;
 }
 
-const TITULO_TRAMO = { dia: "Día", semana: "Semana del", mes: "Mes" } as const;
+const TITULO_TRAMO = { dia: "Día", semana: "Semana del" } as const;
+
+const MESES_LARGOS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/** `YYYY-MM-DD` → "Noviembre de 2026": el título del cartel de un mes. */
+function mesLargo(iso: string): string {
+  const mes = MESES_LARGOS[Number(iso.slice(5, 7)) - 1];
+  return `${mes.charAt(0).toUpperCase()}${mes.slice(1)} de ${iso.slice(0, 4)}`;
+}
 
 function fechaCorta(iso: string): string {
   const [anio, mes, dia] = iso.split("-");
@@ -140,6 +163,11 @@ interface GraficoSerieProps {
    * (p. ej. una lista) se muestra tal cual, debajo de una línea divisoria.
    */
   extraTooltip?: (valores: Record<string, number | null>, clave: string) => React.ReactNode;
+  /**
+   * Con 30 días, escribir cada fecha en diagonal (por defecto). En un gráfico
+   * angosto se pisan: con `false` se escriben solo las que entran, derechas.
+   */
+  fechasEnDiagonal?: boolean;
 }
 
 /**
@@ -159,14 +187,31 @@ export function GraficoSerie({
   alto = 240,
   llenar = false,
   extraTooltip,
+  fechasEnDiagonal = true,
 }: GraficoSerieProps) {
   const esPorcentaje = unidad === "%";
+  /** Período de 30 días mostrado día por día (no 7 días, ni 90, ni 12 meses). */
+  const diasDelMes =
+    fechasEnDiagonal && serie.granularidad === "dia" && esPeriodoDeUnMes(serie.puntos.length);
+  // En diagonal, la primera y la última fecha asoman unos píxeles por los
+  // costados y por abajo: un poco de margen para que no se corten.
+  const margen = diasDelMes
+    ? { top: 6, right: 12, bottom: 4, left: 6 }
+    : // A la derecha, lugar para media fecha: la última va centrada en su día.
+      { top: 6, right: 22, bottom: 0, left: 0 };
   // Ids de los degradados del área: únicos por gráfico, puede haber varios en pantalla.
   const idDegradado = `degradado-${useId().replace(/:/g, "")}`;
   const claves = series.map((s) => s.clave);
   const datos = serie.puntos.map((p) => ({ clave: p.clave, etiqueta: p.etiqueta, ...p.valores }));
   const formato = (valor: number | null | undefined) =>
     valor === null || valor === undefined ? "Sin datos" : `${formatoCantidad(valor)}${unidad ?? ""}`;
+  const { ref: refEjeFechas, ticks: ticksFechas, tick: tickFecha } = useFechasEje(
+    serie.puntos.map((p) => p.etiqueta),
+    12,
+    COLOR_EJE,
+    serie.granularidad === "semana" ? undefined : serie.puntos.map((p) => p.clave),
+    serie.granularidad === "mes",
+  );
 
   const contenidoTooltip = ({
     active,
@@ -181,9 +226,11 @@ export function GraficoSerie({
     const extra = extraTooltip?.(valores, String(punto.clave));
     return (
       <CajaTooltip
-        titulo={`${TITULO_TRAMO[serie.granularidad]} ${
-          serie.granularidad === "mes" ? String(punto.etiqueta) : fechaCorta(String(punto.clave))
-        }`}
+        titulo={
+          serie.granularidad === "mes"
+            ? mesLargo(String(punto.clave))
+            : `${TITULO_TRAMO[serie.granularidad]} ${fechaCorta(String(punto.clave))}`
+        }
       >
         {series.map((s) => (
           <FilaTooltip key={s.clave} color={s.color} texto={s.etiqueta} valor={formato(valores[s.clave])} />
@@ -204,15 +251,32 @@ export function GraficoSerie({
   const ejes = (
     <>
       <CartesianGrid vertical={false} stroke={COLOR_GRILLA} strokeWidth={1} />
-      <XAxis
-        dataKey="etiqueta"
-        tickLine={false}
-        axisLine={false}
-        tick={{ fontSize: 12, fill: COLOR_EJE }}
-        tickMargin={10}
-        minTickGap={24}
-        interval="preserveStartEnd"
-      />
+      {/* Período de un mes, día por día: fechas en diagonal y todas visibles
+          (si no, se saltea un día de por medio). Con 7 días entran derechas y
+          con 90 días o 12 meses son demasiadas: ahí se dejan sin rotar. */}
+      {diasDelMes ? (
+        <XAxis
+          dataKey="etiqueta"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 11, fill: COLOR_EJE }}
+          angle={-45}
+          textAnchor="end"
+          height={50}
+          tickMargin={4}
+          interval={0}
+        />
+      ) : (
+        <XAxis
+          dataKey="etiqueta"
+          tickLine={false}
+          axisLine={false}
+          ticks={ticksFechas}
+          tick={tickFecha}
+          tickMargin={8}
+          interval={0}
+        />
+      )}
       <YAxis
         allowDecimals={false}
         tickLine={false}
@@ -251,6 +315,7 @@ export function GraficoSerie({
       ) : null}
 
       <Box
+        ref={refEjeFechas}
         w="full"
         {...(llenar ? { flex: "1", minH: `${alto}px` } : { h: `${alto}px` })}
         role="img"
@@ -258,7 +323,7 @@ export function GraficoSerie({
       >
         <ResponsiveContainer width="100%" height="100%">
           {tipo === "area" ? (
-            <AreaChart data={datos} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <AreaChart data={datos} margin={margen}>
               {/* Debajo de cada curva, un degradado del color de la serie que
                   se desvanece hacia el eje: marca el volumen sin tapar la
                   grilla ni la otra serie. */}
@@ -294,7 +359,7 @@ export function GraficoSerie({
               ))}
             </AreaChart>
           ) : tipo === "lineas" ? (
-            <LineChart data={datos} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <LineChart data={datos} margin={margen}>
               {ejes}
               <Tooltip content={contenidoTooltip} cursor={{ stroke: COLOR_EJE, strokeWidth: 1 }} />
               {series.map((s) => (
@@ -313,12 +378,7 @@ export function GraficoSerie({
               ))}
             </LineChart>
           ) : (
-            <BarChart
-              data={datos}
-              margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
-              barGap={2}
-              barCategoryGap="25%"
-            >
+            <BarChart data={datos} margin={margen} barGap={2} barCategoryGap="25%">
               {ejes}
               <Tooltip content={contenidoTooltip} cursor={{ fill: "var(--chakra-colors-gray-50)" }} />
               {series.map((s) => (
@@ -340,7 +400,9 @@ export function GraficoSerie({
                             payload?: Record<string, unknown>;
                           };
                           const tope = esTopeDePila(forma.payload, s.clave, claves);
-                          return <Rectangle {...forma} radius={tope ? [RADIO_BARRA, RADIO_BARRA, 0, 0] : 0} />;
+                          return (
+                            <Rectangle {...forma} radius={tope ? [RADIO_BARRA, RADIO_BARRA, 0, 0] : 0} />
+                          );
                         }
                       : undefined
                   }
@@ -378,7 +440,6 @@ export function GraficoSerie({
   );
 }
 
-
 /* ───────────────────────────────── Dona ───────────────────────────────── */
 
 const LADO = 160;
@@ -389,15 +450,25 @@ const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
 /** Aire entre porciones: separa sin dibujar bordes. */
 const HUECO = 1.8;
 
-
-
 /**
  * Reparto de un total entre pocas partes: anillo con el total en el centro y
  * la leyenda al costado (debajo si no entra) con nombre, cantidad y
  * porcentaje. Al pasar por una porción o por su fila, las demás se atenúan y
  * el centro muestra esa parte.
  */
-export function GraficoDona({ partes, unidad }: { partes: ParteDona[]; unidad: string }) {
+export function GraficoDona({
+  partes,
+  unidad,
+  centro,
+}: {
+  partes: ParteDona[];
+  unidad: string;
+  /**
+   * Qué va en el centro sin nada señalado. Por defecto, el total y la
+   * `unidad`; p. ej. "94%" y "120 tareas" cuando el dato es un porcentaje.
+   */
+  centro?: { valor: string; texto: string };
+}) {
   const [activa, setActiva] = useState<string | null>(null);
   const visibles = partes.filter((p) => p.valor > 0);
   const total = visibles.reduce((t, p) => t + p.valor, 0);
@@ -407,8 +478,7 @@ export function GraficoDona({ partes, unidad }: { partes: ParteDona[]; unidad: s
   const tramos = visibles.map((parte, i) => ({
     parte,
     largo: (parte.valor / total) * CIRCUNFERENCIA,
-    desplazamiento:
-      (visibles.slice(0, i).reduce((t, p) => t + p.valor, 0) / total) * CIRCUNFERENCIA,
+    desplazamiento: (visibles.slice(0, i).reduce((t, p) => t + p.valor, 0) / total) * CIRCUNFERENCIA,
   }));
 
   const resumen = `${partes.map((p) => `${p.etiqueta}: ${p.valor} (${porcentaje(p.valor)}%)`).join(", ")}. Total: ${total} ${unidad}.`;
@@ -469,10 +539,12 @@ export function GraficoDona({ partes, unidad }: { partes: ParteDona[]; unidad: s
             color="fg"
             fontVariantNumeric="tabular-nums"
           >
-            {formatoCantidad(parteActiva ? parteActiva.valor : total)}
+            {parteActiva ? formatoCantidad(parteActiva.valor) : (centro?.valor ?? formatoCantidad(total))}
           </Text>
           <Text fontSize="xs" color="fg.muted" mt="1" lineClamp={2}>
-            {parteActiva ? `${parteActiva.etiqueta} · ${porcentaje(parteActiva.valor)}%` : unidad}
+            {parteActiva
+              ? `${parteActiva.etiqueta} · ${porcentaje(parteActiva.valor)}%`
+              : (centro?.texto ?? unidad)}
           </Text>
         </Box>
       </Box>
@@ -679,8 +751,7 @@ function conOpacidad(hex: string, opacidad: number): string {
 }
 
 const TEXTO_TRAMO = { dia: "día ", semana: "semana del ", mes: "" } as const;
-const RAYADO =
-  "repeating-linear-gradient(45deg, var(--chakra-colors-gray-200) 0 2px, transparent 2px 6px)";
+const RAYADO = "repeating-linear-gradient(45deg, var(--chakra-colors-gray-200) 0 2px, transparent 2px 6px)";
 
 interface MapaCalorProps {
   mapa: DatosMapa;
@@ -815,15 +886,29 @@ const COLOR_PALETA = "#009b8f";
  * valor con su unidad; el `detalle` ("66 un") queda en el `title` de la fila.
  * No lleva tabla `srOnly`: la lista ya tiene en texto la etiqueta y el valor.
  */
-export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: string }) {
+export function GraficoPaleta({
+  datos,
+  unidad,
+  color = COLOR_PALETA,
+  maximo: tope,
+  texto: textoFila,
+}: {
+  datos: Conteo[];
+  unidad: string;
+  color?: string;
+  /** Contra qué se mide el largo (100 en un porcentaje); por defecto, el mayor valor. */
+  maximo?: number;
+  /** Lo que va a la derecha de la fila, si no es el valor con su unidad. */
+  texto?: (dato: Conteo) => string;
+}) {
   const filas = [...datos].sort((a, b) => b.valor - a.valor);
-  const maximo = Math.max(...filas.map((d) => d.valor), 1);
+  const maximo = tope ?? Math.max(...filas.map((d) => d.valor), 1);
 
   return (
     <Stack as="ul" listStyleType="none" gap="3" m="0" p="0">
       {filas.map((dato) => {
-        const valor = `${formatoCantidad(dato.valor)} ${unidad}`;
-        const texto = dato.detalle ? `${valor} (${dato.detalle})` : valor;
+        const valor = textoFila ? textoFila(dato) : `${formatoCantidad(dato.valor)} ${unidad}`;
+        const texto = dato.detalle && !textoFila ? `${valor} (${dato.detalle})` : valor;
         const proporcion = Math.min(dato.valor / maximo, 1);
         return (
           <Box
@@ -841,13 +926,7 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
             <Text fontSize="sm" color="fg">
               {dato.etiqueta}
             </Text>
-            <Box
-              position="relative"
-              h="3"
-              gridColumn="1 / -1"
-              gridRow="2"
-              aria-hidden
-            >
+            <Box position="relative" h="3" gridColumn="1 / -1" gridRow="2" aria-hidden>
               {/* Eje: dónde está el cero y hasta dónde llega el máximo. */}
               <Box position="absolute" insetX="0" top="50%" h="1px" bg="bg.muted" />
               {/* El punto se corre medio diámetro para que el del máximo no se
@@ -858,7 +937,7 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
                 top="50%"
                 h="2px"
                 mt="-1px"
-                bg={COLOR_PALETA}
+                bg={color}
                 w={`calc((100% - 12px) * ${proporcion} + 6px)`}
               />
               <Box
@@ -868,7 +947,7 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
                 h="3"
                 mt="-6px"
                 rounded="full"
-                bg={COLOR_PALETA}
+                bg={color}
                 left={`calc((100% - 12px) * ${proporcion})`}
               />
             </Box>
@@ -881,5 +960,255 @@ export function GraficoPaleta({ datos, unidad }: { datos: Conteo[]; unidad: stri
         );
       })}
     </Stack>
+  );
+}
+
+/* ─────────────────────── Barras por categoría ─────────────────────── */
+
+/** "María Fernanda González" → "María F. G.": entra en el eje sin pisarse. */
+function abreviarNombre(nombre: string, largo = 10): string {
+  if (nombre.length <= largo) return nombre;
+  const [primero, ...resto] = nombre.split(/\s+/);
+  const corto = [primero, ...resto.map((p) => `${p.charAt(0)}.`)].join(" ");
+  return corto.length <= largo + 4 ? corto : `${nombre.slice(0, largo + 3)}…`;
+}
+
+interface FilaCategoria extends Conteo {
+  /** El nombre abreviado, para el eje. */
+  corta: string;
+}
+
+/** A dónde lleva el clic en una barra. */
+export interface DestinoBarra {
+  to: string;
+  state?: unknown;
+  /** Texto al pie del tooltip: "Clic para ver incidentes". */
+  pista: string;
+}
+
+/**
+ * Una cantidad por categoría en barras verticales, con el nombre en el eje X
+ * (abreviado y en diagonal si son varias). Para pocas categorías con nombre
+ * corto (personas); con nombres largos van las `BarrasHorizontales`.
+ *
+ * El tooltip muestra el nombre completo, que el eje abrevia. Con `destino`
+ * cada barra lleva a su detalle (con el mouse o el dedo).
+ */
+export function GraficoBarrasCategoria({
+  datos,
+  unidad,
+  unidadUno,
+  color,
+  resumen,
+  alto = 240,
+  destino,
+}: {
+  datos: Conteo[];
+  /** Qué se cuenta, en plural: "incidentes". */
+  unidad: string;
+  /** En singular, para cuando vale 1: "incidente". */
+  unidadUno?: string;
+  color: string;
+  resumen: string;
+  alto?: number;
+  destino?: (dato: Conteo) => DestinoBarra;
+}) {
+  const navigate = useNavigate();
+  const filas: FilaCategoria[] = [...datos]
+    .sort((a, b) => b.valor - a.valor)
+    .map((d) => ({ ...d, corta: abreviarNombre(d.etiqueta) }));
+  const diagonal = filas.length > 4;
+  const titulo = `${unidad.charAt(0).toUpperCase()}${unidad.slice(1)}`;
+  const cantidad = (valor: number) =>
+    `${formatoCantidad(valor)} ${valor === 1 && unidadUno ? unidadUno : unidad}`;
+
+  const irA = (fila: FilaCategoria | undefined) => {
+    if (!fila || !destino) return;
+    const { to, state } = destino(fila);
+    navigate(to, { state });
+  };
+
+  const contenidoTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: ReadonlyArray<{ payload?: FilaCategoria }>;
+  }) => {
+    const fila = payload?.[0]?.payload;
+    if (!active || !fila) return null;
+    return (
+      <CajaTooltip titulo={fila.etiqueta}>
+        <HStack gap="1.5" fontSize="sm">
+          <Punto color={color} />
+          <Text as="span" fontWeight="semibold" color="fg" fontVariantNumeric="tabular-nums">
+            {cantidad(fila.valor)}
+          </Text>
+        </HStack>
+        {destino ? (
+          <Text fontSize="xs" color="fg.subtle" mt="1.5">
+            {destino(fila).pista}
+          </Text>
+        ) : null}
+      </CajaTooltip>
+    );
+  };
+
+  return (
+    <Box display="flex" flexDirection="column" flex="1" minW="0">
+      <Box w="full" h={`${alto}px`} role="img" aria-label={resumen}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={filas}
+            // En diagonal, el primer nombre asoma a la izquierda del eje.
+            margin={{ top: 6, right: 8, bottom: 0, left: diagonal ? 24 : 0 }}
+            barCategoryGap="30%"
+            // El clic vale en toda la columna (la barra y el aire de arriba):
+            // una barra de 1 es muy baja para apuntarle.
+            onClick={
+              destino
+                ? (estado) => {
+                    const i = Number(estado?.activeTooltipIndex);
+                    if (Number.isInteger(i)) irA(filas[i]);
+                  }
+                : undefined
+            }
+            style={destino ? { cursor: "pointer" } : undefined}
+          >
+            <CartesianGrid vertical={false} stroke={COLOR_GRILLA} strokeWidth={1} />
+            {diagonal ? (
+              <XAxis
+                dataKey="corta"
+                tickLine={false}
+                axisLine={false}
+                interval={0}
+                tick={{ fontSize: 11, fill: COLOR_EJE }}
+                angle={-35}
+                textAnchor="end"
+                height={70}
+                tickMargin={4}
+              />
+            ) : (
+              <XAxis
+                dataKey="corta"
+                tickLine={false}
+                axisLine={false}
+                interval={0}
+                tick={{ fontSize: 11, fill: COLOR_EJE }}
+                tickMargin={8}
+              />
+            )}
+            <YAxis
+              allowDecimals={false}
+              tickLine={false}
+              axisLine={false}
+              width={30}
+              tick={{ fontSize: 12, fill: COLOR_EJE }}
+              tickCount={5}
+              domain={[0, (max: number) => Math.max(4, Math.ceil(max / 4) * 4)]}
+            />
+            {/* Gris translúcido: se ve igual de suave en modo claro y oscuro. */}
+            <Tooltip content={contenidoTooltip} cursor={{ fill: "rgba(128, 128, 128, 0.12)" }} />
+            <Bar
+              dataKey="valor"
+              name={titulo}
+              fill={color}
+              radius={[RADIO_BARRA, RADIO_BARRA, 0, 0]}
+              maxBarSize={36}
+              // La barra señalada se aclara apenas: se ve cuál se va a abrir.
+              activeBar={destino ? { style: { filter: "brightness(1.15) saturate(1.1)" } } : undefined}
+              animationDuration={500}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
+      <Box as="table" srOnly>
+        <caption>{resumen}</caption>
+        <tbody>
+          {filas.map((f) => (
+            <tr key={f.clave}>
+              <td>{f.etiqueta}</td>
+              <td>{formatoCantidad(f.valor)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Box>
+    </Box>
+  );
+}
+
+/* ─────────────────── Barras apiladas horizontales ─────────────────── */
+
+export interface FilaApilada {
+  clave: string;
+  etiqueta: string;
+  /** Una cantidad por parte, en el orden de `partes`. */
+  valores: number[];
+  /** Lo que va a la derecha de la fila: "12 salidas · 2 con reclamo". */
+  texto: string;
+}
+
+/**
+ * Un total por categoría partido en partes, una fila por categoría: el largo
+ * es el total y los tramos, de qué se compone. Leyenda arriba con el total
+ * de cada parte; el detalle de cada fila, a su derecha.
+ */
+export function BarrasApiladas({ filas, partes }: { filas: FilaApilada[]; partes: SerieGrafico[] }) {
+  const totalDe = (f: FilaApilada) => f.valores.reduce((t, v) => t + v, 0);
+  const maximo = Math.max(...filas.map(totalDe), 1);
+
+  return (
+    <Box>
+      <HStack gap="5" mb="4" flexWrap="wrap">
+        {partes.map((p, i) => (
+          <HStack gap="2" key={p.clave}>
+            <Punto color={p.color} />
+            <Text as="span" fontSize="sm" color="fg.muted" whiteSpace="nowrap">
+              {p.etiqueta}{" "}
+              <Text as="span" fontWeight="semibold" color="fg" fontVariantNumeric="tabular-nums">
+                {formatoCantidad(filas.reduce((t, f) => t + (f.valores[i] ?? 0), 0))}
+              </Text>
+            </Text>
+          </HStack>
+        ))}
+      </HStack>
+      <Stack as="ul" listStyleType="none" gap="3" m="0" p="0">
+        {filas.map((fila) => {
+          const total = totalDe(fila);
+          const conValor = fila.valores.map((v, i) => ({ v, parte: partes[i] })).filter((x) => x.v > 0);
+          return (
+            <Box as="li" key={fila.clave} title={`${fila.etiqueta}: ${fila.texto}`}>
+              <Flex justify="space-between" align="baseline" gap="3" mb="1">
+                <Text fontSize="sm" color="fg" lineClamp={1}>
+                  {fila.etiqueta}
+                </Text>
+                <Text
+                  fontSize="sm"
+                  fontWeight="semibold"
+                  color="fg"
+                  flexShrink={0}
+                  fontVariantNumeric="tabular-nums"
+                  whiteSpace="nowrap"
+                >
+                  {fila.texto}
+                </Text>
+              </Flex>
+              <Flex
+                h="2.5"
+                gap="2px"
+                rounded="full"
+                overflow="hidden"
+                w={total === 0 ? "0" : `max(${(total / maximo) * 100}%, 6px)`}
+                aria-hidden
+              >
+                {conValor.map(({ v, parte }) => (
+                  <Box key={parte.clave} h="full" flexGrow={v} flexBasis="0" minW="4px" bg={parte.color} />
+                ))}
+              </Flex>
+            </Box>
+          );
+        })}
+      </Stack>
+    </Box>
   );
 }

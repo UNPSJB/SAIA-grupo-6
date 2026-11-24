@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, HStack, Stack, Table, Text } from "@chakra-ui/react";
-import { Pagina, PestanasPagina } from "../../../components/ui/plantillas";
+import { Pagina } from "../../../components/ui/plantillas";
+import { BotonExportar } from "../../exportacion";
 import { formatoFecha } from "../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../common/utils/numeros";
 import {
@@ -31,12 +32,11 @@ import {
   CantidadConUnidad,
 } from "../../../components/ui/patrones";
 import {
-  useInsumosActivos,
+  useIngredientesActivos,
   useStockInsumos,
   useStockLotes,
 } from "../hooks/useStockInsumos";
-import { BajaLoteInsumoDialog } from "./pages/BajaLoteInsumoDialog";
-import type { StockLoteInsumo } from "../types/loteInsumo";
+import { useEstadoNavegacion } from "../../../common/hooks/useEstadoNavegacion";
 
 /** Minúsculas y sin tildes, para buscar "azucar" y encontrar "Azúcar". */
 function normalizar(texto: string): string {
@@ -55,15 +55,15 @@ const ESTADOS_STOCK = [
   { valor: "vencido", etiqueta: "Con stock vencido" },
 ];
 
-function TabStockPorInsumo() {
+function TabStockPorIngrediente() {
   const { stock, loading, error } = useStockInsumos();
-  const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("StockInsumosPage.busqueda", "");
+  const [estado, setEstado] = useEstadoNavegacion("StockInsumosPage.estado", "");
 
   const visibles = useMemo(() => {
     const texto = normalizar(busqueda);
     return stock.filter((s) => {
-      if (texto && !normalizar(s.insumo_nombre).includes(texto)) return false;
+      if (texto && !normalizar(s.ingrediente_nombre).includes(texto)) return false;
       if (estado === "con") return Number(s.stock) > 0;
       if (estado === "sin") return Number(s.stock) <= 0;
       if (estado === "vencido") return Number(s.stock_vencido) > 0;
@@ -104,7 +104,7 @@ function TabStockPorInsumo() {
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
-            placeholder="Nombre del insumo..."
+            placeholder="Nombre del ingrediente..."
           />
         }
         filtros={
@@ -116,52 +116,72 @@ function TabStockPorInsumo() {
             todos="Todos"
           />
         }
+        herramientas={
+          <BotonExportar
+            nombreTabla="el stock de insumos"
+            disabled={visibles.length === 0}
+            datos={() => ({
+              titulo: "Stock de ingredientes",
+              nombre: "stock-ingredientes",
+              encabezados: ["Ingrediente", "Recibido", "Consumo real", "Desperdicio", "Bajas", "Stock actual", "Vencido"],
+              filas: visibles.map((s) => [
+                s.ingrediente_nombre,
+                cantidadConUnidad(s.cantidad_recibida, s.unidad),
+                cantidadConUnidad(s.consumo_real, s.unidad),
+                cantidadConUnidad(s.desperdicio, s.unidad),
+                Number(s.cantidad_baja) > 0 ? cantidadConUnidad(s.cantidad_baja, s.unidad) : "-",
+                cantidadConUnidad(s.stock, s.unidad),
+                Number(s.stock_vencido) > 0 ? cantidadConUnidad(s.stock_vencido, s.unidad) : "-",
+              ]),
+            })}
+          />
+        }
       />
       <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
 
       {error && <BannerError>{error}</BannerError>}
       {loading && <EstadoCargando pagina>Cargando stock...</EstadoCargando>}
       {!loading && !error && stock.length === 0 && (
-        <EstadoVacio>No hay insumos registrados.</EstadoVacio>
+        <EstadoVacio>No hay ingredientes registrados.</EstadoVacio>
       )}
       {!loading && !error && stock.length > 0 && visibles.length === 0 && (
         <EstadoVacioFiltrado onLimpiar={limpiar}>
-          No hay insumos que coincidan con los filtros aplicados.
+          No hay ingredientes que coincidan con los filtros aplicados.
         </EstadoVacioFiltrado>
       )}
 
       {!loading && !error && visibles.length > 0 && (
         <>
           <Tarjeta overflowX="auto">
-            <Table.Root variant="outline" w="100%" minW="860px">
+            <Table.Root variant="outline" w="100%" minW="1040px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro>Insumo</EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro>Ingrediente</EncabezadoOscuro>
+                  <EncabezadoOscuro numero ancho="cifra">
                     Recibido
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Consumo real
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Desperdicio
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Bajas
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Stock actual
                   </EncabezadoOscuro>
-                  <EncabezadoOscuro numero ancho="amplia">
+                  <EncabezadoOscuro numero ancho="cifra">
                     Vencido
                   </EncabezadoOscuro>
                 </FilaEncabezado>
               </Table.Header>
               <Table.Body>
                 {paginados.map((s) => (
-                  <Table.Row key={s.insumo_id}>
+                  <Table.Row key={s.ingrediente_id}>
                     <Celda>
-                      <DatoPrincipal titulo={s.insumo_nombre} />
+                      <DatoPrincipal titulo={s.ingrediente_nombre} />
                     </Celda>
                     <Celda numero>
                       <CantidadConUnidad valor={s.cantidad_recibida} unidad={s.unidad} />
@@ -220,34 +240,36 @@ function TabStockPorInsumo() {
 
 function TabLotes() {
   const navigate = useNavigate();
-  const { insumos } = useInsumosActivos();
-  const [insumo, setInsumo] = useState("");
-  const [verBajas, setVerBajas] = useState(false);
-  const { lotes, loading, error, recargar } = useStockLotes(
-    insumo ? Number(insumo) : undefined,
+  const { ingredientes } = useIngredientesActivos();
+  const [ingrediente, setIngrediente] = useEstadoNavegacion("StockInsumosPage.ingrediente", "");
+  const [verBajas, setVerBajas] = useEstadoNavegacion("StockInsumosPage.verBajas", false);
+  const { lotes, loading, error } = useStockLotes(
+    ingrediente ? Number(ingrediente) : undefined,
     verBajas,
   );
-  const [aBaja, setABaja] = useState<StockLoteInsumo | null>(null);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("StockInsumosPage.busqueda", "");
 
   const visibles = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    if (!texto) return lotes;
-    return lotes.filter(
+    const texto = normalizar(busqueda);
+    // "Ver dados de baja": solo los lotes dados de baja.
+    const segunEstado = lotes.filter((l) => (verBajas ? !l.activo : l.activo));
+    if (!texto) return segunEstado;
+    return segunEstado.filter(
       (l) =>
-        l.numero_lote.toLowerCase().includes(texto) ||
-        l.proveedor_nombre.toLowerCase().includes(texto),
+        normalizar(l.numero_lote).includes(texto) ||
+        normalizar(l.proveedor_nombre).includes(texto) ||
+        normalizar(l.insumo_nombre).includes(texto),
     );
-  }, [lotes, busqueda]);
+  }, [lotes, busqueda, verBajas]);
 
   const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
     visibles,
     PAGE_SIZE,
-    `${busqueda}|${insumo}|${verBajas}`,
+    `${busqueda}|${ingrediente}|${verBajas}`,
   );
   const limpiar = () => {
     setBusqueda("");
-    setInsumo("");
+    setIngrediente("");
   };
   const chips = chipsDeFiltros([
     {
@@ -258,10 +280,10 @@ function TabLotes() {
       onQuitar: () => setBusqueda(""),
     },
     {
-      clave: "insumo",
-      etiqueta: "Insumo",
-      valor: insumos.find((i) => String(i.id) === insumo)?.nombre ?? "",
-      onQuitar: () => setInsumo(""),
+      clave: "ingrediente",
+      etiqueta: "Ingrediente",
+      valor: ingredientes.find((i) => String(i.id) === ingrediente)?.nombre ?? "",
+      onQuitar: () => setIngrediente(""),
     },
   ]);
 
@@ -272,25 +294,50 @@ function TabLotes() {
           <CampoBusqueda
             valor={busqueda}
             onCambio={setBusqueda}
-            placeholder="Número de lote o proveedor..."
+            placeholder="Número de lote, marca o proveedor..."
           />
         }
         filtros={
           <FiltroSelect
-            label="Insumo"
-            valor={insumo}
-            onCambio={setInsumo}
-            opciones={insumos.map((i) => ({
+            label="Ingrediente"
+            valor={ingrediente}
+            onCambio={setIngrediente}
+            opciones={ingredientes.map((i) => ({
               valor: String(i.id),
               etiqueta: i.nombre,
             }))}
-            todos="Todos los insumos"
+            todos="Todos los ingredientes"
           />
         }
         herramientas={
-          <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
-            Ver dados de baja
-          </ToggleInactivos>
+          <>
+            <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
+              Ver dados de baja
+            </ToggleInactivos>
+            <BotonExportar
+              nombreTabla="los lotes recibidos"
+              disabled={visibles.length === 0}
+              datos={() => ({
+                titulo: verBajas ? "Lotes de insumo dados de baja" : "Lotes de insumo recibidos",
+                nombre: "lotes-insumo",
+                encabezados: ["Ingrediente", "Marca", "Proveedor", "Lote", "Vencimiento", "Recibido", "Saldo", "Estado"],
+                filas: visibles.map((l) => [
+                  l.ingrediente_nombre,
+                  l.insumo_nombre,
+                  l.proveedor_nombre,
+                  l.numero_lote,
+                  formatoFecha(l.fecha_vencimiento),
+                  cantidadConUnidad(l.cantidad_recibida, l.unidad),
+                  cantidadConUnidad(l.saldo, l.unidad),
+                  !l.activo
+                    ? `Baja${l.motivo_baja ? `: ${l.motivo_baja}` : ""}${l.dado_de_baja_por_nombre ? ` (por ${l.dado_de_baja_por_nombre})` : ""}`
+                    : l.vencido
+                      ? "Vencido"
+                      : "Vigente",
+                ]),
+              })}
+            />
+          </>
         }
       />
 
@@ -319,9 +366,9 @@ function TabLotes() {
             <Table.Root variant="outline" w="100%" minW="1040px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro>Insumo</EncabezadoOscuro>
+                  <EncabezadoOscuro>Ingrediente y marca</EncabezadoOscuro>
                   <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="media">Lote</EncabezadoOscuro>
+                  <EncabezadoOscuro ancho="amplia">Lote</EncabezadoOscuro>
                   <EncabezadoOscuro ancho="media">Vencimiento</EncabezadoOscuro>
                   <EncabezadoOscuro numero ancho="media">
                     Recibido
@@ -344,7 +391,7 @@ function TabLotes() {
                     opacity={l.activo ? 1 : 0.65}
                   >
                     <Celda>
-                      <DatoPrincipal titulo={l.insumo_nombre} />
+                      <DatoPrincipal titulo={l.ingrediente_nombre} secundario={l.insumo_nombre} />
                     </Celda>
                     <Celda>
                       <TextoTruncado texto={l.proveedor_nombre} lineClamp={1} color="tabla.textoSecundario" />
@@ -355,7 +402,9 @@ function TabLotes() {
                       </Text>
                     </Celda>
                     <Celda>
-                      <HStack gap="2" flexWrap="nowrap">
+                      {/* Si la fecha y "Vencido" no entran juntos, la etiqueta baja
+                          al renglón de abajo en vez de salirse de la celda. */}
+                      <HStack gap="1.5" flexWrap="wrap">
                         <Text as="span" whiteSpace="nowrap">
                           {formatoFecha(l.fecha_vencimiento)}
                         </Text>
@@ -371,7 +420,7 @@ function TabLotes() {
                     </Celda>
                     <Celda numero>
                       <Stack gap="0.5" align="flex-end">
-                        <HStack gap="2" justify="flex-end" flexWrap="nowrap">
+                        <HStack gap="2" justify="flex-end" flexWrap="wrap">
                           {!l.activo && (
                             <Badge colorPalette="red" variant="subtle" size="sm">
                               Baja{l.motivo_baja ? `: ${l.motivo_baja}` : ""}
@@ -399,13 +448,6 @@ function TabLotes() {
                             )
                           }
                         />
-                        {l.activo && Number(l.saldo) > 0 && (
-                          <BotonAccion
-                            accion="eliminar"
-                            label="Dar de baja insumo"
-                            onClick={() => setABaja(l)}
-                          />
-                        )}
                       </HStack>
                     </Celda>
                   </FilaClickeable>
@@ -424,44 +466,41 @@ function TabLotes() {
         </>
       )}
 
-      {aBaja && (
-        <BajaLoteInsumoDialog
-          lote={aBaja}
-          onConfirmado={recargar}
-          onClose={() => setABaja(null)}
-        />
-      )}
     </>
   );
 }
 
-export function StockInsumosPage() {
+/**
+ * Stock de cada ingrediente: lo recibido en todos sus lotes menos lo consumido,
+ * desperdiciado y dado de baja. Es su propia opción del menú ("Stock de
+ * ingredientes"); los lotes uno por uno están en "Lotes de insumos".
+ */
+export function StockIngredientesPage() {
+  return (
+    <Pagina
+      titulo="Stock de ingredientes"
+      descripcion="Stock calculado de cada ingrediente: lo recibido en sus lotes menos los consumos, desperdicios y bajas registrados."
+    >
+      <TabStockPorIngrediente />
+    </Pagina>
+  );
+}
+
+/** Lotes de insumo recibidos, uno por uno, con su saldo. Desde acá se recibe un lote nuevo. */
+export function LotesInsumoPage() {
   const navigate = useNavigate();
 
   return (
     <Pagina
-      titulo="Stock de insumos"
-      descripcion="Stock calculado: lo recibido en cada lote menos los consumos, desperdicios y bajas registrados."
+      titulo="Lotes de insumos"
+      descripcion="Cada lote recibido con su marca, proveedor, vencimiento y saldo (lo recibido menos los consumos, desperdicios y bajas)."
       acciones={
         <BotonAgregar onClick={() => navigate("/lotes-insumo/nuevo")}>
           Recibir lote
         </BotonAgregar>
       }
     >
-      <PestanasPagina
-        pestanas={[
-          {
-            valor: "insumos",
-            etiqueta: "Stock por insumo",
-            contenido: <TabStockPorInsumo />,
-          },
-          {
-            valor: "lotes",
-            etiqueta: "Lotes recibidos",
-            contenido: <TabLotes />,
-          },
-        ]}
-      />
+      <TabLotes />
     </Pagina>
   );
 }

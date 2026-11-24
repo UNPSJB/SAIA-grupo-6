@@ -57,9 +57,11 @@ def _equipo(db, sector_id, nombre="Equipo 1", activo=True):
     return fila
 
 
-def _tarea_plan(nombre="Tarea 1", frecuencia=7):
+def _tarea_plan(nombre="Tarea 1", frecuencia=7, operador_id=1):
+    # Las tablas se recrean en cada test: el primer Personal (el administrador
+    # que crea cada test, que también opera) es el id 1.
     return schemas.TareaInput(
-        nombre=nombre, frecuencia=frecuencia, tipo="operacional",
+        nombre=nombre, frecuencia=frecuencia, tipo="operacional", operador_id=operador_id,
     )
 
 

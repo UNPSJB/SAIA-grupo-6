@@ -1,6 +1,7 @@
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
 import type {
+  ReclamoCerrarValues,
   ReclamoCreateValues,
   ReclamoDetalle,
   ReclamoResumen,
@@ -77,4 +78,30 @@ export async function crearReclamo(
     body: formData,
   });
   return pedir<ReclamoDetalle>(response, "Error al registrar el reclamo");
+}
+
+/** Cierra el reclamo y su incidente; opcionalmente genera la reposición. */
+export async function cerrarReclamo(
+  reclamoId: number,
+  datos: ReclamoCerrarValues
+): Promise<ReclamoDetalle> {
+  const response = await apiFetch(`${API_URL}/reclamos/${reclamoId}/cerrar`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+  return pedir<ReclamoDetalle>(response, "Error al cerrar el reclamo");
+}
+
+/** Reabre un reclamo cerrado. El cierre anterior queda en el historial. */
+export async function reabrirReclamo(
+  reclamoId: number,
+  motivo: string
+): Promise<ReclamoDetalle> {
+  const response = await apiFetch(`${API_URL}/reclamos/${reclamoId}/reabrir`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ motivo: motivo.trim() || null }),
+  });
+  return pedir<ReclamoDetalle>(response, "Error al reabrir el reclamo");
 }

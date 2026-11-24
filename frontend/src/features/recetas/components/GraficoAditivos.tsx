@@ -9,7 +9,7 @@ export function GraficoAditivos({ composicion, alto = 320 }: { composicion: Comp
   if (composicion.aditivos.length === 0) return null;
 
   const datos = composicion.aditivos.map((a) => ({
-    nombre: a.insumo.nombre,
+    nombre: a.ingrediente.nombre,
     valor: Number(a.porcentaje),
   }));
 
@@ -32,7 +32,10 @@ export function GraficoAditivos({ composicion, alto = 320 }: { composicion: Comp
               `${formatoPorcentajeFino(Array.isArray(v) ? v[0] : v)} de la formulación`
             }
           />
-          <Legend />
+          {/* El color de cada porción queda en el ícono; el texto va en el
+              color de texto del tema (en oscuro, el verde o el violeta de la
+              porción sobre la tarjeta no llegaba a 3:1). */}
+          <Legend formatter={(valor) => <span style={{ color: "var(--chakra-colors-fg)" }}>{valor}</span>} />
         </PieChart>
       </ResponsiveContainer>
     </Box>

@@ -11,13 +11,7 @@ clave-valor, y construye la URL dinámicamente.
 import { API_URL } from "../../../common/api/apiClient";
 import { apiFetch } from "../../../common/api/apiClient";
 import { pedir } from "../../../common/api/errors";
-import type { TablaExport, FormatoExport, FiltrosExport } from "../types/exportacion";
-
-/** Devuelve todas las tablas que se pueden exportar, con sus columnas. */
-export async function listarTablasExportables(): Promise<TablaExport[]> {
-  const response = await apiFetch(`${API_URL}/exportacion/tablas`);
-  return pedir<TablaExport[]>(response, "Error al obtener las tablas para exportar");
-}
+import type { DatosExport, FormatoExport, FiltrosExport } from "../types/exportacion";
 
 /** Devuelve las columnas (nombre + encabezado) de una tabla registrada. */
 export async function obtenerColumnasTabla(nombreTabla: string): Promise<{ nombre: string; etiqueta: string }[]> {
@@ -71,7 +65,25 @@ async function descargar(
   }
 
   const response = await apiFetch(`${url}?${params.toString()}`);
+  await guardarArchivo(response, nombre, formato);
+}
 
+/**
+ * Exporta una tabla armada en el frontend (las filas filtradas que se ven en
+ * pantalla). Es para las tablas sin vista propia en el backend: el servidor
+ * solo les da el mismo formato CSV/PDF que al resto (`POST /exportacion/filas`).
+ */
+export async function exportarFilas(datos: DatosExport, formato: FormatoExport): Promise<void> {
+  const response = await apiFetch(`${API_URL}/exportacion/filas?formato=${formato}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+  await guardarArchivo(response, datos.nombre, formato);
+}
+
+/** Baja la respuesta como archivo, o lanza el error que mandó el backend. */
+async function guardarArchivo(response: Response, nombre: string, formato: FormatoExport): Promise<void> {
   if (!response.ok) {
     const detalle = await response.json().catch(() => null);
     throw new Error(

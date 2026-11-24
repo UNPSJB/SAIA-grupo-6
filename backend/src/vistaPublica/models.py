@@ -1,21 +1,23 @@
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Integer, String, text
+from sqlalchemy import Boolean, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from src.establecimientos.models import DatosDeEstablecimiento, columna_sede_pk
 from src.models import AUDITORIA_REDACTAR, ModeloBase
 
 
-class ConfiguracionVistaPublica(ModeloBase):
-    """Estado único de publicación para la instalación completa de SAIA."""
+class ConfiguracionVistaPublica(DatosDeEstablecimiento, ModeloBase):
+    """Estado de publicación de cada establecimiento.
+
+    Cada sede tiene su propio enlace: el código público identifica a la sede,
+    así que la vista anónima sabe de quién mostrar los indicadores.
+    """
 
     __tablename__ = "configuracion_vista_publica"
-    __table_args__ = (
-        CheckConstraint("id = 1", name="ck_configuracion_vista_publica_unica"),
-    )
 
-    # La PK fija más el CHECK impiden representar más de una instalación.
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    # Una fila por sede.
+    establecimiento_id: Mapped[int] = columna_sede_pk()
     habilitada: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0")
     )
@@ -29,7 +31,7 @@ class ConfiguracionVistaPublica(ModeloBase):
     )
 
 
-class IndicadorVistaPublica(ModeloBase):
+class IndicadorVistaPublica(DatosDeEstablecimiento, ModeloBase):
     """Preferencia de publicación de un indicador agregado.
 
     La fila ausente se interpreta con el default del catálogo
@@ -39,6 +41,7 @@ class IndicadorVistaPublica(ModeloBase):
 
     __tablename__ = "indicadores_vista_publica"
 
+    establecimiento_id: Mapped[int] = columna_sede_pk()
     clave: Mapped[str] = mapped_column(String(60), primary_key=True)
     habilitado: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("0")

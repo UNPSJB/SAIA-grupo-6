@@ -1,16 +1,16 @@
 import { useCallback } from "react";
 import { useLista } from "../../../common/hooks/useLista";
 import {
-  listarInsumosActivos,
+  listarIngredientesActivos,
   listarLotesSugeridos,
   listarStockInsumos,
   listarStockLotes,
 } from "../services/loteInsumoService";
-import type { InsumoOpcion, StockInsumo, StockLoteInsumo } from "../types/loteInsumo";
+import type { IngredienteOpcion, StockIngrediente, StockLoteInsumo } from "../types/loteInsumo";
 
 export function useStockInsumos() {
   const cargar = useCallback(() => listarStockInsumos(), []);
-  const { items, loading, error, recargar } = useLista<StockInsumo[]>({
+  const { items, loading, error, recargar } = useLista<StockIngrediente[]>({
     cargar,
     dependencias: [],
     valorInicial: [],
@@ -19,41 +19,41 @@ export function useStockInsumos() {
   return { stock: items, loading, error, recargar };
 }
 
-export function useStockLotes(insumoId: number | undefined, incluirInactivos: boolean) {
+export function useStockLotes(ingredienteId: number | undefined, incluirInactivos: boolean) {
   const cargar = useCallback(
-    () => listarStockLotes(insumoId, incluirInactivos),
-    [insumoId, incluirInactivos],
+    () => listarStockLotes(ingredienteId, incluirInactivos),
+    [ingredienteId, incluirInactivos],
   );
   const { items, loading, error, recargar } = useLista<StockLoteInsumo[]>({
     cargar,
-    dependencias: [insumoId, incluirInactivos],
+    dependencias: [ingredienteId, incluirInactivos],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los lotes de insumo",
   });
   return { lotes: items, loading, error, recargar };
 }
 
-export function useLotesSugeridos(insumoId: number | null) {
+export function useLotesSugeridos(ingredienteId: number | null) {
   const cargar = useCallback(
-    () => (insumoId ? listarLotesSugeridos(insumoId) : Promise.resolve([])),
-    [insumoId],
+    () => (ingredienteId ? listarLotesSugeridos(ingredienteId) : Promise.resolve([])),
+    [ingredienteId],
   );
-  const { items, loading, error } = useLista<StockLoteInsumo[]>({
+  const { items, loading, error, recargar } = useLista<StockLoteInsumo[]>({
     cargar,
-    dependencias: [insumoId],
+    dependencias: [ingredienteId],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los lotes sugeridos",
   });
-  return { lotes: items, loading, error };
+  return { lotes: items, loading, error, recargar };
 }
 
-export function useInsumosActivos() {
-  const cargar = useCallback(() => listarInsumosActivos(), []);
-  const { items, loading, error } = useLista<InsumoOpcion[]>({
+export function useIngredientesActivos() {
+  const cargar = useCallback(() => listarIngredientesActivos(), []);
+  const { items, loading, error } = useLista<IngredienteOpcion[]>({
     cargar,
     dependencias: [],
     valorInicial: [],
-    mensajeError: "No se pudieron cargar los insumos",
+    mensajeError: "No se pudieron cargar los ingredientes",
   });
-  return { insumos: items, loading, error };
+  return { ingredientes: items, loading, error };
 }

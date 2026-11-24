@@ -30,8 +30,9 @@ import {
   Paginacion,
   ToggleInactivos,
 } from "../../../../components/ui/patrones";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { BotonExportar } from "../../../../features/exportacion";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -39,12 +40,12 @@ const SIN_OPCIONES: OpcionesEquipos = { tipos: [], sectores: [] };
 
 export function EquiposPage() {
   const navigate = useNavigate();
-  const [verInactivos, setVerInactivos] = useState(false);
+  const [verInactivos, setVerInactivos] = useEstadoNavegacion("EquipoPage.verInactivos", false);
 
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useEstadoNavegacion("EquipoPage.busqueda", "");
   const busquedaAplicada = useValorDebounced(busqueda);
-  const [tipo, setTipo] = useState("");
-  const [sectorId, setSectorId] = useState("");
+  const [tipo, setTipo] = useEstadoNavegacion("EquipoPage.tipo", "");
+  const [sectorId, setSectorId] = useEstadoNavegacion("EquipoPage.sectorId", "");
   const [opciones, setOpciones] = useState<OpcionesEquipos>(SIN_OPCIONES);
   const orden = useOrdenTabla<ColumnaOrdenEquipo, "nombre_asc">("nombre_asc");
 
@@ -199,13 +200,14 @@ export function EquiposPage() {
             >
               Ver dadas de baja
             </ToggleInactivos>
-            <BotonesExportar
+            <BotonExportar
               nombreTabla="equipos"
               filtros={{
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
                 tipo: tipo,
                 sector_id: sectorId || undefined,
+                orden: orden.orden,
               }}
             />
           </>

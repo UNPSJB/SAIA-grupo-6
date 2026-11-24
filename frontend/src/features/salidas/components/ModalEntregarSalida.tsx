@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState } from "react";
 import { Box, Text, Textarea, VStack } from "@chakra-ui/react";
 import {
@@ -104,6 +105,7 @@ export function ModalEntregarSalida({
         recibido_por: values.recibido_por?.trim() || null,
         forma_entrega: values.forma_entrega,
       });
+      avisarExito("Entrega registrada correctamente.");
       onEntregaRegistrada();
     } catch (err) {
       const mensaje =

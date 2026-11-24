@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState } from "react";
 import { Box, Button, Checkbox, HStack, Input, Text, Textarea, VStack } from "@chakra-ui/react";
 import { LuCircleCheck, LuTrash2 } from "react-icons/lu";
@@ -111,6 +112,7 @@ export function ModalResolverRechazo({
         generar_reposicion: generarReposicion,
         cantidad_a_reponer: generarReposicion ? Number(cantidadAReponer) : undefined,
       });
+      avisarExito("Rechazo resuelto correctamente.");
       onRechazoResuelto();
     } catch (err) {
       setError(

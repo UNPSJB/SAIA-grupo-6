@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { IncidenteTable } from "../IncidenteTable";
 import { IncidentesPorTipoPanel } from "../IncidentesPorTipoPanel";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
 import { ReabrirIncidenteDialog } from "../ReabrirIncidenteDialog";
+import { useFiltrosGestion, type FiltrosGestion } from "../../hooks/useFiltrosGestion";
 import { useIncidentes } from "../../hooks/useIncidentes";
 import { useIncidenteABM } from "../../hooks/useIncidenteABM";
 import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
@@ -11,13 +12,16 @@ import { useOrdenTabla } from "../../../../common/hooks/useOrdenTabla";
 import {
   ESTADOS_INCIDENTE,
   TIPOS_INCIDENTE,
-  ETIQUETA_PERIODO,
+  esDeCircuito,
   estadoLabel,
+  pestanaDeTipo,
+  tipoDePestana,
+  tiposDeOrigen,
 } from "../../types/incidente";
 import type {
   EstadoIncidente,
   Incidente,
-  PeriodoRapido,
+  OrigenIncidente,
   TipoIncidente,
 } from "../../types/incidente";
 import type { ColumnaOrdenIncidente } from "../../services/incidenteService";
@@ -25,7 +29,6 @@ import {
   escucharCambioIncidentes,
   notificarCambioIncidentes,
 } from "../../eventoIncidentes";
-import { haceDiasISO, hoyISO, inicioMesISO } from "../../../../common/utils/fechas";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -41,8 +44,14 @@ import {
   EstadoCargando,
   Paginacion,
 } from "../../../../components/ui/patrones";
-import { Pagina } from "../../../../components/ui/plantillas";
-import { BotonesExportar } from "../../../../features/exportacion";
+import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
+import { BotonExportar } from "../../../../features/exportacion";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
+import { TabReclamos } from "../../../reclamos/components/pages/ReclamosPage";
+import { TabRetiros } from "../../../retiros/components/pages/RetirosPage";
+import { TabRechazos } from "../../../salidas/components/TabRechazos";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
@@ -52,22 +61,33 @@ const ETIQUETAS_ORDEN: Record<ColumnaOrdenIncidente, string> = {
   estado: "Estado",
 };
 
-export function IncidentesListPage() {
+interface TabIncidentesProps {
+  gestion: FiltrosGestion;
+  filtroTipo: TipoIncidente | "";
+  onFiltroTipoChange: (tipo: TipoIncidente | "") => void;
+}
+
+/** Pestaña "Incidentes": los que reportó una persona. Solo administración. */
+function TabIncidentes({
+  gestion,
+  filtroTipo,
+  onFiltroTipoChange: setFiltroTipo,
+}: TabIncidentesProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // HU "Ver incidentes abiertos": por defecto se listan solo los que todavía
-  // no tienen una acción correctiva registrada (estado abierto).
-  const [filtroEstado, setFiltroEstado] = useState<EstadoIncidente | "">("abierto");
-  const [filtroTipo, setFiltroTipo] = useState<TipoIncidente | "">("");
-  const [busqueda, setBusqueda] = useState("");
-  const [incluirCerrados, setIncluirCerrados] = useState(false);
+  // Filtro por quien reportó, desde la URL (`?reportado_por=12`): lo usa el
+  // panel de Personas al hacer clic en una barra.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const idReportado = Number(searchParams.get("reportado_por"));
+  const reportadoPor = Number.isInteger(idReportado) && idReportado > 0 ? idReportado : null;
 
-  // Período de la estadística: por defecto "todo", que es el comportamiento
-  // original (sin acotar por fecha).
-  const [periodo, setPeriodo] = useState<PeriodoRapido>("todo");
-  const [fechaDesde, setFechaDesde] = useState(haceDiasISO(30));
-  const [fechaHasta, setFechaHasta] = useState(hoyISO());
-
+  const { estado: filtroEstado, setEstado: setFiltroEstado, periodo, desde, hasta } = gestion;
+  // Solo los reportados por una persona: los reclamos, rechazos y retiros tienen
+  // su pestaña. Desde el panel de Personas van todos, para que el total coincida
+  // con la barra.
+  const origen: OrigenIncidente | "" = reportadoPor !== null ? "" : "reportado";
+  const [busqueda, setBusqueda] = useEstadoNavegacion("IncidentesListPage.busqueda", "");
   // La tabla abre por fecha ascendente ("antiguos"), igual que antes: el
   // incidente más viejo arriba para resolver primero lo que más espera.
   // `columnaPorDefecto` hace que el header de Fecha ya muestre la flecha.
@@ -90,11 +110,26 @@ export function IncidentesListPage() {
     filtroEstado,
     filtroTipo,
     busqueda,
-    periodo === "todo" ? undefined : fechaDesde,
-    periodo === "todo" ? undefined : fechaHasta,
+    desde,
+    hasta,
     PAGE_SIZE,
-    orden.orden
+    orden.orden,
+    reportadoPor,
+    origen
   );
+
+  // Nombre para el chip: el que mandó el panel o el de las filas cargadas.
+  const nombreReportado =
+    (location.state as { reportadoNombre?: string } | null)?.reportadoNombre ??
+    incidentes.find((i) => i.usuario_id === reportadoPor)?.usuario_nombre ??
+    (reportadoPor !== null ? `Persona #${reportadoPor}` : "");
+
+  /** Saca el filtro de la URL (con el período que trajo, ya aplicado). */
+  const quitarReportado = () => {
+    const resto = new URLSearchParams(searchParams);
+    ["reportado_por", "desde", "hasta"].forEach((clave) => resto.delete(clave));
+    setSearchParams(resto, { replace: true });
+  };
 
   // Refresco automático: el alta, el cierre o la reapertura de un incidente
   // avisan por el bus y acá se vuelve a pedir la lista. Así la estadística y
@@ -105,7 +140,7 @@ export function IncidentesListPage() {
     });
   }, [cargarIncidentes]);
 
-  const { cerrar, reabrir, loading: procesando } = useIncidenteABM();
+  const { cerrar, reabrir, loading: procesando, error: errorGuardado } = useIncidenteABM();
 
   const [incidenteACerrar, setIncidenteACerrar] = useState<Incidente | null>(null);
   const [incidenteAReabrir, setIncidenteAReabrir] = useState<Incidente | null>(null);
@@ -116,31 +151,7 @@ export function IncidentesListPage() {
   };
 
   const handleEstadoChange = (nuevo: string) => {
-    const nuevoEstado = nuevo as EstadoIncidente | "";
-    setFiltroEstado(nuevoEstado);
-    // El switch del gráfico y el select de la tabla miran el mismo universo.
-    setIncluirCerrados(nuevoEstado === "");
-  };
-
-  // Al elegir un chip se recalculan las fechas; "personalizado" arranca con
-  // los últimos 30 días para que el usuario solo ajuste lo que necesite.
-  // "todo" no toca las fechas: sin ellas el backend cuenta el histórico.
-  const handlePeriodoChange = (nuevo: PeriodoRapido) => {
-    setPeriodo(nuevo);
-    if (nuevo === "7d") {
-      setFechaDesde(haceDiasISO(7));
-      setFechaHasta(hoyISO());
-    } else if (nuevo === "30d") {
-      setFechaDesde(haceDiasISO(30));
-      setFechaHasta(hoyISO());
-    } else if (nuevo === "mes") {
-      setFechaDesde(inicioMesISO());
-      setFechaHasta(hoyISO());
-    } else if (nuevo === "personalizado") {
-      setFechaDesde(haceDiasISO(30));
-      setFechaHasta(hoyISO());
-    }
-    setPage(1);
+    setFiltroEstado(nuevo as EstadoIncidente | "");
   };
 
   const limpiarTodo = () => {
@@ -148,10 +159,9 @@ export function IncidentesListPage() {
     setFiltroTipo("");
     // "Limpiar todo" vuelve al universo completo: abiertos y cerrados. El
     // estado "abierto" de apertura es un filtro más y también se limpia.
-    setFiltroEstado("");
-    setIncluirCerrados(true);
-    setPeriodo("todo");
+    gestion.limpiar();
     orden.reiniciar();
+    if (reportadoPor !== null) quitarReportado();
   };
 
   // El diálogo no se cierra mientras corre la petición: cerrarlo a mitad de
@@ -164,11 +174,11 @@ export function IncidentesListPage() {
     if (!procesando) setIncidenteAReabrir(null);
   };
 
-  const handleCerrar = async (observacion: string) => {
+  const handleCerrar = async (accionCorrectiva: string) => {
     if (!incidenteACerrar) return;
     const id = incidenteACerrar.id;
     try {
-      await cerrar(id, observacion);
+      await cerrar(id, accionCorrectiva);
       setIncidenteACerrar(null);
       // El bus hace que la suscripción de arriba vuelva a pedir la lista:
       // así la estadística y la tabla se actualizan sin recargar la página.
@@ -198,9 +208,16 @@ export function IncidentesListPage() {
     filtroEstado !== "" ||
     filtroTipo !== "" ||
     busqueda.trim() !== "" ||
-    periodo !== "todo";
+    periodo !== "todo" ||
+    reportadoPor !== null;
 
   const chips = chipsDeFiltros([
+    {
+      clave: "reportado_por",
+      etiqueta: "Reportado por",
+      valor: reportadoPor !== null ? nombreReportado : "",
+      onQuitar: quitarReportado,
+    },
     {
       clave: "busqueda",
       etiqueta: "Búsqueda",
@@ -220,19 +237,9 @@ export function IncidentesListPage() {
       clave: "estado",
       etiqueta: "Estado",
       valor: filtroEstado !== "" ? estadoLabel(filtroEstado) : "",
-      onQuitar: () => {
-        setFiltroEstado("");
-        setIncluirCerrados(true);
-      },
+      onQuitar: () => setFiltroEstado(""),
     },
-    {
-      clave: "periodo",
-      etiqueta: "Período",
-      valor: ETIQUETA_PERIODO[periodo],
-      // "Todo" es el período de apertura: no es un filtro aplicado.
-      visible: periodo !== "todo",
-      onQuitar: () => setPeriodo("todo"),
-    },
+    gestion.chipPeriodo,
     {
       clave: "orden",
       etiqueta: "Orden",
@@ -248,30 +255,7 @@ export function IncidentesListPage() {
   ]);
 
   return (
-    <Pagina
-      titulo="Gestión de incidentes"
-      descripcion="Reportes, cierres y reaperturas del laboratorio."
-      acciones={
-        <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>Registrar incidente</BotonAgregar>
-      }
-    >
-      {/* Indicador E7: incidentes por tipo — conectado al filtro de la tabla */}
-      <IncidentesPorTipoPanel
-        filtroTipo={filtroTipo}
-        onFiltroTipoChange={(tipo) => setFiltroTipo(tipo)}
-        incluirCerrados={incluirCerrados}
-        onIncluirCerradosChange={(checked) => {
-          setIncluirCerrados(checked);
-          setFiltroEstado(checked ? "" : "abierto");
-        }}
-        periodo={periodo}
-        onPeriodoChange={handlePeriodoChange}
-        fechaDesde={fechaDesde}
-        fechaHasta={fechaHasta}
-        onFechaDesdeChange={(valor) => { setFechaDesde(valor); setPage(1); }}
-        onFechaHastaChange={(valor) => { setFechaHasta(valor); setPage(1); }}
-      />
-
+    <>
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -296,7 +280,7 @@ export function IncidentesListPage() {
               label="Tipo"
               valor={filtroTipo}
               onCambio={handleTipoChange}
-              opciones={TIPOS_INCIDENTE.map((tipo) => ({
+              opciones={tiposDeOrigen(origen).map((tipo) => ({
                 valor: tipo.value,
                 etiqueta: tipo.label,
               }))}
@@ -305,10 +289,24 @@ export function IncidentesListPage() {
           </>
         }
         herramientas={
-          <BotonesExportar
-            nombreTabla="incidentes"
-            filtros={{ estado: filtroEstado, tipo: filtroTipo }}
-          />
+          <>
+            <BotonAgregar onClick={() => navigate("/incidentes/reportar")}>
+              Registrar incidente
+            </BotonAgregar>
+            <BotonExportar
+              nombreTabla="incidentes"
+              filtros={{
+                estado: filtroEstado,
+                tipo: filtroTipo,
+                buscar: busqueda,
+                fecha_desde: desde,
+                fecha_hasta: hasta,
+                reportado_por: reportadoPor !== null ? String(reportadoPor) : undefined,
+                origen,
+                orden: orden.orden,
+              }}
+            />
+          </>
         }
       />
 
@@ -356,6 +354,7 @@ export function IncidentesListPage() {
         isOpen={incidenteACerrar !== null}
         incidente={incidenteACerrar}
         isLoading={procesando}
+        error={errorGuardado}
         onClose={handleCerrarDialogClose}
         onConfirm={handleCerrar}
       />
@@ -367,6 +366,91 @@ export function IncidentesListPage() {
         onClose={handleReabrirDialogClose}
         onConfirm={handleReabrir}
       />
+    </>
+  );
+}
+
+/**
+ * Gestión de incidentes: todo lo que salió mal, en un solo lugar. Los reclamos,
+ * los rechazos y los retiros eran pantallas aparte; cada uno se sigue
+ * resolviendo con sus reglas, ahora en su pestaña. `/reclamos` y `/retiros`
+ * redirigen acá.
+ *
+ * Quien opera entra a consultar y registrar reclamos: no ve los incidentes de
+ * los demás (los suyos están en "Reportar incidente").
+ */
+export function IncidentesListPage() {
+  const esAdmin = puedeAdministrar(useAuth().user);
+  const gestion = useFiltrosGestion();
+  const [filtroTipo, setFiltroTipo] = useState<TipoIncidente | "">("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const pestanas = [
+    {
+      valor: "reclamos",
+      etiqueta: "Reclamos de clientes",
+      contenido: <TabReclamos gestion={gestion} />,
+    },
+    {
+      valor: "rechazos",
+      etiqueta: "Rechazos de entregas",
+      contenido: <TabRechazos gestion={gestion} />,
+    },
+    {
+      valor: "retiros",
+      etiqueta: "Retiros de lotes",
+      contenido: <TabRetiros gestion={gestion} />,
+    },
+  ];
+  if (esAdmin) {
+    pestanas.unshift({
+      valor: "incidentes",
+      etiqueta: "Incidentes",
+      contenido: (
+        <TabIncidentes
+          gestion={gestion}
+          filtroTipo={filtroTipo}
+          onFiltroTipoChange={setFiltroTipo}
+        />
+      ),
+    });
+  }
+
+  const tipoDeLaPestana = tipoDePestana(searchParams.get("tab"));
+  const seleccionado = tipoDeLaPestana || filtroTipo;
+
+  // Cada barra lleva a su tabla: los de circuito tienen pestaña propia; el
+  // resto se filtra por tipo en "Incidentes". Otro clic lo deshace.
+  const handleSeleccionar = (tipo: TipoIncidente) => {
+    const quitar = tipo === seleccionado;
+    if (!esDeCircuito(tipo)) setFiltroTipo(quitar ? "" : tipo);
+    const destino = quitar ? "incidentes" : pestanaDeTipo(tipo);
+    setSearchParams(
+      (actuales) => {
+        const nuevos = new URLSearchParams(actuales);
+        nuevos.set("tab", destino);
+        return nuevos;
+      },
+      { replace: true }
+    );
+  };
+
+  return (
+    <Pagina
+      titulo="Gestión de incidentes"
+      descripcion={`${
+        esAdmin ? "Incidentes reportados, reclamos" : "Reclamos"
+      } de clientes, rechazos de entregas y retiros de lotes.`}
+    >
+      {/* El resumen es de administración (el backend lo exige). */}
+      {esAdmin && (
+        <IncidentesPorTipoPanel
+          gestion={gestion}
+          seleccionado={seleccionado}
+          onSeleccionar={handleSeleccionar}
+        />
+      )}
+      <PestanasPagina pestanas={pestanas} />
     </Pagina>
   );
 }

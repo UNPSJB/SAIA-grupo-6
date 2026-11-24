@@ -1,8 +1,8 @@
 import type {
-  FilaInsumoForm,
+  FilaIngredienteForm,
   FilaTareaForm,
   FilaUsoForm,
-  InsumoOpcion,
+  IngredienteOpcion,
   VersionDetalle,
   VersionFormState,
   VersionInput,
@@ -11,21 +11,22 @@ import type {
 let contador = 0;
 export const nuevaClave = () => `fila-${++contador}`;
 
-export const nuevaFilaInsumo = (): FilaInsumoForm => ({
+export const nuevaFilaIngrediente = (): FilaIngredienteForm => ({
   clave: nuevaClave(),
-  insumo_id: 0,
+  ingrediente_id: 0,
   cantidad: "",
 });
 
 export const nuevaFilaUso = (): FilaUsoForm => ({
   clave: nuevaClave(),
-  insumo_id: 0,
+  ingrediente_id: 0,
   cantidad: "",
 });
 
 export const nuevaFilaTarea = (): FilaTareaForm => ({
   clave: nuevaClave(),
   descripcion: "",
+  procedimiento: "",
   usos: [],
 });
 
@@ -36,7 +37,7 @@ export const estadoInicial = (): VersionFormState => ({
   porcion_cantidad: "",
   porcion_unidad_medida_id: 0,
   vida_util_dias: "",
-  insumos: [nuevaFilaInsumo()],
+  ingredientes: [nuevaFilaIngrediente()],
   tareas: [nuevaFilaTarea()],
 });
 
@@ -52,21 +53,46 @@ export function desdeDetalle(version: VersionDetalle): VersionFormState {
       version.vida_util_dias !== null && version.vida_util_dias !== undefined
         ? String(version.vida_util_dias)
         : "",
-    insumos: version.insumos.map((i) => ({
+    ingredientes: version.ingredientes.map((i) => ({
       clave: nuevaClave(),
-      insumo_id: i.insumo.id,
+      ingrediente_id: i.ingrediente.id,
       cantidad: String(Number(i.cantidad)),
     })),
     tareas: version.tareas.map((t) => ({
       clave: nuevaClave(),
       descripcion: t.descripcion,
-      usos: t.insumos.map((u) => ({
+      procedimiento: t.procedimiento ?? "",
+      usos: t.ingredientes.map((u) => ({
         clave: nuevaClave(),
-        insumo_id: u.insumo.id,
+        ingrediente_id: u.ingrediente.id,
         cantidad: String(Number(u.cantidad)),
       })),
     })),
   };
+}
+
+/**
+ * Opciones del formulario de una versión nueva: los ingredientes activos más
+ * los que usa la versión de partida y ya fueron dados de baja. Sin ellos, el
+ * selector no encuentra el valor precargado y muestra otro ingrediente.
+ */
+export function opcionesConInactivos(
+  activos: IngredienteOpcion[],
+  version: VersionDetalle,
+): IngredienteOpcion[] {
+  const ids = new Set(activos.map((i) => i.id));
+  const inactivos: IngredienteOpcion[] = version.ingredientes
+    .filter((i) => !ids.has(i.ingrediente.id))
+    .map((i) => ({
+      id: i.ingrediente.id,
+      nombre: i.ingrediente.nombre,
+      unidad_medida_id: i.unidad_medida.id,
+      unidad_medida: i.unidad_medida,
+      es_aditivo: i.es_aditivo,
+      aditivo: i.aditivo,
+      inactivo: true,
+    }));
+  return inactivos.length ? [...activos, ...inactivos] : activos;
 }
 
 const redondear = (valor: number) => Math.round(valor * 1000) / 1000;
@@ -75,27 +101,27 @@ const numero = (texto: string) => {
   return Number.isFinite(valor) ? valor : 0;
 };
 
-export interface RepartoInsumo {
-  insumo_id: number;
+export interface RepartoIngrediente {
+  ingrediente_id: number;
   total: number;
   repartido: number;
   completo: boolean;
 }
 
-/** Por cada insumo de la receta: total declarado vs. lo repartido entre las tareas. */
-export function calcularReparto(estado: VersionFormState): RepartoInsumo[] {
-  return estado.insumos
-    .filter((fila) => fila.insumo_id > 0)
+/** Por cada ingrediente de la receta: total declarado vs. lo repartido entre las tareas. */
+export function calcularReparto(estado: VersionFormState): RepartoIngrediente[] {
+  return estado.ingredientes
+    .filter((fila) => fila.ingrediente_id > 0)
     .map((fila) => {
       const total = redondear(numero(fila.cantidad));
       const repartido = redondear(
         estado.tareas
           .flatMap((t) => t.usos)
-          .filter((u) => u.insumo_id === fila.insumo_id)
+          .filter((u) => u.ingrediente_id === fila.ingrediente_id)
           .reduce((suma, u) => suma + numero(u.cantidad), 0),
       );
       return {
-        insumo_id: fila.insumo_id,
+        ingrediente_id: fila.ingrediente_id,
         total,
         repartido,
         completo: total > 0 && total === repartido,
@@ -104,7 +130,7 @@ export function calcularReparto(estado: VersionFormState): RepartoInsumo[] {
 }
 
 /** Devuelve el primer problema del formulario, o `null` si está listo para enviar. */
-export function validar(estado: VersionFormState, insumos: InsumoOpcion[] = []): string | null {
+export function validar(estado: VersionFormState, ingredientes: IngredienteOpcion[] = []): string | null {
   if (numero(estado.rendimiento) <= 0) return "Indicá el rendimiento de la receta.";
   if (!estado.unidad_medida_id) return "Elegí la unidad del rendimiento.";
   const porcion = estado.porcion_cantidad.trim();
@@ -115,44 +141,48 @@ export function validar(estado: VersionFormState, insumos: InsumoOpcion[] = []):
   if (vidaUtil && (numero(vidaUtil) <= 0 || !Number.isInteger(numero(vidaUtil)))) {
     return "La vida útil debe ser un número entero mayor a cero.";
   }
-  if (estado.insumos.length === 0) return "Agregá al menos un insumo.";
-  if (estado.insumos.some((i) => !i.insumo_id || numero(i.cantidad) <= 0)) {
-    return "Completá el insumo y una cantidad mayor a cero en cada fila.";
+  if (estado.ingredientes.length === 0) return "Agregá al menos un ingrediente.";
+  if (estado.ingredientes.some((i) => !i.ingrediente_id || numero(i.cantidad) <= 0)) {
+    return "Completá el ingrediente y una cantidad mayor a cero en cada fila.";
   }
-  const ids = estado.insumos.map((i) => i.insumo_id);
-  if (new Set(ids).size !== ids.length) return "Un insumo no puede repetirse en la receta.";
-  const tipoDe = (id: number) => insumos.find((i) => i.id === id)?.tipo;
-  if (insumos.length > 0 && !ids.some((id) => tipoDe(id) === "ingrediente")) {
+  const ids = estado.ingredientes.map((i) => i.ingrediente_id);
+  if (new Set(ids).size !== ids.length) return "Un ingrediente no puede repetirse en la receta.";
+  const dadoDeBaja = ingredientes.find((i) => i.inactivo && ids.includes(i.id));
+  if (dadoDeBaja) {
+    return `${dadoDeBaja.nombre} está dado de baja en el maestro de ingredientes: reemplazalo o quitalo de la receta.`;
+  }
+  const esAditivo = (id: number) => ingredientes.find((i) => i.id === id)?.es_aditivo;
+  if (ingredientes.length > 0 && ids.every((id) => esAditivo(id))) {
     return "La receta necesita al menos un ingrediente: no puede tener solo aditivos.";
   }
-  const aditivoSinClase = estado.insumos.find((i) => {
-    const insumo = insumos.find((x) => x.id === i.insumo_id);
-    return insumo?.tipo === "aditivo" && !insumo.aditivo;
+  const aditivoSinClase = estado.ingredientes.find((i) => {
+    const ingrediente = ingredientes.find((x) => x.id === i.ingrediente_id);
+    return ingrediente?.es_aditivo && !ingrediente.aditivo;
   });
   if (aditivoSinClase) {
-    return "Hay un aditivo sin clase funcional: completalo en el maestro de insumos.";
+    return "Hay un aditivo sin clase funcional: completalo en el maestro de ingredientes.";
   }
   if (estado.tareas.length === 0) return "Agregá al menos una tarea.";
   if (estado.tareas.some((t) => !t.descripcion.trim())) {
     return "Cada tarea necesita una descripción.";
   }
   for (const tarea of estado.tareas) {
-    if (tarea.usos.some((u) => !u.insumo_id || numero(u.cantidad) <= 0)) {
-      return "Completá el insumo y la cantidad en cada insumo de las tareas.";
+    if (tarea.usos.some((u) => !u.ingrediente_id || numero(u.cantidad) <= 0)) {
+      return "Completá el ingrediente y la cantidad en cada ingrediente de las tareas.";
     }
-    const usados = tarea.usos.map((u) => u.insumo_id);
+    const usados = tarea.usos.map((u) => u.ingrediente_id);
     if (new Set(usados).size !== usados.length) {
-      return "Una tarea no puede repetir el mismo insumo.";
+      return "Una tarea no puede repetir el mismo ingrediente.";
     }
   }
   if (calcularReparto(estado).some((r) => !r.completo)) {
-    return "La cantidad repartida entre las tareas debe sumar el total de cada insumo.";
+    return "La cantidad repartida entre las tareas debe sumar el total de cada ingrediente.";
   }
   return null;
 }
 
-export function aInput(estado: VersionFormState, insumos: InsumoOpcion[]): VersionInput {
-  const unidadDe = (id: number) => insumos.find((i) => i.id === id)?.unidad_medida_id ?? 0;
+export function aInput(estado: VersionFormState, ingredientes: IngredienteOpcion[]): VersionInput {
+  const unidadDe = (id: number) => ingredientes.find((i) => i.id === id)?.unidad_medida_id ?? 0;
   return {
     rendimiento: String(numero(estado.rendimiento)),
     unidad_medida_id: estado.unidad_medida_id,
@@ -160,15 +190,16 @@ export function aInput(estado: VersionFormState, insumos: InsumoOpcion[]): Versi
     porcion_cantidad: estado.porcion_cantidad.trim() ? String(numero(estado.porcion_cantidad)) : null,
     porcion_unidad_medida_id: estado.porcion_unidad_medida_id || null,
     vida_util_dias: estado.vida_util_dias.trim() ? Math.floor(numero(estado.vida_util_dias)) : null,
-    insumos: estado.insumos.map((i) => ({
-      insumo_id: i.insumo_id,
+    ingredientes: estado.ingredientes.map((i) => ({
+      ingrediente_id: i.ingrediente_id,
       cantidad: String(numero(i.cantidad)),
-      unidad_medida_id: unidadDe(i.insumo_id),
+      unidad_medida_id: unidadDe(i.ingrediente_id),
     })),
     tareas: estado.tareas.map((t) => ({
       descripcion: t.descripcion.trim(),
-      insumos: t.usos.map((u) => ({
-        insumo_id: u.insumo_id,
+      procedimiento: t.procedimiento.trim() || null,
+      ingredientes: t.usos.map((u) => ({
+        ingrediente_id: u.ingrediente_id,
         cantidad: String(numero(u.cantidad)),
       })),
     })),

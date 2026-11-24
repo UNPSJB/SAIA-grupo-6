@@ -18,20 +18,12 @@ class RecetaYaExiste(BadRequest):
     DETAIL = ErrorCode.RECETA_YA_EXISTE
 
 
-class SinTareas(BadRequest):
-    DETAIL = ErrorCode.SIN_TAREAS
+class IngredienteNoEncontrado(BadRequest):
+    DETAIL = ErrorCode.INGREDIENTE_NO_ENCONTRADO
 
 
-class SinInsumos(BadRequest):
-    DETAIL = ErrorCode.SIN_INSUMOS
-
-
-class InsumoNoEncontrado(BadRequest):
-    DETAIL = ErrorCode.INSUMO_NO_ENCONTRADO
-
-
-class InsumoRepetido(BadRequest):
-    DETAIL = ErrorCode.INSUMO_REPETIDO
+class IngredienteRepetido(BadRequest):
+    DETAIL = ErrorCode.INGREDIENTE_REPETIDO
 
 
 class UnidadNoCoincide(BadRequest):
@@ -42,12 +34,12 @@ class UnidadNoEncontrada(BadRequest):
     DETAIL = ErrorCode.UNIDAD_NO_ENCONTRADA
 
 
-class TareaInsumoDesconocido(BadRequest):
-    DETAIL = ErrorCode.TAREA_INSUMO_DESCONOCIDO
+class TareaIngredienteDesconocido(BadRequest):
+    DETAIL = ErrorCode.TAREA_INGREDIENTE_DESCONOCIDO
 
 
-class TareaInsumoRepetido(BadRequest):
-    DETAIL = ErrorCode.TAREA_INSUMO_REPETIDO
+class TareaIngredienteRepetido(BadRequest):
+    DETAIL = ErrorCode.TAREA_INGREDIENTE_REPETIDO
 
 
 class RepartoIncompleto(BadRequest):
@@ -93,13 +85,9 @@ class VidaUtilInvalida(BadRequest):
     DETAIL = ErrorCode.VIDA_UTIL_INVALIDA
 
 
-
 class OrdenEmpateInvalido(BadRequest):
     DETAIL = ErrorCode.ORDEN_EMPATE_INVALIDO
 
+
 class OrdenEmpateSinComposicion(BadRequest):
-   DETAIL = ErrorCode.ORDEN_EMPATE_SIN_COMPOSICION
-
-
-class AditivoSinClase(BadRequest):
-     DETAIL = ErrorCode.ADITIVO_SIN_CLASE
+    DETAIL = ErrorCode.ORDEN_EMPATE_SIN_COMPOSICION

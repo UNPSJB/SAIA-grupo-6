@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 _FUENTES_SQL = "('base_referencia', 'rotulo_proveedor', 'bibliografia', 'valor_propio')"
 
@@ -77,23 +78,23 @@ class AlimentoReferencia(ModeloBase):
     importado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
 
-class PerfilNutricionalInsumo(ModeloBase):
-    """Datos del insumo que necesita el cálculo además de los nutrientes.
+class PerfilNutricionalIngrediente(DatosDeEstablecimiento, ModeloBase):
+    """Datos del ingrediente que necesita el cálculo además de los nutrientes.
 
     * Para aditivos: si aportan energía o sodio de forma relevante. Un aditivo
       sin esa marca no exige datos nutricionales.
     * Si sus azúcares son añadidos.
 
     La conversión a gramos (densidad y peso por unidad) NO está acá: es un dato
-    del insumo (`Insumo.densidad_g_ml` / `Insumo.peso_unitario_g`), con el tipo
+    del ingrediente (`Ingrediente.densidad_g_ml` / `Ingrediente.peso_unitario_g`), con el tipo
     y factor de su `UnidadMedida`. La usan también la composición porcentual y
-    el alta de insumos. Ver `migrations/nutricion_conversion_en_insumo.py`.
+    el alta de ingredientes. Ver `migrations/nutricion_conversion_en_ingrediente.py`.
     """
 
-    __tablename__ = "perfiles_nutricionales_insumo"
+    __tablename__ = "perfiles_nutricionales_ingrediente"
 
-    insumo_id: Mapped[int] = mapped_column(
-        ForeignKey("insumos.id", ondelete="CASCADE"), primary_key=True
+    ingrediente_id: Mapped[int] = mapped_column(
+        ForeignKey("ingredientes.id", ondelete="CASCADE"), primary_key=True
     )
     aporta_energia_sodio: Mapped[bool] = mapped_column(Boolean, default=False)
     # Ingredientes cuyo azúcar es añadido (azúcar, miel, jarabes, dulce de leche):
@@ -102,7 +103,7 @@ class PerfilNutricionalInsumo(ModeloBase):
         Boolean, default=False, server_default="0"
     )
     # E12: marcas que alimentan la aplicabilidad del rotulado frontal. Se
-    # guardan para cualquier insumo; la receta decide cuáles llegan al producto.
+    # guardan para cualquier ingrediente; la receta decide cuáles llegan al producto.
     grasas_son_anadidas: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="0"
     )
@@ -117,23 +118,23 @@ class PerfilNutricionalInsumo(ModeloBase):
     )
 
 
-class ValorNutricionalInsumo(ModeloBase):
-    """Un nutriente de un insumo, por 100 g, con su fuente y su historia.
+class ValorNutricionalIngrediente(DatosDeEstablecimiento, ModeloBase):
+    """Un nutriente de un ingrediente, por 100 g, con su fuente y su historia.
 
     `valor_fuente` es lo que dijo la fuente al cargarlo: si después alguien
     escribe otro número, `modificado` queda en True y se registra quién y cuándo.
     """
 
-    __tablename__ = "valores_nutricionales_insumo"
+    __tablename__ = "valores_nutricionales_ingrediente"
     __table_args__ = (
-        UniqueConstraint("insumo_id", "nutriente", name="uq_valor_nutricional_insumo"),
+        UniqueConstraint("ingrediente_id", "nutriente", name="uq_valor_nutricional_ingrediente"),
         CheckConstraint("valor >= 0", name="ck_valor_nutricional_no_negativo"),
         CheckConstraint(f"fuente IN {_FUENTES_SQL}", name="ck_valor_nutricional_fuente"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    insumo_id: Mapped[int] = mapped_column(
-        ForeignKey("insumos.id", ondelete="CASCADE"), index=True
+    ingrediente_id: Mapped[int] = mapped_column(
+        ForeignKey("ingredientes.id", ondelete="CASCADE"), index=True
     )
     nutriente: Mapped[str] = mapped_column(ForeignKey("parametros_nutrientes.clave"))
     valor: Mapped[Decimal] = mapped_column(Numeric(14, 4))
@@ -161,7 +162,7 @@ class ValorNutricionalInsumo(ModeloBase):
     )
 
 
-class InfoNutricionalProducto(ModeloBase):
+class InfoNutricionalProducto(DatosDeEstablecimiento, ModeloBase):
     """Lo que el producto declara en la tabla: porción, medida casera, g o ml.
 
     `densidad_g_ml` y `peso_unidad_g` convierten el rendimiento de la receta
@@ -192,7 +193,7 @@ class InfoNutricionalProducto(ModeloBase):
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora, onupdate=ahora)
 
 
-class ValorLaboratorioProducto(ModeloBase):
+class ValorLaboratorioProducto(DatosDeEstablecimiento, ModeloBase):
     """Nutriente del producto determinado por análisis de laboratorio.
 
     Reemplaza al valor calculado desde los ingredientes (la cátedra pide poder

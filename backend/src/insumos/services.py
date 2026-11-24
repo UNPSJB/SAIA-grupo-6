@@ -1,302 +1,156 @@
-from typing import List, Optional
-import logging
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from typing import Optional
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
-from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
-from src.common.persistence import (
-    aplicar_cambios,
-    es_violacion_unica,
-    mapa_por_campo,
-)
-from src.common.texto import sin_tildes
-from src.exceptions import ConflictoRegistroInactivo
-from src.aditivos.models import Aditivo
-from src.insumos.models import TIPO_ADITIVO, TIPO_INGREDIENTE, Insumo
+
+from src.common.listados import filtro_busqueda
+from src.ingredientes.models import Ingrediente
+from src.insumos import exceptions, schemas
+from src.insumos.models import Insumo
 from src.proveedores.models import Proveedor
-from src.insumos import schemas, exceptions
-from src.unidadMedida.models import UnidadMedida
-from src.common.fechas import ahora
-
-logger = logging.getLogger(__name__)
-
-_ORDENES = {
-    "nombre_asc": ColumnaOrden((sin_tildes(Insumo.nombre),)),
-    "nombre_desc": ColumnaOrden((sin_tildes(Insumo.nombre),), descendente=True),
-    "unidad_asc": ColumnaOrden((sin_tildes(UnidadMedida.nombre),)),
-    "unidad_desc": ColumnaOrden(
-        (sin_tildes(UnidadMedida.nombre),), descendente=True
-    ),
-}
-
-# `insumos.nombre` es UNIQUE: cualquier violación de integridad del PUT se
-# traduce a "ya existe" (mismo criterio que tenía el update() de Core).
-_MAPEA_CONFLICTO_UNICO = mapa_por_campo(
-    por_defecto=exceptions.InsumoYaExiste,
-)
 
 
-def _mapear_conflicto_insumo(mensaje: str) -> Exception:
-    """Solo una violación UNIQUE es un duplicado. Cualquier otro
-    IntegrityError (NOT NULL, FK rota) se propaga como error genérico (500)
-    y queda logueado."""
-    if not es_violacion_unica(mensaje):
-        logger.error(
-            "IntegrityError no-UNIQUE en insumos (no es un duplicado): %s",
-            mensaje,
-        )
-        raise IntegrityError("sin mapear", {}, Exception(mensaje))
-    return _MAPEA_CONFLICTO_UNICO(mensaje)
-
-
-
-def _verificar_unidad_medida(db: Session, unidad_medida_id: int) -> None:
-    """Verifica que la unidad de medida exista y esté activa."""
-    unidad = db.scalar(select(UnidadMedida).where(UnidadMedida.id == unidad_medida_id))
-    if unidad is None:
-        raise exceptions.UnidadMedidaNoExiste()
-    if not unidad.activo:
-        raise exceptions.UnidadMedidaInactiva()
-
-
-def _validar_densidad_peso_por_tipo_unidad(
-    db: Session,
-    unidad_medida_id: int,
-    densidad_g_ml: float | None,
-    peso_unitario_g: float | None,
-) -> None:
-    """Valida que densidad/peso unitario estén presentes según el tipo de unidad.
-
-    - Volumen -> densidad_g_ml es obligatoria.
-    - Unidad  -> peso_unitario_g es obligatorio.
-    """
-    unidad = db.get(UnidadMedida, unidad_medida_id)
-    if unidad is None:
-        return  # ya falló antes en _verificar_unidad_medida
-
-    if unidad.tipo == "volumen" and densidad_g_ml is None:
-        raise exceptions.DensidadRequeridaParaVolumen()
-
-    if unidad.tipo == "unidad" and peso_unitario_g is None:
-        raise exceptions.PesoUnitarioRequeridoParaUnidad()
-
-
-def _normalizar_tipo(db: Session, tipo: str, aditivo_id: Optional[int]) -> Optional[int]:
-    """Devuelve el `aditivo_id` que corresponde al tipo.
-
-    Un aditivo exige un aditivo activo de la lista de referencia (clase
-    funcional, nombre completo e INS). Un ingrediente no lleva aditivo: si
-    viene uno se descarta, así cambiar de aditivo a ingrediente lo limpia.
-    """
-    if tipo != TIPO_ADITIVO:
-        return None
-    if aditivo_id is None:
-        raise exceptions.AditivoSinReferencia()
-    aditivo = db.get(Aditivo, aditivo_id)
-    if aditivo is None or not aditivo.activo or not aditivo.clase_funcional.activo:
-        raise exceptions.AditivoNoValido()
-    return aditivo.id
-
-
-def crear_insumo(db: Session, insumo: schemas.InsumoCreate) -> Insumo:
-    existente = db.scalar(
-        select(Insumo).where(Insumo.nombre == insumo.nombre)
-    )
-    if existente:
-        if existente.activo:
-            raise exceptions.InsumoYaExiste()
-        else:
-            raise ConflictoRegistroInactivo(
-                mensaje=f"El insumo '{existente.nombre}' ya existe pero está dado de baja. ¿Querés reactivarlo con estos nuevos datos?",
-                entidad_id=existente.id,
-                campo="nombre"
-            )
-
-    _verificar_unidad_medida(db, insumo.unidad_medida_id)
-    _validar_densidad_peso_por_tipo_unidad(
-        db, insumo.unidad_medida_id, insumo.densidad_g_ml, insumo.peso_unitario_g
+def _consulta():
+    return select(Insumo).options(
+        selectinload(Insumo.ingrediente).selectinload(Ingrediente.unidad_medida),
+        selectinload(Insumo.proveedores),
     )
 
-    datos = insumo.model_dump(mode="json")
-    datos["aditivo_id"] = _normalizar_tipo(db, insumo.tipo, insumo.aditivo_id)
-    _insumo = Insumo(**datos)
-    if insumo.perfil_declaracion is not None:
-        _insumo.perfil_actualizado_en = ahora()
-        _insumo.perfil_actualizado_por_id = db.info.get("usuario_id")
-    db.add(_insumo)
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    db.refresh(_insumo)
-    return _insumo
 
+def a_respuesta(insumo: Insumo, meses: Optional[int] = None) -> schemas.InsumoResponse:
+    """`meses`: vigencia de la homologación; sin ella no se informa el vencimiento."""
+    from src.common.fechas import hoy
+    from src.insumos.homologacion import vigente_hasta
 
-def _consulta_insumos(
-    incluir_inactivos: bool,
-    buscar: Optional[str],
-    unidad_medida_id: Optional[int],
-    tipo: Optional[str] = None,
-    solo_inactivos: bool = False,
-    proveedor_id: Optional[int] = None,
-):
-    """Consulta base con el JOIN a la unidad, compartida por ambos caminos.
-
-    `tipo=None` devuelve el maestro completo (ingredientes y aditivos).
-    """
-    consulta = (
-        select(Insumo)
-        .join(Insumo.unidad_medida)
-        .options(
-            selectinload(Insumo.unidad_medida),
-            selectinload(Insumo.aditivo).selectinload(Aditivo.clase_funcional),
-            selectinload(Insumo.proveedores),
-        )
+    vence = vigente_hasta(insumo, meses) if meses is not None else None
+    return schemas.InsumoResponse(
+        id=insumo.id,
+        ingrediente_id=insumo.ingrediente_id,
+        ingrediente_nombre=insumo.ingrediente.nombre,
+        unidad=insumo.ingrediente.unidad_medida.simbolo,
+        marca=insumo.marca,
+        descripcion=insumo.descripcion,
+        codigo_fabricante=insumo.codigo_fabricante,
+        nombre=insumo.nombre,
+        activo=insumo.activo,
+        sin_rotulo=insumo.sin_rotulo,
+        proveedores=[schemas.ProveedorResumen.model_validate(p) for p in insumo.proveedores],
+        estado_homologacion=insumo.estado_homologacion,
+        homologacion_vigente_hasta=vence,
+        homologacion_vencida=vence is not None and vence < hoy(),
     )
-    if tipo is not None:
-        consulta = consulta.where(Insumo.tipo == tipo)
-    if proveedor_id is not None:
-        consulta = consulta.where(Insumo.proveedores.any(Proveedor.id == proveedor_id))
 
-    filtros = [
-        filtro
-        for filtro in (
-            filtro_busqueda(
-                (Insumo.nombre, UnidadMedida.nombre, UnidadMedida.simbolo),
-                buscar,
-            ),
-            Insumo.unidad_medida_id == unidad_medida_id
-            if unidad_medida_id
-            else None,
-        )
-        if filtro is not None
-    ]
-    if filtros:
-        consulta = consulta.where(*filtros)
 
-    if solo_inactivos:
-        consulta = consulta.where(Insumo.activo.is_(False))
-    elif not incluir_inactivos:
-        consulta = consulta.where(Insumo.activo.is_(True))
-
-    return consulta
+def obtener_insumo(db: Session, insumo_id: int) -> Insumo:
+    insumo = db.scalar(_consulta().where(Insumo.id == insumo_id))
+    if insumo is None:
+        raise exceptions.InsumoNoEncontrado()
+    return insumo
 
 
 def listar_insumos(
     db: Session,
+    ingrediente_id: Optional[int] = None,
+    proveedor_id: Optional[int] = None,
+    buscar: Optional[str] = None,
     incluir_inactivos: bool = False,
-    buscar: Optional[str] = None,
-    unidad_medida_id: Optional[int] = None,
-    tipo: Optional[str] = None,
-    proveedor_id: Optional[int] = None,
-) -> List[Insumo]:
-    consulta = _consulta_insumos(
-        incluir_inactivos, buscar, unidad_medida_id, tipo, proveedor_id=proveedor_id
-    ).order_by(Insumo.id)
-    return list(db.scalars(consulta).all())
+) -> list[Insumo]:
+    consulta = _consulta().join(Insumo.ingrediente)
+    if ingrediente_id is not None:
+        consulta = consulta.where(Insumo.ingrediente_id == ingrediente_id)
+    if proveedor_id is not None:
+        consulta = consulta.where(Insumo.proveedores.any(Proveedor.id == proveedor_id))
+    filtro = filtro_busqueda((Insumo.marca, Insumo.descripcion, Ingrediente.nombre), buscar)
+    if filtro is not None:
+        consulta = consulta.where(filtro)
+    if not incluir_inactivos:
+        consulta = consulta.where(Insumo.activo.is_(True))
+    return list(db.scalars(consulta.order_by(Ingrediente.nombre, Insumo.marca, Insumo.id)).all())
 
 
-def listar_insumos_paginado(
-    db: Session,
-    incluir_inactivos: bool,
-    page: int,
-    page_size: int,
-    buscar: Optional[str] = None,
-    unidad_medida_id: Optional[int] = None,
-    orden: str = "nombre_asc",
-    tipo: Optional[str] = None,
-    solo_inactivos: bool = False,
-    proveedor_id: Optional[int] = None,
-) -> tuple[List[Insumo], int]:
-    """Mismo filtro que `listar_insumos`, recortado en la base: página + total."""
-    return paginar_consulta(
-        db,
-        _consulta_insumos(
-            incluir_inactivos,
-            buscar,
-            unidad_medida_id,
-            tipo,
-            solo_inactivos=solo_inactivos,
-            proveedor_id=proveedor_id,
-        ),
-        modelo=Insumo,
-        orden=orden,
-        ordenes=_ORDENES,
-        por_defecto="nombre_asc",
-        page=page,
-        page_size=page_size,
+def _proveedores(db: Session, ids: list[int]) -> list[Proveedor]:
+    unicos = set(ids)
+    if not unicos:
+        return []
+    proveedores = list(
+        db.scalars(
+            select(Proveedor).where(Proveedor.id.in_(unicos), Proveedor.activo.is_(True))
+        ).all()
     )
+    if len(proveedores) != len(unicos):
+        raise exceptions.ProveedoresNoValidos()
+    return proveedores
 
 
-def leer_insumo(db: Session, insumo_id: int) -> Insumo:
-    db_insumo = db.scalar(select(Insumo).where(Insumo.id == insumo_id).options(selectinload(Insumo.proveedores)))
-    if db_insumo is None:
-        raise exceptions.InsumoNoEncontrado()
-    return db_insumo
+def _verificar_unico(
+    db: Session,
+    ingrediente_id: int,
+    marca: str,
+    descripcion: Optional[str],
+    excepto_id: Optional[int] = None,
+) -> None:
+    """Un ingrediente no puede tener dos insumos con la misma marca y descripción."""
+    consulta = select(Insumo.id).where(
+        Insumo.ingrediente_id == ingrediente_id,
+        func.lower(Insumo.marca) == marca.lower(),
+        func.lower(func.coalesce(Insumo.descripcion, "")) == (descripcion or "").lower(),
+    )
+    if excepto_id is not None:
+        consulta = consulta.where(Insumo.id != excepto_id)
+    if db.scalar(consulta) is not None:
+        raise exceptions.InsumoYaExiste()
 
 
-def modificar_insumo(
-    db: Session, insumo_id: int, insumo: schemas.InsumoUpdate
-) -> Insumo:
-    db_insumo = leer_insumo(db, insumo_id)
+def crear_insumo(db: Session, datos: schemas.InsumoCreate) -> Insumo:
+    ingrediente = db.get(Ingrediente, datos.ingrediente_id)
+    if ingrediente is None or not ingrediente.activo:
+        raise exceptions.IngredienteNoValido()
+    _verificar_unico(db, ingrediente.id, datos.marca, datos.descripcion)
+    insumo = Insumo(
+        ingrediente_id=ingrediente.id,
+        marca=datos.marca,
+        descripcion=datos.descripcion,
+        codigo_fabricante=datos.codigo_fabricante,
+        sin_rotulo=datos.sin_rotulo,
+        proveedores=_proveedores(db, datos.proveedor_ids),
+    )
+    db.add(insumo)
+    db.commit()
+    return obtener_insumo(db, insumo.id)
 
-    # Solo actualizamos los campos que realmente vinieron en el request
-    # (evita pisar 'activo' u otros campos con NULL cuando no se envían).
-    datos_a_actualizar = insumo.model_dump(exclude_unset=True, mode="json")
-    datos_a_actualizar = {
+
+def actualizar_insumo(db: Session, insumo_id: int, datos: schemas.InsumoUpdate) -> Insumo:
+    insumo = obtener_insumo(db, insumo_id)
+    cambios = {
         campo: valor
-        for campo, valor in datos_a_actualizar.items()
-        if valor is not None or campo == "perfil_declaracion"
+        for campo, valor in datos.model_dump(exclude_unset=True).items()
+        # `None` en marca, activo o proveedores significa "no cambiar".
+        if valor is not None or campo in ("descripcion", "codigo_fabricante")
     }
-
-    if not datos_a_actualizar:
-        return db_insumo
-
-    if "unidad_medida_id" in datos_a_actualizar:
-        _verificar_unidad_medida(db, datos_a_actualizar["unidad_medida_id"])
-
-    # Tipo y aditivo se validan juntos, sobre el estado final.
-    if "tipo" in datos_a_actualizar or "aditivo_id" in datos_a_actualizar:
-        tipo_final = datos_a_actualizar.get("tipo", db_insumo.tipo)
-        datos_a_actualizar["tipo"] = tipo_final
-        datos_a_actualizar["aditivo_id"] = _normalizar_tipo(
-            db, tipo_final, datos_a_actualizar.get("aditivo_id", db_insumo.aditivo_id)
+    if "marca" in cambios or "descripcion" in cambios:
+        _verificar_unico(
+            db,
+            insumo.ingrediente_id,
+            cambios.get("marca", insumo.marca),
+            cambios.get("descripcion", insumo.descripcion),
+            excepto_id=insumo.id,
         )
+    if "proveedor_ids" in cambios:
+        insumo.proveedores = _proveedores(db, cambios.pop("proveedor_ids"))
+    cambia_rotulo = "sin_rotulo" in cambios and cambios["sin_rotulo"] != insumo.sin_rotulo
+    for campo, valor in cambios.items():
+        setattr(insumo, campo, valor)
+    if cambia_rotulo:
+        from src.insumos.homologacion import cambiar_sin_rotulo
 
-    # Densidad y peso unitario se validan contra el tipo de unidad final.
-    if any(
-        c in datos_a_actualizar
-        for c in ("unidad_medida_id", "densidad_g_ml", "peso_unitario_g")
-    ):
-        unidad_id_final = datos_a_actualizar.get(
-            "unidad_medida_id", db_insumo.unidad_medida_id
-        )
-        densidad_final = datos_a_actualizar.get(
-            "densidad_g_ml", db_insumo.densidad_g_ml
-        )
-        peso_final = datos_a_actualizar.get(
-            "peso_unitario_g", db_insumo.peso_unitario_g
-        )
-        _validar_densidad_peso_por_tipo_unidad(
-            db, unidad_id_final, densidad_final, peso_final
-        )
-
-    # Asignación por ORM y no un UPDATE de Core: los UPDATE de Core no
-    # disparan eventos del ORM, así que la auditoría no los vería.
-    if "perfil_declaracion" in datos_a_actualizar:
-        datos_a_actualizar["perfil_actualizado_en"] = ahora()
-        datos_a_actualizar["perfil_actualizado_por_id"] = db.info.get("usuario_id")
-    return aplicar_cambios(db, db_insumo, datos_a_actualizar, _mapear_conflicto_insumo)
+        cambiar_sin_rotulo(db, insumo)
+    db.commit()
+    return obtener_insumo(db, insumo.id)
 
 
-def eliminar_insumo(db: Session, insumo_id: int) -> Insumo:
-    db_insumo = leer_insumo(db, insumo_id)
-    db_insumo.activo = False
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    db.refresh(db_insumo)
-    return db_insumo
+def dar_de_baja(db: Session, insumo_id: int) -> Insumo:
+    """Baja lógica: los lotes ya recibidos conservan la referencia."""
+    insumo = obtener_insumo(db, insumo_id)
+    insumo.activo = False
+    db.commit()
+    return obtener_insumo(db, insumo.id)

@@ -1,5 +1,5 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, Button, Heading, HStack, Link, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Heading, HStack, Link, SimpleGrid, Text } from "@chakra-ui/react";
 import { LuChevronRight } from "react-icons/lu";
 import { CONFIGURACION, esVisibleEntrada, type EntradaMenu } from "../../../../common/components/menuEntradas";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -143,7 +143,10 @@ export function ConfiguracionPage() {
 
       {configuracion ? (
         <>
-        <Stack gap="5">
+        {/* Ajustes cortos (un número y un botón): de a dos por fila desde
+            `lg`, para que no queden tarjetas a todo el ancho con un input
+            de 160px y el resto vacío. */}
+        <SimpleGrid columns={{ base: 1, lg: 2 }} gap="5" alignItems="stretch">
           <AlertasVencimientoPersonalCard
             diasGuardados={configuracion.dias_alerta_vencimiento_personal}
             guardando={guardando}
@@ -158,10 +161,11 @@ export function ConfiguracionPage() {
             onGuardar={(dias) => guardar({ plazo_reclamo_dias: dias })}
             onEditar={limpiarMensajes}
           />
-        </Stack>
+        </SimpleGrid>
 
         <Box mt="8">
           <TituloSeccion>Indicadores</TituloSeccion>
+          <SimpleGrid columns={{ base: 1, lg: 2 }} gap="5">
           <MetaLimpiezaCard
             metaGuardada={configuracion.meta_cumplimiento_limpieza}
             guardando={guardando}
@@ -170,6 +174,7 @@ export function ConfiguracionPage() {
             }
             onEditar={limpiarMensajes}
           />
+          </SimpleGrid>
         </Box>
         </>
       ) : null}

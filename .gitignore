@@ -11,3 +11,7 @@ frontend/dist/
 frontend/.env.local
 repomix-output.xml
 .claude/
+
+# Salidas de comandos (build, lint, tests) guardadas a mano
+*-results.txt
+rotulado-ui-*.txt

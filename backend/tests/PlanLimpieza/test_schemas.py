@@ -9,7 +9,7 @@ from src.tareas.schemas import TareaBase as TareaInput
 
 
 def _tarea_input(nombre="TareaUno", frecuencia=7):
-    return TareaInput(nombre=nombre, frecuencia=frecuencia, tipo="operacional")
+    return TareaInput(nombre=nombre, frecuencia=frecuencia, tipo="operacional", operador_id=1)
 
 
 def test_plan_limpieza_create_valido():

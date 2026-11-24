@@ -261,7 +261,9 @@ export function ChipsFiltros({
         type="button"
         size="xs"
         variant="plain"
-        color="tabla.textoSecundario"
+        // `fg.muted` y no `tabla.textoSecundario`: a 12px sobre el aguamarina
+        // de la franja de chips, el gris pizarra quedaba en 4.3:1.
+        color="fg.muted"
         fontWeight="medium"
         px="1"
         _hover={{ color: "brand.700", textDecoration: "underline" }}

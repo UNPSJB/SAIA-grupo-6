@@ -15,6 +15,7 @@ from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Stri
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
 class EstadoChecklist(str, Enum):
@@ -24,7 +25,7 @@ class EstadoChecklist(str, Enum):
     CERRADO = "cerrado"
 
 
-class Checklist(ModeloBase):
+class Checklist(DatosDeEstablecimiento, ModeloBase):
     """Cabecera diaria de checklist para un equipo."""
 
     __tablename__ = "checklists"
@@ -74,7 +75,7 @@ class Checklist(ModeloBase):
     )
 
 
-class RegistroTarea(ModeloBase):
+class RegistroTarea(DatosDeEstablecimiento, ModeloBase):
     # El rastro de cada marcado vive en HistorialRegistroTarea (fuente de verdad):
     # auditar también esta fila lo registraría dos veces.
     __audit__ = False
@@ -147,9 +148,10 @@ class RegistroTarea(ModeloBase):
         nullable=True
     )
 
-    # Producto químico utilizado en esta tarea.
-    # Es opcional porque no todas las tareas necesariamente
-    # utilizan un producto químico.
+    # LEGADO: antes una tarea admitía un solo producto químico, una cantidad
+    # y un solo elemento. Ahora van en `consumos` y `elementos` (varios por
+    # tarea). La migración `checklist_consumos` pasa los valores viejos a las
+    # tablas nuevas y deja estas columnas en NULL; ya no se escriben.
     insumo_quimico_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey(
             "insumos_quimicos.id",
@@ -197,8 +199,76 @@ class RegistroTarea(ModeloBase):
         cascade="all, delete-orphan",
     )
 
+    # Productos químicos usados en la tarea, cada uno con su cantidad, y
+    # elementos de limpieza usados. `selectin`: el checklist del día lista
+    # muchas tareas y así se cargan en una consulta por relación, no por fila.
+    consumos: Mapped[List["RegistroTareaConsumo"]] = relationship(
+        back_populates="registro",
+        cascade="all, delete-orphan",
+        order_by="RegistroTareaConsumo.id",
+        lazy="selectin",
+    )
+    elementos: Mapped[List["RegistroTareaElemento"]] = relationship(
+        back_populates="registro",
+        cascade="all, delete-orphan",
+        order_by="RegistroTareaElemento.id",
+        lazy="selectin",
+    )
 
-class HistorialRegistroTarea(ModeloBase):
+    @property
+    def elementos_limpieza_ids(self) -> List[int]:
+        return [e.elemento_limpieza_id for e in self.elementos]
+
+
+class RegistroTareaConsumo(DatosDeEstablecimiento, ModeloBase):
+    """Un producto químico usado en una tarea del checklist y su cantidad.
+
+    Es el detalle del consumo que descuenta stock: cada cambio se traduce en
+    movimientos de stock por la diferencia (`sincronizar_consumos_checklist`),
+    que son los que quedan auditados. Esta fila es el estado actual.
+    """
+
+    __audit__ = False
+    __tablename__ = "registro_tarea_consumos"
+    __table_args__ = (
+        UniqueConstraint("registro_tarea_id", "insumo_quimico_id", name="uq_consumo_registro_insumo"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    registro_tarea_id: Mapped[int] = mapped_column(
+        ForeignKey("registro_tareas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    insumo_quimico_id: Mapped[int] = mapped_column(
+        ForeignKey("insumos_quimicos.id"), nullable=False, index=True
+    )
+    cantidad: Mapped[float] = mapped_column(Float, nullable=False)
+
+    registro: Mapped["RegistroTarea"] = relationship(back_populates="consumos")
+    insumo_quimico: Mapped["InsumoQuimico"] = relationship(lazy="joined")
+
+
+class RegistroTareaElemento(DatosDeEstablecimiento, ModeloBase):
+    """Un elemento de limpieza usado en una tarea del checklist."""
+
+    __audit__ = False
+    __tablename__ = "registro_tarea_elementos"
+    __table_args__ = (
+        UniqueConstraint("registro_tarea_id", "elemento_limpieza_id", name="uq_elemento_registro"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    registro_tarea_id: Mapped[int] = mapped_column(
+        ForeignKey("registro_tareas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    elemento_limpieza_id: Mapped[int] = mapped_column(
+        ForeignKey("elementos_limpieza.id"), nullable=False, index=True
+    )
+
+    registro: Mapped["RegistroTarea"] = relationship(back_populates="elementos")
+    elemento_limpieza: Mapped["ElementoLimpieza"] = relationship(lazy="joined")
+
+
+class HistorialRegistroTarea(DatosDeEstablecimiento, ModeloBase):
     """Bitácora de auditoría de un RegistroTarea. A diferencia de
     RegistroTarea (que solo guarda el estado ACTUAL y se sobrescribe en
     cada marcar_tarea), acá se agrega una fila nueva por cada evento:

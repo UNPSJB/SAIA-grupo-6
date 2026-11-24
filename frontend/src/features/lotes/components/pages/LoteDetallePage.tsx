@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../../components/ui/patrones";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -11,7 +12,7 @@ import {
   Table,
   Text,
 } from "@chakra-ui/react";
-import { LuCircleCheck, LuNetwork } from "react-icons/lu";
+import { LuNetwork } from "react-icons/lu";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -21,7 +22,6 @@ import { cantidadConUnidad, formatoFactor } from "../../../../common/utils/numer
 import {
   BannerError,
   BotonAccion,
-  BotonCancelar,
   BotonTexto,
   Celda,
   EncabezadoOscuro,
@@ -41,145 +41,27 @@ import {
 import { trazarLoteProducto } from "../../../trazabilidad/services/trazabilidadService";
 import type { TrazabilidadLoteProducto } from "../../../trazabilidad/types/trazabilidad";
 import {
+  asignarTarea,
   cancelarLote,
   completarItem,
+  eliminarConsumo,
   obtenerLote,
 } from "../../services/loteService";
+import { useOperarios } from "../../hooks/useOperarios";
+import { ConfirmDialog } from "../../../../common/components/ConfirmDialog";
+import { CorregirConsumoDialog } from "../CorregirConsumoDialog";
+import { EtapaLote, type EstadoEtapa } from "../EtapaLote";
 import { useSalidas } from "../../../salidas/hooks/useSalidas";
 import { ModalReservarLote } from "../../../salidas/components/ModalReservarLote";
 import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import { obtenerRetiro } from "../../../retiros/services/retiroService";
 import type { RetiroDetalle } from "../../../retiros/types/retiro";
 import { LoteProgressTracker } from "../LoteProgressTracker";
-import type { ItemChecklist, LoteDetalle } from "../../types/lote";
+import type { Consumo, ItemChecklist } from "../../types/lote";
 import { esLoteCerrado } from "../../types/lote";
 import { BadgeEstadoLote } from "../BadgeEstadoLote";
 import { CierreLoteDialog } from "../CierreLoteDialog";
 import { ConsumoDialog } from "../ConsumoDialog";
-
-function ItemCard({
-  lote,
-  item,
-  editable,
-  procesando,
-  onConsumir,
-  onCompletar,
-}: {
-  lote: LoteDetalle;
-  item: ItemChecklist;
-  editable: boolean;
-  procesando: boolean;
-  onConsumir: () => void;
-  onCompletar: () => void;
-}) {
-  return (
-    <Tarjeta p="5" borderColor={item.completado ? "green.border" : "border.subtle"}>
-      <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap="3" mb="3">
-        <Box>
-          <Text fontWeight="bold" color="fg">
-            {item.orden}. {item.descripcion}
-          </Text>
-          {item.completado ? (
-            <HStack gap="1" color="green.fg" fontSize="sm" mt="1">
-              <LuCircleCheck aria-hidden />
-              <Text as="span">
-                Hecha por {item.completado_por_nombre ?? "—"} · {formatoFechaHora(item.completado_en)}
-              </Text>
-            </HStack>
-          ) : (
-            <Text fontSize="sm" color="fg.muted" mt="1">
-              Pendiente
-            </Text>
-          )}
-        </Box>
-
-        {editable && (
-          <HStack gap="2" flexWrap="wrap">
-            {item.insumos.length > 0 && (
-              <BotonCancelar size="sm" onClick={onConsumir} disabled={procesando}>
-                Registrar consumo
-              </BotonCancelar>
-            )}
-            {!item.completado && (
-              <Button
-                size="sm"
-                colorPalette="brand"
-                onClick={onCompletar}
-                loading={procesando}
-                disabled={procesando}
-              >
-                <LuCircleCheck aria-hidden />
-                Marcar como hecha
-              </Button>
-            )}
-          </HStack>
-        )}
-      </HStack>
-
-      {item.insumos.length > 0 && (
-        <Box overflowX="auto" mb={item.consumos.length > 0 ? "4" : "0"}>
-          <Table.Root variant="outline" size="sm" w="100%" minW="520px">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader fontSize="sm">Insumo</Table.ColumnHeader>
-                <Table.ColumnHeader fontSize="sm" textAlign="right">Planificado</Table.ColumnHeader>
-                <Table.ColumnHeader fontSize="sm" textAlign="right">Consumo real</Table.ColumnHeader>
-                <Table.ColumnHeader fontSize="sm" textAlign="right">Desperdicio</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {item.insumos.map((i) => {
-                const excede = Number(i.consumo_real) > Number(i.cantidad_planificada);
-                return (
-                  <Table.Row key={i.insumo_id}>
-                    <Celda>{i.insumo_nombre}</Celda>
-                    <Celda numero>{cantidadConUnidad(i.cantidad_planificada, i.unidad)}</Celda>
-                    <Celda numero color={excede ? "orange.fg" : undefined} fontWeight={excede ? "bold" : undefined}>
-                      {cantidadConUnidad(i.consumo_real, i.unidad)}
-                    </Celda>
-                    <Celda numero>{cantidadConUnidad(i.desperdicio, i.unidad)}</Celda>
-                  </Table.Row>
-                );
-              })}
-            </Table.Body>
-          </Table.Root>
-        </Box>
-      )}
-
-      {item.consumos.length > 0 && (
-        <Stack gap="1">
-          <Text fontSize="sm" fontWeight="medium" color="fg.muted">
-            Consumos registrados
-          </Text>
-          {item.consumos.map((c) => {
-            const unidad = item.insumos.find((i) => i.insumo_id === c.insumo_id)?.unidad;
-            return (
-              <HStack key={c.id} gap="2" fontSize="sm" color="fg.muted" flexWrap="wrap">
-                <Badge colorPalette={c.tipo === "real" ? "gray" : "orange"} variant="subtle">
-                  {c.tipo === "real" ? "Real" : "Desperdicio"}
-                </Badge>
-                <Text as="span" color="fg">
-                  {c.insumo_nombre}: {cantidadConUnidad(c.cantidad, unidad)}
-                </Text>
-                <Text as="span">
-                  · lote {c.numero_lote_insumo} ({c.proveedor_nombre}) · {c.registrado_por_nombre ?? "—"},{" "}
-                  {formatoFechaHora(c.registrado_en)}
-                </Text>
-                {c.motivo && <Text as="span">· {c.motivo}</Text>}
-              </HStack>
-            );
-          })}
-        </Stack>
-      )}
-
-      {item.insumos.length === 0 && (
-        <Text fontSize="sm" color="fg.subtle">
-          Esta tarea no usa insumos de la receta (v{lote.version_numero}).
-        </Text>
-      )}
-    </Tarjeta>
-  );
-}
 
 /**
  * Lotes de insumo usados y sus proveedores: lo que antes era la pantalla
@@ -217,7 +99,7 @@ function SeccionTrazabilidad({ traza, loteId }: { traza: TrazabilidadLoteProduct
           <Table.Root variant="outline" w="100%" minW="720px">
             <Table.Header>
               <FilaEncabezado>
-                <EncabezadoOscuro>Insumo</EncabezadoOscuro>
+                <EncabezadoOscuro>Ingrediente</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="amplia">Lote de insumo</EncabezadoOscuro>
                 <EncabezadoOscuro ancho="media">Vence</EncabezadoOscuro>
                 <EncabezadoOscuro>Proveedor</EncabezadoOscuro>
@@ -229,7 +111,7 @@ function SeccionTrazabilidad({ traza, loteId }: { traza: TrazabilidadLoteProduct
             <Table.Body>
               {traza.lotes_insumo.map((l) => (
                 <Table.Row key={l.id}>
-                  <Celda>{l.insumo_nombre}</Celda>
+                  <Celda>{l.ingrediente_nombre}</Celda>
                   <Celda>
                     <Text fontFamily="mono" fontSize="sm">
                       {l.numero_lote}
@@ -284,6 +166,7 @@ export function LoteDetallePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const esAdmin = puedeAdministrar(user);
+  const { operarios } = useOperarios(esAdmin);
   const { id } = useParams<{ id: string }>();
   const loteId = Number(id);
 
@@ -320,11 +203,19 @@ export function LoteDetallePage() {
 
   const cerrado = lote ? esLoteCerrado(lote.estado) : false;
 
-  const reservasDisponibles = lote
-    ? Number(lote.saldo) > 0 && !lote.retirado && !cerrado
-    : false;
+  // Solo un lote terminado tiene producción para vender (los que siguen en
+  // proceso no tienen saldo y los cancelados no se venden).
+  const terminado = lote?.estado === "terminado";
+  const reservasDisponibles = lote ? terminado && Number(lote.saldo) > 0 && !lote.retirado : false;
+  // Sin rotulado completo el lote no se vende (el backend lo exige al reservar).
+  const sinRotulado = Boolean(lote && terminado && lote.rotulado_completo === false);
+  // Reservar es comercial (cliente, cantidad): solo quien administra.
+  const puedeReservar = esAdmin && reservasDisponibles;
 
-  const [consumiendo, setConsumiendo] = useState<ItemChecklist | null>(null);
+  // Por id: el diálogo recibe siempre la etapa recargada (sigue abierto
+  // mientras falte consumo y necesita ver lo ya registrado).
+  const [consumiendoId, setConsumiendoId] = useState<number | null>(null);
+  const consumiendo = lote?.checklist.find((i) => i.id === consumiendoId) ?? null;
   const [cerrando, setCerrando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [procesando, setProcesando] = useState<number | null>(null);
@@ -335,20 +226,21 @@ export function LoteDetallePage() {
   const [modalRetirar, setModalRetirar] = useState(false);
 
   // Retiro asociado (si el lote está retirado) para mostrar motivo y detalles
-  const [retiroAsociado, setRetiroAsociado] = useState<RetiroDetalle | null>(null);
+  // Se deriva contra el retiro_id actual: si el lote deja de estar retirado
+  // (o cambia de retiro) no queda mostrando el retiro anterior.
+  const [retiroCargado, setRetiroCargado] = useState<RetiroDetalle | null>(null);
+  const retiroAsociado =
+    lote?.retiro_id && retiroCargado?.id === lote.retiro_id ? retiroCargado : null;
 
   useEffect(() => {
-    if (!lote?.retiro_id) {
-      setRetiroAsociado(null);
-      return;
-    }
+    if (!lote?.retiro_id) return;
     let vigente = true;
     obtenerRetiro(lote.retiro_id)
       .then((data) => {
-        if (vigente) setRetiroAsociado(data);
+        if (vigente) setRetiroCargado(data);
       })
       .catch(() => {
-        if (vigente) setRetiroAsociado(null);
+        if (vigente) setRetiroCargado(null);
       });
     return () => {
       vigente = false;
@@ -365,9 +257,54 @@ export function LoteDetallePage() {
     setErrorAccion(null);
     try {
       await completarItem(lote.id, item.id);
+      avisarExito("Etapa completada correctamente.");
       await recargar();
     } catch (err) {
       setErrorAccion(err instanceof Error ? err.message : "No se pudo completar la tarea.");
+    } finally {
+      setProcesando(null);
+    }
+  };
+
+  // Corrección de consumos mal cargados (solo en la etapa en curso).
+  const [corrigiendo, setCorrigiendo] = useState<{ consumo: Consumo; unidad?: string } | null>(null);
+  const [borrando, setBorrando] = useState<Consumo | null>(null);
+  const [borrandoEnCurso, setBorrandoEnCurso] = useState(false);
+
+  const borrarConsumo = async () => {
+    if (!lote || !borrando) return;
+    setBorrandoEnCurso(true);
+    setErrorAccion(null);
+    try {
+      await eliminarConsumo(lote.id, borrando.id);
+      avisarExito("Consumo borrado correctamente.");
+      setBorrando(null);
+      await recargar();
+    } catch (err) {
+      setErrorAccion(err instanceof Error ? err.message : "No se pudo borrar el consumo.");
+      setBorrando(null);
+    } finally {
+      setBorrandoEnCurso(false);
+    }
+  };
+
+  // Las etapas van en el orden de la receta: la primera pendiente es la que
+  // está en curso; las siguientes esperan a que se complete.
+  const etapas = lote ? [...lote.checklist].sort((a, b) => a.orden - b.orden) : [];
+  const enCurso = etapas.find((i) => !i.completado) ?? null;
+  const estadoDe = (item: ItemChecklist): EstadoEtapa =>
+    item.completado ? "hecha" : item.id === enCurso?.id ? "actual" : "espera";
+
+  const asignar = async (item: ItemChecklist, personaId: number | null) => {
+    if (!lote) return;
+    setProcesando(item.id);
+    setErrorAccion(null);
+    try {
+      await asignarTarea(lote.id, item.id, personaId);
+      avisarExito(personaId ? "Tarea asignada correctamente." : "Tarea liberada: la puede hacer cualquier persona que opera.");
+      await recargarLote();
+    } catch (err) {
+      setErrorAccion(err instanceof Error ? err.message : "No se pudo asignar la tarea.");
     } finally {
       setProcesando(null);
     }
@@ -385,6 +322,75 @@ export function LoteDetallePage() {
         lote
           ? `${lote.producto_nombre} · receta ${lote.version_numero ? `v${lote.version_numero}` : "sin versión (lote histórico)"}`
           : undefined
+      }
+      acciones={
+        lote && (!cerrado || terminado) ? (
+          /* Acciones: cerrar o cancelar mientras está en proceso; reservar una
+             vez terminado; retirar del mercado en los dos casos (no si se canceló).
+             Van junto al título y el estado, alineadas a la derecha. */
+          <HStack gap="3" flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }}>
+            {terminado && puedeReservar && sinRotulado && (
+              <Text fontSize="sm" color="fg.muted">
+                Para reservarlo falta el rotulado completo del lote
+                {" (Rotulado → nuevo borrador vinculado a este lote)."}
+              </Text>
+            )}
+            {terminado && puedeReservar && !sinRotulado && (
+              <Button
+                colorPalette="brand"
+                onClick={() => {
+                  setModalReservar(true);
+                }}
+              >
+                Reservar
+              </Button>
+            )}
+            {terminado && esAdmin && !reservasDisponibles && !lote.retirado && (
+              <Text fontSize="sm" color="fg.muted">
+                Sin saldo disponible para reservar.
+              </Text>
+            )}
+            {!cerrado && (
+              <>
+                <Button
+                  colorPalette="brand"
+                  onClick={() => setCerrando(true)}
+                  disabled={!checklistCompleto}
+                  title={checklistCompleto ? undefined : "Completá todas las tareas para cerrar el lote"}
+                >
+                  Cerrar lote
+                </Button>
+                {!checklistCompleto && (
+                  <Text fontSize="sm" color="fg.muted">
+                    Completá todas las tareas para poder cerrarlo.
+                  </Text>
+                )}
+                {esAdmin && (
+                  <Button
+                    variant="outline"
+                    colorPalette="red"
+                    onClick={() => setCancelando(true)}
+                  >
+                    Cancelar lote
+                  </Button>
+                )}
+              </>
+            )}
+            {esAdmin && !lote.retirado && (
+              <Button
+                colorPalette="red"
+                onClick={() => setModalRetirar(true)}
+              >
+                Retirar lote del mercado
+              </Button>
+            )}
+            {esAdmin && lote.retirado && (
+              <Text fontSize="sm" color="fg.muted">
+                El lote ya está retirado del mercado.
+              </Text>
+            )}
+          </HStack>
+        ) : undefined
       }
     >
       {loading && !lote && <EstadoCargando>Cargando lote...</EstadoCargando>}
@@ -457,15 +463,27 @@ export function LoteDetallePage() {
             )}
           </SeccionDetalle>
 
+          {/* Línea de tiempo de elaboración: entre los datos del lote y las
+              tareas, para ver de un vistazo en qué etapa va antes de operar. */}
+          <SeccionDetalle sinMarco titulo="Progreso de producción" mb="0">
+            <LoteProgressTracker
+              loteId={lote.id}
+              unidad={lote.unidad}
+              version={[
+                lote.estado,
+                lote.items_completados,
+                ...lote.checklist.flatMap((i) => i.consumos.map((c) => `${c.id}:${c.cantidad}`)),
+              ].join("|")}
+            />
+          </SeccionDetalle>
+
           {cerrado && (
             <AvisoSoloLectura mb="0">Lote {lote.estado}: es de solo lectura.</AvisoSoloLectura>
           )}
 
-          {/* Línea de tiempo de elaboración y progreso */}
-          <SeccionDetalle sinMarco titulo="Progreso de producción" mb="0">
-            <LoteProgressTracker loteId={lote.id} />
-          </SeccionDetalle>
-
+          {/* Tareas, trazabilidad y distribución a todo el ancho: las acciones
+              del lote van en el encabezado (antes ocupaban una columna lateral
+              con un solo botón y el resto vacío). */}
           <SeccionDetalle sinMarco titulo="Tareas" mb="0">
           <Stack gap="4">
             {lote.checklist.length === 0 && (
@@ -473,79 +491,38 @@ export function LoteDetallePage() {
                 <Text color="fg.muted">Este lote no tiene tareas (lote histórico anterior a las recetas).</Text>
               </Tarjeta>
             )}
-            {lote.checklist.map((item) => (
-              <ItemCard
+            {etapas.map((item) => (
+              <EtapaLote
                 key={item.id}
-                lote={lote}
                 item={item}
+                estado={estadoDe(item)}
+                anterior={enCurso}
                 editable={!cerrado}
+                puedeRegistrar={esAdmin || item.asignado_a_id === null || item.asignado_a_id === user?.id}
+                operarios={operarios}
+                reasignable={esAdmin && !cerrado && !item.completado}
                 procesando={procesando === item.id}
-                onConsumir={() => setConsumiendo(item)}
+                versionNumero={lote.version_numero}
+                onConsumir={() => setConsumiendoId(item.id)}
                 onCompletar={() => completar(item)}
+                onAsignar={(personaId) => asignar(item, personaId)}
+                onCorregirConsumo={(consumo) =>
+                  setCorrigiendo({
+                    consumo,
+                    unidad: item.ingredientes.find((i) => i.ingrediente_id === consumo.ingrediente_id)?.unidad,
+                  })
+                }
+                onBorrarConsumo={setBorrando}
               />
             ))}
           </Stack>
           </SeccionDetalle>
 
-          {!cerrado && (
-            <HStack gap="3" flexWrap="wrap" pt="2">
-              {reservasDisponibles && (
-                <Button
-                  colorPalette="brand"
-                  onClick={() => {
-                    setModalReservar(true);
-                  }}
-                >
-                  Reservar
-                </Button>
-              )}
-              {!reservasDisponibles && !lote.retirado && (
-                <Text fontSize="sm" color="fg.muted">
-                  Sin saldo disponible para reservar.
-                </Text>
-              )}
-              <Button
-                colorPalette="brand"
-                onClick={() => setCerrando(true)}
-                disabled={!checklistCompleto}
-                title={checklistCompleto ? undefined : "Completá todas las tareas para cerrar el lote"}
-              >
-                Cerrar lote
-              </Button>
-              {!checklistCompleto && (
-                <Text fontSize="sm" color="fg.muted">
-                  Completá todas las tareas para poder cerrarlo.
-                </Text>
-              )}
-              {esAdmin && (
-                <Button
-                  variant="outline"
-                  colorPalette="red"
-                  ml="auto"
-                  onClick={() => setCancelando(true)}
-                >
-                  Cancelar lote
-                </Button>
-              )}
-              {esAdmin && !lote.retirado && !cerrado && (
-                <Button
-                  colorPalette="red"
-                  onClick={() => setModalRetirar(true)}
-                >
-                  Retirar lote del mercado
-                </Button>
-              )}
-              {esAdmin && lote.retirado && !cerrado && (
-                <Text fontSize="sm" color="fg.muted">
-                  El lote ya está retirado del mercado.
-                </Text>
-              )}
-            </HStack>
-          )}
-
           {esAdmin && traza && <SeccionTrazabilidad traza={traza} loteId={lote.id} />}
 
-          {/* Distribución y Stock del Lote */}
+          {/* Distribución y Stock del Lote: recién cuando hay producción terminada
+              (en proceso decía "Agotado" y saldo 0, que confundía). */}
+          {terminado && (
           <SeccionDetalle sinMarco titulo="Distribución y Stock del Lote" mb="0">
             <Tarjeta p="4" mb="4">
               <Stack
@@ -725,15 +702,40 @@ export function LoteDetallePage() {
               </Tarjeta>
             )}
           </SeccionDetalle>
+          )}
         </Stack>
       )}
+
+      {lote && corrigiendo && (
+        <CorregirConsumoDialog
+          loteId={lote.id}
+          consumo={corrigiendo.consumo}
+          unidad={corrigiendo.unidad}
+          onCorregido={recargar}
+          onClose={() => setCorrigiendo(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={borrando !== null}
+        titulo="Borrar el consumo"
+        mensaje={
+          borrando
+            ? `Se borra el consumo de ${borrando.ingrediente_nombre} del lote ${borrando.numero_lote_insumo}: la cantidad vuelve al saldo de ese lote. El cambio queda en la auditoría.`
+            : ""
+        }
+        textoConfirmar="Sí, borrar"
+        isLoading={borrandoEnCurso}
+        onConfirm={borrarConsumo}
+        onCancel={() => !borrandoEnCurso && setBorrando(null)}
+      />
 
       {lote && consumiendo && (
         <ConsumoDialog
           loteId={lote.id}
           item={consumiendo}
           onRegistrado={recargar}
-          onClose={() => setConsumiendo(null)}
+          onClose={() => setConsumiendoId(null)}
         />
       )}
 
@@ -750,6 +752,7 @@ export function LoteDetallePage() {
           onCancel={() => setCancelando(false)}
           onConfirm={async (motivo) => {
             await cancelarLote(lote.id, motivo);
+            avisarExito(`Lote ${lote.numero_lote} cancelado.`);
             setCancelando(false);
             await recargar();
           }}

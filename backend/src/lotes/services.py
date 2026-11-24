@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -18,7 +18,7 @@ from src.lotes.constants import (
     TIPO_CONSUMO_DESPERDICIO,
     TIPO_CONSUMO_REAL,
 )
-from src.insumos.models import Insumo
+from src.ingredientes.models import Ingrediente
 from src.lotes.models import ChecklistProduccion, ConsumoInsumo, LoteProducto
 from src.lotesInsumo.models import LoteInsumo
 from src.lotesInsumo.services import saldo_lote_insumo
@@ -31,7 +31,7 @@ from src.salidas.constants import (
     ESTADO_ENTREGADO,
 )
 from src.salidas.models import Salida, calcular_cantidades
-from src.recetas.models import Receta, RecetaInsumo, TareaReceta, TareaRecetaInsumo, VersionReceta
+from src.recetas.models import Receta, RecetaIngrediente, TareaReceta, TareaRecetaIngrediente
 from src.recetas.services import calcular_factor, version_vigente
 from src.unidadMedida.cantidades import es_cantidad_valida
 
@@ -61,14 +61,19 @@ def _opciones():
         selectinload(LoteProducto.producto),
         selectinload(LoteProducto.version_receta),
         selectinload(LoteProducto.checklist).selectinload(ChecklistProduccion.tarea),
+        selectinload(LoteProducto.checklist).selectinload(ChecklistProduccion.asignado_a),
         selectinload(LoteProducto.checklist)
         .selectinload(ChecklistProduccion.consumos)
         .selectinload(ConsumoInsumo.lote_insumo)
-        .selectinload(LoteInsumo.insumo),
+        .selectinload(LoteInsumo.ingrediente),
         selectinload(LoteProducto.checklist)
         .selectinload(ChecklistProduccion.consumos)
         .selectinload(ConsumoInsumo.lote_insumo)
         .selectinload(LoteInsumo.proveedor),
+        selectinload(LoteProducto.checklist)
+        .selectinload(ChecklistProduccion.consumos)
+        .selectinload(ConsumoInsumo.lote_insumo)
+        .selectinload(LoteInsumo.insumo),
         # Salidas del lote para calcular producido/reservado/despachado/entregado/saldo.
         selectinload(LoteProducto.salidas).selectinload(Salida.cliente),
     )
@@ -87,6 +92,24 @@ def _exigir_abierto(lote: LoteProducto) -> None:
     """Un lote terminado o cancelado es de solo lectura."""
     if lote.estado in ESTADOS_LOTE_CERRADOS:
         raise exceptions.LoteCerrado()
+
+
+def _exigir_etapa_anterior_completa(lote: LoteProducto, item: ChecklistProduccion) -> None:
+    """Las etapas se hacen en el orden de la receta: para registrar consumo o
+    completar una, todas las anteriores tienen que estar completadas."""
+    pendiente = min(
+        (
+            otro for otro in lote.checklist
+            if otro.tarea.orden < item.tarea.orden and otro.completado_en is None
+        ),
+        key=lambda otro: otro.tarea.orden,
+        default=None,
+    )
+    if pendiente is not None:
+        raise exceptions.EtapaAnteriorPendiente(
+            f"Primero hay que completar la etapa {pendiente.tarea.orden} "
+            f"({pendiente.tarea.descripcion})."
+        )
 
 
 def _item_del_lote(lote: LoteProducto, item_id: int) -> ChecklistProduccion:
@@ -115,10 +138,90 @@ def generar_numero_lote(db: Session, referencia: datetime | None = None) -> str:
     return f"{prefijo}{(max(sufijos) if sufijos else 0) + 1:03d}"
 
 
+# --------------------------------------------------------------------------
+# Asignación de tareas: quién ve qué lote y quién puede registrar cada tarea
+# --------------------------------------------------------------------------
+
+def administra(usuario: Personal | None) -> bool:
+    return bool(usuario and (usuario.puede_administrar or usuario.es_super_admin))
+
+
+def _persona_asignable(db: Session, persona_id: int) -> Personal:
+    persona = db.get(Personal, persona_id)
+    if persona is None or not persona.activo or not persona.puede_operar:
+        raise exceptions.PersonaNoAsignable()
+    return persona
+
+
+def _exigir_puede_registrar(item: ChecklistProduccion, usuario: Personal) -> None:
+    """Quien opera registra solo sus tareas o las que no tienen a nadie asignado."""
+    if administra(usuario) or item.asignado_a_id in (None, usuario.id):
+        return
+    raise exceptions.TareaAsignadaAOtro()
+
+
+def _condicion_visible(usuario: Personal):
+    """Lotes que lista quien opera: solo los que están en proceso y tienen
+    trabajo para esa persona, es decir alguna tarea asignada a ella (o que ya
+    completó) o alguna pendiente sin asignar, que puede hacer cualquiera."""
+    item = ChecklistProduccion
+    return and_(
+        LoteProducto.estado == ESTADO_EN_PROCESO,
+        exists().where(
+            item.lote_producto_id == LoteProducto.id,
+            or_(
+                item.asignado_a_id == usuario.id,
+                item.completado_por_id == usuario.id,
+                and_(item.asignado_a_id.is_(None), item.completado_en.is_(None)),
+            ),
+        ),
+    )
+
+
+def lote_visible(db: Session, lote_id: int, usuario: Personal | None) -> LoteProducto:
+    """El lote, si quien pide lo puede ver (si no, como si no existiera).
+
+    Un lote cerrado (terminado o cancelado) es de solo lectura y lo puede
+    abrir cualquiera que opere: se llega a él desde una salida, un reclamo,
+    un retiro o un incidente, que también son de quien opera. Lo que se
+    restringe es el trabajo en curso: los lotes en proceso de otras personas.
+    """
+    lote = obtener_lote(db, lote_id)
+    if usuario is None or administra(usuario) or lote.estado != ESTADO_EN_PROCESO:
+        return lote
+    visible = db.scalar(select(LoteProducto.id).where(LoteProducto.id == lote_id, _condicion_visible(usuario)))
+    if visible is None:
+        raise exceptions.LoteNoEncontrado()
+    return lote
+
+
+def asignar_tarea(
+    db: Session, lote_id: int, item_id: int, datos: schemas.AsignacionTarea, usuario: Personal
+) -> LoteProducto:
+    """Asigna (o deja sin asignar) una tarea pendiente de un lote en proceso."""
+    if not administra(usuario):
+        raise exceptions.AsignacionSoloAdministra()
+    lote = obtener_lote(db, lote_id)
+    _exigir_abierto(lote)
+    item = _item_del_lote(lote, item_id)
+    if item.completado_en is not None:
+        raise exceptions.ItemYaCompletado()
+    item.asignado_a_id = (
+        _persona_asignable(db, datos.asignado_a_id).id if datos.asignado_a_id is not None else None
+    )
+    db.commit()
+    return obtener_lote(db, lote_id)
+
+
 def crear_lote(
     db: Session, datos: schemas.LoteCreate, usuario: Personal | None = None
 ) -> LoteProducto:
     """Crea el lote `en_proceso`, fija la versión de receta vigente y genera el checklist."""
+    responsable_id = None
+    if datos.responsable_id is not None:
+        if usuario is not None and not administra(usuario):
+            raise exceptions.AsignacionSoloAdministra()
+        responsable_id = _persona_asignable(db, datos.responsable_id).id
     producto = db.get(Producto, datos.producto_id)
     if producto is None or not producto.activo:
         raise exceptions.ProductoNoEncontrado()
@@ -157,7 +260,7 @@ def crear_lote(
             creado_por_id=usuario.id if usuario else None,
         )
         for tarea in tareas:
-            ChecklistProduccion(lote=lote, tarea=tarea)
+            ChecklistProduccion(lote=lote, tarea=tarea, asignado_a_id=responsable_id)
         db.add(lote)
         try:
             db.commit()
@@ -182,20 +285,36 @@ def completar_item(
     item = _item_del_lote(lote, item_id)
     if item.completado_en is not None:
         raise exceptions.ItemYaCompletado()
+    _exigir_puede_registrar(item, usuario)
+    _exigir_etapa_anterior_completa(lote, item)
+    # La tarea usa como mínimo lo que pide la receta (escalado al lote). Los
+    # desperdicios no cuentan: lo que se tiró no entró en el producto.
+    faltan = [
+        f"{p.ingrediente_nombre}: {_cantidad_legible(p.consumo_real)} de "
+        f"{_cantidad_legible(p.cantidad_planificada)} {p.unidad}"
+        for p in _planificados_del_item(db, lote, item)
+        if p.consumo_real < p.cantidad_planificada
+    ]
+    if faltan:
+        raise exceptions.ConsumoIncompleto(
+            "Antes de completar la tarea registrá el consumo real de lo que pide la receta. Falta: "
+            + "; ".join(faltan)
+            + "."
+        )
     item.completado_por_id = usuario.id
     item.completado_en = ahora()
     db.commit()
     return obtener_lote(db, lote_id)
 
 
-def _planificado(db: Session, lote: LoteProducto, item: ChecklistProduccion, insumo_id: int):
-    """Cantidad planificada de un insumo en una tarea, escalada al lote."""
+def _planificado(db: Session, lote: LoteProducto, item: ChecklistProduccion, ingrediente_id: int):
+    """Cantidad planificada de un ingrediente en una tarea, escalada al lote."""
     cantidad = db.scalar(
-        select(TareaRecetaInsumo.cantidad)
-        .join(RecetaInsumo, RecetaInsumo.id == TareaRecetaInsumo.receta_insumo_id)
+        select(TareaRecetaIngrediente.cantidad)
+        .join(RecetaIngrediente, RecetaIngrediente.id == TareaRecetaIngrediente.receta_ingrediente_id)
         .where(
-            TareaRecetaInsumo.tarea_receta_id == item.tarea_receta_id,
-            RecetaInsumo.insumo_id == insumo_id,
+            TareaRecetaIngrediente.tarea_receta_id == item.tarea_receta_id,
+            RecetaIngrediente.ingrediente_id == ingrediente_id,
         )
     )
     if cantidad is None:
@@ -212,38 +331,56 @@ def registrar_consumo(
 ) -> tuple[ConsumoInsumo, list[str]]:
     """Registra un consumo real o un desperdicio. Devuelve el consumo y las advertencias.
 
-    Un saldo insuficiente NO bloquea: se advierte y el consumo se guarda.
+    No se consume más que el saldo del lote de insumo (`StockInsuficiente`):
+    si no alcanza, lo que falta se registra desde otro lote. Un lote vencido
+    no se usa (`LoteInsumoVencido`). El exceso sobre lo planificado solo se
+    advierte.
     """
     lote = obtener_lote(db, lote_id)
     _exigir_abierto(lote)
     item = _item_del_lote(lote, item_id)
+    if item.completado_en is not None:
+        raise exceptions.EtapaYaCompletada()
+    _exigir_puede_registrar(item, usuario)
+    _exigir_etapa_anterior_completa(lote, item)
 
     lote_insumo = db.scalar(
         select(LoteInsumo)
         .where(LoteInsumo.id == datos.lote_insumo_id)
-        .options(selectinload(LoteInsumo.insumo), selectinload(LoteInsumo.proveedor))
+        .options(
+            selectinload(LoteInsumo.ingrediente),
+            selectinload(LoteInsumo.insumo),
+            selectinload(LoteInsumo.proveedor),
+        )
     )
     if lote_insumo is None:
         raise exceptions.LoteInsumoNoEncontrado()
     if not lote_insumo.activo:
         raise exceptions.LoteInsumoDadoDeBaja()
+    # Solo se produce con marcas homologadas: si la marca dejó de estar
+    # aprobada (o se le venció la aprobación) después de recibir el lote, el
+    # lote queda en stock pero no se usa hasta que se vuelva a homologar.
+    from src.insumos.homologacion import motivo_no_utilizable
 
-    planificado = _planificado(db, lote, item, lote_insumo.insumo_id)
+    motivo = motivo_no_utilizable(db, lote_insumo.insumo)
+    if motivo is not None:
+        raise exceptions.InsumoNoHomologado(motivo)
+
+    planificado = _planificado(db, lote, item, lote_insumo.ingrediente_id)
     if planificado is None:
-        raise exceptions.InsumoNoPrevisto()
+        raise exceptions.IngredienteNoPrevisto()
+    _exigir_no_vencido(lote_insumo)
 
     advertencias: list[str] = []
     cantidad = _q(datos.cantidad)
     saldo = saldo_lote_insumo(db, lote_insumo)
     if cantidad > saldo:
-        advertencias.append(
-            f"Stock insuficiente en el lote {lote_insumo.numero_lote}: "
-            f"saldo {_cantidad_legible(saldo)}, se consumen {_cantidad_legible(cantidad)}."
-        )
-    if lote_insumo.fecha_vencimiento is not None and lote_insumo.fecha_vencimiento < hoy():
-        advertencias.append(
-            f"El lote {lote_insumo.numero_lote} está vencido "
-            f"({lote_insumo.fecha_vencimiento.isoformat()})."
+        unidad = lote_insumo.ingrediente.unidad_medida
+        sufijo = f" {unidad.simbolo}" if unidad else ""
+        raise exceptions.StockInsuficiente(
+            f"El lote {lote_insumo.numero_lote} no tiene saldo suficiente: quedan "
+            f"{_cantidad_legible(max(saldo, CERO))}{sufijo} y se quieren consumir "
+            f"{_cantidad_legible(cantidad)}{sufijo}. Registrá lo que falta desde otro lote."
         )
     if datos.tipo == TIPO_CONSUMO_REAL:
         ya_usado = sum(
@@ -251,13 +388,13 @@ def registrar_consumo(
                 _q(c.cantidad)
                 for c in item.consumos
                 if c.tipo == TIPO_CONSUMO_REAL
-                and c.lote_insumo.insumo_id == lote_insumo.insumo_id
+                and c.lote_insumo.ingrediente_id == lote_insumo.ingrediente_id
             ),
             CERO,
         )
         if ya_usado + cantidad > planificado:
             advertencias.append(
-                f"El consumo real de {lote_insumo.insumo.nombre} supera lo planificado "
+                f"El consumo real de {lote_insumo.ingrediente.nombre} supera lo planificado "
                 f"para la tarea ({_cantidad_legible(ya_usado + cantidad)} de "
                 f"{_cantidad_legible(planificado)})."
             )
@@ -276,6 +413,71 @@ def registrar_consumo(
     return consumo, advertencias
 
 
+def _exigir_no_vencido(lote_insumo: LoteInsumo) -> None:
+    """Un lote de insumo vencido no se usa en producción: queda para la baja."""
+    vence = lote_insumo.fecha_vencimiento
+    if vence is not None and vence < hoy():
+        raise exceptions.LoteInsumoVencido(
+            f"El lote {lote_insumo.numero_lote} venció el {vence.strftime('%d/%m/%Y')}: "
+            "no se puede usar en producción. Elegí otro lote y registrá la baja de este."
+        )
+
+
+def _consumo_editable(
+    db: Session, lote_id: int, consumo_id: int, usuario: Personal
+) -> tuple[LoteProducto, ConsumoInsumo]:
+    """El consumo, si todavía se puede corregir: lote abierto, etapa pendiente
+    y la persona puede registrar esa etapa (suya, sin asignar o admin)."""
+    lote = obtener_lote(db, lote_id)
+    _exigir_abierto(lote)
+    consumo = db.get(ConsumoInsumo, consumo_id)
+    if consumo is None or consumo.checklist is None or consumo.checklist.lote_producto_id != lote.id:
+        raise exceptions.ConsumoNoEncontrado()
+    item = consumo.checklist
+    if item.completado_en is not None:
+        raise exceptions.EtapaYaCompletada()
+    _exigir_puede_registrar(item, usuario)
+    return lote, consumo
+
+
+def modificar_consumo(
+    db: Session, lote_id: int, consumo_id: int, datos: schemas.ConsumoUpdate, usuario: Personal
+) -> LoteProducto:
+    """Corrige la cantidad (y el motivo) de un consumo de una etapa pendiente.
+
+    El nuevo valor tampoco puede superar el saldo del lote de insumo, contando
+    lo que este mismo consumo ya había descontado. El cambio queda en la
+    auditoría (todas las entidades se auditan).
+    """
+    _, consumo = _consumo_editable(db, lote_id, consumo_id, usuario)
+    cantidad = _q(datos.cantidad)
+    # Bajar lo registrado de un lote que venció después se puede; sumarle, no.
+    if cantidad > _q(consumo.cantidad):
+        _exigir_no_vencido(consumo.lote_insumo)
+    disponible = saldo_lote_insumo(db, consumo.lote_insumo) + _q(consumo.cantidad)
+    if cantidad > disponible:
+        unidad = consumo.lote_insumo.ingrediente.unidad_medida
+        sufijo = f" {unidad.simbolo}" if unidad else ""
+        raise exceptions.StockInsuficiente(
+            f"El lote {consumo.lote_insumo.numero_lote} no tiene saldo suficiente: como máximo "
+            f"{_cantidad_legible(max(disponible, CERO))}{sufijo} para este consumo."
+        )
+    consumo.cantidad = cantidad
+    consumo.motivo = datos.motivo if consumo.tipo == TIPO_CONSUMO_DESPERDICIO else None
+    db.commit()
+    return obtener_lote(db, lote_id)
+
+
+def eliminar_consumo(db: Session, lote_id: int, consumo_id: int, usuario: Personal) -> LoteProducto:
+    """Borra un consumo mal cargado de una etapa pendiente: lo consumido vuelve
+    al saldo del lote de insumo. Queda registrado en la auditoría."""
+    _, consumo = _consumo_editable(db, lote_id, consumo_id, usuario)
+    db.delete(consumo)
+    db.commit()
+    db.expire_all()
+    return obtener_lote(db, lote_id)
+
+
 def cerrar_lote(
     db: Session, lote_id: int, datos: schemas.LoteCierre
 ) -> LoteProducto:
@@ -283,7 +485,7 @@ def cerrar_lote(
 
     Si la versión de la receta tiene `vida_util_dias`, se calcula y guarda
     automáticamente `fecha_vencimiento = fecha_cierre.date() + timedelta(days=vida_util_dias)`.
-    Si es `None`, `fecha_vencimiento` queda `None`.
+    Si es `None`, se usa la `fecha_vencimiento` cargada a mano (o queda `None`).
     """
     lote = obtener_lote(db, lote_id)
     _exigir_abierto(lote)
@@ -302,7 +504,9 @@ def cerrar_lote(
             days=lote.version_receta.vida_util_dias
         )
     else:
-        lote.fecha_vencimiento = None
+        if datos.fecha_vencimiento is not None and datos.fecha_vencimiento < lote.fecha_cierre.date():
+            raise exceptions.VencimientoAnteriorAlCierre()
+        lote.fecha_vencimiento = datos.fecha_vencimiento
 
     db.commit()
     return obtener_lote(db, lote_id)
@@ -350,7 +554,9 @@ def listar_lotes(
     estado: str | None = None,
     fecha_desde: date | None = None,
     fecha_hasta: date | None = None,
+    usuario: Personal | None = None,
 ) -> list[LoteProducto]:
+    """Quien opera ve solo los lotes donde tiene trabajo (ver `_condicion_visible`)."""
     _validar_rango(fecha_desde, fecha_hasta)
     consulta = _filtrar(
         select(LoteProducto).options(*_opciones()),
@@ -359,6 +565,8 @@ def listar_lotes(
         fecha_desde,
         fecha_hasta,
     )
+    if usuario is not None and not administra(usuario):
+        consulta = consulta.where(_condicion_visible(usuario))
     return list(
         db.scalars(consulta.order_by(LoteProducto.fecha_inicio.desc(), LoteProducto.id.desc())).all()
     )
@@ -426,7 +634,8 @@ def consumo_a_respuesta(
         id=consumo.id,
         checklist_produccion_id=consumo.checklist_produccion_id,
         lote_insumo_id=consumo.lote_insumo_id,
-        insumo_id=lote_insumo.insumo_id,
+        ingrediente_id=lote_insumo.ingrediente_id,
+        ingrediente_nombre=lote_insumo.ingrediente.nombre,
         insumo_nombre=lote_insumo.insumo.nombre,
         numero_lote_insumo=lote_insumo.numero_lote,
         proveedor_nombre=lote_insumo.proveedor.nombre,
@@ -440,54 +649,72 @@ def consumo_a_respuesta(
     )
 
 
+def _planificados_del_item(
+    db: Session, lote: LoteProducto, item: ChecklistProduccion
+) -> list[schemas.IngredientePlanificado]:
+    """Lo que pide la receta para la tarea (escalado al lote) frente a lo consumido."""
+    factor = Decimal(lote.factor_escala or 1)
+    asignaciones = db.scalars(
+        select(TareaRecetaIngrediente)
+        .where(TareaRecetaIngrediente.tarea_receta_id == item.tarea_receta_id)
+        .options(
+            selectinload(TareaRecetaIngrediente.receta_ingrediente)
+            .selectinload(RecetaIngrediente.ingrediente)
+        )
+        .order_by(TareaRecetaIngrediente.id)
+    ).all()
+    planificados = []
+    for asignacion in asignaciones:
+        ingrediente = asignacion.receta_ingrediente.ingrediente
+        del_ingrediente = [c for c in item.consumos if c.lote_insumo.ingrediente_id == ingrediente.id]
+        planificados.append(
+            schemas.IngredientePlanificado(
+                ingrediente_id=ingrediente.id,
+                ingrediente_nombre=ingrediente.nombre,
+                unidad=asignacion.receta_ingrediente.unidad_medida.simbolo,
+                cantidad_planificada=_q(Decimal(asignacion.cantidad) * factor),
+                consumo_real=sum(
+                    (_q(c.cantidad) for c in del_ingrediente if c.tipo == TIPO_CONSUMO_REAL), CERO
+                ),
+                desperdicio=sum(
+                    (_q(c.cantidad) for c in del_ingrediente if c.tipo == TIPO_CONSUMO_DESPERDICIO),
+                    CERO,
+                ),
+            )
+        )
+    return planificados
+
+
 def detalle(db: Session, lote: LoteProducto) -> schemas.LoteDetalle:
     """Checklist del lote con lo planificado (escalado) frente a lo consumido."""
-    factor = Decimal(lote.factor_escala or 1)
     items = []
     for item in sorted(lote.checklist, key=lambda i: i.tarea.orden):
-        asignaciones = db.scalars(
-            select(TareaRecetaInsumo)
-            .where(TareaRecetaInsumo.tarea_receta_id == item.tarea_receta_id)
-            .options(
-                selectinload(TareaRecetaInsumo.receta_insumo)
-                .selectinload(RecetaInsumo.insumo)
-            )
-            .order_by(TareaRecetaInsumo.id)
-        ).all()
-        planificados = []
-        for asignacion in asignaciones:
-            insumo = asignacion.receta_insumo.insumo
-            del_insumo = [c for c in item.consumos if c.lote_insumo.insumo_id == insumo.id]
-            planificados.append(
-                schemas.InsumoPlanificado(
-                    insumo_id=insumo.id,
-                    insumo_nombre=insumo.nombre,
-                    unidad=asignacion.receta_insumo.unidad_medida.simbolo,
-                    cantidad_planificada=_q(Decimal(asignacion.cantidad) * factor),
-                    consumo_real=sum(
-                        (_q(c.cantidad) for c in del_insumo if c.tipo == TIPO_CONSUMO_REAL), CERO
-                    ),
-                    desperdicio=sum(
-                        (_q(c.cantidad) for c in del_insumo if c.tipo == TIPO_CONSUMO_DESPERDICIO),
-                        CERO,
-                    ),
-                )
-            )
+        planificados = _planificados_del_item(db, lote, item)
         items.append(
             schemas.ItemChecklist(
                 id=item.id,
                 tarea_receta_id=item.tarea_receta_id,
                 orden=item.tarea.orden,
                 descripcion=item.tarea.descripcion,
+                procedimiento=item.tarea.procedimiento,
                 completado=item.completado_en is not None,
                 completado_por_id=item.completado_por_id,
                 completado_por_nombre=_nombre(item.completado_por),
                 completado_en=item.completado_en,
-                insumos=planificados,
+                asignado_a_id=item.asignado_a_id,
+                asignado_a_nombre=_nombre(item.asignado_a),
+                ingredientes=planificados,
                 consumos=[consumo_a_respuesta(c) for c in item.consumos],
             )
         )
-    return schemas.LoteDetalle(**resumen(lote, db).model_dump(), checklist=items)
+    rotulado = None
+    if lote.estado == ESTADO_TERMINADO:
+        from src.rotulado.services import borrador_completo_del_lote
+
+        rotulado = borrador_completo_del_lote(db, lote.id) is not None
+    return schemas.LoteDetalle(
+        **resumen(lote, db).model_dump(), checklist=items, rotulado_completo=rotulado
+    )
 
 
 def impacto_retiro(db: Session, lote_id: int) -> schemas.ImpactoRetiro:
@@ -622,8 +849,8 @@ def obtener_timeline_lote(db: Session, lote_id: int) -> schemas.LoteTimelineResp
             selectinload(LoteProducto.checklist)
             .selectinload(ChecklistProduccion.consumos)
             .selectinload(ConsumoInsumo.lote_insumo)
-            .selectinload(LoteInsumo.insumo)
-            .selectinload(Insumo.unidad_medida),
+            .selectinload(LoteInsumo.ingrediente)
+            .selectinload(Ingrediente.unidad_medida),
             selectinload(LoteProducto.checklist)
             .selectinload(ChecklistProduccion.consumos)
             .selectinload(ConsumoInsumo.lote_insumo)
@@ -678,17 +905,17 @@ def obtener_timeline_lote(db: Session, lote_id: int) -> schemas.LoteTimelineResp
         else:
             estado_tarea = "pendiente"
 
-        insumos_consumidos: list[schemas.ConsumoInsumoTimelineItem] = []
+        ingredientes_consumidos: list[schemas.ConsumoInsumoTimelineItem] = []
         desperdicios: list[schemas.DesperdicioTimelineItem] = []
 
         for consumo in item.consumos:
             li = consumo.lote_insumo
-            insumo = li.insumo if li else None
-            unidad_simbolo = insumo.unidad_medida.simbolo if insumo and insumo.unidad_medida else ""
+            ingrediente = li.ingrediente if li else None
+            unidad_simbolo = ingrediente.unidad_medida.simbolo if ingrediente and ingrediente.unidad_medida else ""
             if consumo.tipo == TIPO_CONSUMO_REAL:
-                insumos_consumidos.append(
+                ingredientes_consumidos.append(
                     schemas.ConsumoInsumoTimelineItem(
-                        insumo_nombre=insumo.nombre if insumo else "",
+                        ingrediente_nombre=ingrediente.nombre if ingrediente else "",
                         cantidad=consumo.cantidad,
                         unidad_medida=unidad_simbolo,
                         lote_insumo_codigo=li.numero_lote if li else "",
@@ -719,7 +946,7 @@ def obtener_timeline_lote(db: Session, lote_id: int) -> schemas.LoteTimelineResp
             detalle=schemas.DetalleNodoTimeline(
                 operario_nombre=_nombre(item.completado_por),
                 descripcion=item.tarea.descripcion if item.tarea else None,
-                insumos_consumidos=insumos_consumidos,
+                ingredientes_consumidos=ingredientes_consumidos,
                 desperdicios=desperdicios,
                 rendimiento=None,
             ),
@@ -756,7 +983,7 @@ def obtener_timeline_lote(db: Session, lote_id: int) -> schemas.LoteTimelineResp
         detalle=schemas.DetalleNodoTimeline(
             operario_nombre=None,
             descripcion=None,
-            insumos_consumidos=[],
+            ingredientes_consumidos=[],
             desperdicios=[],
             rendimiento=rendimiento_cierre,
         ),

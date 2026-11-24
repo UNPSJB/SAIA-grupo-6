@@ -1,24 +1,27 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { Alert, Badge, Box, Button, HStack, Image, Text, VStack } from "@chakra-ui/react";
-import { LuCircleCheck, LuHistory, LuX } from "react-icons/lu";
+import { Alert, Badge, Box, Button, Image, Text, VStack } from "@chakra-ui/react";
+import { LuArrowRight, LuCircleCheck, LuX } from "react-icons/lu";
 import { useIncidente } from "../../hooks/useIncidente";
-import { useHistorialIncidente } from "../../hooks/useHistorialIncidente";
-import { HistorialIncidenteModal } from "../HistorialIncidenteModal";
+import { useIncidenteABM } from "../../hooks/useIncidenteABM";
+import { notificarCambioIncidentes } from "../../eventoIncidentes";
+import { HistorialIncidente } from "../HistorialIncidente";
+import { IncidentesRelacionados, VinculosIncidente } from "../VinculosIncidente";
 import { CerrarIncidenteDialog } from "../CerrarIncidenteDialog";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
-import { useReclamoDeIncidente } from "../../../reclamos/hooks/useReclamoDeIncidente";
-import { listarRetiros } from "../../../retiros/services/retiroService";
 import {
+  destinoResolucion,
+  duracion,
+  esDeCircuito,
   estadoLabel,
   tipoLabel,
   tipoColor,
   formatoFecha,
   formatoFechaCierre,
 } from "../../types/incidente";
-import { BannerError, BotonCancelar, BotonTexto, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
+import { BannerError, BotonTexto, EstadoCargando, EtiquetaEstado } from "../../../../components/ui/patrones";
 import { VisorFoto } from "../../../../components/ui/VisorFoto";
-import { PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
+import { DatoDetalle, GrillaDatos, PaginaDetalle, SeccionDetalle } from "../../../../components/ui/plantillas";
 import { useAuth } from "../../../../common/context/useAuth";
 
 export function IncidenteDetailPage() {
@@ -27,57 +30,42 @@ export function IncidenteDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { incidente, loading, error, recargar } = useIncidente(Number(id));
-  const { historial, loading: loadingHistorial, cargarHistorial, limpiarHistorial } = useHistorialIncidente();
+  const { cerrar, loading: cerrando, error: errorCierre } = useIncidenteABM();
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
-  const [mostrarHistorial, setMostrarHistorial] = useState(false);
-  const [buscandoRetiro, setBuscandoRetiro] = useState(false);
   const [modalCerrarAbierto, setModalCerrarAbierto] = useState(false);
 
   const esAdmin = user?.puede_administrar ?? false;
   const cerrado = incidente?.estado === "cerrado";
-  const mostrarBotonCerrar = esAdmin && !cerrado;
 
-  const handleVerRetiro = useCallback(async () => {
-    if (!incidente?.lote_id) return;
-    setBuscandoRetiro(true);
+  const handleCerrarIncidente = async (accionCorrectiva: string) => {
+    if (!incidente) return;
     try {
-      const retiros = await listarRetiros({ lote_id: incidente.lote_id });
-      const retiro = retiros[0];
-      if (retiro) {
-        navigate(`/retiros/${retiro.id}`);
-      }
+      await cerrar(incidente.id, accionCorrectiva);
     } catch {
-      // No crítico: si no se encuentra el retiro, simplemente no navegamos.
-    } finally {
-      setBuscandoRetiro(false);
+      return; // El diálogo queda abierto y muestra el error del hook.
     }
-  }, [incidente?.lote_id, navigate]);
-
-  const handleCerrarIncidente = async () => {
-    try {
-      await recargar(); // Recargar el incidente para actualizar el estado
-      setModalCerrarAbierto(false);
-    } catch (err) {
-      console.error("Error al cerrar incidente:", err);
-    }
+    setModalCerrarAbierto(false);
+    notificarCambioIncidentes();
+    await recargar();
   };
-
-  const handleAbrirModalCerrar = () => setModalCerrarAbierto(true);
-  const handleCerrarModalCerrar = () => setModalCerrarAbierto(false);
 
   const esReclamoCliente = incidente?.tipo === "reclamo_cliente";
   const esEntregaRechazada = incidente?.tipo === "entrega_rechazada";
   const esRetiroLote = incidente?.tipo === "retiro_lote";
-  // Solo se consulta cuando el incidente es de reclamo: en el resto de los
-  // tipos no hay un reclamo vinculado que mostrar.
-  const { reclamos } = useReclamoDeIncidente(
-    esReclamoCliente ? incidente?.id ?? null : null
-  );
-  const reclamoVinculado = reclamos[0];
 
-  // Si el usuario viene de "Mis Reportes" (operador), vuelve ahí. Si viene de
-  // la gestión (admin), vuelve a la lista de gestión.
-  const backUrl = location.state?.from === "mis-reportes" ? "/incidentes/reportar" : "/incidentes";
+  // Los de circuito se resuelven en su vista: acá solo se lleva hasta ahí.
+  const destino =
+    incidente &&
+    destinoResolucion(incidente.tipo, {
+      salida: incidente.salida?.id,
+      reclamo: incidente.reclamo?.id,
+      retiro: incidente.retiro?.id,
+    });
+
+  // Quien administra vuelve a la gestión, salvo que venga de "Mis reportes".
+  // Quien opera no tiene ahí los incidentes: los suyos están en "Mis reportes".
+  const backUrl =
+    !esAdmin || location.state?.from === "mis-reportes" ? "/incidentes/reportar" : "/incidentes";
   const volver = {
     a: backUrl,
     etiqueta: backUrl === "/incidentes" ? "Incidentes" : "Mis reportes",
@@ -104,16 +92,6 @@ export function IncidenteDetailPage() {
     );
   }
 
-  const handleVerHistorial = async () => {
-    setMostrarHistorial(true);
-    await cargarHistorial(incidente.id);
-  };
-
-  const handleCerrarHistorial = () => {
-    setMostrarHistorial(false);
-    limpiarHistorial();
-  };
-
   return (
     <>
       <PaginaDetalle
@@ -126,28 +104,31 @@ export function IncidenteDetailPage() {
           </EtiquetaEstado>
         }
         acciones={
-          <>
-            <BotonCancelar loading={loadingHistorial} onClick={handleVerHistorial}>
-              <LuHistory aria-hidden />
-              Ver historial
-            </BotonCancelar>
-            {mostrarBotonCerrar && (
-              <Button
-                colorPalette="red"
-                variant="surface"
-                size="sm"
-                onClick={handleAbrirModalCerrar}
-                aria-label="Cerrar incidente"
-              >
-                <LuX size={16} aria-hidden />
-                Cerrar incidente
+          esAdmin &&
+          !cerrado &&
+          (esDeCircuito(incidente.tipo) ? (
+            destino && (
+              <Button size="sm" variant="outline" onClick={() => navigate(destino.a)}>
+                {destino.etiqueta}
+                <LuArrowRight size={16} aria-hidden />
               </Button>
-            )}
-          </>
+            )
+          ) : (
+            <Button
+              colorPalette="red"
+              variant="surface"
+              size="sm"
+              onClick={() => setModalCerrarAbierto(true)}
+              aria-label="Cerrar incidente"
+            >
+              <LuX size={16} aria-hidden />
+              Cerrar incidente
+            </Button>
+          ))
         }
       >
-        <SeccionDetalle>
-
+        {/* Apilado a todo el ancho: con los registros vinculados, un lateral
+            con los datos del reporte quedaba casi todo vacío. */}
         {(esEntregaRechazada || esReclamoCliente || esRetiroLote) && (
           <Alert.Root
             status={esRetiroLote ? "error" : esEntregaRechazada ? "warning" : "info"}
@@ -168,59 +149,46 @@ export function IncidenteDetailPage() {
                   ? "Este incidente se abrió al iniciar el retiro del lote. No se puede cerrar ni reabrir desde acá: se cierra desde Cerrar retiro en la ficha del retiro."
                   : esEntregaRechazada
                   ? "Este incidente no se puede cerrar ni reabrir desde acá: se resuelve desde Resolver rechazo en la salida."
-                  : "Se abrió automáticamente al registrar el reclamo de cliente. Se cierra desde esta pantalla cuando se resuelve."}
+                  : "Este incidente se abrió al registrar el reclamo de cliente. Se cierra y se reabre desde la ficha del reclamo."}
               </Alert.Description>
-              <HStack gap="3" flexWrap="wrap" mt="3">
-                {incidente.lote_id && (
-                  <BotonTexto
-                    onClick={() => navigate(`/lotes/${incidente.lote_id}`)}
-                    title="Ver la ficha del lote"
-                  >
-                    Ver lote
-                  </BotonTexto>
-                )}
-                {incidente.salida_id && (
-                  <BotonTexto
-                    onClick={() =>
-                      navigate(`/salidas/${incidente.salida_id}/detalle`)
-                    }
-                    title="Ver la salida asociada"
-                  >
-                    Ver salida
-                  </BotonTexto>
-                )}
-                {reclamoVinculado && (
-                  <BotonTexto
-                    onClick={() => navigate(`/reclamos/${reclamoVinculado.id}`)}
-                    title="Ver la ficha del reclamo"
-                  >
-                    Ver reclamo
-                  </BotonTexto>
-                )}
-                {esRetiroLote && (
-                  <BotonTexto
-                    onClick={handleVerRetiro}
-                    title="Ver la ficha del retiro"
-                    disabled={buscandoRetiro}
-                  >
-                    {buscandoRetiro ? "Buscando retiro…" : "Ver retiro"}
-                  </BotonTexto>
-                )}
-              </HStack>
             </Alert.Content>
           </Alert.Root>
         )}
+        <SeccionDetalle titulo="Datos del incidente">
+          <GrillaDatos>
+            <DatoDetalle etiqueta="Tipo de incidente">
+              <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="2" py="1">
+                {tipoLabel(incidente.tipo)}
+              </Badge>
+            </DatoDetalle>
+            <DatoDetalle etiqueta={cerrado ? "Tiempo de resolución" : "Abierto hace"}>
+              {cerrado
+                ? incidente.fecha_cierre
+                  ? duracion(incidente.fecha_reporte, incidente.fecha_cierre)
+                  : "-"
+                : duracion(incidente.fecha_reporte)}
+            </DatoDetalle>
+            <DatoDetalle etiqueta="Reportado por">
+              {esAdmin ? (
+                <BotonTexto
+                  onClick={() => navigate(`/personal/detalle/${incidente.usuario_id}`)}
+                  title="Ver la ficha de quien reportó"
+                  textAlign="left"
+                  whiteSpace="normal"
+                >
+                  {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
+                </BotonTexto>
+              ) : (
+                incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`
+              )}
+            </DatoDetalle>
+            <DatoDetalle etiqueta="Fecha y hora">
+              {formatoFecha(incidente.fecha_reporte)}
+            </DatoDetalle>
+          </GrillaDatos>
+        </SeccionDetalle>
 
-        {/* Tipo */}
-        <Box mb="4">
-          <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="1">
-            Tipo de incidente
-          </Text>
-          <Badge colorPalette={tipoColor(incidente.tipo)} borderRadius="md" px="2" py="1">
-            {tipoLabel(incidente.tipo)}
-          </Badge>
-        </Box>
-
+        <SeccionDetalle css={{ "& > *:last-child": { marginBottom: "0" } }}>
         {/* Descripción */}
         <Box mb="6">
           <Text fontSize="sm" color="fg.muted" fontWeight="medium" mb="2">
@@ -239,38 +207,6 @@ export function IncidenteDetailPage() {
               {incidente.descripcion}
             </Text>
           </Box>
-        </Box>
-
-        {/* Metadatos */}
-        <Box
-          mb="6"
-          p="4"
-          bg="bg.subtle"
-          borderWidth="1px"
-          borderColor="border"
-          rounded="lg"
-        >
-          <VStack align="start" gap="3">
-            <Text fontSize="md" wordBreak="break-word">
-              <strong>Reportado por:</strong>{" "}
-              {incidente.usuario_nombre ?? `Usuario #${incidente.usuario_id}`}
-            </Text>
-            <Text fontSize="md" wordBreak="break-word">
-              <strong>Fecha y hora:</strong>{" "}
-              {new Date(incidente.fecha_reporte).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour12: false })}
-            </Text>
-            {incidente.equipo_nombre && (
-              /*
-               * Sin `wordBreak`, un nombre de equipo sin espacios (una sola
-               * "palabra" larga) no tenía dónde cortar y se salía del
-               * recuadro. Con `break-word` el texto sigue en el renglón de
-               * abajo y el recuadro crece: el nombre completo se lee.
-               */
-              <Text fontSize="md" wordBreak="break-word">
-                <strong>Equipo:</strong> {incidente.equipo_nombre}
-              </Text>
-            )}
-          </VStack>
         </Box>
 
         {/* Evidencia fotográfica */}
@@ -351,8 +287,15 @@ export function IncidenteDetailPage() {
             </VStack>
           </Box>
         )}
-
         </SeccionDetalle>
+
+        <VinculosIncidente incidente={incidente} esAdmin={esAdmin} />
+        <IncidentesRelacionados incidente={incidente} esAdmin={esAdmin} />
+        {/* La clave lo vuelve a pedir al cerrar o reabrir: hay un evento nuevo. */}
+        <HistorialIncidente
+          key={`${incidente.id}-${incidente.estado}-${incidente.fecha_cierre}`}
+          incidente={incidente}
+        />
       </PaginaDetalle>
 
       {/* Imagen ampliada */}
@@ -364,19 +307,15 @@ export function IncidenteDetailPage() {
         />
       )}
 
-      {/* Modal de historial */}
-      <HistorialIncidenteModal
-        isOpen={mostrarHistorial}
-        historial={historial}
-        loading={loadingHistorial}
-        onClose={handleCerrarHistorial}
-      />
-
       {/* Modal para cerrar incidente (solo admin) */}
       <CerrarIncidenteDialog
         isOpen={modalCerrarAbierto}
         incidente={incidente}
-        onClose={handleCerrarModalCerrar}
+        isLoading={cerrando}
+        error={errorCierre}
+        onClose={() => {
+          if (!cerrando) setModalCerrarAbierto(false);
+        }}
         onConfirm={handleCerrarIncidente}
       />
     </>

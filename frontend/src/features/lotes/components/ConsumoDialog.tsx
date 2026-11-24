@@ -1,8 +1,9 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState, type FormEvent } from "react";
 import { Box, Stack, Text } from "@chakra-ui/react";
 import { DialogForm } from "../../../common/components/DialogForm";
 import { formatoFecha } from "../../../common/utils/fechas";
-import { cantidadConUnidad, formatoCantidad } from "../../../common/utils/numeros";
+import { cantidadConUnidad, formatoCantidad, redondear } from "../../../common/utils/numeros";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../components/ui/dialog";
 import {
   AccionesFormulario,
@@ -26,22 +27,44 @@ interface ConsumoDialogProps {
   onClose: () => void;
 }
 
+/** Lo que le falta registrar a un ingrediente de la tarea (redondeado a milésimas). */
+const faltanteDe = (i: ItemChecklist["ingredientes"][number]) =>
+  redondear(Math.max(Number(i.cantidad_planificada) - Number(i.consumo_real), 0));
+
 export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDialogProps) {
-  const [insumoId, setInsumoId] = useState(item.insumos[0]?.insumo_id ?? 0);
-  const insumo = item.insumos.find((i) => i.insumo_id === insumoId);
-  const faltante = insumo
-    ? Math.max(Number(insumo.cantidad_planificada) - Number(insumo.consumo_real), 0)
-    : 0;
+  // Empieza por el primer ingrediente al que todavía le falta consumo.
+  const [ingredienteId, setIngredienteId] = useState(
+    (item.ingredientes.find((i) => faltanteDe(i) > 0) ?? item.ingredientes[0])?.ingrediente_id ?? 0,
+  );
+  // Lo último registrado, para confirmarlo cuando el diálogo sigue abierto.
+  const [registrado, setRegistrado] = useState<string | null>(null);
+  const ingrediente = item.ingredientes.find((i) => i.ingrediente_id === ingredienteId);
+  // Redondeado a milésimas, como guarda el backend: la resta de decimales en
+  // JavaScript deja colas como 1,2079999999999984 que el backend rechaza.
+  const faltante = ingrediente ? faltanteDe(ingrediente) : 0;
 
   const [cantidades, setCantidades] = useState<Record<number, string>>({});
-  const cantidad = cantidades[insumoId] ?? (faltante > 0 ? String(faltante) : "");
 
-  const { lotes, loading: cargandoLotes, error: errorLotes } = useLotesSugeridos(insumoId || null);
-  const sugerido = lotes.find((l) => Number(l.saldo) > 0 && !l.vencido) ?? null;
-  const [elegido, setElegido] = useState<{ insumo: number; lote: number } | null>(null);
+  const {
+    lotes: todos,
+    loading: cargandoLotes,
+    error: errorLotes,
+    recargar: recargarLotes,
+  } = useLotesSugeridos(ingredienteId || null);
+  // Solo los lotes que se pueden usar: con saldo, sin vencer y de una marca
+  // homologada (el backend rechaza los demás). Vienen por vencimiento (FEFO).
+  const lotes = todos.filter((l) => Number(l.saldo) > 0 && !l.vencido && !l.marca_no_utilizable);
+  const sugerido = lotes[0] ?? null;
+  const [elegido, setElegido] = useState<{ ingrediente: number; lote: number } | null>(null);
   const loteId_ =
-    elegido && elegido.insumo === insumoId ? elegido.lote : (sugerido?.lote_insumo_id ?? 0);
+    elegido && elegido.ingrediente === ingredienteId ? elegido.lote : (sugerido?.lote_insumo_id ?? 0);
   const loteInsumo = lotes.find((l) => l.lote_insumo_id === loteId_);
+  // No se consume más que el saldo del lote: por defecto se propone lo que
+  // falta para la tarea, hasta lo que queda en el lote elegido (el resto se
+  // registra después desde otro lote).
+  const saldo = loteInsumo ? redondear(Math.max(Number(loteInsumo.saldo), 0)) : null;
+  const propuesta = saldo === null ? faltante : Math.min(faltante, saldo);
+  const cantidad = cantidades[ingredienteId] ?? (propuesta > 0 ? String(propuesta) : "");
 
   const [tipo, setTipo] = useState<TipoConsumo>("real");
   const [motivo, setMotivo] = useState("");
@@ -60,6 +83,13 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
       setError("La cantidad debe ser mayor a cero.");
       return;
     }
+    if (saldo !== null && Number(cantidad) > saldo) {
+      setError(
+        `El lote ${loteInsumo?.numero_lote} tiene ${cantidadConUnidad(saldo, ingrediente?.unidad)}. ` +
+          "Registrá hasta ese saldo y lo que falta desde otro lote.",
+      );
+      return;
+    }
 
     setGuardando(true);
     try {
@@ -72,9 +102,36 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
       await onRegistrado();
       if (consumo.advertencias.length > 0) {
         setAdvertencias(consumo.advertencias);
-      } else {
-        onClose();
+        return;
       }
+      // Si a la tarea todavía le falta consumo (de este ingrediente, desde otro
+      // lote, o de otro ingrediente), el diálogo sigue abierto con lo próximo.
+      const quedaDeEste = tipo === "real" && Number(cantidad) < faltante;
+      const siguiente = quedaDeEste
+        ? ingrediente
+        : item.ingredientes.find((i) => i.ingrediente_id !== ingredienteId && faltanteDe(i) > 0);
+      if (!siguiente) {
+        // Entre ingredientes el aviso va dentro del diálogo; al terminar, en un toast.
+        avisarExito("Consumo registrado correctamente.");
+        onClose();
+        return;
+      }
+      setRegistrado(
+        `Registrado: ${ingrediente?.ingrediente_nombre} ${cantidadConUnidad(cantidad, ingrediente?.unidad)}. ` +
+          (quedaDeEste
+            ? "Registrá lo que falta desde otro lote."
+            : `Seguí con ${siguiente.ingrediente_nombre}.`),
+      );
+      setCantidades((prev) => {
+        const resto = { ...prev };
+        delete resto[ingredienteId];
+        return resto;
+      });
+      setElegido(null);
+      setTipo("real");
+      setMotivo("");
+      setIngredienteId(siguiente.ingrediente_id);
+      if (quedaDeEste) await recargarLotes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar el consumo.");
     } finally {
@@ -137,17 +194,33 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
               Tarea {item.orden}: {item.descripcion}
             </Text>
 
+            {registrado && !error && (
+              <Box
+                role="status"
+                bg="green.subtle"
+                color="green.fg"
+                borderWidth="1px"
+                borderColor="green.border"
+                rounded="md"
+                px="4"
+                py="3"
+                mb="4"
+                fontSize="sm"
+              >
+                {registrado}
+              </Box>
+            )}
             {error && <BannerError mb="4">{error}</BannerError>}
             {errorLotes && <BannerError mb="4">{errorLotes}</BannerError>}
 
-            <FormField label="Insumo" required mb="4">
+            <FormField label="Ingrediente" required mb="4">
               <FormNativeSelect
-                value={insumoId}
-                onChange={(e) => setInsumoId(Number(e.target.value))}
+                value={ingredienteId}
+                onChange={(e) => setIngredienteId(Number(e.target.value))}
               >
-                {item.insumos.map((i) => (
-                  <option key={i.insumo_id} value={i.insumo_id}>
-                    {i.insumo_nombre} (planificado{" "}
+                {item.ingredientes.map((i) => (
+                  <option key={i.ingrediente_id} value={i.ingrediente_id}>
+                    {i.ingrediente_nombre} (planificado{" "}
                     {cantidadConUnidad(i.cantidad_planificada, i.unidad)})
                   </option>
                 ))}
@@ -159,24 +232,34 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
               required
               mb="4"
               helper={
-                sugerido
+                loteInsumo
+                  ? `${loteInsumo.insumo_nombre} · ${loteInsumo.proveedor_nombre}${
+                      loteInsumo.lote_insumo_id === sugerido?.lote_insumo_id
+                        ? " · sugerido por vencimiento"
+                        : ""
+                    }`
+                  : sugerido
                   ? `Sugerido por vencimiento: ${sugerido.numero_lote}. Podés elegir otro.`
-                  : "No hay un lote disponible sin vencer. Podés elegir uno de la lista."
+                  : cargandoLotes
+                    ? undefined
+                    : "No hay lotes de este ingrediente con saldo, sin vencer y de una marca homologada."
               }
             >
               <FormNativeSelect
                 value={loteId_}
-                onChange={(e) => setElegido({ insumo: insumoId, lote: Number(e.target.value) })}
+                onChange={(e) => setElegido({ ingrediente: ingredienteId, lote: Number(e.target.value) })}
                 disabled={cargandoLotes}
               >
                 <SelectPlaceholder>
                   {cargandoLotes ? "Cargando lotes..." : "Seleccioná un lote"}
                 </SelectPlaceholder>
                 {lotes.map((l) => (
-                  <option key={l.lote_insumo_id} value={l.lote_insumo_id}>
-                    {l.numero_lote} · {l.proveedor_nombre} · saldo {formatoCantidad(l.saldo)}
+                  <option
+                    key={l.lote_insumo_id}
+                    value={l.lote_insumo_id}
+                  >
+                    {l.numero_lote} · saldo {formatoCantidad(l.saldo)}
                     {l.fecha_vencimiento ? ` · vence ${formatoFecha(l.fecha_vencimiento)}` : ""}
-                    {l.vencido ? " (vencido)" : ""}
                     {l.lote_insumo_id === sugerido?.lote_insumo_id ? " — sugerido" : ""}
                   </option>
                 ))}
@@ -191,22 +274,25 @@ export function ConsumoDialog({ loteId, item, onRegistrado, onClose }: ConsumoDi
             </FormField>
 
             <FormField
-              label={`Cantidad${insumo ? ` (${insumo.unidad})` : ""}`}
+              label={`Cantidad${ingrediente ? ` (${ingrediente.unidad})` : ""}`}
               required
               mb={tipo === "desperdicio" ? "4" : "0"}
               helper={
                 loteInsumo
-                  ? `Saldo del lote: ${cantidadConUnidad(loteInsumo.saldo, insumo?.unidad)}`
+                  ? faltante > (saldo ?? 0)
+                    ? `Saldo del lote: ${cantidadConUnidad(loteInsumo.saldo, ingrediente?.unidad)}. A la tarea le faltan ${cantidadConUnidad(faltante, ingrediente?.unidad)}: el resto se registra desde otro lote.`
+                    : `Saldo del lote: ${cantidadConUnidad(loteInsumo.saldo, ingrediente?.unidad)}`
                   : undefined
               }
             >
               <FormInput
                 type="number"
                 min="0"
+                max={saldo ?? undefined}
                 step="any"
                 inputMode="decimal"
                 value={cantidad}
-                onChange={(e) => setCantidades((prev) => ({ ...prev, [insumoId]: e.target.value }))}
+                onChange={(e) => setCantidades((prev) => ({ ...prev, [ingredienteId]: e.target.value }))}
               />
             </FormField>
 

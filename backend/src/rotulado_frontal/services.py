@@ -5,12 +5,13 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from src.establecimientos.contexto import sede_efectiva
 from src.common.fechas import ahora, hoy
 from src.common.texto import normalizar_texto
-from src.insumos.models import TIPO_ADITIVO, Insumo
+from src.ingredientes.models import Ingrediente
 from src.nutricion import calculo as nutricion_calculo
 from src.nutricion import services as nutricion_services
-from src.nutricion.models import PerfilNutricionalInsumo
+from src.nutricion.models import PerfilNutricionalIngrediente
 from src.productos.models import Producto
 from src.recetas import exceptions as recetas_exceptions
 from src.recetas.models import Receta, VersionReceta
@@ -136,10 +137,10 @@ def activar_regla(db: Session, regla_id: int) -> ReglaRotuladoFrontal:
 
 
 def ajuste_modulo(db: Session) -> ConfiguracionModuloRotulado:
-    """Interruptor global; si falta la fila, se crea activo."""
-    ajuste = db.get(ConfiguracionModuloRotulado, 1)
+    """Interruptor de la sede; si falta la fila, se crea activo."""
+    ajuste = db.get(ConfiguracionModuloRotulado, sede_efectiva(db))
     if ajuste is None:
-        ajuste = ConfiguracionModuloRotulado(id=1, modulo_activo=True)
+        ajuste = ConfiguracionModuloRotulado(establecimiento_id=sede_efectiva(db), modulo_activo=True)
         db.add(ajuste)
         db.commit()
         db.refresh(ajuste)
@@ -271,15 +272,15 @@ def _version_de(
 
 
 def _perfiles_de(
-    db: Session, insumo_ids: list[int]
-) -> dict[int, PerfilNutricionalInsumo]:
-    if not insumo_ids:
+    db: Session, ingrediente_ids: list[int]
+) -> dict[int, PerfilNutricionalIngrediente]:
+    if not ingrediente_ids:
         return {}
     return {
-        perfil.insumo_id: perfil
+        perfil.ingrediente_id: perfil
         for perfil in db.scalars(
-            select(PerfilNutricionalInsumo).where(
-                PerfilNutricionalInsumo.insumo_id.in_(insumo_ids)
+            select(PerfilNutricionalIngrediente).where(
+                PerfilNutricionalIngrediente.ingrediente_id.in_(ingrediente_ids)
             )
         ).all()
     }
@@ -305,14 +306,14 @@ def _contiene_ingrediente(nombre: str, terminos: tuple[str, ...]) -> bool:
 
 def _fuentes_derivadas(
     db: Session, version: VersionReceta | None, regla: ReglaRotuladoFrontal
-) -> dict[str, set[tuple[int, str, str, str]]]:
-    fuentes: dict[str, set[tuple[int, str, str, str]]] = {
+) -> dict[str, set[tuple[int, str, bool, str]]]:
+    fuentes: dict[str, set[tuple[int, str, bool, str]]] = {
         clave: set() for clave in c.CLAVES_MARCA
     }
     if version is None:
         return fuentes
 
-    ids = [renglon.insumo_id for renglon in version.insumos]
+    ids = [renglon.ingrediente_id for renglon in version.ingredientes]
     perfiles = _perfiles_de(db, ids)
     clases_edulcorante = {
         normalizar_texto(clase)
@@ -326,54 +327,49 @@ def _fuentes_derivadas(
     }
     ingredientes_cafeina = tuple(regla.ingredientes_cafeina)
 
-    for renglon in version.insumos:
-        insumo: Insumo = renglon.insumo
-        perfil = perfiles.get(insumo.id)
+    for renglon in version.ingredientes:
+        ingrediente: Ingrediente = renglon.ingrediente
+        perfil = perfiles.get(ingrediente.id)
 
         if perfil is not None:
             for clave, campo in c.CAMPO_PERFIL.items():
                 if bool(getattr(perfil, campo)):
                     fuentes[clave].add(
-                        (insumo.id, insumo.nombre, insumo.tipo, c.MOTIVO_PERFIL)
+                        (ingrediente.id, ingrediente.nombre, ingrediente.es_aditivo, c.MOTIVO_PERFIL)
                     )
 
-        if (
-            insumo.tipo == TIPO_ADITIVO
-            and insumo.aditivo is not None
-            and insumo.aditivo.clase_funcional is not None
-        ):
-            aditivo = insumo.aditivo
-            clase = aditivo.clase_funcional.nombre
+        if ingrediente.es_aditivo and ingrediente.clase_funcional is not None:
+            clase = ingrediente.clase_funcional.nombre
             if normalizar_texto(clase) in clases_edulcorante:
                 # La clase funcional por sí sola puede ser demasiado amplia.
                 # Si la regla pide validar INS, se exige un código reconocido;
                 # sin INS declarado se mantiene la marca por clase.
-                codigo = _codigo_ins(aditivo.numero_ins)
+                codigo = _codigo_ins(ingrediente.numero_ins)
                 ins_valido = (
                     not regla.validar_ins_edulcorantes
                     or codigo is None
                     or codigo in ins_edulcorantes
                 )
                 if ins_valido:
-                    detalle_ins = f" (INS {aditivo.numero_ins})" if codigo else ""
+                    detalle_ins = f" (INS {ingrediente.numero_ins})" if codigo else ""
                     fuentes[c.EDULCORANTES].add(
                         (
-                            insumo.id,
-                            insumo.nombre,
-                            insumo.tipo,
+                            ingrediente.id,
+                            ingrediente.nombre,
+                            ingrediente.es_aditivo,
                             f"{c.MOTIVO_CLASE}: {clase}{detalle_ins}",
                         )
                     )
 
         # Cafeína intrínseca de materias primas compuestas: no hace falta que
-        # el insumo sea "cafeína" pura ni que tenga el perfil marcado.
-        if not any(fuente[0] == insumo.id for fuente in fuentes[c.CAFEINA]):
-            if _contiene_ingrediente(insumo.nombre, ingredientes_cafeina):
+        # el ingrediente sea "cafeína" pura ni que tenga el perfil marcado.
+        if not any(fuente[0] == ingrediente.id for fuente in fuentes[c.CAFEINA]):
+            if _contiene_ingrediente(ingrediente.nombre, ingredientes_cafeina):
                 fuentes[c.CAFEINA].add(
                     (
-                        insumo.id,
-                        insumo.nombre,
-                        insumo.tipo,
+                        ingrediente.id,
+                        ingrediente.nombre,
+                        ingrediente.es_aditivo,
                         c.MOTIVO_CAFEINA_INTRINSECA,
                     )
                 )
@@ -382,16 +378,16 @@ def _fuentes_derivadas(
 
 
 def _fuentes_lista(
-    fuentes: set[tuple[int, str, str, str]]
+    fuentes: set[tuple[int, str, bool, str]]
 ) -> list[schemas.FuenteMarca]:
     return [
         schemas.FuenteMarca(
-            insumo_id=insumo_id,
+            ingrediente_id=ingrediente_id,
             nombre=nombre,
-            tipo=tipo,
+            es_aditivo=es_aditivo,
             motivo=motivo,
         )
-        for insumo_id, nombre, tipo, motivo in sorted(
+        for ingrediente_id, nombre, es_aditivo, motivo in sorted(
             fuentes, key=lambda item: (item[1].lower(), item[3].lower())
         )
     ]
@@ -401,7 +397,7 @@ def _marca(
     clave: str,
     regla: ReglaRotuladoFrontal,
     config: ConfiguracionRotuladoProducto | None,
-    fuentes_derivadas: set[tuple[int, str, str, str]],
+    fuentes_derivadas: set[tuple[int, str, bool, str]],
     derivable: bool,
 ) -> schemas.MarcaRotulado:
     fuentes = _fuentes_lista(fuentes_derivadas)
@@ -792,7 +788,9 @@ def _evaluar_sello(
 def _calcular_sellos(
     info: nutricion_services.schemas.InfoNutricionalResponse,
     regla: ReglaRotuladoFrontal,
+    tolerancia: Decimal,
 ) -> schemas.SellosRotulado:
+    """`tolerancia`: % para avisar que un sello quedó cerca del umbral."""
     umbrales, formulas = _parametros_de_regla(regla)
     filas = {fila.clave: fila for fila in info.filas}
     definiciones = [
@@ -800,7 +798,10 @@ def _calcular_sellos(
         for sello in regla.sellos
     ]
     resultados = [
-        _evaluar_sello(definicion, filas, umbrales, formulas, info.expresar_en)
+        _marcar_cercania(
+            _evaluar_sello(definicion, filas, umbrales, formulas, info.expresar_en),
+            tolerancia,
+        )
         for definicion in definiciones
     ]
     completo = all(resultado.evaluado for resultado in resultados)
@@ -818,9 +819,46 @@ def _calcular_sellos(
             if resultado.exceso is True
         ],
         resultados=resultados,
+        cerca_del_umbral=[r.etiqueta for r in resultados if r.cerca_del_umbral],
+        tolerancia_pct=tolerancia,
         regla_version=regla.version,
         vigencia_desde=regla.vigencia_desde,
         norma_origen=regla.norma_origen,
+    )
+
+
+def _tolerancia_homologacion(db: Session, inicializar: bool = True) -> Decimal:
+    """La misma tolerancia con que se homologan las marcas (Parámetros nutricionales).
+
+    Con `inicializar=False` solo lee (la evaluación de solo lectura no escribe).
+    """
+    from src.nutricion import constants as nutricion_constants
+
+    generales = nutricion_services._generales(db, inicializar=inicializar)
+    return _dec(generales.get(nutricion_constants.TOLERANCIA_HOMOLOGACION, "20"))
+
+
+def _marcar_cercania(
+    resultado: schemas.ResultadoSello, tolerancia: Decimal
+) -> schemas.ResultadoSello:
+    """Distancia relativa al umbral y si queda dentro de la tolerancia.
+
+    Las marcas que se compran pueden apartarse de la especificación del
+    ingrediente hasta la tolerancia de homologación: un producto calculado
+    cerca del umbral puede, con otra marca, quedar del otro lado.
+    """
+    if not resultado.evaluado or resultado.valor_calculado is None or not resultado.umbral:
+        return resultado
+    distancia = (
+        (_dec(resultado.valor_calculado) - _dec(resultado.umbral))
+        * _dec(100)
+        / _dec(resultado.umbral)
+    )
+    return resultado.model_copy(
+        update={
+            "distancia_umbral_pct": nutricion_calculo.redondear(distancia, 1),
+            "cerca_del_umbral": abs(distancia) < tolerancia,
+        }
     )
 
 
@@ -888,7 +926,7 @@ def evaluar_solo_lectura(db: Session, producto_id: int, version_id: int | None):
 
 
 def modulo_activo_solo_lectura(db: Session) -> bool:
-    ajuste = db.get(ConfiguracionModuloRotulado, 1)
+    ajuste = db.get(ConfiguracionModuloRotulado, sede_efectiva(db))
     return ajuste.modulo_activo if ajuste is not None else True
 
 
@@ -955,7 +993,9 @@ def _evaluar(db: Session, producto_id: int, version_id: int | None, *, persistir
             version.id if version is not None else None,
             inicializar_parametros=persistir,
         )
-        sellos = _calcular_sellos(info, regla)
+        sellos = _calcular_sellos(
+            info, regla, _tolerancia_homologacion(db, inicializar=persistir)
+        )
     else:
         sellos = _sellos_no_evaluados(regla, c.MENSAJE_SELLOS_NO_EVALUADOS)
 
@@ -1009,6 +1049,7 @@ def _evaluar(db: Session, producto_id: int, version_id: int | None, *, persistir
         faltantes=faltantes,
         advertencias=advertencias,
         marcas=marcas,
+        perfil_evaluado=evaluar_perfil,
         sellos=sellos,
         evaluado_en=evaluado_en,
         instantanea=instantanea,

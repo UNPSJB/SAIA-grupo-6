@@ -157,14 +157,15 @@ def test_obtener_proveedor_no_existe(db_session):
 def test_actualizar_proveedor_parcial(db_session):
     # Arrange
     creado = _proveedor(db_session, nombre="Proveedor A", matricula="MAT-001")
-    datos = schemas.ProveedorUpdate(matricula="MAT-002")
+    # La matrícula se toma como CUIT: tiene que tener 11 dígitos.
+    datos = schemas.ProveedorUpdate(matricula="30-71234567-9")
 
     # Act
     actualizado = actualizar_proveedor(db_session, creado.id, datos)
 
     # Assert
     assert actualizado.nombre == "Proveedor A"
-    assert actualizado.matricula == "MAT-002"
+    assert actualizado.cuit == "30712345679"
 
 
 def test_actualizar_proveedor_conflicto_matricula(db_session):

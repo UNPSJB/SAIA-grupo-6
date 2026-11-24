@@ -9,7 +9,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBadgeCheck } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function AptitudCreatePage() {
   const navigate = useNavigate();
@@ -45,16 +46,17 @@ export function AptitudCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/aptitudes", etiqueta: "Aptitudes" }}
+      icono={LuBadgeCheck}
       titulo="Nueva aptitud"
+      descripcion="Registrá una aptitud o certificación que puede acreditar el personal."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <AptitudForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de aptitud"
         submitLabel="Crear aptitud"
         onCancel={() => navigate("/aptitudes")}
       />
@@ -68,6 +70,6 @@ export function AptitudCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

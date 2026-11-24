@@ -7,6 +7,7 @@ import {
   CampoBusqueda,
   ChipsFiltros,
   EstadoVacioFiltrado,
+  FiltroSelect,
   chipsDeFiltros,
 } from "../../../../components/ui/filtros";
 import {
@@ -20,15 +21,28 @@ import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { ReposicionesTable } from "../ReposicionesTable";
 import { ModalReponerStock } from "../ModalReponerStock";
 import { obtenerReposicionesPendientes } from "../../services/reposicionService";
-import type { Reposicion } from "../../types/reposicion";
+import type { OrigenReposicion, Reposicion } from "../../types/reposicion";
 
 const PAGE_SIZE = 10;
+
+const ETIQUETA_ORIGEN: Record<OrigenReposicion, string> = {
+  RETIRO_LOTE: "Por Retiro",
+  POR_RECLAMO: "Por Reclamo",
+  RECHAZO_ENTREGA: "Rechazo entrega",
+};
+
+const OPCIONES_ORIGEN = [
+  { valor: "RETIRO_LOTE", etiqueta: "Por Retiro" },
+  { valor: "POR_RECLAMO", etiqueta: "Por Reclamo" },
+  { valor: "RECHAZO_ENTREGA", etiqueta: "Rechazo entrega" },
+];
 
 export function ReposicionesPendientesPage() {
   const [reposiciones, setReposiciones] = useState<Reposicion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroOrigen, setFiltroOrigen] = useState<string>("");
   const [reposicionSeleccionada, setReposicionSeleccionada] =
     useState<Reposicion | null>(null);
 
@@ -54,22 +68,27 @@ export function ReposicionesPendientesPage() {
 
   const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
-    if (!texto) return reposiciones;
-    return reposiciones.filter(
-      (r) =>
+    return reposiciones.filter((r) => {
+      if (filtroOrigen && r.origen !== filtroOrigen) return false;
+      if (!texto) return true;
+      return (
         (r.cliente?.nombre ?? "").toLowerCase().includes(texto) ||
         (r.producto?.nombre ?? "").toLowerCase().includes(texto)
-    );
-  }, [reposiciones, busqueda]);
+      );
+    });
+  }, [reposiciones, busqueda, filtroOrigen]);
 
   const { paginados, page, setPage } = usePaginas(
     filtradas,
     PAGE_SIZE,
-    busqueda
+    `${busqueda}|${filtroOrigen}`
   );
 
-  const hayFiltros = busqueda.trim() !== "";
-  const limpiarTodo = () => setBusqueda("");
+  const hayFiltros = busqueda.trim() !== "" || filtroOrigen !== "";
+  const limpiarTodo = () => {
+    setBusqueda("");
+    setFiltroOrigen("");
+  };
 
   const chips = chipsDeFiltros([
     {
@@ -77,6 +96,14 @@ export function ReposicionesPendientesPage() {
       etiqueta: "Búsqueda",
       valor: busqueda.trim(),
       onQuitar: () => setBusqueda(""),
+    },
+    {
+      clave: "origen",
+      etiqueta: "Origen",
+      valor: filtroOrigen
+        ? (ETIQUETA_ORIGEN[filtroOrigen as OrigenReposicion] ?? filtroOrigen)
+        : "",
+      onQuitar: () => setFiltroOrigen(""),
     },
   ]);
 
@@ -91,6 +118,16 @@ export function ReposicionesPendientesPage() {
             valor={busqueda}
             onCambio={setBusqueda}
             placeholder="Buscar cliente o producto..."
+          />
+        }
+        filtros={
+          <FiltroSelect
+            label="Origen"
+            valor={filtroOrigen}
+            onCambio={setFiltroOrigen}
+            opciones={OPCIONES_ORIGEN}
+            todos="Todos los orígenes"
+            minW="210px"
           />
         }
         herramientas={

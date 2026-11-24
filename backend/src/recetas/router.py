@@ -89,4 +89,4 @@ def decidir_orden_empate(
     db: Session = Depends(get_db),
     usuario: Personal = Depends(require_admin),
 ):
-    return composicion_services.decidir_orden_empate(db, version_id, datos.insumo_ids, usuario)
+    return composicion_services.decidir_orden_empate(db, version_id, datos.ingrediente_ids, usuario)

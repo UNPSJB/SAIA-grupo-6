@@ -1,12 +1,13 @@
 from typing import Optional
 from src.PlanLimpieza.models import PlanLimpieza
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.tareas.constants import TipoTarea
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, ForeignKey, Integer, Text
 
 
-class Tarea(ModeloBase):
+class Tarea(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "tareas"
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100))

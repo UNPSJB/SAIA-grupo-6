@@ -16,9 +16,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora, hoy
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class LoteInsumo(ModeloBase):
+class LoteInsumo(DatosDeEstablecimiento, ModeloBase):
     
     __tablename__ = "lotes_insumo"
     __table_args__ = (
@@ -34,8 +35,16 @@ class LoteInsumo(ModeloBase):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # La marca que se recibió.
     insumo_id: Mapped[int] = mapped_column(
         ForeignKey("insumos.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    # El ingrediente de ese insumo, copiado al recibir el lote. Es lo que usan
+    # el stock por ingrediente, los paneles y el consumo en producción (la
+    # receta pide ingredientes, no marcas). El servicio garantiza que coincide
+    # con `insumo.ingrediente_id`.
+    ingrediente_id: Mapped[int] = mapped_column(
+        ForeignKey("ingredientes.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     proveedor_id: Mapped[int] = mapped_column(
         ForeignKey("proveedores.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -59,6 +68,7 @@ class LoteInsumo(ModeloBase):
     creado_en: Mapped[datetime] = mapped_column(DateTime, default=ahora)
 
     insumo: Mapped["Insumo"] = relationship()
+    ingrediente: Mapped["Ingrediente"] = relationship()
     proveedor: Mapped["Proveedor"] = relationship()
     certificacion: Mapped["CertificacionProveedor | None"] = relationship()
     dado_de_baja_por: Mapped["Personal | None"] = relationship(
@@ -69,7 +79,7 @@ class LoteInsumo(ModeloBase):
     )
 
 
-class BajaLoteInsumo(ModeloBase):
+class BajaLoteInsumo(DatosDeEstablecimiento, ModeloBase):
     """Registro auditado de baja parcial o total de un lote de insumo."""
 
     __tablename__ = "bajas_lote_insumo"

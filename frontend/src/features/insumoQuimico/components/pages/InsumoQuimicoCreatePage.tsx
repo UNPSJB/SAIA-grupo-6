@@ -9,7 +9,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuFlaskConical } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 
 export function InsumoQuimicoCreatePage() {
   const navigate = useNavigate();
@@ -54,16 +55,17 @@ export function InsumoQuimicoCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/insumos-quimicos", etiqueta: "Insumos químicos" }}
+      icono={LuFlaskConical}
       titulo="Nuevo insumo químico"
+      descripcion="Cargá el producto químico y su unidad de medida."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <InsumoQuimicoForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de insumo químico"
         submitLabel="Crear insumo químico"
         onCancel={() => navigate("/insumos-quimicos")}
       />
@@ -80,6 +82,6 @@ export function InsumoQuimicoCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

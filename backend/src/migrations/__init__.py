@@ -8,9 +8,13 @@ import src.all_models  # noqa: F401  (registra todos los modelos)
 from src.database import engine
 from src.models import ModeloBase
 
+from .alergenos import migrar_alergenos
 from .base import crear_bitacora
 from .documentos import migrar_documentos
 from .equipos import migrar_equipos
+from .establecimientos import migrar_establecimientos
+from .insumos_sin_rotulo import migrar_insumos_sin_rotulo
+from .establecimientos_razon_social import migrar_establecimientos_razon_social
 from .incidentes import migrar_incidentes
 from .insumos_tipo import (
     migrar_aditivos_referencia,
@@ -30,6 +34,7 @@ from .reposiciones import migrar_reposiciones
 from .seguridad import migrar_seguridad
 from .stock import migrar_stock
 from .tareas import migrar_tareas
+from .checklist_consumos import migrar_checklist_consumos
 from .trazabilidad import migrar_trazabilidad
 from .unidades_medida_tipo_factor import (
     asignar_equivalencias_conocidas,
@@ -58,9 +63,16 @@ from .lotes_insumo_bajas import migrar_lotes_insumo_bajas
 def run_migrations() -> None:
     crear_bitacora()
     migrar_columnas_personal()
+    # Multiestablecimiento: temprano, porque varias migraciones siguientes usan
+    # el ORM, cuyos modelos ya esperan `establecimiento_id`. Se repite al final.
+    migrar_establecimientos()
+    migrar_establecimientos_razon_social()
+    migrar_insumos_sin_rotulo()
     migrar_documentos()
     migrar_incidentes()
     migrar_tareas()
+    # Después de migrar_tareas: mueve el consumo de una columna a las tablas nuevas.
+    migrar_checklist_consumos()
     migrar_stock()
     migrar_lotes()
     migrar_lotes_fecha_vencimiento()
@@ -86,6 +98,8 @@ def run_migrations() -> None:
     migrar_pyme()
     migrar_rotulado()
     migrar_declaraciones_rotulado()
+    # Después de rotulado: agrega la columna de alérgenos a los borradores.
+    migrar_alergenos()
     migrar_clientes()
     migrar_transportistas()
     migrar_certificaciones_transportista()
@@ -105,6 +119,12 @@ def run_migrations() -> None:
     migrar_reposiciones()
     migrar_proveedores()
     migrar_lotes_insumo_bajas()
+    # Multiestablecimiento: al final a propósito. Varias migraciones de arriba
+    # reconstruyen tablas copiando columnas conocidas; corriendo después, la
+    # columna `establecimiento_id` no se pierde en esas reconstrucciones.
+    migrar_establecimientos()
+    migrar_establecimientos_razon_social()
+    migrar_insumos_sin_rotulo()
 
 
 def crear_tablas_y_migrar() -> None:

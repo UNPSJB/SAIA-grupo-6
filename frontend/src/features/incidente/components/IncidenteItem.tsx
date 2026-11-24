@@ -2,13 +2,22 @@ import { useNavigate } from "react-router-dom";
 import { Badge, Box, HStack, Text } from "@chakra-ui/react";
 import { LuCamera, LuTriangleAlert } from "react-icons/lu";
 import {
+  destinoResolucion,
+  esDeCircuito,
   estadoLabel,
   tipoLabel,
   tipoColor,
 } from "../types/incidente";
 import type { Incidente } from "../types/incidente";
 import { formatoFecha as formatoFechaDia } from "../../../common/utils/fechas";
-import { BotonAccion, Celda, EtiquetaEstado, FilaClickeable, TextoTruncado } from "../../../components/ui/patrones";
+import {
+  BotonAccion,
+  Celda,
+  COLOR_TABLA,
+  EtiquetaEstado,
+  FilaClickeable,
+  TextoTruncado,
+} from "../../../components/ui/patrones";
 import { Tooltip } from "../../../components/ui/tooltip";
 
 interface IncidenteItemProps {
@@ -37,14 +46,14 @@ export function IncidenteItem({
 }: IncidenteItemProps) {
   const navigate = useNavigate();
   const cerrado = incidente.estado === "cerrado";
-  const esEntregaRechazada =
-    incidente.tipo === "entrega_rechazada" ||
-    (incidente.tipo as string) === "Entrega rechazada" ||
-    (incidente as any).tipo_incidente === "entrega_rechazada" ||
-    (incidente as any).tipo_incidente === "Entrega rechazada";
-  // El retiro de lote también se resuelve desde su circuito (cerrar el retiro),
-  // igual que el rechazo de mercadería: acá no se ofrece el cierre manual.
-  const esRetiroLote = incidente.tipo === "retiro_lote";
+  // Los de reclamos, rechazos y retiros son de solo lectura: se lleva a donde
+  // se resuelven.
+  const deCircuito = esDeCircuito(incidente.tipo);
+  const destino = destinoResolucion(incidente.tipo, {
+    salida: incidente.salida_id,
+    reclamo: incidente.reclamo_id,
+    retiro: incidente.retiro_id,
+  });
 
   const handleVer = () => {
     if (onVer) {
@@ -84,12 +93,12 @@ export function IncidenteItem({
         {formatoFechaDia(incidente.fecha_reporte)}
       </Celda>
 
-      <Celda maxW="220px">
+      <Celda>
         <Text
           fontWeight="semibold"
           fontSize="sm"
           lineClamp={1}
-          color={esViejo ? "red.fg" : "#1E293B"}
+          color={esViejo ? "red.fg" : COLOR_TABLA.textoPrincipal}
           title={incidente.titulo}
         >
           {incidente.titulo}
@@ -145,6 +154,7 @@ export function IncidenteItem({
           maxW="100%"
           overflow="hidden"
           textOverflow="ellipsis"
+          title={tipoLabel(incidente.tipo)}
         >
           {tipoLabel(incidente.tipo)}
         </Badge>
@@ -167,62 +177,30 @@ export function IncidenteItem({
         <Celda center>
           <HStack justify="center" gap="2" flexWrap="wrap" rowGap="2">
             <BotonAccion accion="ver" label="Ver detalle" onClick={handleVer} />
-            {cerrado ? (
-              // Los incidentes generados por un rechazo de mercadería o por un
-              // retiro de lote son inmutables desde acá: se resuelven desde su
-              // propio circuito ("Resolver rechazo" en la salida, "Cerrar
-              // retiro" en E6). El botón se muestra deshabilitado con el
-              // motivo en el tooltip.
-              esEntregaRechazada || esRetiroLote ? (
-                <Tooltip
-                  content={
-                    esRetiroLote
-                      ? "Este incidente se resuelve desde Cerrar retiro en la ficha del retiro y no se puede reabrir desde acá."
-                      : "Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
-                  }
-                  showArrow
-                  openDelay={300}
-                  closeDelay={0}
-                >
-                  {/* Un botón `disabled` no dispara tooltips: el span hace de
-                      ancla para el hover. */}
-                  <Box as="span" display="inline-flex">
-                    <BotonAccion
-                      accion="reabrir"
-                      label="Reabrir incidente"
-                      tooltip={
-                        esRetiroLote
-                          ? "Este incidente se resuelve desde Cerrar retiro en la ficha del retiro y no se puede reabrir desde acá."
-                          : "Los incidentes de rechazo de mercadería son inmutables y no se pueden reabrir"
-                      }
-                      disabled
-                      onClick={() => {}}
-                    />
-                  </Box>
-                </Tooltip>
-              ) : (
-                onReabrir && (
+            {deCircuito
+              ? !cerrado &&
+                destino && (
+                  <BotonAccion
+                    accion="resolver"
+                    label={destino.etiqueta}
+                    onClick={() => navigate(destino.a)}
+                  />
+                )
+              : cerrado
+              ? onReabrir && (
                   <BotonAccion
                     accion="reabrir"
                     label="Reabrir incidente"
                     onClick={() => onReabrir(incidente)}
                   />
                 )
-              )
-            ) : (
-              // El cierre de un incidente de rechazo o de retiro de lote también
-              // está bloqueado: se resuelve desde su circuito ("Resolver rechazo"
-              // en la salida, "Cerrar retiro" en E6).
-              !esEntregaRechazada &&
-              !esRetiroLote &&
-              onCerrar && (
-                <BotonAccion
-                  accion="cerrar"
-                  label="Cerrar incidente"
-                  onClick={() => onCerrar(incidente)}
-                />
-              )
-            )}
+              : onCerrar && (
+                  <BotonAccion
+                    accion="cerrar"
+                    label="Cerrar incidente"
+                    onClick={() => onCerrar(incidente)}
+                  />
+                )}
           </HStack>
         </Celda>
       )}

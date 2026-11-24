@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.personal.models import Personal
 
 if TYPE_CHECKING:  # pragma: no cover - solo para tipado
@@ -28,7 +29,7 @@ if TYPE_CHECKING:  # pragma: no cover - solo para tipado
     from src.salidas.models import Salida
 
 
-class Retiro(ModeloBase):
+class Retiro(DatosDeEstablecimiento, ModeloBase):
     """Retiro de un lote del mercado. Irreversible."""
 
     __tablename__ = "retiros"
@@ -86,7 +87,7 @@ class Retiro(ModeloBase):
     )
 
 
-class RetiroAfectado(ModeloBase):
+class RetiroAfectado(DatosDeEstablecimiento, ModeloBase):
     """Salida afectada por un retiro de lote. Una fila por salida."""
 
     __tablename__ = "retiros_afectados"

@@ -7,7 +7,7 @@ import { exportarBorradorPdf, previsualizarBorrador } from "../../services/rotul
 import type { PrevisualizacionRotulado } from "../../types/rotulado";
 import type { CondicionConservacion } from "../../types/declaraciones";
 import { IndicadorCompletitud } from "../IndicadorCompletitud";
-import { TablaInstantaneaNutricional } from "../ResumenNutricional";
+import { CuadroInstantaneaNutricional } from "../ResumenNutricional";
 
 const LEYENDA = "BORRADOR: debe ser revisado por un/a profesional y por la autoridad sanitaria competente antes de su uso";
 
@@ -27,7 +27,7 @@ function Condiciones({ datos }: { datos: CondicionConservacion }) {
 
 const camposEditables = new Set([
   "denominacion_venta", "lista_ingredientes", "contenido_neto", "rnpa_rppa",
-  "razon_social", "domicilio", "fecha_duracion", "identificacion_lote",
+  "razon_social", "domicilio", "fecha_duracion", "lote_producto", "identificacion_lote",
   "fecha_produccion", "fecha_cierre", "instrucciones_uso", "importador_razon_social",
   "importador_domicilio", "datos_nutricionales_json", "declaraciones",
 ]);
@@ -36,9 +36,11 @@ function Etiqueta({ datos }: { datos: PrevisualizacionRotulado }) {
   const { borrador, origen, completitud, nutricion, declaraciones, rotulado_frontal } = datos;
   const editor = `/rotulado/borradores/${borrador.id}`;
   const faltaEnvasado = rotulado_frontal.faltantes.some(motivo => motivo.includes("envasado en ausencia del cliente"));
-  const destinoFrontal = rotulado_frontal.estado === "sin_definir"
-    ? `/productos/${borrador.producto_id}/rotulado-frontal?solo_lectura=true&borrador_id=${borrador.id}#${faltaEnvasado ? "envasado" : "marcas"}`
-    : undefined;
+  // El rotulado frontal se configura en el producto: siempre se puede ir a
+  // verlo o cambiarlo; si falta algo, el enlace lleva a lo que falta.
+  const pendienteFrontal = rotulado_frontal.estado === "sin_definir";
+  const destinoFrontal = `/productos/${borrador.producto_id}/rotulado-frontal?solo_lectura=true&borrador_id=${borrador.id}`
+    + (pendienteFrontal ? `#${faltaEnvasado ? "envasado" : "marcas"}` : "");
   const conservacion = declaraciones?.contenido?.conservacion;
   const gluten = declaraciones?.contenido?.gluten;
   const confirmada = declaraciones?.estado === "confirmada" && declaraciones.vigencia === "vigente" && !declaraciones.pendientes.length;
@@ -51,7 +53,7 @@ function Etiqueta({ datos }: { datos: PrevisualizacionRotulado }) {
       {origen.version_numero != null && <Text fontSize="sm" color="fg.muted">Versión de receta {origen.version_numero}</Text>}
       <Box flex="1 1 420px">
         <IndicadorCompletitud completitud={completitud} soloLectura compacto
-          destinoPendiente={campo => camposEditables.has(campo) ? `${editor}#${campo}` : undefined} />
+          destinoPendiente={campo => campo === "rotulado_frontal" ? `/productos/${borrador.producto_id}/rotulado-frontal?solo_lectura=true&borrador_id=${borrador.id}` : camposEditables.has(campo) ? `${editor}#${campo}` : undefined} />
       </Box>
     </Flex>
     <Grid templateColumns={{ base: "minmax(0, 1fr)", lg: "minmax(0, 2fr) minmax(0, 3fr)" }}
@@ -68,12 +70,14 @@ function Etiqueta({ datos }: { datos: PrevisualizacionRotulado }) {
         <GrupoOctogonos frontal={rotulado_frontal} soloSellos alineacion="start" />
         <Flex gap="3" align="start" wrap="wrap">
           <GrupoOctogonos frontal={rotulado_frontal} soloEstado />
-          {destinoFrontal && <Button asChild variant="outline" size="sm" alignSelf="start">
-            <Link to={destinoFrontal} aria-label="Completar rotulado frontal">Completar</Link>
-          </Button>}
+          <Button asChild variant="outline" size="sm" alignSelf="start">
+            {pendienteFrontal
+              ? <Link to={destinoFrontal} aria-label="Completar rotulado frontal">Completar</Link>
+              : <Link to={destinoFrontal}>Ver o modificar rotulado frontal</Link>}
+          </Button>
         </Flex>
         {nutricion.difiere_de_e12 && <Text role="status" fontSize="sm" color="orange.fg">
-          La evaluación actual de E12 usa datos distintos de la tabla guardada para esta versión.
+          La evaluación actual del rotulado frontal usa datos distintos de la tabla guardada para esta versión.
         </Text>}
       </Stack>
       <Stack as="section" gridArea="nutricion" aria-label="Información nutricional" minW="0" p="3"
@@ -88,8 +92,11 @@ function Etiqueta({ datos }: { datos: PrevisualizacionRotulado }) {
             </Button>}
           </Box>
         </Alert.Root>}
-        {nutricion.tabla && <TablaInstantaneaNutricional datos={nutricion.tabla} previsualizacion
-          estado={nutricion.estado === "completa" ? "completa" : "incompleta"} />}
+        {nutricion.tabla && nutricion.estado !== "completa" && <Text role="status" fontSize="sm" color="red.fg">
+          Tabla incompleta: se calculó con datos faltantes.
+        </Text>}
+        {nutricion.tabla && <CuadroInstantaneaNutricional datos={nutricion.tabla}
+          incompleta={nutricion.estado !== "completa"} />}
       </Stack>
       <Stack as="section" gridArea="detalles" aria-label="Información complementaria" minW="0" p="5" gap="2"
         bg="bg.panel" borderWidth="1px" rounded="xl" fontSize="sm">

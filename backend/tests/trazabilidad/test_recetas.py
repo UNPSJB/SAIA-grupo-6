@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from src.recetas import exceptions, schemas, services
-from src.recetas.models import RecetaInsumo, TareaReceta, VersionReceta
+from src.recetas.models import RecetaIngrediente, TareaReceta, VersionReceta
 
 from .conftest import receta_datos
 
@@ -14,7 +14,7 @@ def test_la_receta_nace_con_version_1_y_sus_tareas_pertenecen_a_la_version(escen
     assert version.numero == 1
     assert [t.orden for t in version.tareas] == [1, 2]
     assert [t.descripcion for t in version.tareas] == ["Amasar", "Condimentar"]
-    assert {i.clasificacion for i in version.insumos} == {"ingrediente", "aditivo"}
+    assert {i.es_aditivo for i in version.ingredientes} == {False, True}
     assert all(t.version_receta_id == version.id for t in version.tareas)
 
 
@@ -24,9 +24,9 @@ def test_modificar_la_receta_crea_una_version_nueva_y_deja_intacta_la_anterior(e
         escenario,
         harina_total="12",
         tareas=[
-            {"descripcion": "Amasar fuerte", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "12"}]},
-            {"descripcion": "Condimentar", "insumos": [{"insumo_id": escenario.sal.id, "cantidad": "2"}]},
-            {"descripcion": "Hornear", "insumos": []},
+            {"descripcion": "Amasar fuerte", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "12"}]},
+            {"descripcion": "Condimentar", "ingredientes": [{"ingrediente_id": escenario.sal.id, "cantidad": "2"}]},
+            {"descripcion": "Hornear", "ingredientes": []},
         ],
     )
 
@@ -36,7 +36,7 @@ def test_modificar_la_receta_crea_una_version_nueva_y_deja_intacta_la_anterior(e
     assert services.version_vigente(db, escenario.receta.id).id == version2.id
     v1 = db.get(VersionReceta, escenario.version1.id)
     assert [t.descripcion for t in v1.tareas] == ["Amasar", "Condimentar"]
-    harina_v1 = next(i for i in v1.insumos if i.insumo_id == escenario.harina.id)
+    harina_v1 = next(i for i in v1.ingredientes if i.ingrediente_id == escenario.harina.id)
     assert harina_v1.cantidad == Decimal("10")
 
 
@@ -55,8 +55,8 @@ def test_una_version_creada_es_de_solo_lectura(escenario):
         db.commit()
     db.rollback()
 
-    insumo = db.query(RecetaInsumo).first()
-    db.delete(insumo)
+    ingrediente = db.query(RecetaIngrediente).first()
+    db.delete(ingrediente)
     with pytest.raises(exceptions.VersionRecetaInmutableError):
         db.commit()
     db.rollback()
@@ -71,12 +71,12 @@ def test_un_producto_solo_tiene_una_receta(escenario):
         )
 
 
-def test_el_reparto_entre_tareas_debe_sumar_el_total_de_cada_insumo(escenario):
+def test_el_reparto_entre_tareas_debe_sumar_el_total_de_cada_ingrediente(escenario):
     datos = receta_datos(
         escenario,
         tareas=[
-            {"descripcion": "Amasar", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "4"}]},
-            {"descripcion": "Condimentar", "insumos": [{"insumo_id": escenario.sal.id, "cantidad": "2"}]},
+            {"descripcion": "Amasar", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "4"}]},
+            {"descripcion": "Condimentar", "ingredientes": [{"ingrediente_id": escenario.sal.id, "cantidad": "2"}]},
         ],
     )
 
@@ -84,16 +84,16 @@ def test_el_reparto_entre_tareas_debe_sumar_el_total_de_cada_insumo(escenario):
         services.crear_version(escenario.db, escenario.receta.id, datos, escenario.admin)
 
 
-def test_un_insumo_puede_repartirse_en_varias_tareas(escenario):
+def test_un_ingrediente_puede_repartirse_en_varias_tareas(escenario):
     datos = receta_datos(
         escenario,
         tareas=[
-            {"descripcion": "Pre-mezcla", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "4"}]},
+            {"descripcion": "Pre-mezcla", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "4"}]},
             {
                 "descripcion": "Mezcla final",
-                "insumos": [
-                    {"insumo_id": escenario.harina.id, "cantidad": "6"},
-                    {"insumo_id": escenario.sal.id, "cantidad": "2"},
+                "ingredientes": [
+                    {"ingrediente_id": escenario.harina.id, "cantidad": "6"},
+                    {"ingrediente_id": escenario.sal.id, "cantidad": "2"},
                 ],
             },
         ],
@@ -101,17 +101,17 @@ def test_un_insumo_puede_repartirse_en_varias_tareas(escenario):
 
     version = services.crear_version(escenario.db, escenario.receta.id, datos, escenario.admin)
 
-    assert [len(t.insumos) for t in version.tareas] == [1, 2]
+    assert [len(t.ingredientes) for t in version.tareas] == [1, 2]
 
 
-def test_la_unidad_de_la_receta_debe_ser_la_del_insumo(escenario):
+def test_la_unidad_de_la_receta_debe_ser_la_del_ingrediente(escenario):
     from src.unidadMedida.models import UnidadMedida
 
     gramo = UnidadMedida(nombre="Gramo", simbolo="g")
     escenario.db.add(gramo)
     escenario.db.commit()
     datos = receta_datos(escenario)
-    datos.insumos[0].unidad_medida_id = gramo.id
+    datos.ingredientes[0].unidad_medida_id = gramo.id
 
     with pytest.raises(exceptions.UnidadNoCoincide):
         services.crear_version(escenario.db, escenario.receta.id, datos, escenario.admin)
@@ -140,15 +140,15 @@ def test_api_crear_version_devuelve_el_detalle(client, escenario):
     cuerpo = {
         "rendimiento": "20",
         "unidad_medida_id": escenario.kg.id,
-        "insumos": [
+        "ingredientes": [
             {
-                "insumo_id": escenario.harina.id,
+                "ingrediente_id": escenario.harina.id,
                 "cantidad": "9",
                 "unidad_medida_id": escenario.kg.id,
             }
         ],
         "tareas": [
-            {"descripcion": "Amasar", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "9"}]}
+            {"descripcion": "Amasar", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "9"}]}
         ],
     }
 
@@ -158,7 +158,7 @@ def test_api_crear_version_devuelve_el_detalle(client, escenario):
 
     assert respuesta.status_code == 201
     assert respuesta.json()["numero"] == 2
-    assert respuesta.json()["tareas"][0]["insumos"][0]["cantidad"] == "9.000"
+    assert respuesta.json()["tareas"][0]["ingredientes"][0]["cantidad"] == "9.000"
 
 
 def test_crear_version_con_vida_util_dias(client, escenario):
@@ -166,15 +166,15 @@ def test_crear_version_con_vida_util_dias(client, escenario):
         "rendimiento": "20",
         "unidad_medida_id": escenario.kg.id,
         "vida_util_dias": 180,
-        "insumos": [
+        "ingredientes": [
             {
-                "insumo_id": escenario.harina.id,
+                "ingrediente_id": escenario.harina.id,
                 "cantidad": "9",
                 "unidad_medida_id": escenario.kg.id,
             }
         ],
         "tareas": [
-            {"descripcion": "Amasar", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "9"}]}
+            {"descripcion": "Amasar", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "9"}]}
         ],
     }
 
@@ -194,15 +194,15 @@ def test_crear_version_vida_util_dias_invalida_lanza_error(client, escenario):
         "rendimiento": "20",
         "unidad_medida_id": escenario.kg.id,
         "vida_util_dias": 0,
-        "insumos": [
+        "ingredientes": [
             {
-                "insumo_id": escenario.harina.id,
+                "ingrediente_id": escenario.harina.id,
                 "cantidad": "9",
                 "unidad_medida_id": escenario.kg.id,
             }
         ],
         "tareas": [
-            {"descripcion": "Amasar", "insumos": [{"insumo_id": escenario.harina.id, "cantidad": "9"}]}
+            {"descripcion": "Amasar", "ingredientes": [{"ingrediente_id": escenario.harina.id, "cantidad": "9"}]}
         ],
     }
 

@@ -1,11 +1,24 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { HStack, Box, Text } from "@chakra-ui/react";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { useCallback, useMemo, useState } from "react";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link, Stack, Text } from "@chakra-ui/react";
+import { LuPackagePlus, LuSave } from "react-icons/lu";
 import { useDelayedNavigate } from "../../../../common/hooks/useDelayedNavigate";
-import { hoyISO } from "../../../../common/utils/fechas";
+import { useLista } from "../../../../common/hooks/useLista";
+import { formatoFecha, hoyISO } from "../../../../common/utils/fechas";
+import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import {
-  AccionesFormulario,
+  CeldaCompleta,
+  FormularioAlta,
+  GrillaFormulario,
+  InputFecha,
+  InputUnidad,
+  PaginaAlta,
+  PieFormulario,
+  SeccionFormulario,
+  TarjetaLateral,
+} from "../../../../components/ui/formularios";
+import { DatoDetalle } from "../../../../components/ui/plantillas";
+import {
   BotonCancelar,
   BotonGuardar,
   DialogoExito,
@@ -13,21 +26,22 @@ import {
   FormInput,
   FormNativeSelect,
   SelectPlaceholder,
-  TarjetaFormulario,
-  TituloFormulario,
 } from "../../../../components/ui/patrones";
 import { useProveedores } from "../../../proveedores/hooks/useProveedores";
-import { useInsumosActivos } from "../../hooks/useStockInsumos";
+import { listarInsumos } from "../../../insumos/services/insumoService";
+import { homologacionVigente, type Insumo } from "../../../insumos/types/insumo";
+import { useIngredientesActivos } from "../../hooks/useStockInsumos";
 import { crearLoteInsumo } from "../../services/loteInsumoService";
 
 export function LoteInsumoCreatePage() {
   const navigate = useNavigate();
   const delayedNavigate = useDelayedNavigate();
-  const { insumos, loading: cargandoInsumos } = useInsumosActivos();
+  const { ingredientes, loading: cargandoIngredientes } = useIngredientesActivos();
   const { proveedores, loading: cargandoProveedores } = useProveedores(false);
 
-  const [insumoId, setInsumoId] = useState(0);
-  const [proveedorId, setProveedorId] = useState(0);
+  const [ingredienteId, setIngredienteId] = useState(0);
+  const [insumoElegido, setInsumoId] = useState(0);
+  const [proveedorElegido, setProveedorId] = useState(0);
   const [numeroLote, setNumeroLote] = useState("");
   const [cantidad, setCantidad] = useState("");
   const [ingreso, setIngreso] = useState(() => hoyISO());
@@ -36,13 +50,49 @@ export function LoteInsumoCreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
 
-  const unidad = insumos.find((i) => i.id === insumoId)?.unidad_medida.simbolo;
+  const unidad = ingredientes.find((i) => i.id === ingredienteId)?.unidad_medida.simbolo;
+
+  // Marcas del ingrediente elegido.
+  const cargarInsumos = useCallback(
+    () => (ingredienteId ? listarInsumos({ ingredienteId }) : Promise.resolve([] as Insumo[])),
+    [ingredienteId],
+  );
+  const { items: todosLosInsumos, loading: cargandoInsumos } = useLista<Insumo[]>({
+    cargar: cargarInsumos,
+    dependencias: [ingredienteId],
+    valorInicial: [],
+    mensajeError: "No se pudieron cargar los insumos.",
+  });
+  // Solo se reciben lotes de marcas con la homologación aprobada y vigente.
+  const insumos = useMemo(() => todosLosInsumos.filter(homologacionVigente), [todosLosInsumos]);
+  const sinAprobar = todosLosInsumos.length - insumos.length;
+  // Con una sola marca no hace falta elegirla.
+  const insumo =
+    insumos.find((i) => i.id === insumoElegido) ?? (insumos.length === 1 ? insumos[0] : undefined);
+  const insumoId = insumo?.id ?? 0;
+
+  // Solo los proveedores que venden la marca elegida (y si es uno solo, ya queda elegido).
+  const proveedoresDelInsumo = useMemo(() => {
+    const ids = new Set(insumo?.proveedores.map((p) => p.id) ?? []);
+    return proveedores.filter((p) => ids.has(p.id));
+  }, [insumo, proveedores]);
+  const proveedorId = proveedoresDelInsumo.some((p) => p.id === proveedorElegido)
+    ? proveedorElegido
+    : proveedoresDelInsumo.length === 1
+      ? proveedoresDelInsumo[0].id
+      : 0;
+
+  const elegirIngrediente = (id: number) => {
+    setIngredienteId(id);
+    setInsumoId(0);
+    setProveedorId(0);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!insumoId || !proveedorId) {
-      setError("Elegí el insumo y el proveedor.");
+    if (!ingredienteId || !insumoId || !proveedorId) {
+      setError("Elegí el ingrediente, el insumo (marca) y el proveedor.");
       return;
     }
     if (!numeroLote.trim()) {
@@ -69,7 +119,7 @@ export function LoteInsumoCreatePage() {
         fecha_vencimiento: vencimiento || null,
       });
       setExito(true);
-      delayedNavigate("/stock-insumos");
+      delayedNavigate("/lotes-insumo");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar el lote.");
     } finally {
@@ -77,103 +127,180 @@ export function LoteInsumoCreatePage() {
     }
   };
 
+  // Resumen de lo que se va a registrar, para el panel lateral: se arma con
+  // lo ya elegido en el formulario (no hace pedidos nuevos).
+  const ingredienteElegido = ingredientes.find((i) => i.id === ingredienteId);
+  const proveedorResumen = proveedores.find((p) => p.id === proveedorId);
+  const resumen = (
+    <TarjetaLateral titulo="Resumen de la recepción">
+      <Stack gap="3" mt="3">
+        <DatoDetalle etiqueta="Ingrediente">{ingredienteElegido?.nombre ?? "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Insumo (marca)">{insumo?.nombre ?? "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Proveedor">{proveedorResumen?.nombre ?? "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Lote del proveedor">{numeroLote.trim() || "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Cantidad">{cantidad ? cantidadConUnidad(cantidad, unidad) : "—"}</DatoDetalle>
+        <DatoDetalle etiqueta="Vencimiento">{vencimiento ? formatoFecha(vencimiento) : "Sin fecha"}</DatoDetalle>
+      </Stack>
+      <Text mt="4" fontSize="xs" color="fg.subtle">
+        Al registrarlo, la cantidad se suma al stock disponible del ingrediente.
+      </Text>
+    </TarjetaLateral>
+  );
+
   return (
-    <PaginaFormulario
-      volver={{ a: "/stock-insumos", etiqueta: "Stock de insumos" }}
+    <PaginaAlta
+      volver={{ a: "/lotes-insumo", etiqueta: "Lotes de insumos" }}
+      icono={LuPackagePlus}
       titulo="Recibir lote de insumo"
+      descripcion="Registrá la recepción de un lote para sumarlo al stock disponible."
       error={error}
+      lateral={resumen}
     >
+      {/* Sin la validación nativa: el globo del navegador ("Completa este campo")
+          saltaba el primer obligatorio y no seguía el estilo de la app; los
+          faltantes los avisa handleSubmit en el banner. */}
+      <FormularioAlta onSubmit={handleSubmit} sinValidacionNativa>
+        <SeccionFormulario titulo="Origen" ayuda="Qué ingrediente llegó, de qué marca y quién lo entregó.">
+          <GrillaFormulario>
+            <FormField label="Ingrediente" required completo>
+              <FormNativeSelect
+                value={ingredienteId}
+                onChange={(e) => elegirIngrediente(Number(e.target.value))}
+                disabled={cargandoIngredientes}
+              >
+                <SelectPlaceholder>{cargandoIngredientes ? "Cargando..." : "Seleccioná un ingrediente"}</SelectPlaceholder>
+                {ingredientes.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre} ({i.unidad_medida.simbolo})
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
 
-      <Box as="form" onSubmit={handleSubmit}>
-        <TarjetaFormulario>
-          <TituloFormulario>Datos del lote recibido</TituloFormulario>
-
-          <FormField label="Insumo" required mb="4">
-            <FormNativeSelect
-              value={insumoId}
-              onChange={(e) => setInsumoId(Number(e.target.value))}
-              disabled={cargandoInsumos}
-              maxW="500px"
+            <FormField
+              label="Insumo (marca)"
+              required
+              completo
+              helper={
+                !ingredienteId || cargandoInsumos
+                  ? undefined
+                  : todosLosInsumos.length === 0
+                    ? "Este ingrediente todavía no tiene insumos (marcas)."
+                    : insumos.length === 0
+                      ? "Ninguna marca de este ingrediente tiene la homologación aprobada y vigente."
+                      : sinAprobar > 0
+                        ? `No se muestran ${sinAprobar === 1 ? "1 marca" : `${sinAprobar} marcas`} sin homologación vigente.`
+                        : undefined
+              }
             >
-              <SelectPlaceholder>{cargandoInsumos ? "Cargando..." : "Seleccioná un insumo"}</SelectPlaceholder>
-              {insumos.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nombre} ({i.unidad_medida.simbolo})
-                </option>
-              ))}
-            </FormNativeSelect>
-          </FormField>
+              <FormNativeSelect
+                value={insumoId}
+                onChange={(e) => setInsumoId(Number(e.target.value))}
+                disabled={!ingredienteId || cargandoInsumos}
+              >
+                <SelectPlaceholder>
+                  {!ingredienteId ? "Primero elegí el ingrediente" : cargandoInsumos ? "Cargando..." : "Seleccioná una marca"}
+                </SelectPlaceholder>
+                {insumos.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
 
-          <FormField label="Proveedor" required mb="4">
-            <FormNativeSelect
-              value={proveedorId}
-              onChange={(e) => setProveedorId(Number(e.target.value))}
-              disabled={cargandoProveedores}
-              maxW="500px"
+            {ingredienteId > 0 && !cargandoInsumos && (
+              <CeldaCompleta mt="-2">
+                <Text fontSize="sm" color="fg.muted">
+                  ¿Llegó una marca que no está en la lista o sin homologar?{" "}
+                  <Link asChild color="brand.600" fontWeight="medium">
+                    <RouterLink to={`/insumos?ingrediente=${ingredienteId}${todosLosInsumos.length === 0 ? "&nuevo=1" : ""}`}>
+                      {todosLosInsumos.length === 0 ? "Crear el insumo" : "Ir a Insumos"}
+                    </RouterLink>
+                  </Link>
+                </Text>
+              </CeldaCompleta>
+            )}
+
+            <FormField
+              label="Proveedor"
+              required
+              completo
+              helper={
+                insumo && proveedoresDelInsumo.length === 0
+                  ? "Ningún proveedor activo vende esta marca. Asociáselo en la ficha del ingrediente o del proveedor."
+                  : undefined
+              }
             >
-              <SelectPlaceholder>
-                {cargandoProveedores ? "Cargando..." : "Seleccioná un proveedor"}
-              </SelectPlaceholder>
-              {proveedores.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </FormNativeSelect>
-          </FormField>
-          {proveedores.find((p) => p.id === proveedorId)?.es_certificado && (
-            <Text fontSize="sm" color={proveedores.find((p) => p.id === proveedorId)?.estado_certificacion === "vigente" ? "green.fg" : "red.fg"} mb="3">
-              Certificación del proveedor: {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion ?? "sin certificación vigente"}.
-              {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion !== "vigente" && " No se podrá registrar la recepción hasta cargar una certificación vigente."}
-            </Text>
-          )}
+              <FormNativeSelect
+                value={proveedorId}
+                onChange={(e) => setProveedorId(Number(e.target.value))}
+                disabled={cargandoProveedores || !insumoId}
+              >
+                <SelectPlaceholder>
+                  {cargandoProveedores ? "Cargando..." : !insumoId ? "Primero elegí la marca" : "Seleccioná un proveedor"}
+                </SelectPlaceholder>
+                {proveedoresDelInsumo.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </FormNativeSelect>
+            </FormField>
+            {proveedores.find((p) => p.id === proveedorId)?.es_certificado && (
+              <CeldaCompleta mt="-2">
+                <Text fontSize="sm" color={proveedores.find((p) => p.id === proveedorId)?.estado_certificacion === "vigente" ? "green.fg" : "red.fg"}>
+                  Certificación del proveedor: {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion ?? "sin certificación vigente"}.
+                  {proveedores.find((p) => p.id === proveedorId)?.estado_certificacion !== "vigente" && " No se podrá registrar la recepción hasta cargar una certificación vigente."}
+                </Text>
+              </CeldaCompleta>
+            )}
+          </GrillaFormulario>
+        </SeccionFormulario>
 
-          <HStack gap="5" align="flex-start" flexWrap="wrap" mb="4">
-            <FormField label="Número de lote del proveedor" required mb="0">
+        <SeccionFormulario titulo="Datos del lote" ayuda="Tal como figuran en el remito o el rótulo del proveedor.">
+          <GrillaFormulario>
+            <FormField label="Número de lote del proveedor" required>
               <FormInput
                 value={numeroLote}
                 onChange={(e) => setNumeroLote(e.target.value)}
                 placeholder="Ej: H-2026-0415"
-                maxW="260px"
               />
             </FormField>
-            <FormField label={`Cantidad recibida${unidad ? ` (${unidad})` : ""}`} required mb="0">
-              <FormInput
+            <FormField label="Cantidad recibida" required>
+              <InputUnidad
+                unidad={unidad}
                 type="number"
                 min="0"
                 step="any"
                 inputMode="decimal"
+                placeholder="0"
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value)}
-                maxW="200px"
               />
             </FormField>
-          </HStack>
 
-          <HStack gap="5" align="flex-start" flexWrap="wrap">
-            <FormField label="Fecha de ingreso" mb="0">
-              <FormInput type="date" value={ingreso} onChange={(e) => setIngreso(e.target.value)} maxW="220px" />
+            <FormField label="Fecha de ingreso" opcional>
+              <InputFecha value={ingreso} onChange={(e) => setIngreso(e.target.value)} />
             </FormField>
-            <FormField label="Fecha de vencimiento" mb="0" helper="Opcional. Se usa para sugerir qué lote consumir primero.">
-              <FormInput
-                type="date"
-                value={vencimiento}
-                onChange={(e) => setVencimiento(e.target.value)}
-                maxW="220px"
-              />
+            <FormField label="Fecha de vencimiento" opcional helper="Se usa para sugerir qué lote consumir primero.">
+              <InputFecha value={vencimiento} onChange={(e) => setVencimiento(e.target.value)} />
             </FormField>
-          </HStack>
+          </GrillaFormulario>
+        </SeccionFormulario>
 
-          <AccionesFormulario>
-            <BotonGuardar loading={guardando}>Registrar lote</BotonGuardar>
-            <BotonCancelar onClick={() => navigate("/stock-insumos")} disabled={guardando}>
-              Cancelar
-            </BotonCancelar>
-          </AccionesFormulario>
-        </TarjetaFormulario>
-      </Box>
+        <PieFormulario>
+          <BotonCancelar onClick={() => navigate("/lotes-insumo")} disabled={guardando}>
+            Cancelar
+          </BotonCancelar>
+          <BotonGuardar loading={guardando} loadingText="Guardando...">
+            <LuSave aria-hidden />
+            Registrar lote
+          </BotonGuardar>
+        </PieFormulario>
+      </FormularioAlta>
 
       <DialogoExito isOpen={exito} mensaje="Lote de insumo registrado correctamente." />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from src.lotes import schemas, services
 from src.lotes.models import ConsumoInsumo
 from src.lotesInsumo import exceptions, services as lotes_insumo_services
+from src.lotesInsumo import schemas as lotes_insumo_schemas
 from src.lotesInsumo.models import LoteInsumo
 from src.proveedores.models import Proveedor
 from src.proveedores import services as proveedores_services
@@ -50,50 +51,52 @@ def test_stock_es_recibido_menos_consumo_real_menos_desperdicio(escenario):
     _lote_con_consumos(escenario)
 
     por_lote = lotes_insumo_services.stock_por_lote(escenario.db, escenario.harina.id)[0]
-    por_insumo = lotes_insumo_services.stock_por_insumo(escenario.db, escenario.harina.id)[0]
+    por_ingrediente = lotes_insumo_services.stock_por_ingrediente(escenario.db, escenario.harina.id)[0]
 
     assert por_lote.cantidad_recibida == Decimal("50")
     assert por_lote.consumo_real == Decimal("18")
     assert por_lote.desperdicio == Decimal("2")
     assert por_lote.saldo == Decimal("30")
-    assert por_insumo.stock == Decimal("30")
-    assert por_insumo.unidad == "kg"
+    assert por_ingrediente.stock == Decimal("30")
+    assert por_ingrediente.unidad == "kg"
 
 
-def test_el_stock_por_insumo_suma_sus_lotes(escenario):
+def test_el_stock_por_ingrediente_suma_sus_lotes(escenario):
     escenario.nuevo_lote_insumo(escenario.harina, escenario.salinas, "H-300", "25")
     _lote_con_consumos(escenario)
 
-    stock = lotes_insumo_services.stock_por_insumo(escenario.db, escenario.harina.id)[0]
+    stock = lotes_insumo_services.stock_por_ingrediente(escenario.db, escenario.harina.id)[0]
 
     assert stock.cantidad_recibida == Decimal("75")
     assert stock.stock == Decimal("55")
 
 
-def test_stock_por_insumo_lista_todos_los_insumos(escenario):
-    nombres = {s.insumo_nombre: s.stock for s in lotes_insumo_services.stock_por_insumo(escenario.db)}
+def test_stock_por_ingrediente_lista_todos_los_ingredientes(escenario):
+    nombres = {s.ingrediente_nombre: s.stock for s in lotes_insumo_services.stock_por_ingrediente(escenario.db)}
 
     assert nombres == {"Harina 000": Decimal("50"), "Sal fina": Decimal("5")}
 
 
 def test_un_lote_dado_de_baja_deja_de_contar_en_el_stock(escenario):
-    lotes_insumo_services.dar_de_baja_lote_insumo(escenario.db, escenario.lote_harina.id, "Descarte")
+    baja = lotes_insumo_schemas.LoteInsumoBaja(motivo="danado")
+    lotes_insumo_services.dar_de_baja_lote_insumo(escenario.db, escenario.lote_harina.id, baja, escenario.admin)
 
-    assert lotes_insumo_services.stock_por_insumo(escenario.db, escenario.harina.id)[0].stock == 0
+    assert lotes_insumo_services.stock_por_ingrediente(escenario.db, escenario.harina.id)[0].stock == 0
     assert lotes_insumo_services.stock_por_lote(escenario.db, escenario.harina.id) == []
     historico = lotes_insumo_services.stock_por_lote(
         escenario.db, escenario.harina.id, incluir_inactivos=True
     )
     assert historico[0].activo is False
     with pytest.raises(exceptions.LoteYaDadoDeBaja):
-        lotes_insumo_services.dar_de_baja_lote_insumo(escenario.db, escenario.lote_harina.id, "Otra")
+        lotes_insumo_services.dar_de_baja_lote_insumo(escenario.db, escenario.lote_harina.id, baja, escenario.admin)
 
 
 def test_stock_vencido_se_informa_aparte(escenario):
     db = escenario.db
     db.add(
         LoteInsumo(
-            insumo_id=escenario.harina.id,
+            insumo_id=escenario.insumo_harina.id,
+            ingrediente_id=escenario.harina.id,
             proveedor_id=escenario.molino.id,
             numero_lote="H-VIEJO",
             cantidad_recibida=Decimal("7"),
@@ -103,7 +106,7 @@ def test_stock_vencido_se_informa_aparte(escenario):
     )
     db.commit()
 
-    stock = lotes_insumo_services.stock_por_insumo(db, escenario.harina.id)[0]
+    stock = lotes_insumo_services.stock_por_ingrediente(db, escenario.harina.id)[0]
 
     assert stock.stock == Decimal("57")
     assert stock.stock_vencido == Decimal("7")
@@ -115,7 +118,8 @@ def test_lotes_sugeridos_por_vencimiento_y_sin_vencidos(escenario):
     escenario.nuevo_lote_insumo(escenario.harina, escenario.salinas, "H-SIN-FECHA", "5")
     db.add(
         LoteInsumo(
-            insumo_id=escenario.harina.id,
+            insumo_id=escenario.insumo_harina.id,
+            ingrediente_id=escenario.harina.id,
             proveedor_id=escenario.molino.id,
             numero_lote="H-VENCIDO",
             cantidad_recibida=Decimal("5"),
@@ -186,21 +190,22 @@ def test_lote_duplicado_del_mismo_proveedor_se_rechaza(escenario):
 def test_api_stock_y_lotes_de_insumo(client, escenario):
     _lote_con_consumos(escenario)
 
-    por_insumo = client.get("/stock/insumos", headers=escenario.h_admin)
-    por_lote = client.get(f"/stock/lotes-insumo?insumo_id={escenario.harina.id}", headers=escenario.h_admin)
+    por_ingrediente = client.get("/stock/ingredientes", headers=escenario.h_admin)
+    por_lote = client.get(f"/stock/lotes-insumo?ingrediente_id={escenario.harina.id}", headers=escenario.h_admin)
     sugeridos = client.get(
-        f"/lotes-insumo/sugeridos?insumo_id={escenario.harina.id}", headers=escenario.h_operador
+        f"/lotes-insumo/sugeridos?ingrediente_id={escenario.harina.id}", headers=escenario.h_operador
     )
 
-    assert {s["insumo_nombre"]: s["stock"] for s in por_insumo.json()}["Harina 000"] == "30.000"
+    assert {s["ingrediente_nombre"]: s["stock"] for s in por_ingrediente.json()}["Harina 000"] == "30.000"
     assert por_lote.json()[0]["saldo"] == "30.000"
     assert sugeridos.json()[0]["numero_lote"] == "H-100"
-    assert client.get("/stock/insumos", headers=escenario.h_operador).status_code == 403
+    assert client.get("/stock/ingredientes", headers=escenario.h_operador).status_code == 200
+    assert client.get("/stock/ingredientes").status_code == 401
 
 
 def test_api_recibir_y_dar_de_baja_un_lote_de_insumo(client, escenario):
     cuerpo = {
-        "insumo_id": escenario.harina.id,
+        "insumo_id": escenario.insumo_harina.id,
         "proveedor_id": escenario.molino.id,
         "numero_lote": " H-777 ",
         "cantidad_recibida": "10",
@@ -213,13 +218,14 @@ def test_api_recibir_y_dar_de_baja_un_lote_de_insumo(client, escenario):
     assert creado.json()["proveedor"]["nombre"] == "Molino Sur"
 
     baja = client.post(
-        f"/lotes-insumo/{creado.json()['id']}/baja", json={"motivo": "Vencido"}, headers=escenario.h_admin
+        f"/lotes-insumo/{creado.json()['id']}/baja", json={"motivo": "vencido"}, headers=escenario.h_admin
     )
     assert baja.status_code == 200 and baja.json()["activo"] is False
-    sin_motivo = client.post(
-        f"/lotes-insumo/{escenario.lote_sal.id}/baja", json={"motivo": " "}, headers=escenario.h_admin
+    # El motivo sale de una lista cerrada: uno libre se rechaza.
+    motivo_libre = client.post(
+        f"/lotes-insumo/{escenario.lote_sal.id}/baja", json={"motivo": "Se cayó"}, headers=escenario.h_admin
     )
-    assert sin_motivo.status_code == 400
+    assert motivo_libre.status_code == 422
     assert client.delete(f"/lotes-insumo/{escenario.lote_sal.id}", headers=escenario.h_admin).json()["activo"] is False
 
 
@@ -227,7 +233,8 @@ def test_api_sugeridos_con_todos_incluye_vencidos_y_agotados(client, escenario):
     db = escenario.db
     db.add(
         LoteInsumo(
-            insumo_id=escenario.harina.id,
+            insumo_id=escenario.insumo_harina.id,
+            ingrediente_id=escenario.harina.id,
             proveedor_id=escenario.molino.id,
             numero_lote="H-VENCIDO",
             cantidad_recibida=Decimal("5"),
@@ -236,7 +243,7 @@ def test_api_sugeridos_con_todos_incluye_vencidos_y_agotados(client, escenario):
         )
     )
     db.commit()
-    url = f"/lotes-insumo/sugeridos?insumo_id={escenario.harina.id}"
+    url = f"/lotes-insumo/sugeridos?ingrediente_id={escenario.harina.id}"
 
     disponibles = client.get(url, headers=escenario.h_operador).json()
     todos = client.get(url + "&todos=true", headers=escenario.h_operador).json()

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 import type { IconType } from "react-icons";
-import { LuBug, LuEllipsis, LuMessageSquare, LuSprayCan, LuTruck, LuTriangleAlert, LuUndo2, LuWrench } from "react-icons/lu";
+import { LuBug, LuEllipsis, LuMessageSquare, LuSprayCan, LuTruck, LuTriangleAlert, LuWrench } from "react-icons/lu";
 import type { TipoIncidente } from "../../incidente/types/incidente";
 import type { ParteTorta } from "../types/dashboard";
 
@@ -23,7 +23,6 @@ const DIAMETRO = 200;
 const ICONO_TIPO: Record<TipoIncidente, IconType> = {
   plagas: LuBug,
   falla_equipo: LuWrench,
-  devolucion_cliente: LuUndo2,
   higiene_contaminacion: LuSprayCan,
   entrega_rechazada: LuTriangleAlert,
   reclamo_cliente: LuMessageSquare,

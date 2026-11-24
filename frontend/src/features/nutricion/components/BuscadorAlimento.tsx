@@ -106,7 +106,7 @@ export function BuscadorAlimento({
           >
             {resultados.length === 0 ? (
               <Text fontSize="sm" color="fg.muted" px="3" py="2">
-                Sin resultados. Las bases se importan desde Producción → Parámetros nutricionales.
+                Sin resultados. Las bases se importan desde Inventario → Ingredientes → Base de composición.
               </Text>
             ) : (
               resultados.map((a) => (

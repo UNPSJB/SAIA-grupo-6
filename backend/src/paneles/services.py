@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Iterable, Optional
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.aptitud.models import Aptitud  # noqa: F401  (registro de modelos)
@@ -26,7 +26,7 @@ from src.Equipo.models import Calibracion, Equipo
 from src.incidente.constants import EstadoIncidente, TipoIncidente
 from src.incidente.models import Incidente
 from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
-from src.insumos.models import Insumo
+from src.ingredientes.models import Ingrediente
 from src.lotes.constants import (
     ESTADO_CANCELADO,
     ESTADO_EN_PROCESO,
@@ -48,7 +48,7 @@ from src.paneles.constants import (
     ETIQUETA_ESTADO_SALIDA,
     ETIQUETA_MOMENTO_TAREA,
     ETIQUETA_TIPO_INCIDENTE,
-    ETIQUETA_TIPO_INSUMO,
+    ETIQUETA_ADITIVO,
     ETIQUETA_TIPO_VENCIMIENTO,
     FILAS_LISTA,
     FILAS_RANKING,
@@ -205,15 +205,6 @@ def _mapa(
             for clave, etiqueta in filas
         ],
     )
-
-
-def _conteo_por_dia(db: Session, columna, clave: str, *condiciones, desde=None):
-    """Filas (día, clave, cantidad) de una tabla, agrupadas por día."""
-    dia = func.date(columna)
-    consulta = select(dia, func.count()).where(*condiciones).group_by(dia)
-    if desde is not None:
-        consulta = consulta.select_from(desde)
-    return [(d, clave, n) for d, n in db.execute(consulta).all()]
 
 
 def _nombre_persona(nombre: str, apellido: Optional[str]) -> str:
@@ -575,29 +566,29 @@ def panel_produccion(
 
 
 def panel_inventario(
-    db: Session, periodo: schemas.Periodo, tipo: Optional[str]
+    db: Session, periodo: schemas.Periodo, es_aditivo: Optional[bool]
 ) -> schemas.PanelInventario:
     hoy_dia = hoy()
-    de_tipo = () if tipo is None else (Insumo.tipo == tipo,)
+    de_tipo = () if es_aditivo is None else (Ingrediente.es_aditivo.is_(es_aditivo),)
 
-    insumos = db.execute(
-        select(Insumo.id, Insumo.tipo).where(Insumo.activo.is_(True), *de_tipo)
+    ingredientes = db.execute(
+        select(Ingrediente.id, Ingrediente.es_aditivo).where(Ingrediente.activo.is_(True), *de_tipo)
     ).all()
-    ids_insumo = {insumo_id for insumo_id, _ in insumos}
+    ids_ingrediente = {ingrediente_id for ingrediente_id, _ in ingredientes}
 
     # El saldo de cada lote lo calcula el servicio de stock (recibido menos
     # consumos): acá solo se reparte, no se vuelve a definir qué es "stock".
     lotes = [
         lote
         for lote in lotes_insumo_services.stock_por_lote(db)
-        if lote.insumo_id in ids_insumo
+        if lote.ingrediente_id in ids_ingrediente
     ]
     stock: dict[int, Decimal] = defaultdict(Decimal)
     stock_vencido: set[int] = set()
     tramos_vencimiento = {"vencido": 0, "semana": 0, "mes": 0, "despues": 0, "sin_fecha": 0}
     con_saldo = []
     for lote in lotes:
-        stock[lote.insumo_id] += lote.saldo
+        stock[lote.ingrediente_id] += lote.saldo
         if lote.saldo <= 0:
             continue
         con_saldo.append(lote)
@@ -607,7 +598,7 @@ def panel_inventario(
         dias = (lote.fecha_vencimiento - hoy_dia).days
         if dias < 0:
             tramos_vencimiento["vencido"] += 1
-            stock_vencido.add(lote.insumo_id)
+            stock_vencido.add(lote.ingrediente_id)
         elif dias <= DIAS_POR_VENCER:
             tramos_vencimiento["semana"] += 1
         elif dias <= 30:
@@ -615,21 +606,21 @@ def panel_inventario(
         else:
             tramos_vencimiento["despues"] += 1
 
-    sin_stock = {insumo_id for insumo_id in ids_insumo if stock[insumo_id] <= 0}
+    sin_stock = {ingrediente_id for ingrediente_id in ids_ingrediente if stock[ingrediente_id] <= 0}
 
-    # Movimientos del período, en cantidad de registros: cada insumo tiene su
-    # unidad (kg, l, un) y sumar cantidades entre insumos no significa nada.
+    # Movimientos del período, en cantidad de registros: cada ingrediente tiene su
+    # unidad (kg, l, un) y sumar cantidades entre ingredientes no significa nada.
     dia_consumo = func.date(ConsumoInsumo.registrado_en)
     consumos = db.execute(
         select(dia_consumo, ConsumoInsumo.tipo, func.count())
         .join(LoteInsumo, LoteInsumo.id == ConsumoInsumo.lote_insumo_id)
-        .join(Insumo, Insumo.id == LoteInsumo.insumo_id)
+        .join(Ingrediente, Ingrediente.id == LoteInsumo.ingrediente_id)
         .where(*_en_periodo(ConsumoInsumo.registrado_en, periodo, True), *de_tipo)
         .group_by(dia_consumo, ConsumoInsumo.tipo)
     ).all()
     recibidos = db.execute(
         select(LoteInsumo.fecha_ingreso, func.count())
-        .join(Insumo, Insumo.id == LoteInsumo.insumo_id)
+        .join(Ingrediente, Ingrediente.id == LoteInsumo.ingrediente_id)
         .where(*_en_periodo(LoteInsumo.fecha_ingreso, periodo, False), *de_tipo)
         .group_by(LoteInsumo.fecha_ingreso)
     ).all()
@@ -637,25 +628,25 @@ def panel_inventario(
 
     mas_movimiento = [
         schemas.Conteo(
-            clave=str(insumo_id),
+            clave=str(ingrediente_id),
             etiqueta=nombre,
             valor=cantidad,
             detalle=f"{_plural(cantidad, 'consumo', 'consumos')} · {formatear_cantidad(Decimal(str(total or 0)))} {unidad}",
         )
-        for insumo_id, nombre, unidad, cantidad, total in db.execute(
+        for ingrediente_id, nombre, unidad, cantidad, total in db.execute(
             select(
-                Insumo.id,
-                Insumo.nombre,
+                Ingrediente.id,
+                Ingrediente.nombre,
                 UnidadMedida.simbolo,
                 func.count(ConsumoInsumo.id),
                 func.sum(ConsumoInsumo.cantidad),
             )
             .join(LoteInsumo, LoteInsumo.id == ConsumoInsumo.lote_insumo_id)
-            .join(Insumo, Insumo.id == LoteInsumo.insumo_id)
-            .join(UnidadMedida, UnidadMedida.id == Insumo.unidad_medida_id)
+            .join(Ingrediente, Ingrediente.id == LoteInsumo.ingrediente_id)
+            .join(UnidadMedida, UnidadMedida.id == Ingrediente.unidad_medida_id)
             .where(*_en_periodo(ConsumoInsumo.registrado_en, periodo, True), *de_tipo)
-            .group_by(Insumo.id, Insumo.nombre, UnidadMedida.simbolo)
-            .order_by(func.count(ConsumoInsumo.id).desc(), Insumo.nombre)
+            .group_by(Ingrediente.id, Ingrediente.nombre, UnidadMedida.simbolo)
+            .order_by(func.count(ConsumoInsumo.id).desc(), Ingrediente.nombre)
             .limit(FILAS_RANKING)
         ).all()
     ]
@@ -665,7 +656,7 @@ def panel_inventario(
         for proveedor_id, nombre, cantidad in db.execute(
             select(Proveedor.id, Proveedor.nombre, func.count(LoteInsumo.id))
             .join(LoteInsumo, LoteInsumo.proveedor_id == Proveedor.id)
-            .join(Insumo, Insumo.id == LoteInsumo.insumo_id)
+            .join(Ingrediente, Ingrediente.id == LoteInsumo.ingrediente_id)
             .where(*_en_periodo(LoteInsumo.fecha_ingreso, periodo, False), *de_tipo)
             .group_by(Proveedor.id, Proveedor.nombre)
             .order_by(func.count(LoteInsumo.id).desc(), Proveedor.nombre)
@@ -689,9 +680,9 @@ def panel_inventario(
         select(func.count(func.distinct(ultima.c.proveedor_id))).where(ultima.c.vence < hoy_dia)
     )
 
-    conteo_tipo: dict[str, int] = defaultdict(int)
-    for _, tipo_insumo in insumos:
-        conteo_tipo[tipo_insumo] += 1
+    conteo_aditivo: dict[str, int] = defaultdict(int)
+    for _, es_aditivo_ingrediente in ingredientes:
+        conteo_aditivo["aditivo" if es_aditivo_ingrediente else "otro"] += 1
 
     # Con fecha, primero lo que vence antes (FEFO): es lo que hay que usar.
     proximos = sorted(
@@ -704,19 +695,19 @@ def panel_inventario(
         vencen_primero.append(
             schemas.FilaAtencion(
                 clave=f"lote-insumo-{lote.lote_insumo_id}",
-                titulo=f"{lote.insumo_nombre} · lote {lote.numero_lote}",
+                titulo=f"{lote.ingrediente_nombre} · lote {lote.numero_lote}",
                 detalle=f"{lote.proveedor_nombre} · vence el {lote.fecha_vencimiento:%d/%m/%Y}",
                 tono=tono,
                 estado=estado,
-                link="/stock-insumos",
+                link="/lotes-insumo",
             )
         )
 
-    con_stock_ok = len(ids_insumo) - len(sin_stock) - len(stock_vencido - sin_stock)
+    con_stock_ok = len(ids_ingrediente) - len(sin_stock) - len(stock_vencido - sin_stock)
     return schemas.PanelInventario(
         periodo=periodo,
-        insumos_activos=len(ids_insumo),
-        insumos_sin_stock=len(sin_stock),
+        ingredientes_activos=len(ids_ingrediente),
+        ingredientes_sin_stock=len(sin_stock),
         lotes_vencidos=tramos_vencimiento["vencido"],
         lotes_por_vencer=tramos_vencimiento["semana"],
         lotes_recibidos=sum(n for _, n in recibidos),
@@ -742,9 +733,9 @@ def panel_inventario(
             schemas.Conteo(clave="despues", etiqueta="Vencen en más de 30 días", valor=tramos_vencimiento["despues"]),
             schemas.Conteo(clave="sin_fecha", etiqueta="Sin fecha de vencimiento", valor=tramos_vencimiento["sin_fecha"]),
         ],
-        insumos_por_tipo=[
-            schemas.Conteo(clave=clave, etiqueta=ETIQUETA_TIPO_INSUMO.get(clave, clave), valor=cantidad)
-            for clave, cantidad in sorted(conteo_tipo.items())
+        ingredientes_segun_aditivo=[
+            schemas.Conteo(clave=clave, etiqueta=ETIQUETA_ADITIVO.get(clave, clave), valor=cantidad)
+            for clave, cantidad in sorted(conteo_aditivo.items())
         ],
         estado_stock=[
             schemas.Conteo(clave="con_stock", etiqueta="Con stock vigente", valor=con_stock_ok),
@@ -784,14 +775,14 @@ def _atencion_limpieza(db: Session, hoy_dia: date) -> tuple[int, int, list[schem
     ).all()
     filas = [
         schemas.FilaAtencion(
-            clave=f"quimico-{insumo_id}",
+            clave=f"quimico-{quimico_id}",
             titulo=nombre,
             detalle=f"Quedan {formatear_cantidad(actual)} {unidad} · mínimo {formatear_cantidad(minimo)} {unidad}",
             tono="peligro" if actual <= 0 else "alerta",
             estado="Sin stock" if actual <= 0 else "Stock bajo",
             link="/gestion-stock",
         )
-        for insumo_id, nombre, actual, minimo, unidad in bajos
+        for quimico_id, nombre, actual, minimo, unidad in bajos
     ]
 
     vencidos = 0
@@ -832,12 +823,15 @@ def panel_limpieza(
     administra: bool,
 ) -> schemas.PanelLimpieza:
     hoy_dia = hoy()
-    # Quien solo opera ve el cumplimiento de las tareas que tiene asignadas.
+    # Quien solo opera ve el cumplimiento de las tareas que tiene asignadas y
+    # de las que cubre como suplente (las mismas que ve en su checklist).
     alcance = []
     if sector_id is not None:
         alcance.append(Equipo.sector_id == sector_id)
     if not administra:
-        alcance.append(RegistroTarea.operador_id == usuario.id)
+        alcance.append(
+            or_(RegistroTarea.operador_id == usuario.id, RegistroTarea.reemplazado_por_id == usuario.id)
+        )
 
     base = (
         select(
@@ -927,7 +921,9 @@ def panel_limpieza(
     if not administra:
         consulta_checklists = consulta_checklists.join(
             RegistroTarea, RegistroTarea.checklist_id == Checklist.id
-        ).where(RegistroTarea.operador_id == usuario.id)
+        ).where(
+            or_(RegistroTarea.operador_id == usuario.id, RegistroTarea.reemplazado_por_id == usuario.id)
+        )
     estados = {estado: 0 for estado in EstadoChecklist}
     for estado, pasado, cantidad in db.execute(consulta_checklists).all():
         estado = EstadoChecklist(estado)
@@ -1361,10 +1357,12 @@ def panel_calidad(
 # ────────────────────────────── Personas ──────────────────────────────
 
 
-def _rol(es_super_admin: bool, puede_administrar: bool, puede_operar: bool) -> tuple[str, str]:
+def _rol(es_super_admin: bool, es_gerente: bool, puede_administrar: bool, puede_operar: bool) -> tuple[str, str]:
     """Rol excluyente, con el mismo criterio que el listado de personal."""
     if es_super_admin:
         return "super_admin", "Super administradores"
+    if es_gerente:
+        return "gerente", "Gerentes"
     if puede_administrar:
         return "admin", "Administradores"
     if puede_operar:
@@ -1389,18 +1387,21 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
     transportistas_activos, transportistas_inactivos = _activos_inactivos(db, Transportista)
 
     roles: dict[tuple[str, str], int] = defaultdict(int)
-    for es_super, administra, opera, cantidad in db.execute(
-        select(Personal.es_super_admin, Personal.puede_administrar, Personal.puede_operar, func.count())
+    for es_super, gerente, administra, opera, cantidad in db.execute(
+        select(
+            Personal.es_super_admin, Personal.es_gerente, Personal.puede_administrar,
+            Personal.puede_operar, func.count(),
+        )
         .where(Personal.activo.is_(True))
-        .group_by(Personal.es_super_admin, Personal.puede_administrar, Personal.puede_operar)
+        .group_by(
+            Personal.es_super_admin, Personal.es_gerente, Personal.puede_administrar,
+            Personal.puede_operar,
+        )
     ).all():
-        roles[_rol(es_super, administra, opera)] += cantidad
+        roles[_rol(es_super, gerente, administra, opera)] += cantidad
 
-    vencimientos = [
-        v
-        for v in vencimientos_services.listar_vencimientos(db, "PERSONAL")
-        if v.estado in (VENCIDO, PROXIMO)
-    ]
+    todas_las_aptitudes = vencimientos_services.listar_vencimientos(db, "PERSONAL")
+    vencimientos = [v for v in todas_las_aptitudes if v.estado in (VENCIDO, PROXIMO)]
     aptitudes_atencion = []
     for v in vencimientos[:FILAS_LISTA]:
         tono, estado = _plazo(v.dias_restantes)
@@ -1437,6 +1438,13 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
         .limit(FILAS_RANKING)
     ).all()
 
+    # Total del período (el ranking de arriba se corta en FILAS_RANKING personas).
+    incidentes_reportados = db.scalar(
+        select(func.count(Incidente.id))
+        .join(Personal, Personal.id == Incidente.usuario_id)
+        .where(*_en_periodo(Incidente.fecha_reporte, periodo, True))
+    ) or 0
+
     reclamos_por_cliente = dict(
         db.execute(
             select(Reclamo.cliente_id, func.count())
@@ -1452,6 +1460,23 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
         .order_by(func.count(Salida.id).desc(), Cliente.nombre)
         .limit(FILAS_RANKING)
     ).all()
+
+    # De las salidas del período de esos clientes, cuántas recibieron al menos
+    # un reclamo (de cualquier fecha): separa las salidas con y sin reclamo.
+    salidas_con_reclamo: dict[str, int] = {}
+    if clientes:
+        salidas_con_reclamo = {
+            str(cliente_id): cantidad
+            for cliente_id, cantidad in db.execute(
+                select(Salida.cliente_id, func.count(func.distinct(Salida.id)))
+                .join(Reclamo, Reclamo.salida_id == Salida.id)
+                .where(
+                    Salida.cliente_id.in_([c[0] for c in clientes]),
+                    *_en_periodo(Salida.fecha_reserva, periodo, False),
+                )
+                .group_by(Salida.cliente_id)
+            ).all()
+        }
 
     entregas = db.execute(
         select(Transportista.id, Transportista.razon_social, func.count(Salida.id))
@@ -1482,6 +1507,7 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
         personal_inactivo=personal_inactivo,
         aptitudes_vencidas=sum(1 for v in vencimientos if v.estado == VENCIDO),
         aptitudes_proximas=sum(1 for v in vencimientos if v.estado == PROXIMO),
+        aptitudes_vigentes=len(todas_las_aptitudes) - len(vencimientos),
         clientes_activos=clientes_activos,
         clientes_inactivos=clientes_inactivos,
         transportistas_activos=transportistas_activos,
@@ -1503,6 +1529,20 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
             )
             for persona_id, nombre, apellido, n, c in asignadas[:FILAS_RANKING]
         ],
+        # Mismas filas que arriba, pero el ranking es por tareas hechas: quien
+        # más trabajo completó, aunque su porcentaje sea menor.
+        tareas_completadas_por_operador=[
+            schemas.Conteo(
+                clave=str(persona_id),
+                etiqueta=_nombre_persona(nombre, apellido),
+                valor=int(c),
+                detalle=f"{int(c)} de {_plural(n, 'tarea', 'tareas')}",
+            )
+            for persona_id, nombre, apellido, n, c in sorted(
+                asignadas, key=lambda fila: (-int(fila[4]), fila[1] or "")
+            )[:FILAS_RANKING]
+        ],
+        incidentes_reportados=incidentes_reportados,
         incidentes_por_persona=[
             schemas.Conteo(clave=str(persona_id), etiqueta=_nombre_persona(nombre, apellido), valor=cantidad)
             for persona_id, nombre, apellido, cantidad in incidentes
@@ -1521,6 +1561,7 @@ def panel_personas(db: Session, periodo: schemas.Periodo) -> schemas.PanelPerson
             )
             for cliente_id, nombre, cantidad in clientes
         ],
+        salidas_con_reclamo_por_cliente=salidas_con_reclamo,
         entregas_por_transportista=[
             schemas.Conteo(clave=str(tid), etiqueta=razon, valor=cantidad)
             for tid, razon, cantidad in entregas
@@ -1587,7 +1628,8 @@ def _checklist_de_hoy(db: Session, usuario: Personal, hoy_dia: date, meta: int) 
             f"{t.reemplazado_por_nombre or t.operador_nombre or 'Sin asignar'}",
             tono="alerta",
             estado=ETIQUETA_MOMENTO_TAREA.get(t.tipo or "", "Pendiente"),
-            link="/checklist",
+            # Lleva a la tarea puntual dentro del checklist diario.
+            link=f"/checklist?registro={t.registro_id}" if t.registro_id else "/checklist",
         )
         for t in tareas
         if not t.completado
@@ -1610,11 +1652,11 @@ def _vencen_hoy(db: Session, hoy_dia: date) -> list[schemas.FilaAtencion]:
     filas = [
         schemas.FilaAtencion(
             clave=f"lote-insumo-{lote.lote_insumo_id}",
-            titulo=f"{lote.insumo_nombre} · lote {lote.numero_lote}",
+            titulo=f"{lote.ingrediente_nombre} · lote {lote.numero_lote}",
             detalle=lote.proveedor_nombre,
             tono="peligro",
             estado="Lote de insumo",
-            link="/stock-insumos",
+            link="/lotes-insumo",
         )
         for lote in lotes_insumo_services.stock_por_lote(db)
         if lote.saldo > 0 and lote.fecha_vencimiento == hoy_dia
@@ -1633,18 +1675,73 @@ def _vencen_hoy(db: Session, hoy_dia: date) -> list[schemas.FilaAtencion]:
     return filas
 
 
+def _tareas_produccion_pendientes(db: Session, usuario: Personal) -> list[schemas.TareaProduccionHoy]:
+    """Tareas pendientes de los lotes en proceso que le tocan a quien opera:
+    las asignadas a él y las que no tienen a nadie asignado."""
+    items = db.scalars(
+        select(ChecklistProduccion)
+        .join(LoteProducto, LoteProducto.id == ChecklistProduccion.lote_producto_id)
+        .where(
+            LoteProducto.estado == ESTADO_EN_PROCESO,
+            ChecklistProduccion.completado_en.is_(None),
+            (ChecklistProduccion.asignado_a_id == usuario.id) | ChecklistProduccion.asignado_a_id.is_(None),
+        )
+        .options(
+            selectinload(ChecklistProduccion.lote).selectinload(LoteProducto.producto),
+            selectinload(ChecklistProduccion.lote)
+            .selectinload(LoteProducto.checklist)
+            .selectinload(ChecklistProduccion.tarea),
+            selectinload(ChecklistProduccion.tarea),
+        )
+    ).all()
+    # Las etapas van en orden: en cada lote solo se puede hacer la primera pendiente.
+    siguiente = {
+        i.lote_producto_id: min(
+            (otro.tarea.orden for otro in i.lote.checklist if otro.completado_en is None), default=None
+        )
+        for i in items
+    }
+    filas = [
+        schemas.TareaProduccionHoy(
+            lote_id=i.lote_producto_id,
+            numero_lote=i.lote.numero_lote,
+            producto=i.lote.producto.nombre,
+            orden=i.tarea.orden,
+            descripcion=i.tarea.descripcion,
+            asignada=i.asignado_a_id == usuario.id,
+            habilitada=i.tarea.orden == siguiente[i.lote_producto_id],
+        )
+        for i in items
+    ]
+    # Primero las propias; dentro, las que ya se pueden hacer, por lote más
+    # viejo y por orden de la receta.
+    inicio = {i.lote_producto_id: i.lote.fecha_inicio for i in items}
+    return sorted(
+        filas, key=lambda f: (not f.asignada, not f.habilitada, inicio[f.lote_id], f.lote_id, f.orden)
+    )
+
+
 def panel_inicio(db: Session, usuario: Personal, administra: bool) -> schemas.PanelInicio:
     """Solo lo del día de hoy: el checklist, lo que se produjo, lo que entró y
     salió, lo que se reportó y lo que vence hoy.
 
     Las cifras salen de los mismos cálculos de los paneles de cada área,
     pedidos con el período de hoy, así el inicio y los paneles nunca dicen
-    cosas distintas. Quien solo opera ve el checklist, Producción y Calidad,
-    con el mismo alcance que en esos paneles (sus tareas, sus reportes).
+    cosas distintas. Quien solo opera ve únicamente su checklist: las cifras
+    de cada área son del tablero de administración.
     """
     hoy_dia = hoy()
     periodo = schemas.Periodo(desde=hoy_dia, hasta=hoy_dia)
     grupos: list[schemas.GrupoHoy] = []
+    checklist = _checklist_de_hoy(db, usuario, hoy_dia, obtener_meta_cumplimiento_limpieza(db))
+    if not administra:
+        return schemas.PanelInicio(
+            fecha=hoy_dia,
+            checklist=checklist,
+            grupos=grupos,
+            vencen_hoy=None,
+            tareas_produccion=_tareas_produccion_pendientes(db, usuario),
+        )
 
     produccion = panel_produccion(db, periodo, None, administra)
     producido_hoy = [d for d in produccion.produccion_por_dia if d.fecha == hoy_dia]
@@ -1668,7 +1765,7 @@ def panel_inicio(db: Session, usuario: Personal, administra: bool) -> schemas.Pa
                 clave="inventario",
                 titulo="Inventario",
                 cifras=[
-                    _cifra("recibidos", "Lotes de insumo recibidos", inventario.lotes_recibidos, "/stock-insumos"),
+                    _cifra("recibidos", "Lotes de insumo recibidos", inventario.lotes_recibidos, "/lotes-insumo"),
                 ],
             )
         )
@@ -1696,7 +1793,7 @@ def panel_inicio(db: Session, usuario: Personal, administra: bool) -> schemas.Pa
 
     return schemas.PanelInicio(
         fecha=hoy_dia,
-        checklist=_checklist_de_hoy(db, usuario, hoy_dia, obtener_meta_cumplimiento_limpieza(db)),
+        checklist=checklist,
         grupos=grupos,
-        vencen_hoy=_vencen_hoy(db, hoy_dia) if administra else None,
+        vencen_hoy=_vencen_hoy(db, hoy_dia),
     )

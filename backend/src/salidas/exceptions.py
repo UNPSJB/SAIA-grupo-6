@@ -10,6 +10,13 @@ class LoteRetirado(BadRequest):
     DETAIL = ErrorCode.LOTE_RETIRADO
 
 
+class LoteSinRotulado(BadRequest):
+    DETAIL = (
+        "El lote no tiene un rotulado completo: en Rotulado de productos creá el borrador del producto, "
+        "elegí este lote y completá los campos obligatorios antes de venderlo."
+    )
+
+
 class ClienteNoEncontrado(NotFound):
     DETAIL = ErrorCode.CLIENTE_NO_ENCONTRADO
 
@@ -32,10 +39,6 @@ class SaldoInsuficiente(BadRequest):
 
 class FechaAnteriorAElaboracion(BadRequest):
     DETAIL = ErrorCode.FECHA_ANTERIOR_A_ELABORACION
-
-
-class HitoLoteNoEncontrado(NotFound):
-    DETAIL = ErrorCode.HITO_NO_ENCONTRADO
 
 
 class SalidaNoEncontrada(NotFound):

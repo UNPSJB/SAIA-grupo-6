@@ -10,10 +10,10 @@ from src.personal import schemas, services
 from src.personal.models import Personal
 from src.auth.dependencies import get_current_user_opcional, get_current_user_activo_completo, require_admin
 from src.auth.roles import (
-    es_super_admin,
     exige_permiso_para_editar,
     puede_administrar,
     puede_asignar_roles,
+    puede_cambiar_rol,
     puede_editar_a,
     puede_modificar_roles,
 )
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Agrupamos las rutas bajo el prefijo /personal
 router = APIRouter(prefix="/personal", tags=["personal"])
 
-RolPersonal = Literal["super_admin", "administrador", "operador"]
+RolPersonal = Literal["super_admin", "gerente", "administrador", "operador"]
 OrdenPersonal = Literal["nombre_asc", "nombre_desc", "dni_asc", "dni_desc"]
 
 
@@ -65,6 +65,7 @@ def create_persona(
             puede_asignar_roles(
                 current_user,
                 es_super_admin_flag=getattr(persona, "es_super_admin", False),
+                es_gerente_flag=getattr(persona, "es_gerente", False),
                 puede_administrar_flag=getattr(persona, "puede_administrar", False),
             ),
             "No tenés permiso para asignar esos roles al dar de alta una persona.",
@@ -136,7 +137,8 @@ def update_persona(
     """Modificación de una persona, respetando la jerarquía de roles:
 
     * super admin -> cualquiera
-    * admin       -> operadores y sí mismo
+    * gerente     -> admins y operadores de su sede, y sí mismo
+    * admin       -> operadores de su sede y sí mismo
     * operador    -> solo sí mismo
 
     Requiere que el actor ya haya cambiado su contraseña.
@@ -155,7 +157,7 @@ def update_persona(
 
     datos = persona.model_dump(exclude_unset=True)
 
-    ROLES = ("puede_operar", "puede_administrar", "es_super_admin", "activo")
+    ROLES = ("puede_operar", "puede_administrar", "es_super_admin", "es_gerente", "activo")
     toca_roles = {
         campo for campo in ROLES
         if campo in datos and datos[campo] != getattr(objetivo, campo)
@@ -167,10 +169,14 @@ def update_persona(
             "Necesitás permiso de administrar para cambiar capacidades o el estado de una persona.",
         )
 
-    if "es_super_admin" in toca_roles:
+    for campo in sorted(toca_roles - {"activo", "puede_operar"}):
         exige_permiso_para_editar(
-            es_super_admin(current_user),
-            "Solo un super administrador puede cambiar el flag de super administrador.",
+            puede_cambiar_rol(current_user, campo),
+            {
+                "es_super_admin": "Solo un super administrador puede cambiar el flag de super administrador.",
+                "es_gerente": "Solo un super administrador puede designar o quitar gerentes.",
+                "puede_administrar": "Solo un gerente o un super administrador puede cambiar quién administra.",
+            }[campo],
         )
 
     updated = services.modificar_persona(db, persona_id, persona)

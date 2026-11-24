@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useLista } from "../../../common/hooks/useLista";
-import { obtenerNotificaciones } from "../services/notificacionService";
+import {
+  cambiarLecturaNotificacion,
+  marcarTodasNotificacionesLeidas,
+  obtenerNotificaciones,
+} from "../services/notificacionService";
 import type { Notificacion } from "../types/notificacion";
 
 /** Cada cuánto se refresca la campana mientras la pestaña está visible. */
@@ -52,10 +56,24 @@ export function useNotificaciones() {
   // entero: con él se cae también la sesión recién iniciada. Se normaliza acá
   // para que el peor caso sea "0 notificaciones".
   const notificaciones = Array.isArray(items) ? items : [];
+  const noLeidas = notificaciones.filter((n) => !n.leida).length;
+
+  const marcarLeida = async (idNotificacion: string, leida = true) => {
+    await cambiarLecturaNotificacion(idNotificacion, leida);
+    await recargar();
+  };
+
+  const marcarTodasLeidas = async () => {
+    await marcarTodasNotificacionesLeidas();
+    await recargar();
+  };
 
   return {
     notificaciones,
     cantidad: notificaciones.length,
+    noLeidas,
+    marcarLeida,
+    marcarTodasLeidas,
     loading,
     error,
     recargar,

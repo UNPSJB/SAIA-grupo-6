@@ -12,6 +12,7 @@ import { LuArrowLeft, LuLock } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 import { DEGRADADO_MARCA } from "../../theme";
 import { BannerError, PageHeader, Tarjeta } from "./patrones";
+import { hayPantallaAnterior, rutaAnterior } from "../../common/hooks/historialNavegacion";
 
 /**
  * Plantillas de página: el esqueleto de cada pantalla.
@@ -22,44 +23,62 @@ import { BannerError, PageHeader, Tarjeta } from "./patrones";
  * "Volver" aparecía arriba en unas y abajo en otras, y la acción principal de
  * un listado a veces iba en el encabezado y a veces dentro de una pestaña.
  *
- * Hay tres tipos de pantalla y cada una tiene su plantilla:
+ * Hay tres tipos de pantalla y cada una tiene su plantilla. Las tres usan el
+ * MISMO ancho (el de los listados y los paneles: todo el espacio disponible,
+ * con el padding de `Pagina`), así "← Volver", título, estado y acciones
+ * quedan siempre alineados con el resto de la app. Lo que cambia es cómo se
+ * reparte el contenido adentro, no el contenedor.
  *
- *   Listado     `Pagina`            ancho completo
+ *   Listado     `Pagina`
  *               encabezado (título + acción principal)
  *               → pestañas opcionales (`PestanasPagina`)
  *               → `BarraFiltros` (búsqueda y filtros a la izquierda,
  *                 exportar / ver bajas a la derecha)
  *               → tabla → paginación
  *
- *   Formulario  `PaginaFormulario`  angosto (640px) o ancho (1024px)
- *               "← Volver" → encabezado → error → `TarjetaFormulario`
+ *   Formulario  `PaginaAlta` (`formularios.tsx`) / `PaginaFormulario`
+ *               "← Volver" → encabezado → error → formulario
+ *               El formulario no se estira: ocupa 8 de 12 columnas en
+ *               escritorio, con un panel lateral opcional (ayuda, resumen).
  *               Guardar / Cancelar van al pie del formulario, nunca arriba.
  *
- *   Detalle     `PaginaDetalle`     ancho (1024px)
+ *   Detalle     `PaginaDetalle`
  *               "← Volver" → encabezado (título + estado + acciones)
- *               → `SeccionDetalle`s apiladas
+ *               → `SeccionDetalle`s, y si hay bloques complementarios,
+ *                 `DisposicionDetalle`: principal (tablas, progreso, tareas)
+ *                 a la izquierda y lateral (resumen, metadatos, alertas,
+ *                 acciones rápidas) a la derecha, 8/4 desde `lg`.
  *
- * Regla para elegir: lo que se abre desde el menú ocupa todo el ancho y no
- * lleva "Volver"; lo que se abre desde otra pantalla va centrado y con
- * "Volver". Las únicas excepciones son Configuración y Vista pública: se
- * abren desde el menú pero son formularios de ajustes, y usan `ancho`.
+ * Regla para elegir: lo que se abre desde el menú no lleva "Volver"; lo que
+ * se abre desde otra pantalla, sí. Por debajo de `lg` todo va en una columna.
  */
 
 /* ──────────────────────────────── Anchos ───────────────────────────────── */
 
 /**
- * Los únicos tres anchos de página. Si una pantalla no entra en ninguno, el
- * problema es el contenido, no el ancho.
+ * Tipo de pantalla, a efectos del encabezado. Ya NO limita el ancho: antes
+ * cada valor era un `maxW` (1024px, 640px, 768px, 896px) y las fichas y
+ * altas quedaban como una columna angosta en el centro de un monitor ancho,
+ * desalineadas de los listados y paneles. Ahora todas las páginas tienen el
+ * ancho de los listados y el reparto interno lo deciden `DisposicionDetalle`
+ * y `PaginaAlta` (todo el ancho; 8/4 o 9/3 con lateral).
  *
- *   completo  listados: la tabla aprovecha todo el espacio
- *   ancho     formularios con tablas internas (receta, lote) y detalles
- *   angosto   formularios simples de pocos campos
+ *   completo   listado abierto desde el menú (lleva la franja teal)
+ *   ancho      ajustes, fichas y formularios con tablas internas
+ *   angosto    formularios simples de pocos campos
+ *   formulario altas cortas y medianas (`PaginaAlta`)
+ *   extenso    altas con muchas secciones o tablas embebidas (`PaginaAlta`)
  */
 export const ANCHO_PAGINA = {
-  completo: undefined,
-  ancho: "1024px",
-  angosto: "640px",
+  completo: "completo",
+  ancho: "ancho",
+  angosto: "angosto",
+  formulario: "formulario",
+  extenso: "extenso",
 } as const;
+
+/** Padding de toda página: el mismo de listados, paneles, fichas y altas. */
+export const PADDING_PAGINA = { base: "3", md: "5" } as const;
 
 export type AnchoPagina = keyof typeof ANCHO_PAGINA;
 
@@ -83,10 +102,12 @@ export interface DestinoVolver {
  * Enlace "← Volver a X", siempre arriba del título y alineado a la izquierda.
  * Reemplaza los `BotonVolver` sueltos en `actions` o al pie de la página.
  */
-function EnlaceVolver({ a, etiqueta, historial = false }: DestinoVolver) {
+export function EnlaceVolver({ a, etiqueta, historial = false }: DestinoVolver) {
   const navigate = useNavigate();
   const volver = () => {
-    if (historial && window.history.length > 1) navigate(-1);
+    // Volver en el historial (y no abrir `a` de cero) recupera los filtros y
+    // la página con que se había dejado la pantalla anterior.
+    if ((historial && hayPantallaAnterior()) || rutaAnterior() === a) navigate(-1);
     else navigate(a);
   };
   return (
@@ -147,14 +168,12 @@ export function Pagina({
   banner: bannerPedido,
   children,
 }: PaginaProps) {
-  const maxW = ANCHO_PAGINA[ancho];
   const banner = bannerPedido ?? (ancho === "completo" && !volver);
   return (
     <Box
-      p={{ base: "3", md: "5" }}
+      p={PADDING_PAGINA}
       w="100%"
-      maxW={maxW}
-      mx={maxW ? "auto" : undefined}
+      minW="0"
       // Las tablas de la página pintan su encabezado en teal (ver `FilaEncabezado`).
       data-pagina-banner={banner ? "" : undefined}
     >
@@ -290,7 +309,10 @@ export function PaginaFormulario({
 
 /* ─────────────────────────────── Detalle ───────────────────────────────── */
 
-/** Ficha de solo lectura de un registro: lote, receta, trazabilidad... */
+/**
+ * Ficha de solo lectura de un registro: lote, receta, trazabilidad... Mismo
+ * ancho que un listado; el contenido se reparte con `DisposicionDetalle`.
+ */
 export function PaginaDetalle({ ancho = "ancho", ...rest }: PaginaProps) {
   return <Pagina ancho={ancho} {...rest} />;
 }
@@ -402,16 +424,127 @@ export function AvisoSoloLectura({ children, ...rest }: { children: ReactNode } 
   );
 }
 
-/** Grilla de `DatoDetalle`: columnas de ancho parejo que se acomodan solas. */
-export function GrillaDatos({ children, ...rest }: { children: ReactNode } & BoxProps) {
+/**
+ * Grilla de `DatoDetalle`. Se acomoda al ancho de SU contenedor, no al de la
+ * pantalla: en una ficha a todo el ancho da 2, 3, 4 o 5 columnas según el
+ * espacio, y dentro del lateral de `DisposicionDetalle` baja sola a 1 o 2.
+ *
+ * Usa `auto-fit` (no `auto-fill`): si hay menos datos que columnas posibles,
+ * las columnas vacías se colapsan y los datos se reparten el ancho, en vez de
+ * quedar amontonados a la izquierda con un hueco a la derecha. `columnasMax`
+ * pone el techo (por defecto 5) para que en un monitor ancho las etiquetas no
+ * queden perdidas en celdas enormes.
+ */
+export function GrillaDatos({
+  columnasMax = 5,
+  minimo = "160px",
+  children,
+  ...rest
+}: { columnasMax?: number; minimo?: string; children: ReactNode } & BoxProps) {
+  const gap = "var(--chakra-spacing-5)";
   return (
     <Box
       display="grid"
-      gridTemplateColumns="repeat(auto-fill, minmax(160px, 1fr))"
+      gridTemplateColumns={`repeat(auto-fit, minmax(max(${minimo}, calc((100% - ${columnasMax - 1} * ${gap}) / ${columnasMax})), 1fr))`}
       gap="5"
       {...rest}
     >
       {children}
+    </Box>
+  );
+}
+
+/* ───────────────────────── Disposición en columnas ─────────────────────── */
+
+/** Reparto de la grilla de 12 columnas entre principal y lateral. */
+const PROPORCIONES = {
+  "8/4": { principal: 8, lateral: 4 },
+  "9/3": { principal: 9, lateral: 3 },
+} as const;
+
+export type ProporcionDisposicion = keyof typeof PROPORCIONES;
+
+/**
+ * Dos columnas para fichas y formularios: principal a la izquierda (tablas,
+ * progreso, tareas, el formulario) y lateral a la derecha (resumen,
+ * metadatos, alertas, acciones rápidas, ayuda). Grilla de 12 desde `lg`; por
+ * debajo, una sola columna con el lateral DESPUÉS del principal salvo que se
+ * pida `lateralPrimero` (útil cuando el lateral es el resumen que hay que
+ * leer antes de operar).
+ *
+ * Sin `lateral`, el principal ocupa todo el ancho: así una pantalla puede
+ * mostrar el lateral solo cuando tiene algo que decir.
+ *
+ * Alturas asimétricas: el lateral es el bloque corto o de referencia y el
+ * principal el que crece (tablas, tareas, historial). Por eso el lateral es
+ * `sticky` en escritorio por defecto: acompaña el scroll y el espacio que
+ * queda debajo nunca se ve como un hueco muerto. Dos listados que crecen sin
+ * límite (ingredientes + tareas) NO van acá: se apilan a todo el ancho, y el
+ * de tarjetas en una grilla de 1/2/3 columnas (ver `VersionDetalleView`).
+ */
+export function DisposicionDetalle({
+  lateral,
+  proporcion = "8/4",
+  lateralPrimero = false,
+  pegajoso = true,
+  children,
+  ...rest
+}: {
+  lateral?: ReactNode;
+  proporcion?: ProporcionDisposicion;
+  /** En el celular, el lateral va arriba del principal. */
+  lateralPrimero?: boolean;
+  /**
+   * En escritorio el lateral acompaña el scroll (por defecto). Se apaga solo
+   * si el lateral es el bloque largo de la pantalla.
+   */
+  pegajoso?: boolean;
+  children: ReactNode;
+} & BoxProps) {
+  if (!lateral) {
+    return (
+      <Box minW="0" {...rest}>
+        {children}
+      </Box>
+    );
+  }
+  const { principal, lateral: colLateral } = PROPORCIONES[proporcion];
+  // Dentro de cada columna la separación la pone el `gap`: se anula el `mb`
+  // propio de `SeccionDetalle`, `Tarjeta`, `BannerError`...
+  const sinMargen = { "&& > *": { marginBottom: "0" } };
+  return (
+    <Box
+      display="grid"
+      gridTemplateColumns={{ base: "minmax(0, 1fr)", lg: "repeat(12, minmax(0, 1fr))" }}
+      gap="6"
+      alignItems="start"
+      {...rest}
+    >
+      <Box
+        gridColumn={{ base: "1 / -1", lg: `span ${principal}` }}
+        order={{ base: lateralPrimero ? 2 : 1, lg: 1 }}
+        minW="0"
+        display="flex"
+        flexDirection="column"
+        gap="6"
+        css={sinMargen}
+      >
+        {children}
+      </Box>
+      <Box
+        as="aside"
+        gridColumn={{ base: "1 / -1", lg: `span ${colLateral}` }}
+        order={{ base: lateralPrimero ? 1 : 2, lg: 2 }}
+        minW="0"
+        display="flex"
+        flexDirection="column"
+        gap="6"
+        position={pegajoso ? { lg: "sticky" } : undefined}
+        top={pegajoso ? { lg: "6" } : undefined}
+        css={sinMargen}
+      >
+        {lateral}
+      </Box>
     </Box>
   );
 }

@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useState } from "react";
 import { Box, Button, Input, Portal, Text } from "@chakra-ui/react";
 import { actualizarVencimiento } from "../../vencimientoPersonal/services/vencimientoPersonalService";
@@ -54,6 +55,7 @@ export function CambiarFechaVencimientoDialog({
       await actualizarVencimiento(vencimiento.entidad_id, {
         fecha_vencimiento: fecha,
       });
+      avisarExito("Fecha de vencimiento actualizada correctamente.");
       onSaved();
     } catch (e) {
       setError(

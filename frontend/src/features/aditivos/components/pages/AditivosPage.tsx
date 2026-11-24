@@ -1,16 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { avisarExito } from "../../../../components/ui/patrones";
+import { useCallback, useState } from "react";
 import { Badge, HStack, Table, Text } from "@chakra-ui/react";
-import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
 import { useLista } from "../../../../common/hooks/useLista";
-import { usePaginas } from "../../../../common/hooks/usePaginas";
-import {
-  BarraFiltros,
-  CampoBusqueda,
-  ChipsFiltros,
-  EstadoVacioFiltrado,
-  FiltroSelect,
-  chipsDeFiltros,
-} from "../../../../components/ui/filtros";
+import { BotonExportar } from "../../../exportacion";
+import { BarraFiltros } from "../../../../components/ui/filtros";
 import {
   BannerError,
   BotonAccion,
@@ -20,27 +13,26 @@ import {
   EstadoCargando,
   EstadoVacio,
   FilaEncabezado,
-  Paginacion,
   Tarjeta,
   ToggleInactivos,
   DatoPrincipal,
-  PildoraNeutra,
 } from "../../../../components/ui/patrones";
 import {
-  crearAditivo,
   crearClase,
-  darDeBajaAditivo,
   darDeBajaClase,
-  listarAditivos,
   listarClases,
-  modificarAditivo,
   modificarClase,
 } from "../../services/aditivoService";
-import type { Aditivo, ClaseFuncional } from "../../types/aditivo";
-import { AditivoDialog } from "../AditivoDialog";
+import type { ClaseFuncional } from "../../types/aditivo";
 import { ClaseFuncionalDialog } from "../ClaseFuncionalDialog";
+import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
-const PAGE_SIZE = 10;
+/*
+ * Antes esta página tenía también la pestaña "Aditivos" (la lista de
+ * referencia con nombre e INS). Ahora cada ingrediente aditivo guarda su
+ * propia clase e INS, y la lista de referencia solo se ofrece como sugerencia
+ * en el formulario del ingrediente. Queda la pestaña de clases funcionales.
+ */
 
 function useClases(incluirInactivas: boolean) {
   const cargar = useCallback(() => listarClases(incluirInactivas), [incluirInactivas]);
@@ -53,188 +45,13 @@ function useClases(incluirInactivas: boolean) {
   return { clases: items, loading, error, recargar };
 }
 
-function TabAditivos() {
-  const [verBajas, setVerBajas] = useState(false);
-  const [claseId, setClaseId] = useState("");
-  const [buscar, setBuscar] = useState("");
-  const [editando, setEditando] = useState<Aditivo | "nuevo" | null>(null);
-  const [errorAccion, setErrorAccion] = useState<string | null>(null);
-
-  const cargar = useCallback(() => listarAditivos(verBajas), [verBajas]);
-  const { items: aditivos, loading, error, recargar } = useLista<Aditivo[]>({
-    cargar,
-    dependencias: [verBajas],
-    valorInicial: [],
-    mensajeError: "No se pudieron cargar los aditivos",
-  });
-  const { clases } = useClases(false);
-
-  const filtrados = useMemo(() => {
-    const texto = buscar.trim().toLowerCase();
-    return aditivos.filter(
-      (a) =>
-        (!claseId || String(a.clase_funcional.id) === claseId) &&
-        (!texto ||
-          a.nombre.toLowerCase().includes(texto) ||
-          (a.numero_ins ?? "").toLowerCase().includes(texto)),
-    );
-  }, [aditivos, claseId, buscar]);
-  const { paginados, page, setPage, hayVariasPaginas } = usePaginas(
-    filtrados,
-    PAGE_SIZE,
-    `${claseId}|${buscar}|${verBajas}`,
-  );
-
-  const limpiar = () => {
-    setClaseId("");
-    setBuscar("");
-  };
-  const chips = chipsDeFiltros([
-    {
-      clave: "clase",
-      etiqueta: "Clase",
-      valor: clases.find((c) => String(c.id) === claseId)?.nombre ?? "",
-      onQuitar: () => setClaseId(""),
-    },
-    { clave: "buscar", etiqueta: "Búsqueda", valor: buscar.trim(), onQuitar: () => setBuscar("") },
-  ]);
-
-  const accion = async (fn: () => Promise<unknown>) => {
-    setErrorAccion(null);
-    try {
-      await fn();
-      await recargar();
-    } catch (err) {
-      setErrorAccion(err instanceof Error ? err.message : "No se pudo completar la acción.");
-    }
-  };
-
-  return (
-    <>
-      <BarraFiltros
-        busqueda={
-          <CampoBusqueda valor={buscar} onCambio={setBuscar} placeholder="Nombre o INS..." />
-        }
-        filtros={
-          <FiltroSelect
-            label="Clase funcional"
-            valor={claseId}
-            onCambio={setClaseId}
-            opciones={clases.map((c) => ({ valor: String(c.id), etiqueta: c.nombre }))}
-            todos="Todas las clases"
-          />
-        }
-        herramientas={
-          <>
-            <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
-              Ver dados de baja
-            </ToggleInactivos>
-            <BotonAgregar onClick={() => setEditando("nuevo")}>Nuevo aditivo</BotonAgregar>
-          </>
-        }
-      />
-      <Text fontSize="sm" color="fg.muted" mb="4" maxW="640px">
-        Cada aditivo se identifica por su clase funcional, su nombre completo y su número INS. Los
-        insumos de tipo aditivo se eligen de esta lista.
-      </Text>
-      <ChipsFiltros filtros={chips} onLimpiarTodo={limpiar} />
-
-      {error && <BannerError>{error}</BannerError>}
-      {errorAccion && <BannerError>{errorAccion}</BannerError>}
-      {loading && <EstadoCargando pagina>Cargando aditivos...</EstadoCargando>}
-
-      {!loading && !error && filtrados.length === 0 &&
-        (claseId || buscar ? (
-          <EstadoVacioFiltrado onLimpiar={limpiar}>
-            No hay aditivos que coincidan con los filtros.
-          </EstadoVacioFiltrado>
-        ) : (
-          <EstadoVacio>Todavía no hay aditivos en la lista de referencia.</EstadoVacio>
-        ))}
-
-      {!loading && !error && filtrados.length > 0 && (
-        <>
-          <Tarjeta overflowX="auto">
-            <Table.Root variant="outline" w="100%" minW="720px">
-              <Table.Header>
-                <FilaEncabezado>
-                  <EncabezadoOscuro ancho="amplia">Clase funcional</EncabezadoOscuro>
-                  <EncabezadoOscuro>Nombre completo</EncabezadoOscuro>
-                  <EncabezadoOscuro ancho="angosta">INS</EncabezadoOscuro>
-                  <EncabezadoOscuro center ancho="acciones">Acciones</EncabezadoOscuro>
-                </FilaEncabezado>
-              </Table.Header>
-              <Table.Body>
-                {paginados.map((a) => (
-                  <Table.Row key={a.id} opacity={a.activo ? 1 : 0.65}>
-                    <Celda>
-                      <PildoraNeutra>{a.clase_funcional.nombre}</PildoraNeutra>
-                    </Celda>
-                    <Celda>
-                      <DatoPrincipal titulo={a.nombre} />
-                    </Celda>
-                    <Celda>
-                      {a.numero_ins ? (
-                        <PildoraNeutra mono>{a.numero_ins}</PildoraNeutra>
-                      ) : (
-                        <Text fontSize="sm" color="fg.subtle">
-                          No aplica
-                        </Text>
-                      )}
-                    </Celda>
-                    <Celda center>
-                      <HStack justify="center" gap="2">
-                        {a.activo ? (
-                          <>
-                            <BotonAccion accion="editar" label="Modificar" onClick={() => setEditando(a)} />
-                            <BotonAccion
-                              accion="eliminar"
-                              label="Dar de baja"
-                              onClick={() => accion(() => darDeBajaAditivo(a.id))}
-                            />
-                          </>
-                        ) : (
-                          <BotonAccion
-                            accion="reactivar"
-                            label="Reactivar"
-                            onClick={() => accion(() => modificarAditivo(a.id, { activo: true }))}
-                          />
-                        )}
-                      </HStack>
-                    </Celda>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table.Root>
-          </Tarjeta>
-          {hayVariasPaginas && (
-            <Paginacion count={filtrados.length} pageSize={PAGE_SIZE} page={page} onPageChange={setPage} />
-          )}
-        </>
-      )}
-
-      {editando && (
-        <AditivoDialog
-          aditivo={editando === "nuevo" ? undefined : editando}
-          clases={clases}
-          onCancel={() => setEditando(null)}
-          onGuardar={async (datos) => {
-            if (editando === "nuevo") await crearAditivo(datos);
-            else await modificarAditivo(editando.id, datos);
-            setEditando(null);
-            await recargar();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function TabClases() {
-  const [verBajas, setVerBajas] = useState(false);
+export function TabClases() {
+  const [verBajas, setVerBajas] = useEstadoNavegacion("AditivosPage.verBajas", false);
   const [editando, setEditando] = useState<ClaseFuncional | "nueva" | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
-  const { clases, loading, error, recargar } = useClases(verBajas);
+  const { clases: todas, loading, error, recargar } = useClases(verBajas);
+  // "Ver dados de baja": solo las dadas de baja (como en el resto de los listados).
+  const clases = todas.filter((c) => (verBajas ? !c.activo : c.activo));
 
   const accion = async (fn: () => Promise<unknown>) => {
     setErrorAccion(null);
@@ -251,10 +68,25 @@ function TabClases() {
       <BarraFiltros
         herramientas={
           <>
+            {/* Orden de las sub-opciones: alta, ver bajas y exportar. */}
+            <BotonAgregar onClick={() => setEditando("nueva")}>Nueva clase</BotonAgregar>
             <ToggleInactivos enBarra checked={verBajas} onChange={setVerBajas}>
               Ver dadas de baja
             </ToggleInactivos>
-            <BotonAgregar onClick={() => setEditando("nueva")}>Nueva clase</BotonAgregar>
+            <BotonExportar
+              nombreTabla="las clases funcionales"
+              disabled={clases.length === 0}
+              datos={() => ({
+                titulo: verBajas ? "Clases funcionales dadas de baja" : "Clases funcionales",
+                nombre: "clases-funcionales",
+                encabezados: ["Clase funcional", "Número INS", "Estado"],
+                filas: clases.map((c) => [
+                  c.nombre,
+                  c.ins_opcional ? "Opcional (solo por su función)" : "Obligatorio",
+                  c.activo ? "Activa" : "Dada de baja",
+                ]),
+              })}
+            />
           </>
         }
       />
@@ -324,27 +156,12 @@ function TabClases() {
           onGuardar={async (datos) => {
             if (editando === "nueva") await crearClase(datos);
             else await modificarClase(editando.id, datos);
+            avisarExito(editando === "nueva" ? "Clase funcional agregada correctamente." : "Clase funcional modificada correctamente.");
             setEditando(null);
             await recargar();
           }}
         />
       )}
     </>
-  );
-}
-
-export function AditivosPage() {
-  return (
-    <Pagina
-      titulo="Aditivos"
-      descripcion="Lista de referencia de aditivos alimentarios. Se actualiza desde acá, sin reprogramar."
-    >
-      <PestanasPagina
-        pestanas={[
-          { valor: "aditivos", etiqueta: "Aditivos", contenido: <TabAditivos /> },
-          { valor: "clases", etiqueta: "Clases funcionales", contenido: <TabClases /> },
-        ]}
-      />
-    </Pagina>
   );
 }

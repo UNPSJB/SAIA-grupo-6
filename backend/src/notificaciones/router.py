@@ -40,6 +40,7 @@ OrigenNotificacion = Literal[
     "PLAN_CALIBRACION",
     "PLAN_MANTENIMIENTO",
     "STOCK_BAJO",
+    "HOMOLOGACION_INSUMO",
     "DOCUMENTO",
     "CHECKLIST",
     "INCIDENTE",
@@ -107,3 +108,22 @@ def recalcular_notificaciones(db: Session = Depends(get_db)):
     """
     total = services.recalcular_notificaciones_persistidas(db, inmediato=True)
     return {"recalculadas": total}
+
+
+@router.patch("/{id_notificacion}/lectura", response_model=dict)
+def cambiar_lectura_notificacion(
+    id_notificacion: str,
+    payload: schemas.MarcarNotificacionLeidaRequest,
+    db: Session = Depends(get_db),
+):
+    """Marca o desmarca una notificación como leída para el usuario logueado."""
+    services.marcar_notificacion_leida(db, id_notificacion, payload.leida)
+    return {"id_notificacion": id_notificacion, "leida": payload.leida}
+
+
+@router.post("/marcar-todas-leidas", response_model=dict)
+def marcar_todas_leidas(db: Session = Depends(get_db)):
+    """Marca todas las notificaciones activas como leídas para el usuario logueado."""
+    total = services.marcar_todas_notificaciones_leidas(db)
+    return {"marcadas": total}
+

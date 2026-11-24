@@ -6,7 +6,8 @@ import {
   BannerError,
   DialogoExito,
 } from "../../../../components/ui/patrones";
-import { PaginaFormulario } from "../../../../components/ui/plantillas";
+import { LuBuilding2 } from "react-icons/lu";
+import { PaginaAlta } from "../../../../components/ui/formularios";
 import { useProveedorABM } from "../../hooks/useProveedorABM";
 import type { ProveedorFormValues } from "../../types/proveedor";
 import { ProveedorForm } from "../ProveedorForm";
@@ -46,16 +47,17 @@ export function ProveedorCreatePage() {
   };
 
   return (
-    <PaginaFormulario
+    <PaginaAlta
       volver={{ a: "/proveedores", etiqueta: "Proveedores" }}
+      icono={LuBuilding2}
       titulo="Nuevo proveedor"
+      descripcion="Cargá los datos fiscales y de contacto del proveedor."
     >
       {error && !conflicto && <BannerError>{error}</BannerError>}
 
       <ProveedorForm
         onSubmit={handleSubmit}
         isLoading={loading}
-        title="Alta de proveedor"
         submitLabel="Crear proveedor"
         onCancel={() => navigate("/proveedores")}
       />
@@ -69,6 +71,6 @@ export function ProveedorCreatePage() {
         onCancel={handleCancelarReactivacion}
         onConfirm={handleConfirmarReactivacion}
       />
-    </PaginaFormulario>
+    </PaginaAlta>
   );
 }

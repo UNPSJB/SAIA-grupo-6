@@ -1,16 +1,17 @@
-from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy import Index, Boolean, DateTime, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.certificaciones_transportista.estado import estado_habilitacion
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class Transportista(ModeloBase):
+class Transportista(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "transportistas"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     razon_social: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
-    cuit: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
+    cuit: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     telefono: Mapped[str] = mapped_column(String(30), nullable=False)
     email: Mapped[str | None] = mapped_column(String(200), nullable=True)
     domicilio: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -33,3 +34,8 @@ class Transportista(ModeloBase):
     def estado_habilitacion(self) -> str:
         """Estado global calculado al serializar; nunca se persiste."""
         return estado_habilitacion(self.certificaciones)
+
+
+# Únicos por establecimiento: cada sede tiene su propio catálogo, así que dos
+# sedes pueden repetir el valor (ver src/establecimientos).
+Index("uq_transportistas_establecimiento_cuit", Transportista.establecimiento_id, Transportista.cuit, unique=True)

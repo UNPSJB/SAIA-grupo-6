@@ -22,7 +22,7 @@ export function AptitudItem({ aptitud, onEdit, onDelete, onReactivar }: AptitudI
       </Celda>
       <Celda>
         {aptitud.descripcion ? (
-          <TextoTruncado texto={aptitud.descripcion} max={60} color="#64748B" />
+          <TextoTruncado texto={aptitud.descripcion} max={60} color="tabla.textoSecundario" />
         ) : (
           <Text as="span" color="fg.subtle" fontStyle="italic">
             Sin descripción

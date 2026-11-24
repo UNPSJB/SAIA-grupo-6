@@ -4,8 +4,11 @@ import type { CategoriaPanel } from "../types/paneles";
 import { TEMAS_AREA as TEMAS, type TemaArea } from "../types/temasArea";
 
 interface BannerPanelProps {
-  /** Define el tema de color del banner. */
-  categoria: CategoriaPanel;
+  /** Define el tema de color del banner (o `tema`, para uno que no es un área). */
+  categoria?: CategoriaPanel;
+  tema?: TemaArea;
+  /** Etiqueta chica arriba del título. */
+  etiqueta?: string;
   titulo: string;
   descripcion?: string;
   icono?: IconType;
@@ -22,8 +25,15 @@ interface BannerPanelProps {
  * Lo decorativo (los arcos de la derecha) es `aria-hidden` y se oculta en el
  * celular, donde le quitaría ancho al texto.
  */
-export function BannerPanel({ categoria, titulo, descripcion, icono: Icono }: BannerPanelProps) {
-  const tema = TEMAS[categoria];
+export function BannerPanel({
+  categoria,
+  tema: temaPropio,
+  etiqueta = "Resumen del área",
+  titulo,
+  descripcion,
+  icono: Icono,
+}: BannerPanelProps) {
+  const tema = temaPropio ?? TEMAS[categoria ?? "produccion"];
   return (
     <Box
       as="header"
@@ -76,7 +86,7 @@ export function BannerPanel({ categoria, titulo, descripcion, icono: Icono }: Ba
             color={tema.acento}
             mb="1"
           >
-            Resumen del área
+            {etiqueta}
           </Text>
           <Heading as="h2" fontSize={{ base: "3xl", md: "4xl" }} fontWeight="bold" lineHeight="1.1" color={tema.titulo}>
             {titulo}

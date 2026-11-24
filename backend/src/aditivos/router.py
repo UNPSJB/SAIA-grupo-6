@@ -13,8 +13,8 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
-# Las rutas de clases van antes que `/{aditivo_id}`: si no, "clases" se
-# intentaría leer como id y respondería 422.
+# Solo quedan las clases funcionales y las sugerencias: el aditivo es un
+# ingrediente con `es_aditivo` (ver `src.ingredientes`).
 
 
 @router.get("/clases", response_model=list[schemas.ClaseFuncionalResponse])
@@ -43,33 +43,10 @@ def eliminar_clase(clase_id: int, db: Session = Depends(get_db)):
     return services.eliminar_clase(db, clase_id)
 
 
-@router.get("", response_model=list[schemas.AditivoResponse])
-def listar_aditivos(
-    incluir_inactivos: bool = False,
-    clase_funcional_id: Optional[int] = Query(None, ge=1),
+@router.get("/sugerencias", response_model=list[schemas.SugerenciaAditivo])
+def listar_sugerencias(
     buscar: Optional[str] = Query(None, max_length=100),
     db: Session = Depends(get_db),
 ):
-    return services.listar_aditivos(db, incluir_inactivos, clase_funcional_id, buscar)
-
-
-@router.post("", response_model=schemas.AditivoResponse, status_code=status.HTTP_201_CREATED)
-def crear_aditivo(datos: schemas.AditivoCreate, db: Session = Depends(get_db)):
-    return services.crear_aditivo(db, datos)
-
-
-@router.get("/{aditivo_id}", response_model=schemas.AditivoResponse)
-def obtener_aditivo(aditivo_id: int, db: Session = Depends(get_db)):
-    return services.obtener_aditivo(db, aditivo_id)
-
-
-@router.put("/{aditivo_id}", response_model=schemas.AditivoResponse)
-def actualizar_aditivo(
-    aditivo_id: int, datos: schemas.AditivoUpdate, db: Session = Depends(get_db)
-):
-    return services.actualizar_aditivo(db, aditivo_id, datos)
-
-
-@router.delete("/{aditivo_id}", response_model=schemas.AditivoResponse)
-def eliminar_aditivo(aditivo_id: int, db: Session = Depends(get_db)):
-    return services.eliminar_aditivo(db, aditivo_id)
+    """Lista de referencia (Codex / CAA) para completar clase e INS de un ingrediente aditivo."""
+    return services.listar_sugerencias(db, buscar)

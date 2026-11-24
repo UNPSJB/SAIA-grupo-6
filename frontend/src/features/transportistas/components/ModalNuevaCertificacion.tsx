@@ -1,3 +1,4 @@
+import { avisarExito } from "../../../components/ui/patrones";
 import { useEffect, useState } from "react";
 import { Text, Textarea, VStack } from "@chakra-ui/react";
 import { ConfirmDialog } from "../../../common/components/ConfirmDialog";
@@ -151,6 +152,7 @@ export function ModalNuevaCertificacion({
 
     try {
       await crearCertificacion(transportistaId, formData);
+      avisarExito("Certificación agregada correctamente.");
       onCertificacionCreada();
       onClose();
     } catch (err) {

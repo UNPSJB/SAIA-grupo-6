@@ -45,7 +45,7 @@ export function EquipoTable({
             <EncabezadoOrdenable columna="nombre" orden={orden}>
               Nombre
             </EncabezadoOrdenable>
-            <EncabezadoOrdenable columna="tipo" orden={orden} ancho="media">
+            <EncabezadoOrdenable columna="tipo" orden={orden} ancho="amplia">
               Tipo
             </EncabezadoOrdenable>
             <EncabezadoOrdenable

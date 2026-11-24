@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLista } from "../../../common/hooks/useLista";
 import {
   Box,
   Button,
@@ -75,6 +76,11 @@ function diasEntre(desde: string, hasta: string): number {
  * estar dado de baja y aun así reclamar). El plazo es solo una referencia:
  * fuera de plazo se registra igual y queda marcado.
  */
+interface EntregasDelCliente {
+  clienteId: number;
+  salidas: Salida[];
+}
+
 export function ModalNuevoReclamo({
   isOpen,
   salidaInicial,
@@ -83,9 +89,8 @@ export function ModalNuevoReclamo({
 }: ModalNuevoReclamoProps) {
   const [clientes, setClientes] = useState<{ id: number; nombre: string }[]>([]);
   const [clienteId, setClienteId] = useState(0);
-  const [entregas, setEntregas] = useState<Salida[]>([]);
-  const [salidaId, setSalidaId] = useState(0);
-  const [cargandoEntregas, setCargandoEntregas] = useState(false);
+  // La entrega elegida; `salidaId` (más abajo) la descarta si ya no está en la lista.
+  const [salidaElegida, setSalidaId] = useState(0);
   const [plazoReferencia, setPlazoReferencia] = useState<number | null>(null);
   const [motivo, setMotivo] = useState<MotivoReclamo | "">("");
   const [detalle, setDetalle] = useState("");
@@ -105,7 +110,6 @@ export function ModalNuevoReclamo({
     if (isOpen) {
       setClienteId(salidaInicial?.cliente_id ?? 0);
       setSalidaId(salidaInicial?.id ?? 0);
-      setEntregas(salidaInicial ? [salidaInicial] : []);
       setMotivo("");
       setDetalle("");
       setFechaReclamo(hoyISO());
@@ -149,31 +153,32 @@ export function ModalNuevoReclamo({
     };
   }, [isOpen]);
 
-  // Entregas del cliente elegido (solo cuando no vino una entrega fija).
-  useEffect(() => {
-    if (!isOpen || salidaInicial || !clienteId) return;
-    let vigente = true;
-    setCargandoEntregas(true);
-
-    void listarSalidas({ cliente_id: clienteId, estado: "ENTREGADO" })
-      .then((salidas) => {
-        if (!vigente) return;
-        setEntregas(salidas);
-        setSalidaId((actual) =>
-          salidas.some((s) => s.id === actual) ? actual : 0
-        );
-      })
-      .catch(() => {
-        if (vigente) setError("No se pudieron cargar las entregas del cliente.");
-      })
-      .finally(() => {
-        if (vigente) setCargandoEntregas(false);
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, [isOpen, salidaInicial, clienteId]);
+  // Entregas del cliente elegido (solo cuando no vino una entrega fija). Se
+  // guarda de qué cliente son: al cambiar de cliente no se muestran las del
+  // anterior mientras cargan las nuevas.
+  const clienteABuscar = isOpen && !salidaInicial && clienteId ? clienteId : 0;
+  const cargarEntregas = useCallback(async (): Promise<EntregasDelCliente> => {
+    if (!clienteABuscar) return { clienteId: 0, salidas: [] };
+    const salidas = await listarSalidas({ cliente_id: clienteABuscar, estado: "ENTREGADO" });
+    return { clienteId: clienteABuscar, salidas };
+  }, [clienteABuscar]);
+  const {
+    items: entregasCargadas,
+    loading: cargandoLista,
+    error: errorEntregas,
+  } = useLista<EntregasDelCliente>({
+    cargar: cargarEntregas,
+    dependencias: [clienteABuscar],
+    valorInicial: { clienteId: 0, salidas: [] },
+    mensajeError: "No se pudieron cargar las entregas del cliente.",
+  });
+  const entregas: Salida[] = salidaInicial
+    ? [salidaInicial]
+    : entregasCargadas.clienteId === clienteABuscar
+      ? entregasCargadas.salidas
+      : [];
+  const cargandoEntregas = clienteABuscar !== 0 && cargandoLista;
+  const salidaId = entregas.some((s) => s.id === salidaElegida) ? salidaElegida : 0;
 
   const salidaSeleccionada =
     salidaInicial ??
@@ -208,7 +213,6 @@ export function ModalNuevoReclamo({
   const handleClienteChange = (valor: string) => {
     setClienteId(Number(valor));
     setSalidaId(0);
-    setEntregas([]);
   };
 
   const handleSalidaChange = (valor: string) => {
@@ -318,7 +322,7 @@ export function ModalNuevoReclamo({
 
         <form onSubmit={handleSubmit} noValidate>
           <VStack align="stretch" gap="4">
-            {error ? <MensajeError>{error}</MensajeError> : null}
+            {error || errorEntregas ? <MensajeError>{error ?? errorEntregas}</MensajeError> : null}
             <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
 
             {salidaInicial ? (

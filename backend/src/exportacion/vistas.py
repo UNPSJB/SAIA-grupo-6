@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.checklist import services as checklist_services
+from src.clientes import services as clientes_services
 from src.exportacion.formato import texto
 from src.insumoQuimico import stock_services
 from src.lotes import services as lotes_services
@@ -27,6 +28,7 @@ from src.recetas import services as recetas_services
 from src.retiros import services as retiros_services
 from src.rotulado.models import BorradorRotulado
 from src.salidas import services as salidas_services
+from src.transportistas import services as transportistas_services
 from src.vencimientos import services as vencimientos_services
 
 Vista = tuple[str, list[str], list[list[str]]]
@@ -391,6 +393,48 @@ def productos(db: Session, incluir_inactivos: bool, buscar: Optional[str]) -> Vi
     return (
         "Productos dados de baja" if incluir_inactivos else "Productos",
         ["Nombre", "Descripción", "Unidad", "Estado"],
+        filas,
+    )
+
+
+def clientes(db: Session, solo_inactivos: bool, buscar: Optional[str], orden: str) -> Vista:
+    filas = [
+        [
+            texto(c.nombre),
+            texto(c.documento),
+            texto(c.telefono),
+            texto(c.email),
+            texto(c.domicilio),
+        ]
+        for c in clientes_services.listar_clientes(
+            db, solo_inactivos=solo_inactivos, buscar=buscar, orden=orden
+        )
+    ]
+    return (
+        "Clientes dados de baja" if solo_inactivos else "Clientes",
+        ["Nombre", "Documento", "Teléfono", "E-mail", "Domicilio"],
+        filas,
+    )
+
+
+def transportistas(db: Session, solo_inactivos: bool, buscar: Optional[str], orden: str) -> Vista:
+    filas = [
+        [
+            texto(t.razon_social),
+            texto(t.cuit),
+            texto(t.telefono),
+            texto(t.email),
+            texto(t.domicilio),
+            t.estado_habilitacion,
+            texto(t.observaciones),
+        ]
+        for t in transportistas_services.listar_transportistas(
+            db, solo_inactivos=solo_inactivos, buscar=buscar, orden=orden
+        )
+    ]
+    return (
+        "Transportistas dados de baja" if solo_inactivos else "Transportistas",
+        ["Razón social", "CUIT", "Teléfono", "E-mail", "Domicilio", "Habilitación", "Observaciones"],
         filas,
     )
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from io import BytesIO
 from math import cos, pi, sin
 from xml.sax.saxutils import escape
@@ -23,6 +24,27 @@ _BORDE = colors.HexColor("#BBDFDC")
 _FONDO = colors.HexColor("#EEF6F5")
 _AVISO_FONDO = colors.HexColor("#FBF1DC")
 _AVISO_TEXTO = colors.HexColor("#8A5A12")
+
+
+def numero(valor, decimales: int = 2) -> str:
+    """Número para leer, como en la app (es-AR): "10.600", "12,5", "0,25".
+
+    Redondea a `decimales` y saca los ceros de sobra. Antes el anexo
+    imprimía los Decimal tal cual ("1.250", "33.333333") o con notación
+    científica ("1.060e+4").
+    """
+    if valor is None or valor == "":
+        return "—"
+    try:
+        redondeado = Decimal(str(valor)).quantize(Decimal(1).scaleb(-decimales), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError):
+        return str(valor)
+    texto = f"{redondeado:,.{decimales}f}"
+    if "." in texto:
+        texto = texto.rstrip("0").rstrip(".")
+    if texto in ("-0", ""):
+        texto = "0"
+    return texto.translate(str.maketrans({",": ".", ".": ","}))
 
 
 _OCTOGONOS = {
@@ -137,8 +159,8 @@ def generar_pdf(
         agregar(f"Porción: {unidad or '—'}")
         tabla(
             ["Nutriente", f"Por 100 {datos.expresar_en or ''}", "Por porción", "% VD"],
-            [(f"{f.nombre} ({f.unidad})", f.por_100_texto or f.por_100, f.por_porcion_texto or f.por_porcion,
-              f.vd_texto or f.vd) for f in datos.filas],
+            [(f"{f.nombre} ({f.unidad})", f.por_100_texto or numero(f.por_100),
+              f.por_porcion_texto or numero(f.por_porcion), f.vd_texto or numero(f.vd, 0)) for f in datos.filas],
             [.39, .25, .24, .12],
         )
         for problema in datos.problemas:
@@ -236,57 +258,62 @@ def generar_pdf(
             if condicion.get("instrucciones"):
                 agregar(f"{prefijo}: {condicion['instrucciones']}")
             if condicion.get("temperatura_aplicable"):
-                agregar(f"Temperatura: {condicion.get('temperatura_minima')} a {condicion.get('temperatura_maxima')} °C")
+                agregar(f"Temperatura: {numero(condicion.get('temperatura_minima'), 1)} a {numero(condicion.get('temperatura_maxima'), 1)} °C")
             if condicion.get("duracion_aplicable"):
                 agregar(f"Duración: {condicion.get('duracion')} {condicion.get('unidad_duracion') or ''}")
     agregar("Tabla nutricional guardada", "Heading2")
     guardada = vista.nutricion.tabla
     if guardada:
-        tabla_nutricional(guardada, f"{guardada.porcion or '—'} {guardada.expresar_en or ''} · {guardada.medida_casera or '—'}")
+        tabla_nutricional(guardada, f"{numero(guardada.porcion)} {guardada.expresar_en or ''} · {guardada.medida_casera or '—'}")
     else:
         agregar(vista.nutricion.problemas[0] if vista.nutricion.problemas else "Tabla guardada no disponible.")
     bloques.append(PageBreak())
 
     agregar("Anexo de cálculo", "Title")
-    agregar(f"Receta v{receta.numero} (ID {receta.id}) · Rendimiento: {receta.rendimiento} {receta.unidad_medida.simbolo}")
+    agregar(f"Receta v{receta.numero} (ID {receta.id}) · Rendimiento: {numero(receta.rendimiento)} {receta.unidad_medida.simbolo}")
     if vista.origen.motivo:
         agregar(vista.origen.motivo)
     agregar("Receta y composición porcentual", "Heading2")
-    porcentajes = {i.insumo.id: i.porcentaje for i in composicion.ingredientes + composicion.aditivos}
+    porcentajes = {i.ingrediente.id: i.porcentaje for i in composicion.ingredientes + composicion.aditivos}
     tabla(
-        ["Insumo", "Clasificación", "Cantidad", "Composición (%)"],
-        [(r.insumo.nombre, r.clasificacion, f"{r.cantidad} {r.unidad_medida.simbolo}",
-          porcentajes.get(r.insumo_id)) for r in receta.insumos],
+        ["Ingrediente", "Clasificación", "Cantidad", "Composición (%)"],
+        [(r.ingrediente.nombre, "Aditivo" if r.es_aditivo else "Ingrediente",
+          f"{numero(r.cantidad)} {r.unidad_medida.simbolo}",
+          f"{numero(porcentajes[r.ingrediente_id])} %" if porcentajes.get(r.ingrediente_id) is not None else "—")
+         for r in receta.ingredientes],
         [.39, .20, .21, .20],
     )
     for dato in composicion.faltantes:
-        agregar(f"{dato.insumo.nombre}: {dato.motivo}")
+        agregar(f"{dato.ingrediente.nombre}: {dato.motivo}")
 
-    agregar("Tabla nutricional del cálculo actual y fuentes", "Heading2")
-    if guardada:
-        agregar("Los valores guardados coinciden con el cálculo actual." if coincide else
-                "La tabla guardada difiere del cálculo actual. Las fuentes siguientes corresponden al cálculo actual.")
-        agregar("La instantánea guardada no incluye un historial de fuentes.")
+    agregar("Cálculo nutricional y fuentes", "Heading2")
     config = nutricion_actual.configuracion
-    tabla_nutricional(nutricion_actual, f"{config.porcion or '—'} {nutricion_actual.expresar_en} · {config.medida_casera or '—'}")
+    if guardada and coincide:
+        # Es la misma tabla de la primera página: no se repite.
+        agregar("La tabla guardada coincide con el cálculo actual; estas son sus fuentes.")
+    else:
+        if guardada:
+            agregar("La tabla guardada difiere del cálculo actual. Esta es la tabla del cálculo actual, "
+                    "y las fuentes siguientes corresponden a ella.")
+        tabla_nutricional(nutricion_actual, f"{numero(config.porcion)} {nutricion_actual.expresar_en} · {config.medida_casera or '—'}")
     agregar(nutricion_actual.leyenda_calculo)
     if nutricion_actual.cantidad_base is not None:
-        agregar(f"Cantidad base: {nutricion_actual.cantidad_base} {nutricion_actual.expresar_en}")
+        agregar(f"Cantidad base: {numero(nutricion_actual.cantidad_base)} {nutricion_actual.expresar_en}")
     for ingrediente in nutricion_actual.incompletos:
         agregar(f"{ingrediente.nombre}: {', '.join(ingrediente.faltantes) or 'Datos incompletos'}")
     agregar("Aportes por ingrediente", "Heading3")
     tabla(
-        ["Insumo y nutriente", "Peso (g)", "Dato por 100 g", "Aporte", "Fuente y referencia"],
+        ["Ingrediente y nutriente", "Peso (g)", "Dato por 100 g", "Aporte", "Fuente y referencia"],
         [(f"{f.insumo} · {f.nutriente}" + (f" (a partir de {f.nutriente_fuente})" if f.nutriente_fuente != f.nutriente else ""),
-          f"{f.gramos:.3f}", f"{f.valor_por_100_g:.4g}", f"{f.aporte:.5g}",
-          f"{f.fuente} · {f.referencia or 'Sin referencia'} · Valor fuente: {f.valor_fuente}") for f in fuentes],
+          numero(f.gramos, 1), numero(f.valor_por_100_g), numero(f.aporte),
+          f"{f.fuente} · {f.referencia or 'Sin referencia'} · Valor fuente: {numero(f.valor_fuente)}") for f in fuentes],
         [.31, .11, .14, .12, .32],
     )
     if nutricion_actual.laboratorio:
         agregar("Análisis de laboratorio", "Heading3")
         tabla(
             ["Nutriente", "Valor por 100", "Referencia", "Fecha del análisis"],
-            [(l.nombre, f"{l.valor_100} {l.unidad}", l.referencia, l.fecha_analisis) for l in nutricion_actual.laboratorio],
+            [(l.nombre, f"{numero(l.valor_100)} {l.unidad}", l.referencia, l.fecha_analisis) for l in nutricion_actual.laboratorio],
             [.29, .21, .30, .20],
         )
 
@@ -303,8 +330,8 @@ def generar_pdf(
             agregar(sellos.motivo)
         tabla(
             ["Sello", "Valor calculado", "Umbral", "Resultado"],
-            [(s.etiqueta, f"{s.valor_calculado} {s.unidad_calculado}" if s.valor_calculado is not None else "—",
-              f"{s.umbral} {s.unidad_umbral}" if s.umbral is not None else "—",
+            [(s.etiqueta, f"{numero(s.valor_calculado)} {s.unidad_calculado}" if s.valor_calculado is not None else "—",
+              f"{numero(s.umbral)} {s.unidad_umbral}" if s.umbral is not None else "—",
               "Exceso" if s.evaluado and s.exceso else "Sin exceso" if s.evaluado else s.motivo or "Pendiente")
              for s in sellos.resultados],
             [.28, .19, .19, .34],
@@ -315,7 +342,7 @@ def generar_pdf(
                 if sello.formula:
                     agregar(f"Fórmula: {sello.formula}")
                 for paso in sello.pasos:
-                    valor = f": {paso.valor} {paso.unidad}" if paso.valor is not None else ""
+                    valor = f": {numero(paso.valor)} {paso.unidad or ''}" if paso.valor is not None else ""
                     agregar(paso.descripcion + valor)
     if cabecera is not None:
         doc.build(

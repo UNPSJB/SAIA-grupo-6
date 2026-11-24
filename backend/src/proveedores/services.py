@@ -2,7 +2,12 @@ import logging
 from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-from src.common.persistence import aplicar_cambios, baja_logica, guardar, obtener, verificar_disponibilidad
+from src.common.texto import contiene_texto
+from src.common.persistence import (
+    aplicar_cambios,
+    baja_logica,
+    verificar_disponibilidad,
+)
 from src.insumos.models import Insumo
 from src.proveedores import exceptions, schemas
 from src.proveedores.models import Proveedor, CertificacionProveedor
@@ -14,7 +19,7 @@ def _cuit_normalizado(valor: str | None):
 
 def _consulta_proveedor():
     return select(Proveedor).options(
-        selectinload(Proveedor.insumos),
+        selectinload(Proveedor.insumos).selectinload(Insumo.ingrediente),
         selectinload(Proveedor.certificaciones),
     )
 
@@ -48,12 +53,13 @@ def crear_proveedor(db: Session, datos: schemas.ProveedorCreate) -> Proveedor:
 def listar_proveedores(db: Session, incluir_inactivos=False, buscar=None):
     consulta = _consulta_proveedor()
     if buscar:
-        termino = f"%{buscar.strip()}%"
+        termino = buscar.strip()
+        # Sin tildes ni mayúsculas, como el resto de las búsquedas.
         consulta = consulta.where(
-            Proveedor.nombre.ilike(termino) |
-            Proveedor.cuit.ilike(termino) |
-            Proveedor.matricula.ilike(termino) |
-            Proveedor.rubro.ilike(termino)
+            contiene_texto(Proveedor.nombre, termino) |
+            contiene_texto(Proveedor.cuit, termino) |
+            contiene_texto(Proveedor.matricula, termino) |
+            contiene_texto(Proveedor.rubro, termino)
         )
     if not incluir_inactivos:
         consulta = consulta.where(Proveedor.activo.is_(True))

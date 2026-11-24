@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import get_current_user, require_admin
+from src.auth.dependencies import require_admin
 from src.database import get_db
 from src.personal.models import Personal
 from src.trazabilidad import schemas, services
@@ -37,7 +37,7 @@ def trazar_lote_insumo(lote_insumo_id: int, db: Session = Depends(get_db)):
 def obtener_grafo_trazabilidad_lote(
     lote_id: int,
     db: Session = Depends(get_db),
-    _usuario: Personal = Depends(get_current_user),
+    _usuario: Personal = Depends(require_admin),
 ):
     return services.obtener_grafo_trazabilidad_lote(db, lote_id)
 

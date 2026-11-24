@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Image, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Image, Stack, Text } from "@chakra-ui/react";
+import { LuCircleCheck, LuRotateCcw } from "react-icons/lu";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
-import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import {
   BannerError,
+  BotonGuardar,
   BotonTexto,
   EstadoCargando,
   EtiquetaEstado,
@@ -13,19 +14,25 @@ import {
 import { ModalIniciarRetiro } from "../../../retiros/components/ModalIniciarRetiro";
 import {
   DatoDetalle,
+  GrillaDatos,
   PaginaDetalle,
   SeccionDetalle,
 } from "../../../../components/ui/plantillas";
 import { VisorFoto } from "../../../../components/ui/VisorFoto";
 import { useImagenAutenticada } from "../../../../common/hooks/useImagenAutenticada";
 import { useAuth } from "../../../../common/context/useAuth";
+import { notificarCambioIncidentes } from "../../../incidente/eventoIncidentes";
+import { ReabrirIncidenteDialog } from "../../../incidente/components/ReabrirIncidenteDialog";
+import { useNotificacionesListener } from "../../../notificaciones/hooks/useNotificacionesListener";
 import { useReclamo } from "../../hooks/useReclamo";
+import { reabrirReclamo } from "../../services/reclamoService";
+import { ModalCerrarReclamo } from "../ModalCerrarReclamo";
 import { BadgePlazo, BadgePrioridad } from "../ReclamosTable";
 
 /**
  * Ficha completa de un reclamo de cliente: los datos heredados de la entrega,
  * el plazo con el que se registró (guardado, no recalculado), la evidencia y el
- * incidente abierto en E6 con su resolución.
+ * incidente asociado con su resolución. El reclamo se cierra y se reabre acá.
  */
 export function ReclamoDetallePage() {
   const navigate = useNavigate();
@@ -33,10 +40,39 @@ export function ReclamoDetallePage() {
   const reclamoId = Number(id);
   const idValido = Number.isFinite(reclamoId) ? reclamoId : null;
   const { user } = useAuth();
-  const { reclamo, loading, error } = useReclamo(idValido);
+  const { reclamo, loading, error, recargar } = useReclamo(idValido);
+  const { notificarCambio } = useNotificacionesListener();
   const esAdmin = puedeAdministrar(user);
   const [imagenAmpliada, setImagenAmpliada] = useState(false);
   const [modalRetirar, setModalRetirar] = useState(false);
+  const [modalCerrar, setModalCerrar] = useState(false);
+  const [modalReabrir, setModalReabrir] = useState(false);
+  const [reabriendo, setReabriendo] = useState(false);
+  const [errorReabrir, setErrorReabrir] = useState<string | null>(null);
+
+  // El cambio también mueve el incidente y sus alertas.
+  const alCambiarEstado = async () => {
+    setModalCerrar(false);
+    setModalReabrir(false);
+    notificarCambioIncidentes();
+    notificarCambio();
+    await recargar();
+  };
+
+  const handleReabrir = async (motivo: string) => {
+    if (idValido === null) return;
+    setReabriendo(true);
+    setErrorReabrir(null);
+    try {
+      await reabrirReclamo(idValido, motivo);
+    } catch (err) {
+      setErrorReabrir(err instanceof Error ? err.message : "No se pudo reabrir el reclamo.");
+      return;
+    } finally {
+      setReabriendo(false);
+    }
+    await alCambiarEstado();
+  };
 
   // El hook va antes de los early returns: si no, cambia la cantidad de hooks
   // entre renders cuando la carga termina.
@@ -44,7 +80,7 @@ export function ReclamoDetallePage() {
 
   if (loading) {
     return (
-      <PaginaDetalle volver={{ a: "/reclamos", etiqueta: "Reclamos" }} titulo="Reclamo">
+      <PaginaDetalle volver={{ a: "/incidentes?tab=reclamos", etiqueta: "Reclamos" }} titulo="Reclamo">
         <EstadoCargando>Cargando reclamo...</EstadoCargando>
       </PaginaDetalle>
     );
@@ -52,7 +88,7 @@ export function ReclamoDetallePage() {
 
   if (error || !reclamo) {
     return (
-      <PaginaDetalle volver={{ a: "/reclamos", etiqueta: "Reclamos" }} titulo="Reclamo">
+      <PaginaDetalle volver={{ a: "/incidentes?tab=reclamos", etiqueta: "Reclamos" }} titulo="Reclamo">
         <BannerError>{error || "No se encontró el reclamo"}</BannerError>
       </PaginaDetalle>
     );
@@ -63,7 +99,7 @@ export function ReclamoDetallePage() {
   return (
     <>
       <PaginaDetalle
-        volver={{ a: "/reclamos", etiqueta: "Reclamos" }}
+        volver={{ a: "/incidentes?tab=reclamos", etiqueta: "Reclamos" }}
         titulo={`Reclamo de ${reclamo.cliente_nombre}`}
         descripcion={`Registrado el ${formatoFecha(reclamo.fecha_reclamo)} · Lote ${reclamo.lote_numero}`}
         estado={
@@ -71,10 +107,61 @@ export function ReclamoDetallePage() {
             {cerrado ? "Cerrado" : "Abierto"}
           </EtiquetaEstado>
         }
+        acciones={
+          <>
+            {/* Un lote admite un solo retiro: si ya existe se muestra, no se ofrece otro. */}
+            {reclamo.retiro ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/retiros/${reclamo.retiro!.id}`)}
+              >
+                Ver retiro #{reclamo.retiro.id} (
+                {reclamo.retiro.estado === "CERRADO" ? "cerrado" : "en curso"})
+              </Button>
+            ) : !cerrado && reclamo.lote_id && esAdmin ? (
+              <Button
+                size="sm"
+                variant="surface"
+                colorPalette="red"
+                onClick={() => {
+                  setModalRetirar(true);
+                }}
+                title={`Abre el retiro del lote ${reclamo.lote_numero} del mercado, con el motivo "Reclamos de clientes" preseleccionado.`}
+              >
+                Iniciar retiro del lote
+              </Button>
+            ) : null}
+            {esAdmin &&
+              reclamo.incidente &&
+              (cerrado ? (
+                <Button
+                  size="sm"
+                  variant="surface"
+                  colorPalette="orange"
+                  onClick={() => {
+                    setErrorReabrir(null);
+                    setModalReabrir(true);
+                  }}
+                >
+                  <LuRotateCcw aria-hidden />
+                  Reabrir reclamo
+                </Button>
+              ) : (
+                <BotonGuardar type="button" size="sm" onClick={() => setModalCerrar(true)}>
+                  <LuCircleCheck aria-hidden />
+                  Cerrar reclamo
+                </BotonGuardar>
+              ))}
+          </>
+        }
       >
+        {/* Secciones apiladas a todo el ancho: lado a lado, la columna del
+            reclamo quedaba con más de la mitad vacía. Iniciar el retiro del
+            lote es una acción: va en el encabezado. */}
         <Stack gap="6">
           <SeccionDetalle titulo="Datos del reclamo">
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="6">
+            <GrillaDatos>
               <DatoDetalle etiqueta="Cliente">
                 {reclamo.cliente_nombre}
               </DatoDetalle>
@@ -125,7 +212,7 @@ export function ReclamoDetallePage() {
                   </Text>
                 </DatoDetalle>
               </Box>
-            </SimpleGrid>
+            </GrillaDatos>
 
             {reclamo.fuera_de_plazo && (
               <Text mt="4" fontSize="sm" color="orange.fg">
@@ -138,7 +225,7 @@ export function ReclamoDetallePage() {
           </SeccionDetalle>
 
           <SeccionDetalle titulo="Entrega asociada">
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="6">
+            <GrillaDatos>
               <DatoDetalle etiqueta="Producto">
                 {reclamo.salida.producto_nombre}
               </DatoDetalle>
@@ -146,15 +233,13 @@ export function ReclamoDetallePage() {
                 {reclamo.salida.lote_numero}
               </DatoDetalle>
               <DatoDetalle etiqueta="Cantidad">
-                {cantidadConUnidad(
-                  reclamo.salida.cantidad,
-                  reclamo.salida.unidad_medida
-                )}
+                {/* El backend ya la manda formateada ("0,749"): parsearla daba NaN. */}
+                {[reclamo.salida.cantidad, reclamo.salida.unidad_medida].filter(Boolean).join(" ")}
               </DatoDetalle>
               <DatoDetalle etiqueta="Fecha de despacho">
                 {formatoFecha(reclamo.salida.fecha_despacho)}
               </DatoDetalle>
-            </SimpleGrid>
+            </GrillaDatos>
             <Box mt="4">
               <BotonTexto
                 onClick={() => navigate(`/salidas/${reclamo.salida_id}/detalle`)}
@@ -192,7 +277,7 @@ export function ReclamoDetallePage() {
           <SeccionDetalle titulo="Incidente asociado">
             {reclamo.incidente ? (
               <Stack gap="4">
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
+                <GrillaDatos>
                   <DatoDetalle etiqueta="Incidente">
                     <BotonTexto
                       onClick={() =>
@@ -221,13 +306,7 @@ export function ReclamoDetallePage() {
                       </DatoDetalle>
                     </>
                   )}
-                </SimpleGrid>
-                {!cerrado && (
-                  <Text fontSize="sm" color="fg.muted">
-                    El incidente se cierra desde Gestión de incidentes (E6) con
-                    la acción correctiva.
-                  </Text>
-                )}
+                </GrillaDatos>
               </Stack>
             ) : (
               <Text fontSize="sm" color="fg.muted">
@@ -235,23 +314,6 @@ export function ReclamoDetallePage() {
               </Text>
             )}
           </SeccionDetalle>
-
-          {!cerrado && reclamo.lote_id && esAdmin && (
-            <SeccionDetalle sinMarco titulo="Retiro del lote">
-              <Button
-                colorPalette="red"
-                onClick={() => {
-                  setModalRetirar(true);
-                }}
-              >
-                Iniciar retiro del lote
-              </Button>
-              <Text fontSize="xs" color="fg.muted" mt="2">
-                Abrirá el modal para retirar el lote {reclamo.lote_numero} del
-                mercado, con el motivo "Reclamos de clientes" preseleccionado.
-              </Text>
-            </SeccionDetalle>
-          )}
         </Stack>
       </PaginaDetalle>
 
@@ -262,6 +324,22 @@ export function ReclamoDetallePage() {
           onClose={() => setImagenAmpliada(false)}
         />
       )}
+
+      <ModalCerrarReclamo
+        reclamo={modalCerrar ? reclamo : null}
+        onClose={() => setModalCerrar(false)}
+        onCerrado={() => void alCambiarEstado()}
+      />
+
+      <ReabrirIncidenteDialog
+        isOpen={modalReabrir}
+        entidad="reclamo"
+        incidente={{ id: reclamo.id }}
+        isLoading={reabriendo}
+        error={errorReabrir}
+        onClose={() => setModalReabrir(false)}
+        onConfirm={(motivo) => void handleReabrir(motivo)}
+      />
 
       <ModalIniciarRetiro
         isOpen={modalRetirar}

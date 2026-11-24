@@ -6,9 +6,10 @@ from src.common.fechas import ahora
 from src.aptitud.models import Aptitud
 from src.personal.models import Personal
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 
 
-class VencimientoPersonal(ModeloBase):
+class VencimientoPersonal(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "vencimientos_personal"
     __table_args__ = (
         UniqueConstraint("persona_id", "aptitud_id", name="uq_vencimiento_persona_aptitud"),

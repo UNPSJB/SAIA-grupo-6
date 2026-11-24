@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from src.common.listados import ColumnaOrden, aplicar_orden, filtro_busqueda, paginar_consulta
@@ -389,42 +389,42 @@ def listar_lotes(
     )
 
 
-def sincronizar_consumo_checklist(
+def sincronizar_consumos_checklist(
     db: Session,
     *,
     registro_id: int,
     checklist_id: int,
     checklist_fecha: date,
     tarea_nombre: str,
-    consumo_anterior: tuple[Optional[int], Optional[Decimal]],
-    consumo_nuevo: tuple[Optional[int], Optional[Decimal]],
+    consumos_anteriores: dict[int, Decimal],
+    consumos_nuevos: dict[int, Decimal],
     usuario_id: int,
     usuario_nombre: str,
 ) -> None:
-    """Registra solo la diferencia entre dos estados de consumo de una tarea."""
-    anterior_id, anterior_cantidad = consumo_anterior
-    nuevo_id, nueva_cantidad = consumo_nuevo
-    anterior = anterior_cantidad or Decimal("0")
-    nueva = nueva_cantidad or Decimal("0")
-    if anterior_id == nuevo_id and anterior == nueva:
-        return
+    """Registra solo la diferencia entre dos estados de consumo de una tarea.
 
+    Una tarea puede usar varios productos, cada uno con su cantidad
+    (`{insumo_quimico_id: cantidad}`). Por producto:
+
+      - sube la cantidad (o es nuevo)   consumo automático por la diferencia
+      - baja la cantidad (o se quitó)   reverso por la diferencia
+      - igual                           nada
+
+    Un reintento idéntico no genera movimientos.
+    """
     variaciones: list[tuple[int, Decimal, TipoMovimientoStock]] = []
-    if anterior_id is not None and anterior > 0:
-        if anterior_id == nuevo_id:
-            diferencia = anterior - nueva
-            if diferencia > 0:
-                variaciones.append((anterior_id, diferencia, TipoMovimientoStock.REVERSO_CONSUMO))
-            elif diferencia < 0:
-                variaciones.append((anterior_id, diferencia, TipoMovimientoStock.CONSUMO_AUTOMATICO))
-        else:
-            variaciones.append((anterior_id, anterior, TipoMovimientoStock.REVERSO_CONSUMO))
-    if nuevo_id is not None and nueva > 0 and anterior_id != nuevo_id:
-        variaciones.append((nuevo_id, -nueva, TipoMovimientoStock.CONSUMO_AUTOMATICO))
+    for insumo_id in sorted(set(consumos_anteriores) | set(consumos_nuevos)):
+        anterior = consumos_anteriores.get(insumo_id) or Decimal("0")
+        nueva = consumos_nuevos.get(insumo_id) or Decimal("0")
+        diferencia = anterior - nueva
+        if diferencia > 0:
+            variaciones.append((insumo_id, diferencia, TipoMovimientoStock.REVERSO_CONSUMO))
+        elif diferencia < 0:
+            variaciones.append((insumo_id, diferencia, TipoMovimientoStock.CONSUMO_AUTOMATICO))
 
     # Actualizar productos en un orden estable evita interbloqueos en motores
     # con bloqueo a nivel de fila; cualquier error revierte todo el PATCH.
-    for insumo_id, variacion, _ in sorted(variaciones, key=lambda item: item[0]):
+    for insumo_id, variacion, _ in variaciones:
         _aplicar_variacion(db, insumo_id, variacion)
 
     for insumo_id, variacion, tipo in variaciones:
@@ -445,3 +445,37 @@ def sincronizar_consumo_checklist(
                 tarea_nombre=tarea_nombre,
             )
         )
+
+
+def sincronizar_consumo_checklist(
+    db: Session,
+    *,
+    registro_id: int,
+    checklist_id: int,
+    checklist_fecha: date,
+    tarea_nombre: str,
+    consumo_anterior: tuple[Optional[int], Optional[Decimal]],
+    consumo_nuevo: tuple[Optional[int], Optional[Decimal]],
+    usuario_id: int,
+    usuario_nombre: str,
+) -> None:
+    """Versión de un solo producto por tarea (compatibilidad): delega en
+    `sincronizar_consumos_checklist`."""
+
+    def como_dict(consumo: tuple[Optional[int], Optional[Decimal]]) -> dict[int, Decimal]:
+        insumo_id, cantidad = consumo
+        if insumo_id is None or not cantidad or cantidad <= 0:
+            return {}
+        return {insumo_id: cantidad}
+
+    sincronizar_consumos_checklist(
+        db,
+        registro_id=registro_id,
+        checklist_id=checklist_id,
+        checklist_fecha=checklist_fecha,
+        tarea_nombre=tarea_nombre,
+        consumos_anteriores=como_dict(consumo_anterior),
+        consumos_nuevos=como_dict(consumo_nuevo),
+        usuario_id=usuario_id,
+        usuario_nombre=usuario_nombre,
+    )

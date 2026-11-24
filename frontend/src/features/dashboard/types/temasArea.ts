@@ -25,6 +25,17 @@ export interface TemaArea {
   arcos: [string, string, string, string];
 }
 
+/** Tema de la comparativa entre establecimientos: teal de la marca y pizarra. */
+export const TEMA_EMPRESA: TemaArea = {
+  fondo: ["var(--chakra-colors-area-empresa-fondo0)", "var(--chakra-colors-area-empresa-fondo1)", "var(--chakra-colors-area-empresa-fondo2)"],
+  borde: "var(--chakra-colors-area-empresa-borde)",
+  filete: ["#1f7f78", "#4fa89f", "#4f84b5"],
+  acento: "var(--chakra-colors-area-empresa-acento)",
+  titulo: "var(--chakra-colors-area-empresa-titulo)",
+  bajada: "var(--chakra-colors-area-empresa-bajada)",
+  arcos: ["#4f84b5", "#4fa89f", "#1f7f78", "var(--chakra-colors-area-empresa-arco3)"],
+};
+
 export const TEMAS_AREA: Record<CategoriaPanel, TemaArea> = {
   /* Terracota y ocre: el horno, la elaboración. */
   produccion: {

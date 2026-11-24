@@ -12,6 +12,7 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models import ModeloBase
+from src.establecimientos.models import DatosDeEstablecimiento
 from src.reposiciones.constants import (
     ESTADO_REPOSICION_PENDIENTE,
     PRIORIDAD_NORMAL,
@@ -25,7 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover - solo para tipado
     from src.salidas.models import Salida
 
 
-class Reposicion(ModeloBase):
+class Reposicion(DatosDeEstablecimiento, ModeloBase):
     __tablename__ = "reposiciones"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
