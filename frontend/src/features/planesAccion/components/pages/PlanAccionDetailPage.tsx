@@ -12,6 +12,7 @@ import {
   LuTrash2,
 } from "react-icons/lu";
 import { MotivoDialog } from "../../../../common/components/MotivoDialog";
+import { useAuth } from "../../../../common/context/useAuth";
 import { useAvisoTemporal } from "../../../../common/hooks/useDelayedNavigate";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import {
@@ -67,6 +68,7 @@ import {
   EvidenciaDialog,
 } from "../DialogosPlan";
 import { EtiquetaEstadoPlan, EtiquetaEstadoSituacion, EtiquetaVencido } from "../EtiquetasPlan";
+import { ProyeccionRiesgo } from "../ProyeccionRiesgo";
 
 type Dialogo =
   | { tipo: "editar" }
@@ -253,6 +255,7 @@ function SeccionAlcance({
   onQuitar,
   onVerificar,
   onError,
+  verificadorIndependiente,
 }: {
   plan: PlanDetalle;
   ocupado: boolean;
@@ -260,13 +263,15 @@ function SeccionAlcance({
   onQuitar: (s: SituacionPlan) => void;
   onVerificar: (s: SituacionPlan) => void;
   onError: (mensaje: string) => void;
+  /** false si el usuario actual es responsable del plan o de alguna acción. */
+  verificadorIndependiente: boolean;
 }) {
   const verificando = plan.estado === "implementado" || plan.estado === "en_verificacion";
   return (
     <SeccionDetalle
       sinMarco
       titulo="Situaciones del alcance"
-      descripcion="Las situaciones confirmadas que este plan trata. Cada una se verifica por separado."
+      descripcion="Las situaciones que este plan trata. Cada una se verifica por separado; al verificarse queda bajo control del plan y deja de sumar al riesgo tratado (el riesgo real no se modifica)."
       acciones={
         plan.editable && plan.candidatas_nuevas > 0 ? (
           <Button size="sm" variant="outline" colorPalette="brand" onClick={onSumar} disabled={ocupado}>
@@ -292,6 +297,14 @@ function SeccionAlcance({
                         Origen
                       </Badge>
                     ) : null}
+                    <Badge colorPalette="neutral" variant="outline" rounded="full" px="2">
+                      {s.tipo_etiqueta}
+                    </Badge>
+                    {s.controlada ? (
+                      <Badge colorPalette="blue" variant="subtle" rounded="full" px="2">
+                        Bajo control de este plan
+                      </Badge>
+                    ) : null}
                   </HStack>
                   {s.detalle ? (
                     <Text fontSize="xs" color="fg.muted" mt="0.5">
@@ -303,7 +316,19 @@ function SeccionAlcance({
                     {s.resuelta_en ? ` · el motor dejó de detectarla el ${formatoFecha(s.resuelta_en)}` : ""}
                     {s.verificada_en ? ` · verificada el ${formatoFecha(s.verificada_en)}` : ""}
                   </Text>
-                  {!s.resuelta_en && s.sigue_presente && s.estado !== "pendiente" ? (
+                  {decide && s.verificacion_manual && !verificadorIndependiente ? (
+                    <Text fontSize="xs" color="orange.fg" mt="0.5">
+                      Sos responsable del plan o de alguna de sus acciones: la verificación la tiene que
+                      hacer otra persona.
+                    </Text>
+                  ) : null}
+                  {decide && s.verificacion_manual ? (
+                    <Text fontSize="xs" color="fg.muted" mt="0.5">
+                      Un incidente no se cierra solo: lo confirma a mano alguien que no sea responsable del
+                      plan ni de sus acciones, con evidencia. Al confirmarlo pasa a "controlado" y deja de
+                      sumar al riesgo tratado; el riesgo real queda en el historial.
+                    </Text>
+                  ) : s.sigue_presente && !s.verificacion_manual && s.estado !== "pendiente" ? (
                     <Text fontSize="xs" color="orange.fg" mt="0.5">
                       El motor la sigue detectando.
                     </Text>
@@ -311,7 +336,7 @@ function SeccionAlcance({
                 </Box>
                 <HStack gap="2" flexWrap="wrap">
                   <EtiquetaEstadoSituacion estado={s.estado} />
-                  {verificando && decide && s.verificacion_manual ? (
+                  {verificando && decide && s.verificacion_manual && verificadorIndependiente ? (
                     <Button size="sm" colorPalette="brand" onClick={() => onVerificar(s)} disabled={ocupado}>
                       <LuClipboardCheck aria-hidden />
                       Verificar
@@ -369,16 +394,22 @@ function CeldaRiesgo({ registro }: { registro: RiesgoElementoPlan | undefined })
           {etiquetaNivel(registro.nivel)}
         </Badge>
         <Text as="span" fontSize="xs" color="fg.muted">
-          {registro.puntaje} pts
+          {String(registro.puntaje).replace(".", ",")} pts
         </Text>
       </HStack>
+      {registro.puntaje_tratado !== null && registro.puntaje_tratado !== registro.puntaje ? (
+        <Text fontSize="xs" color="blue.fg" mt="1">
+          Tratado: {String(registro.puntaje_tratado).replace(".", ",")} pts
+        </Text>
+      ) : null}
     </Celda>
   );
 }
 
 /**
- * Riesgo consolidado de cada elemento antes, durante y después. Son fotos
- * que el plan copia del motor: el plan nunca modifica el riesgo.
+ * Riesgo de cada elemento antes, durante y después. El REAL es el del motor y
+ * nunca se modifica; el TRATADO es el mismo cálculo sin las situaciones que el
+ * plan tiene bajo control. Las fotos las copia el plan en cada momento.
  */
 function SeccionRiesgo({ plan }: { plan: PlanDetalle }) {
   const elementos = Array.from(new Set(plan.riesgos.map((r) => r.elemento)));
@@ -386,8 +417,73 @@ function SeccionRiesgo({ plan }: { plan: PlanDetalle }) {
     <SeccionDetalle
       sinMarco
       titulo="Riesgo de los elementos"
-      descripcion="Lo calcula el motor de riesgo; el plan solo guarda una foto en cada momento para poder compararlo."
+      descripcion="El riesgo real lo calcula el motor y no cambia por tener un plan. El plan guarda una foto en cada momento y muestra el riesgo tratado y una estimación si resulta eficaz."
     >
+      {plan.riesgo_actual.length > 0 ? (
+        <Box mb="5">
+          <Text fontWeight="bold" fontSize="sm" color="fg" mb="2">
+            Riesgo ahora
+          </Text>
+          <Stack gap="2">
+            {plan.riesgo_actual.map((r) => (
+              <Tarjeta key={r.elemento} p="3">
+                <HStack justify="space-between" gap="3" flexWrap="wrap">
+                  <Box minW="0" flex="1">
+                    <Text fontSize="sm" fontWeight="medium" color="fg" lineClamp={1}>
+                      {r.etiqueta}
+                    </Text>
+                    {r.en_tratamiento ? (
+                      <Text fontSize="xs" color="blue.fg">
+                        En tratamiento
+                      </Text>
+                    ) : null}
+                  </Box>
+                  <HStack gap="4">
+                    <Box>
+                      <Text fontSize="2xs" color="fg.subtle">
+                        Real
+                      </Text>
+                      <HStack gap="2">
+                        <Badge colorPalette={paletaNivel(r.nivel)} variant="subtle" rounded="full" px="2">
+                          {etiquetaNivel(r.nivel)}
+                        </Badge>
+                        <Text as="span" fontSize="sm" fontWeight="medium">
+                          {String(r.puntaje).replace(".", ",")}
+                        </Text>
+                      </HStack>
+                    </Box>
+                    {r.en_tratamiento ? (
+                      <Box>
+                        <Text fontSize="2xs" color="fg.subtle">
+                          Tratado
+                        </Text>
+                        <HStack gap="2">
+                          <Badge
+                            colorPalette={paletaNivel(r.nivel_tratado)}
+                            variant="subtle"
+                            rounded="full"
+                            px="2"
+                          >
+                            {etiquetaNivel(r.nivel_tratado)}
+                          </Badge>
+                          <Text as="span" fontSize="sm" fontWeight="medium">
+                            {String(r.puntaje_tratado).replace(".", ",")}
+                          </Text>
+                        </HStack>
+                      </Box>
+                    ) : null}
+                  </HStack>
+                </HStack>
+              </Tarjeta>
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
+      {plan.proyeccion.length > 0 ? (
+        <Box mb="5">
+          <ProyeccionRiesgo proyeccion={plan.proyeccion} />
+        </Box>
+      ) : null}
       {elementos.length === 0 ? (
         <EstadoVacio>Todavía no hay registros de riesgo.</EstadoVacio>
       ) : (
@@ -489,6 +585,7 @@ export function PlanAccionDetailPage() {
   const planId = Number.isFinite(numero) ? numero : null;
 
   const { plan, error, reemplazar } = usePlan(planId);
+  const { user } = useAuth();
   const [dialogo, setDialogo] = useState<Dialogo | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
@@ -605,8 +702,8 @@ export function PlanAccionDetailPage() {
       ) : null}
       {plan.estado === "en_verificacion" && plan.fecha_fin_observacion ? (
         <AvisoSoloLectura>
-          En observación hasta el {formatoFecha(plan.fecha_fin_observacion)}. Si el motor vuelve a detectar alguna
-          situación, queda como no eficaz.
+          En observación hasta el {formatoFecha(plan.fecha_fin_observacion)}. Si el problema reaparece en algún
+          elemento, esa situación queda como no eficaz y su riesgo vuelve a subir.
         </AvisoSoloLectura>
       ) : null}
 
@@ -665,6 +762,11 @@ export function PlanAccionDetailPage() {
       />
 
       <SeccionAlcance
+        verificadorIndependiente={
+          !user ||
+          (user.id !== plan.responsable_id &&
+            !plan.acciones.some((a) => a.responsable_id === user.id))
+        }
         plan={plan}
         ocupado={ocupado}
         onSumar={() => setDialogo({ tipo: "candidatas" })}
@@ -746,6 +848,12 @@ export function PlanAccionDetailPage() {
           titulo={dialogo.situacion.verificacion_manual ? "Verificar situación" : "Evidencia de verificación"}
           mensaje={dialogo.situacion.titulo}
           etiquetaDescripcion="Evidencia de verificación"
+          minimo={dialogo.situacion.verificacion_manual ? 10 : 3}
+          ayuda={
+            dialogo.situacion.verificacion_manual
+              ? "Obligatoria: describí qué se comprobó y cómo (al menos 10 caracteres). Podés adjuntar un archivo."
+              : undefined
+          }
           etiquetaConfirmar={dialogo.situacion.verificacion_manual ? "Verificar" : "Adjuntar"}
           pedirResultado={dialogo.situacion.verificacion_manual}
           onConfirm={(descripcion, archivo, resultado) =>

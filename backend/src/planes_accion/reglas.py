@@ -5,7 +5,9 @@ cuándo se sugiere un plan), para poder probarlo sin infraestructura. Los
 services solo leen y escriben.
 
 Principio rector (sección 1 del documento funcional): el plan TRATA, el motor
-EVALÚA. Nada de este módulo calcula ni descuenta riesgo.
+EVALÚA. Nada de este módulo calcula riesgo: solo decide cuándo una situación
+cuenta como CONTROLADA (plan verificado). El motor la marca y calcula aparte el
+riesgo tratado; el riesgo real no se toca.
 """
 
 from __future__ import annotations
@@ -58,12 +60,52 @@ ESTADOS_SITUACION_VERIFICADA = frozenset(
     {EstadoSituacionPlan.CORREGIDA, EstadoSituacionPlan.NO_EFICAZ}
 )
 
-#: Tipos de situación que el motor NO detecta por sí solo. Para esos la
-#: corrección no se confirma sola: la confirma el responsable de la
-#: verificación, con su evidencia. Hoy todos los tipos de
-#: `riesgo.TIPOS_SITUACION` los detecta el motor, así que está vacío; si
-#: se agrega un tipo cargado a mano, va acá.
-TIPOS_VERIFICACION_MANUAL: frozenset[str] = frozenset()
+#: Tipos de situación cuya corrección el motor no puede confirmar solo: los
+#: incidentes. Un incidente sigue abierto aunque la causa ya esté corregida
+#: (alguien tiene que cerrarlo), así que "el motor ya no lo detecta" no sirve
+#: como prueba. Para esos tipos la corrección la confirma una persona, con su
+#: evidencia, y la situación pasa a estar CONTROLADA por el plan.
+#: Los demás tipos (stock, checklists, vencimientos) los observa el motor y se
+#: confirman solos cuando dejan de detectarse.
+TIPOS_VERIFICACION_MANUAL: frozenset[str] = riesgo.TIPOS_DE_INCIDENTE
+
+#: Estados del plan desde los que sus situaciones verificadas cuentan como
+#: controladas. En Cancelado no: un plan cancelado no controló nada. En Cerrado
+#: no eficaz tampoco: ninguna situación quedó eficaz.
+ESTADOS_PLAN_QUE_CONTROLAN = frozenset(
+    {
+        EstadoPlan.IMPLEMENTADO,
+        EstadoPlan.EN_VERIFICACION,
+        EstadoPlan.CERRADO_EFICAZ,
+        EstadoPlan.CERRADO_PARCIAL,
+    }
+)
+
+#: Estados de la situación dentro del plan que cuentan como controlada.
+ESTADOS_SITUACION_CONTROLADA = frozenset(
+    {EstadoSituacionPlan.CORREGIDA, EstadoSituacionPlan.EFICAZ}
+)
+
+
+def situacion_controlada(estado_plan, estado_situacion) -> bool:
+    """La situación ya está verificada por un plan que sigue en pie. El motor
+    sigue calculando su riesgo REAL igual que siempre; el riesgo TRATADO la deja
+    afuera. Pendiente, Acción implementada (sin verificar) y No eficaz no
+    cuentan."""
+    return (
+        _valor(estado_plan) in {e.value for e in ESTADOS_PLAN_QUE_CONTROLAN}
+        and _valor(estado_situacion) in {e.value for e in ESTADOS_SITUACION_CONTROLADA}
+    )
+
+
+def es_compatible(
+    *, tipo_plan: str, elementos_alcance: Iterable[str], tipo: str, elemento: str
+) -> bool:
+    """Una situación se puede sumar a un plan si es del mismo tipo que el plan o
+    si es de otro tipo pero del MISMO ELEMENTO que alguna del alcance (p. ej. un
+    equipo sin calibrar con una calibración vencida y una falla del equipo). En
+    ambos casos, quien suma confirma que comparten la causa."""
+    return tipo == tipo_plan or elemento in set(elementos_alcance)
 
 
 def _valor(estado) -> str:

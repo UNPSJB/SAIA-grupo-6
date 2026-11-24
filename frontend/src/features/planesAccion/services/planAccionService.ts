@@ -10,6 +10,7 @@ import type {
   PlanInput,
   PlanResumen,
   ResponsablePosible,
+  ProyeccionElemento,
   SituacionConPlan,
   SituacionDisponible,
 } from "../types/planAccion";
@@ -68,6 +69,12 @@ export async function listarSituacionesDisponibles(
 export async function listarSituacionesConPlan(): Promise<SituacionConPlan[]> {
   const response = await apiFetch(`${BASE}/situaciones-con-plan`);
   return pedir<SituacionConPlan[]>(response, "Error al obtener los planes de las situaciones");
+}
+
+/** Riesgo actual de los elementos y cómo quedaría si el plan se implementara y verificara. */
+export async function proyectarAlcance(situacionIds: number[]): Promise<ProyeccionElemento[]> {
+  const response = await apiFetch(`${BASE}/proyeccion`, enviarJson("POST", { situacion_ids: situacionIds }));
+  return pedir<ProyeccionElemento[]>(response, "Error al calcular la proyección del riesgo");
 }
 
 export async function listarCandidatas(planId: number): Promise<SituacionDisponible[]> {

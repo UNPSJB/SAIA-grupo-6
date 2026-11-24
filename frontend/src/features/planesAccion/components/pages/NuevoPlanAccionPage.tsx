@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Box, HStack, Text, Textarea, VStack } from "@chakra-ui/react";
 import { LuPlus, LuTrash2 } from "react-icons/lu";
 import { useResponsables } from "../../hooks/useResponsables";
+import { useProyeccion } from "../../hooks/useProyeccion";
 import { useSituacionesDisponibles } from "../../hooks/useSituacionesDisponibles";
+import { ProyeccionRiesgo } from "../ProyeccionRiesgo";
 import { crearPlan } from "../../services/planAccionService";
 import {
   ListaSituacionesElegibles,
@@ -61,12 +63,48 @@ export function NuevoPlanAccionPage() {
   }, [origenElegido, claveInicial, situaciones]);
 
   const origen = situaciones.find((s) => s.situacion_id === origenId) ?? null;
-  const otrasDelTipo = useMemo(
-    () =>
-      origen
-        ? situaciones.filter((s) => s.tipo === origen.tipo && s.situacion_id !== origen.situacion_id)
-        : [],
-    [origen, situaciones],
+  const [adicionalesElegidas, setAdicionales] = useState<number[]>([]);
+
+  // Selección efectiva: se descartan las que dejaron de ser compatibles (por
+  // ejemplo, de otro tipo cuyo elemento entraba por una situación que se
+  // desmarcó). Una situación es compatible si es del mismo tipo que el origen
+  // o si es de un elemento que ya está en el alcance.
+  const adicionales = useMemo(() => {
+    if (!origen) return [];
+    const aceptadas: number[] = [];
+    const elementos = new Set([origen.elemento]);
+    let cambio = true;
+    while (cambio) {
+      cambio = false;
+      for (const id of adicionalesElegidas) {
+        if (aceptadas.includes(id)) continue;
+        const s = situaciones.find((x) => x.situacion_id === id);
+        if (s && (s.tipo === origen.tipo || elementos.has(s.elemento))) {
+          aceptadas.push(id);
+          elementos.add(s.elemento);
+          cambio = true;
+        }
+      }
+    }
+    return aceptadas;
+  }, [origen, situaciones, adicionalesElegidas]);
+
+  // Candidatas: mismo tipo que el origen, o del mismo elemento que algo del alcance.
+  const candidatas = useMemo(() => {
+    if (!origen) return [];
+    const elementos = new Set([origen.elemento]);
+    for (const id of adicionales) {
+      const s = situaciones.find((x) => x.situacion_id === id);
+      if (s) elementos.add(s.elemento);
+    }
+    return situaciones.filter(
+      (s) =>
+        s.situacion_id !== origen.situacion_id &&
+        (s.tipo === origen.tipo || elementos.has(s.elemento)),
+    );
+  }, [origen, situaciones, adicionales]);
+  const hayOtroTipo = adicionales.some(
+    (id) => situaciones.find((x) => x.situacion_id === id)?.tipo !== origen?.tipo,
   );
 
   const [causa, setCausa] = useState("");
@@ -74,7 +112,7 @@ export function NuevoPlanAccionPage() {
   const [criterio, setCriterio] = useState("");
   const [responsableId, setResponsableId] = useState(0);
   const [plazo, setPlazo] = useState("");
-  const [adicionales, setAdicionales] = useState<number[]>([]);
+  const { proyeccion } = useProyeccion(origenId ? [origenId, ...adicionales] : []);
   const [confirmaCausa, setConfirmaCausa] = useState(false);
   const [acciones, setAcciones] = useState<AccionBorrador[]>([{ ...ACCION_VACIA }]);
   const [guardando, setGuardando] = useState(false);
@@ -88,8 +126,8 @@ export function NuevoPlanAccionPage() {
   };
 
   const alternarAdicional = (id: number) =>
-    setAdicionales((actuales) =>
-      actuales.includes(id) ? actuales.filter((x) => x !== id) : [...actuales, id],
+    setAdicionales(() =>
+      adicionales.includes(id) ? adicionales.filter((x) => x !== id) : [...adicionales, id],
     );
 
   const cambiarAccion = (indice: number, cambios: Partial<AccionBorrador>) =>
@@ -151,7 +189,7 @@ export function NuevoPlanAccionPage() {
       descripcion={
         anterior
           ? `Continúa el plan #${anterior}: queda vinculado para que el historial muestre qué se intentó.`
-          : "Un plan trata una causa identificada. No modifica el riesgo: lo sigue calculando el motor."
+          : "Un plan trata una causa identificada. No modifica el riesgo real: el motor lo sigue calculando, y el plan lo muestra aparte como riesgo tratado."
       }
       volver={volver}
       ancho="ancho"
@@ -277,14 +315,14 @@ export function NuevoPlanAccionPage() {
             <TarjetaFormulario>
               <TituloFormulario>3. Alcance</TituloFormulario>
               <Text fontSize="sm" color="fg.muted" mb="4">
-                {otrasDelTipo.length === 0
-                  ? "No hay otras situaciones del mismo tipo para sumar."
-                  : `SAIA propone las demás situaciones de “${origen.tipo_etiqueta}”. Sumá solo las que comparten la causa de este plan: dos situaciones del mismo tipo no siempre la comparten.`}
+                {candidatas.length === 0
+                  ? "No hay otras situaciones para sumar."
+                  : `SAIA propone las demás situaciones de “${origen.tipo_etiqueta}” y las de otro tipo que ocurren en el mismo elemento. Sumá solo las que comparten la causa de este plan: dos situaciones del mismo tipo, o del mismo elemento, no siempre la comparten.`}
               </Text>
-              {otrasDelTipo.length > 0 && (
+              {candidatas.length > 0 && (
                 <>
                   <ListaSituacionesElegibles
-                    situaciones={otrasDelTipo}
+                    situaciones={candidatas}
                     seleccionadas={adicionales}
                     onAlternar={alternarAdicional}
                   />
@@ -308,10 +346,18 @@ export function NuevoPlanAccionPage() {
                       <Text fontSize="sm">
                         Confirmo que las situaciones elegidas comparten una causa compatible con la
                         del plan.
+                        {hayOtroTipo
+                          ? " Incluye situaciones de otro tipo: cada una se verifica y se observa según su propio tipo."
+                          : ""}
                       </Text>
                     </HStack>
                   )}
                 </>
+              )}
+              {proyeccion.length > 0 && (
+                <Box mt="5">
+                  <ProyeccionRiesgo proyeccion={proyeccion} />
+                </Box>
               )}
             </TarjetaFormulario>
           )}

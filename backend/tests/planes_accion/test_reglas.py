@@ -72,18 +72,18 @@ def test_se_sugiere_plan_con_riesgo_alto_o_recurrencia_elevada(criticidad, recur
 # --- Verificación ---------------------------------------------------------
 
 def test_si_el_motor_ya_no_la_detecta_queda_corregida():
-    assert reglas.decidir_verificacion(tipo="PLAGAS", sigue_presente=False) == E.CORREGIDA
+    assert reglas.decidir_verificacion(tipo="STOCK_BAJO", sigue_presente=False) == E.CORREGIDA
 
 
 def test_si_el_motor_la_sigue_detectando_queda_no_eficaz():
-    assert reglas.decidir_verificacion(tipo="PLAGAS", sigue_presente=True) == E.NO_EFICAZ
+    assert reglas.decidir_verificacion(tipo="STOCK_BAJO", sigue_presente=True) == E.NO_EFICAZ
 
 
 def test_en_un_tipo_detectado_por_el_motor_no_se_puede_forzar_el_resultado():
     # Aunque el usuario mande "corregida", manda lo que el motor detecta.
     assert (
         reglas.decidir_verificacion(
-            tipo="PLAGAS", sigue_presente=True, resultado_manual="corregida"
+            tipo="STOCK_BAJO", sigue_presente=True, resultado_manual="corregida"
         )
         == E.NO_EFICAZ
     )
@@ -106,58 +106,63 @@ def test_un_tipo_manual_exige_resultado_valido(monkeypatch):
         )
 
 
-def test_todos_los_tipos_actuales_los_detecta_el_motor():
-    assert all(not reglas.es_verificacion_manual(t) for t in riesgo.TIPOS_SITUACION)
+def test_solo_los_incidentes_se_verifican_a_mano():
+    # Un incidente sigue abierto aunque la causa esté corregida: la confirmación
+    # la da una persona. Lo demás lo observa el motor.
+    manuales = {t for t in riesgo.TIPOS_SITUACION if reglas.es_verificacion_manual(t)}
+    assert manuales == set(riesgo.TIPOS_DE_INCIDENTE)
+    assert not reglas.es_verificacion_manual("STOCK_BAJO")
+    assert not reglas.es_verificacion_manual("PLAN_CALIBRACION_VENCIDO")
 
 
-def test_la_verificacion_esta_completa_cuando_ninguna_queda_pendiente():
-    assert reglas.verificacion_completa([E.CORREGIDA, E.NO_EFICAZ])
-    assert not reglas.verificacion_completa([E.CORREGIDA, E.ACCION_IMPLEMENTADA])
-    assert not reglas.verificacion_completa([E.PENDIENTE])
-    assert not reglas.verificacion_completa([])
+def test_un_incidente_se_verifica_con_el_resultado_que_indica_quien_verifica():
+    assert (
+        reglas.decidir_verificacion(
+            tipo="PLAGAS", sigue_presente=True, resultado_manual="corregida"
+        )
+        == E.CORREGIDA
+    )
+    assert (
+        reglas.decidir_verificacion(
+            tipo="PLAGAS", sigue_presente=True, resultado_manual="no_eficaz"
+        )
+        == E.NO_EFICAZ
+    )
 
 
-def test_todas_no_eficaces():
-    assert reglas.todas_no_eficaces([E.NO_EFICAZ, E.NO_EFICAZ])
-    assert not reglas.todas_no_eficaces([E.NO_EFICAZ, E.CORREGIDA])
-    assert not reglas.todas_no_eficaces([])
+# --- Situación controlada (la marca el motor; su riesgo real no cambia) -------------
+
+@pytest.mark.parametrize("estado_plan", ["implementado", "en_verificacion", "cerrado_eficaz", "cerrado_parcial"])
+@pytest.mark.parametrize("estado_sit", ["corregida", "eficaz"])
+def test_una_situacion_verificada_de_un_plan_en_pie_esta_controlada(estado_plan, estado_sit):
+    assert reglas.situacion_controlada(estado_plan, estado_sit)
 
 
-# --- Cierre ---------------------------------------------------------------
-
-def test_el_cierre_depende_del_conjunto():
-    assert reglas.resultado_de_cierre([E.EFICAZ, E.EFICAZ]) == EstadoPlan.CERRADO_EFICAZ
-    assert reglas.resultado_de_cierre([E.EFICAZ, E.NO_EFICAZ]) == EstadoPlan.CERRADO_PARCIAL
-    assert reglas.resultado_de_cierre([E.NO_EFICAZ, E.NO_EFICAZ]) == EstadoPlan.CERRADO_NO_EFICAZ
+@pytest.mark.parametrize("estado_plan", ["borrador", "en_ejecucion", "cancelado", "cerrado_no_eficaz"])
+def test_un_plan_que_no_llego_a_verificar_o_fallo_no_controla_nada(estado_plan):
+    assert not reglas.situacion_controlada(estado_plan, "corregida")
 
 
-def test_un_plan_sin_situaciones_no_tiene_resultado():
-    with pytest.raises(ValueError):
-        reglas.resultado_de_cierre([])
+@pytest.mark.parametrize("estado_sit", ["pendiente", "accion_implementada", "no_eficaz"])
+def test_sin_verificar_o_no_eficaz_no_esta_controlada(estado_sit):
+    assert not reglas.situacion_controlada("en_verificacion", estado_sit)
 
 
-# --- Período de observación -------------------------------------------------
-
-def test_el_periodo_de_observacion_no_puede_ser_menor_que_la_ventana_de_recurrencia():
-    assert reglas.DIAS_OBSERVACION_MINIMO == riesgo.DIAS_VENTANA_RECURRENCIA
-    assert reglas.dias_observacion_validos(riesgo.DIAS_VENTANA_RECURRENCIA)
-    assert not reglas.dias_observacion_validos(riesgo.DIAS_VENTANA_RECURRENCIA - 1)
-    assert not reglas.dias_observacion_validos(366)
-    assert reglas.dias_observacion_validos(365)
+def test_el_motor_no_tiene_ninguna_evaluacion_especial_para_lo_controlado():
+    # El riesgo real se calcula siempre igual: no hay atajo "tratado" en el motor.
+    assert not hasattr(riesgo, "evaluar_situacion_tratada")
+    assert not hasattr(riesgo, "riesgo_tratado")
 
 
-def test_la_observacion_termina_el_dia_que_se_cumple_el_plazo():
-    fin = reglas.fin_observacion(date(2026, 11, 1), 30)
-    assert fin == date(2026, 12, 1)
-    assert not reglas.observacion_terminada(date(2026, 11, 30), fin)
-    assert reglas.observacion_terminada(date(2026, 12, 1), fin)
-    assert not reglas.observacion_terminada(HOY, None)
+# --- Tipos mezclados en un plan ---------------------------------------------------
+
+def test_mismo_tipo_siempre_es_compatible():
+    assert reglas.es_compatible(
+        tipo_plan="PLAGAS", elementos_alcance=["equipo:1"], tipo="PLAGAS", elemento="equipo:9"
+    )
 
 
-# --- Clave de la notificación ----------------------------------------------
-
-def test_la_clave_de_una_situacion_se_busca_con_y_sin_prefijo():
-    assert reglas.claves_de_notificacion("notificacion-elem-5") == ["notificacion-elem-5", "elem-5"]
-    assert reglas.claves_de_notificacion("incidente-7") == ["incidente-7"]
-    assert reglas.coincide_con_clave("notificacion-elem-5", "elem-5")
-    assert not reglas.coincide_con_clave("incidente-7", "incidente-8")
+def test_otro_tipo_solo_es_compatible_si_es_de_un_elemento_del_alcance():
+    kw = dict(tipo_plan="FALLA_EQUIPO", elementos_alcance=["equipo:1"])
+    assert reglas.es_compatible(**kw, tipo="PLAN_CALIBRACION_VENCIDO", elemento="equipo:1")
+    assert not reglas.es_compatible(**kw, tipo="PLAN_CALIBRACION_VENCIDO", elemento="equipo:2")

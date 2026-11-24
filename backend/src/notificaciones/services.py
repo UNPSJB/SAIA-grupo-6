@@ -440,6 +440,7 @@ def calcular_filas_notificaciones(db: Session) -> list[dict]:
                 "probabilidad": a.probabilidad,
                 "puntaje": a.puntaje,
                 "detectada_en": a.detectada_en,
+                "plan_tratamiento_id": a.plan_tratamiento_id,
             }
         )
 

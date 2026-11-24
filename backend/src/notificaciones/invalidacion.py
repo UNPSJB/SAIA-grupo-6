@@ -160,6 +160,7 @@ def registrar_invalidacion_automatica() -> None:
     from src.insumoQuimico.models import InsumoQuimico, StockInsumoQuimico
     from src.notificaciones.models import ConfiguracionAlerta, ConfiguracionImpacto
     from src.personal.models import Personal
+    from src.planes_accion.models import PlanAccion, SituacionPlan
     from src.lotesInsumo.models import LoteInsumo
     from src.PlanCalibracionMantenimiento.models import PlanCalibracionMantenimiento
     from src.vencimientoPersonal.models import VencimientoPersonal
@@ -174,6 +175,8 @@ def registrar_invalidacion_automatica() -> None:
         Personal, Aptitud, InsumoQuimico, StockInsumoQuimico, Documento,
         VersionDocumento, Incidente, Checklist, registro_checklist, ConfiguracionAlerta,
         ConfiguracionImpacto, LoteInsumo,
+        # Un plan de acción verificado cambia el riesgo de las situaciones que trata.
+        PlanAccion, SituacionPlan,
     )
 
     global _instalado

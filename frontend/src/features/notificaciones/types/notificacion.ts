@@ -94,6 +94,14 @@ export interface AlertaCriticidad {
   puntaje_elemento: number;
   /** Desde cuándo está presente. */
   detectada_en?: string;
+
+  /** Plan de acción verificado que tiene esta situación bajo control (el motor
+   *  sigue calculando su riesgo real; solo deja de sumar en el tratado). */
+  plan_tratamiento_id: number | null;
+  /** Riesgo de la situación descontando el plan: 0 si está controlada. */
+  puntaje_tratado: number;
+  /** Riesgo consolidado del elemento descontando lo controlado. */
+  puntaje_elemento_tratado: number;
 }
 
 /** Riesgo general de un elemento, a partir de todas sus situaciones presentes. */
@@ -103,6 +111,11 @@ export interface ResumenElemento {
   situaciones: number;
   puntaje: number;
   nivel: NivelRiesgo;
+  /** Riesgo del elemento sin las situaciones que un plan tiene bajo control. */
+  puntaje_tratado: number;
+  nivel_tratado: NivelRiesgo;
+  /** true si el elemento tiene situaciones bajo control de un plan. */
+  en_tratamiento: boolean;
 }
 
 export interface CriticidadDashboard {
@@ -116,4 +129,11 @@ export interface CriticidadDashboard {
   bajas: number;
   alertas: AlertaCriticidad[];
   elementos: ResumenElemento[];
+
+  /** Nivel general descontando lo que los planes verificados controlan. */
+  nivel_riesgo_tratado: NivelRiesgo;
+  puntaje_maximo_tratado: number;
+  altas_tratadas: number;
+  medias_tratadas: number;
+  bajas_tratadas: number;
 }

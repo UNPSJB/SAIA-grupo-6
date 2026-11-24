@@ -105,6 +105,7 @@ export interface SituacionPlan {
   estado: EstadoSituacionPlan;
   es_origen: boolean;
   tipo: string;
+  tipo_etiqueta: string;
   elemento: string;
   titulo: string;
   detalle: string;
@@ -112,9 +113,23 @@ export interface SituacionPlan {
   resuelta_en: string | null;
   sigue_presente: boolean;
   verificacion_manual: boolean;
+  /** Bajo control de este plan: el motor conserva su riesgo real, pero deja de
+   *  sumarla al riesgo tratado del elemento. */
+  controlada: boolean;
   verificada_en: string | null;
   destino: string | null;
   evidencias: Evidencia[];
+}
+
+/** Riesgo real de un elemento hoy y el estimado si el plan resulta eficaz. */
+export interface ProyeccionElemento {
+  elemento: string;
+  etiqueta: string;
+  situaciones: number;
+  actual_puntaje: number;
+  actual_nivel: string;
+  proyectado_puntaje: number;
+  proyectado_nivel: string;
 }
 
 export interface HistorialPlan {
@@ -131,9 +146,24 @@ export interface RiesgoElementoPlan {
   elemento: string;
   etiqueta: string;
   momento: MomentoRiesgo;
+  /** Riesgo real: el del motor, nunca se modifica. */
   puntaje: number;
   nivel: string;
+  /** Riesgo descontando lo que el plan tenía bajo control en ese momento. */
+  puntaje_tratado: number | null;
+  nivel_tratado: string | null;
   fecha: string;
+}
+
+/** Riesgo de un elemento del plan ahora: real y tratado (en tratamiento). */
+export interface RiesgoActualElemento {
+  elemento: string;
+  etiqueta: string;
+  puntaje: number;
+  nivel: string;
+  puntaje_tratado: number;
+  nivel_tratado: string;
+  en_tratamiento: boolean;
 }
 
 export interface PlanResumen {
@@ -171,6 +201,8 @@ export interface PlanDetalle extends PlanResumen {
   situaciones: SituacionPlan[];
   historial: HistorialPlan[];
   riesgos: RiesgoElementoPlan[];
+  proyeccion: ProyeccionElemento[];
+  riesgo_actual: RiesgoActualElemento[];
   planes_vinculados: number[];
 }
 

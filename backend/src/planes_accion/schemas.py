@@ -50,7 +50,7 @@ class PlanCrear(BaseModel):
     plazo: Optional[date] = None
     #: Plan cerrado del que este es continuación.
     plan_anterior_id: Optional[int] = None
-    #: Otras situaciones del mismo tipo que el usuario confirma que comparten
+    #: Otras situaciones (del mismo tipo, o de otro tipo del mismo elemento) que el usuario confirma que comparten
     #: causa. Si hay alguna, `confirma_causa_compatible` tiene que ser true.
     situaciones_adicionales: list[int] = Field(default_factory=list)
     confirma_causa_compatible: bool = False
@@ -122,6 +122,11 @@ class SituacionPlanResponse(BaseModel):
     sigue_presente: bool
     #: Quien verifica tiene que indicar el resultado y su evidencia.
     verificacion_manual: bool
+    #: Un plan puede reunir tipos distintos de un mismo elemento.
+    tipo_etiqueta: str = ""
+    #: Verificada por el plan: queda bajo control y el riesgo tratado la deja afuera
+    #: (el riesgo real no cambia).
+    controlada: bool = False
     verificada_en: Optional[date] = None
     destino: Optional[str] = None
     evidencias: list[EvidenciaResponse] = Field(default_factory=list)
@@ -141,9 +146,42 @@ class RiesgoElementoResponse(BaseModel):
     elemento: str
     etiqueta: str
     momento: Literal["antes", "implementado", "cierre"]
+    #: Riesgo real del motor y riesgo tratado (sin lo que el plan tiene bajo control).
     puntaje: float
     nivel: str
+    puntaje_tratado: float
+    nivel_tratado: str
     fecha: date
+
+
+class RiesgoActualElemento(BaseModel):
+    """Riesgo de un elemento del alcance ahora: el real y el tratado."""
+
+    elemento: str
+    etiqueta: str
+    puntaje: float
+    nivel: str
+    puntaje_tratado: float
+    nivel_tratado: str
+    en_tratamiento: bool
+
+
+class ProyeccionElemento(BaseModel):
+    """Riesgo real de un elemento hoy y una ESTIMACIÓN de cómo quedaría si el
+    plan resulta eficaz (todas sus situaciones corregidas)."""
+
+    elemento: str
+    etiqueta: str
+    #: Situaciones del plan que hoy generan riesgo en este elemento.
+    situaciones: int
+    actual_puntaje: float
+    actual_nivel: str
+    proyectado_puntaje: float
+    proyectado_nivel: str
+
+
+class ProyeccionInput(BaseModel):
+    situacion_ids: list[int] = Field(default_factory=list, max_length=200)
 
 
 class PlanResumen(BaseModel):
@@ -184,6 +222,11 @@ class PlanDetalle(PlanResumen):
     situaciones: list[SituacionPlanResponse] = Field(default_factory=list)
     historial: list[HistorialResponse] = Field(default_factory=list)
     riesgos: list[RiesgoElementoResponse] = Field(default_factory=list)
+    #: Cómo quedaría el riesgo de los elementos si se verifican las situaciones
+    #: que todavía no están verificadas (vacío si ya no hay nada por verificar).
+    proyeccion: list[ProyeccionElemento] = Field(default_factory=list)
+    #: Riesgo de los elementos del alcance ahora (real y tratado).
+    riesgo_actual: list[RiesgoActualElemento] = Field(default_factory=list)
     #: Planes posteriores creados a partir de este.
     planes_vinculados: list[int] = Field(default_factory=list)
 

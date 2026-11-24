@@ -136,6 +136,8 @@ export function EvidenciaDialog({
   etiquetaConfirmar,
   obligatoria = true,
   pedirResultado = false,
+  minimo = 3,
+  ayuda,
   onConfirm,
   onCancel,
 }: {
@@ -147,6 +149,9 @@ export function EvidenciaDialog({
   obligatoria?: boolean;
   /** Verificación manual: quien verifica indica si quedó corregida o no. */
   pedirResultado?: boolean;
+  /** Largo mínimo de la descripción (la verificación manual pide más). */
+  minimo?: number;
+  ayuda?: ReactNode;
   onConfirm: (
     descripcion: string,
     archivo: File | null,
@@ -165,8 +170,8 @@ export function EvidenciaDialog({
       setError("Indicá el resultado de la verificación.");
       return;
     }
-    if (obligatoria && descripcion.trim().length < 3) {
-      setError("Describí la evidencia (al menos 3 caracteres).");
+    if (obligatoria && descripcion.trim().length < minimo) {
+      setError(`Describí la evidencia (al menos ${minimo} caracteres).`);
       return;
     }
     void ejecutar(() => onConfirm(descripcion.trim(), archivo, resultado || undefined));
@@ -193,7 +198,7 @@ export function EvidenciaDialog({
           </FormNativeSelect>
         </FormField>
       ) : null}
-      <FormField label={etiquetaDescripcion} required={obligatoria}>
+      <FormField label={etiquetaDescripcion} required={obligatoria} helper={ayuda}>
         <Textarea
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
@@ -326,7 +331,7 @@ export function CandidatasDialog({
   return (
     <CascaraDialogo
       titulo="Sumar situaciones al plan"
-      mensaje="Situaciones del mismo tipo que todavía no están en otro plan activo."
+      mensaje="Situaciones del mismo tipo, o de otro tipo en un elemento que el plan ya trata, que todavía no están en otro plan activo."
       ancho="640px"
       ocupado={ocupado}
       onCancel={onCancel}

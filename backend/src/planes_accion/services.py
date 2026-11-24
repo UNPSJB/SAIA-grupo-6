@@ -5,10 +5,13 @@ Reparto de responsabilidades:
 * `reglas.py` decide (estados, vencimiento, resultado del cierre): es puro.
 * Este módulo lee y escribe, y conecta el plan con el motor de riesgos.
 
-El plan NUNCA toca el riesgo: no hay acá ninguna escritura sobre el impacto, el
-historial de situaciones ni los puntajes. Lo único que se toma del motor es lo
+El plan no escribe nunca sobre el impacto, el historial de situaciones ni los
+puntajes. Lo que hace es dejar verificadas sus situaciones (Corregida/Eficaz),
+y el motor (`notificaciones.criticidad`, vía `mitigacion.situaciones_controladas`)
+las marca como controladas: su riesgo real no cambia y el riesgo tratado las deja afuera. De vuelta, el plan toma del motor lo
 que detecta (si una situación sigue presente, si apareció una nueva) y el
-riesgo consolidado de los elementos, que se COPIA al plan como registro.
+riesgo consolidado de los elementos, que COPIA como registro (antes /
+implementado / cierre) y usa para proyectar qué pasaría al verificarse.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+from typing import Iterable
 
 from fastapi import UploadFile
 from sqlalchemy import and_, exists, func, or_, select
@@ -149,11 +153,25 @@ def _guardar_evidencia(archivo: UploadFile | None, prefijo: str) -> tuple[str | 
     return ruta, archivo.filename[:255]
 
 
-def _descripcion_evidencia(texto: str | None) -> str:
+def _descripcion_evidencia(texto: str | None, *, minimo: int = 3) -> str:
     texto = (texto or "").strip()
-    if len(texto) < 3:
-        raise BadRequest(ErrorCode.EVIDENCIA_REQUERIDA)
+    if len(texto) < minimo:
+        raise BadRequest(
+            ErrorCode.EVIDENCIA_REQUERIDA if minimo <= 3 else ErrorCode.EVIDENCIA_VERIFICACION_CORTA
+        )
     return texto
+
+
+#: Largo mínimo de la evidencia de una verificación manual: que no alcance con "ok".
+MINIMO_EVIDENCIA_MANUAL = 10
+
+
+def _exigir_verificador_independiente(plan: PlanAccion, usuario: Personal) -> None:
+    """Quien verifica a mano no puede ser quien ejecutó el plan: si no, un plan
+    "en papel" bajaría el riesgo con un clic de su propio responsable."""
+    ejecutores = {plan.responsable_id, *(a.responsable_id for a in plan.acciones)}
+    if usuario.id in ejecutores:
+        raise OperacionNoPermitida(ErrorCode.VERIFICADOR_NO_INDEPENDIENTE)
 
 
 # ======================================================================
@@ -175,14 +193,24 @@ def _alerta_de(
 
 @dataclass(frozen=True)
 class _RiesgoElemento:
+    #: Riesgo REAL: lo que calcula el motor, sin planes de acción.
     puntaje: float
+    #: Riesgo TRATADO: el real sin lo que un plan verificado tiene bajo control.
+    puntaje_tratado: float
     etiqueta: str
+    en_tratamiento: bool
 
 
-def _riesgo_por_elemento(db: Session) -> dict[str, _RiesgoElemento]:
-    """Riesgo consolidado de cada elemento, igual que el dashboard del motor
-    (`criticidad._armar_dashboard`) pero leyendo la tabla persistida directo,
-    sin pasar por el recálculo."""
+def _riesgo_por_elemento(
+    db: Session, excluir: frozenset[str] = frozenset()
+) -> dict[str, _RiesgoElemento]:
+    """Riesgo consolidado de cada elemento, real y tratado, igual que el
+    dashboard del motor (`criticidad._armar_dashboard`) pero leyendo la tabla
+    persistida directo, sin pasar por el recálculo.
+
+    `excluir` son ids de notificación que además se dejan afuera del riesgo
+    tratado: sirve para estimar "cómo quedaría si el plan es eficaz". Vacío =
+    el riesgo de ahora."""
     grupos: dict[str, list[NotificacionPersistida]] = defaultdict(list)
     filas = db.scalars(
         select(NotificacionPersistida)
@@ -192,13 +220,62 @@ def _riesgo_por_elemento(db: Session) -> dict[str, _RiesgoElemento]:
     for fila in filas:
         grupos[fila.grupo_clave or fila.id_notificacion].append(fila)
 
-    return {
-        elemento: _RiesgoElemento(
+    resultado: dict[str, _RiesgoElemento] = {}
+    for elemento, situaciones in grupos.items():
+        sin_control = [
+            f
+            for f in situaciones
+            if f.plan_tratamiento_id is None and f.id_notificacion not in excluir
+        ]
+        resultado[elemento] = _RiesgoElemento(
             puntaje=riesgo.riesgo_consolidado([f.puntaje for f in situaciones]),
+            puntaje_tratado=riesgo.riesgo_consolidado([f.puntaje for f in sin_control]),
             etiqueta=situaciones[0].mensaje,
+            en_tratamiento=any(f.plan_tratamiento_id is not None for f in situaciones),
         )
-        for elemento, situaciones in grupos.items()
-    }
+    return resultado
+
+
+def _proyeccion(
+    db: Session, situaciones: Iterable[SituacionRiesgo]
+) -> list[schemas.ProyeccionElemento]:
+    """ESTIMACIÓN de cómo quedaría el riesgo de cada elemento si las situaciones
+    dadas se corrigen (el plan es eficaz): el real de hoy contra el consolidado
+    sin ellas. Supone el mejor caso. Es una cuenta sobre lo que el motor ya
+    calculó: no escribe nada."""
+    alertas = _alertas_por_clave(db)
+    a_sacar: set[str] = set()
+    por_elemento: dict[str, int] = defaultdict(int)
+    for situacion in situaciones:
+        if situacion.resuelta_en is not None:
+            continue
+        alerta = _alerta_de(situacion, alertas)
+        if alerta is None or alerta.puntaje <= 0:
+            continue  # no genera riesgo: no hay nada que bajar
+        a_sacar.add(alerta.id_notificacion)
+        por_elemento[alerta.grupo_clave or alerta.id_notificacion] += 1
+    if not por_elemento:
+        return []
+
+    actual = _riesgo_por_elemento(db)
+    estimado = _riesgo_por_elemento(db, frozenset(a_sacar))
+    filas = []
+    for elemento, cantidad in por_elemento.items():
+        hoy_ = actual[elemento]
+        despues = estimado[elemento]
+        filas.append(
+            schemas.ProyeccionElemento(
+                elemento=elemento,
+                etiqueta=hoy_.etiqueta,
+                situaciones=cantidad,
+                actual_puntaje=hoy_.puntaje,
+                actual_nivel=riesgo.nivel_de(hoy_.puntaje),
+                proyectado_puntaje=despues.puntaje_tratado,
+                proyectado_nivel=riesgo.nivel_de(despues.puntaje_tratado),
+            )
+        )
+    filas.sort(key=lambda f: (-f.actual_puntaje, f.elemento))
+    return filas
 
 
 def _situaciones_ocupadas(db: Session) -> set[int]:
@@ -342,6 +419,7 @@ def _registrar_riesgo(
                 momento=momento.value,
                 puntaje=puntaje,
                 nivel=riesgo.nivel_de(puntaje),
+                puntaje_tratado=dato.puntaje_tratado if dato else 0.0,
                 fecha=hoy_dia,
             )
         )
@@ -362,8 +440,8 @@ def _cambiar_estado(
 def _marcar_implementado(
     db: Session, plan: PlanAccion, usuario: Personal | None, hoy_dia: date
 ) -> None:
-    """Todas las acciones se ejecutaron y tienen evidencia. No implica ninguna
-    reducción de riesgo."""
+    """Todas las acciones se ejecutaron y tienen evidencia. Todavía no baja el
+    riesgo: eso pasa recién cuando cada situación queda verificada."""
     plan.fecha_implementado = hoy_dia
     for sp in plan.situaciones:
         if sp.estado == EstadoSituacionPlan.PENDIENTE.value:
@@ -463,13 +541,17 @@ def _revisar_observacion(db: Session, plan: PlanAccion, hoy_dia: date) -> bool:
             for tipo, elemento in db.execute(
                 select(SituacionRiesgo.tipo, SituacionRiesgo.elemento).where(
                     SituacionRiesgo.id > plan.situacion_id_base,
-                    SituacionRiesgo.tipo == plan.tipo,
                 )
             )
         }
         for sp in corregidas:
             situacion = sp.situacion
-            volvio = situacion.resuelta_en is None
+            # Un incidente (verificación manual) sigue abierto aunque su causa
+            # esté corregida: que siga presente no es que haya vuelto. Para los
+            # demás tipos, que el motor lo detecte otra vez sí lo es.
+            volvio = situacion.resuelta_en is None and not reglas.es_verificacion_manual(
+                situacion.tipo
+            )
             if volvio or (situacion.tipo, situacion.elemento) in nuevas:
                 sp.estado = EstadoSituacionPlan.NO_EFICAZ.value
                 _historial(
@@ -541,6 +623,29 @@ def _evidencia_response(evidencia: EvidenciaPlan) -> schemas.EvidenciaResponse:
     )
 
 
+def _riesgo_actual(db: Session, plan: PlanAccion) -> list[schemas.RiesgoActualElemento]:
+    """Riesgo de los elementos del alcance ahora, real y tratado."""
+    actual = _riesgo_por_elemento(db)
+    filas = []
+    for elemento in sorted({sp.situacion.elemento for sp in plan.situaciones}):
+        dato = actual.get(elemento)
+        if dato is None:
+            continue  # sin situaciones presentes: no hay riesgo que mostrar
+        filas.append(
+            schemas.RiesgoActualElemento(
+                elemento=elemento,
+                etiqueta=dato.etiqueta,
+                puntaje=dato.puntaje,
+                nivel=riesgo.nivel_de(dato.puntaje),
+                puntaje_tratado=dato.puntaje_tratado,
+                nivel_tratado=riesgo.nivel_de(dato.puntaje_tratado),
+                en_tratamiento=dato.en_tratamiento,
+            )
+        )
+    filas.sort(key=lambda f: (-f.puntaje, f.elemento))
+    return filas
+
+
 def _resumen(plan: PlanAccion, hoy_dia: date) -> schemas.PlanResumen:
     acciones = plan.acciones
     return schemas.PlanResumen(
@@ -573,14 +678,26 @@ def _resumen(plan: PlanAccion, hoy_dia: date) -> schemas.PlanResumen:
 
 
 def _candidatas(db: Session, plan: PlanAccion) -> list[SituacionRiesgo]:
-    """Situaciones abiertas del mismo tipo que se podrían sumar al plan."""
+    """Situaciones abiertas que se podrían sumar al plan: del mismo tipo, o de
+    otro tipo pero de un elemento que ya está en el alcance."""
     if not reglas.es_editable(plan.estado):
         return []
     ocupadas = _situaciones_ocupadas(db)
-    return [s for s in _situaciones_abiertas(db, plan.tipo) if s.id not in ocupadas]
+    elementos = {sp.situacion.elemento for sp in plan.situaciones}
+    return [
+        s
+        for s in _situaciones_abiertas(db)
+        if s.id not in ocupadas
+        and reglas.es_compatible(
+            tipo_plan=plan.tipo, elementos_alcance=elementos, tipo=s.tipo, elemento=s.elemento
+        )
+    ]
 
 
 def _detalle(db: Session, plan: PlanAccion, hoy_dia: date) -> schemas.PlanDetalle:
+    # Verificar, cancelar o cerrar un plan cambia el riesgo de sus situaciones:
+    # se pone al día el motor antes de leer, para no mostrar puntajes viejos.
+    _motor_al_dia(db)
     alertas = _alertas_por_clave(db)
     resumen = _resumen(plan, hoy_dia)
 
@@ -628,6 +745,9 @@ def _detalle(db: Session, plan: PlanAccion, hoy_dia: date) -> schemas.PlanDetall
                 resuelta_en=situacion.resuelta_en,
                 sigue_presente=situacion.resuelta_en is None,
                 verificacion_manual=reglas.es_verificacion_manual(situacion.tipo),
+                tipo_etiqueta=etiqueta,
+                controlada=situacion.resuelta_en is None
+                and reglas.situacion_controlada(plan.estado, sp.estado),
                 verificada_en=sp.verificada_en,
                 destino=alerta.link_destino if alerta else None,
                 evidencias=[_evidencia_response(e) for e in evidencias_por_situacion[sp.id]],
@@ -668,6 +788,28 @@ def _detalle(db: Session, plan: PlanAccion, hoy_dia: date) -> schemas.PlanDetall
             )
             for h in plan.historial
         ],
+        proyeccion=(
+            _proyeccion(
+                db,
+                [
+                    sp.situacion
+                    for sp in plan.situaciones
+                    if sp.estado
+                    in (
+                        EstadoSituacionPlan.PENDIENTE.value,
+                        EstadoSituacionPlan.ACCION_IMPLEMENTADA.value,
+                    )
+                ],
+            )
+            if plan.estado
+            in (
+                EstadoPlan.BORRADOR.value,
+                EstadoPlan.EN_EJECUCION.value,
+                EstadoPlan.IMPLEMENTADO.value,
+            )
+            else []
+        ),
+        riesgo_actual=_riesgo_actual(db, plan),
         riesgos=[
             schemas.RiesgoElementoResponse(
                 elemento=r.elemento,
@@ -675,6 +817,11 @@ def _detalle(db: Session, plan: PlanAccion, hoy_dia: date) -> schemas.PlanDetall
                 momento=r.momento,
                 puntaje=r.puntaje,
                 nivel=r.nivel,
+                # Registros viejos sin riesgo tratado: se toma el real.
+                puntaje_tratado=r.puntaje if r.puntaje_tratado is None else r.puntaje_tratado,
+                nivel_tratado=riesgo.nivel_de(
+                    r.puntaje if r.puntaje_tratado is None else r.puntaje_tratado
+                ),
                 fecha=r.fecha,
             )
             for r in plan.riesgos
@@ -764,6 +911,20 @@ def situaciones_disponibles(db: Session, tipo: str | None = None) -> list[schema
     return disponibles
 
 
+def proyectar_alcance(db: Session, situacion_ids: list[int]) -> list[schemas.ProyeccionElemento]:
+    """Riesgo actual de los elementos y cómo quedaría si el plan que trate
+    estas situaciones se implementara y verificara. Para mostrar mientras se
+    arma el alcance de un plan."""
+    _motor_al_dia(db)
+    situaciones = []
+    for situacion_id in dict.fromkeys(situacion_ids):
+        situacion = db.get(SituacionRiesgo, situacion_id)
+        if situacion is None:
+            raise SituacionNoEncontrada()
+        situaciones.append(situacion)
+    return _proyeccion(db, situaciones)
+
+
 def situaciones_con_plan(db: Session) -> list[schemas.SituacionConPlan]:
     """Situaciones presentes que ya están en un plan activo, para que el centro
     de notificaciones muestre el plan en vez de ofrecer crear otro."""
@@ -832,8 +993,9 @@ def _sumar_situaciones(
     hoy_dia: date,
 ) -> int:
     """Suma al alcance las situaciones que el usuario confirma. Dos situaciones
-    del mismo tipo no tienen necesariamente la misma causa: sin la confirmación
-    explícita no se suma ninguna."""
+    del mismo tipo (o del mismo elemento) no tienen necesariamente la misma
+    causa: sin la confirmación explícita no se suma ninguna. Un tipo distinto
+    solo entra si es de un elemento que ya está en el alcance."""
     nuevos = [i for i in dict.fromkeys(ids)]  # sin repetidos, en orden
     if not nuevos:
         return 0
@@ -842,12 +1004,28 @@ def _sumar_situaciones(
 
     ocupadas = _situaciones_ocupadas(db)
     en_plan = {sp.situacion_id for sp in plan.situaciones}
+    situaciones = []
     for situacion_id in nuevos:
         if situacion_id in en_plan:
             raise Conflicto("La situación ya está en el alcance de este plan.")
-        situacion = _situacion_para_plan(db, situacion_id, ocupadas)
-        if situacion.tipo != plan.tipo:
+        situaciones.append(_situacion_para_plan(db, situacion_id, ocupadas))
+
+    # Elementos que justifican sumar un tipo distinto: los que ya están en el
+    # alcance y los de lo que se suma ahora del tipo del plan (no depende del
+    # orden en que lleguen).
+    elementos = {sp.situacion.elemento for sp in plan.situaciones} | {
+        s.elemento for s in situaciones if s.tipo == plan.tipo
+    }
+    for situacion in situaciones:
+        if not reglas.es_compatible(
+            tipo_plan=plan.tipo,
+            elementos_alcance=elementos,
+            tipo=situacion.tipo,
+            elemento=situacion.elemento,
+        ):
             raise BadRequest(ErrorCode.SITUACION_OTRO_TIPO)
+        # Con tipos mezclados, el plan observa lo que pide el que más pide.
+        plan.dias_observacion = max(plan.dias_observacion, dias_observacion_de(db, situacion.tipo))
         plan.situaciones.append(
             SituacionPlan(
                 situacion_id=situacion.id,
@@ -860,8 +1038,8 @@ def _sumar_situaciones(
             plan,
             usuario,
             EventoHistorial.ALCANCE,
-            f"Se sumó al alcance la situación de {situacion.elemento}, "
-            "confirmando que comparte la causa del plan.",
+            f"Se sumó al alcance la situación de {situacion.elemento} "
+            f"({_etiqueta_tipo(situacion.tipo)}), confirmando que comparte la causa del plan.",
         )
     return len(nuevos)
 
@@ -879,7 +1057,9 @@ def crear_plan(db: Session, datos: schemas.PlanCrear, usuario: Personal) -> sche
         anterior = db.get(PlanAccion, datos.plan_anterior_id)
         if anterior is None or not reglas.es_cerrado(anterior.estado):
             raise BadRequest(ErrorCode.PLAN_ANTERIOR_INVALIDO)
-        if anterior.tipo != origen.tipo:
+        if anterior.tipo != origen.tipo and origen.elemento not in {
+            sp.situacion.elemento for sp in anterior.situaciones
+        }:
             raise BadRequest(ErrorCode.PLAN_ANTERIOR_OTRO_TIPO)
 
     plan = PlanAccion(
@@ -1225,7 +1405,8 @@ def verificar_situacion(
         # Sin evidencia y sin resultado no hay verificación manual.
         if not decide:
             raise BadRequest(ErrorCode.SITUACION_NO_VERIFICABLE)
-        texto = _descripcion_evidencia(descripcion)
+        _exigir_verificador_independiente(plan, usuario)
+        texto = _descripcion_evidencia(descripcion, minimo=MINIMO_EVIDENCIA_MANUAL)
         try:
             nuevo = reglas.decidir_verificacion(
                 tipo=situacion.tipo, sigue_presente=False, resultado_manual=resultado

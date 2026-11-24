@@ -1,7 +1,8 @@
 """Modelos del plan de acción.
 
 El plan TRATA una causa identificada sobre un conjunto de situaciones del
-motor de riesgos (`situaciones_riesgo`); no modifica el impacto ni el riesgo.
+motor de riesgos (`situaciones_riesgo`). No escribe el impacto ni el riesgo: al
+verificar una situación, es el motor quien la evalúa con probabilidad mínima.
 Conserva todo el historial: alcance, acciones, evidencias, cambios de estado,
 y el riesgo de los elementos alcanzados antes, durante y después.
 """
@@ -209,8 +210,12 @@ class RiesgoElementoPlan(ModeloBase):
     #: Texto para mostrar el elemento (el detalle de su situación más grave).
     etiqueta: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     momento: Mapped[str] = mapped_column(String(15), nullable=False)
+    #: Riesgo REAL del elemento (lo que calcula el motor, sin planes).
     puntaje: Mapped[float] = mapped_column(Float, nullable=False)
     nivel: Mapped[str] = mapped_column(String(12), nullable=False)
+    #: Riesgo TRATADO: el real sin las situaciones que un plan verificado tiene
+    #: bajo control. NULL en registros anteriores a esta columna (= al real).
+    puntaje_tratado: Mapped[float | None] = mapped_column(Float, nullable=True)
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
 
     plan: Mapped["PlanAccion"] = relationship(back_populates="riesgos")

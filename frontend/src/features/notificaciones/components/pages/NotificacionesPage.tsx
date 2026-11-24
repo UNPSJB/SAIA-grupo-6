@@ -234,6 +234,11 @@ export function NotificacionesPage() {
     bajas: 0,
     alertas: [],
     elementos: [],
+    nivel_riesgo_tratado: "sin_riesgo",
+    puntaje_maximo_tratado: 0,
+    altas_tratadas: 0,
+    medias_tratadas: 0,
+    bajas_tratadas: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -498,10 +503,16 @@ export function NotificacionesPage() {
     },
   ]);
 
-  const nivel = datos.nivel_riesgo;
+  // El nivel que se destaca es el TRATADO (sin lo que un plan verificado tiene
+  // bajo control). El real nunca se modifica: se muestra al lado para comparar.
+  const enTratamiento = datos.elementos.some((e) => e.en_tratamiento);
+  const nivel = datos.nivel_riesgo_tratado;
   const nivelTexto = etiquetaNivelRiesgo(nivel);
   const nivelPaleta = paletaNivelRiesgo(nivel);
   const elementoMasRiesgoso = datos.elementos[0] ?? null;
+  // Elemento que define el riesgo tratado (puede ser otro que el del real).
+  const elementoTratado =
+    [...datos.elementos].sort((a, b) => b.puntaje_tratado - a.puntaje_tratado)[0] ?? null;
 
   return (
     <Pagina
@@ -551,14 +562,33 @@ export function NotificacionesPage() {
               {nivelTexto}
             </Text>
             <Text fontSize="sm" color="fg.muted" mt="2">
-              {elementoMasRiesgoso
-                ? `${formatoPuntaje(datos.puntaje_maximo)} de ${RIESGO_MAXIMO} · ${elementoMasRiesgoso.etiqueta}`
+              {elementoMasRiesgoso && elementoTratado
+                ? datos.puntaje_maximo_tratado > 0
+                  ? `${formatoPuntaje(datos.puntaje_maximo_tratado)} de ${RIESGO_MAXIMO} · ${elementoTratado.etiqueta}`
+                  : "Todo el riesgo está bajo control de un plan"
                 : "No hay situaciones presentes"}
             </Text>
             {elementoMasRiesgoso && (
               <Text fontSize="xs" color="fg.subtle" mt="1">
                 Es el riesgo del elemento en peor situación.
               </Text>
+            )}
+            {enTratamiento && (
+              <Box mt="2">
+                <Badge colorPalette="blue" variant="subtle" px="2" py="1" borderRadius="md">
+                  En tratamiento
+                </Badge>
+                <Text fontSize="xs" color="fg.muted" mt="1">
+                  Riesgo real (sin descontar planes):{" "}
+                  <Text
+                    as="span"
+                    fontWeight="bold"
+                    color={`${paletaNivelRiesgo(datos.nivel_riesgo)}.fg`}
+                  >
+                    {etiquetaNivelRiesgo(datos.nivel_riesgo)} · {formatoPuntaje(datos.puntaje_maximo)}
+                  </Text>
+                </Text>
+              </Box>
             )}
           </Box>
 
@@ -763,6 +793,17 @@ export function NotificacionesPage() {
                             ? `${etiquetaCriticidad(alerta.criticidad)} · ${formatoPuntaje(alerta.puntaje)}`
                             : "SIN RIESGO"}
                         </Badge>
+                        {alerta.plan_tratamiento_id !== null && (
+                          <Text
+                            fontSize="xs"
+                            color="blue.fg"
+                            fontWeight="medium"
+                            mt="1"
+                            title="Un plan de acción verificado tiene esta situación bajo control: el riesgo real se conserva, pero no suma al riesgo tratado."
+                          >
+                            Controlado · Plan #{alerta.plan_tratamiento_id}
+                          </Text>
+                        )}
                       </Celda>
 
                       <Celda>
@@ -792,11 +833,13 @@ export function NotificacionesPage() {
                         {alerta.puntaje_elemento !== alerta.puntaje && (
                           <Text
                             fontSize="xs"
-                            color={`${paletaNivelRiesgo(nivelDePuntaje(alerta.puntaje_elemento))}.fg`}
+                            color={`${paletaNivelRiesgo(nivelDePuntaje(alerta.puntaje_elemento_tratado))}.fg`}
                             mt="1"
                             fontWeight="medium"
                           >
-                            Riesgo del elemento: {formatoPuntaje(alerta.puntaje_elemento)}
+                            Riesgo del elemento: {formatoPuntaje(alerta.puntaje_elemento_tratado)}
+                            {alerta.puntaje_elemento_tratado !== alerta.puntaje_elemento &&
+                              ` (real ${formatoPuntaje(alerta.puntaje_elemento)}, en tratamiento)`}
                           </Text>
                         )}
                       </Celda>

@@ -70,7 +70,10 @@ class ErrorCode:
     SITUACION_NO_ENCONTRADA = "La situación no fue encontrada."
     SITUACION_RESUELTA = "La situación ya no está presente: no se puede tratar con un plan."
     SITUACION_EN_OTRO_PLAN = "La situación ya pertenece a otro plan de acción activo."
-    SITUACION_OTRO_TIPO = "Solo se pueden sumar situaciones del mismo tipo que el plan."
+    SITUACION_OTRO_TIPO = (
+        "Una situación de otro tipo solo se puede sumar si es del mismo elemento que "
+        "otra del alcance del plan."
+    )
     CAUSA_NO_CONFIRMADA = (
         "Para sumar situaciones hay que confirmar que comparten una causa compatible "
         "con la del plan."
@@ -92,5 +95,12 @@ class ErrorCode:
     VERIFICACION_MANUAL = (
         "Este tipo de situación no lo detecta el motor: la verificación necesita el "
         "resultado y su evidencia."
+    )
+    VERIFICADOR_NO_INDEPENDIENTE = (
+        "Quien verifica no puede ser el responsable del plan ni de sus acciones: "
+        "la verificación la tiene que hacer otra persona."
+    )
+    EVIDENCIA_VERIFICACION_CORTA = (
+        "Para verificar a mano hay que describir la evidencia (al menos 10 caracteres)."
     )
     SITUACION_NO_VERIFICABLE = "La situación no está pendiente de verificación."

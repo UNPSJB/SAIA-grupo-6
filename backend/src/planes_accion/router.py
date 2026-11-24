@@ -38,6 +38,17 @@ def listar_situaciones_disponibles(
     return services.situaciones_disponibles(db, tipo)
 
 
+@router.post(
+    "/proyeccion",
+    response_model=list[schemas.ProyeccionElemento],
+    dependencies=_OPERADOR,
+)
+def proyectar_alcance(datos: schemas.ProyeccionInput, db: Session = Depends(get_db)):
+    """Riesgo actual de los elementos de estas situaciones y cómo quedaría si un
+    plan que las trate se implementara y verificara. No escribe nada."""
+    return services.proyectar_alcance(db, datos.situacion_ids)
+
+
 @router.get(
     "/situaciones-con-plan",
     response_model=list[schemas.SituacionConPlan],
