@@ -89,17 +89,11 @@ const LoteDetallePage = lazyPrecargable(() =>
 const SalidaDetallePage = lazyPrecargable(() =>
   import("./features/salidas/components/pages/SalidaDetallePage").then((mod) => ({ default: mod.SalidaDetallePage })),
 );
-// Historia 20: reclamos de clientes sobre entregas ya realizadas
-const ReclamosPage = lazyPrecargable(() =>
-  import("./features/reclamos/components/pages/ReclamosPage").then((mod) => ({ default: mod.ReclamosPage })),
-);
+// Historia 20: reclamos de clientes (el listado es una pestaña de IncidentesListPage)
 const ReclamoDetallePage = lazyPrecargable(() =>
   import("./features/reclamos/components/pages/ReclamoDetallePage").then((mod) => ({ default: mod.ReclamoDetallePage })),
 );
-// Historia 21: retiros de lote del mercado
-const RetirosPage = lazyPrecargable(() =>
-  import("./features/retiros/components/pages/RetirosPage").then((mod) => ({ default: mod.RetirosPage })),
-);
+// Historia 21: retiros de lote (el listado es una pestaña de IncidentesListPage)
 const RetiroDetallePage = lazyPrecargable(() =>
   import("./features/retiros/components/pages/RetiroDetallePage").then((mod) => ({ default: mod.RetiroDetallePage })),
 );
@@ -684,12 +678,9 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                // Ahora es una pestaña de Gestión de incidentes.
                 path: "/reclamos",
-                element: (
-                  <ConSuspense>
-                    <ReclamosPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/incidentes?tab=reclamos" replace />,
               },
               {
                 path: "/reclamos/:id",
@@ -700,12 +691,9 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                // Ahora es una pestaña de Gestión de incidentes.
                 path: "/retiros",
-                element: (
-                  <ConSuspense>
-                    <RetirosPage />
-                  </ConSuspense>
-                ),
+                element: <Navigate to="/incidentes?tab=retiros" replace />,
               },
               {
                 path: "/retiros/:id",
@@ -720,6 +708,16 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <ReposicionesPendientesPage />
+                  </ConSuspense>
+                ),
+              },
+              // Quien opera ve las pestañas de reclamos, rechazos y retiros; la
+              // de incidentes es de administración (lo resuelve la página).
+              {
+                path: "/incidentes",
+                element: (
+                  <ConSuspense>
+                    <IncidentesListPage />
                   </ConSuspense>
                 ),
               },
@@ -1419,15 +1417,6 @@ export const router = createBrowserRouter([
                 ),
               },
 
-              // ---------------- INCIDENTES ----------------
-              {
-                path: "/incidentes",
-                element: (
-                <ConSuspense>
-                  <IncidentesListPage />
-                </ConSuspense>
-              ),
-              },
                // ---------------- Vencimientos ----------------
                {
                 path: "/vencimientos",

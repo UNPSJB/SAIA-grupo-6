@@ -15,6 +15,7 @@ import { Tooltip } from "../../../components/ui/tooltip";
 import { useResumenIncidentesPorTipo } from "../hooks/useResumenIncidentesPorTipo";
 import { TIPOS_INCIDENTE, ETIQUETA_PERIODO, tipoColor, periodoLabel } from "../types/incidente";
 import type { PeriodoRapido, TipoIncidente } from "../types/incidente";
+import type { FiltrosGestion } from "../hooks/useFiltrosGestion";
 import {
   FormInput,
   LabelFiltro,
@@ -26,11 +27,10 @@ import { formatoFecha } from "../../../common/utils/fechas";
 const COLOR_TIPO: Record<TipoIncidente, string> = {
   plagas: "#e53e3e",
   falla_equipo: "#ed8936",
-  devolucion_cliente: "#ecc94b",
   higiene_contaminacion: "#805ad5",
-  entrega_rechazada: "#e53e3e",
+  entrega_rechazada: "#d53f8c",
   reclamo_cliente: "#2c7fb8",
-  retiro_lote: "#e53e3e",
+  retiro_lote: "#00a3c4",
   otro: "#a0aec0",
 };
 
@@ -40,16 +40,11 @@ const PERIODOS_RAPIDOS: { value: PeriodoRapido; label: string }[] = (
 ).map((valor) => ({ value: valor, label: ETIQUETA_PERIODO[valor] }));
 
 interface IncidentesPorTipoPanelProps {
-  filtroTipo: TipoIncidente | "";
-  onFiltroTipoChange: (tipo: TipoIncidente | "") => void;
-  incluirCerrados: boolean;
-  onIncluirCerradosChange: (checked: boolean) => void;
-  periodo: PeriodoRapido;
-  onPeriodoChange: (periodo: PeriodoRapido) => void;
-  fechaDesde: string;
-  fechaHasta: string;
-  onFechaDesdeChange: (valor: string) => void;
-  onFechaHastaChange: (valor: string) => void;
+  /** Estado y período, los mismos que filtran la tabla de la pestaña abierta. */
+  gestion: FiltrosGestion;
+  /** Tipo que se está viendo abajo, o `""` si se ven varios. */
+  seleccionado: TipoIncidente | "";
+  onSeleccionar: (tipo: TipoIncidente) => void;
 }
 
 /**
@@ -83,28 +78,29 @@ function ChipPeriodo({
 }
 
 /**
- * Indicador E7: cantidad de incidentes por tipo con barras proporcionales.
- * Por defecto cuenta solo abiertos; el switch agrega los cerrados.
- * Las barras son clickeables y filtran la tabla de incidentes.
+ * Indicador E7: cantidad de incidentes por tipo con barras proporcionales,
+ * incluidos los reclamos, los rechazos y los retiros. Va arriba de las pestañas
+ * de Gestión. Por defecto cuenta solo abiertos; el switch agrega los cerrados.
+ * Cada barra lleva a su tabla.
  */
 export function IncidentesPorTipoPanel({
-  filtroTipo,
-  onFiltroTipoChange,
-  incluirCerrados,
-  onIncluirCerradosChange,
-  periodo,
-  onPeriodoChange,
-  fechaDesde,
-  fechaHasta,
-  onFechaDesdeChange,
-  onFechaHastaChange,
+  gestion,
+  seleccionado,
+  onSeleccionar,
 }: IncidentesPorTipoPanelProps) {
-  // Con período "todo" no se mandan fechas: el backend cuenta el histórico
-  // completo y se mantiene el comportamiento original.
+  const {
+    periodo,
+    elegirPeriodo: onPeriodoChange,
+    fechaDesde,
+    fechaHasta,
+    setFechaDesde: onFechaDesdeChange,
+    setFechaHasta: onFechaHastaChange,
+  } = gestion;
+  const incluirCerrados = gestion.estado === "";
   const { resumen, loading, error } = useResumenIncidentesPorTipo(
     incluirCerrados,
-    periodo === "todo" ? undefined : fechaDesde,
-    periodo === "todo" ? undefined : fechaHasta
+    gestion.desde,
+    gestion.hasta
   );
 
   const maxCantidad = useMemo(
@@ -112,9 +108,13 @@ export function IncidentesPorTipoPanel({
     [resumen.por_tipo]
   );
 
+  // Al volver a pedir se deja lo anterior: vaciar el gráfico movería las
+  // pestañas y la tabla de abajo con cada cambio de filtro.
+  const primeraCarga = loading && resumen.por_tipo.length === 0;
+
   const handleBarraClick = (tipo: TipoIncidente) => {
     if (cantidadTipo(tipo) === 0) return;
-    onFiltroTipoChange(filtroTipo === tipo ? "" : tipo);
+    onSeleccionar(tipo);
   };
 
   const cantidadTipo = (tipo: TipoIncidente) =>
@@ -140,7 +140,7 @@ export function IncidentesPorTipoPanel({
         </Box>
         <Switch.Root
           checked={incluirCerrados}
-          onCheckedChange={(e) => onIncluirCerradosChange(e.checked)}
+          onCheckedChange={(e) => gestion.setEstado(e.checked ? "" : "abierto")}
           colorPalette="teal"
         >
           <Switch.HiddenInput />
@@ -195,10 +195,10 @@ export function IncidentesPorTipoPanel({
         )}
       </Flex>
 
-      {loading && <Spinner />}
+      {primeraCarga && <Spinner />}
       {!loading && error && <Text color="red.500">{error}</Text>}
 
-      {!loading && !error && (
+      {!primeraCarga && !error && (
         <>
           <Flex align="center" gap="3" mb="4">
             <Box
@@ -222,9 +222,9 @@ export function IncidentesPorTipoPanel({
             {TIPOS_INCIDENTE.map(({ value, label }) => {
               const cantidad = cantidadTipo(value);
               const ancho = cantidad === 0 ? 0 : Math.max(6, (cantidad / maxCantidad) * 100);
-              const estaSeleccionado = filtroTipo === value;
+              const estaSeleccionado = seleccionado === value;
               const tieneIncidentes = cantidad > 0;
-              const estaAtenuado = filtroTipo !== "" && !estaSeleccionado;
+              const estaAtenuado = seleccionado !== "" && !estaSeleccionado;
 
               const badgeContent = (
                 <Badge
@@ -268,7 +268,7 @@ export function IncidentesPorTipoPanel({
                 <Flex align="center" gap="3" key={value} mb="3">
                   <Box width="180px" flexShrink="0">
                     <Tooltip
-                      content={`Filtrar por ${label}`}
+                      content={`Ver ${label}`}
                       disabled={!tieneIncidentes}
                     >
                       {badgeContent}

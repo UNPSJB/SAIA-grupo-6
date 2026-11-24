@@ -336,9 +336,10 @@ export function HistorialChecklistPage() {
             nombreTabla="checklists"
             filtros={{
               buscar: busqueda || undefined,
-              fechaDesde: fechaDesde || undefined,
-              fechaHasta: fechaHasta || undefined,
+              fecha_desde: fechaDesde || undefined,
+              fecha_hasta: fechaHasta || undefined,
               equipo_id: equipoSeleccionado || undefined,
+              orden: orden.orden,
             }}
           />
         }

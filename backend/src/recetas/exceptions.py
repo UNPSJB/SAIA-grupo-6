@@ -18,14 +18,6 @@ class RecetaYaExiste(BadRequest):
     DETAIL = ErrorCode.RECETA_YA_EXISTE
 
 
-class SinTareas(BadRequest):
-    DETAIL = ErrorCode.SIN_TAREAS
-
-
-class RecetaVacia(BadRequest):
-    DETAIL = ErrorCode.RECETA_VACIA
-
-
 class IngredienteNoEncontrado(BadRequest):
     DETAIL = ErrorCode.INGREDIENTE_NO_ENCONTRADO
 

@@ -379,10 +379,6 @@ def _cantidad_con_unidad(cantidad, unidad: Optional[str]) -> str:
     return texto
 
 
-def _retiro_de_lote(db: Session, lote_id: int) -> Optional[Retiro]:
-    return db.scalar(select(Retiro).where(Retiro.lote_id == lote_id))
-
-
 def afectado_a_resumen(afectado: RetiroAfectado) -> schemas.RetiroAfectadoResumen:
     salida = afectado.salida
     cliente = salida.cliente

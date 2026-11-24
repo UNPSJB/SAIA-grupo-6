@@ -160,6 +160,7 @@ export function AptitudPage() {
               filtros={{
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

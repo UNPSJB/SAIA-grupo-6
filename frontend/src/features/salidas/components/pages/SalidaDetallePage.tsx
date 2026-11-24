@@ -1,7 +1,7 @@
 import { avisarExito } from "../../../../components/ui/patrones";
 import { useCallback, useState } from "react";
 import { useLista } from "../../../../common/hooks/useLista";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -11,7 +11,7 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { LuEye } from "react-icons/lu";
+import { LuCircleCheck, LuEye } from "react-icons/lu";
 import { formatoFecha, formatoFechaHora, hoyISO } from "../../../../common/utils/fechas";
 import { cantidadConUnidad } from "../../../../common/utils/numeros";
 import { useAuth } from "../../../../common/context/useAuth";
@@ -21,6 +21,7 @@ import {
 } from "../../../../common/api/permissions";
 import {
   BannerError,
+  BotonGuardar,
   BotonTexto,
   EstadoCargando,
   EtiquetaEstado,
@@ -70,6 +71,13 @@ export function SalidaDetallePage() {
 
   const idValido = Number.isFinite(salidaId) ? salidaId : null;
 
+  // Una salida rechazada también se abre desde la pestaña de rechazos.
+  const location = useLocation();
+  const volver =
+    location.state?.from === "rechazos"
+      ? { a: "/incidentes?tab=rechazos", etiqueta: "Rechazos" }
+      : { a: "/lotes?tab=salidas", etiqueta: "Salidas" };
+
   const cargarSalida = useCallback(async () => {
     if (!idValido) throw new Error("ID de salida inválido.");
     return obtenerSalida(idValido);
@@ -103,7 +111,7 @@ export function SalidaDetallePage() {
   if (loading && !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
+        volver={volver}
         titulo="Salida de producto"
       >
         <EstadoCargando>Cargando salida...</EstadoCargando>
@@ -114,7 +122,7 @@ export function SalidaDetallePage() {
   if (error || !salida) {
     return (
       <PaginaDetalle
-        volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
+        volver={volver}
         titulo="Salida de producto"
       >
         <BannerError>{error || "No se encontró la salida"}</BannerError>
@@ -198,7 +206,7 @@ export function SalidaDetallePage() {
 
   return (
     <PaginaDetalle
-      volver={{ a: "/lotes?tab=salidas", etiqueta: "Salidas" }}
+      volver={volver}
       titulo={tituloPagina}
       estado={
         <EtiquetaEstado
@@ -264,14 +272,10 @@ export function SalidaDetallePage() {
             </Button>
           )}
           {puedeResolver && (
-            <Button
-              variant="solid"
-              colorPalette="blue"
-              size="sm"
-              onClick={() => setModalResolver(true)}
-            >
+            <BotonGuardar type="button" size="sm" onClick={() => setModalResolver(true)}>
+              <LuCircleCheck aria-hidden />
               Resolver rechazo
-            </Button>
+            </BotonGuardar>
           )}
         </HStack>
       }

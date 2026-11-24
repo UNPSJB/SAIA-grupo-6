@@ -5,7 +5,6 @@ class ErrorCode:
     NOMBRE_VACIO = "El nombre del insumo químico no puede estar vacío."
     NOMBRE_INVALIDO = "El nombre del insumo químico debe contener letras o números válidos."
     STOCK_INSUFICIENTE = "El ajuste o consumo dejaría el stock disponible en un valor negativo."
-    CANTIDAD_STOCK_INVALIDA = "La cantidad de stock debe ser un número positivo válido."
     MOTIVO_AJUSTE_REQUERIDO = "El motivo del ajuste de stock es obligatorio."
     UNIDAD_CON_MOVIMIENTOS = "No se puede cambiar la unidad de medida de un producto con movimientos de stock."
     PROVEEDOR_INGRESO_INVALIDO = "El proveedor seleccionado no existe o fue dado de baja."

@@ -20,7 +20,7 @@ from typing import Annotated, Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from sqlalchemy.orm import Session
 
 from src.auth.dependencies import require_admin
@@ -31,6 +31,7 @@ from src.exportacion.configuracion import (
 )
 from src.exportacion import vistas
 from src.exportacion.formato import generar_csv
+from src.exportacion.listados import FiltrosListado
 from src.exportacion.motor import exportar_csv, exportar_pdf, pdf_desde_filas
 from src.insumoQuimico.models import TipoMovimientoStock
 
@@ -204,6 +205,29 @@ def exportar_vista_productos(
     return _descarga(vistas.productos(db, incluir_inactivos, buscar), formato, "productos")
 
 
+@router.get("/vistas/clientes")
+def exportar_vista_clientes(
+    formato: FormatoExportacion = "csv",
+    solo_inactivos: bool = False,
+    buscar: Optional[str] = Query(None, max_length=100),
+    orden: str = "nombre_asc",
+    db: Session = Depends(get_db),
+):
+    return _descarga(vistas.clientes(db, solo_inactivos, buscar, orden), formato, "clientes")
+
+
+@router.get("/vistas/transportistas")
+def exportar_vista_transportistas(
+    formato: FormatoExportacion = "csv",
+    solo_inactivos: bool = False,
+    buscar: Optional[str] = Query(None, max_length=100),
+    orden: str = "razon_social_asc",
+    db: Session = Depends(get_db),
+):
+    vista = vistas.transportistas(db, solo_inactivos, buscar, orden)
+    return _descarga(vista, formato, "transportistas")
+
+
 @router.get("/vistas/alimentos")
 def exportar_vista_alimentos(
     formato: FormatoExportacion = "csv",
@@ -263,22 +287,31 @@ def exportar_tabla(
 ):
     """Descarga la tabla completa en CSV o PDF.
 
-    Cualquier query param adicional que coincida con una columna de la tabla
-    se aplica como filtro de igualdad (por ejemplo `?activo=true` o
-    `?sector_id=3`).
+    Las tablas con pantalla propia aceptan los mismos filtros que su listado
+    (`buscar`, `orden`, `activo`...: ver `FiltrosListado`). En el resto, un
+    query param que coincida con una columna se aplica como filtro de igualdad.
     """
     try:
         config = obtener(nombre_tabla)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    # Construir filtros a partir de los query params que son columnas válidas.
-    nombres_columnas = {campo.nombre for campo in config.campos}
+    if config.listar is not None:
+        admitidos = set(FiltrosListado.model_fields)
+    else:
+        admitidos = {campo.nombre for campo in config.campos}
     filtros = {
         nombre: valor
         for nombre, valor in request.query_params.items()
-        if nombre in nombres_columnas
+        if nombre in admitidos and valor != ""
     }
+    if config.listar is not None:
+        try:
+            FiltrosListado.model_validate(filtros)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422, detail="Algún filtro de la exportación no es válido."
+            ) from exc
 
     nombre_archivo = (
         f"{nombre_tabla}_{datetime.now():%Y%m%d_%H%M%S}.{formato}"

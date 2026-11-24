@@ -1,8 +1,5 @@
 """Constantes del dominio de reclamos de clientes (Historia 20)."""
 
-# Tipo de incidente que abre automáticamente el reclamo.
-TIPO_INCIDENTE_RECLAMO = "reclamo_cliente"
-
 # Tipo de hito que se agrega a la línea de tiempo del lote.
 TIPO_EVENTO_RECLAMO = "RECLAMO"
 
@@ -42,6 +39,13 @@ MOTIVO_RECLAMO_OTRO = MOTIVO_OTRO
 
 
 class ErrorCode:
+    RECLAMO_YA_CERRADO = "El reclamo ya está cerrado."
+    RECLAMO_NO_CERRADO = "El reclamo no está cerrado."
+    REPOSICION_YA_GENERADA = (
+        "Este reclamo ya generó una reposición para el cliente: no se puede "
+        "generar otra."
+    )
+    RECLAMO_SIN_INCIDENTE = "El reclamo no tiene un incidente asociado que cerrar."
     RECLAMO_NO_ENCONTRADO = "El reclamo no existe."
     SALIDA_NO_ENTREGADA = (
         "Solo se puede reclamar sobre una salida entregada."

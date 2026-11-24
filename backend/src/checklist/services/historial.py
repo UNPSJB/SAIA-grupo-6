@@ -165,6 +165,32 @@ def _consulta_historial(
     return consulta, filtros
 
 
+def listar_checklists_del_periodo(
+    db: Session,
+    fecha_desde: date_,
+    fecha_hasta: date_,
+    equipo_id: Optional[int] = None,
+    buscar: Optional[str] = None,
+    orden: Optional[str] = None,
+) -> List[models.Checklist]:
+    """Todos los checklists del rango, con los filtros y el orden del historial."""
+    if fecha_desde > fecha_hasta:
+        raise FechaInvalida()
+
+    consulta, filtros = _consulta_historial(fecha_desde, fecha_hasta, equipo_id, buscar)
+    return list(
+        db.scalars(
+            aplicar_orden(
+                consulta.where(*filtros),
+                models.Checklist,
+                orden,
+                _ORDENES_HISTORIAL,
+                "fecha_desc",
+            )
+        ).all()
+    )
+
+
 def listar_historial_checklists(
     db: Session,
     fecha_desde: date_,
@@ -205,15 +231,9 @@ def listar_historial_checklists(
     )
 
     if page is None:
-        checklists = db.scalars(
-            aplicar_orden(
-                consulta.where(*filtros),
-                models.Checklist,
-                orden,
-                _ORDENES_HISTORIAL,
-                "fecha_desc",
-            )
-        ).all()
+        checklists = listar_checklists_del_periodo(
+            db, fecha_desde, fecha_hasta, equipo_id, buscar, orden
+        )
 
         items: List[schemas.HistorialChecklistItem] = []
         total_general = 0

@@ -10,6 +10,7 @@ import {
   RUTA_CONFIGURACION,
   rutaPanel,
   TODAS_LAS_ENTRADAS,
+  esDeEntrada,
   esVisibleEntrada,
   destinoCategoria,
 } from "./menuEntradas";
@@ -93,7 +94,7 @@ function construirMigas(pathname: string, user: Usuario): Miga[] {
   // Las pantallas de una categoría cuelgan de su panel: "Inicio > Producción >
   // Recetas".
   const grupoDeLaRuta = GRUPOS.find((g) =>
-    g.entradas.some((e) => pathname === e.to || pathname.startsWith(`${e.to}/`)),
+    g.entradas.some((e) => esDeEntrada(pathname, e)),
   );
   if (grupoDeLaRuta) {
     migas.push({
@@ -131,6 +132,18 @@ function construirMigas(pathname: string, user: Usuario): Miga[] {
     }
 
     if (SEGMENTOS_OCULTOS_CON_ID.has(segmento) && esId(segmentos[i + 1]) && esId(segmentos[i - 1])) {
+      return;
+    }
+
+    // Ficha de una pestaña (`/reclamos/5`): cuelga de la pantalla que la tiene.
+    const duena = TODAS_LAS_ENTRADAS.find((e) => e.pestanas?.some((p) => p.ruta === acumulada));
+    const pestana = duena?.pestanas?.find((p) => p.ruta === acumulada);
+    if (duena && pestana) {
+      const enlace = esVisibleEntrada(duena, user);
+      migas.push(
+        { to: duena.to, label: duena.label, actual: false, enlace },
+        { to: pestana.to, label: pestana.label, actual: false, enlace },
+      );
       return;
     }
 

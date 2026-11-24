@@ -2,7 +2,6 @@ import { normalizar } from "../../../../common/utils/texto";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BotonExportar } from "../../../exportacion";
-import { Pagina } from "../../../../components/ui/plantillas";
 import {
   BarraFiltros,
   CampoBusqueda,
@@ -26,29 +25,34 @@ import { useAuth } from "../../../../common/context/useAuth";
 import { puedeAdministrar } from "../../../../common/api/permissions";
 import { RetirosTable } from "../RetirosTable";
 import { ModalIniciarRetiro } from "../ModalIniciarRetiro";
+import { formatoFecha } from "../../../../common/utils/fechas";
+import { notificarCambioIncidentes } from "../../../incidente/eventoIncidentes";
+import type { FiltrosGestion } from "../../../incidente/hooks/useFiltrosGestion";
+import type { EstadoIncidente } from "../../../incidente/types/incidente";
 import { listarRetiros } from "../../services/retiroService";
 import type { RetiroResumen } from "../../types/retiro";
 import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 
 const PAGE_SIZE = 10;
 
-type FiltroEstado = "" | "EN_CURSO" | "CERRADO";
 type FiltroOrigen = "" | "INSUMO" | "RECLAMO" | "MANUAL";
 
-export function RetirosPage() {
+/**
+ * Pestaña "Retiros de lotes" de Gestión de incidentes
+ * (`/incidentes?tab=retiros`). `/retiros` redirige acá.
+ */
+export function TabRetiros({ gestion }: { gestion: FiltrosGestion }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const puedeRegistrar = puedeAdministrar(user);
 
   const [busqueda, setBusqueda] = useEstadoNavegacion("RetirosPage.busqueda", "");
-  const [filtroEstado, setFiltroEstado] = useEstadoNavegacion<FiltroEstado>("RetirosPage.filtroEstado", "");
+  // Un retiro en curso es un incidente abierto.
+  const { estado: filtroEstado, setEstado: setFiltroEstado, enPeriodo } = gestion;
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("");
   const [modalNuevo, setModalNuevo] = useState(false);
 
-  const cargar = useCallback(
-    () => listarRetiros({ estado: filtroEstado || undefined }),
-    [filtroEstado]
-  );
+  const cargar = useCallback(() => listarRetiros(), []);
 
   const {
     items: retiros,
@@ -57,7 +61,7 @@ export function RetirosPage() {
     recargar,
   } = useLista<RetiroResumen[]>({
     cargar,
-    dependencias: [filtroEstado],
+    dependencias: [],
     valorInicial: [],
     mensajeError: "No se pudieron cargar los retiros",
     preferirMensajeDelBackend: true,
@@ -66,7 +70,8 @@ export function RetirosPage() {
   const filtrados = useMemo(() => {
     const texto = normalizar(busqueda);
     return retiros.filter((r) => {
-      if (filtroEstado && r.estado !== filtroEstado) return false;
+      if (filtroEstado && (r.estado === "CERRADO") !== (filtroEstado === "cerrado")) return false;
+      if (!enPeriodo(r.fecha_retiro)) return false;
 
       if (filtroOrigen) {
         const detalleTexto = r.detalle || "";
@@ -101,21 +106,21 @@ export function RetirosPage() {
 
       return true;
     });
-  }, [retiros, busqueda, filtroEstado, filtroOrigen]);
+  }, [retiros, busqueda, filtroEstado, filtroOrigen, enPeriodo]);
 
   const { paginados, page, setPage } = usePaginas(
     filtrados,
     PAGE_SIZE,
-    `${busqueda}|${filtroEstado}|${filtroOrigen}`
+    `${busqueda}|${filtroEstado}|${filtroOrigen}|${gestion.desde}|${gestion.hasta}`
   );
 
   const hayFiltros =
-    busqueda.trim() !== "" || filtroEstado !== "" || filtroOrigen !== "";
+    busqueda.trim() !== "" || filtroOrigen !== "" || gestion.hayFiltros;
 
   const limpiarTodo = () => {
     setBusqueda("");
-    setFiltroEstado("");
     setFiltroOrigen("");
+    gestion.limpiar();
   };
 
   const chips = chipsDeFiltros([
@@ -129,9 +134,9 @@ export function RetirosPage() {
       clave: "estado",
       etiqueta: "Estado",
       valor:
-        filtroEstado === "EN_CURSO"
+        filtroEstado === "abierto"
           ? "En curso"
-          : filtroEstado === "CERRADO"
+          : filtroEstado === "cerrado"
           ? "Cerrado"
           : "",
       onQuitar: () => setFiltroEstado(""),
@@ -149,27 +154,11 @@ export function RetirosPage() {
           : "",
       onQuitar: () => setFiltroOrigen(""),
     },
+    gestion.chipPeriodo,
   ]);
 
   return (
-    <Pagina
-      titulo="Retiros de lotes"
-      descripcion="Retiros de lote del mercado: lote, producto, motivo, estado y progreso de notificaciones."
-      acciones={
-        puedeRegistrar ? (
-          <>
-            <BotonAgregar onClick={() => setModalNuevo(true)}>
-              Nuevo retiro
-            </BotonAgregar>
-            <ModalIniciarRetiro
-              isOpen={modalNuevo}
-              onClose={() => setModalNuevo(false)}
-              onRetiroIniciado={recargar}
-            />
-          </>
-        ) : undefined
-      }
-    >
+    <>
       <BarraFiltros
         busqueda={
           <CampoBusqueda
@@ -183,10 +172,10 @@ export function RetirosPage() {
             <FiltroSelect
               label="Estado"
               valor={filtroEstado}
-              onCambio={(valor) => setFiltroEstado(valor as FiltroEstado)}
+              onCambio={(valor) => setFiltroEstado(valor as EstadoIncidente | "")}
               opciones={[
-                { valor: "EN_CURSO", etiqueta: "En curso" },
-                { valor: "CERRADO", etiqueta: "Cerrado" },
+                { valor: "abierto", etiqueta: "En curso" },
+                { valor: "cerrado", etiqueta: "Cerrado" },
               ]}
               todos="Todos los estados"
               minW="160px"
@@ -207,11 +196,29 @@ export function RetirosPage() {
         }
         herramientas={
           <>
+            {/* Dentro de una pestaña, el alta va en la barra. */}
+            {puedeRegistrar && (
+              <BotonAgregar onClick={() => setModalNuevo(true)}>Nuevo retiro</BotonAgregar>
+            )}
             {puedeRegistrar && (
               <BotonExportar
                 nombreTabla="retiros"
-                vista="retiros"
-                filtros={{ estado: filtroEstado || undefined, buscar: busqueda.trim() || undefined }}
+                disabled={filtrados.length === 0}
+                datos={() => ({
+                  titulo: "Retiros de lotes",
+                  nombre: "retiros",
+                  encabezados: ["Fecha", "Producto", "Lote", "Motivo", "Notificados", "Estado"],
+                  filas: filtrados.map((r) => [
+                    formatoFecha(r.fecha_retiro),
+                    r.lote_producto_nombre,
+                    r.lote_codigo,
+                    r.motivo,
+                    r.total_afectados === 0
+                      ? "Sin afectados"
+                      : `${r.notificados} de ${r.total_afectados}`,
+                    r.estado === "CERRADO" ? "Cerrado" : "En curso",
+                  ]),
+                })}
               />
             )}
             <BotonCancelar onClick={() => void recargar()}>
@@ -257,6 +264,16 @@ export function RetirosPage() {
           />
         </>
       )}
-    </Pagina>
+
+      <ModalIniciarRetiro
+        isOpen={modalNuevo}
+        onClose={() => setModalNuevo(false)}
+        onRetiroIniciado={() => {
+          void recargar();
+          // El retiro abre un incidente: el gráfico lo cuenta.
+          notificarCambioIncidentes();
+        }}
+      />
+    </>
   );
 }

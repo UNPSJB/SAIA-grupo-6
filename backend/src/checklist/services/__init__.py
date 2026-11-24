@@ -13,6 +13,7 @@ from .consumo import listar_consumo_insumos
 from .generacion import obtener_o_crear_checklists_del_dia
 from .historial import (
     conteo_cumplimiento_periodo,
+    listar_checklists_del_periodo,
     listar_historial_checklists,
     obtener_detalle_checklist,
 )
@@ -26,6 +27,7 @@ from .tareas_del_dia import listar_tareas_del_dia
 __all__ = [
     "asignar_cobertura_tarea",
     "conteo_cumplimiento_periodo",
+    "listar_checklists_del_periodo",
     "listar_consumo_insumos",
     "listar_historial_checklists",
     "listar_tareas_del_dia",

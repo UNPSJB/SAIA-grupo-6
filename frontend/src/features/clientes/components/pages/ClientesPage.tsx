@@ -164,9 +164,11 @@ export function ClientesPage() {
             />
             <BotonExportar
               nombreTabla="clientes"
+              vista="clientes"
               filtros={{
-                activo: String(!verInactivos),
+                solo_inactivos: String(verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

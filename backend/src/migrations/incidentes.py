@@ -53,3 +53,27 @@ def migrar_incidentes() -> None:
                     "WHERE titulo IS NULL"
                 )
             )
+
+    _reclasificar_devoluciones()
+
+
+def _reclasificar_devoluciones() -> None:
+    """El tipo "Devolución de cliente" se eliminó: lo cubren reclamos y rechazos.
+
+    Los que había pasan a "Otro" (no tienen cliente ni salida con qué armar un
+    reclamo) y la descripción conserva el tipo con el que se registraron.
+    Idempotente: después de la primera vez no queda ninguno.
+    """
+    with engine.begin() as conexion:
+        cambiados = conexion.execute(
+            text(
+                "UPDATE incidentes SET tipo = 'otro', descripcion = descripcion || :nota "
+                "WHERE tipo = 'devolucion_cliente'"
+            ),
+            {"nota": "\n\n(Registrado originalmente como Devolución de cliente.)"},
+        ).rowcount
+    if cambiados:
+        logger.info(
+            "Migración: %s incidentes de devolución de cliente pasaron a Otro.",
+            cambiados,
+        )

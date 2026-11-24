@@ -23,14 +23,6 @@ NOMBRES_MARCA = {
     CAFEINA: "Cafeína",
 }
 
-AYUDAS_MARCA = {
-    AZUCARES: "Azúcar, miel, jarabes, dulce de leche o cualquier ingrediente con azúcar añadido.",
-    GRASAS: "Grasas o aceites agregados como ingrediente, no las grasas propias del alimento.",
-    SODIO: "Sal, sodio o aditivos que aportan sodio de forma relevante.",
-    EDULCORANTES: "Aditivos de clase funcional edulcorante o ingredientes que los contengan.",
-    CAFEINA: "Cafeína agregada o ingredientes que la aporten (café, té, guaraná).",
-}
-
 # Campo de la configuración del producto que guarda la corrección manual.
 CAMPO_CONFIGURACION = {
     AZUCARES: "azucares_agregados",
@@ -65,24 +57,9 @@ ESTADO_EXCEPTUADO = "exceptuado"
 ESTADO_APLICA = "aplica"
 ESTADO_MODULO_INACTIVO = "modulo_inactivo"
 
-ESTADOS = (
-    ESTADO_SIN_DEFINIR,
-    ESTADO_NO_APLICA,
-    ESTADO_NO_APLICA_CANAL_INDUSTRIAL,
-    ESTADO_EXCEPTUADO,
-    ESTADO_APLICA,
-    ESTADO_MODULO_INACTIVO,
-)
-
 CANAL_MINORISTA = "MINORISTA"
 CANAL_MAYORISTA = "MAYORISTA"
 CANAL_MAYORISTA_INDUSTRIAL = "MAYORISTA_INDUSTRIAL"
-
-CANALES_COMERCIALIZACION = (
-    CANAL_MINORISTA,
-    CANAL_MAYORISTA,
-    CANAL_MAYORISTA_INDUSTRIAL,
-)
 
 # Solo el canal minorista es consumo final directo: los demás canales no
 # llevan rotulado frontal en el empaque del producto.
@@ -213,7 +190,6 @@ FORMULAS_NUTRICIONALES_INICIALES = (
 # `formulas_nutricionales` de la versión vigente. En tiempo de ejecución la
 # lista de sellos también se lee de la versión de la regla, no de esta
 # constante: acá solo queda la carga inicial.
-TIPOS_CALCULO_SELLO = ("proporcion_energia", "mg_por_kcal", "valor_absoluto")
 
 SELLOS_INICIALES = (
     {

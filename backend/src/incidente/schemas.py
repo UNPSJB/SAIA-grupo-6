@@ -1,10 +1,13 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, field_validator
 from src.common.paginacion import Pagina
 from src.incidente import exceptions
 from src.incidente.constants import EstadoIncidente, TipoIncidente
+from src.reclamos.schemas import ReclamoResumen
+from src.retiros.schemas import RetiroResumen
+from src.salidas.schemas import SalidaResumen
 
 
 class IncidenteBase(BaseModel):
@@ -48,10 +51,6 @@ class IncidenteEstadoUpdate(BaseModel):
 
     estado: EstadoIncidente
     observacion_cierre: Optional[str] = None
-    mercaderia_devuelta: bool = False
-    disposicion_fisica: Optional[str] = None
-    generar_reposicion: bool = False
-    cantidad_a_reponer: Optional[Decimal] = None
 
     @field_validator("observacion_cierre")
     @classmethod
@@ -73,6 +72,9 @@ class IncidenteResponse(IncidenteBase):
     # Vínculos opcionales con el lote / la salida que originaron el incidente.
     lote_id: Optional[int] = None
     salida_id: Optional[int] = None
+    # Reclamo o retiro donde se resuelve (solo en los listados de gestión).
+    reclamo_id: Optional[int] = None
+    retiro_id: Optional[int] = None
     equipo_nombre: Optional[str] = None
     usuario_nombre: Optional[str] = None
     responsable_cierre_nombre: Optional[str] = None
@@ -125,3 +127,80 @@ class HistorialIncidenteResponse(BaseModel):
 
     incidente_id: int
     eventos: List[HistorialIncidenteItem]
+
+
+# --------------------------------------------------------------------------
+# Ficha del incidente: el registro más todo lo que lo rodea
+# --------------------------------------------------------------------------
+
+
+class IncidentePlanEquipo(BaseModel):
+    """Plan de calibración o mantenimiento vigente del equipo involucrado."""
+
+    tipo: str
+    fecha_ultima_intervencion: date
+    proximo_vencimiento: date
+    dias_restantes: int
+
+
+class IncidenteEquipo(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    sector_nombre: Optional[str] = None
+    activo: bool
+    planes: List[IncidentePlanEquipo] = []
+
+
+class IncidenteLote(BaseModel):
+    id: int
+    numero_lote: str
+    producto_nombre: str
+    unidad: str
+    estado: str
+    estado_lote: str
+    retirado: bool
+    cantidad_producida: Optional[Decimal] = None
+    saldo: Decimal
+    fecha_inicio: datetime
+    fecha_vencimiento: Optional[date] = None
+
+
+class IncidenteReposicion(BaseModel):
+    """Reposición de stock al cliente que salió de este incidente."""
+
+    id: int
+    cliente_nombre: str
+    producto_nombre: str
+    unidad: str
+    cantidad_original: Decimal
+    cantidad_pendiente: Decimal
+    estado: str
+    prioridad: str
+    fecha_registro: datetime
+
+
+class IncidenteRelacionado(BaseModel):
+    """Otro incidente del mismo equipo o del mismo lote."""
+
+    id: int
+    titulo: str
+    tipo: TipoIncidente
+    estado: EstadoIncidente
+    fecha_reporte: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IncidenteDetalleResponse(IncidenteResponse):
+    """Ficha completa (`GET /incidentes/{id}`)."""
+
+    equipo: Optional[IncidenteEquipo] = None
+    lote: Optional[IncidenteLote] = None
+    salida: Optional[SalidaResumen] = None
+    reclamo: Optional[ReclamoResumen] = None
+    retiro: Optional[RetiroResumen] = None
+    reposiciones: List[IncidenteReposicion] = []
+    # Los últimos, más el total: así la ficha avisa si un equipo es reincidente.
+    relacionados: List[IncidenteRelacionado] = []
+    relacionados_total: int = 0

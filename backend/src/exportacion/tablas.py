@@ -52,6 +52,7 @@ from src.all_models import (  # noqa: F401  (garantiza que los modelos estén ma
     VersionDocumento,
 )
 from src.exportacion.configuracion import CampoExport, ConfigTabla, registrar
+from src.exportacion.listados import LISTADOS
 
 # ---------------------------------------------------------------------------
 # Columnas sensibles que nunca se exportan (coincide con AUDITORIA_REDACTAR
@@ -182,6 +183,7 @@ def _registrar_todas() -> None:
                 campos=campos,
                 pk="id",
                 orden_por="id",
+                listar=LISTADOS.get(nombre_tabla),
             )
         )
 

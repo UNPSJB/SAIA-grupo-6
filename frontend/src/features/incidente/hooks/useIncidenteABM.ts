@@ -30,11 +30,11 @@ export function useIncidenteABM() {
   };
 
   /** Cierra el incidente dejando la acción correctiva que se realizó. */
-  const cerrar = async (id: number, observacionCierre?: string) => {
+  const cerrar = async (id: number, accionCorrectiva?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const resultado = await cambiarEstadoIncidente(id, "cerrado", observacionCierre);
+      const resultado = await cambiarEstadoIncidente(id, "cerrado", accionCorrectiva);
       notificarCambio();
       return resultado;
     } catch (err) {

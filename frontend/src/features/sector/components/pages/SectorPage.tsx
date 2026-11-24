@@ -160,6 +160,7 @@ export function SectorPage() {
               filtros={{
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

@@ -207,15 +207,6 @@ def _mapa(
     )
 
 
-def _conteo_por_dia(db: Session, columna, clave: str, *condiciones, desde=None):
-    """Filas (día, clave, cantidad) de una tabla, agrupadas por día."""
-    dia = func.date(columna)
-    consulta = select(dia, func.count()).where(*condiciones).group_by(dia)
-    if desde is not None:
-        consulta = consulta.select_from(desde)
-    return [(d, clave, n) for d, n in db.execute(consulta).all()]
-
-
 def _nombre_persona(nombre: str, apellido: Optional[str]) -> str:
     return f"{nombre} {apellido or ''}".strip()
 

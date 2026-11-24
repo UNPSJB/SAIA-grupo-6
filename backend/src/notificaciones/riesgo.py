@@ -145,7 +145,7 @@ CAUSAS_DE_CONTAMINACION: dict[str, frozenset[str]] = {
 
 #: Etiquetas de lo que se notifica sin generar riesgo (la de los tipos de
 #: riesgo está en `TIPOS_SITUACION`): los incidentes que no son de ninguna clase
-#: de riesgo (reclamos, retiros y rechazos con otra causa, devoluciones).
+#: de riesgo (reclamos, retiros y rechazos con otra causa).
 ETIQUETAS_SIN_RIESGO: dict[str, str] = {
     "INCIDENTE_ABIERTO": "Incidente abierto",
     # Vigencia de la homologación de una marca: por ahora solo avisa.

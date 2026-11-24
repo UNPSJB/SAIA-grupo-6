@@ -31,7 +31,7 @@ from src.salidas.constants import (
     ESTADO_ENTREGADO,
 )
 from src.salidas.models import Salida, calcular_cantidades
-from src.recetas.models import Receta, RecetaIngrediente, TareaReceta, TareaRecetaIngrediente, VersionReceta
+from src.recetas.models import Receta, RecetaIngrediente, TareaReceta, TareaRecetaIngrediente
 from src.recetas.services import calcular_factor, version_vigente
 from src.unidadMedida.cantidades import es_cantidad_valida
 

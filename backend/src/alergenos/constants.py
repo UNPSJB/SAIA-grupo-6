@@ -1,23 +1,17 @@
 NIVEL_CONTIENE = "contiene"
 NIVEL_PUEDE_CONTENER = "puede_contener"
-NIVELES = (NIVEL_CONTIENE, NIVEL_PUEDE_CONTENER)
-
-FORMA_DIRECTA = "directa"
-FORMA_DERIVADO = "derivado"
 
 # Cómo está evaluado un ingrediente: sin evaluar o incompleta deja la
 # declaración del rótulo pendiente (no se asume "sin alérgenos").
 EVALUACION_SIN_EVALUAR = "sin_evaluar"
 EVALUACION_INCOMPLETA = "incompleta"
 EVALUACION_EVALUADA = "evaluada"
-EVALUACIONES = (EVALUACION_SIN_EVALUAR, EVALUACION_INCOMPLETA, EVALUACION_EVALUADA)
 
 # El gluten va aparte de los cereales: una ausencia declarada es un dato del
 # ingrediente, no autoriza a rotular el producto como libre de gluten.
 GLUTEN_DESCONOCIDO = "desconocido"
 GLUTEN_PRESENTE = "presente"
 GLUTEN_AUSENCIA_DECLARADA = "ausencia_declarada"
-ESTADOS_GLUTEN = (GLUTEN_DESCONOCIDO, GLUTEN_PRESENTE, GLUTEN_AUSENCIA_DECLARADA)
 
 # Versión de las reglas con que se arman las declaraciones (queda en cada
 # revisión del rótulo).

@@ -66,6 +66,7 @@ function TabIngredientes() {
       buscar: busquedaAplicada,
       unidadMedidaId: unidadId ? Number(unidadId) : undefined,
       esAditivo: esAditivo === "" ? undefined : esAditivo === "true",
+      proveedorId: proveedorId ? Number(proveedorId) : undefined,
       orden: orden.orden,
     },
     PAGE_SIZE
@@ -244,8 +245,9 @@ function TabIngredientes() {
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
                 es_aditivo: esAditivo || undefined,
-                unidad_id: unidadId || undefined,
+                unidad_medida_id: unidadId || undefined,
                 proveedor_id: proveedorId || undefined,
+                orden: orden.orden,
               }}
             />
           </>

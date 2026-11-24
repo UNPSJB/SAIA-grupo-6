@@ -24,3 +24,19 @@ class ReclamoDetalleRequerido(BadRequest):
 
 class ReclamoDetalleDemasiadoLargo(BadRequest):
     DETAIL = ErrorCode.DETALLE_DEMASIADO_LARGO
+
+
+class ReclamoYaCerrado(BadRequest):
+    DETAIL = ErrorCode.RECLAMO_YA_CERRADO
+
+
+class ReclamoNoCerrado(BadRequest):
+    DETAIL = ErrorCode.RECLAMO_NO_CERRADO
+
+
+class ReclamoSinIncidente(BadRequest):
+    DETAIL = ErrorCode.RECLAMO_SIN_INCIDENTE
+
+
+class ReposicionYaGenerada(BadRequest):
+    DETAIL = ErrorCode.REPOSICION_YA_GENERADA

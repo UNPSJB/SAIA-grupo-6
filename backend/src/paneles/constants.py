@@ -60,7 +60,6 @@ ETIQUETA_MOMENTO_TAREA = {
 ETIQUETA_TIPO_INCIDENTE = {
     "plagas": "Plagas",
     "falla_equipo": "Falla de equipo",
-    "devolucion_cliente": "Devolución de cliente",
     "higiene_contaminacion": "Higiene o contaminación",
     "entrega_rechazada": "Entrega rechazada",
     "reclamo_cliente": "Reclamo de cliente",

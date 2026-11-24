@@ -203,6 +203,7 @@ export function PlanLimpiezaPage() {
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
                 equipo_id: equipoId || undefined,
+                orden: orden.orden,
               }}
             />
           </>

@@ -14,17 +14,8 @@ class NombreVacio(BadRequest):
     DETAIL = ErrorCode.NOMBRE_VACIO
 
 
-class MatriculaVacia(BadRequest):
-    DETAIL = ErrorCode.MATRICULA_VACIA
-
 class CuitDuplicado(BadRequest):
     DETAIL = ErrorCode.CUIT_DUPLICADO
-
-class CertificacionNoEncontrada(NotFound):
-    DETAIL = ErrorCode.CERTIFICACION_NO_ENCONTRADA
-
-class CertificacionInvalida(BadRequest):
-    DETAIL = ErrorCode.CERTIFICACION_INVALIDA
 
 
 class NombreProveedorDuplicado(BadRequest):

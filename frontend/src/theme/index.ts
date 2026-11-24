@@ -504,6 +504,24 @@ const config = defineConfig({
      * dibujarlo la `Tarjeta` que envuelve a la tabla.
      */
     slotRecipes: {
+      /*
+       * Pista del switch apagado. La de Chakra (`bg.emphasized`) en oscuro es
+       * casi el color de las tarjetas: se veía un punto blanco suelto. Estos
+       * dan 3:1 o más contra la tarjeta y contra el botón blanco.
+       */
+      switch: {
+        slots: ["root", "label", "control", "thumb", "indicator"],
+        variants: {
+          variant: {
+            solid: {
+              control: {
+                bg: { _light: "#7F9092", _dark: "#6B8085" },
+                _checked: { bg: "colorPalette.solid" },
+              },
+            },
+          },
+        },
+      },
       table: {
         slots: ["root", "header", "row", "cell", "columnHeader", "caption", "footer"],
         base: {

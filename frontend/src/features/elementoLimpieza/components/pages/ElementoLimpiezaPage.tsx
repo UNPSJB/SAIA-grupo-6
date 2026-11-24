@@ -170,6 +170,7 @@ export function ElementosLimpiezaPage() {
               filtros={{
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

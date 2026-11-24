@@ -99,17 +99,6 @@ class BorradorRotuladoOut(BorradorRotuladoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ProductoConBorrador(BaseModel):
-    producto_id: int
-    producto_nombre: str
-    unidad_simbolo: Optional[str]
-    borrador_id: Optional[int]
-    borrador_estado: Optional[str]
-    borrador_actualizado_en: Optional[datetime]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class AutocompletarIn(BaseModel):
     version_id: Optional[int] = Field(default=None, gt=0)
     lote_id: Optional[int] = Field(default=None, gt=0)

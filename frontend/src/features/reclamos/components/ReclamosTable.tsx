@@ -18,19 +18,19 @@ import {
 interface ReclamosTableProps {
   reclamos: ReclamoResumen[];
   onVerDetalle: (reclamoId: number) => void;
-  onVerIncidente: (incidenteId: number) => void;
+  /** Solo administración: sin él no se ofrece cerrar. */
+  onCerrar?: (reclamo: ReclamoResumen) => void;
 }
 
 /**
  * Tabla del listado de reclamos de clientes.
  *
- * La fila NO es clickeable: la navegación vive en la columna Acciones, con
- * `BotonAccion` (`ver` para la ficha y `resolver` para el incidente en E6).
+ * Toda la fila abre la ficha; los botones de acción no la activan.
  */
 export function ReclamosTable({
   reclamos,
   onVerDetalle,
-  onVerIncidente,
+  onCerrar,
 }: ReclamosTableProps) {
   return (
     <Tarjeta overflowX="auto">
@@ -103,11 +103,11 @@ export function ReclamosTable({
                     label="Ver detalle"
                     onClick={() => onVerDetalle(reclamo.id)}
                   />
-                  {reclamo.incidente_id && (
+                  {onCerrar && reclamo.incidente_estado === "abierto" && (
                     <BotonAccion
-                      accion="resolver"
-                      label="Ver incidente"
-                      onClick={() => onVerIncidente(reclamo.incidente_id!)}
+                      accion="cerrar"
+                      label="Cerrar reclamo"
+                      onClick={() => onCerrar(reclamo)}
                     />
                   )}
                 </Flex>

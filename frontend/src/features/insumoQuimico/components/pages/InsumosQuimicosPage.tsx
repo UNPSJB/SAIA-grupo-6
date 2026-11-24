@@ -246,7 +246,8 @@ export function InsumosQuimicosPage() {
                 activo: String(!verInactivos),
                 buscar: busquedaAplicada,
                 tipo: tipo,
-                unidad_id: unidadId || undefined,
+                unidad_medida_id: unidadId || undefined,
+                orden: orden.orden,
               }}
             />
           </>

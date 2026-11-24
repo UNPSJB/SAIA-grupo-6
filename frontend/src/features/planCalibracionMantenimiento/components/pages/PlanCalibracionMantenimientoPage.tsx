@@ -208,11 +208,13 @@ export function PlanCalibracionMantenimientoPage() {
         }
         herramientas={
           <BotonExportar
-            nombreTabla="planes_calibracion_mantenimiento" // (o el nombre de tabla que use tu backend)
+            nombreTabla="planes_calibracion_mantenimiento"
             filtros={{
+              activo: "true",
               buscar: busquedaAplicada,
               tipo: tipo || undefined,
               equipo_id: equipoId || undefined,
+              orden: orden.orden,
             }}
           />
         }

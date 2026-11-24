@@ -1,7 +1,8 @@
 from datetime import date
-from typing import Optional
+from decimal import Decimal
+from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ClienteBasico(BaseModel):
@@ -66,6 +67,17 @@ class ReclamoRetiroDetalle(BaseModel):
     estado: str
 
 
+class ReclamoReposicionDetalle(BaseModel):
+    """Reposición que ya generó el reclamo (admite una sola)."""
+
+    id: int
+    estado: str
+    cantidad_original: Decimal
+    cantidad_pendiente: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ReclamoDetalle(ReclamoResumen):
     """Ficha completa del reclamo."""
 
@@ -74,3 +86,26 @@ class ReclamoDetalle(ReclamoResumen):
     salida: ReclamoSalidaDetalle
     incidente: Optional[ReclamoIncidenteDetalle] = None
     retiro: Optional[ReclamoRetiroDetalle] = None
+    reposicion: Optional[ReclamoReposicionDetalle] = None
+
+
+class ReclamoCerrar(BaseModel):
+    """Cierre del reclamo: qué se hizo, con la mercadería y con el cliente."""
+
+    accion_correctiva: str
+    mercaderia_devuelta: bool = False
+    disposicion_fisica: Optional[Literal["CUARENTENA", "BAJA"]] = None
+    generar_reposicion: bool = False
+    cantidad_a_reponer: Optional[Decimal] = Field(None, gt=0)
+
+    @model_validator(mode="after")
+    def validar_resolucion(self):
+        if self.mercaderia_devuelta and self.disposicion_fisica is None:
+            raise ValueError("Indicá el destino de la mercadería devuelta.")
+        if self.generar_reposicion and self.cantidad_a_reponer is None:
+            raise ValueError("Indicá la cantidad a reponer.")
+        return self
+
+
+class ReclamoReabrir(BaseModel):
+    motivo: Optional[str] = None

@@ -196,6 +196,10 @@ export function PestanasPagina({
 
   useLayoutEffect(() => {
     const caja = cajaDeLaActiva();
+    // En el celular la fila puede no entrar: se corre hasta dejar a la vista la
+    // activa (al llegar con `?tab=` o al elegir una cortada).
+    const lista = listaRef.current;
+    if (lista && caja) lista.scrollLeft = caja.x - (lista.clientWidth - caja.ancho) / 2;
     const cajaPrevia = cajaRef.current;
     cajaRef.current = caja;
     colocar(caja);

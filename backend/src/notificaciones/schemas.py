@@ -148,17 +148,3 @@ class ConfiguracionAlertasUpdate(BaseModel):
     dias_alerta_vencimiento_personal: int | None = Field(default=None, ge=1, le=365)
     plazo_reclamo_dias: int | None = Field(default=None, ge=1, le=365)
     meta_cumplimiento_limpieza: int | None = Field(default=None, ge=1, le=100)
-
-
-class NotificacionPersistidaResponse(BaseModel):
-    """Notificación leída de la tabla persistida (mismo contrato que NotificacionResponse
-    pero sin grupo_clave expuesto, que es solo de uso interno)."""
-
-    id_notificacion: str
-    tipo: str
-    entidad_id: int
-    titulo: str
-    mensaje: str
-    nivel: str
-    link_destino: str
-    fecha_referencia: Optional[date] = None

@@ -207,6 +207,7 @@ export function EquiposPage() {
                 buscar: busquedaAplicada,
                 tipo: tipo,
                 sector_id: sectorId || undefined,
+                orden: orden.orden,
               }}
             />
           </>

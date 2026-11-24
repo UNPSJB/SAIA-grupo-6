@@ -1,9 +1,9 @@
 import { useRegistro } from "../../../common/hooks/useRegistro";
 import { obtenerIncidente } from "../services/incidenteService";
-import type { Incidente } from "../types/incidente";
+import type { IncidenteDetalle } from "../types/incidente";
 
 export function useIncidente(id: number | null) {
-  const { registro, loading, error, recargar } = useRegistro<Incidente>({
+  const { registro, loading, error, recargar } = useRegistro<IncidenteDetalle>({
     cargar: obtenerIncidente,
     id,
     etiqueta: "el incidente",

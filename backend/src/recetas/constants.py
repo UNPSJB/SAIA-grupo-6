@@ -1,5 +1,3 @@
-MOTIVOFALTANTE = "MotivoFaltante"
-
 TIPO_MASA = "masa"
 TIPO_VOLUMEN = "volumen"
 TIPO_UNIDAD = "unidad"
@@ -14,8 +12,6 @@ class ErrorCode:
     RECETA_YA_EXISTE = (
         "El producto ya tiene una receta. Creá una versión nueva para modificarla."
     )
-    SIN_TAREAS = "La receta necesita al menos una tarea."
-    RECETA_VACIA = "La receta necesita al menos un ingrediente."
     INGREDIENTE_NO_ENCONTRADO = "El ingrediente no existe o está dado de baja."
     INGREDIENTE_REPETIDO = "Un ingrediente no puede repetirse dentro de la misma receta."
     UNIDAD_NO_COINCIDE = (

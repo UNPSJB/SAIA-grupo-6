@@ -61,16 +61,6 @@ DISPOSICIONES = (DISPOSICION_REINGRESADA, DISPOSICION_DESECHADA)
 FORMA_ENTREGA_CON_TRANSPORTISTA = "CON_TRANSPORTISTA"
 FORMA_ENTREGA_RETIRA_CLIENTE = "RETIRA_CLIENTE"
 
-FORMAS_ENTREGA = (
-    FORMA_ENTREGA_CON_TRANSPORTISTA,
-    FORMA_ENTREGA_RETIRA_CLIENTE,
-)
-
-# Unidades de medida posibles (se toma del producto del lote; se documenta aquí
-# como referencia para mensajes y frontend). No es un catálogo cerrado.
-UNIDAD_KG = "kg"
-UNIDAD_UN = "un"
-
 
 class ErrorCode:
     LOTE_NO_ENCONTRADO = "El lote no existe."
@@ -83,7 +73,6 @@ class ErrorCode:
     FECHA_ANTERIOR_A_ELABORACION = (
         "La fecha de reserva no puede ser anterior a la fecha de elaboración del lote."
     )
-    HITO_NO_ENCONTRADO = "El hito no existe."
     SALIDA_NO_ENCONTRADA = "La salida no existe."
     TRANSICION_INVALIDA = "Transición de estado no permitida."
     TRANSPORTISTA_REQUERIDO = (

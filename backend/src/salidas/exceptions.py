@@ -41,10 +41,6 @@ class FechaAnteriorAElaboracion(BadRequest):
     DETAIL = ErrorCode.FECHA_ANTERIOR_A_ELABORACION
 
 
-class HitoLoteNoEncontrado(NotFound):
-    DETAIL = ErrorCode.HITO_NO_ENCONTRADO
-
-
 class SalidaNoEncontrada(NotFound):
     DETAIL = ErrorCode.SALIDA_NO_ENCONTRADA
 

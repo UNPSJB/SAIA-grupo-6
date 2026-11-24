@@ -54,19 +54,6 @@ class ReposicionBase(BaseModel):
     origen: str
 
 
-class ReposicionCreate(BaseModel):
-    """Alta de una reposición: estado PENDIENTE y pendiente = original."""
-
-    cliente_id: int = Field(..., ge=1)
-    producto_id: int = Field(..., ge=1)
-    cantidad_original: Decimal = Field(..., gt=0)
-    prioridad: str
-    origen: str
-    retiro_origen_id: Optional[int] = Field(default=None, ge=1)
-    salida_origen_id: Optional[int] = Field(default=None, ge=1)
-    incidente_origen_id: Optional[int] = Field(default=None, ge=1)
-
-
 class ReposicionCumplirRequest(BaseModel):
     """Cuerpo de `POST /reposiciones/{reposicion_id}/cumplir`."""
 

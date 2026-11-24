@@ -8,7 +8,6 @@ from src.common.validators import texto_opcional
 
 Fuente = Literal["base_referencia", "rotulo_proveedor", "bibliografia", "valor_propio"]
 Expresar = Literal["g", "ml"]
-Positivo = Decimal
 
 
 # ── Parámetros ─────────────────────────────────────────────────────────────
@@ -172,15 +171,6 @@ class DatosNutricionalesResponse(BaseModel):
     nutrientes_admitidos: list[str]
     valores: list[ValorResponse]
     completitud: Completitud
-
-
-class IngredienteNutricionResumen(BaseModel):
-    ingrediente_id: int
-    nombre: str
-    es_aditivo: bool
-    completo: bool
-    exige_datos: bool
-    faltantes: list[str]
 
 
 # ── Información nutricional del producto ───────────────────────────────────

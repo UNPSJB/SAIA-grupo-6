@@ -4,20 +4,36 @@ from enum import Enum
 class TipoIncidente(str, Enum):
     PLAGAS = "plagas"
     FALLA_EQUIPO = "falla_equipo"
-    DEVOLUCION_CLIENTE = "devolucion_cliente"
     HIGIENE_CONTAMINACION = "higiene_contaminacion"
     # Se abre automáticamente desde salidas cuando un cliente rechaza una
     # entrega (Historia A del circuito de rechazos). No es un valor editable:
     # los tipos son una lista fija, igual que el resto.
     ENTREGA_RECHAZADA = "entrega_rechazada"
     # Se abre automáticamente desde el alta de un reclamo de cliente
-    # (Historia 20). Tampoco es un valor editable a mano.
+    # (Historia 20). Tampoco es un valor editable a mano: se cierra y se
+    # reabre desde la ficha del reclamo.
     RECLAMO_CLIENTE = "reclamo_cliente"
     # Se abre automáticamente al iniciar un retiro de lote del mercado
     # (Historia 21). Es un incidente de sistema: no se puede cerrar, reabrir
     # ni editar desde los endpoints de E6.
     RETIRO_LOTE = "retiro_lote"
     OTRO = "otro"
+
+
+# Los que nacen de otro circuito (un rechazo, un reclamo o un retiro) y se
+# resuelven ahí. En la gestión de incidentes son de solo lectura.
+TIPOS_DE_CIRCUITO = (
+    TipoIncidente.ENTREGA_RECHAZADA,
+    TipoIncidente.RECLAMO_CLIENTE,
+    TipoIncidente.RETIRO_LOTE,
+)
+
+
+class OrigenIncidente(str, Enum):
+    """De dónde salió el incidente: lo reportó alguien o lo abrió un circuito."""
+
+    REPORTADO = "reportado"
+    CIRCUITO = "circuito"
 
 
 class EstadoIncidente(str, Enum):
@@ -41,13 +57,12 @@ class ErrorCode:
     EQUIPO_NO_ENCONTRADO = "El equipo seleccionado no existe."
     USUARIO_NO_ENCONTRADO = "El usuario que reporta no existe."
     USUARIO_INACTIVO = "El usuario que reporta está inactivo."
-    ESTADO_INVALIDO = "El estado del incidente no es válido."
     EQUIPO_INACTIVO = "El equipo seleccionado está dado de baja."
     PERMISO_DENEGADO = "No tenés permiso para ver este incidente."
     FECHA_RANGO_INVALIDO = "La fecha 'desde' no puede ser posterior a la fecha 'hasta'."
     INCIDENTE_INMUTABLE = (
-        "Los incidentes generados por un rechazo de mercadería son inmutables. "
-        "Este incidente se resuelve desde Resolver rechazo en Salidas."
+        "Este incidente se resuelve desde donde se originó: el rechazo en su "
+        "salida, el reclamo en su ficha o el retiro del lote."
     )
 
 
@@ -56,14 +71,3 @@ class ErrorCode:
 # exactamente el mismo criterio de validación.
 EXTENSIONES_FOTO = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 TAMANO_MAX_FOTO = 5 * 1024 * 1024  # 5 MB
-
-# Motivos asociados a reclamos de clientes (sincronizados con src.reclamos.constants)
-MOTIVOS_RECLAMO_CLIENTE = (
-    "Sabor, olor o aspecto anormal",
-    "Envase dañado",
-    "Cuerpo extraño",
-    "Posible afectación a la salud",
-    "Rotulado o etiqueta",
-    "Devolución de lote por alerta de recall/retiro",
-    "Otro",
-)

@@ -110,7 +110,7 @@ from src.aptitud import exceptions as apt_e  # noqa: E402
 from src.unidadMedida import services as um_srv, schemas as um_sch  # noqa: E402
 from src.unidadMedida import exceptions as um_e  # noqa: E402
 from src.unidadMedida.models import UnidadMedida  # noqa: E402
-from src.common.persistence import comparar_texto  # noqa: E402
+from src.common.texto import comparar_texto  # noqa: E402
 
 a1 = apt_srv.crear_aptitud(db, apt_sch.AptitudCreate(nombre="Altura"))
 a2 = apt_srv.crear_aptitud(db, apt_sch.AptitudCreate(nombre="Profundidad"))
@@ -137,7 +137,7 @@ check("comodín _ no matchea filas ajenas",
 
 print()
 print("== búsqueda con comodines escapados (contiene_texto / documentos) ==")
-from src.common.persistence import contiene_texto  # noqa: E402
+from src.common.texto import contiene_texto  # noqa: E402
 from src.documentos import services as doc_srv  # noqa: E402
 from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.personal.models import Personal  # noqa: E402

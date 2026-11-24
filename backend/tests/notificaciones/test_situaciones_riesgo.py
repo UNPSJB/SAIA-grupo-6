@@ -297,7 +297,6 @@ def test_los_tipos_de_riesgo_salen_del_tipo_de_incidente_y_de_la_causa(db_sessio
         _incidente_cerrado(2, "falla_equipo"),
         _incidente_cerrado(3, "higiene_contaminacion"),
         _incidente_cerrado(4, "otro"),
-        _incidente_cerrado(5, "devolucion_cliente"),  # no está entre las clases de riesgo
         # De sistema, sin su reclamo/retiro/rechazo de origen: no hay causa.
         _incidente_cerrado(6, "reclamo_cliente"),
         _incidente_cerrado(7, "retiro_lote"),
@@ -309,7 +308,6 @@ def test_los_tipos_de_riesgo_salen_del_tipo_de_incidente_y_de_la_causa(db_sessio
         2: "FALLA_EQUIPO",
         3: "HIGIENE_CONTAMINACION",
         4: "OTROS",
-        5: None,
         6: None,
         7: None,
         8: None,
@@ -327,7 +325,7 @@ def _checklist(equipo_id, fecha, completado):
 def test_el_historial_inicial_solo_siembra_incidentes_de_riesgo(db_session):
     incidentes = [
         _incidente_cerrado(1, "plagas", equipo_id=4),
-        _incidente_cerrado(2, "devolucion_cliente"),
+        _incidente_cerrado(2, "reclamo_cliente"),  # sin causa de riesgo
         _incidente_cerrado(3, "higiene_contaminacion"),
     ]
     criticidad._sembrar_historial(

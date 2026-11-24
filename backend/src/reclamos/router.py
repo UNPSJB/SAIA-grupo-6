@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
-from src.auth.dependencies import get_current_user, require_operador
+from src.auth.dependencies import get_current_user, require_admin, require_operador
 from src.common.archivos import guardar_archivo
 from src.database import get_db
 from src.incidente.constants import EXTENSIONES_FOTO, EstadoIncidente, TAMANO_MAX_FOTO
@@ -128,4 +128,28 @@ def listar_clientes_para_reclamo(db: Session = Depends(get_db)):
 )
 def obtener_reclamo(reclamo_id: int, db: Session = Depends(get_db)):
     reclamo = services.obtener_reclamo(db, reclamo_id)
+    return services.reclamo_a_detalle(reclamo)
+
+
+@router.patch("/{reclamo_id}/cerrar", response_model=schemas.ReclamoDetalle)
+def cerrar_reclamo(
+    reclamo_id: int,
+    datos: schemas.ReclamoCerrar,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Cierra el reclamo y su incidente; opcionalmente genera la reposición."""
+    reclamo = services.cerrar_reclamo(db, reclamo_id, datos, usuario)
+    return services.reclamo_a_detalle(reclamo)
+
+
+@router.patch("/{reclamo_id}/reabrir", response_model=schemas.ReclamoDetalle)
+def reabrir_reclamo(
+    reclamo_id: int,
+    datos: schemas.ReclamoReabrir,
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
+    """Reabre un reclamo cerrado y su incidente."""
+    reclamo = services.reabrir_reclamo(db, reclamo_id, datos.motivo, usuario)
     return services.reclamo_a_detalle(reclamo)

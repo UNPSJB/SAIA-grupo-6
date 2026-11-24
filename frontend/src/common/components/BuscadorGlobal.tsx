@@ -167,7 +167,9 @@ export function BuscadorGlobal(): ReactElement | null {
   const secciones = useMemo<Resultado[]>(() => {
     const q = normalizar(aplicada);
     if (q.length < 2) return [];
-    return TODAS_LAS_ENTRADAS.filter((e) => esVisibleEntrada(e, user) && contiene(e.label, q))
+    return TODAS_LAS_ENTRADAS.filter((e) => esVisibleEntrada(e, user))
+      .flatMap((e) => [e, ...(e.pestanas ?? [])])
+      .filter((e) => contiene(e.label, q))
       .slice(0, POR_GRUPO)
       .map((e) => ({
         clave: `seccion-${e.to}`,

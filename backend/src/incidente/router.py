@@ -7,10 +7,11 @@ from src.auth.dependencies import require_admin, require_operador
 from src.common.archivos import guardar_archivo
 from src.common.paginacion import PAGE_SIZE_MAXIMO, PAGE_SIZE_POR_DEFECTO
 from src.database import get_db
-from src.incidente import schemas, services
+from src.incidente import detalle, schemas, services
 from src.incidente.constants import (
     EXTENSIONES_FOTO,
     EstadoIncidente,
+    OrigenIncidente,
     TAMANO_MAX_FOTO,
     TipoIncidente,
 )
@@ -117,6 +118,13 @@ def listar_incidentes(
         None,
         description="Id de la persona que reportó el incidente (lo usa el panel de Personas).",
     ),
+    origen: Optional[OrigenIncidente] = Query(
+        None,
+        description=(
+            "'reportado': los que reportó una persona. 'circuito': los que abrió "
+            "un rechazo, un reclamo o un retiro. Sin valor: todos."
+        ),
+    ),
     page: Optional[int] = Query(
         None,
         ge=1,
@@ -140,6 +148,7 @@ def listar_incidentes(
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             reportado_por=reportado_por,
+            origen=origen,
         )
     items, total = services.listar_incidentes_paginado(
         db,
@@ -153,6 +162,7 @@ def listar_incidentes(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         reportado_por=reportado_por,
+        origen=origen,
     )
     return schemas.IncidentePagina(
         items=items, total=total, page=page, page_size=page_size
@@ -209,13 +219,14 @@ def resumen_incidentes_por_tipo(
     return services.resumen_por_tipo(db, estado, fecha_desde, fecha_hasta)
 
 
-@router.get("/{incidente_id}", response_model=schemas.IncidenteResponse)
+@router.get("/{incidente_id}", response_model=schemas.IncidenteDetalleResponse)
 def obtener_incidente(
     incidente_id: int,
     current_user: Personal = Depends(require_operador),
     db: Session = Depends(get_db),
 ):
-    return services.obtener_incidente(db, incidente_id, current_user)
+    """Ficha del incidente con su equipo, lote, salida, reclamo o retiro."""
+    return detalle.obtener_detalle(db, incidente_id, current_user)
 
 
 @router.patch("/{incidente_id}/estado", response_model=schemas.IncidenteResponse)
@@ -236,10 +247,6 @@ def cambiar_estado_incidente(
         datos.estado,
         current_user,
         datos.observacion_cierre,
-        mercaderia_devuelta=datos.mercaderia_devuelta,
-        disposicion_fisica=datos.disposicion_fisica,
-        generar_reposicion=datos.generar_reposicion,
-        cantidad_a_reponer=datos.cantidad_a_reponer,
     )
 
 

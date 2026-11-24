@@ -1,6 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useLista } from "../../../common/hooks/useLista";
 import { obtenerResumenIncidentesPorTipo } from "../services/incidenteService";
+import { escucharCambioIncidentes } from "../eventoIncidentes";
 import type { IncidenteResumen } from "../types/incidente";
 
 const RESUMEN_VACIO: IncidenteResumen = {
@@ -25,13 +26,16 @@ export function useResumenIncidentesPorTipo(
     [incluirCerrados, fechaDesde, fechaHasta]
   );
 
-  const { items, loading, error } = useLista<IncidenteResumen>({
+  const { items, loading, error, recargar } = useLista<IncidenteResumen>({
     cargar,
     dependencias: [incluirCerrados, fechaDesde, fechaHasta],
     valorInicial: RESUMEN_VACIO,
     mensajeError: "No se pudieron cargar los incidentes por tipo",
     preferirMensajeDelBackend: true,
   });
+
+  // Cerrar, reabrir o registrar en cualquier pestaña cambia los conteos.
+  useEffect(() => escucharCambioIncidentes(() => void recargar()), [recargar]);
 
   return { resumen: items, loading, error };
 }

@@ -15,19 +15,10 @@ class ErrorCode:
 ESTADO_BORRADOR = "borrador"
 ESTADO_COMPLETADO = "completado"
 
-ESTADOS_BORRADOR = (ESTADO_BORRADOR, ESTADO_COMPLETADO)
-
 CAMPO_COMPLETO = "completo"
 CAMPO_PENDIENTE = "pendiente"
 CAMPO_NO_APLICABLE = "no_aplicable"
 CAMPO_SIN_DATOS_ORIGEN = "sin_datos_origen"
-
-ESTADOS_CAMPO = (
-    CAMPO_COMPLETO,
-    CAMPO_PENDIENTE,
-    CAMPO_NO_APLICABLE,
-    CAMPO_SIN_DATOS_ORIGEN,
-)
 
 ORIGEN_PRODUCTO = "producto"
 ORIGEN_RECETA = "receta"
@@ -36,35 +27,5 @@ ORIGEN_LOTE = "lote"
 ORIGEN_MANUAL = "manual"
 ORIGEN_ESTABLECIMIENTO = "establecimiento"
 
-ORIGINES = (
-    ORIGEN_PRODUCTO,
-    ORIGEN_RECETA,
-    ORIGEN_NUTRICION,
-    ORIGEN_LOTE,
-    ORIGEN_MANUAL,
-    ORIGEN_ESTABLECIMIENTO,
-)
-
 TIPO_AUTOCOMPLETADO = "autocompletado"
 TIPO_EDICION_MANUAL = "edicion_manual"
-
-TIPOS_OPERACION = (TIPO_AUTOCOMPLETADO, TIPO_EDICION_MANUAL)
-
-CAMPOS_OBLIGATORIOS_BASE = (
-    "denominacion_venta",
-    "lista_ingredientes",
-    "contenido_neto",
-    "rnpa_rppa",
-    "razon_social",
-    "domicilio",
-    "fecha_duracion",
-)
-
-CAMPOS_IMPORTADOR = (
-    "importador_razon_social",
-    "importador_domicilio",
-)
-
-CAMPOS_LOTE = ("identificacion_lote",)
-
-CAMPOS_NUTRICION = ("datos_nutricionales_json",)

@@ -30,9 +30,6 @@ class ErrorCode:
     )
     NUMERO_VACIO = "El número de lote del proveedor no puede estar vacío."
     MOTIVO_VACIO = "El motivo de la baja no puede estar vacío."
-    MOTIVO_INVALIDO = (
-        "Motivo inválido. Valores permitidos: dañado, vencido, contaminado o devuelto al proveedor."
-    )
     CANTIDAD_BAJA_INVALIDA = "La cantidad a dar de baja debe ser mayor a cero."
     CANTIDAD_SUPERA_SALDO = "La cantidad a dar de baja supera el saldo disponible del lote."
     LOTE_YA_DADO_DE_BAJA = "El lote de insumo ya fue dado de baja."

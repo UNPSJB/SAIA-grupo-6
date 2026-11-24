@@ -10,10 +10,6 @@ class ClaseYaExiste(BadRequest):
     DETAIL = ErrorCode.CLASE_YA_EXISTE
 
 
-class ClaseInactiva(BadRequest):
-    DETAIL = ErrorCode.CLASE_INACTIVA
-
-
 class NombreVacio(BadRequest):
     DETAIL = ErrorCode.NOMBRE_VACIO
 

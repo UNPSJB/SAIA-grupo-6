@@ -21,6 +21,13 @@ from src.reclamos.constants import (
     TIPO_EVENTO_RECLAMO,
 )
 from src.reclamos.models import Reclamo
+from src.reposiciones.constants import (
+    ESTADO_REPOSICION_ANULADA,
+    ESTADO_REPOSICION_PENDIENTE,
+    ORIGEN_REPOSICION_RECLAMO,
+    PRIORIDAD_ALTA,
+)
+from src.reposiciones.models import Reposicion
 from src.salidas import exceptions as salidas_exceptions
 from src.salidas import services as salidas_services
 from src.salidas.constants import ESTADO_ENTREGADO
@@ -163,6 +170,90 @@ def crear_reclamo(
     return reclamo
 
 
+def _incidente_del_reclamo(reclamo: Reclamo) -> Incidente:
+    if reclamo.incidente is None:
+        raise exceptions.ReclamoSinIncidente()
+    return reclamo.incidente
+
+
+def _reposicion_del_reclamo(
+    db: Session, incidente_id: Optional[int]
+) -> Optional[Reposicion]:
+    """La reposición vigente que generó el reclamo, si la hay.
+
+    Cuenta también la ya cumplida: si lo repuesto vino mal, es un reclamo nuevo
+    sobre esa otra entrega. Solo una anulada deja lugar a generar otra.
+    """
+    if incidente_id is None:
+        return None
+    return db.scalar(
+        select(Reposicion)
+        .where(
+            Reposicion.incidente_origen_id == incidente_id,
+            Reposicion.estado != ESTADO_REPOSICION_ANULADA,
+        )
+        .order_by(Reposicion.id)
+        .limit(1)
+    )
+
+
+def cerrar_reclamo(
+    db: Session, reclamo_id: int, datos: schemas.ReclamoCerrar, usuario: Personal
+) -> Reclamo:
+    """Cierra el reclamo: su incidente y, si se pide, la reposición al cliente.
+
+    Todo en una transacción. El estado del reclamo es el de su incidente.
+    """
+    reclamo = obtener_reclamo(db, reclamo_id)
+    incidente = _incidente_del_reclamo(reclamo)
+    if incidente.estado == EstadoIncidente.CERRADO.value:
+        raise exceptions.ReclamoYaCerrado()
+    # Reabrir no toca la deuda del cierre anterior: sin esto, volver a cerrar
+    # con reposición la duplicaba.
+    if datos.generar_reposicion and _reposicion_del_reclamo(db, incidente.id):
+        raise exceptions.ReposicionYaGenerada()
+
+    accion = datos.accion_correctiva.strip()
+    if accion and datos.mercaderia_devuelta:
+        accion = (
+            f"{accion} | Mercadería devuelta a planta. "
+            f"Disposición física: {datos.disposicion_fisica}"
+        )
+    incidente_services.cerrar_incidente(db, incidente, usuario, accion)
+
+    if datos.generar_reposicion:
+        db.add(
+            Reposicion(
+                cliente_id=reclamo.cliente_id,
+                producto_id=reclamo.lote.producto_id,
+                cantidad_original=datos.cantidad_a_reponer,
+                cantidad_pendiente=datos.cantidad_a_reponer,
+                estado=ESTADO_REPOSICION_PENDIENTE,
+                prioridad=PRIORIDAD_ALTA,
+                origen=ORIGEN_REPOSICION_RECLAMO,
+                salida_origen_id=reclamo.salida_id,
+                incidente_origen_id=incidente.id,
+            )
+        )
+    db.commit()
+    return obtener_reclamo(db, reclamo_id)
+
+
+def reabrir_reclamo(
+    db: Session, reclamo_id: int, motivo: Optional[str], usuario: Personal
+) -> Reclamo:
+    """Reabre un reclamo cerrado. El cierre anterior queda en el historial."""
+    reclamo = obtener_reclamo(db, reclamo_id)
+    incidente = _incidente_del_reclamo(reclamo)
+    if incidente.estado != EstadoIncidente.CERRADO.value:
+        raise exceptions.ReclamoNoCerrado()
+    incidente_services.reabrir_incidente(
+        db, incidente, usuario, (motivo or "").strip() or None
+    )
+    db.commit()
+    return obtener_reclamo(db, reclamo_id)
+
+
 def _consulta_reclamos(
     cliente_id: Optional[int] = None,
     lote_id: Optional[int] = None,
@@ -294,6 +385,18 @@ def _retiro_del_lote(reclamo: Reclamo) -> Optional[schemas.ReclamoRetiroDetalle]
     return schemas.ReclamoRetiroDetalle(id=retiro.id, estado=retiro.estado)
 
 
+def _reposicion_vigente(
+    reclamo: Reclamo,
+) -> Optional[schemas.ReclamoReposicionDetalle]:
+    db = object_session(reclamo)
+    if db is None:
+        return None
+    reposicion = _reposicion_del_reclamo(db, reclamo.incidente_id)
+    if reposicion is None:
+        return None
+    return schemas.ReclamoReposicionDetalle.model_validate(reposicion)
+
+
 def reclamo_a_detalle(reclamo: Reclamo) -> schemas.ReclamoDetalle:
     salida = reclamo.salida
     incidente = reclamo.incidente
@@ -336,4 +439,5 @@ def reclamo_a_detalle(reclamo: Reclamo) -> schemas.ReclamoDetalle:
             else None
         ),
         retiro=_retiro_del_lote(reclamo),
+        reposicion=_reposicion_vigente(reclamo),
     )

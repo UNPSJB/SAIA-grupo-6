@@ -72,7 +72,6 @@ export function calcularCumplimiento(
 const COLOR_TORTA: Record<TipoIncidente, string> = {
   plagas: "#2a78d6",
   falla_equipo: "#eb6834",
-  devolucion_cliente: "#1baf7a",
   higiene_contaminacion: "#eda100",
   entrega_rechazada: "#c53030",
   // Antes "Reclamo" era casi el azul de "Plagas" y "Retiro lote" el mismo
@@ -86,7 +85,6 @@ const COLOR_TORTA: Record<TipoIncidente, string> = {
 const ETIQUETA_CORTA: Record<TipoIncidente, string> = {
   plagas: "Plagas",
   falla_equipo: "Falla Equipo",
-  devolucion_cliente: "Devolución",
   higiene_contaminacion: "Higiene",
   entrega_rechazada: "Rechazo",
   reclamo_cliente: "Reclamo",

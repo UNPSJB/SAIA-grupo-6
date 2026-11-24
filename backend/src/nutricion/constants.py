@@ -165,7 +165,6 @@ FUENTES: dict[str, str] = {
 # ── Forma de expresar la tabla ─────────────────────────────────────────────
 
 EXPRESAR_G = "g"
-EXPRESAR_ML = "ml"
 
 ESTADO_COMPLETA = "completa"
 ESTADO_INCOMPLETA = "incompleta"

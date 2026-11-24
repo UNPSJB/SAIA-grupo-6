@@ -1108,11 +1108,6 @@ VOCAB_INCIDENTES = [
         "Se observaron marcas y residuo cerca de la zona de almacenamiento de secos.",
     ),
     (
-        TipoIncidente.DEVOLUCION_CLIENTE,
-        "Devolución por producto en mal estado",
-        "El cliente devolvió el producto por presentación y conservación deficientes.",
-    ),
-    (
         TipoIncidente.OTRO,
         "Falta de elemento de protección",
         "Se detectó que un elemento de limpieza del plan no está disponible en el sector.",

@@ -9,13 +9,12 @@ from src.common.listados import ColumnaOrden, filtro_busqueda, paginar_consulta
 from src.common.persistence import (
     aplicar_cambios,
     baja_logica,
-    comparar_texto,
     es_violacion_unica,
     guardar,
     mapa_por_campo,
     obtener,
 )
-from src.common.texto import sin_tildes
+from src.common.texto import comparar_texto, sin_tildes
 from src.exceptions import ConflictoRegistroInactivo
 from .exceptions import ElementoLimpiezaNoEncontrado, ElementoLimpiezaYaExiste
 from .models import ElementoLimpieza

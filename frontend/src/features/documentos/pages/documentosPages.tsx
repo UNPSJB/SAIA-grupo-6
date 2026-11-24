@@ -166,7 +166,7 @@ export function DocumentosPage() {
         herramientas={
           <BotonExportar
             nombreTabla="documentos"
-            filtros={{ buscar: busquedaAplicada, tipo }}
+            filtros={{ buscar: busquedaAplicada, tipo, estado, orden: orden.orden }}
           />
         }
       />

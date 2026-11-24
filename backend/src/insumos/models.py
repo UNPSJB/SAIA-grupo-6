@@ -32,7 +32,6 @@ ESTADO_RECHAZADA = "rechazada"
 # Estaba aprobado, pero cambió la referencia del ingrediente (o su rótulo) y
 # la comparación empeoró: hay que volver a revisarlo antes de recibir lotes.
 ESTADO_REQUIERE_REVISION = "requiere_revision"
-ESTADOS_HOMOLOGACION = (ESTADO_PENDIENTE, ESTADO_APROBADA, ESTADO_RECHAZADA, ESTADO_REQUIERE_REVISION)
 
 
 class Insumo(DatosDeEstablecimiento, ModeloBase):

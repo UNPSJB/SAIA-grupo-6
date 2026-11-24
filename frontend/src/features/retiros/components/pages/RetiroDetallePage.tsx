@@ -128,7 +128,7 @@ export function RetiroDetallePage() {
 
   if (loading) {
     return (
-      <PaginaDetalle volver={{ a: "/retiros", etiqueta: "Retiros" }} titulo="Retiro">
+      <PaginaDetalle volver={{ a: "/incidentes?tab=retiros", etiqueta: "Retiros" }} titulo="Retiro">
         <EstadoCargando>Cargando retiro...</EstadoCargando>
       </PaginaDetalle>
     );
@@ -136,7 +136,7 @@ export function RetiroDetallePage() {
 
   if (error || !retiro) {
     return (
-      <PaginaDetalle volver={{ a: "/retiros", etiqueta: "Retiros" }} titulo="Retiro">
+      <PaginaDetalle volver={{ a: "/incidentes?tab=retiros", etiqueta: "Retiros" }} titulo="Retiro">
         <BannerError>{error || "No se encontró el retiro"}</BannerError>
       </PaginaDetalle>
     );
@@ -147,7 +147,7 @@ export function RetiroDetallePage() {
   return (
     <>
       <PaginaDetalle
-        volver={{ a: "/retiros", etiqueta: "Retiros" }}
+        volver={{ a: "/incidentes?tab=retiros", etiqueta: "Retiros" }}
         titulo={`Retiro #${retiro.id}`}
         descripcion={`Lote ${retiro.lote_codigo} · ${retiro.lote_producto_nombre}`}
         estado={
@@ -172,7 +172,7 @@ export function RetiroDetallePage() {
               </BotonGuardar>
             )}
             <BotonCancelar
-              onClick={() => navigate("/retiros")}
+              onClick={() => navigate("/incidentes?tab=retiros")}
               disabled={procesando}
             >
               Volver a la lista

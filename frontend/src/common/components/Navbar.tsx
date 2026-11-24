@@ -17,6 +17,7 @@ import {
   GRUPOS,
   MENU,
   destinoCategoria,
+  esDeEntrada,
   esVisibleEntrada,
   rutaPanel,
   vePaneles,
@@ -37,12 +38,7 @@ function entradaActiva(pathname: string, entradas: EntradaMenu[]): string | null
   let mejor: string | null = null;
 
   for (const entrada of entradas) {
-    // "/" es prefijo de todo: solo cuenta el match exacto.
-    const coincide =
-      entrada.to === "/"
-        ? pathname === "/"
-        : pathname === entrada.to || pathname.startsWith(`${entrada.to}/`);
-    if (coincide && (mejor === null || entrada.to.length > mejor.length)) {
+    if (esDeEntrada(pathname, entrada) && (mejor === null || entrada.to.length > mejor.length)) {
       mejor = entrada.to;
     }
   }

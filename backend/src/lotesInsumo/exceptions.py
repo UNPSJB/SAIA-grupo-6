@@ -38,10 +38,6 @@ class MotivoVacio(BadRequest):
     DETAIL = ErrorCode.MOTIVO_VACIO
 
 
-class MotivoInvalido(BadRequest):
-    DETAIL = ErrorCode.MOTIVO_INVALIDO
-
-
 class CantidadBajaInvalida(BadRequest):
     DETAIL = ErrorCode.CANTIDAD_BAJA_INVALIDA
 

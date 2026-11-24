@@ -200,9 +200,11 @@ export function TransportistasPage() {
             />
             <BotonExportar
               nombreTabla="transportistas"
+              vista="transportistas"
               filtros={{
-                activo: String(!verInactivos),
+                solo_inactivos: String(verInactivos),
                 buscar: busquedaAplicada,
+                orden: orden.orden,
               }}
             />
           </>

@@ -64,6 +64,32 @@ export interface EntradaMenu {
   icon: IconType;
   /** Explicación corta, para las entradas que se muestran como tarjeta. */
   ayuda?: string;
+  /**
+   * Pestañas de la pantalla que se buscan por su nombre o que tienen fichas en
+   * otra ruta (`/reclamos/5` es de Gestión de incidentes).
+   */
+  pestanas?: PestanaMenu[];
+}
+
+export interface PestanaMenu {
+  to: string;
+  label: string;
+  icon: IconType;
+  /** Prefijo de las fichas que cuelgan de la pestaña, si no es el de la entrada. */
+  ruta?: string;
+}
+
+const esOCuelgaDe = (pathname: string, ruta: string) =>
+  pathname === ruta || pathname.startsWith(`${ruta}/`);
+
+/** Si una ruta es de la entrada: la pantalla, sus fichas o las de sus pestañas. */
+export function esDeEntrada(pathname: string, entrada: EntradaMenu): boolean {
+  // "/" es prefijo de todo: solo cuenta el match exacto.
+  if (entrada.to === "/") return pathname === "/";
+  return (
+    esOCuelgaDe(pathname, entrada.to) ||
+    (entrada.pestanas?.some((p) => p.ruta && esOCuelgaDe(pathname, p.ruta)) ?? false)
+  );
 }
 
 export interface GrupoMenu {
@@ -111,7 +137,6 @@ export const GRUPOS: GrupoMenu[] = [
     entradas: [
       // Las salidas de producto son una pestaña de Lotes (`/lotes?tab=salidas`).
       { to: "/lotes", label: "Lotes de producción", rol: "operar", icon: LuFactory },
-      { to: "/retiros", label: "Retiros de lotes", rol: "operar", icon: LuPackageX },
       { to: "/reposiciones/pendientes", label: "Reposiciones pendientes", rol: "operar", icon: LuPackageCheck },
       // E9: la receta vigente se consulta como el checklist diario.
       { to: "/recetas", label: "Recetas", rol: "operar", icon: LuCookingPot },
@@ -192,10 +217,28 @@ export const GRUPOS: GrupoMenu[] = [
       {
         to: "/incidentes",
         label: "Gestión de incidentes",
-        rol: "administrar",
+        rol: "operar",
         icon: LuClipboardList,
+        pestanas: [
+          {
+            to: "/incidentes?tab=reclamos",
+            label: "Reclamos de clientes",
+            ruta: "/reclamos",
+            icon: LuMessageSquareWarning,
+          },
+          {
+            to: "/incidentes?tab=rechazos",
+            label: "Rechazos de entregas",
+            icon: LuTruck,
+          },
+          {
+            to: "/incidentes?tab=retiros",
+            label: "Retiros de lotes",
+            ruta: "/retiros",
+            icon: LuPackageX,
+          },
+        ],
       },
-      { to: "/reclamos", label: "Reclamos de clientes", rol: "operar", icon: LuMessageSquareWarning },
       { to: "/vencimientos", label: "Vencimientos", rol: "administrar", icon: LuCalendarClock },
       {
         to: "/consulta-documentos",
@@ -326,11 +369,15 @@ export function destinoCategoria(
  * así nunca se desincroniza. Lo usa la transición entre pantallas para saber
  * hacia qué lado barrer.
  */
-const ORDEN_RUTAS: string[] = [
-  ...MENU.map((e) => e.to),
-  ...GRUPOS.flatMap((g) => [rutaPanel(g), ...g.entradas.map((e) => e.to)]),
-  RUTA_CONFIGURACION,
-  ...CONFIGURACION.map((e) => e.to),
+const ORDEN_RUTAS: string[][] = [
+  ...MENU.map((e) => [e.to]),
+  // Las fichas de una pestaña ocupan el lugar de la pantalla que la tiene.
+  ...GRUPOS.flatMap((g) => [
+    [rutaPanel(g)],
+    ...g.entradas.map((e) => [e.to, ...(e.pestanas ?? []).flatMap((p) => p.ruta ?? [])]),
+  ]),
+  [RUTA_CONFIGURACION],
+  ...CONFIGURACION.map((e) => [e.to]),
 ];
 
 /**
@@ -343,12 +390,14 @@ const ORDEN_RUTAS: string[] = [
 export function indiceRuta(pathname: string): number | null {
   let mejor: number | null = null;
   let largo = -1;
-  ORDEN_RUTAS.forEach((to, i) => {
-    const coincide = to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
-    if (coincide && to.length > largo) {
-      mejor = i;
-      largo = to.length;
-    }
+  ORDEN_RUTAS.forEach((rutas, i) => {
+    rutas.forEach((to) => {
+      const coincide = to === "/" ? pathname === "/" : esOCuelgaDe(pathname, to);
+      if (coincide && to.length > largo) {
+        mejor = i;
+        largo = to.length;
+      }
+    });
   });
   return mejor;
 }
