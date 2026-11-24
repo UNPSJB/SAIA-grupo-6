@@ -114,7 +114,7 @@ export function RegistrarCalibracionDialog({
         rounded="lg"
         boxShadow="dialog"
         width="400px"
-        maxWidth="400px"
+        maxWidth="calc(100vw - 32px)"
       >
         <DialogForm onSubmit={handleSubmit}>
           <DialogTitle

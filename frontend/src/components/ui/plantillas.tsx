@@ -117,7 +117,11 @@ export function EnlaceVolver({ a, etiqueta, historial = false }: DestinoVolver) 
       size="sm"
       px="0"
       h="auto"
-      mb="2"
+      // En el celular, 44px de alto para el dedo, sin correr el título.
+      minH={{ base: "11", md: "0" }}
+      pe={{ base: "4", md: "0" }}
+      mt={{ base: "-2.5", md: "0" }}
+      mb={{ base: "0", md: "2" }}
       color="fg.muted"
       fontWeight="medium"
       _hover={{ color: "brand.fg" }}

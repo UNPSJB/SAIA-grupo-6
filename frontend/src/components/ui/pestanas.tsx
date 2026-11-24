@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Box, Flex, chakra } from "@chakra-ui/react";
 import { useSearchParams } from "react-router-dom";
+import { usePistaScroll } from "../../common/hooks/usePistaScroll";
 
 /**
  * Sub-pestañas de una página (Stock de químicos, Aditivos, Stock de insumos,
@@ -170,7 +171,16 @@ export function PestanasPagina({
 
   /* ───────────── Lengüeta ───────────── */
 
-  const listaRef = useRef<HTMLDivElement>(null);
+  const listaRef = useRef<HTMLDivElement | null>(null);
+  // Si no entran todas, el borde se desvanece del lado donde hay más.
+  const { ref: refPista, mascara } = usePistaScroll();
+  const refLista = useCallback(
+    (el: HTMLDivElement | null) => {
+      listaRef.current = el;
+      refPista(el);
+    },
+    [refPista],
+  );
   const indicadorRef = useRef<HTMLDivElement>(null);
   const centroRef = useRef<HTMLDivElement>(null);
   const derechaRef = useRef<HTMLDivElement>(null);
@@ -291,7 +301,7 @@ export function PestanasPagina({
         de la tarjeta de filtros.
       */}
       <Flex
-        ref={listaRef}
+        ref={refLista}
         role="tablist"
         position="relative"
         zIndex={1}
@@ -305,6 +315,7 @@ export function PestanasPagina({
         pb="1px"
         mb="-1px"
         css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}
+        style={{ maskImage: mascara, WebkitMaskImage: mascara }}
       >
         <Box
           ref={indicadorRef}

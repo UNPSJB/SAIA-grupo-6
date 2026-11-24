@@ -282,6 +282,8 @@ export function HistorialChecklistPage() {
       </BotonCancelar>}
     >
      <BarraFiltros
+        // El período por defecto no cuenta como filtro puesto.
+        activos={chips.filter((c) => c.clave === "equipo" || c.clave === "periodo").length}
         busqueda={
           <CampoBusqueda
             valor={busqueda}

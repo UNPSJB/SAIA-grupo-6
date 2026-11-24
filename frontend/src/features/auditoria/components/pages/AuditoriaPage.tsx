@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Badge, Box, Button, Flex, Input, Spinner, Table, Text } from '@chakra-ui/react';
 import { BannerError, Tarjeta, TarjetaTabla, PieTabla, EncabezadoOscuro, FilaEncabezado, FormField, FormNativeSelect } from '../../../../components/ui/patrones';
-import { ChipsFiltros, chipsDeFiltros } from '../../../../components/ui/filtros';
+import { ChipsFiltros, FiltrosPlegables, chipsDeFiltros } from '../../../../components/ui/filtros';
+import { useEsCelular } from '../../../../common/hooks/useEsCelular';
 import { useAuditoria } from '../../hooks/useAuditoria';
 import { exportarAuditoria, listarEntidades, type FormatoExportacion } from '../../services/auditoriaService';
 import type { AccionAuditoria } from '../../types/auditoria';
@@ -276,8 +277,8 @@ function DetalleEvento({
   const usuario = nombreUsuario(item);
 
   return (
-    <Box>
-      <Flex gap="6" flexWrap="wrap" mb="4">
+    <Box w="100%" minW="0" textAlign="left">
+      <Flex gap={{ base: "4", md: "6" }} flexWrap="wrap" mb="4">
         <Dato etiqueta="Evento">#{item.id}</Dato>
         <Dato etiqueta="Fecha y hora">{formatearFechaLarga(item.fecha)}</Dato>
         <Dato etiqueta="Realizado por">
@@ -424,7 +425,9 @@ function FilaAuditoria({ item, abierto, onToggle, onVerRegistro, onVerUsuario }:
   return (
     <Fragment>
       <Table.Row
-        h="12"
+        // En celular la fila es una tarjeta con las celdas apiladas: con el alto
+        // fijo se dibujaban una encima de la otra.
+        h={{ base: "auto", md: "12" }}
         cursor="pointer"
         onClick={onToggle}
         bg={abierto ? 'bg.subtle' : undefined}
@@ -481,7 +484,14 @@ function FilaAuditoria({ item, abierto, onToggle, onVerRegistro, onVerUsuario }:
           </Badge>
         </Table.Cell>
         <Table.Cell>
-          <Text fontSize="sm" color="fg.muted" truncate title={resumen}>
+          <Text
+            fontSize="sm"
+            color="fg.muted"
+            overflow="hidden"
+            textOverflow="ellipsis"
+            whiteSpace={{ base: "normal", md: "nowrap" }}
+            title={resumen}
+          >
             {resumen}
           </Text>
         </Table.Cell>
@@ -639,7 +649,73 @@ export function AuditoriaPage() {
     },
   ]);
 
+  const esCelular = useEsCelular();
   const hayFiltrosAplicados = Object.values(filtros).some(Boolean);
+
+  const campos = (
+    <>
+      <Box maxW={{ md: "220px" }} w="100%">
+        <FormField label="Entidad" mb={esCelular ? "0" : "4"}>
+          <FormNativeSelect value={borrador.entidad} onChange={(e) => actualizar('entidad', e.target.value)}>
+            <option value="">Todas</option>
+            {entidades.map((e) => (
+              <option key={e} value={e}>
+                {humanizar(e)}
+              </option>
+            ))}
+          </FormNativeSelect>
+        </FormField>
+      </Box>
+      <Box maxW={{ md: "200px" }} w="100%">
+        <FormField label="ID Entidad" mb={esCelular ? "0" : "4"}>
+          <Input
+            value={borrador.entidadId}
+            onChange={(e) => actualizar('entidadId', e.target.value)}
+            placeholder="PK"
+          />
+        </FormField>
+      </Box>
+      <Box maxW={{ md: "200px" }} w="100%">
+        <FormField label="Usuario ID" mb={esCelular ? "0" : "4"}>
+          <Input
+            value={borrador.usuarioId}
+            inputMode="numeric"
+            onChange={(e) => actualizar('usuarioId', e.target.value.replace(/\D/g, ''))}
+            placeholder="opcional"
+          />
+        </FormField>
+      </Box>
+      <Box maxW={{ md: "160px" }} w="100%">
+        <FormField label="Acción" mb={esCelular ? "0" : "4"}>
+          <FormNativeSelect
+            value={borrador.accion}
+            onChange={(e) => actualizar('accion', e.target.value as AccionAuditoria | '')}
+          >
+            <option value="">Todas</option>
+            <option value="CREAR">Alta</option>
+            <option value="MODIFICAR">Modificación</option>
+            <option value="BAJA">Baja</option>
+            <option value="REACTIVAR">Reactivación</option>
+            <option value="ELIMINAR">Eliminación</option>
+            <option value="EXPORTAR">Exportación</option>
+          </FormNativeSelect>
+        </FormField>
+      </Box>
+      <Box maxW={{ md: "180px" }} w="100%">
+        <FormField label="Desde" mb={esCelular ? "0" : "4"}>
+          <Input type="date" value={borrador.desde} onChange={(e) => actualizar('desde', e.target.value)} />
+        </FormField>
+      </Box>
+      <Box maxW={{ md: "180px" }} w="100%">
+        <FormField label="Hasta" mb={esCelular ? "0" : "4"}>
+          <Input type="date" value={borrador.hasta} onChange={(e) => actualizar('hasta', e.target.value)} />
+        </FormField>
+      </Box>
+      <Box mb={esCelular ? "0" : "4"}>
+        <BotonExportar nombreTabla="la auditoría" exportar={exportar} disabled={total === 0} />
+      </Box>
+    </>
+  );
 
   return (
     <Pagina
@@ -656,68 +732,13 @@ export function AuditoriaPage() {
             aplicar();
           }}
         >
-          <Flex gap="4" flexWrap="wrap" align="end">
-            <Box maxW="220px" w="100%">
-              <FormField label="Entidad" mb="4">
-                <FormNativeSelect value={borrador.entidad} onChange={(e) => actualizar('entidad', e.target.value)}>
-                  <option value="">Todas</option>
-                  {entidades.map((e) => (
-                    <option key={e} value={e}>
-                      {humanizar(e)}
-                    </option>
-                  ))}
-                </FormNativeSelect>
-              </FormField>
-            </Box>
-            <Box maxW="200px" w="100%">
-              <FormField label="ID Entidad" mb="4">
-                <Input
-                  value={borrador.entidadId}
-                  onChange={(e) => actualizar('entidadId', e.target.value)}
-                  placeholder="PK"
-                />
-              </FormField>
-            </Box>
-            <Box maxW="200px" w="100%">
-              <FormField label="Usuario ID" mb="4">
-                <Input
-                  value={borrador.usuarioId}
-                  inputMode="numeric"
-                  onChange={(e) => actualizar('usuarioId', e.target.value.replace(/\D/g, ''))}
-                  placeholder="opcional"
-                />
-              </FormField>
-            </Box>
-            <Box maxW="160px" w="100%">
-              <FormField label="Acción" mb="4">
-                <FormNativeSelect
-                  value={borrador.accion}
-                  onChange={(e) => actualizar('accion', e.target.value as AccionAuditoria | '')}
-                >
-                  <option value="">Todas</option>
-                  <option value="CREAR">Alta</option>
-                  <option value="MODIFICAR">Modificación</option>
-                  <option value="BAJA">Baja</option>
-                  <option value="REACTIVAR">Reactivación</option>
-                  <option value="ELIMINAR">Eliminación</option>
-                  <option value="EXPORTAR">Exportación</option>
-                </FormNativeSelect>
-              </FormField>
-            </Box>
-            <Box maxW="180px" w="100%">
-              <FormField label="Desde" mb="4">
-                <Input type="date" value={borrador.desde} onChange={(e) => actualizar('desde', e.target.value)} />
-              </FormField>
-            </Box>
-            <Box maxW="180px" w="100%">
-              <FormField label="Hasta" mb="4">
-                <Input type="date" value={borrador.hasta} onChange={(e) => actualizar('hasta', e.target.value)} />
-              </FormField>
-            </Box>
-            <Box mb="4">
-              <BotonExportar nombreTabla="la auditoría" exportar={exportar} disabled={total === 0} />
-            </Box>
-          </Flex>
+          {esCelular ? (
+            <FiltrosPlegables activos={chips.length}>{campos}</FiltrosPlegables>
+          ) : (
+            <Flex gap="4" flexWrap="wrap" align="end">
+              {campos}
+            </Flex>
+          )}
           {rangoInvalido && (
             <Text fontSize="sm" color="red.fg">
               La fecha «Desde» no puede ser posterior a «Hasta».

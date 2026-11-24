@@ -277,14 +277,14 @@ function TablaProductosRotulado({
                 <HStack gap="2">
                   <BotonAccion
                     accion="agregar"
-                    label={`Nuevo borrador de ${producto.nombre}`}
+                    label={`Nuevo borrador de ${producto.nombre}`} texto="Nuevo borrador"
                     tooltip="Nuevo borrador"
                     onClick={() => onCrearBorrador(producto.id)}
                   />
                   {producto.borradores.length > 0 && (
                     <BotonAccion
                       accion="ver"
-                      label={`Ver borradores de ${producto.nombre}`}
+                      label={`Ver borradores de ${producto.nombre}`} texto="Borradores"
                       tooltip="Ver borradores"
                       onClick={() => onSeleccionarProducto(producto)}
                     />

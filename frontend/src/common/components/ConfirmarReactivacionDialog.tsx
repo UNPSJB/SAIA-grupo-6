@@ -41,7 +41,7 @@ export function ConfirmarReactivacionDialog({
     >
       <DialogContent
         width="400px"
-        maxWidth="400px"
+        maxWidth="calc(100vw - 32px)"
         padding="6"
         rounded="lg"
         bg="bg.panel"

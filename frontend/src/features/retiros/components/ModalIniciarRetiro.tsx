@@ -466,8 +466,8 @@ export function ModalIniciarRetiro({
         p="6"
         rounded="lg"
         boxShadow="dialog"
-        width="100%"
-        maxWidth="640px"
+        width="640px"
+        maxWidth="calc(100vw - 32px)"
         maxHeight="90vh"
         overflowY="auto"
         textAlign="left"
@@ -481,6 +481,8 @@ export function ModalIniciarRetiro({
 
         {/* SELECTOR DE MODO SUPERIOR (TABS / SEGMENTED CONTROL) */}
         <Flex
+          // En celular, una opción debajo de la otra: en fila no entran.
+          direction={{ base: "column", md: "row" }}
           bg="bg.muted"
           p="1"
           rounded="lg"
@@ -491,8 +493,9 @@ export function ModalIniciarRetiro({
         >
           <Button
             type="button"
-            size="sm"
-            flex="1"
+            size={{ base: "md", md: "sm" }}
+            flex={{ base: "none", md: "1" }}
+            aria-pressed={modo === "producto"}
             variant={modo === "producto" ? "solid" : "ghost"}
             colorPalette={modo === "producto" ? "brand" : "neutral"}
             bg={modo === "producto" ? "bg.panel" : "transparent"}
@@ -504,8 +507,9 @@ export function ModalIniciarRetiro({
           </Button>
           <Button
             type="button"
-            size="sm"
-            flex="1"
+            size={{ base: "md", md: "sm" }}
+            flex={{ base: "none", md: "1" }}
+            aria-pressed={modo === "insumo"}
             variant={modo === "insumo" ? "solid" : "ghost"}
             colorPalette={modo === "insumo" ? "brand" : "neutral"}
             bg={modo === "insumo" ? "bg.panel" : "transparent"}

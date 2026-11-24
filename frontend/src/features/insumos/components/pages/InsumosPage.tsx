@@ -26,6 +26,7 @@ import {
   EstadoVacio,
   EtiquetaEstado,
   FilaClickeable,
+  Paginacion,
   FilaEncabezado,
   Tarjeta,
   ToggleInactivos,
@@ -40,6 +41,7 @@ import {
   type Insumo,
 } from "../../types/insumo";
 import { InsumoDialog, type DatosInsumoDialog } from "../InsumoDialog";
+import { usePaginas } from "../../../../common/hooks/usePaginas";
 import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../../components/ui/dialog";
 import { PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
@@ -60,6 +62,8 @@ function estadoDe(insumo: Insumo): FiltroEstado {
     ? "vencida"
     : insumo.estado_homologacion;
 }
+
+const FILAS_POR_PAGINA = 10;
 
 function normalizar(texto: string): string {
   return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -121,6 +125,12 @@ export function InsumosPage() {
           a.ingrediente_nombre.localeCompare(b.ingrediente_nombre, "es") || a.nombre.localeCompare(b.nombre, "es"),
       );
   }, [insumos, verBajas, ingredienteId, estado, buscar]);
+
+  const { paginados, page, setPage, total, hayVariasPaginas } = usePaginas(
+    visibles,
+    FILAS_POR_PAGINA,
+    `${buscar}|${ingredienteId ?? ""}|${estado}|${verBajas}`,
+  );
 
   // Filtros aplicados, como chips entre la barra y la tabla.
   const chips = chipsDeFiltros([
@@ -275,7 +285,7 @@ export function InsumosPage() {
               </FilaEncabezado>
             </Table.Header>
             <Table.Body>
-              {visibles.map((insumo) => (
+              {paginados.map((insumo) => (
                 <FilaClickeable key={insumo.id} onAbrir={() => homologar(insumo)} opacity={insumo.activo ? 1 : 0.65}>
                   <Celda>
                     <DatoPrincipal
@@ -322,6 +332,7 @@ export function InsumosPage() {
                           <BotonAccion
                             accion="nutricion"
                             label="Composición y homologación del insumo"
+                            texto="Homologar"
                             onClick={() => homologar(insumo)}
                           />
                           <BotonAccion accion="editar" label="Modificar" onClick={() => setEditando(insumo)} />
@@ -337,6 +348,9 @@ export function InsumosPage() {
             </Table.Body>
           </Table.Root>
         </Tarjeta>
+      )}
+      {!loading && !error && hayVariasPaginas && (
+        <Paginacion count={total} pageSize={FILAS_POR_PAGINA} page={page} onPageChange={setPage} unidad="insumos" />
       )}
 
       {editando && (

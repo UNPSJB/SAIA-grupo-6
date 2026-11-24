@@ -88,16 +88,18 @@ export function CuadroNutricional({
   const columnas = con100 ? 4 : 3;
 
   const borde = "1px solid #9ca3af";
-  const celda = { px: "3", py: "1.5", borderTop: borde } as const;
+  // En el celular entra completo (letra y relleno más chicos) en vez de quedar
+  // cortado: las columnas de porción y % VD y las leyendas son obligatorias.
+  const celda = { px: { base: "1.5", md: "3" }, py: "1.5", borderTop: borde } as const;
 
   return (
     <Box overflowX="auto">
     <chakra.table
       w="100%"
-      minW="480px"
+      minW={{ base: "0", md: "480px" }}
       bg="white"
       color="black"
-      fontSize="sm"
+      fontSize={{ base: "xs", md: "sm" }}
       fontVariantNumeric="tabular-nums"
       style={{ borderCollapse: "collapse", border: "2px solid black" }}
       data-sin-tarjetas=""
@@ -132,7 +134,7 @@ export function CuadroNutricional({
           const separador = i === 1 ? { borderTop: "3px solid black" } : {};
           return (
             <tr key={f.clave}>
-              <chakra.td {...celda} style={separador} pl={sub ? "7" : "3"} fontWeight={sub ? "normal" : "semibold"}>
+              <chakra.td {...celda} style={separador} pl={sub ? { base: "3.5", md: "7" } : { base: "1.5", md: "3" }} fontWeight={sub ? "normal" : "semibold"}>
                 {f.nombre}
                 {f.faltan_datos && (
                   <Text as="span" ml="2" fontSize="xs" fontWeight="normal" color="red.fg">

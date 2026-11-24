@@ -14,37 +14,17 @@ import { LuArrowLeft, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { useAuth } from "../context/useAuth";
 import { FONDO_PESTANA } from "../../theme";
 import {
-  GRUPOS,
   MENU,
   destinoCategoria,
-  esDeEntrada,
+  entradaActiva,
   esVisibleEntrada,
+  gruposVisibles,
   rutaPanel,
   vePaneles,
   type EntradaMenu,
   type GrupoMenu,
 } from "./menuEntradas";
 import { hayPantallaAnterior } from "../hooks/historialNavegacion";
-
-/**
- * Ruta activa del menú, de la más específica a la más general.
- *
- * `/checklist` y `/checklist/historial` son prefijos el uno del otro: con un
- * `startsWith` ingenuo, "/checklist" se marcaría activo también en la página de
- * historial. Ganarle a la entrada más larga resuelve el choque, y además no
- * marca `/incidentes` cuando se está en `/incidentes/reportar`.
- */
-function entradaActiva(pathname: string, entradas: EntradaMenu[]): string | null {
-  let mejor: string | null = null;
-
-  for (const entrada of entradas) {
-    if (esDeEntrada(pathname, entrada) && (mejor === null || entrada.to.length > mejor.length)) {
-      mejor = entrada.to;
-    }
-  }
-
-  return mejor;
-}
 
 /* ───────────────────────── Pestaña seleccionada ───────────────────────── */
 
@@ -404,11 +384,7 @@ export default function Navbar() {
   const ruta = pendiente ?? pathname;
 
   const grupos = useMemo(
-    () =>
-      GRUPOS.map((g) => ({
-        ...g,
-        entradas: g.entradas.filter((e) => esVisibleEntrada(e, user)),
-      })).filter((g) => g.entradas.length > 0),
+    () => gruposVisibles(user),
     [user],
   );
 

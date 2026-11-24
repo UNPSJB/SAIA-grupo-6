@@ -208,7 +208,7 @@ function GrillaCifras({ cifras, acento }: { cifras: CifraHoy[]; acento: string }
   const columnas = Math.max(1, Math.min(cifras.length, 4));
   return (
     <Grid
-      templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: `repeat(${columnas}, minmax(0, 1fr))` }}
+      templateColumns={{ base: `repeat(${Math.min(columnas, 2)}, minmax(0, 1fr))`, md: `repeat(${columnas}, minmax(0, 1fr))` }}
       rowGap="3"
       mx="-4"
     >
@@ -250,7 +250,7 @@ export function TarjetaHoy({ grupo }: { grupo: GrupoHoy }) {
         // Una sola cifra: el acceso a registrar el ingreso va al lado (y baja
         // abajo si no entra), así la tarjeta no necesita más alto.
         <Flex align="center" gap="3" wrap="wrap">
-          <Box flex="1" minW="110px">
+          <Box flex="1" minW={{ base: "100%", md: "110px" }}>
             <GrillaCifras cifras={grupo.cifras} acento={tema.acento} />
           </Box>
           <Box flex="1" minW="170px">

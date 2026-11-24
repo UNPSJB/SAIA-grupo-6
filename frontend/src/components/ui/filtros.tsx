@@ -1,21 +1,137 @@
-import { Box, Button, HStack, IconButton, Text } from "@chakra-ui/react";
-import type { ReactNode } from "react";
+import { Box, Button, HStack, IconButton, Stack, Text } from "@chakra-ui/react";
+import {
+  Children,
+  Fragment,
+  isValidElement,
+  useId,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   LuArrowDown,
   LuArrowUp,
   LuArrowUpDown,
+  LuChevronDown,
+  LuSlidersHorizontal,
   LuX,
 } from "react-icons/lu";
 
+import { useEsCelular } from "../../common/hooks/useEsCelular";
 import type { OrdenTabla } from "../../common/hooks/useOrdenTabla";
 import {
+  BotonAgregar,
   EncabezadoOscuro,
   FormInput,
   FormNativeSelect,
   LabelFiltro,
   Tarjeta,
+  ToggleInactivos,
   type AnchoColumna,
 } from "./patrones";
+
+/** Los elementos sueltos de un nodo: abre los fragmentos y descarta lo vacío. */
+function elementosDe(nodo: ReactNode): ReactNode[] {
+  return Children.toArray(nodo).flatMap((hijo) =>
+    isValidElement<{ children?: ReactNode }>(hijo) && hijo.type === Fragment
+      ? elementosDe(hijo.props.children)
+      : [hijo],
+  );
+}
+
+/**
+ * Cuántos filtros están puestos, mirando los controles de la barra. Es lo que
+ * se lee en "Filtros (2)" cuando están plegados. El orden no cuenta: el
+ * listado siempre está ordenado por algo.
+ */
+function contarActivos(nodo: ReactNode): number {
+  return elementosDe(nodo).reduce<number>((suma, hijo) => {
+    if (!isValidElement(hijo)) return suma;
+    const { type, props } = hijo as ReactElement<{
+      valor?: string;
+      value?: string | number;
+      checked?: boolean;
+      children?: ReactNode;
+    }>;
+    if (type === FiltroSelect) return suma + (props.valor ? 1 : 0);
+    if (type === FormInput) return suma + (props.value ? 1 : 0);
+    if (type === ToggleInactivos) return suma + (props.checked ? 1 : 0);
+    return suma + contarActivos(props.children);
+  }, 0);
+}
+
+/**
+ * Filtros plegados del celular: a la vista quedan la búsqueda, el botón
+ * "Filtros" y, si hay, la acción principal (`fijo`). El resto se abre debajo.
+ *
+ * Con todo desplegado, un campo por renglón, la primera fila del listado
+ * empezaba en la segunda pantalla. En escritorio no se usa.
+ */
+export function FiltrosPlegables({
+  busqueda,
+  fijo,
+  activos = 0,
+  etiqueta = "Filtros",
+  children,
+}: {
+  busqueda?: ReactNode;
+  /** Lo que queda siempre a la vista, debajo de la búsqueda. */
+  fijo?: ReactNode;
+  activos?: number;
+  etiqueta?: string;
+  children: ReactNode;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const idPanel = useId();
+
+  return (
+    <Stack gap="3">
+      <HStack gap="2">
+        {busqueda ? (
+          <Box flex="1" minW="0">
+            {busqueda}
+          </Box>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          colorPalette={activos > 0 ? "brand" : "neutral"}
+          flex={busqueda ? "none" : "1"}
+          h="10"
+          px="3"
+          gap="1.5"
+          aria-expanded={abierto}
+          aria-controls={abierto ? idPanel : undefined}
+          onClick={() => setAbierto((a) => !a)}
+        >
+          <LuSlidersHorizontal size={16} aria-hidden />
+          {etiqueta}
+          {activos > 0 ? ` (${activos})` : ""}
+          <Box as="span" display="inline-flex" transform={abierto ? "rotate(180deg)" : undefined}>
+            <LuChevronDown size={14} aria-hidden />
+          </Box>
+        </Button>
+      </HStack>
+      {fijo}
+      {abierto && (
+        <Stack
+          id={idPanel}
+          gap="4"
+          pt="3"
+          borderTopWidth="1px"
+          borderColor="border.subtle"
+          // Un campo por renglón, a todo el ancho.
+          css={{ "& > *": { minWidth: 0, maxWidth: "100%" } }}
+        >
+          {children}
+          <Button type="button" variant="subtle" colorPalette="brand" onClick={() => setAbierto(false)}>
+            Cerrar {etiqueta.toLowerCase()}
+          </Button>
+        </Stack>
+      )}
+    </Stack>
+  );
+}
 
 /**
  * Barra de un listado. Mismo orden en todas las pantallas:
@@ -29,18 +145,63 @@ import {
  * Antes la búsqueda quedaba a la izquierda y los filtros empujados a la
  * derecha, con un hueco en el medio, y cada página ubicaba exportar y el
  * interruptor de bajas en un lugar distinto.
+ *
+ * En el celular se pliega (ver `FiltrosPlegables`): quedan la búsqueda, el alta
+ * y el botón que abre los filtros y las demás herramientas.
  */
 export function BarraFiltros({
   busqueda,
   filtros,
   herramientas,
+  activos,
 }: {
   busqueda?: ReactNode;
   filtros?: ReactNode;
   herramientas?: ReactNode;
+  /** Filtros puestos, si la barra no los puede contar sola (controles propios). */
+  activos?: number;
 }) {
+  const esCelular = useEsCelular();
+
+  if (esCelular) {
+    const piezas = elementosDe(herramientas);
+    const esAlta = (pieza: ReactNode) => isValidElement(pieza) && pieza.type === BotonAgregar;
+    const altas = piezas.filter(esAlta);
+    const resto = piezas.filter((pieza) => !esAlta(pieza));
+    const controles = elementosDe(filtros);
+    const alta =
+      altas.length > 0 ? (
+        <HStack gap="2" css={{ "& > *": { flex: "1" } }}>
+          {altas}
+        </HStack>
+      ) : null;
+
+    return (
+      <Tarjeta p="3" mb="4" overflow="visible">
+        {/* Un solo control además de la búsqueda: no hay qué plegar. */}
+        {controles.length === 0 && resto.length <= 1 ? (
+          <Stack gap="3">
+            {busqueda}
+            {alta}
+            {resto}
+          </Stack>
+        ) : (
+          <FiltrosPlegables
+            busqueda={busqueda}
+            fijo={alta}
+            activos={activos ?? contarActivos(filtros) + contarActivos(resto)}
+            etiqueta={controles.length > 0 ? "Filtros" : "Opciones"}
+          >
+            {controles}
+            {resto}
+          </FiltrosPlegables>
+        )}
+      </Tarjeta>
+    );
+  }
+
   return (
-    <Tarjeta p="4" mb="4" overflow="visible" className="barra-filtros">
+    <Tarjeta p="4" mb="4" overflow="visible">
       <HStack gap="4" flexWrap="wrap" align="flex-end" justify="space-between">
         <HStack gap="4" flexWrap="wrap" align="flex-end" flex="1" minW="0">
           {busqueda ? (
@@ -70,8 +231,11 @@ export function CampoBusqueda({
   placeholder?: string;
 }) {
   return (
-    <Box minW="250px">
-      <LabelFiltro>Búsqueda</LabelFiltro>
+    <Box minW={{ base: "0", md: "250px" }}>
+      {/* En el celular alcanza con el texto de ayuda: va al lado del botón. */}
+      <Box hideBelow="md">
+        <LabelFiltro>Búsqueda</LabelFiltro>
+      </Box>
       <FormInput
         type="search"
         value={valor}
@@ -223,7 +387,7 @@ export function ChipsFiltros({
           display="inline-flex"
           alignItems="center"
           gap="1"
-          h="7"
+          h={{ base: "9", md: "7" }}
           pl="3"
           pr="1"
           rounded="full"
@@ -243,9 +407,9 @@ export function ChipsFiltros({
           <IconButton
             aria-label={`Quitar filtro ${filtro.etiqueta}`}
             title="Quitar filtro"
-            minW="5"
-            w="5"
-            h="5"
+            minW={{ base: "8", md: "5" }}
+            w={{ base: "8", md: "5" }}
+            h={{ base: "8", md: "5" }}
             rounded="full"
             variant="ghost"
             color="brand.700"

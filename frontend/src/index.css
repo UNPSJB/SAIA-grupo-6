@@ -81,8 +81,28 @@
     display: block;
   }
 
+  /*
+   * iOS hace zoom al enfocar un campo con letra de menos de 16px, y la pantalla
+   * queda corrida. Alcanza también a los diálogos, que van fuera del contenido.
+   */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /*
+   * Cada fila, una tarjeta: arriba el título y el estado, después los datos y
+   * al final las acciones. El orden sale de `data-rol` (lo pone
+   * `useTablasResponsivas`): la tabla puede empezar por la fecha, pero la
+   * tarjeta se encuentra por el nombre.
+   */
   [data-contenido] table:not([data-sin-tarjetas]) tbody tr {
-    padding: 8px 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    height: auto;
+    padding: 10px 4px;
     border-bottom: 1px solid var(--chakra-colors-border-subtle);
   }
 
@@ -96,11 +116,17 @@
   [data-contenido] table:not([data-sin-tarjetas]) tbody td {
     display: grid;
     grid-template-columns: fit-content(45%) minmax(0, 1fr);
+    /* Con filas `auto`, un texto recortado (overflow: hidden) cuenta como de
+     * alto 0: la etiqueta abría 1px en cada una de sus 20 filas y la celda
+     * quedaba casi al doble de alto, con la etiqueta corrida. */
+    grid-auto-rows: min-content;
     justify-items: end;
     align-items: center;
     column-gap: 12px;
     row-gap: 0;
-    padding: 6px 12px !important;
+    flex: 1 1 100%;
+    min-width: 0;
+    padding: 4px 12px !important;
     border: 0 !important;
     text-align: right !important;
     width: auto !important;
@@ -122,8 +148,76 @@
     color: var(--chakra-colors-fg-muted);
   }
 
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="vacia"] {
+    display: none;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="titulo"] {
+    display: block;
+    /* También en bloque: los navegadores nuevos lo aplican fuera de la grilla. */
+    justify-items: start;
+    order: -3;
+    flex: 1 1 38%;
+    padding-bottom: 6px !important;
+    text-align: left !important;
+  }
+
+  /* El nombre es lo que se busca: se lee entero (hasta tres renglones). */
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="titulo"] :is(p, span) {
+    white-space: normal;
+    -webkit-line-clamp: 3;
+    overflow-wrap: anywhere;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="titulo"]:not(:has(*)),
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="titulo"] > p:first-child,
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="titulo"] [data-dato-principal] > p:first-child {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="estado"] {
+    display: block;
+    order: -2;
+    flex: 0 1 auto;
+    max-width: 60%;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="alternar"] {
+    display: block;
+    order: -1;
+    flex: 0 0 auto;
+    padding: 0 4px 0 0 !important;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="alternar"] button {
+    min-width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="acciones"] {
+    display: block;
+    justify-items: start;
+    order: 1;
+    padding-top: 8px !important;
+    text-align: left !important;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-rol="acciones"] > * {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td:is([data-rol="titulo"], [data-rol="estado"], [data-rol="alternar"], [data-rol="acciones"])::before {
+    content: none;
+  }
+
   /* Celdas sin encabezado (acciones sin título) o que ocupan todo el ancho:
-   * sin etiqueta, el contenido va en fila y alineado a la derecha. */
+   * sin etiqueta, el contenido va en fila y alineado a la derecha. Las que
+   * ocupan toda la fila (un detalle desplegado) apilan: en fila, una lista de
+   * tres tareas quedaba en tres columnas de 60px. */
   [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-label=""],
   [data-contenido] table:not([data-sin-tarjetas]) tbody td[colspan] {
     display: flex;
@@ -131,20 +225,15 @@
     gap: 12px;
   }
 
+  [data-contenido] table:not([data-sin-tarjetas]) tbody td[colspan] {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: start !important;
+  }
+
   [data-contenido] table:not([data-sin-tarjetas]) tbody td[data-label=""]::before,
   [data-contenido] table:not([data-sin-tarjetas]) tbody td[colspan]::before {
     content: none;
-  }
-
-  /* Filtros: un campo por renglón, a todo el ancho (y las herramientas, debajo). */
-  .barra-filtros > div > div {
-    flex: 1 1 100% !important;
-  }
-
-  .barra-filtros > div > div > * {
-    flex: 1 1 100%;
-    min-width: 0 !important;
-    max-width: none !important;
   }
 }
 
