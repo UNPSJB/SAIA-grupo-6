@@ -242,8 +242,11 @@ def exportar_vista_clientes(
     buscar: Optional[str] = Query(None, max_length=100),
     orden: str = "nombre_asc",
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
-    return _descarga(vistas.clientes(db, solo_inactivos, buscar, orden), formato, "clientes")
+    return _descarga(
+        vistas.clientes(db, solo_inactivos, buscar, orden), formato, "clientes", db, usuario
+    )
 
 
 @router.get("/vistas/transportistas")
@@ -253,9 +256,10 @@ def exportar_vista_transportistas(
     buscar: Optional[str] = Query(None, max_length=100),
     orden: str = "razon_social_asc",
     db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
 ):
     vista = vistas.transportistas(db, solo_inactivos, buscar, orden)
-    return _descarga(vista, formato, "transportistas")
+    return _descarga(vista, formato, "transportistas", db, usuario)
 
 
 @router.get("/vistas/alimentos")
@@ -307,9 +311,20 @@ class FilasExportacion(BaseModel):
 
 
 @router.post("/filas")
-def exportar_filas(datos: FilasExportacion, formato: FormatoExportacion = "csv"):
+def exportar_filas(
+    datos: FilasExportacion,
+    formato: FormatoExportacion = "csv",
+    db: Session = Depends(get_db),
+    usuario: Personal = Depends(require_admin),
+):
     """Da formato CSV o PDF a una tabla armada en el frontend."""
-    return _descarga((datos.titulo, datos.encabezados, datos.filas), formato, datos.nombre)
+    return _descarga(
+        (datos.titulo, datos.encabezados, datos.filas),
+        formato,
+        datos.nombre,
+        db,
+        usuario,
+    )
 
 
 @router.get("/{nombre_tabla}")

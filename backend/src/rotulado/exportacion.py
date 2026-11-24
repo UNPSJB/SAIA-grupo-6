@@ -15,7 +15,7 @@ from src.rotulado import declaraciones_services, pdf, schemas, services
 
 
 def exportar_borrador_pdf(db: Session, borrador_id: int, usuario) -> bytes:
-    usuario_id = usuario.id
+    usuario_id = usuario.id if usuario is not None else None
     declaraciones_services._reservar_escritura(db)
     vista = services.previsualizar_borrador(db, borrador_id)
     version_id = vista.origen.version_id
