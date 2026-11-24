@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { Box, Checkbox, Stack, Text } from "@chakra-ui/react";
 import { DialogContent, DialogRoot, DialogTitle } from "../../../components/ui/dialog";
 import { DialogForm } from "../../../common/components/DialogForm";
@@ -57,6 +57,7 @@ export function InsumoDialog({
   const [seleccionados, setSeleccionados] = useState<number[]>(
     () => insumo?.proveedores.map((p) => p.id) ?? []
   );
+  const idProveedores = useId();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -160,7 +161,12 @@ export function InsumoDialog({
             />
           </FormField>
 
-          <FormField label="Proveedores que la venden" required mb="0">
+          {/* Grupo y no `FormField`: adentro de un campo, todas las casillas
+              toman el id de ese campo y cualquier clic marcaba la primera. */}
+          <Stack role="group" aria-labelledby={idProveedores} gap="1.5">
+            <Text id={idProveedores} fontSize="sm" fontWeight="medium" color="fg.muted">
+              Proveedores que la venden <Box as="span" color="red.fg" aria-hidden>*</Box>
+            </Text>
             <Box
               w="100%"
               maxH="200px"
@@ -191,7 +197,7 @@ export function InsumoDialog({
                 </Stack>
               )}
             </Box>
-          </FormField>
+          </Stack>
 
           <Box mt="4" p="3" borderWidth="1px" borderColor="border.subtle" rounded="md">
             <Checkbox.Root checked={sinRotulo} onCheckedChange={(v) => setSinRotulo(!!v.checked)}>
