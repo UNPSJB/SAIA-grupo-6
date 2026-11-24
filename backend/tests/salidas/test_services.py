@@ -606,6 +606,35 @@ def test_reservar_exige_un_rotulado_completo_del_lote(db_session):
     ).id
 
 
+def test_reservar_exige_la_tabla_nutricional_completa(db_session):
+    """No alcanza con que haya una tabla guardada: sin sus valores, o de otra
+    versión de la receta, el lote no se vende."""
+    from src.rotulado.models import BorradorRotulado
+    from src.salidas import exceptions as salidas_exceptions
+    from tests.produccion_helpers import tabla_nutricional
+
+    lote = _lote(db_session, cantidad_producida=Decimal("100.000"))
+    cliente = _cliente(db_session)
+    usuario = _personal(db_session)
+    borrador = db_session.query(BorradorRotulado).filter_by(lote_producto_id=lote.id).one()
+    version_id = lote.version_receta_id
+
+    def reservar():
+        return services.reservar(
+            db_session, lote_id=lote.id, cliente_id=cliente.id, cantidad=Decimal("10"),
+            fecha_reserva=date(2026, 1, 5), usuario=usuario,
+        )
+
+    for tabla in (None, "{", tabla_nutricional(version_id, faltan_datos=True), tabla_nutricional(version_id + 1)):
+        borrador.datos_nutricionales_json = tabla
+        db_session.commit()
+        with pytest.raises(salidas_exceptions.LoteSinRotulado):
+            reservar()
+
+    borrador.datos_nutricionales_json = tabla_nutricional(version_id)
+    db_session.commit()
+    assert reservar().id
+
 
 def test_reservar_exige_el_rotulado_frontal_decidido(db_session):
     """Sin saber si el producto lleva octógonos ("sin definir"), el rótulo no

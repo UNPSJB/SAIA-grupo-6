@@ -532,6 +532,54 @@ def calcular_completitud(db: Session, borrador_id: int) -> schemas.CompletitudRo
     return _con_rotulado_frontal(completitud, _estado_frontal(db, borrador))
 
 
+def ids_completos(
+    db: Session, borradores: list[BorradorRotulado], frontales: Optional[dict] = None
+) -> set[int]:
+    """Ids de los borradores con todos sus datos completos, sin escribir nada.
+
+    Mismo criterio que `calcular_completitud`, pero para listados: lo que no
+    consulta la base se mira primero y los octógonos, lo más caro, se evalúan
+    una sola vez por producto y versión (`frontales` los recuerda entre llamadas).
+    """
+    frontales = {} if frontales is None else frontales
+    completos = set()
+    for borrador in borradores:
+        confirmada = {"estado": "confirmada", "pendientes": []}
+        if _completitud(borrador, confirmada).estado_global != CAMPO_COMPLETO:
+            continue
+        revision = declaraciones.consultar(db, borrador.id)
+        if revision["estado"] != "confirmada" or revision["pendientes"]:
+            continue
+        clave = (borrador.producto_id, _version_del_borrador(db, borrador))
+        if clave not in frontales:
+            frontales[clave] = _campo_frontal(*_estado_frontal(db, borrador)).estado
+        if frontales[clave] != CAMPO_PENDIENTE:
+            completos.add(borrador.id)
+    return completos
+
+
+def listar_borradores(
+    db: Session, producto_id: int, con_completitud: bool = False
+) -> list[schemas.BorradorRotuladoListado]:
+    borradores = obtener_borradores_por_producto(db, producto_id)
+    completos = ids_completos(db, borradores) if con_completitud else set()
+    salida = []
+    for borrador in borradores:
+        fila = schemas.BorradorRotuladoListado.model_validate(borrador)
+        fila.completo = borrador.id in completos if con_completitud else None
+        salida.append(fila)
+    return salida
+
+
+def productos_con_rotulo_completo(db: Session, producto_ids) -> set[int]:
+    """Productos con al menos un rótulo completo (corta en el primero de cada uno)."""
+    frontales: dict = {}
+    return {
+        producto_id for producto_id in producto_ids
+        if any(ids_completos(db, [b], frontales) for b in obtener_borradores_por_producto(db, producto_id))
+    }
+
+
 # ── Rotulado frontal en la completitud ─────────────────────────────────────
 #
 # Los octógonos no se cargan en el borrador: salen de la evaluación del
@@ -711,19 +759,18 @@ def _completitud(borrador: BorradorRotulado, evaluacion: dict) -> schemas.Comple
         borrador.instrucciones_uso,
     )
 
-    # Información nutricional: sin datos de origen si E11 no tiene información
-    nutricion_aplicable = borrador.datos_nutricionales_json is not None
-    sin_datos_nutricion = (
-        borrador.version_receta_id is not None
-        and borrador.datos_nutricionales_json is None
-    )
-    agregar_campo(
-        "datos_nutricionales_json",
-        "Información nutricional",
+    # Información nutricional: no alcanza con que haya una tabla guardada, tiene
+    # que ser de la versión del borrador y no faltarle datos (mismo criterio que
+    # la previsualización).
+    lote = borrador.lote_producto
+    nutricion = _nutricion_previsualizacion(
         borrador.datos_nutricionales_json,
-        aplicable=nutricion_aplicable,
-        sin_datos_origen=sin_datos_nutricion,
+        (lote.version_receta_id if lote is not None else None) or borrador.version_receta_id,
     )
+    campo_nutricion = _campo_nutricion(nutricion)
+    campos.append(campo_nutricion)
+    if campo_nutricion.estado != CAMPO_COMPLETO:
+        estado_global = CAMPO_PENDIENTE
 
     # Datos del importador: solo aplicable si es_importado
     importador_aplicable = borrador.es_importado
@@ -859,6 +906,17 @@ def _nutricion_previsualizacion(
     )
 
 
+def _campo_nutricion(nutricion: schemas.NutricionPrevisualizacion) -> schemas.CampoCompletitud:
+    if nutricion.estado == "completa":
+        estado, motivo = CAMPO_COMPLETO, None
+    else:
+        estado = CAMPO_PENDIENTE
+        motivo = " ".join(nutricion.problemas) or "Tabla nutricional incompleta."
+    return schemas.CampoCompletitud(
+        nombre="datos_nutricionales_json", etiqueta="Información nutricional", estado=estado, motivo=motivo,
+    )
+
+
 def _frontal_previsualizacion(
     db: Session, producto_id: int, origen: schemas.OrigenPrevisualizacion,
     nutricion: schemas.NutricionPrevisualizacion,
@@ -901,11 +959,10 @@ def previsualizar_borrador(db: Session, borrador_id: int) -> schemas.Previsualiz
     completitud = _con_rotulado_frontal(
         completitud, (evaluacion.estado, evaluacion.mensaje, list(evaluacion.faltantes or []))
     )
-    for campo in completitud.campos:
-        if campo.nombre == "datos_nutricionales_json":
-            campo.estado = CAMPO_COMPLETO if nutricion.estado == "completa" else CAMPO_PENDIENTE
-            if campo.estado == CAMPO_PENDIENTE:
-                campo.motivo = " ".join(nutricion.problemas) or "Tabla nutricional incompleta."
+    completitud.campos = [
+        _campo_nutricion(nutricion) if campo.nombre == "datos_nutricionales_json" else campo
+        for campo in completitud.campos
+    ]
     if any(campo.estado in (CAMPO_PENDIENTE, CAMPO_SIN_DATOS_ORIGEN) for campo in completitud.campos):
         completitud.estado_global = CAMPO_PENDIENTE
     return schemas.PrevisualizacionRotulado(

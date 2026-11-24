@@ -104,6 +104,21 @@ def _decidir_rotulado_frontal(db, producto_id):
     db.flush()
 
 
+def tabla_nutricional(version_id, faltan_datos=False):
+    """Instantánea nutricional guardada en un rótulo, completa o sin datos."""
+    import json
+
+    return json.dumps({
+        "version_id": version_id,
+        "estado": "incompleta" if faltan_datos else "completa",
+        "expresar_en": "g", "porcion": 20, "medida_casera": "1 cucharada", "problemas": [],
+        "filas": [{
+            "clave": "energia", "nombre": "Valor energético", "unidad": "kcal",
+            "por_100": None if faltan_datos else 250, "faltan_datos": faltan_datos,
+        }],
+    })
+
+
 def rotular_lote(db, lote):
     """Borrador de rotulado completo vinculado al lote (sin él, el lote no se vende).
 
@@ -153,6 +168,7 @@ def rotular_lote(db, lote):
             fecha_cierre=cierre,
             fecha_duracion=lote.fecha_vencimiento or cierre + timedelta(days=180),
             instrucciones_uso="Conservar en lugar fresco y seco.",
+            datos_nutricionales_json=tabla_nutricional(lote.version_receta_id),
         )
         db.add(borrador)
         db.flush()

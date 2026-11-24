@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { Badge, Box, Button, HStack, Stack, Text } from "@chakra-ui/react";
-import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { Badge, Button, HStack, IconButton, SimpleGrid, Stack, Text } from "@chakra-ui/react";
+import { LuArrowDown, LuArrowUp, LuCheck } from "react-icons/lu";
+import { formatoFechaHora } from "../../../common/utils/fechas";
 import { useRegistro } from "../../../common/hooks/useRegistro";
 import { BannerError, EstadoCargando } from "../../../components/ui/patrones";
 import { etiquetaAditivo } from "../../aditivos/types/aditivo";
 import { decidirOrdenEmpate, obtenerComposicion } from "../services/recetaService";
 import type { Composicion, ComposicionItem } from "../types/receta";
 
-/** Los grupos de empate llegan numerados (1, 2, 3...); se muestran como A, B, C... */
-function letraDeGrupo(grupo: number): string {
-  return String.fromCharCode(65 + ((grupo - 1) % 26));
-}
+const AYUDA = { fontSize: "13px", lineHeight: "1.45", color: "fg.muted" } as const;
 
 function nombreEnLista(item: ComposicionItem): string {
   return item.aditivo ? etiquetaAditivo(item.aditivo) : item.ingrediente.nombre;
@@ -26,60 +24,84 @@ function gruposDeEmpate(composicion: Composicion): ComposicionItem[][] {
   return [...grupos.values()];
 }
 
-function fechaCorta(iso: string): string {
-  return new Date(iso).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+function pesoDe(item: ComposicionItem): string {
+  return `${Number(item.gramos).toLocaleString("es-AR", { maximumFractionDigits: 1 })} g`;
 }
 
 interface GrupoProps {
   grupo: ComposicionItem[];
   ocupado: boolean;
-  onMover: (grupo: ComposicionItem[], desde: number, hacia: number) => void;
+  onOrdenar: (ids: number[]) => void;
 }
 
-function GrupoEmpatado({ grupo, ocupado, onMover }: GrupoProps) {
-  const letra = letraDeGrupo(grupo[0].grupo_empate ?? 1);
+/** Un empate: sus ingredientes en orden, con flechas para subirlos y bajarlos. */
+function GrupoEmpatado({ grupo, ocupado, onOrdenar }: GrupoProps) {
   const decidido = grupo.find((i) => i.orden_decidido_por !== null);
+  const ids = grupo.map((i) => i.ingrediente.id);
+
+  const mover = (desde: number, hacia: number) => {
+    const nuevo = [...ids];
+    [nuevo[desde], nuevo[hacia]] = [nuevo[hacia], nuevo[desde]];
+    onOrdenar(nuevo);
+  };
 
   return (
-    <Stack gap="1" data-testid={`empate-${letra}`}>
-      <Text fontSize="xs" color="fg.subtle">
-        Pesan lo mismo, elegí cuál va primero:
-      </Text>
-      <HStack gap="1" wrap="wrap">
+    <Stack
+      data-testid={`empate-${grupo[0].grupo_empate}`}
+      gap="3" minW="0" p="4" rounded="lg" bg="bg.subtle" borderWidth="1px" borderColor="border.subtle"
+    >
+      <HStack justify="space-between" gap="3" flexWrap="wrap">
+        <Text fontSize="sm" fontWeight="medium">{pesoDe(grupo[0])} cada uno</Text>
+        <Badge colorPalette={decidido ? "green" : "orange"} rounded="full" px="2">
+          {decidido ? "Orden decidido" : "Sin decidir"}
+        </Badge>
+      </HStack>
+
+      <Stack as="ol" listStyleType="none" m="0" p="0" gap="2">
         {grupo.map((item, indice) => (
-          <HStack key={item.ingrediente.id} gap="0">
-            <Button
-              size="2xs"
-              variant="ghost"
-              aria-label={`Mover ${item.ingrediente.nombre} hacia adelante`}
-              disabled={ocupado || indice === 0}
-              onClick={() => onMover(grupo, indice, indice - 1)}
-            >
-              <LuChevronLeft aria-hidden />
-            </Button>
-            <Badge colorPalette="orange" variant="subtle" fontSize="sm">
-              {`${nombreEnLista(item)} · ${letra}`}
-            </Badge>
-            <Button
-              size="2xs"
-              variant="ghost"
-              aria-label={`Mover ${item.ingrediente.nombre} hacia atrás`}
-              disabled={ocupado || indice === grupo.length - 1}
-              onClick={() => onMover(grupo, indice, indice + 1)}
-            >
-              <LuChevronRight aria-hidden />
-            </Button>
-            {indice < grupo.length - 1 && <Text color="fg.subtle">{";"}</Text>}
+          <HStack
+            as="li" key={item.ingrediente.id} gap="3" minW="0" ps="3" pe="1.5" py="1.5"
+            rounded="md" bg="bg.panel" borderWidth="1px" borderColor="border.subtle"
+          >
+            <Text as="span" w="4" flexShrink={0} fontSize="sm" color="fg.muted" fontVariantNumeric="tabular-nums">
+              {indice + 1}.
+            </Text>
+            <Text as="span" flex="1" minW="0" fontSize="sm" fontWeight="medium">{nombreEnLista(item)}</Text>
+            <HStack gap="1" flexShrink={0}>
+              <IconButton
+                type="button" size="xs" variant="ghost"
+                aria-label={`Subir ${item.ingrediente.nombre}`} title="Subir"
+                disabled={ocupado || indice === 0}
+                onClick={() => mover(indice, indice - 1)}
+              >
+                <LuArrowUp aria-hidden />
+              </IconButton>
+              <IconButton
+                type="button" size="xs" variant="ghost"
+                aria-label={`Bajar ${item.ingrediente.nombre}`} title="Bajar"
+                disabled={ocupado || indice === grupo.length - 1}
+                onClick={() => mover(indice, indice + 1)}
+              >
+                <LuArrowDown aria-hidden />
+              </IconButton>
+            </HStack>
           </HStack>
         ))}
-      </HStack>
-      <Text fontSize="xs" color="fg.subtle">
-        {decidido && decidido.orden_decidido_por
-          ? `Orden decidido por ${decidido.orden_decidido_por}${
-              decidido.orden_decidido_en ? ` el ${fechaCorta(decidido.orden_decidido_en)}` : ""
-            }.`
-          : "Sin decidir: se usa el orden de carga de la receta."}
-      </Text>
+      </Stack>
+
+      {decidido ? (
+        <Text {...AYUDA}>
+          Decidido por {decidido.orden_decidido_por}
+          {decidido.orden_decidido_en ? ` el ${formatoFechaHora(decidido.orden_decidido_en)}` : ""}
+        </Text>
+      ) : (
+        <HStack justify="space-between" columnGap="3" rowGap="2" flexWrap="wrap">
+          <Text {...AYUDA}>Por ahora se usa el orden de carga de la receta.</Text>
+          <Button type="button" size="xs" variant="outline" borderColor="border.emphasized" disabled={ocupado} onClick={() => onOrdenar(ids)}>
+            Dejar este orden
+          </Button>
+        </HStack>
+      )}
     </Stack>
   );
 }
@@ -110,9 +132,7 @@ export function OrdenListaIngredientes({ versionId, onOrdenCambiado }: OrdenList
 
   if (versionId === null) return null;
 
-  const mover = async (grupo: ComposicionItem[], desde: number, hacia: number) => {
-    const ids = grupo.map((i) => i.ingrediente.id);
-    [ids[desde], ids[hacia]] = [ids[hacia], ids[desde]];
+  const ordenar = async (ids: number[]) => {
     setGuardando(true);
     setErrorGuardar(null);
     try {
@@ -130,16 +150,16 @@ export function OrdenListaIngredientes({ versionId, onOrdenCambiado }: OrdenList
   const grupos = composicion && composicion.completa ? gruposDeEmpate(composicion) : [];
 
   return (
-    <Box data-testid="orden-lista-ingredientes" mt="2">
+    <Stack data-testid="orden-lista-ingredientes" gap="4">
       {loading && !composicion && <EstadoCargando>Calculando el orden...</EstadoCargando>}
       {error && <BannerError mb="0">{error}</BannerError>}
       {errorGuardar && <BannerError mb="0">{errorGuardar}</BannerError>}
       {composicion && !composicion.completa && (
-        <Stack gap="1">
+        <Stack gap="1.5">
           <Text fontSize="sm" fontWeight="semibold">
             No se puede ordenar la lista todavía
           </Text>
-          <Text fontSize="xs" color="fg.subtle">
+          <Text {...AYUDA}>
             Faltan datos para calcular la masa de estos ingredientes:
           </Text>
           {composicion.faltantes.map((f) => (
@@ -150,22 +170,31 @@ export function OrdenListaIngredientes({ versionId, onOrdenCambiado }: OrdenList
         </Stack>
       )}
       {grupos.length > 0 && (
-        <Stack gap="3">
-          {grupos.map((grupo) => (
-            <GrupoEmpatado
-              key={grupo[0].grupo_empate}
-              grupo={grupo}
-              ocupado={guardando}
-              onMover={mover}
-            />
-          ))}
-          {cambiado && (
-            <Text fontSize="xs" color="fg.subtle">
-              Orden actualizado. Guardá el borrador para conservarlo en el rótulo.
+        <>
+          <Stack gap="1">
+            <Text fontSize="sm" fontWeight="semibold">Ingredientes que pesan lo mismo</Text>
+            <Text {...AYUDA}>
+              La lista va de mayor a menor peso. Cuando hay empate, elegí cuál se nombra primero.
             </Text>
+          </Stack>
+          <SimpleGrid columns={{ base: 1, xl: grupos.length > 1 ? 2 : 1 }} gap="4" maxW={grupos.length > 1 ? undefined : { xl: "640px" }}>
+            {grupos.map((grupo) => (
+              <GrupoEmpatado
+                key={grupo[0].grupo_empate}
+                grupo={grupo}
+                ocupado={guardando}
+                onOrdenar={(ids) => { void ordenar(ids); }}
+              />
+            ))}
+          </SimpleGrid>
+          {cambiado && (
+            <HStack role="status" gap="2" fontSize="sm" color="green.fg">
+              <LuCheck aria-hidden />
+              Orden actualizado. Guardá el borrador para conservarlo en el rótulo.
+            </HStack>
           )}
-        </Stack>
+        </>
       )}
-    </Box>
+    </Stack>
   );
 }

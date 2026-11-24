@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Heading, HStack, Table, Text } from "@chakra-ui/react";
+import { Badge, Box, Heading, HStack, Table, Text } from "@chakra-ui/react";
 import { LuArrowLeft, LuPlus } from "react-icons/lu";
 import { BotonExportar } from "../../../exportacion";
 import { Pagina, PestanasPagina } from "../../../../components/ui/plantillas";
@@ -36,12 +36,12 @@ import { useLista } from "../../../../common/hooks/useLista";
 import { listarProductos } from "../../../productos/services/productoService";
 import { listarBorradoresPorProducto } from "../../services/rotuladoService";
 import type { Producto } from "../../../productos/types/producto";
-import type { BorradorRotuladoOut } from "../../types/rotulado";
+import type { BorradorRotuladoListado } from "../../types/rotulado";
 import { useEstadoNavegacion } from "../../../../common/hooks/useEstadoNavegacion";
 import { PanelParametros } from "../../../nutricion/components/pages/ParametrosNutricionPage";
 
 interface ProductoConBorradores extends Producto {
-  borradores: BorradorRotuladoOut[];
+  borradores: BorradorRotuladoListado[];
 }
 
 /** Pestaña "Rotulado de productos": productos y sus borradores. */
@@ -324,6 +324,15 @@ function BadgeBorradores({ count }: { count: number }) {
   );
 }
 
+function EstadoBorrador({ completo }: { completo: boolean | null | undefined }) {
+  if (completo == null) return <Text as="span" fontSize="sm" color="fg.muted">-</Text>;
+  return (
+    <Badge colorPalette={completo ? "green" : "orange"} rounded="full" px="3">
+      {completo ? "Datos completos" : "En preparación"}
+    </Badge>
+  );
+}
+
 function VistaProductoSeleccionado({
   producto,
   onVolver,
@@ -337,6 +346,18 @@ function VistaProductoSeleccionado({
   onEditarBorrador: (borradorId: number) => void;
   onPrevisualizar: (borradorId: number) => void;
 }) {
+  // Se pide recién acá, para un solo producto: calcularlo para todo el
+  // listado hacía lenta la carga de la tabla.
+  const [completos, setCompletos] = useState<Map<number, boolean | null> | null>(null);
+  useEffect(() => {
+    let vigente = true;
+    listarBorradoresPorProducto(producto.id, true)
+      .then((filas) => { if (vigente) setCompletos(new Map(filas.map((b) => [b.id, b.completo]))); })
+      // Sin el estado, la lista de borradores se usa igual.
+      .catch(() => { if (vigente) setCompletos(new Map()); });
+    return () => { vigente = false; };
+  }, [producto.id]);
+
   return (
     <>
       {/* Lo primero de la pestaña es una tarjeta, igual que la barra de
@@ -408,7 +429,8 @@ function VistaProductoSeleccionado({
                     )}
                   </Celda>
                   <Celda center>
-                    <PildoraNeutra>{b.estado.replaceAll("_", " ")}</PildoraNeutra>
+                    {/* Mismas palabras y colores que el encabezado del editor. */}
+                    <EstadoBorrador completo={completos?.get(b.id)} />
                   </Celda>
                   <Celda whiteSpace="nowrap">
                     {b.actualizado_en ? formatoFechaHora(b.actualizado_en) : "-"}

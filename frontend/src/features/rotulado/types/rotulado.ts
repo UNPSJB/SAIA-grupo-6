@@ -64,6 +64,11 @@ export interface BorradorRotuladoOut extends BorradorRotuladoBase {
   actualizado_por_id: number | null;
 }
 
+/** Fila del listado: `completo` lo calcula el backend, solo si se pide. */
+export interface BorradorRotuladoListado extends BorradorRotuladoOut {
+  completo: boolean | null;
+}
+
 export interface ProductoConBorrador {
   producto_id: number;
   producto_nombre: string;

@@ -122,6 +122,14 @@ PLANTILLA_BEBIDA = {
     ],
 }
 
+PLANTILLA_EN_DESARROLLO = {
+    "producto": "Pan con sésamo (en desarrollo)",
+    "unidad": "kilogramo",
+    "rendimiento": "5",
+    "tareas": ["Amasar y hornear"],
+    "ingredientes": [("Harina 000", "4", "ingrediente", 0), ("Semillas de sésamo", "1", "ingrediente", 0)],
+}
+
 PLANTILLA_DISCONTINUADA = {
     "producto": "Budín discontinuado",
     "unidad": "kilogramo",
@@ -464,6 +472,21 @@ def _produccion(db, h, admins, unidades: dict, ingredientes: dict) -> None:
                 posicion=posicion, decidido_por_id=autor.id,
             )
         )
+
+    # Todavía no se produce: le faltan la porción y los datos del sésamo, así
+    # que su tabla nutricional muestra las advertencias.
+    en_desarrollo = Producto(
+        nombre=PLANTILLA_EN_DESARROLLO["producto"], descripcion="Receta en prueba.",
+        unidad_medida_id=unidades["kilogramo"].id, activo=True,
+    )
+    receta_desarrollo = Receta(producto=en_desarrollo, activo=True, creado_en=datetime.now() - timedelta(days=15))
+    db.add_all([en_desarrollo, receta_desarrollo])
+    version = h._agregar_version(
+        db, receta_desarrollo, 1, PLANTILLA_EN_DESARROLLO, {**ingredientes, sesamo.nombre: sesamo},
+        unidades, autor, receta_desarrollo.creado_en,
+    )
+    for tarea in version.tareas:
+        tarea.procedimiento = "Procedimiento en prueba."
 
     # Categorías exceptuadas de los octógonos (y productos todavía sin receta).
     for nombre, categoria in (

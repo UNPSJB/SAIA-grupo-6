@@ -281,7 +281,7 @@ function RotuladoEditor() {
 
   return (
     <Box p={PADDING_PAGINA} pt="0" w="100%" minW="0">
-      {vistaPrevia?.mensaje && <BannerError>{vistaPrevia.mensaje}</BannerError>}
+      {vistaPrevia?.mensaje && <BannerError py="2.5">{vistaPrevia.mensaje}</BannerError>}
       <RotuladoForm
         key={`${productoId}-${borradorId}-${borrador?.actualizado_en ?? "nuevo"}`}
         borrador={valoresIniciales}

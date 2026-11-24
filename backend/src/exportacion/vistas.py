@@ -14,7 +14,7 @@ import unicodedata
 from datetime import date
 from typing import Callable, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.checklist import services as checklist_services
@@ -26,7 +26,7 @@ from src.nutricion import services as nutricion_services
 from src.productos import services as productos_services
 from src.recetas import services as recetas_services
 from src.retiros import services as retiros_services
-from src.rotulado.models import BorradorRotulado
+from src.rotulado import services as rotulado_services
 from src.salidas import services as salidas_services
 from src.transportistas import services as transportistas_services
 from src.vencimientos import services as vencimientos_services
@@ -467,29 +467,16 @@ def alimentos_referencia(db: Session, buscar: Optional[str], base: Optional[str]
 
 
 def rotulado_productos(db: Session, buscar: Optional[str]) -> Vista:
-    borradores = dict(
-        db.execute(
-            select(BorradorRotulado.producto_id, func.count(BorradorRotulado.id)).group_by(
-                BorradorRotulado.producto_id
-            )
-        ).all()
-    )
-    ultimos = dict(
-        db.execute(
-            select(BorradorRotulado.producto_id, func.max(BorradorRotulado.actualizado_en)).group_by(
-                BorradorRotulado.producto_id
-            )
-        ).all()
-    )
-    filas = [
-        [
+    filas = []
+    for p in productos_services.listar_productos(db, False, buscar):
+        # El actualizado más recientemente viene primero.
+        borradores = rotulado_services.obtener_borradores_por_producto(db, p.id)
+        filas.append([
             texto(p.nombre),
             texto(p.unidad_medida.simbolo if p.unidad_medida else None),
-            str(borradores.get(p.id, 0)),
-            texto(ultimos[p.id]) if ultimos.get(p.id) else "-",
-        ]
-        for p in productos_services.listar_productos(db, False, buscar)
-    ]
+            str(len(borradores)),
+            texto(borradores[0].actualizado_en) if borradores else "-",
+        ])
     return (
         "Rotulado de productos",
         ["Producto", "Unidad", "Borradores", "Último borrador actualizado"],

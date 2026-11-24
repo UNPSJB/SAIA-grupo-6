@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState, type ReactNode } from "react";
 import { Alert, Badge, Box, Button, HStack, SimpleGrid, Stack, Text, Textarea, chakra } from "@chakra-ui/react";
 import { Link } from "react-router-dom";
+import { LuArrowRight } from "react-icons/lu";
 import { AuthContext } from "../../../common/context/auth-context";
 import { puedeAdministrar } from "../../../common/api/permissions";
 import { FormField, FormNativeSelect } from "../../../components/ui/patrones";
@@ -113,7 +114,7 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
   </HStack>;
 
   // Guardar / confirmar valen para toda la revisión (alérgenos y conservación).
-  const barraAcciones = borradorId > 0 && datos && <Stack gap="3" pt="4" borderTopWidth="1px" borderColor="border.subtle">
+  const barraAcciones = borradorId > 0 && datos && <Stack gap="3" pt="5" borderTopWidth="1px" borderColor="border.emphasized">
     {(sucio || formularioSucio) && <Text fontSize="sm" color="orange.fg">Guardá los cambios pendientes antes de regenerar o confirmar. Guardar no confirma.</Text>}
     <HStack flexWrap="wrap" gap="2" justify="flex-end">
       {sucio && <Button type="button" variant="ghost" size="sm" disabled={ocupado} onClick={() => { setSucio(false); setIntento(n => n + 1); }}>Descartar cambios de declaraciones</Button>}
@@ -130,12 +131,12 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
 
     {verAlergenos && <>
       {/* Cabecera: estado de la revisión y acciones de consulta. */}
-      <HStack justify="space-between" align="start" gap="3" flexWrap="wrap">
-        <Stack gap="2">
+      <HStack justify="space-between" align="start" columnGap="4" rowGap="3" flexWrap="wrap">
+        <Stack gap="2.5">
           {insignias}
           <HStack gap="2" flexWrap="wrap">
             <CampoOrigen origen="receta" version={versionOrigen} />
-            <Text fontSize="xs" color="fg.muted">Versión de receta de origen: {versionOrigen != null ? `v${versionOrigen}` : contenido?.version_receta_id ?? "sin versión"}</Text>
+            <Text fontSize="13px" color="fg.muted">Versión de receta de origen: {versionOrigen != null ? `v${versionOrigen}` : contenido?.version_receta_id ?? "sin versión"}</Text>
           </HStack>
         </Stack>
         {borradorId > 0 && <HStack gap="2" flexWrap="wrap">
@@ -148,7 +149,7 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
         </HStack>}
       </HStack>
 
-      {historial.length > 0 && <Stack gap="2">{historial.map(h => <Box key={h.revision} as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
+      {historial.length > 0 && <Stack gap="3">{historial.map(h => <Box key={h.revision} as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4">
         <Box as="summary" cursor="pointer" fontSize="sm">Revisión {h.revision}: {h.estado} — {h.vigencia}</Box>
         <Text fontSize="sm">{h.declaracion || "Sin sustancias declaradas"}</Text><Text fontSize="sm">{h.declaracion_cruzada}</Text>
         <Text fontSize="sm">Conservación: {h.contenido?.conservacion?.instrucciones ?? "sin informar"}</Text>
@@ -164,36 +165,37 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
           <Text as="span" fontWeight="semibold">Gluten: </Text>
           {contenido?.gluten === "presente" ? "presencia declarada" : contenido?.gluten === "sin_presencia_declarada" ? "sin presencia declarada en los ingredientes evaluados" : "información insuficiente"}.
         </Text>
-        <Text fontSize="xs" color="fg.muted" mt="1">Esta evaluación no certifica ni habilita declaraciones de producto libre de gluten.</Text>
+        <Text fontSize="13px" lineHeight="1.45" color="fg.muted" mt="1.5">Esta evaluación no certifica ni habilita declaraciones de producto libre de gluten.</Text>
       </Box>
 
       {/* Desglose: presentes y "puede contener". */}
-      <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
         <Bloque titulo="Presentes" cantidad={contenido?.detectados.length}>
           {!contenido && <Text fontSize="sm" color="fg.muted">Generá o recargá la propuesta para ver los alérgenos detectados.</Text>}
           {contenido && !contenido.detectados.length && <Text fontSize="sm" color="fg.muted">Sin sustancias registradas en los ingredientes evaluados. Revisá los pendientes antes de confirmar.</Text>}
-          {contenido?.detectados.map(d => <Box key={d.codigo} borderWidth="1px" borderColor="border.subtle" rounded="md" px="3" py="2" bg="bg.panel">
+          {contenido?.detectados.map(d => <Box key={d.codigo} borderWidth="1px" borderColor="border.subtle" rounded="md" px="3.5" py="2.5" bg="bg.panel">
             <Text fontWeight="semibold" fontSize="sm">{d.nombre}</Text>
-            {d.fuentes.map((f, i) => <Text key={`${f.ingrediente_id}-${i}`} fontSize="xs" color="fg.muted">{f.nombre}: {f.forma}</Text>)}
+            {d.fuentes.map((f, i) => <Text key={`${f.ingrediente_id}-${i}`} fontSize="13px" lineHeight="1.45" color="fg.muted">{f.nombre}: {f.forma}</Text>)}
           </Box>)}
         </Bloque>
         <Bloque titulo="Puede contener" cantidad={contenido?.puede_contener?.length ?? 0}>
           {!contenido?.puede_contener?.length && <Text fontSize="sm" color="fg.muted">Ningún ingrediente declara trazas.</Text>}
-          {contenido?.puede_contener?.map(p => <Box key={p.codigo} borderWidth="1px" borderColor="border.subtle" rounded="md" px="3" py="2" bg="bg.panel">
+          {contenido?.puede_contener?.map(p => <Box key={p.codigo} borderWidth="1px" borderColor="border.subtle" rounded="md" px="3.5" py="2.5" bg="bg.panel">
             <Text fontWeight="semibold" fontSize="sm">{p.nombre}</Text>
-            <Text fontSize="xs" color="fg.muted">{p.fuentes.map(f => f.nombre).join(", ")}</Text>
+            <Text fontSize="13px" lineHeight="1.45" color="fg.muted">{p.fuentes.map(f => f.nombre).join(", ")}</Text>
           </Box>)}
-          {!!contenido?.puede_contener?.length && <Text fontSize="xs" color="fg.muted">Declarado en los ingredientes.</Text>}
+          {!!contenido?.puede_contener?.length && <Text fontSize="13px" lineHeight="1.45" color="fg.muted">Declarado en los ingredientes.</Text>}
         </Bloque>
       </SimpleGrid>
 
       {/* Revisión por ingrediente: colapsada para no ocupar media pantalla. */}
-      {!!contenido?.fuentes.length && <chakra.details borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
+      {!!contenido?.fuentes.length && <chakra.details borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4">
         <Box as="summary" cursor="pointer" fontSize="sm" fontWeight="medium">Revisar alérgenos por ingrediente ({contenido.fuentes.length})</Box>
-        <SimpleGrid columns={{ base: 1, sm: 2, xl: 3 }} gap="2" mt="3">
-          {contenido.fuentes.map(f => <Text key={f.ingrediente_id} fontSize="sm">
-            <Link to={`/ingredientes/${f.ingrediente_id}/editar`}>Revisar alérgenos de {f.nombre}</Link>
-          </Text>)}
+        <SimpleGrid columns={{ base: 1, sm: 2, xl: 3 }} gap="3" mt="4">
+          {contenido.fuentes.map(f => <Button key={f.ingrediente_id} asChild size="sm" variant="outline" borderColor="border.emphasized"
+            h="auto" minH="9" py="1.5" justifyContent="space-between" whiteSpace="normal" textAlign="start">
+            <Link to={`/ingredientes/${f.ingrediente_id}/editar`} aria-label={`Revisar alérgenos de ${f.nombre}`}>{f.nombre} <LuArrowRight aria-hidden /></Link>
+          </Button>)}
         </SimpleGrid>
       </chakra.details>}
 
@@ -204,17 +206,17 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
 
       {borradorId > 0 && datos && <>
         {/* Contaminación cruzada (manual). */}
-        <Stack gap="3" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4">
+        <Stack gap="4" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4">
           <HStack justify="space-between" gap="2" flexWrap="wrap">
             <HStack gap="2"><Text fontWeight="semibold">Posible contaminación cruzada</Text><CampoOrigen origen="manual" /></HStack>
             <Button type="button" size="sm" variant="outline" onClick={() => { setCruzadas([...cruzadas, { codigo: "", fundamento: "", respaldo: "" }]); setSucio(true); }}>Agregar contaminación cruzada</Button>
           </HStack>
-          <Text fontSize="xs" color="fg.muted">Se registra por evaluación del proceso. La confirmación interna no sustituye la autorización sanitaria para utilizar “PUEDE CONTENER”.</Text>
-          {cruzadas.map((c, i) => <Stack key={i} gap="2" borderWidth="1px" borderColor="border.subtle" rounded="md" p="3">
+          <Text fontSize="13px" lineHeight="1.45" color="fg.muted">Se registra por evaluación del proceso. La confirmación interna no sustituye la autorización sanitaria para utilizar “PUEDE CONTENER”.</Text>
+          {cruzadas.map((c, i) => <Stack key={i} gap="3" borderWidth="1px" borderColor="border.subtle" rounded="md" p="4">
             <FormNativeSelect aria-label={`Alérgeno cruzado ${i + 1}`} value={c.codigo} onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, codigo: e.target.value } : v)); setSucio(true); }}>
               <option value="">Seleccioná una sustancia</option>{catalogo.map(s => <option key={s.codigo} value={s.codigo}>{s.nombre}</option>)}
             </FormNativeSelect>
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap="2">
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
               <Textarea aria-label={`Fundamento cruzado ${i + 1}`} placeholder="Fundamento de la evaluación" value={c.fundamento}
                 onChange={e => { setCruzadas(cruzadas.map((v, j) => j === i ? { ...v, fundamento: e.target.value } : v)); setSucio(true); }} />
               <Textarea aria-label={`Respaldo cruzado ${i + 1}`} placeholder="Referencia de autorización sanitaria" value={c.respaldo ?? ""}
@@ -225,8 +227,8 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
         </Stack>
 
         {/* Regenerar con otra versión: selector y botón en la misma fila. */}
-        <Stack gap="1">
-          <HStack align="end" gap="2" flexWrap="wrap">
+        <Stack gap="1.5">
+          <HStack align="end" gap="3" flexWrap="wrap">
             <Box flex="1 1 240px" maxW="360px">
               <FormField label="Versión para regenerar" mb="0"><FormNativeSelect aria-label="Versión para regenerar" value={versionId ?? ""} disabled={bloqueado}
                 onChange={e => setVersionId(Number(e.target.value) || undefined)}>
@@ -236,14 +238,14 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
             </Box>
             <Button type="button" variant="outline" disabled={bloqueado} onClick={() => operar(() => regenerarDeclaraciones(borradorId, datos.revision, versionId))}>Regenerar propuesta</Button>
           </HStack>
-          <Text fontSize="xs" color="fg.muted">Una versión posterior no modifica este rótulo hasta que la selecciones y regeneres. La versión debe coincidir con el lote.</Text>
+          <Text fontSize="13px" lineHeight="1.45" color="fg.muted">Una versión posterior no modifica este rótulo hasta que la selecciones y regeneres. La versión debe coincidir con el lote.</Text>
         </Stack>
 
-        <Box as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3"><Box as="summary" cursor="pointer" fontSize="sm" fontWeight="medium">Evaluaciones normativas documentadas</Box>
+        <Box as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4"><Box as="summary" cursor="pointer" fontSize="sm" fontWeight="medium">Evaluaciones normativas documentadas</Box>
           <Text fontSize="sm" mt="2">Para sulfitos, evaluá el umbral en el producto final. Una excepción requiere fundamento y respaldo; no se deduce del nombre o INS.</Text>
           {contenido?.detectados.map(d => {
             const evaluacion = evaluaciones.find(e => e.codigo === d.codigo);
-            return <Stack key={d.codigo} p="3" gap="2">
+            return <Stack key={d.codigo} pt="4" gap="3">
               <Text>{d.nombre}</Text>
               <FormNativeSelect aria-label={`Evaluación de ${d.nombre}`} value={!evaluacion ? "" : evaluacion.declarar ? "si" : "no"}
                 onChange={e => { setEvaluaciones([...evaluaciones.filter(v => v.codigo !== d.codigo), ...(e.target.value ? [{ codigo: d.codigo, declarar: e.target.value === "si", fundamento: "", respaldo: "" }] : [])]); setSucio(true); }}>
@@ -259,8 +261,8 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
       </>}
     </>}
 
-    {verConservacion && borradorId > 0 && datos && <Stack gap="4" pt={vista ? "0" : "4"} borderTopWidth={vista ? "0" : "1px"} borderColor="border.subtle">
-      <HStack justify="space-between" align="start" gap="3" flexWrap="wrap">
+    {verConservacion && borradorId > 0 && datos && <Stack gap="5" pt={vista ? "0" : "5"} borderTopWidth={vista ? "0" : "1px"} borderColor="border.subtle">
+      <HStack justify="space-between" align="center" columnGap="4" rowGap="3" flexWrap="wrap">
         <Stack gap="2">
           {!vista && <Text fontWeight="semibold">Condiciones de conservación</Text>}
           <CampoOrigen origen={sucio ? "manual" : contenido?.conservacion_origen ?? "producto"} />
@@ -277,7 +279,7 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
     {barraAcciones}
   </>;
 
-  if (vista) return <Stack data-declaraciones="true" gap="4" minW="0">{cuerpo}</Stack>;
+  if (vista) return <Stack data-declaraciones="true" gap="5" minW="0">{cuerpo}</Stack>;
   return <Stack as="section" data-declaraciones="true" gap="4" mb="6" p={{ base: "4", md: "6" }} borderWidth="1px" rounded="xl" bg="bg.panel">
     <Text as="h2" fontSize="lg" fontWeight="semibold" color="brand.fg">Alérgenos, gluten y conservación</Text>
     {cuerpo}
@@ -285,7 +287,7 @@ export function DeclaracionesSection({ borradorId, productoId, preview, formular
 }
 
 function Bloque({ titulo, cantidad, children }: { titulo: string; cantidad?: number; children: ReactNode }) {
-  return <Stack gap="2" minW="0" bg="bg.subtle" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
+  return <Stack gap="3" minW="0" bg="bg.subtle" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="4">
     <HStack gap="2"><Text fontWeight="semibold" fontSize="sm">{titulo}</Text>{cantidad != null && <Badge size="sm" variant="subtle">{cantidad}</Badge>}</HStack>
     {children}
   </Stack>;
@@ -293,7 +295,7 @@ function Bloque({ titulo, cantidad, children }: { titulo: string; cantidad?: num
 
 /** Aviso discreto de declaraciones pendientes (cabecera de la sección del editor). */
 export function AvisoDeclaracionesPendientes() {
-  return <Alert.Root status="warning" size="sm" variant="subtle" rounded="lg">
+  return <Alert.Root status="warning" size="sm" variant="subtle" rounded="lg" px="4" py="2.5" alignItems="center">
     <Alert.Indicator />
     <Alert.Title fontWeight="normal">Declaraciones pendientes de revisión o confirmación.</Alert.Title>
   </Alert.Root>;

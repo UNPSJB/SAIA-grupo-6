@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Badge, Box, Button, HStack, Stack, Table, Text, Textarea } from "@chakra-ui/react";
+import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
 import { CuadroNutricional, type FilaCuadro } from "../../nutricion/components/TablaNutricional";
 
 function objeto(valor: unknown): Record<string, unknown> | null {
@@ -12,21 +12,16 @@ function texto(valor: unknown): string {
  * `compacta`: tabla más apretada y sin la insignia de estado (el editor la
  * muestra en la cabecera de su sección, junto al botón de origen).
  */
-export function ResumenNutricional({ valor, onCambio, enlaceOrigen, compacta = false }: { valor: string; onCambio: (valor: string) => void; enlaceOrigen?: string; compacta?: boolean }) {
+export function ResumenNutricional({ valor, enlaceOrigen, compacta = false }: { valor: string; enlaceOrigen?: string; compacta?: boolean }) {
   let datos: Record<string, unknown> | null = null;
-  try { datos = objeto(JSON.parse(valor)); } catch { /* Se conserva el original en el detalle técnico. */ }
+  try { datos = objeto(JSON.parse(valor)); } catch { /* Ilegible: se muestra sin filas. */ }
   const faltanDatos = datos?.estado !== "completa"
     || (Array.isArray(datos?.filas) && datos.filas.some(fila => objeto(fila)?.faltan_datos === true));
-  return <Stack gap="4">
+  return <Stack gap="5">
     {enlaceOrigen && faltanDatos && <Button asChild variant="outline" size="sm" alignSelf="start">
       <Link to={enlaceOrigen}>Abrir información nutricional del producto</Link>
     </Button>}
     <TablaInstantaneaNutricional datos={datos} previsualizacion={compacta} sinEstado={compacta} />
-    <Box as="details" borderWidth="1px" borderColor="border.subtle" rounded="lg" p="3">
-      <Box as="summary" cursor="pointer" fontSize="sm" color="fg.muted">Detalle técnico · JSON nutricional</Box>
-      <Text fontSize="xs" color="fg.muted" mt="3" mb="2">Instantánea guardada en este rótulo. Su edición no modifica la información nutricional del producto.</Text>
-      <Textarea aria-label="Datos nutricionales (JSON)" value={valor} onChange={e => onCambio(e.target.value)} fontFamily="mono" fontSize="xs" minH="200px" resize="vertical" spellCheck={false} />
-    </Box>
   </Stack>;
 }
 
@@ -39,7 +34,7 @@ export function TablaInstantaneaNutricional({ datos, estado, previsualizacion = 
   const filas = Array.isArray(datos?.filas) ? datos.filas.map(objeto).filter(f => f !== null) : [];
   const estadoMostrado = estado ?? datos?.estado;
   return filas.length > 0 ? <Box borderWidth="1px" borderColor="border.subtle" rounded="lg" overflow="hidden">
-      <HStack bg="bg.subtle" p={previsualizacion ? "2" : "4"} justify="space-between" flexWrap="wrap" gap="3">
+      <HStack bg="bg.subtle" px={previsualizacion ? "3" : "4"} py={previsualizacion ? "2.5" : "4"} justify="space-between" flexWrap="wrap" gap="3">
         <Box>{!previsualizacion && <Text fontWeight="semibold">Información por porción</Text>}
           <Text fontSize="sm" color="fg.muted">Porción: {texto(datos?.porcion)} {texto(datos?.expresar_en)}{datos?.medida_casera ? ` · ${texto(datos.medida_casera)}` : ""}</Text></Box>
         {!sinEstado && typeof estadoMostrado === "string" && <Badge colorPalette={estadoMostrado === "completa" ? "green" : "orange"}>{estadoMostrado === "completa" ? "Datos completos" : "Datos incompletos"}</Badge>}
@@ -51,7 +46,7 @@ export function TablaInstantaneaNutricional({ datos, estado, previsualizacion = 
             "& :is(th, td)": { paddingBlock: "1", paddingInline: { base: "1.5", md: "3" }, lineHeight: "short", whiteSpace: "normal" },
             "& td:not(:first-of-type)": { whiteSpace: { base: "normal", md: "nowrap" }, fontVariantNumeric: "tabular-nums" },
           } : undefined}>
-        <Table.Caption p={previsualizacion ? "2" : "3"} textAlign="start">Instantánea de la información nutricional. VD: valor diario.</Table.Caption>
+        <Table.Caption px="3" py={previsualizacion ? "2.5" : "3"} textAlign="start">Instantánea de la información nutricional. VD: valor diario.</Table.Caption>
         <Table.Header><Table.Row>
           <Table.ColumnHeader minW={{ base: "0", md: previsualizacion ? "140px" : "180px" }} w={previsualizacion ? "38%" : undefined}>Nutriente</Table.ColumnHeader>
           <Table.ColumnHeader minW={{ base: "0", md: previsualizacion ? "105px" : "130px" }} textAlign="end">Por 100 {texto(datos?.expresar_en)}</Table.ColumnHeader>

@@ -99,6 +99,12 @@ class BorradorRotuladoOut(BorradorRotuladoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BorradorRotuladoListado(BorradorRotuladoOut):
+    # Calculado al consultar (no depende del `estado` guardado) y solo si se
+    # pide: cuesta demasiado para el listado de todos los productos.
+    completo: Optional[bool] = None
+
+
 class AutocompletarIn(BaseModel):
     version_id: Optional[int] = Field(default=None, gt=0)
     lote_id: Optional[int] = Field(default=None, gt=0)

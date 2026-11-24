@@ -352,6 +352,56 @@ def test_completitud_y_completado_exigen_confirmacion(escenario):
     assert campo.estado == "completo"
 
 
+def test_listado_calcula_si_el_rotulo_esta_completo(escenario, monkeypatch):
+    from datetime import date
+    from src.common.fechas import ahora
+    from src.lotes.models import LoteProducto
+    from tests.produccion_helpers import tabla_nutricional
+    db, producto, _, version, borrador, admin, _ = escenario
+    lote = LoteProducto(producto=producto, version_receta=version, numero_lote="L-1", cantidad_objetivo=10,
+                        estado="terminado", fecha_inicio=ahora(), fecha_cierre=ahora())
+    db.add(lote)
+    db.commit()
+    hoy = date.today()
+    services.actualizar_borrador(db, borrador.id, schemas.BorradorRotuladoUpdate(
+        version_receta_id=version.id, lote_producto_id=lote.id, denominacion_venta="Mermelada",
+        lista_ingredientes="Frutilla", contenido_neto="454 g", rnpa_rppa="RNPA 07-123456", razon_social="SAIA",
+        domicilio="Calle 1", identificacion_lote="L-1", fecha_produccion=hoy, fecha_cierre=hoy,
+        fecha_duracion=hoy, instrucciones_uso="Lista para consumir",
+        datos_nutricionales_json=tabla_nutricional(version.id)), admin)
+    frontal = ["no_aplica", None, []]
+    monkeypatch.setattr(services, "_estado_frontal", lambda *_: tuple(frontal))
+
+    def completo():
+        # El listado de todos los productos no lo calcula.
+        assert services.listar_borradores(db, producto.id)[0].completo is None
+        fila, = services.listar_borradores(db, producto.id, con_completitud=True)
+        # Coincide con la completitud del editor.
+        assert fila.completo == (services.calcular_completitud(db, borrador.id).estado_global == "completo")
+        assert services.productos_con_rotulo_completo(db, [producto.id]) == ({producto.id} if fila.completo else set())
+        return fila.completo
+
+    assert not completo()
+    numero = servicio.regenerar(
+        db, borrador.id, RegenerarDeclaraciones(revision=servicio.consultar(db, borrador.id)["revision"]), admin,
+    )["revision"]
+    servicio.confirmar(db, borrador.id, RevisionEsperada(revision=numero), admin)
+    # No hace falta que nadie guarde el estado "completado".
+    assert borrador.estado == "borrador" and completo()
+    frontal[0] = "sin_definir"
+    assert not completo()
+    frontal[0] = "no_aplica"
+    # Una tabla con datos faltantes no cuenta como completa, y dice por qué.
+    for tabla, esperado in ((tabla_nutricional(version.id, faltan_datos=True), False), (tabla_nutricional(version.id), True)):
+        services.actualizar_borrador(
+            db, borrador.id, schemas.BorradorRotuladoUpdate(datos_nutricionales_json=tabla), admin)
+        campo = next(c for c in services.calcular_completitud(db, borrador.id).campos
+                     if c.nombre == "datos_nutricionales_json")
+        assert completo() is esperado and (campo.estado == "completo") is esperado and bool(campo.motivo) is not esperado
+    services.actualizar_borrador(db, borrador.id, schemas.BorradorRotuladoUpdate(contenido_neto=""), admin)
+    assert not completo()
+
+
 def test_revisiones_inmutables_y_archivado_conserva_historia(escenario):
     db, producto, _, _, borrador, admin, _ = escenario
     servicio.confirmar(db, borrador.id, RevisionEsperada(revision=1), admin)

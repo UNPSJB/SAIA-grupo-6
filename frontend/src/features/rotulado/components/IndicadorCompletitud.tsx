@@ -24,16 +24,28 @@ export function IndicadorCompletitud({
   const noAplicables = completitud.campos.filter(c => c.estado === "no_aplicable").length;
   const total = completos + pendientes.length;
   const porcentaje = total ? Math.round(completos / total * 100) : 0;
-  const progreso = <Box role="progressbar" aria-label="Completitud de campos aplicables" aria-valuenow={porcentaje} aria-valuemin={0} aria-valuemax={100} bg="bg.muted" rounded="full" overflow="hidden" h="2">
-    <Box w={`${porcentaje}%`} h="full" bg="green.500" transition="width 0.2s" />
+  const progreso = <Box role="progressbar" aria-label="Completitud de campos aplicables" aria-valuenow={porcentaje} aria-valuemin={0} aria-valuemax={100} w="full" bg={{ base: "blackAlpha.200", _dark: "whiteAlpha.200" }} rounded="full" overflow="hidden" h="1.5">
+    <Box w={`${porcentaje}%`} h="full" rounded="full" bg="green.500" transition="width 0.2s" />
   </Box>;
-  return <Box bg="bg.subtle" borderWidth="1px" borderColor="border.subtle" rounded="xl" p={compacto ? "3" : { base: "4", md: "6" }} mb={compacto ? "0" : "8"}>
-    <HStack justify="space-between" align="start" gap={compacto ? "2" : "4"} mb={compacto ? "0" : "4"} flexWrap="wrap">
+  return <Box bg="bg.subtle" borderWidth="1px" borderColor="border.subtle" rounded="xl" p={compacto ? "4" : { base: "4", md: "6" }} mb={compacto ? "0" : "8"}>
+    <HStack justify="space-between" align={compacto ? "center" : "start"} gap={compacto ? "2" : "4"} mb={compacto ? "0" : "4"} flexWrap="wrap">
       <Box><Text fontWeight="semibold">{titulo}</Text>{!soloLectura && !compacto && <Text fontSize="sm" color="fg.muted">Se actualiza mientras completás el formulario.</Text>}</Box>
-      {compacto && <Text fontSize="sm">{completos} completos · {pendientes.length} pendientes · {noAplicables} no aplicables</Text>}
+      {/* Con barra (menú lateral, angosto) el resumen se ve como tres métricas
+          y la frase queda para lectores de pantalla. */}
+      {compacto && <Text fontSize="sm" lineHeight="1.5" srOnly={barra || undefined}>{completos} completos · {pendientes.length} pendientes · {noAplicables} no aplicables</Text>}
       {!sinInsignia && <Badge colorPalette={pendientes.length ? "orange" : "green"} rounded="full" px="3" py="1">{pendientes.length ? "En preparación" : "Datos completos"}</Badge>}
     </HStack>
-    {compacto && barra && <Box mt="3">{progreso}</Box>}
+    {compacto && barra && <>
+      <SimpleGrid aria-hidden columns={3} gap="2" mt="3">
+        {[[completos, "completos", "green.fg"], [pendientes.length, "pendientes", "orange.fg"], [noAplicables, "no aplican", "fg.muted"]].map(([valor, etiqueta, color]) =>
+          <Box key={etiqueta} minW="0">
+            <Text fontSize="lg" fontWeight="semibold" lineHeight="1.2" color={color as string} fontVariantNumeric="tabular-nums">{valor}</Text>
+            <Text fontSize="12px" lineHeight="1.4" color="fg.muted" whiteSpace="nowrap">{etiqueta}</Text>
+          </Box>
+        )}
+      </SimpleGrid>
+      <Box mt="3">{progreso}</Box>
+    </>}
     {!compacto && <>
     <SimpleGrid columns={{ base: 1, sm: 3 }} gap="3" mb="4">
       {[{ texto: `${completos} completos`, color: "green" }, { texto: `${pendientes.length} pendientes`, color: "orange" }, { texto: `${noAplicables} no aplicables`, color: "gray" }].map(item =>
@@ -45,7 +57,7 @@ export function IndicadorCompletitud({
     </>}
     {pendientes.length > 0 && <chakra.details mt={compacto ? "3" : "4"} open={(soloLectura && !compacto) || undefined}>
       <Box as="summary" cursor="pointer" fontSize="sm" fontWeight="medium">Ver campos pendientes ({pendientes.length})</Box>
-      <Stack gap="2" mt="3">{pendientes.map(campo => {
+      <Stack gap="2.5" mt="3">{pendientes.map(campo => {
         const destino = destinoPendiente?.(campo.nombre);
         return <HStack key={campo.nombre} gap="2" align="start" flexWrap="wrap">
         <Badge colorPalette={campo.estado === "sin_datos_origen" ? "blue" : "orange"} size="sm">{campo.estado === "sin_datos_origen" ? "Sin datos de origen" : "Pendiente"}</Badge>

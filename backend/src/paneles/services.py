@@ -68,8 +68,7 @@ from src.reclamos.constants import ETIQUETAS_MOTIVO_RECLAMO, MOTIVOS_RECLAMO
 from src.reclamos.models import Reclamo
 from src.retiros.constants import ESTADO_RETIRO_EN_CURSO
 from src.retiros.models import Retiro
-from src.rotulado.constants import ESTADO_COMPLETADO
-from src.rotulado.models import BorradorRotulado
+from src.rotulado.services import productos_con_rotulo_completo
 from src.salidas.constants import ESTADO_RECHAZADA, ESTADOS_SALIDA
 from src.salidas.models import Salida, formatear_cantidad
 from src.sector.models import Sector
@@ -281,13 +280,7 @@ def _catalogo_produccion(db: Session) -> schemas.CatalogoProduccion:
         ).all()
     )
     con_nutricion = set(db.scalars(select(InfoNutricionalProducto.producto_id)).all())
-    con_rotulo = set(
-        db.scalars(
-            select(BorradorRotulado.producto_id)
-            .where(BorradorRotulado.estado == ESTADO_COMPLETADO)
-            .distinct()
-        ).all()
-    )
+    con_rotulo = productos_con_rotulo_completo(db, ids)
 
     requisitos = (
         ("receta", "Con receta", "receta", con_receta),

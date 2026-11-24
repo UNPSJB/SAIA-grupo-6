@@ -721,8 +721,9 @@ PORCION_POR_PRODUCTO = {
 #   densidad / peso_unidad   se guardan en el Ingrediente (ver `_conversion_ingrediente`)
 #   anadidos / aporta        ver PerfilNutricionalIngrediente
 #
-# Quedan incompletos a propósito el orégano (sin datos) y el coco rallado
-# (sin fibra): la salsa de tomate y los alfajores muestran la advertencia.
+# Todo lo que lleva un producto que se vende está completo: sin su tabla
+# nutricional el rótulo queda a medias. La advertencia se ve en el pan con
+# sésamo en desarrollo (`seed_variaciones`).
 NUTRICION_INGREDIENTES = {
     "Harina 000": {"base": "Harina de trigo 000", "corregir": {"fibra": "3.1"}},
     "Azúcar común": {"base": "Azúcar blanca", "anadidos": True},
@@ -755,7 +756,7 @@ NUTRICION_INGREDIENTES = {
         "fuente": (FUENTE_PROVEEDOR, "Rótulo del proveedor, almidón de maíz"),
     },
     "Coco rallado": {
-        "valores": (660, 24, 7.4, 0, 6.9, 64.5, 57, 0, None, 37),
+        "valores": (660, 24, 7.4, 0, 6.9, 64.5, 57, 0, 16.3, 37),
         "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
     },
     # Aditivos que aportan sodio de forma relevante: solo energía y sodio.
@@ -777,8 +778,12 @@ NUTRICION_INGREDIENTES = {
         "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
     },
     "Sucralosa": {"edulcorantes": True},
+    "Orégano seco": {
+        "valores": (265, 26.4, 4.1, 0, 9, 4.3, 1.6, 0, 42.5, 25),
+        "fuente": (FUENTE_BIBLIOGRAFIA, "Tabla de composición de alimentos, valores aproximados"),
+    },
     # Esencia de vainilla, pectina, ácido cítrico y sorbato: aditivos sin
-    # datos (no son incompletos); el orégano queda sin cargar.
+    # datos (no son incompletos).
     "Esencia de vainilla": {"densidad": "0.88"},
 }
 
@@ -1083,24 +1088,122 @@ ACCIONES_CORRECTIVAS = [
 DATOS_ROTULO = {
     "razon_social": "Alimentos del Sur S.A.",
     "domicilio": "Parque Industrial, Trelew, Chubut, Argentina",
-    "instrucciones": [
-        "Conservar refrigerado entre 2 °C y 8 °C. Una vez abierto, consumir dentro de las 48 horas.",
-        "Conservar en lugar fresco y seco. Mantener el envase cerrado.",
-        "Mantener congelado a -18 °C. No volver a congelar una vez descongelado.",
-    ],
-    "contenidos": ["250 g", "500 g", "1 kg", "750 ml", "6 unidades"],
 }
 
-CONSERVACIONES_ROTULO = [
-    {"instrucciones": "Conservar en lugar fresco y seco. Mantener el envase cerrado."},
-    {
-        "instrucciones": "Conservar refrigerado entre 2 °C y 8 °C.",
+# Lo que va en el rótulo y no sale de la receta, por producto base (los
+# derivados, como "Pan de molde blanco Especial", usan los del suyo). Entre
+# todos cubren las formas de la conservación: sin temperatura, solo mínima, solo
+# máxima o rango; vida útil en horas, días y meses, y condiciones después de abrir.
+_MERMELADA = {
+    "contenido": "454 g",
+    "uso": "Lista para consumir. Usar un utensilio limpio y seco.",
+    "conservacion": {
+        "instrucciones": "Conservar en lugar fresco y seco, al abrigo de la luz.",
         "temperatura_aplicable": True,
-        "temperatura_minima": 2,
-        "temperatura_maxima": 8,
+        "temperatura_maxima": 25,
+        "duracion_aplicable": True,
+        "duracion": 12,
+        "unidad_duracion": "meses",
+        "despues_abrir_aplicable": True,
+        "despues_abrir": {
+            "instrucciones": "Mantener refrigerada y bien tapada.",
+            "temperatura_aplicable": True,
+            "temperatura_minima": 2,
+            "temperatura_maxima": 8,
+            "duracion_aplicable": True,
+            "duracion": 30,
+            "unidad_duracion": "dias",
+        },
     },
-    {"instrucciones": "Mantener congelado a -18 °C. No volver a congelar una vez descongelado."},
-]
+}
+ROTULO_PRODUCTOS = {
+    "Mermelada de frutilla": _MERMELADA,
+    "Mermelada de durazno": _MERMELADA,
+    "Pan de molde blanco": {
+        "contenido": "600 g",
+        "uso": "Listo para consumir. Se puede tostar de cada lado hasta dorar.",
+        "conservacion": {
+            "instrucciones": "Conservar en lugar fresco y seco. Mantener la bolsa cerrada.",
+            "duracion_aplicable": True,
+            "duracion": 7,
+            "unidad_duracion": "dias",
+        },
+    },
+    "Budín de vainilla": {
+        "contenido": "450 g",
+        "uso": "Listo para consumir. Cortar en rodajas.",
+        "conservacion": {
+            "instrucciones": "Conservar en lugar fresco y seco.",
+            "temperatura_aplicable": True,
+            "temperatura_minima": 10,
+            "temperatura_maxima": 25,
+            "duracion_aplicable": True,
+            "duracion": 30,
+            "unidad_duracion": "dias",
+            "despues_abrir_aplicable": True,
+            "despues_abrir": {
+                "instrucciones": "Cerrar el envase y consumir a la brevedad.",
+                "duracion_aplicable": True,
+                "duracion": 72,
+                "unidad_duracion": "horas",
+            },
+        },
+    },
+    "Dulce de leche familiar": {
+        "contenido": "1 kg",
+        "uso": "Listo para consumir. Revolver antes de usar.",
+        "conservacion": {
+            "instrucciones": "Conservar en lugar fresco y seco hasta abrir.",
+            "temperatura_aplicable": True,
+            "temperatura_minima": 5,
+            "despues_abrir_aplicable": True,
+            "despues_abrir": {
+                "instrucciones": "Mantener refrigerado y tapado.",
+                "temperatura_aplicable": True,
+                "temperatura_maxima": 8,
+            },
+        },
+    },
+    "Salsa de tomate": {
+        "contenido": "340 g",
+        "uso": "Calentar a fuego bajo durante 5 minutos, revolviendo.",
+        "conservacion": {
+            "instrucciones": "Conservar en lugar fresco y seco hasta abrir.",
+            "despues_abrir_aplicable": True,
+            "despues_abrir": {
+                "instrucciones": "Pasar a un recipiente de vidrio o plástico y refrigerar.",
+                "temperatura_aplicable": True,
+                "temperatura_minima": 2,
+                "temperatura_maxima": 8,
+                "duracion_aplicable": True,
+                "duracion": 48,
+                "unidad_duracion": "horas",
+            },
+        },
+    },
+    "Alfajor de maicena": {
+        "contenido": "12 unidades (1,44 kg)",
+        "uso": "Listo para consumir.",
+        "conservacion": {"instrucciones": "Conservar en lugar fresco y seco. Mantener el envase cerrado."},
+    },
+    "Galletitas de cacao": {
+        "contenido": "250 g",
+        "uso": "Listas para consumir.",
+        "conservacion": {
+            "instrucciones": "Conservar en lugar fresco y seco. Una vez abierto, guardar en un recipiente hermético.",
+        },
+    },
+}
+
+
+def _datos_rotulo(nombre: str) -> dict:
+    """Contenido neto, modo de uso y conservación del producto, según su base."""
+    base = next((b for b in ROTULO_PRODUCTOS if nombre.startswith(b)), "Alfajor de maicena")
+    return ROTULO_PRODUCTOS[base]
+
+
+def _conservacion_rotulo(nombre: str) -> dict:
+    return ConservacionProducto(**_datos_rotulo(nombre)["conservacion"]).model_dump(mode="json")
 
 
 def _preparar_declaraciones_rotulado(db, producto, version) -> None:
@@ -1110,7 +1213,7 @@ def _preparar_declaraciones_rotulado(db, producto, version) -> None:
     `ingredientes_alergenos` y el gluten sale de si contiene un cereal con gluten.
     """
     if not producto.conservacion:
-        producto.conservacion = random.choice(CONSERVACIONES_ROTULO)
+        producto.conservacion = _conservacion_rotulo(producto.nombre)
     for linea in version.ingredientes:
         _evaluar_alergenos_ficticio(db, linea.ingrediente)
     db.commit()
@@ -3143,9 +3246,7 @@ def crear_productos_y_recetas(
         vistos["producto"].add(nombre)
         producto = Producto(
             nombre=nombre,
-            conservacion=ConservacionProducto(
-                **ciclar(CONSERVACIONES_ROTULO, i)
-            ).model_dump(mode="json"),
+            conservacion=_conservacion_rotulo(nombre),
             descripcion=f"Elaborado según la receta de {base.lower()}.",
             unidad_medida_id=unidades[plantilla["unidad"]].id,
             activo=i == 0 or not bernoulli(0.07),
@@ -3252,13 +3353,11 @@ def crear_datos_nutricionales(db, ingredientes: dict, productos: list, admins: l
         resumen["valores"] += cargados
         resumen["ingredientes"] += int(cargados > 0)
 
-    # Porción declarada: casi todos los productos; ~10 % queda sin declarar
-    # para que se vea el aviso de "falta la porción".
+    # Porción declarada de todo lo que se elabora: sin ella el rótulo queda a
+    # medias. El aviso de "falta la porción" se ve en el pan con sésamo.
     for producto in productos:
         base = next((b for b in NUTRICION_PRODUCTOS if producto.nombre.startswith(b)), None)
         if base is None or db.get(InfoNutricionalProducto, producto.id) is not None:
-            continue
-        if producto.nombre != base and bernoulli(0.1):
             continue
         datos = NUTRICION_PRODUCTOS[base]
         db.add(InfoNutricionalProducto(
@@ -3799,12 +3898,13 @@ def rotular_lote(db, lote_id: int, fecha_duracion: date, usuario) -> int:
         usuario,
     ).id
     rotulado_services.autocompletar_borrador(db, borrador_id, lote.version_receta_id, lote_id, False, usuario)
+    datos = _datos_rotulo(lote.producto.nombre)
     rotulado_services.actualizar_borrador(
         db, borrador_id,
         BorradorRotuladoUpdate(
-            contenido_neto=random.choice(DATOS_ROTULO["contenidos"]),
+            contenido_neto=datos["contenido"],
             rnpa_rppa=f"RNPA 07-{random.randint(100000, 999999)}",
-            instrucciones_uso=random.choice(DATOS_ROTULO["instrucciones"]),
+            instrucciones_uso=datos["uso"],
             fecha_duracion=fecha_duracion,
         ),
         usuario,
@@ -3957,7 +4057,8 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
         for lote_id, cierre, unidad in elegidos:
             vencimiento = vencidos.get(lote_id)
             # Sin rotulado completo el lote no se vende.
-            rotular_lote(db, lote_id, vencimiento or cierre + timedelta(days=180), actor())
+            vence = vencimiento or db.get(LoteProducto, lote_id).fecha_vencimiento
+            rotular_lote(db, lote_id, vence or cierre + timedelta(days=180), actor())
             cuenta["rotulados"] = cuenta.get("rotulados", 0) + 1
             for _ in range(random.randint(1, 4)):
                 saldo = salidas_services.calcular_cantidades_lote(db, lote_id)["saldo"]
@@ -4218,6 +4319,28 @@ def crear_rotulado(db, cantidad: int, productos: list) -> dict:
         return cuenta
     print("⏳ Generando borradores de rotulado...")
 
+    # Todo producto con un lote terminado tiene al menos un rótulo completo.
+    con_completo = set(db.scalars(
+        select(BorradorRotulado.producto_id).where(BorradorRotulado.estado == ESTADO_COMPLETADO)
+    ).all())
+    for producto_id in [p.id for p in productos if p.id not in con_completo]:
+        lote = db.scalar(
+            select(LoteProducto)
+            .where(
+                LoteProducto.producto_id == producto_id,
+                LoteProducto.estado == ESTADO_TERMINADO,
+                LoteProducto.version_receta_id.is_not(None),
+            )
+            .order_by(LoteProducto.fecha_inicio.desc())
+        )
+        if lote is None:
+            continue
+        usuario = random.choice(admins)
+        db.info["usuario_id"] = usuario.id
+        rotular_lote(db, lote.id, lote.fecha_vencimiento or HOY + timedelta(days=180), usuario)
+        cuenta["borradores"] += 1
+        cuenta["completados"] += 1
+
     for producto in random.sample(productos, min(len(productos), max(3, cantidad // 2))):
         producto_id = producto.id
         version = db.scalar(
@@ -4254,17 +4377,18 @@ def crear_rotulado(db, cantidad: int, productos: list) -> dict:
         rotulado_services.autocompletar_borrador(db, borrador_id, version_id, lote_id, False, usuario)
         cuenta["borradores"] += 1
 
+        datos = _datos_rotulo(producto.nombre)
         # Un tercio queda solo autocompletado; el resto recibe los datos que
         # no salen de ningún lado (RNPA, elaborador, contenido neto...).
         if bernoulli(0.33):
             continue
         completo = bernoulli(0.6)
         cambios = {
-            "contenido_neto": random.choice(DATOS_ROTULO["contenidos"]),
+            "contenido_neto": datos["contenido"],
             "rnpa_rppa": f"RNPA 07-{random.randint(100000, 999999)}",
             "razon_social": DATOS_ROTULO["razon_social"],
             "domicilio": DATOS_ROTULO["domicilio"],
-            "instrucciones_uso": random.choice(DATOS_ROTULO["instrucciones"]),
+            "instrucciones_uso": datos["uso"],
         }
         # Solo los campos que se tocan: el service aplica todo lo que venga
         # en el cuerpo, y un `estado=None` explícito pisaría el estado.

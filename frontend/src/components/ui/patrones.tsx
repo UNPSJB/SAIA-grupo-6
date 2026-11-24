@@ -1370,9 +1370,12 @@ export function BotonVolver(props: ButtonProps) {
 export function BannerError({
   children,
   mb = "6",
+  py = "3",
 }: {
   children: ReactNode;
   mb?: string;
+  /** Alto del banner; "2.5" para avisos de un renglón dentro de una ficha. */
+  py?: string;
 }) {
   // Al aparecer (o cambiar el mensaje) se trae a la vista: en formularios
   // largos el banner queda arriba y quien tocó "Guardar" abajo no veía el error
@@ -1400,7 +1403,7 @@ export function BannerError({
       borderColor="red.border"
       rounded="md"
       px="4"
-      py="3"
+      py={py}
       mb={mb}
       fontSize="sm"
       fontWeight="medium"

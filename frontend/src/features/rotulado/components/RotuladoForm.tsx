@@ -1,6 +1,6 @@
 import { AvisoDeclaracionesPendientes, DeclaracionesSection, type EstadoConservacion } from "./DeclaracionesSection";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Badge, Box, Button, Grid, Heading, HStack, SimpleGrid, Stack, Text, Textarea, chakra } from "@chakra-ui/react";
+import { Badge, Box, Button, Grid, Heading, HStack, SimpleGrid, Stack, Text, Textarea, chakra, type TextProps } from "@chakra-ui/react";
 import { Link } from "react-router-dom";
 import { LuArrowLeft, LuArrowRight, LuCheck } from "react-icons/lu";
 import {
@@ -24,7 +24,7 @@ import { ResumenNutricional } from "./ResumenNutricional";
 import type { BorradorRotuladoOut } from "../types/rotulado";
 import { OrdenListaIngredientes } from "../../recetas/components/OrdenListaIngredientes";
 import { previewAutocompletado } from "../services/rotuladoService";
-import { EstadoAlergenos } from "./ListaIngredientesRotulo";
+import { evaluarNutricion } from "../utils/nutricionRotulo";
 import { armarTextoRotulo, declaracionEfectiva, type ResumenDeclaracion } from "../utils/textoRotulo";
 import { evaluarRotulado } from "../../rotuladoFrontal/services/rotuladoFrontalService";
 
@@ -63,6 +63,25 @@ const ID_DE_CAMPO: Record<string, string> = {
   denominacion: "denominacion_venta", ingredientes: "lista_ingredientes", contenido: "contenido_neto",
   rnpa: "rnpa_rppa", razonSocial: "razon_social", duracion: "fecha_duracion",
 };
+
+/*
+ * Etiquetas y textos de ayuda de los campos, solo dentro del editor: los
+ * componentes compartidos (`FormField`) no cambian en el resto de la app.
+ */
+const ESTILO_CAMPOS = {
+  "& [data-scope=field][data-part=label]": { color: "fg", lineHeight: "1.4" },
+  "& [data-scope=field][data-part=helper-text]": {
+    marginTop: "0", fontSize: "13px", lineHeight: "1.45", color: "fg.muted",
+  },
+  "& :is(input:not([type=checkbox]), select)": { minHeight: "40px" },
+  "& textarea": { paddingInline: "3", paddingBlock: "2.5", lineHeight: "1.5" },
+  "& input[type=checkbox]": { width: "16px", height: "16px", flexShrink: 0 },
+};
+
+/** Texto de ayuda suelto, con el mismo aspecto que el de los campos. */
+function Ayuda(props: TextProps) {
+  return <Text fontSize="13px" lineHeight="1.45" color="fg.muted" {...props} />;
+}
 
 function seccionDelFragmento(): SeccionId {
   const id = typeof window === "undefined" ? "" : window.location.hash.slice(1);
@@ -280,7 +299,8 @@ export function RotuladoForm({
     campos.push({ nombre, etiqueta, estado: !loteSeleccionado ? "no_aplicable" : values[nombre] ? "completo" : "pendiente" });
   }
   campos.push({ nombre: "instrucciones_uso", etiqueta: "Instrucciones de uso", estado: values.instrucciones_uso?.trim() ? "completo" : "pendiente" });
-  campos.push({ nombre: "datos_nutricionales_json", etiqueta: "Informaci\u00f3n nutricional", estado: values.datos_nutricionales_json?.trim() ? "completo" : "sin_datos_origen" });
+  const nutricion = evaluarNutricion(values.datos_nutricionales_json, versionFrontal);
+  campos.push({ nombre: "datos_nutricionales_json", etiqueta: "Informaci\u00f3n nutricional", ...nutricion });
 
   campos.push({ nombre: "declaraciones", etiqueta: "Declaraciones", estado: declaracionesPendientes ? "pendiente" : "completo" });
   if (frontal) {
@@ -373,14 +393,12 @@ export function RotuladoForm({
   const siguiente = SECCIONES[indice + 1];
   const visible = (id: SeccionId) => (seccion === id ? undefined : "none");
 
-  // Estado de la tabla guardada, para la cabecera de la sección nutricional.
-  const estadoNutricion = leerEstadoNutricion(values.datos_nutricionales_json);
   const enlaceNutricion = borrador && !esCreacion && borrador.version_receta_id != null
     ? `/productos/${borrador.producto_id}/informacion-nutricional?version_id=${borrador.version_receta_id}`
     : undefined;
 
   return (
-    <Box as="form" id="rotulado-form" onSubmit={handleSubmit} onChangeCapture={e => { if (!(e.target as HTMLElement).closest("[data-declaraciones]")) setFormularioSucio(true); }} {...SIN_VALIDACION_NATIVA}>
+    <Box as="form" id="rotulado-form" onSubmit={handleSubmit} onChangeCapture={e => { if (!(e.target as HTMLElement).closest("[data-declaraciones]")) setFormularioSucio(true); }} css={ESTILO_CAMPOS} {...SIN_VALIDACION_NATIVA}>
       {/* Encabezado fijo: título, estado y acciones globales. */}
       {/* `top` negativo = relleno del <main>: así no asoma contenido por arriba
           del encabezado al desplazarse (el relleno extra compensa lo que queda
@@ -389,11 +407,11 @@ export function RotuladoForm({
         pt={{ base: "calc(8px + 0.75rem)", md: "calc(15px + 0.75rem)" }} mt={{ base: "-8px", md: "-15px" }} pb="3" mb="4"
         borderBottomWidth="1px" borderColor="border.subtle">
         <HStack justify="space-between" align="center" gap="3" flexWrap="wrap">
-          <HStack gap="3" minW="0" flexWrap="wrap">
-            <Heading as="h1" size={{ base: "lg", md: "xl" }} lineClamp={{ base: 3, md: 1 }}>
+          <HStack gap="3" minW="0" flexWrap="wrap" align="center">
+            <Heading as="h1" fontSize={{ base: "18px", md: "21px" }} fontWeight="semibold" lineHeight="1.35" color="fg" lineClamp={{ base: 3, md: 1 }}>
               {esCreacion ? "Nuevo borrador de rotulado" : "Rotulado"} — {nombreParaMostrar}
             </Heading>
-            <Badge colorPalette={pendientesGlobales ? "orange" : "green"} rounded="full" px="3">
+            <Badge colorPalette={pendientesGlobales ? "orange" : "green"} rounded="full" px="3" py="1" lineHeight="1">
               {pendientesGlobales ? "En preparación" : "Datos completos"}
             </Badge>
           </HStack>
@@ -423,9 +441,9 @@ export function RotuladoForm({
 
       <AvisoFaltantes visible={intentado} faltantes={faltan.lista} />
 
-      <Grid templateColumns={{ base: "minmax(0, 1fr)", lg: "260px minmax(0, 1fr)" }} gap="5" alignItems="start">
+      <Grid templateColumns={{ base: "minmax(0, 1fr)", lg: "272px minmax(0, 1fr)" }} gap={{ base: "5", lg: "6" }} alignItems="start">
         {/* Menú lateral: progreso y secciones (arriba, en fila, en pantallas chicas). */}
-        <Stack gap="3" position={{ lg: "sticky" }} top={{ lg: "92px" }} minW="0">
+        <Stack gap="4" position={{ lg: "sticky" }} top={{ lg: "92px" }} minW="0">
           <IndicadorCompletitud compacto barra sinInsignia
             onIrA={campo => irASeccion(SECCION_DE_CAMPO[campo] ?? "producto", ID_DE_CAMPO[campo] ?? campo)}
             completitud={{
@@ -434,7 +452,7 @@ export function RotuladoForm({
             }}
           />
           <chakra.nav aria-label="Secciones del rótulo">
-            <Text fontSize="xs" color="fg.muted" mb="1" hideFrom="lg">
+            <Text fontSize="13px" color="fg.muted" mb="2" hideFrom="lg">
               Paso {indice + 1} de {SECCIONES.length}
             </Text>
             <Stack as="ul" ref={refPasos} listStyleType="none" m="0" p="0" direction={{ base: "row", lg: "column" }} gap="1"
@@ -445,10 +463,17 @@ export function RotuladoForm({
                 const activa = x.id === seccion;
                 return (
                   <Box as="li" key={x.id} flexShrink={0}>
-                    <Button type="button" variant={activa ? "subtle" : "ghost"} colorPalette={activa ? "brand" : "gray"}
-                      w={{ lg: "full" }} justifyContent="flex-start" gap="2" size="sm" fontWeight={activa ? "semibold" : "normal"}
+                    <Button type="button" variant="ghost" colorPalette={activa ? "brand" : "gray"}
+                      w={{ lg: "full" }} h="auto" minH="10" py="2.5" px="3" rounded="lg" justifyContent="flex-start" gap="2.5" size="sm"
+                      fontWeight={activa ? "medium" : "normal"} color={activa ? "brand.fg" : "fg"}
+                      bg={activa ? "brand.500/16" : undefined} _hover={{ bg: activa ? "brand.500/24" : "bg.subtle" }}
+                      // Indicador del paso activo: al costado en la lista, abajo en la fila de celular.
+                      boxShadow={activa ? {
+                        base: "inset 0 -2px 0 var(--chakra-colors-brand-fg)",
+                        lg: "inset 3px 0 0 var(--chakra-colors-brand-fg)",
+                      } : undefined}
                       aria-current={activa ? "step" : undefined} onClick={() => irASeccion(x.id)}>
-                      <Text as="span" color="fg.muted" fontVariantNumeric="tabular-nums">{i + 1}.</Text>
+                      <Text as="span" color={activa ? "inherit" : "fg.muted"} fontVariantNumeric="tabular-nums">{i + 1}.</Text>
                       <Text as="span" flex="1" textAlign="start">{x.titulo}</Text>
                       {est.tono === "ok" && <Box as="span" color="green.fg" aria-label="Completa"><LuCheck /></Box>}
                       {est.tono === "pendiente" && <Badge colorPalette="orange" size="sm" rounded="full" aria-label={`${est.cantidad} pendientes`}>{est.cantidad}</Badge>}
@@ -464,7 +489,7 @@ export function RotuladoForm({
         {/* Área de trabajo: solo la sección activa. */}
         <Box ref={contenidoRef} minW="0" scrollMarginTop="88px">
           <Seccion titulo="Producto e ingredientes" display={visible("producto")}>
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+            <SimpleGrid columns={{ base: 1, md: 2 }} columnGap="5" rowGap="6">
               <ConOrigen origen={<CampoOrigen origen="producto" />}>
                 <FormField id="denominacion_venta" label="Denominación de venta" required mb="0">
                   <FormInput
@@ -482,7 +507,7 @@ export function RotuladoForm({
                 />
               </FormField>
             </SimpleGrid>
-            <Stack gap="2">
+            <Stack gap="4">
               <ConOrigen origen={<CampoOrigen origen="receta" version={borrador?.version_receta_numero} />}>
                 <FormField id="lista_ingredientes" label="Ingredientes y aditivos" required mb="0">
                   <Textarea
@@ -496,12 +521,11 @@ export function RotuladoForm({
                 </FormField>
               </ConOrigen>
               {/* Barra de herramientas de la lista. */}
-              <HStack gap="3" flexWrap="wrap" align="center" bg="bg.subtle" rounded="lg" px="3" py="2">
-                <EstadoAlergenos declaracion={declaracion} />
-                <Text fontSize="xs" color="fg.subtle" flex="1 1 240px">
+              <HStack columnGap="4" rowGap="3" flexWrap="wrap" align="center" bg="bg.subtle" rounded="lg" p="3.5">
+                <Ayuda flex="1 1 260px">
                   Se arma sola con la receta. Lo único que se decide a mano es el orden entre insumos que pesan lo mismo.
-                </Text>
-                <Button size="xs" variant="outline" disabled={isLoading || !borrador} onClick={() => { void regenerarLista(); }}>
+                </Ayuda>
+                <Button size="xs" variant="outline" borderColor="border.emphasized" flexShrink={0} disabled={isLoading || !borrador} onClick={() => { void regenerarLista(); }}>
                   Volver a armar la lista con la receta
                 </Button>
               </HStack>
@@ -513,8 +537,8 @@ export function RotuladoForm({
           </Seccion>
 
           <Seccion titulo="Origen y establecimiento" display={visible("origen")}>
-            <Stack gap="2">
-              <SimpleGrid columns={{ base: 1, md: 3 }} gap="4" alignItems="end">
+            <Stack gap="3">
+              <SimpleGrid columns={{ base: 1, md: 3 }} columnGap="5" rowGap="6">
                 <FormField id="rnpa_rppa" label="RNPA / RPPA" required mb="0">
                   <FormInput
                     value={values.rnpa_rppa ?? ""}
@@ -541,17 +565,17 @@ export function RotuladoForm({
                   </FormField>
                 </ConOrigen>
               </SimpleGrid>
-              <Text fontSize="xs" color="fg.subtle">
+              <Ayuda>
                 RNPA/RPPA: dato declarado por el elaborador, sin verificación contra registros oficiales. Razón social y domicilio se autocompletan con los del establecimiento (Establecimientos).
-              </Text>
+              </Ayuda>
             </Stack>
-            <Stack gap="3" borderTopWidth="1px" borderColor="border.subtle" pt="4">
-              <HStack as="label" gap="2" align="center" alignSelf="start" cursor="pointer">
+            <Stack gap="5" borderTopWidth="1px" borderColor="border.subtle" pt="5">
+              <HStack as="label" gap="2.5" align="center" alignSelf="start" cursor="pointer">
                 <input type="checkbox" checked={values.es_importado ?? false} onChange={handleCambioEsImportado} />
                 <Text fontSize="sm" color="fg">¿Producto importado?</Text>
               </HStack>
               {values.es_importado && (
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                <SimpleGrid columns={{ base: 1, md: 2 }} columnGap="5" rowGap="6">
                   <FormField id="importador_razon_social" label="Razón social del importador" mb="0">
                     <FormInput
                       value={values.importador_razon_social ?? ""}
@@ -570,7 +594,7 @@ export function RotuladoForm({
           </Seccion>
 
           <Seccion titulo="Lote y fechas" display={visible("lote")}>
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+            <SimpleGrid columns={{ base: 1, md: 2 }} columnGap="5" rowGap="6">
               <FormField id="lote_producto" label="Lote de producción" required mb="0"
                 helper="Sin lote se puede guardar como modelo, pero el rótulo no queda completo.">
                 <FormNativeSelect
@@ -587,7 +611,7 @@ export function RotuladoForm({
                 </FormNativeSelect>
               </FormField>
               {loteSeleccionado && (
-                <ConOrigen origen={<CampoOrigen origen="lote" />}>
+                <ConOrigen origen={<CampoOrigen origen="lote" />} etiquetaLarga>
                   <FormField id="identificacion_lote" label="Identificación del lote (visible en rótulo)" mb="0">
                     <FormInput
                       value={values.identificacion_lote ?? ""}
@@ -598,11 +622,11 @@ export function RotuladoForm({
               )}
             </SimpleGrid>
             {loteAplicado && (
-              <Text fontSize="xs" color="fg.muted" role="status">
+              <Ayuda role="status">
                 Identificación y fechas completadas con los datos del lote {loteAplicado}. Podés ajustarlas antes de guardar.
-              </Text>
+              </Ayuda>
             )}
-            <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
+            <SimpleGrid columns={{ base: 1, md: 3 }} columnGap="5" rowGap="6">
               <FormField id="fecha_produccion" label="Fecha de producción" mb="0">
                 <FormInput type="date" value={values.fecha_produccion ?? ""}
                   onChange={(e) => setValues((prev) => ({ ...prev, fecha_produccion: e.target.value }))} />
@@ -632,9 +656,9 @@ export function RotuladoForm({
               {borrador?.version_receta_numero != null && (
                 <Text fontSize="sm" color="fg.muted">Versión de receta del borrador: {borrador.version_receta_numero}</Text>
               )}
-              {estadoNutricion && (
-                <Badge colorPalette={estadoNutricion === "completa" ? "green" : "orange"} rounded="full">
-                  {estadoNutricion === "completa" ? "Datos completos" : "Datos incompletos"}
+              {nutricion.estado !== "sin_datos_origen" && (
+                <Badge colorPalette={nutricion.estado === "completo" ? "green" : "orange"} rounded="full">
+                  {nutricion.estado === "completo" ? "Datos completos" : "Datos incompletos"}
                 </Badge>
               )}
             </>}
@@ -654,20 +678,17 @@ export function RotuladoForm({
             </>}
           >
             {onRecalcularNutricion && (
-              <Text fontSize="xs" color="fg.muted">Recalcular reemplaza la tabla guardada con un cálculo para la versión de receta del borrador.</Text>
+              <Ayuda>Recalcular reemplaza la tabla guardada con un cálculo para la versión de receta del borrador.</Ayuda>
             )}
             <Box as="aside" aria-label="Sellos de advertencia" rounded="lg" bg="brand.subtle"
-              borderStartWidth="3px" borderStartColor="brand.fg" px="3" py="2">
-              <HStack gap="2" flexWrap="wrap">
+              borderStartWidth="3px" borderStartColor="brand.fg" px="4" py="3">
+              <HStack columnGap="3" rowGap="1" flexWrap="wrap">
                 <Text fontWeight="semibold" fontSize="sm" color="brand.fg">Sellos de advertencia</Text>
                 <Text fontSize="sm">Consultar Octogonos en la previsualizacion del borrador</Text>
               </HStack>
-              {frontal?.motivo && <Text fontSize="xs" color="fg.muted" mt="1">Rotulado frontal: {frontal.motivo}</Text>}
+              {frontal?.motivo && <Ayuda mt="1.5">Rotulado frontal: {frontal.motivo}</Ayuda>}
             </Box>
-            <ResumenNutricional compacta
-              valor={values.datos_nutricionales_json ?? ""}
-              onCambio={(v) => setValues((prev) => ({ ...prev, datos_nutricionales_json: v }))}
-            />
+            <ResumenNutricional compacta valor={values.datos_nutricionales_json ?? ""} />
           </Seccion>
 
           {/* Alérgenos y conservación: un solo componente (misma revisión de declaraciones). */}
@@ -685,14 +706,14 @@ export function RotuladoForm({
           </Seccion>
 
           {/* Navegación entre secciones. */}
-          <HStack justify="space-between" mt="4" gap="2">
+          <HStack justify="space-between" mt="5" gap="3" flexWrap="wrap">
             {anterior ? (
-              <Button type="button" variant="ghost" size="sm" onClick={() => irASeccion(anterior.id)}>
+              <Button type="button" variant="outline" borderColor="border.emphasized" size="sm" onClick={() => irASeccion(anterior.id)}>
                 <LuArrowLeft /> {anterior.titulo}
               </Button>
             ) : <span />}
             {siguiente ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => irASeccion(siguiente.id)}>
+              <Button type="button" variant="outline" borderColor="border.emphasized" size="sm" ms="auto" onClick={() => irASeccion(siguiente.id)}>
                 {siguiente.titulo} <LuArrowRight />
               </Button>
             ) : <span />}
@@ -703,24 +724,22 @@ export function RotuladoForm({
   );
 }
 
-function leerEstadoNutricion(json: string | null | undefined): string | null {
-  try {
-    return (JSON.parse(json ?? "") as { estado?: string } | null)?.estado ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** Tarjeta de una sección del editor (solo se ve la activa). */
+/**
+ * Tarjeta de una sección del editor (solo se ve la activa). `display` cae en
+ * "flex" explícito: con `undefined`, el `Stack` pasaba a bloque y perdía toda
+ * la separación entre campos.
+ */
 function Seccion({ children, titulo, id, display, insignias, acciones }: {
   children: ReactNode; titulo: string; id?: string; display?: string; insignias?: ReactNode; acciones?: ReactNode;
 }) {
   return (
-    <Stack as="section" id={id} tabIndex={id ? -1 : undefined} aria-label={titulo} display={display} gap="5" minW="0"
-      p={{ base: "4", md: "6" }} borderWidth="1px" borderColor="border.subtle" rounded="xl" bg="bg.panel">
-      <HStack justify="space-between" align="start" gap="3" flexWrap="wrap" pb="3" borderBottomWidth="1px" borderColor="border.subtle">
-        <HStack gap="3" flexWrap="wrap" minW="0">
-          <Text as="h2" fontSize="lg" fontWeight="semibold" color="brand.fg">{titulo}</Text>
+    <Stack as="section" id={id} tabIndex={id ? -1 : undefined} aria-label={titulo} display={display ?? "flex"} gap="6" minW="0"
+      p={{ base: "5", md: "6", xl: "8" }} borderWidth="1px" borderColor="border.subtle" rounded="xl" bg="bg.panel"
+      // Un hijo que no muestra nada no suma separación.
+      css={{ "& > :empty": { display: "none" } }}>
+      <HStack justify="space-between" align="center" columnGap="4" rowGap="3" flexWrap="wrap" pb="3" borderBottomWidth="1px" borderColor="border.emphasized">
+        <HStack columnGap="3" rowGap="2" flexWrap="wrap" minW="0">
+          <Text as="h2" fontSize="18px" fontWeight="semibold" lineHeight="1.4" color="brand.fg">{titulo}</Text>
           {insignias}
         </HStack>
         {acciones && <HStack gap="2" flexWrap="wrap">{acciones}</HStack>}
@@ -732,17 +751,20 @@ function Seccion({ children, titulo, id, display, insignias, acciones }: {
 
 /**
  * Campo con su pill de origen a la derecha del label. Si la columna es
- * angosta (grilla de tres en pantallas medianas) la pill pasa arriba del
- * label en vez de taparlo.
+ * angosta (grilla de tres en pantallas medianas) la pill pasa abajo del
+ * control: no tapa el label y los campos de la fila siguen alineados.
  */
-function ConOrigen({ origen, children }: { origen: ReactNode; children: ReactNode }) {
+function ConOrigen({ origen, children, etiquetaLarga = false }: { origen: ReactNode; children: ReactNode; etiquetaLarga?: boolean }) {
+  const apilada = { position: "static", order: 2, marginTop: "6px" };
   return (
-    <Box position="relative" minW="0" css={{ containerType: "inline-size" }}>
-      <Box position="absolute" top="0" right="0" zIndex="1"
-        css={{ "@container (max-width: 320px)": { position: "static", marginTop: "8px", marginBottom: "4px" } }}>
+    <Box minW="0" css={{ containerType: "inline-size" }}>
+    <Stack position="relative" gap="0" minW="0">
+      <Box display="flex" position="absolute" top="-2px" right="0" zIndex="1"
+        css={etiquetaLarga ? { "@container (max-width: 380px)": apilada } : { "@container (max-width: 290px)": apilada }}>
         {origen}
       </Box>
       {children}
+    </Stack>
     </Box>
   );
 }

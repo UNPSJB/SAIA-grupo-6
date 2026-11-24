@@ -3,6 +3,7 @@ import { pedir } from "../../../common/api/errors";
 import type {
   AutocompletarIn,
   BorradorRotuladoCreate,
+  BorradorRotuladoListado,
   BorradorRotuladoOut,
   BorradorRotuladoUpdate,
   CampoEditadoOut,
@@ -14,11 +15,13 @@ const BASE = `${API_URL}/rotulado`;
 
 export async function listarBorradoresPorProducto(
   productoId: number,
-): Promise<BorradorRotuladoOut[]> {
+  /** Pide también si cada uno tiene sus datos completos (más lento). */
+  conCompletitud = false,
+): Promise<BorradorRotuladoListado[]> {
   const response = await apiFetch(
-    `${BASE}/productos/${productoId}/borradores`,
+    `${BASE}/productos/${productoId}/borradores${conCompletitud ? "?con_completitud=true" : ""}`,
   );
-  return pedir<BorradorRotuladoOut[]>(
+  return pedir<BorradorRotuladoListado[]>(
     response,
     "Error al obtener los borradores del producto",
   );

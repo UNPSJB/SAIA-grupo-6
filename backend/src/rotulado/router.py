@@ -18,17 +18,21 @@ router = APIRouter(
 
 @router.get(
     "/productos/{producto_id}/borradores",
-    response_model=list[schemas.BorradorRotuladoOut],
+    response_model=list[schemas.BorradorRotuladoListado],
 )
 def listar_borradores_por_producto(
     producto_id: int,
+    con_completitud: bool = Query(False),
     db: Session = Depends(get_db),
 ):
-    """Lista todos los borradores de rotulado de un producto."""
+    """Lista todos los borradores de rotulado de un producto.
+
+    Con `con_completitud` dice además si cada uno tiene sus datos completos.
+    """
     producto = db.get(__import__("src.productos.models", fromlist=["Producto"]).Producto, producto_id)
     if producto is None:
         raise ProductoNoEncontrado()
-    return services.obtener_borradores_por_producto(db, producto_id)
+    return services.listar_borradores(db, producto_id, con_completitud)
 
 
 @router.post(

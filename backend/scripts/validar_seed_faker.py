@@ -116,6 +116,19 @@ from src.rotulado.services import borrador_completo_del_lote as _rotulado_comple
 check("todo lote con salidas tiene su rotulado completo",
       all(_rotulado_completo(db, lote.id) is not None
           for lote in db.scalars(select(_LoteProducto)).all() if lote.salidas))
+from src.lotes.constants import ESTADO_TERMINADO as _TERMINADO  # noqa: E402
+from src.rotulado.constants import CAMPO_COMPLETO as _COMPLETO, ESTADO_COMPLETADO as _COMPLETADO  # noqa: E402
+from src.rotulado.models import BorradorRotulado as _Borrador  # noqa: E402
+from src.rotulado.services import previsualizar_borrador as _previsualizar  # noqa: E402
+
+_completados = db.scalars(select(_Borrador).where(_Borrador.estado == _COMPLETADO)).all()
+_a_medias = [b.id for b in _completados if _previsualizar(db, b.id).completitud.estado_global != _COMPLETO]
+check("todo rótulo completado tiene sus datos completos", bool(_completados) and not _a_medias, str(_a_medias[:5]))
+_sin_rotulo = {
+    lote.producto_id for lote in db.scalars(select(_LoteProducto).where(_LoteProducto.estado == _TERMINADO)).all()
+    if lote.producto.activo
+} - {b.producto_id for b in _completados}
+check("todo producto activo con lotes terminados tiene un rótulo completo", not _sin_rotulo, str(_sin_rotulo))
 _items_produccion = [i for lote in db.scalars(select(_LoteProducto)).all() for i in lote.checklist]
 check("cada tarea hecha y asignada la completó quien la tenía",
       all(i.completado_por_id == i.asignado_a_id
