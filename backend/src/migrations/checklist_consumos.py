@@ -21,13 +21,22 @@ def migrar_checklist_consumos() -> None:
     if not {"registro_tareas", "registro_tarea_consumos", "registro_tarea_elementos"} <= existentes:
         return
     columnas = columnas_de("registro_tareas")
+    # La fila nueva es de la misma sede que su tarea: sin esto el default de la
+    # columna la dejaba en la principal.
+    con_sede = "establecimiento_id" in columnas and all(
+        "establecimiento_id" in columnas_de(t)
+        for t in ("registro_tarea_consumos", "registro_tarea_elementos")
+    )
+    columna_sede = ", establecimiento_id" if con_sede else ""
+    valor_sede = ", r.establecimiento_id" if con_sede else ""
 
     with engine.begin() as conexion:
         if {"insumo_quimico_id", "cantidad_consumida"} <= columnas:
             conexion.execute(
                 text(
-                    "INSERT INTO registro_tarea_consumos (registro_tarea_id, insumo_quimico_id, cantidad) "
-                    "SELECT r.id, r.insumo_quimico_id, r.cantidad_consumida FROM registro_tareas r "
+                    "INSERT INTO registro_tarea_consumos "
+                    f"(registro_tarea_id, insumo_quimico_id, cantidad{columna_sede}) "
+                    f"SELECT r.id, r.insumo_quimico_id, r.cantidad_consumida{valor_sede} FROM registro_tareas r "
                     "WHERE r.insumo_quimico_id IS NOT NULL AND r.cantidad_consumida > 0 "
                     "AND NOT EXISTS (SELECT 1 FROM registro_tarea_consumos c "
                     "  WHERE c.registro_tarea_id = r.id AND c.insumo_quimico_id = r.insumo_quimico_id)"
@@ -42,8 +51,9 @@ def migrar_checklist_consumos() -> None:
         if "elemento_limpieza_id" in columnas:
             conexion.execute(
                 text(
-                    "INSERT INTO registro_tarea_elementos (registro_tarea_id, elemento_limpieza_id) "
-                    "SELECT r.id, r.elemento_limpieza_id FROM registro_tareas r "
+                    "INSERT INTO registro_tarea_elementos "
+                    f"(registro_tarea_id, elemento_limpieza_id{columna_sede}) "
+                    f"SELECT r.id, r.elemento_limpieza_id{valor_sede} FROM registro_tareas r "
                     "WHERE r.elemento_limpieza_id IS NOT NULL "
                     "AND NOT EXISTS (SELECT 1 FROM registro_tarea_elementos e "
                     "  WHERE e.registro_tarea_id = r.id AND e.elemento_limpieza_id = r.elemento_limpieza_id)"

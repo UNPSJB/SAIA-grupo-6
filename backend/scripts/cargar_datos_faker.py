@@ -81,6 +81,7 @@ from typing import Optional
 
 from faker import Faker
 from fastapi import HTTPException
+from PIL import Image
 from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
@@ -102,6 +103,7 @@ for _stream in (sys.stdout, sys.stderr):
 from src.config import settings
 from src.database import SessionLocal  # noqa: E402
 import src.all_models  # noqa: F401,E402  (registra los modelos)
+from scripts import seed_variaciones  # noqa: E402
 from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
@@ -139,6 +141,8 @@ from src.checklist.models import (  # noqa: E402
     Checklist,
     RegistroTarea,
     HistorialRegistroTarea,
+    RegistroTareaConsumo,
+    RegistroTareaElemento,
     EstadoChecklist,
 )
 from src.PlanCalibracionMantenimiento.models import (  # noqa: E402
@@ -148,6 +152,7 @@ from src.documentos.models import Documento, VersionDocumento  # noqa: E402
 from src.documentos.constants import TipoDocumento  # noqa: E402
 from src.documentos.pdf_generator import ContextoDocumento, generar_pdf_documento  # noqa: E402
 from src.proveedores.models import CertificacionProveedor, Proveedor  # noqa: E402
+from src.proveedores.services import obtener_certificacion_vigente  # noqa: E402
 from src.insumos.models import Insumo, ValorRotuloInsumo, proveedores_insumos  # noqa: E402
 from src.alergenos.constants import (  # noqa: E402
     EVALUACION_EVALUADA,
@@ -156,13 +161,33 @@ from src.alergenos.constants import (  # noqa: E402
 )
 from src.alergenos.models import Alergeno, IngredienteAlergeno, InsumoAlergeno  # noqa: E402
 from src.config import CARPETA_UPLOADS  # noqa: E402
-from src.notificaciones.models import ConfiguracionAlerta, NotificacionPersistida  # noqa: E402
+from src.notificaciones.models import (  # noqa: E402
+    ConfiguracionAlerta,
+    NotificacionLeida,
+    NotificacionPersistida,
+    SituacionRiesgo,
+)
+from src.planes_accion.models import (  # noqa: E402
+    AccionPlan,
+    EvidenciaPlan,
+    HistorialPlan,
+    PlanAccion,
+    RiesgoElementoPlan,
+    SituacionPlan,
+)
+from src.notificaciones.services import (  # noqa: E402
+    CLAVE_DIAS_VENCIMIENTO_PERSONAL,
+    CLAVE_META_CUMPLIMIENTO_LIMPIEZA,
+    CLAVE_PLAZO_RECLAMO_DIAS,
+)
+from src.reposiciones.models import Reposicion  # noqa: E402
 from src.notificaciones.invalidacion import (  # noqa: E402
     EstadoNotificaciones,
     asegurar_notificaciones_al_dia,
 )
 from src.productos.models import Producto  # noqa: E402
 from src.recetas.models import (  # noqa: E402
+    OrdenManualIngrediente,
     Receta,
     RecetaIngrediente,
     TareaReceta,
@@ -385,6 +410,43 @@ def pesos_desparejos(n: int) -> list:
     pesos = [1 / (i + 1) ** 0.9 for i in range(n)]
     random.shuffle(pesos)
     return pesos
+
+
+def ciclar(valores, indice: int):
+    """Los primeros recorren `valores` en orden (todos salen al menos una vez);
+    agotada la lista, al azar."""
+    valores = list(valores)
+    return valores[indice] if indice < len(valores) else random.choice(valores)
+
+
+def repartidor(valores, pesos=None):
+    """Función que entrega cada valor una vez y después sigue al azar.
+
+    Para motivos, medios y estados: con favoritos (`pesos`) pero sin que ninguna
+    variación se quede sin aparecer.
+    """
+    valores = list(valores)
+    pendientes = list(valores)
+
+    def siguiente():
+        if pendientes:
+            return pendientes.pop(0)
+        return random.choices(valores, weights=pesos)[0]
+
+    return siguiente
+
+
+def variados_primero(vocabulario, clave):
+    """Reordena para que los primeros elementos sean de clases distintas."""
+    vistas: set = set()
+    primeros, resto = [], []
+    for elemento in vocabulario:
+        if clave(elemento) in vistas:
+            resto.append(elemento)
+        else:
+            vistas.add(clave(elemento))
+            primeros.append(elemento)
+    return primeros + resto
 
 
 def bernoulli(p: float) -> bool:
@@ -913,6 +975,12 @@ MOTIVOS_CANCELACION_LOTE = [
     "Contaminación cruzada sospechada",
 ]
 
+# Foto mínima (un píxel) de las bajas: ese campo guarda la imagen en la fila.
+FOTO_DATA_URL = (
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+    "+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+
 OBSERVACIONES_BAJA_INSUMO = [
     "Detectado durante el control de stock.",
     "Producto apartado para descarte.",
@@ -1181,12 +1249,24 @@ def borrar_todo(db) -> None:
         AuditLog,
         # Caché derivada: se recalcula al final con lo recién cargado.
         NotificacionPersistida,
+        NotificacionLeida,
         EstadoNotificaciones,
+        # Planes de acción y el historial del motor que tratan: apuntan a
+        # elementos que se borran y cuyos ids se reutilizan.
+        EvidenciaPlan,
+        HistorialPlan,
+        RiesgoElementoPlan,
+        SituacionPlan,
+        AccionPlan,
+        PlanAccion,
+        SituacionRiesgo,
         # Circuito comercial (hijos primero): cuelga de lotes, productos,
         # incidentes y personal, así que se borra antes que todos ellos.
         CampoRotuladoEditado,
         RevisionDeclaracionRotulado,
         BorradorRotulado,
+        # Cuelga de retiros, incidentes, salidas, productos y clientes.
+        Reposicion,
         RetiroAfectado,
         Retiro,
         Reclamo,
@@ -1196,7 +1276,6 @@ def borrar_todo(db) -> None:
         CertificacionTransportista,
         Transportista,
         Cliente,
-        CertificacionProveedor,
         proveedores_insumos,
         # Historial de evaluaciones de rotulado: los productos se recrean.
         EvaluacionRotulado,
@@ -1215,6 +1294,8 @@ def borrar_todo(db) -> None:
         ChecklistProduccion,
         LoteProducto,
         LoteInsumo,
+        # La referencian los lotes de insumo.
+        CertificacionProveedor,
         # Las marcas compradas: cuelgan del ingrediente y las referencian los lotes.
         ValorRotuloInsumo,
         InsumoAlergeno,
@@ -1223,6 +1304,7 @@ def borrar_todo(db) -> None:
         IngredienteAlergeno,
         TareaRecetaIngrediente,
         RecetaIngrediente,
+        OrdenManualIngrediente,
         TareaReceta,
         VersionReceta,
         Receta,
@@ -1292,10 +1374,11 @@ def crear_unidades(db, vistos: dict) -> dict:
 def crear_configuracion_alertas(db):
     """Carga valores por defecto de configuración de alertas si no existen."""
     print("⏳ Cargando configuración de alertas...")
+    # Las claves que lee la aplicación (ver `src.notificaciones.services`).
     defaults = {
-        "vencimiento_proximo_dias": 7,
-        "alerta_calibracion_dias": 30,
-        "alerta_insumo_bajo_stock": 10,
+        CLAVE_DIAS_VENCIMIENTO_PERSONAL: 30,
+        CLAVE_PLAZO_RECLAMO_DIAS: 10,
+        CLAVE_META_CUMPLIMIENTO_LIMPIEZA: 95,
     }
     for clave, valor in defaults.items():
         existente = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": clave})
@@ -1365,6 +1448,15 @@ def crear_personal(
     return personas
 
 
+DESCRIPCION_SECTOR = {
+    "Cocina": "Cocción y preparación de alimentos.",
+    "Cámara": "Conservación en frío de materias primas y productos.",
+    "Laboratorio": "Control de calidad y pesaje de precisión.",
+    "Zona de elaboración": "Elaboración, amasado y envasado.",
+    "Lavadero": "Lavado de utensilios y recipientes.",
+}
+
+
 def obtener_o_crear_sector(db, nombre: str) -> Sector:
     """Devuelve el sector con ese nombre, creándolo si no existe.
 
@@ -1374,7 +1466,10 @@ def obtener_o_crear_sector(db, nombre: str) -> Sector:
     """
     sector = db.scalar(select(Sector).where(Sector.nombre == nombre))
     if sector is None:
-        sector = Sector(nombre=nombre, activo=True)
+        sector = Sector(
+            nombre=nombre, descripcion=DESCRIPCION_SECTOR.get(nombre, f"Sector de {nombre.lower()}."),
+            activo=True,
+        )
         db.add(sector)
         db.flush()
     return sector
@@ -1383,19 +1478,22 @@ def obtener_o_crear_sector(db, nombre: str) -> Sector:
 def crear_equipos(db, cantidad: int, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} equipos...")
     equipos = []
-    for _ in range(cantidad):
-        base, tipo, ubicacion = random.choice(VOCAB_EQUIPOS)
+    vocabulario = variados_primero(VOCAB_EQUIPOS, lambda e: e[1])
+    for i in range(cantidad):
+        base, tipo, ubicacion = ciclar(vocabulario, i)
         nombre = unico(lambda: f"{base} {random.randint(1, 30)}", vistos["equipo"], largo=100)
         # Los equipos de medición se calibran; los de proceso, no necesariamente.
         frecuencia = random.choice([None, 90, 180, 365]) if tipo == "Medición" else random.choice(
             [None, None, 180, 365]
         )
+        if i == 0:
+            frecuencia = 180  # el primero, completo
         equipos.append(
             Equipo(
                 nombre=recortar(nombre, 100),
                 tipo=tipo,
                 sector_id=obtener_o_crear_sector(db, ubicacion).id,
-                activo=not bernoulli(0.06),
+                activo=i == 0 or not bernoulli(0.06),
                 frecuencia_calibracion_dias=frecuencia,
             )
         )
@@ -1407,8 +1505,8 @@ def crear_equipos(db, cantidad: int, vistos: dict) -> list:
 def crear_aptitudes(db, cantidad: int, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} aptitudes...")
     aptitudes = []
-    for _ in range(cantidad):
-        base, descripcion = random.choice(VOCAB_APTITUDES)
+    for i in range(cantidad):
+        base, descripcion = ciclar(VOCAB_APTITUDES, i)
         nombre = unico(
             lambda: recortar(solo_letras(f"{base} {random.choice('ABC')}"), 60),
             vistos["aptitud"],
@@ -1418,7 +1516,7 @@ def crear_aptitudes(db, cantidad: int, vistos: dict) -> list:
             Aptitud(
                 nombre=nombre,
                 descripcion=recortar(descripcion, 255),
-                activo=not bernoulli(0.06),
+                activo=i == 0 or not bernoulli(0.06),
             )
         )
     db.add_all(aptitudes)
@@ -1432,24 +1530,26 @@ def crear_vencimientos(db, personas, aptitudes) -> int:
     total = 0
     asignadas: dict = {}
 
-    for persona in personas:
-        if not aptitudes or bernoulli(0.15):
+    # Plazos: el primero vigente; los siguientes recorren todos los estados.
+    plazo = repartidor([365, 5, -10, 15, 30, 60, 90, 180, -45])
+    for indice, persona in enumerate(personas):
+        if not aptitudes or (indice > 3 and bernoulli(0.15)):
             continue
         usadas = asignadas.setdefault(persona.id, set())
         candidatas = [a for a in aptitudes if a.id not in usadas]
         if not candidatas:
             continue
-        aptitud = random.choice(candidatas)
+        aptitud = candidatas[0] if indice == 0 else random.choice(candidatas)
         usadas.add(aptitud.id)
 
         # Mitad vigente, mitad por vencer pronto: da para probar ambos estados.
-        dias = random.choice([5, 15, 30, 60, 90, 180, 365, -10, -45])
+        dias = plazo()
         db.add(
             VencimientoPersonal(
                 persona_id=persona.id,
                 aptitud_id=aptitud.id,
                 fecha_vencimiento=HOY + timedelta(days=dias),
-                activo=not bernoulli(0.05),
+                activo=indice < 4 or not bernoulli(0.05),
             )
         )
         total += 1
@@ -1461,8 +1561,9 @@ def crear_vencimientos(db, personas, aptitudes) -> int:
 def crear_quimicos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} insumos químicos...")
     quimicos = []
-    for _ in range(cantidad):
-        base, tipo = random.choice(VOCAB_QUIMICOS)
+    vocabulario = variados_primero(VOCAB_QUIMICOS, lambda q: q[1])
+    for i in range(cantidad):
+        base, tipo = ciclar(vocabulario, i)
         nombre = unico(
             lambda: recortar(f"{base} {random.randint(1, 999)}", 100),
             vistos["quimico"],
@@ -1474,7 +1575,7 @@ def crear_quimicos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
                 nombre=nombre,
                 tipo=tipo,
                 unidad_medida_id=unidad.id,
-                activo=not bernoulli(0.06),
+                activo=i == 0 or not bernoulli(0.06),
             )
         )
     db.add_all(quimicos)
@@ -1485,20 +1586,22 @@ def crear_quimicos(db, cantidad: int, unidades: dict, vistos: dict) -> list:
 def crear_elementos(db, cantidad: int, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} elementos de limpieza...")
     elementos = []
-    for _ in range(cantidad):
-        base, recambio = random.choice(VOCAB_ELEMENTOS)
+    # El primero, con recambio (completo).
+    vocabulario = sorted(VOCAB_ELEMENTOS, key=lambda e: e[1] is None)
+    for i in range(cantidad):
+        base, recambio = vocabulario[0] if i == 0 else random.choice(VOCAB_ELEMENTOS)
         nombre = unico(
             lambda: recortar(solo_letras(f"{base} {random.choice('ABC')}"), 40),
             vistos["elemento"],
             largo=40,
         )
-        ultimo = HOY - timedelta(days=random.randint(0, 60)) if recambio else None
+        ultimo = HOY - timedelta(days=0 if i == 0 else random.randint(0, 60)) if recambio else None
         elementos.append(
             ElementoLimpieza(
                 nombre=nombre,
                 frecuencia_recambio_dias=recambio,
                 fecha_ultimo_recambio=ultimo,
-                activo=not bernoulli(0.06),
+                activo=i == 0 or not bernoulli(0.06),
             )
         )
     db.add_all(elementos)
@@ -1527,13 +1630,13 @@ def crear_planes_y_tareas(
             nombre=nombre,
             equipo_id=equipo.id,
             autor_id=autor.id,
-            activo=not bernoulli(0.05),
+            activo=i < 2 or not bernoulli(0.05),
             fecha_creacion=hora_aleatoria(hora_max=18),
         )
 
         n_tareas = random.randint(min_t, max_t)
         nombres_usados: set = set()
-        for _ in range(n_tareas):
+        for n in range(n_tareas):
             tarea_base = random.choice(VOCAB_TAREAS)
             tarea_nombre = unico(
                 lambda: recortar(solo_letras(tarea_base), 100),
@@ -1546,10 +1649,10 @@ def crear_planes_y_tareas(
                 Tarea(
                     nombre=tarea_nombre,
                     # 1 = todos los días; el resto, cada tantos días.
-                    frecuencia=random.choice([1, 1, 1, 2, 3, 7, 15, 30]),
-                    tipo=random.choice(list(TipoTarea)).value,
+                    frecuencia=1 if (i, n) == (0, 0) else random.choice([1, 1, 1, 2, 3, 7, 15, 30]),
+                    tipo=ciclar(TipoTarea, n).value if i == 0 else random.choice(list(TipoTarea)).value,
                     descripcion=_descripcion_tarea(equipo.nombre),
-                    observaciones=random.choice(OBSERVACIONES) if bernoulli(0.6) else None,
+                    observaciones=random.choice(OBSERVACIONES) if i == 0 or bernoulli(0.6) else None,
                     operador_id=operador_default.id if operador_default else None,
                 )
             )
@@ -1558,6 +1661,16 @@ def crear_planes_y_tareas(
     db.add_all(planes)
     db.flush()
     return planes
+
+
+def _imagen(subcarpeta: str, prefijo: str) -> str:
+    """Escribe una foto de ejemplo (un color liso) y devuelve su ruta relativa."""
+    carpeta = CARPETA_UPLOADS / subcarpeta
+    carpeta.mkdir(parents=True, exist_ok=True)
+    nombre = f"{prefijo}_{uuid.uuid4().hex}.png"
+    color = tuple(random.randint(90, 200) for _ in range(3))
+    Image.new("RGB", (320, 240), color).save(carpeta / nombre, format="PNG")
+    return f"uploads/{subcarpeta}/{nombre}"
 
 
 def _consumo_para(nombre_tarea: str, quimicos, elementos):
@@ -1607,11 +1720,13 @@ def crear_checklists(
     # cada plan arrastra su propio nivel. Sin esto la curva es una recta.
     dias_malos = {d for d in range(1, dias) if bernoulli(0.06)}
 
-    for plan in planes:
+    for indice_plan, plan in enumerate(planes):
         flojera_plan = random.choice([0.0, 0.0, 0.02, 0.05, 0.12])
         for delta in range(dias - 1, -1, -1):
             fecha = HOY - timedelta(days=delta)
             es_hoy = delta == 0
+            # El primer checklist de todos queda completo y bien cerrado.
+            primero = indice_plan == 0 and delta == dias - 1 and not es_hoy
             p_incumplir = min(
                 0.7,
                 0.03
@@ -1624,6 +1739,9 @@ def crear_checklists(
             if es_hoy:
                 estado = EstadoChecklist.ABIERTO
                 observacion = None
+            elif primero:
+                estado = EstadoChecklist.CERRADO
+                observacion = "Todas las tareas verificadas, sin novedades."
             elif bernoulli(0.12):
                 estado = EstadoChecklist.OBSERVADO
                 observacion = random.choice(OBSERVACIONES_CHECKLIST)
@@ -1637,7 +1755,7 @@ def crear_checklists(
                 fecha=fecha,
                 estado=estado,
                 observaciones=observacion,
-                supervisor_id=random.choice(operadores).id if bernoulli(0.3) else None,
+                supervisor_id=random.choice(operadores).id if primero or bernoulli(0.3) else None,
                 fecha_creacion=datetime.combine(fecha, datetime.min.time()).replace(hour=7),
             )
             db.add(cabecera)
@@ -1651,7 +1769,10 @@ def crear_checklists(
             for tarea in plan.tareas:
                 if es_hoy:
                     # Hoy: la primera tarea queda hecha, el resto pendiente.
-                    completado = tarea is plan.tareas[0]
+                    # El segundo plan ya terminó el día (checklist COMPLETO).
+                    completado = tarea is plan.tareas[0] or indice_plan == 1
+                elif primero:
+                    completado = True
                 else:
                     # Pasado: casi todo hecho, con algún incumplimiento suelto.
                     completado = not bernoulli(p_incumplir)
@@ -1678,7 +1799,7 @@ def crear_checklists(
                 # cobertura). Si hay cobertura, quien realmente completó la
                 # tarea fue quien la cubrió.
                 reemplazado_por = None
-                if bernoulli(0.10) and len(operadores) > 1:
+                if not primero and bernoulli(0.10) and len(operadores) > 1:
                     candidatos = [o for o in operadores if o.id != operador.id]
                     if candidatos:
                         reemplazado_por = random.choice(candidatos)
@@ -1698,8 +1819,12 @@ def crear_checklists(
                     observaciones_tarea_historico=tarea.observaciones,
                     completado=completado,
                     fecha_completado=(
-                        datetime.combine(fecha, datetime.min.time()).replace(
-                            hour=random.randint(7, 19), minute=random.randint(0, 59)
+                        # Lo de hoy no puede tener una hora que todavía no llegó.
+                        min(
+                            datetime.combine(fecha, datetime.min.time()).replace(
+                                hour=random.randint(7, 19), minute=random.randint(0, 59)
+                            ),
+                            datetime.now().replace(microsecond=0),
                         )
                         if completado
                         else None
@@ -1707,10 +1832,31 @@ def crear_checklists(
                     operador_id=operador.id,
                     reemplazado_por_id=reemplazado_por.id if reemplazado_por else None,
                     usuario_id=quien_hizo,
-                    insumo_quimico_id=quimico_usado.id if quimico_usado else None,
-                    cantidad_consumida=cantidad,
-                    elemento_limpieza_id=elemento.id if elemento else None,
+                    # Con foto: el primer checklist entero y alguno más.
+                    evidencia_url=(
+                        _imagen("evidencias", "evidencia")
+                        if completado and (primero or (es_hoy and indice_plan < 3)) else None
+                    ),
                 )
+                if quimico_usado is not None:
+                    registro.consumos.append(
+                        RegistroTareaConsumo(insumo_quimico_id=quimico_usado.id, cantidad=cantidad)
+                    )
+                    # Algunas tareas llevan más de un producto y más de un elemento.
+                    if primero or bernoulli(0.03):
+                        otros = [q for q in quimicos if q.activo and q.id != quimico_usado.id]
+                        if otros:
+                            registro.consumos.append(
+                                RegistroTareaConsumo(insumo_quimico_id=random.choice(otros).id, cantidad=0.1)
+                            )
+                if elemento is not None:
+                    registro.elementos.append(RegistroTareaElemento(elemento_limpieza_id=elemento.id))
+                    if primero or bernoulli(0.03):
+                        otros = [e for e in elementos if e.activo and e.id != elemento.id]
+                        if otros:
+                            registro.elementos.append(
+                                RegistroTareaElemento(elemento_limpieza_id=random.choice(otros).id)
+                            )
                 registros.append(registro)
 
             # Un flush para los registros (hace falta su id). El historial
@@ -1747,24 +1893,30 @@ def crear_incidentes(
     propios = min(CANTIDAD_INCIDENTES_SUPERADMIN, cantidad) if superadmin else 0
     # Hay tipos de incidente y equipos que se repiten mucho más que otros.
     pesos_vocabulario = pesos_desparejos(len(VOCAB_INCIDENTES))
+    # Los primeros recorren los cuatro tipos que se reportan a mano.
+    variados = variados_primero(VOCAB_INCIDENTES, lambda v: v[0])[:4]
     pesos_equipos = pesos_desparejos(len(equipos))
 
     for indice in range(cantidad):
-        tipo, titulo_base, descripcion_base = random.choices(
-            VOCAB_INCIDENTES, weights=pesos_vocabulario
-        )[0]
+        tipo, titulo_base, descripcion_base = (
+            variados[indice] if indice < len(variados)
+            else random.choices(VOCAB_INCIDENTES, weights=pesos_vocabulario)[0]
+        )
         titulo = unico(
             lambda: recortar(solo_letras(f"{titulo_base} {random.randint(1, 99)}"), 60),
             vistos["incidente"],
             largo=60,
         )
         equipo = random.choices(equipos, weights=pesos_equipos)[0] if bernoulli(0.8) else None
+        if indice == 0:
+            equipo = equipos[0]
         if indice < propios:
             reportante = superadmin
         else:
             reportante = random.choice(operadores or personal)
 
-        dias_atras = dia_con_ritmo(dias_historia)
+        # El primero es viejo y está cerrado: se ve el circuito entero.
+        dias_atras = dia_con_ritmo(dias_historia) if indice else min(45, dias_historia - 1)
         # Los de hoy no pueden tener una hora que todavía no llegó.
         fecha_reporte = min(
             datetime.combine(
@@ -1777,7 +1929,9 @@ def crear_incidentes(
         # Los viejos están casi todos resueltos; los recientes, a medias. Y
         # el cierre nunca cae en el futuro.
         dias_hasta_cierre = random.choice([1, 1, 2, 3, 5, 8, 13, 21])
-        cerrado = dias_hasta_cierre <= dias_atras and bernoulli(0.92 if dias_atras > 30 else 0.6)
+        cerrado = dias_hasta_cierre <= dias_atras and (
+            indice == 0 or bernoulli(0.92 if dias_atras > 30 else 0.6)
+        )
         fecha_cierre = (
             fecha_reporte + timedelta(days=dias_hasta_cierre)
             if cerrado
@@ -1792,6 +1946,7 @@ def crear_incidentes(
             tipo=tipo.value,
             equipo_id=equipo.id if equipo else None,
             usuario_id=reportante.id,
+            foto_url=_imagen("incidentes", "incidente") if indice == 0 or bernoulli(0.15) else None,
             fecha_reporte=fecha_reporte,
             estado=(EstadoIncidente.CERRADO if cerrado else EstadoIncidente.ABIERTO).value,
             fecha_cierre=fecha_cierre,
@@ -1826,8 +1981,10 @@ def crear_documentos(db, cantidad: int, admins, vistos: dict) -> int:
     carpeta.mkdir(parents=True, exist_ok=True)
     total = 0
 
+    vocabulario = variados_primero(VOCAB_DOCUMENTOS, lambda d: d[1])
+    plazos = repartidor([365, -20, 15, None, 30, 90, 180])
     for i in range(cantidad):
-        base, tipo = random.choice(VOCAB_DOCUMENTOS)
+        base, tipo = ciclar(vocabulario, i)
         nombre = unico(
             lambda: recortar(f"{base} {random.randint(1, 99)}", 100),
             vistos["documento"],
@@ -1844,7 +2001,7 @@ def crear_documentos(db, cantidad: int, admins, vistos: dict) -> int:
         # Momento de subida de la versión vigente; la archivada (si la hay)
         # es anterior.
         subida = hora_aleatoria(hora_max=18)
-        con_archivada = bernoulli(0.33)
+        con_archivada = i in (1, 2) or (i > 2 and bernoulli(0.33))
 
         if con_archivada:
             subida_archivada = subida - timedelta(days=random.randint(30, 200))
@@ -1864,11 +2021,10 @@ def crear_documentos(db, cantidad: int, admins, vistos: dict) -> int:
 
         # La mitad vence en plazos variados (algunos ya vencidos, para que
         # el listado muestre el badge rojo y "Vencimientos" tenga variedad).
-        vencimiento = (
-            HOY + timedelta(days=random.choice([15, 30, 90, 180, 365, -20]))
-            if bernoulli(0.5)
-            else None
-        )
+        dias = plazos()
+        vencimiento = HOY + timedelta(days=dias) if dias is not None else None
+        if i > 6 and bernoulli(0.4):
+            vencimiento = None
         _guardar_version(
             db,
             carpeta,
@@ -1961,16 +2117,19 @@ def crear_planes_cal_mantenimiento(db, cantidad: int, equipos, admins) -> list:
         for equipo in equipos
         for tipo in ("calibracion", "mantenimiento")
     ]
-    random.shuffle(pares)
+    # El primero es la calibración del primer equipo, al día.
+    resto = pares[1:]
+    random.shuffle(resto)
+    pares = pares[:1] + resto
 
-    for equipo, tipo in pares[:cantidad]:
+    for indice, (equipo, tipo) in enumerate(pares[:cantidad]):
         plan = PlanCalibracionMantenimiento(
             equipo_id=equipo.id,
             autor_id=random.choice(admins).id,
             tipo=tipo,
-            fecha_ultima_intervencion=HOY - timedelta(days=random.randint(1, 200)),
-            periodicidad_dias=random.choice([5, 15, 30, 60, 90, 180, 365]),
-            activo=not bernoulli(0.05),
+            fecha_ultima_intervencion=HOY - timedelta(days=random.randint(1, 200) if indice else 20),
+            periodicidad_dias=random.choice([5, 15, 30, 60, 90, 180, 365]) if indice else 180,
+            activo=indice == 0 or not bernoulli(0.05),
             fecha_creacion=hora_aleatoria(hora_max=18),
         )
         db.add(plan)
@@ -2039,7 +2198,7 @@ def crear_proveedores(db, cantidad: int, fake: Faker, vistos: dict) -> list:
     print(f"⏳ Cargando {cantidad} proveedores...")
     proveedores = []
     cuits = vistos.setdefault("matricula", set())
-    for _ in range(cantidad):
+    for i in range(cantidad):
         nombre = unico(
             lambda: recortar(solo_letras(fake.company()), 120),
             vistos.setdefault("proveedor", set()),
@@ -2053,22 +2212,26 @@ def crear_proveedores(db, cantidad: int, fake: Faker, vistos: dict) -> list:
                 cuit=cuit,
                 contacto=recortar(f"{fake.name()} - {telefono_aleatorio()}", 150),
                 domicilio=domicilio_aleatorio(fake),
-                rubro=random.choice(RUBROS_PROVEEDOR),
-                es_certificado=bernoulli(0.6),
-                activo=not bernoulli(0.05),
+                rubro=ciclar(RUBROS_PROVEEDOR, i),
+                es_certificado=i == 0 or bernoulli(0.6),
+                activo=i == 0 or not bernoulli(0.05),
             )
         )
     db.add_all(proveedores)
     db.flush()
 
-    for proveedor in proveedores:
+    tipo_siguiente = repartidor(TIPOS_CERTIFICACION_PROVEEDOR)
+    for indice, proveedor in enumerate(proveedores):
         if not proveedor.es_certificado:
             continue
-        tipos = random.sample(TIPOS_CERTIFICACION_PROVEEDOR, random.randint(1, 2))
+        tipos = {tipo_siguiente() for _ in range(random.randint(1, 2))}
         # Uno de cada cuatro quedó con todo vencido.
-        todo_vencido = bernoulli(0.25)
-        for tipo in tipos:
-            if todo_vencido:
+        todo_vencido = indice > 0 and bernoulli(0.25)
+        for tipo in sorted(tipos):
+            if indice == 0:
+                # El primero, con todo vigente desde antes de su primer lote.
+                vencimiento = HOY + timedelta(days=300)
+            elif todo_vencido:
                 vencimiento = HOY - timedelta(days=random.randint(5, 200))
             else:
                 vencimiento = HOY + timedelta(days=random.randint(10, 500))
@@ -2127,6 +2290,9 @@ def crear_alergenos_ingredientes(db, ingredientes: dict) -> int:
             alergeno = catalogo.get(codigo)
             # Sin el catálogo cargado (base sin migrar) no se asigna nada.
             if alergeno is None:
+                continue
+            # `--agregar`: el ingrediente se reutiliza y ya puede tenerlo.
+            if db.get(IngredienteAlergeno, (ingrediente.id, alergeno.id)) is not None:
                 continue
             db.add(IngredienteAlergeno(
                 ingrediente_id=ingrediente.id, alergeno_id=alergeno.id, nivel=nivel, forma=forma,
@@ -2191,18 +2357,27 @@ def homologar_insumos(db, admins: list) -> dict:
     from src.lotesInsumo.services import stock_por_lote
 
     con_stock = {l.insumo_id for l in stock_por_lote(db) if l.saldo > 0 and not l.vencido}
-    for insumo in db.scalars(select(Insumo).order_by(Insumo.id)).all():
-        if insumo.id not in con_lotes and bernoulli(0.5):
+    todos = db.scalars(select(Insumo).order_by(Insumo.id)).all()
+    primera_id = todos[0].id if todos else None
+    for insumo in todos:
+        if insumo.estado_homologacion != "pendiente":
+            continue  # `--agregar`: ya se decidió en una carga anterior
+        if insumo.id != primera_id and insumo.id not in con_lotes and bernoulli(0.5):
             resumen["pendientes"] += 1
             continue
         referencia = db.scalars(
             select(ValorNutricionalIngrediente).where(ValorNutricionalIngrediente.ingrediente_id == insumo.ingrediente_id)
         ).all()
-        apartado = random.choice(referencia).nutriente if referencia and bernoulli(1 / 8) else None
+        # La primera marca queda apta, con su rótulo por porción y vigente.
+        primera = insumo.id == primera_id
+        apartado = (
+            random.choice(referencia).nutriente
+            if referencia and not primera and bernoulli(1 / 8) else None
+        )
         insumo.rotulo_referencia = f"Rótulo del envase de {insumo.marca}"
         # Uno de cada cuatro rótulos declara por porción (50 g o ml), como
         # muchos envases; el resto, por 100.
-        insumo.rotulo_porcion = Decimal("50") if bernoulli(0.25) else None
+        insumo.rotulo_porcion = Decimal("50") if primera or bernoulli(0.25) else None
         valores_rotulo = []
         for v in referencia:
             por_100 = Decimal(v.valor) * Decimal(str(1.35 if v.nutriente == apartado else random.uniform(0.92, 1.08)))
@@ -2231,7 +2406,7 @@ def homologar_insumos(db, admins: list) -> dict:
         insumo.homologado_por_id = random.choice(admins).id
         # Vigente (12 meses por defecto), salvo algunas marcas sin stock, que
         # quedan vencidas para mostrar el aviso y el bloqueo.
-        vencer = insumo.id not in con_stock and bernoulli(1 / 3)
+        vencer = not primera and insumo.id not in con_stock and bernoulli(1 / 3)
         insumo.homologado_en = _momento(random.randint(370, 420) if vencer else random.randint(20, 330))
         insumo.instantanea_homologacion = comparacion.model_dump(mode="json")
         resumen["observadas" if comparacion.resultado != "apta" else "aprobadas"] += 1
@@ -2273,8 +2448,8 @@ def crear_clientes(db, cantidad: int, fake: Faker, vistos: dict) -> list:
     documentos = vistos.setdefault("cliente_doc", set())
     nombres = vistos.setdefault("cliente", set())
     clientes = []
-    for _ in range(cantidad):
-        if bernoulli(0.6):
+    for i in range(cantidad):
+        if i == 0 or bernoulli(0.6):
             nombre = unico(lambda: recortar(solo_letras(fake.company()), 120), nombres, largo=120)
             documento = cuit_aleatorio(documentos)
         else:
@@ -2287,10 +2462,10 @@ def crear_clientes(db, cantidad: int, fake: Faker, vistos: dict) -> list:
             nombre=nombre,
             documento=documento,
             telefono=telefono_aleatorio(),
-            email=None if bernoulli(0.2) else f"{(slug(nombre) or 'cliente')[:30]}@correo.com.ar",
-            domicilio=None if bernoulli(0.15) else domicilio_aleatorio(fake),
+            email=None if i and bernoulli(0.2) else f"{(slug(nombre) or 'cliente')[:30]}@correo.com.ar",
+            domicilio=None if i and bernoulli(0.15) else domicilio_aleatorio(fake),
         )
-        clientes.append(Cliente(**datos.model_dump(), activo=not bernoulli(0.06)))
+        clientes.append(Cliente(**datos.model_dump(), activo=i == 0 or not bernoulli(0.06)))
     db.add_all(clientes)
     db.flush()
     return clientes
@@ -2304,16 +2479,16 @@ def crear_transportistas(db, cantidad: int, fake: Faker, vistos: dict, admins: l
     despachar) y el resto al azar entre habilitado, con una certificación
     vencida, sin certificaciones y con la única certificación anulada.
     """
-    total = max(4, cantidad // 2)
+    total = max(5, cantidad // 2)
     print(f"⏳ Cargando {total} transportistas con sus certificaciones...")
     cuits = vistos.setdefault("transportista_cuit", set())
     nombres = vistos.setdefault("transportista", set())
     cuenta = {"transportistas": 0, "certificaciones": 0, "habilitados": 0}
-    escenarios = ["habilitado", "habilitado", "vencido", "sin_certificaciones"] + [
+    escenarios = ["habilitado", "habilitado", "vencido", "sin_certificaciones", "anulada"] + [
         random.choices(
             ["habilitado", "vencido", "sin_certificaciones", "anulada"], weights=[6, 2, 1, 1]
         )[0]
-        for _ in range(total - 4)
+        for _ in range(total - 5)
     ]
 
     def certificacion(transportista, tipo, vencimiento, *, activa=True, anulada=False, comprobante=True):
@@ -2326,7 +2501,10 @@ def crear_transportistas(db, cantidad: int, fake: Faker, vistos: dict, admins: l
             numero=numero,
             fecha_emision=emision,
             fecha_vencimiento=vencimiento,
-            observaciones=None if bernoulli(0.7) else "Presentó el original en administración.",
+            observaciones=(
+                None if cuenta["certificaciones"] and bernoulli(0.7)
+                else "Presentó el original en administración."
+            ),
             archivo_url=_pdf_certificado(
                 "certificaciones_transportista", "certificacion_transportista",
                 f"{tipo} - {transportista.razon_social}", "Certificación de transportista",
@@ -2354,9 +2532,12 @@ def crear_transportistas(db, cantidad: int, fake: Faker, vistos: dict, admins: l
             razon_social=razon_social,
             cuit=cuit_aleatorio(cuits),
             telefono=telefono_aleatorio(),
-            email=None if bernoulli(0.2) else f"{(slug(razon_social) or 'transporte')[:30]}@correo.com.ar",
-            domicilio=None if bernoulli(0.2) else domicilio_aleatorio(fake),
-            observaciones=None if bernoulli(0.7) else "Trabaja con camión refrigerado.",
+            email=(
+                None if indice and bernoulli(0.2)
+                else f"{(slug(razon_social) or 'transporte')[:30]}@correo.com.ar"
+            ),
+            domicilio=None if indice and bernoulli(0.2) else domicilio_aleatorio(fake),
+            observaciones=None if indice and bernoulli(0.7) else "Trabaja con camión refrigerado.",
         )
         transportista = Transportista(
             **datos.model_dump(),
@@ -2367,7 +2548,11 @@ def crear_transportistas(db, cantidad: int, fake: Faker, vistos: dict, admins: l
         db.flush()
         cuenta["transportistas"] += 1
 
-        tipos = random.sample(TIPOS_CERTIFICACION_TRANSPORTISTA, random.randint(1, 3))
+        # El primero tiene todas las certificaciones vigentes.
+        tipos = random.sample(
+            TIPOS_CERTIFICACION_TRANSPORTISTA,
+            len(TIPOS_CERTIFICACION_TRANSPORTISTA) if indice == 0 else random.randint(1, 3),
+        )
         futuro = lambda: HOY + timedelta(days=random.randint(15, 400))  # noqa: E731
         pasado = lambda: HOY - timedelta(days=random.randint(3, 200))  # noqa: E731
         if escenario == "habilitado":
@@ -2441,19 +2626,19 @@ def crear_stock_y_movimientos(
         return [], [], 0
 
     por_id = {q.id: q for q in quimicos}
-    registros = db.scalars(
-        select(RegistroTarea)
+    consumos = db.execute(
+        select(RegistroTarea, RegistroTareaConsumo)
+        .join(RegistroTareaConsumo, RegistroTareaConsumo.registro_tarea_id == RegistroTarea.id)
         .where(
             RegistroTarea.completado.is_(True),
-            RegistroTarea.insumo_quimico_id.in_(list(por_id)),
-            RegistroTarea.cantidad_consumida.isnot(None),
+            RegistroTareaConsumo.insumo_quimico_id.in_(list(por_id)),
         )
-        .order_by(RegistroTarea.fecha_completado, RegistroTarea.id)
+        .order_by(RegistroTarea.fecha_completado, RegistroTarea.id, RegistroTareaConsumo.id)
     ).all()
     consumido: dict = {}
-    for registro in registros:
-        consumido[registro.insumo_quimico_id] = (
-            consumido.get(registro.insumo_quimico_id, Decimal("0")) + _q(registro.cantidad_consumida)
+    for _registro, consumo in consumos:
+        consumido[consumo.insumo_quimico_id] = (
+            consumido.get(consumo.insumo_quimico_id, Decimal("0")) + _q(consumo.cantidad)
         )
 
     numeros_lote = vistos.setdefault("lote", set())
@@ -2510,9 +2695,9 @@ def crear_stock_y_movimientos(
             stock.cantidad_actual += ajuste
             movimientos += 1
 
-    for registro in registros:
-        quimico = por_id[registro.insumo_quimico_id]
-        cantidad = _q(registro.cantidad_consumida)
+    for registro, consumo in consumos:
+        quimico = por_id[consumo.insumo_quimico_id]
+        cantidad = _q(consumo.cantidad)
         fecha = registro.fecha_completado or datetime.now()
         db.add(_movimiento_stock(
             quimico, -cantidad, TipoMovimientoStock.CONSUMO_AUTOMATICO, fecha,
@@ -2526,9 +2711,10 @@ def crear_stock_y_movimientos(
         movimientos += 1
 
     for indice, stock in enumerate(saldos.values()):
-        if indice % 5 == 0:
+        # El primero queda holgado.
+        if indice % 5 == 2:
             stock.stock_minimo = stock.cantidad_actual + Decimal("1.000")  # bajo mínimo
-        elif indice % 4 == 0:
+        elif indice % 4 == 3:
             stock.stock_minimo = None
         else:
             stock.stock_minimo = _q(max(Decimal("0.500"), stock.cantidad_actual / 2))
@@ -2547,21 +2733,45 @@ def crear_calibraciones(db, equipos: list, dias_historia: int = 365) -> list:
     print("⏳ Cargando calibraciones de equipos...")
     calibraciones = []
     equipos_medicion = [e for e in equipos if e.tipo == "Medición" and e.activo]
-    for equipo in equipos_medicion:
+    # El primer equipo también: es el registro de muestra.
+    if equipos and equipos[0] not in equipos_medicion:
+        equipos_medicion.insert(0, equipos[0])
+    for indice, equipo in enumerate(equipos_medicion):
         frecuencia = equipo.frecuencia_calibracion_dias or 365
-        fecha_real = HOY - timedelta(days=random.randint(1, min(180, frecuencia)))
+        fecha_real = HOY - timedelta(days=random.randint(1, min(180, frecuencia)) if indice else 20)
         primera = True
         while (HOY - fecha_real).days <= dias_historia:
             calibracion = Calibracion(
                 equipo_id=equipo.id,
                 fecha_realizacion=fecha_real,
                 proximo_vencimiento=fecha_real + timedelta(days=frecuencia),
-                certificado_url=f"uploads/certificados/cal_{equipo.id}_{uuid.uuid4().hex[:8]}.pdf",
+                certificado_url=_pdf_certificado(
+                    "certificados", f"cal_{equipo.id}", f"Calibración - {equipo.nombre}",
+                    "Certificado de calibración", f"CAL-{random.randint(10000, 99999)}",
+                    fecha_real, fecha_real + timedelta(days=frecuencia),
+                ),
                 tipo="calibracion",
-                activo=not bernoulli(0.05) if primera else True,
+                activo=not bernoulli(0.05) if primera and indice else True,
             )
             db.add(calibracion)
             calibraciones.append(calibracion)
+            # Cada tanto, además, un mantenimiento del mismo equipo.
+            if primera or bernoulli(0.3):
+                mantenimiento = Calibracion(
+                    equipo_id=equipo.id,
+                    fecha_realizacion=fecha_real - timedelta(days=3),
+                    proximo_vencimiento=fecha_real - timedelta(days=3) + timedelta(days=frecuencia),
+                    certificado_url=_pdf_certificado(
+                        "certificados", f"mant_{equipo.id}", f"Mantenimiento - {equipo.nombre}",
+                        "Informe de mantenimiento", f"MAN-{random.randint(10000, 99999)}",
+                        fecha_real - timedelta(days=3),
+                        fecha_real - timedelta(days=3) + timedelta(days=frecuencia),
+                    ),
+                    tipo="mantenimiento",
+                    activo=True,
+                )
+                db.add(mantenimiento)
+                calibraciones.append(mantenimiento)
             primera = False
             # La anterior se hizo un ciclo antes, unos días más o menos.
             fecha_real -= timedelta(days=frecuencia + random.randint(-10, 10))
@@ -2583,7 +2793,7 @@ def crear_historial_registro_tarea(db) -> int:
     print("⏳ Cargando historial de registros de tarea...")
     total = 0
     registros = db.scalars(
-        select(RegistroTarea).where(RegistroTarea.completado == True)
+        select(RegistroTarea).where(RegistroTarea.completado == True).order_by(RegistroTarea.id)
     ).all()
     for r in registros:
         db.add(
@@ -2934,11 +3144,11 @@ def crear_productos_y_recetas(
         producto = Producto(
             nombre=nombre,
             conservacion=ConservacionProducto(
-                instrucciones="Conservar en lugar fresco y seco.",
+                **ciclar(CONSERVACIONES_ROTULO, i)
             ).model_dump(mode="json"),
             descripcion=f"Elaborado según la receta de {base.lower()}.",
             unidad_medida_id=unidades[plantilla["unidad"]].id,
-            activo=not bernoulli(0.07),
+            activo=i == 0 or not bernoulli(0.07),
         )
         receta = Receta(producto=producto, activo=True, creado_en=_momento(random.randint(200, 240)))
         lista = [
@@ -3097,6 +3307,15 @@ def crear_lotes_insumo(
             clave_unidad, (25, 120)
         )
         for _ in range(random.randint(3, 6)):
+            if not lotes:
+                # El primero: del proveedor certificado, vigente y con saldo.
+                lote = _nuevo_lote_insumo(
+                    db, ingrediente, proveedores[0], HOY - timedelta(days=25),
+                    _q(escala[1] * 20), random.choice(admins), vistos,
+                )
+                lote.fecha_vencimiento = HOY + timedelta(days=300)
+                lotes.append(lote)
+                continue
             ingreso = HOY - timedelta(days=dia_con_ritmo(dias_historia + 20, 5))
             lotes.append(
                 _nuevo_lote_insumo(
@@ -3117,7 +3336,10 @@ def _nuevo_lote_insumo(
         vistos["lote_insumo"],
         largo=100,
     )
+    # Igual que el service al recibir: la certificación vigente ese día.
+    certificacion = obtener_certificacion_vigente(db, proveedor.id, ingreso)
     return LoteInsumo(
+        certificacion_id=certificacion.id if certificacion is not None else None,
         insumo=_insumo_para(db, ingrediente, proveedor),
         ingrediente=ingrediente,
         proveedor=proveedor,
@@ -3214,8 +3436,10 @@ def crear_lotes_produccion(
     )
     # Unos pocos productos concentran la mayor parte de la producción.
     pesos_productos = pesos_desparejos(len(con_receta))
-    for dias_atras in dias:
-        producto = random.choices(con_receta, weights=pesos_productos)[0]
+    for indice_lote, dias_atras in enumerate(dias):
+        # El primer lote es del primer producto, terminado y con responsable.
+        primero = indice_lote == 0
+        producto = con_receta[0] if primero else random.choices(con_receta, weights=pesos_productos)[0]
         inicio = _momento(dias_atras, 6, 12)
         vigentes = [v for v in versiones[producto.id] if v.creado_en <= inicio]
         version = (vigentes or versiones[producto.id][:1])[-1]
@@ -3223,7 +3447,10 @@ def crear_lotes_produccion(
         if dias_atras <= 3:
             estado = ESTADO_EN_PROCESO
         else:
-            estado = ESTADO_CANCELADO if bernoulli(0.1) else ESTADO_TERMINADO
+            estado = (
+                ESTADO_CANCELADO if not primero and (indice_lote == 1 or bernoulli(0.1))
+                else ESTADO_TERMINADO
+            )
 
         objetivo = _en_piezas_enteras(
             _q(Decimal(version.rendimiento) * Decimal(random.choice(["0.5", "1", "1.5", "2", "3"]))),
@@ -3260,7 +3487,7 @@ def crear_lotes_produccion(
         # Asignación como la hace quien administra: la mayoría de los lotes
         # tienen responsable (todas sus tareas), alguna tarea se reasigna a
         # otra persona y el resto de los lotes quedan sin asignar (cualquiera).
-        responsable = random.choice(operadores) if bernoulli(0.7) else None
+        responsable = random.choice(operadores) if primero or bernoulli(0.7) else None
         momento = inicio
         for indice, tarea in enumerate(tareas):
             asignado = responsable
@@ -3331,11 +3558,16 @@ def crear_lotes_produccion(
 
     # Ajustes de stock: algunos lotes viejos se dan de baja (vencidos o
     # descartados). La baja es lógica: los consumos ya registrados se conservan.
-    for lote in lotes_insumo:
+    motivo_siguiente = repartidor([m for m in MOTIVOS_BAJA_INSUMO if m != "vencido"])
+    for indice, lote in enumerate(lotes_insumo):
+        if indice == 0:
+            continue  # el primero queda disponible
         vencido = lote.fecha_vencimiento is not None and lote.fecha_vencimiento < HOY
-        if (vencido and bernoulli(0.6)) or bernoulli(0.04):
+        # Los siguientes a los primeros vigentes garantizan cada motivo.
+        if (vencido and bernoulli(0.6)) or bernoulli(0.04) or (not vencido and indice in (7, 8, 9)):
             lote.activo = False
-            lote.motivo_baja = "vencido" if vencido else random.choice(MOTIVOS_BAJA_INSUMO)
+            lote.motivo_baja = "vencido" if vencido else motivo_siguiente()
+            lote.dado_de_baja_por_id = random.choice(admins).id
             if vencido:
                 lote.fecha_baja = datetime.combine(
                     lote.fecha_vencimiento, datetime.min.time()
@@ -3375,7 +3607,8 @@ def crear_bajas_lote_insumo(db, lotes_insumo: list, admins: list) -> dict:
         ).all()
     )
 
-    for lote in lotes_insumo:
+    motivo_siguiente = repartidor(MOTIVOS_BAJA_INSUMO)
+    for lote in lotes_insumo[1:]:
         saldo = (
             _q(lote.cantidad_recibida)
             - _q(consumos.get(lote.id, 0))
@@ -3389,7 +3622,7 @@ def crear_bajas_lote_insumo(db, lotes_insumo: list, admins: list) -> dict:
             cantidad = _q(saldo * Decimal(random.choice(["0.05", "0.1", "0.2"])))
             if cantidad <= 0:
                 continue
-            motivo = random.choice(MOTIVOS_BAJA_INSUMO)
+            motivo = motivo_siguiente()
             registrado_en = _momento(dia_con_ritmo(180, 1), 8, 17)
             cuenta["parciales"] += 1
         else:
@@ -3405,13 +3638,15 @@ def crear_bajas_lote_insumo(db, lotes_insumo: list, admins: list) -> dict:
             registrado_en = lote.fecha_baja or _momento(30, 8, 17)
             cuenta["totales"] += 1
 
+        primera = cuenta["totales"] + cuenta["parciales"] == 1
         db.add(
             BajaLoteInsumo(
                 lote_insumo_id=lote.id,
                 motivo=motivo,
                 observaciones=random.choice(OBSERVACIONES_BAJA_INSUMO)
-                if bernoulli(0.5)
+                if primera or bernoulli(0.5)
                 else None,
+                foto_data_url=FOTO_DATA_URL if primera or bernoulli(0.2) else None,
                 cantidad=cantidad,
                 registrado_por_id=random.choice(admins).id,
                 registrado_en=registrado_en,
@@ -3438,11 +3673,11 @@ def simular_actividad_trazabilidad(db, admins: list, productos: list, lotes_insu
         db.commit()
         cuenta[clave] += 1
 
-    for producto in random.sample(productos, min(3, len(productos))):
+    for producto in random.sample(productos[1:], min(3, len(productos) - 1)):
         db.refresh(producto)
         producto.descripcion = recortar(f"{producto.descripcion or ''} Presentación revisada.", 500)
         commit("modificados")
-    activos = [p for p in productos if p.activo]
+    activos = [p for p in productos[1:] if p.activo]
     for producto in random.sample(activos, min(2, len(activos))):
         db.refresh(producto)
         producto.activo = False
@@ -3450,12 +3685,13 @@ def simular_actividad_trazabilidad(db, admins: list, productos: list, lotes_insu
         db.refresh(producto)
         producto.activo = True
         commit("reactivados")
-    disponibles = [l for l in lotes_insumo if l.activo]
+    disponibles = [l for l in lotes_insumo[1:] if l.activo]
     for lote in random.sample(disponibles, min(2, len(disponibles))):
         db.refresh(lote)
         lote.activo = False
         lote.motivo_baja = random.choice(MOTIVOS_BAJA_INSUMO)
         lote.fecha_baja = datetime.now().replace(microsecond=0)
+        lote.dado_de_baja_por_id = random.choice(admins).id
         commit("bajas")
     return cuenta
 
@@ -3485,22 +3721,23 @@ def simular_actividad_comercial(db, fake: Faker, admins: list, clientes: list, t
             yield objeto
 
     n = max(1, len(clientes) // 5)
-    for cliente in muestra(clientes, n):
+    clientes_resto = clientes[1:]  # el primero no se toca
+    for cliente in muestra(clientes_resto, n):
         cliente.telefono = telefono_aleatorio()
         cliente.domicilio = domicilio_aleatorio(fake)
         commit("modificados")
     dados_de_baja = []
-    for cliente in muestra([c for c in clientes if c.activo], n):
+    for cliente in muestra([c for c in clientes_resto if c.activo], n):
         cliente.activo = False
         commit("bajas")
         dados_de_baja.append(cliente)
-    for cliente in dados_de_baja[: max(1, len(dados_de_baja) // 2)]:
+    for cliente in dados_de_baja[: len(dados_de_baja) // 2]:
         db.refresh(cliente)
         cliente.activo = True
         commit("reactivados")
     # Una carga errónea que se borra. Solo si sobran: el circuito los necesita.
     if len(clientes) > 5:
-        victima = random.choice(clientes)
+        victima = random.choice(clientes_resto)
         db.info["usuario_id"] = random.choice(admins).id
         db.delete(victima)
         db.commit()
@@ -3685,8 +3922,10 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
     # Clientes y transportistas con habituales, motivos con favoritos.
     pesos_clientes = pesos_desparejos(len(clientes))
     pesos_transporte = pesos_desparejos(len(habilitados))
-    pesos_rechazo = pesos_desparejos(len(MOTIVOS_RECHAZO))
-    pesos_reclamo = pesos_desparejos(len(MOTIVOS_RECLAMO))
+    motivo_rechazo = repartidor(MOTIVOS_RECHAZO, pesos_desparejos(len(MOTIVOS_RECHAZO)))
+    motivo_reclamo = repartidor(MOTIVOS_RECLAMO, pesos_desparejos(len(MOTIVOS_RECLAMO)))
+    motivo_retiro = repartidor([m for m in MOTIVOS_RETIRO if m != "Reclamos de clientes"])
+    medio_contacto = repartidor(MEDIOS_CONTACTO_RETIRO)
 
     destinos_fijos = [
         "entregada", "entregada", "reservada", "despachada", "cancelada",
@@ -3764,6 +4003,7 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
                 if destino == "reservada":
                     cuenta["reservadas"] += 1
                     continue
+                primera_salida = cuenta["salidas"] == 1
                 if destino == "cancelada":
                     salidas_services.cancelar(
                         db, salida_id, random.choice(MOTIVOS_CANCELACION_RESERVA), actor()
@@ -3776,7 +4016,7 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
                     continue
 
                 despacho = _fecha_entre(reserva, min(hoy, reserva + timedelta(days=5)))
-                if habilitados and bernoulli(0.65):
+                if habilitados and (primera_salida or bernoulli(0.65)):
                     forma = FORMA_ENTREGA_CON_TRANSPORTISTA
                     transportista_id = random.choices(habilitados, weights=pesos_transporte)[0].id
                 else:
@@ -3793,21 +4033,26 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
                 if destino == "entregada":
                     salidas_services.entregar(
                         db, salida_id, llegada,
-                        random.choice(OBSERVACIONES_ENTREGA) if bernoulli(0.5) else None,
+                        random.choice(OBSERVACIONES_ENTREGA) if primera_salida or bernoulli(0.5) else None,
                         actor(),
-                        recibido_por=recortar(fake.name(), 100) if bernoulli(0.7) else None,
+                        recibido_por=(
+                            recortar(fake.name(), 100) if primera_salida or bernoulli(0.7) else None
+                        ),
                     )
                     fechar(m_llegada, Salida, salida_id, entregado_en=m_llegada)
                     cuenta["entregadas"] += 1
                     entregadas.append((salida_id, lote_id, llegada))
                     continue
 
-                motivo = random.choices(MOTIVOS_RECHAZO, weights=pesos_rechazo)[0]
+                motivo = motivo_rechazo()
                 detalle = (
                     random.choice(DETALLES_RECHAZO)
                     if motivo == MOTIVO_RECHAZO_OTRO or bernoulli(0.6) else None
                 )
-                salidas_services.rechazar(db, salida_id, motivo, detalle, llegada, actor())
+                salidas_services.rechazar(
+                    db, salida_id, motivo, detalle, llegada, actor(),
+                    foto_url=_imagen("incidentes", "rechazo") if bernoulli(0.2) else None,
+                )
                 fechar(m_llegada)
                 cuenta["rechazadas"] += 1
                 if destino in ("rechazada_reingresada", "rechazada_desechada"):
@@ -3841,23 +4086,27 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
     # Reclamos: sobre la primera entrega siempre, y sobre casi una de cada tres
     # del resto. Las entregas viejas quedan fuera del plazo de referencia.
     reclamos: list = []   # (reclamo_id, lote_id, fecha_reclamo)
-    for indice, (salida_id, lote_id, entrega) in enumerate(entregadas):
-        if indice and not bernoulli(0.3):
+    # La primera entrega queda limpia (es la de muestra); los reclamos arrancan
+    # en la segunda. Hasta cubrir todos los motivos se reclama sobre todas.
+    for indice, (salida_id, lote_id, entrega) in enumerate(entregadas[1:] or entregadas):
+        if indice > len(MOTIVOS_RECLAMO) and not bernoulli(0.3):
             continue
-        motivo = random.choices(MOTIVOS_RECLAMO, weights=pesos_reclamo)[0]
+        motivo = motivo_reclamo()
         # La mayoría reclama a los pocos días; alguno, mucho después (y queda
         # fuera del plazo de referencia).
-        fecha = min(hoy, entrega + timedelta(days=random.choice([0, 1, 1, 2, 3, 5, 8, 15, 40])))
+        dias = 2 if indice == 0 else random.choice([0, 1, 1, 2, 3, 5, 8, 15, 40])
+        fecha = min(hoy, entrega + timedelta(days=dias))
         reclamo = reclamos_services.crear_reclamo(
             db,
             salida_id=salida_id,
             motivo=motivo,
             detalle=(
                 random.choice(DETALLES_RECLAMO)
-                if motivo == MOTIVO_RECLAMO_OTRO or bernoulli(0.7) else None
+                if indice == 0 or motivo == MOTIVO_RECLAMO_OTRO or bernoulli(0.7) else None
             ),
             fecha_reclamo=fecha,
             usuario=actor(),
+            foto_url=_imagen("incidentes", "reclamo") if indice == 0 or bernoulli(0.2) else None,
         )
         reclamo_id = reclamo.id
         m_reclamo = momento_de(fecha)
@@ -3872,7 +4121,8 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
         fecha_retiro = min(hoy, desde + timedelta(days=random.randint(0, 20)))
         retiro_id = retiros_services.iniciar_retiro(
             db, lote_id, motivo, random.choice(DETALLES_RETIRO), fecha_retiro,
-            actor(), ORIGEN_RETIRO_MANUAL, reclamo_id=reclamo_id,
+            # Con reclamo, el service lo deja con origen RECLAMO.
+            actor(), None if reclamo_id else ORIGEN_RETIRO_MANUAL, reclamo_id=reclamo_id,
         ).id
         db.commit()
         m_retiro = momento_de(fecha_retiro)
@@ -3893,8 +4143,11 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
             fecha_aviso = min(hoy, fecha_retiro + timedelta(days=random.randint(0, 4)))
             retiros_services.notificar_afectado(
                 db, retiro_id, afectado_id, fecha_aviso,
-                random.choice(MEDIOS_CONTACTO_RETIRO),
-                random.choice(OBSERVACIONES_NOTIFICACION) if bernoulli(0.6) else None,
+                medio_contacto(),
+                (
+                    random.choice(OBSERVACIONES_NOTIFICACION)
+                    if cuenta["notificados"] == 0 or bernoulli(0.6) else None
+                ),
                 actor(),
             )
             db.commit()
@@ -3913,24 +4166,28 @@ def crear_circuito_comercial(db, fake: Faker, cantidad: int) -> dict:
         fechar(m_cierre, Retiro, retiro_id, fecha_cierre=m_cierre)
         cuenta["retiros_cerrados"] += 1
 
+    # El primer lote y el de la primera salida no se retiran: son de muestra.
+    protegidos = {min(con_salidas), db.scalar(select(func.min(LoteProducto.id)))} if con_salidas else set()
+    protegidos.add(db.scalar(select(Salida.lote_id).order_by(Salida.id).limit(1)))
     retirados: set = set()
-    if reclamos:
-        reclamo_id, lote_id, fecha = reclamos[0]
+    retirables = [r for r in reclamos if r[1] not in protegidos] or reclamos
+    if retirables:
+        reclamo_id, lote_id, fecha = retirables[0]
         retiro_id, fecha_retiro, m_retiro = retirar(
             lote_id, "Reclamos de clientes", fecha, reclamo_id=reclamo_id
         )
         retirados.add(lote_id)
         cerrar(retiro_id, notificar(retiro_id, fecha_retiro, m_retiro, 1.0))
 
-    motivos_manuales = [m for m in MOTIVOS_RETIRO if m != "Reclamos de clientes"]
-    candidatos = sorted(con_salidas - retirados)
+    candidatos = sorted(con_salidas - retirados - protegidos)
     random.shuffle(candidatos)
-    manuales = candidatos[: max(2, cantidad // 4)]
+    # Uno por motivo si hay lotes de sobra; si no, los que entren.
+    manuales = candidatos[: max(2, cantidad // 4, min(len(MOTIVOS_RETIRO) + 1, len(candidatos) // 4))]
     for indice, lote_id in enumerate(manuales):
         lote = db.get(LoteProducto, lote_id)
         desde = (lote.fecha_cierre or lote.fecha_inicio).date() + timedelta(days=random.randint(3, 40))
         retiro_id, fecha_retiro, m_retiro = retirar(
-            lote_id, random.choice(motivos_manuales), min(hoy, desde)
+            lote_id, motivo_retiro(), min(hoy, desde)
         )
         # El último queda recién iniciado y el anterior a medio notificar.
         if indice == len(manuales) - 1:
@@ -4092,9 +4349,11 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
             "canal": rotulado_frontal_constants.CANAL_MINORISTA,
             "envasado": True,
             "marcas": {
-                "azucares_agregados": True,
-                "grasas_agregadas": False,
+                "azucares_agregados": False,
+                "grasas_agregadas": True,
                 "sodio_agregado": True,
+                "edulcorantes": True,
+                "cafeina": True,
             },
         },
         {
@@ -4121,7 +4380,24 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
     ]
     # Todos los productos, en orden aleatorio: los escenarios se reparten y
     # se repiten si hay más productos que escenarios.
-    elegidos = random.sample(productos, len(productos))
+    # El primero lleva el escenario completo: aplica, con todas las marcas puestas.
+    productos.sort(key=lambda p: p.id)
+    elegidos = productos[:1] + random.sample(productos[1:], len(productos) - 1)
+    escenarios = [
+        {
+            "nombre": "completo",
+            "canal": rotulado_frontal_constants.CANAL_MINORISTA,
+            "envasado": True,
+            "marcas": {
+                "azucares_agregados": True,
+                "grasas_agregadas": False,
+                "sodio_agregado": False,
+                "edulcorantes": False,
+                "cafeina": False,
+            },
+        },
+        *escenarios,
+    ]
 
     for indice, producto in enumerate(elegidos):
         escenario = escenarios[indice % len(escenarios)]
@@ -4148,7 +4424,7 @@ def crear_rotulado_frontal(db, cantidad: int) -> dict:
             db.rollback()
             cuenta["omitidos"] += 1
 
-    objetivo = elegidos[0]
+    objetivo = elegidos[-1]
     try:
         rotulado_frontal_services.actualizar_modulo(db, False)
         respuesta = rotulado_frontal_services.evaluar(db, objetivo.id)
@@ -4174,7 +4450,12 @@ def crear_vista_publica(db) -> int:
     Devuelve la cantidad de indicadores agregados.
     """
     print("⏳ Cargando configuración de la vista pública...")
-    if db.get(ConfiguracionVistaPublica, sede_efectiva(db)) is None:
+    configuracion = db.get(ConfiguracionVistaPublica, sede_efectiva(db))
+    if configuracion is not None and configuracion.codigo_publico is None:
+        # La fila por defecto de la migración: nunca se usó, se puede completar.
+        configuracion.habilitada = True
+        configuracion.codigo_publico = secrets.token_urlsafe(32)
+    if configuracion is None:
         db.add(
             ConfiguracionVistaPublica(
                 establecimiento_id=sede_efectiva(db), habilitada=True, codigo_publico=secrets.token_urlsafe(32)
@@ -4188,7 +4469,8 @@ def crear_vista_publica(db) -> int:
         # nuevos que requieren habilitación explícita conservan su default.
         permite_sorteo = definicion.habilitado_por_defecto or definicion.clave == "cumplimiento_poes"
         db.add(IndicadorVistaPublica(
-            clave=definicion.clave, habilitado=permite_sorteo and bernoulli(0.75),
+            clave=definicion.clave,
+            habilitado=permite_sorteo and (agregados == 0 or bernoulli(0.75)),
         ))
         agregados += 1
     db.flush()
@@ -4206,7 +4488,8 @@ def crear_sesiones_auth(db, personal: list) -> dict:
     ahora_utc = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
     cuenta = {"refresh": 0, "revocados": 0, "intentos": 0}
     activos = [p for p in personal if p.activo] or personal
-    for persona in random.sample(activos, max(1, len(activos) // 3)):
+    tipo_token = repartidor(["access", "refresh"])
+    for indice, persona in enumerate(random.sample(activos, max(1, len(activos) // 3))):
         familia = uuid.uuid4().hex
         # Una familia rotada: tokens viejos usados y el último vigente.
         for paso in range(random.randint(1, 3)):
@@ -4222,20 +4505,24 @@ def crear_sesiones_auth(db, personal: list) -> dict:
                 )
             )
             cuenta["refresh"] += 1
-        if bernoulli(0.5):
+        if indice < 2 or bernoulli(0.5):
             db.add(
                 TokenRevocado(
                     jti=uuid.uuid4().hex,
                     usuario_id=persona.id,
-                    tipo=random.choice(["access", "refresh"]),
+                    tipo=tipo_token(),
                     expira=ahora_utc + timedelta(minutes=random.randint(5, 30)),
                     revocado_en=ahora_utc - timedelta(minutes=random.randint(1, 120)),
                 )
             )
             cuenta["revocados"] += 1
-    for persona in random.sample(activos, min(4, len(activos))):
-        ip = random.choice(IPS_INTENTOS_LOGIN)
-        contador = random.randint(1, settings.LOGIN_MAX_INTENTOS)
+    # Uno bloqueado por intentos, otro con un solo intento y el resto al azar.
+    contador_siguiente = repartidor(
+        [settings.LOGIN_MAX_INTENTOS, 1], None
+    )
+    for indice, persona in enumerate(random.sample(activos, min(4, len(activos)))):
+        ip = ciclar(sorted(IPS_INTENTOS_LOGIN), indice)
+        contador = contador_siguiente() if indice < 2 else random.randint(1, settings.LOGIN_MAX_INTENTOS)
         db.merge(
             IntentoLogin(
                 ip=ip,
@@ -4360,7 +4647,9 @@ def simular_actividad(
         consulta = select(modelo.id)
         if condicion is not None:
             consulta = consulta.where(condicion)
-        ids = list(db.scalars(consulta).all())
+        # El primer registro de la tabla es el de muestra: no se toca.
+        primero = db.scalar(select(func.min(modelo.id)))
+        ids = [id_ for id_ in db.scalars(consulta).all() if id_ != primero]
         for id_ in random.sample(ids, min(n, len(ids))):
             objeto = db.get(modelo, id_)
             if objeto is not None:
@@ -4413,6 +4702,7 @@ def simular_actividad(
                 select(VencimientoPersonal).where(VencimientoPersonal.persona_id.in_(ids_personal))
             ).all()
         )
+        vencimientos = sorted(vencimientos, key=lambda v: v.id)[1:]
         for vencimiento in muestra(vencimientos):
             # Renovación: se corre la fecha de vencimiento hacia adelante.
             vencimiento.fecha_vencimiento = vencimiento.fecha_vencimiento + timedelta(
@@ -4523,9 +4813,9 @@ def simular_actividad(
 
         # Configuración de alertas: un administrador ajusta los umbrales.
         for clave, opciones in (
-            ("vencimiento_proximo_dias", (3, 5, 10, 15)),
-            ("alerta_calibracion_dias", (15, 45, 60)),
-            ("alerta_insumo_bajo_stock", (5, 15, 20)),
+            (CLAVE_DIAS_VENCIMIENTO_PERSONAL, (15, 20, 45)),
+            (CLAVE_PLAZO_RECLAMO_DIAS, (7, 15)),
+            (CLAVE_META_CUMPLIMIENTO_LIMPIEZA, (90, 92, 98)),
         ):
             config = db.get(ConfiguracionAlerta, {"establecimiento_id": sede_efectiva(db), "clave": clave})
             if config is not None:
@@ -4829,12 +5119,15 @@ def cargar_establecimiento(
     # lo que haría la gente en la app, para que la bitácora tenga historia.
     actividad: dict = {}
     if not args.sin_actividad:
+        # Sin el primero de cada lista: es el registro de muestra y queda como
+        # se cargó. (El personal va entero: adentro se protege al superadmin.)
         actividad = simular_actividad(
-            db, fake, vistos, args.password, admins, personal, equipos,
-            aptitudes, quimicos, elementos, list(ingredientes.values()),
-            proveedores=proveedores, stocks=stocks, lotes=lotes,
-            calibraciones=calibraciones, planes=planes,
-            planes_cal=cal_mantenimiento, unidades=unidades,
+            db, fake, vistos, args.password, admins, personal, equipos[1:],
+            aptitudes[1:], quimicos[1:], elementos[1:], list(ingredientes.values())[1:],
+            proveedores=proveedores[1:], stocks=stocks[1:], lotes=lotes[1:],
+            calibraciones=calibraciones[1:], planes=planes[1:],
+            planes_cal=cal_mantenimiento[1:],
+            unidades=dict(list(unidades.items())[1:]),
         )
         for clave, n in simular_actividad_trazabilidad(
             db, admins, productos, lotes_insumo
@@ -4858,11 +5151,19 @@ def cargar_establecimiento(
 
     db.commit()
 
+    # Lo que el azar no asegura: cada variación de cada entidad, al menos una vez.
+    seed_variaciones.completar(
+        db, sys.modules[__name__], fake, vistos=vistos, hash_password=hash_password,
+        admins=admins, operadores=operadores, unidades=unidades, ingredientes=ingredientes,
+    )
+
     # La caché de notificaciones se recalcula sobre los datos finales, igual
     # que en la primera lectura de la app.
     print("⏳ Calculando notificaciones...")
     asegurar_notificaciones_al_dia(db)
     notificaciones = db.scalar(select(func.count()).select_from(NotificacionPersistida))
+    seed_variaciones.marcar_leidas(db)
+    seed_variaciones.completar_primeros(db, sys.modules[__name__])
 
     db.info.pop("usuario_id", None)
     return {
@@ -5018,6 +5319,7 @@ def main(preparar_esquema: bool = True) -> int:
                 con_super_admin=sede.id == ESTABLECIMIENTO_PRINCIPAL_ID,
             )
         fijar_establecimiento(db, None)
+        seed_variaciones.completar_globales(db)
 
         # Sesiones de ejemplo de todo el personal, después de la actividad
         # (que puede borrar personas).

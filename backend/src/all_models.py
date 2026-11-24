@@ -95,6 +95,15 @@ from src.notificaciones.models import (  # noqa: F401
     SituacionRiesgo,
 )
 from src.notificaciones.invalidacion import EstadoNotificaciones  # noqa: F401
+from src.planes_accion.models import (  # noqa: F401
+    AccionPlan,
+    ConfiguracionObservacion,
+    EvidenciaPlan,
+    HistorialPlan,
+    PlanAccion,
+    RiesgoElementoPlan,
+    SituacionPlan,
+)
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: F401
 
 # Bitácora de auditoría: va al final a propósito. Los listeners se registran

@@ -281,6 +281,17 @@ const ClienteDetailPage = lazyPrecargable(() =>
   import("./features/clientes/components/pages/ClienteDetailPage").then((mod) => ({ default: mod.ClienteDetailPage })),
 );
 
+// Planes de acción
+const PlanesAccionListPage = lazyPrecargable(() =>
+  import("./features/planesAccion/components/pages/PlanesAccionListPage").then((mod) => ({ default: mod.PlanesAccionListPage })),
+);
+const NuevoPlanAccionPage = lazyPrecargable(() =>
+  import("./features/planesAccion/components/pages/NuevoPlanAccionPage").then((mod) => ({ default: mod.NuevoPlanAccionPage })),
+);
+const PlanAccionDetailPage = lazyPrecargable(() =>
+  import("./features/planesAccion/components/pages/PlanAccionDetailPage").then((mod) => ({ default: mod.PlanAccionDetailPage })),
+);
+
 // Notificaciones
 const NotificacionesPage = lazyPrecargable(() =>
   import("./features/notificaciones/components/pages/NotificacionesPage").then((mod) => ({ default: mod.NotificacionesPage })),
@@ -702,6 +713,31 @@ export const router = createBrowserRouter([
                 element: (
                   <ConSuspense>
                     <ReclamoDetallePage />
+                  </ConSuspense>
+                ),
+              },
+              // Planes de acción: "nuevo" va antes que ":id".
+              {
+                path: "/planes-accion",
+                element: (
+                  <ConSuspense>
+                    <PlanesAccionListPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/planes-accion/nuevo",
+                element: (
+                  <ConSuspense>
+                    <NuevoPlanAccionPage />
+                  </ConSuspense>
+                ),
+              },
+              {
+                path: "/planes-accion/:id",
+                element: (
+                  <ConSuspense>
+                    <PlanAccionDetailPage />
                   </ConSuspense>
                 ),
               },

@@ -11,6 +11,7 @@ import {
   EstadoCargando,
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
+import { ObservacionPlanesCard } from "../../../planesAccion/components/ObservacionPlanesCard";
 import { useConfiguracionAlertas } from "../../hooks/useConfiguracionAlertas";
 import { AlertasVencimientoPersonalCard } from "../AlertasVencimientoPersonalCard";
 import { ImpactoSituacionesCard } from "../ImpactoSituacionesCard";
@@ -187,6 +188,11 @@ export function ConfiguracionPage() {
       <Box mt="8">
         <TituloSeccion>Riesgo</TituloSeccion>
         <ImpactoSituacionesCard />
+      </Box>
+
+      <Box mt="8">
+        <TituloSeccion>Planes de acción</TituloSeccion>
+        <ObservacionPlanesCard />
       </Box>
     </Pagina>
   );

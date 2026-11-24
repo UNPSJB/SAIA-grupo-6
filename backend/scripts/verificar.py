@@ -99,6 +99,7 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from src.exceptions import ConflictoRegistroInactivo  # noqa: E402
 import src.all_models  # noqa: F401,E402
+import src.common.texto  # noqa: F401,E402  (registra `sin_tildes` antes de conectar)
 from src.models import ModeloBase  # noqa: E402
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)

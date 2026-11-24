@@ -35,6 +35,7 @@ CONFIGURACIONES_POR_SEDE = (
     "configuracion_alertas",
     "configuracion_impacto",
     "configuracion_modulo_rotulado",
+    "configuracion_observacion",
     "configuracion_vista_publica",
     "indicadores_vista_publica",
     "estado_notificaciones",

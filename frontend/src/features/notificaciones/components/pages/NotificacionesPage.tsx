@@ -23,6 +23,7 @@ import {
   obtenerCriticidadDashboard,
 } from "../../services/notificacionService";
 import { notificarCambioNotificaciones } from "../../eventoNotificaciones";
+import { usePlanesDeAlertas } from "../../../planesAccion/hooks/usePlanesDeAlertas";
 import { useSafeTimeout } from "../../../../common/hooks/useDelayedNavigate";
 import { registrarRecambioElemento } from "../../../elementoLimpieza/services/elementoLimpiezaService";
 import {
@@ -36,6 +37,7 @@ import {
   LuCircle,
   LuCircleCheck,
   LuCircleDot,
+  LuClipboardCheck,
   LuFileText,
   LuListChecks,
   LuPackage,
@@ -76,7 +78,7 @@ import {
 } from "../../../../components/ui/patrones";
 import { Pagina } from "../../../../components/ui/plantillas";
 import { useAuth } from "../../../../common/context/useAuth";
-import { puedeAdministrar } from "../../../../common/api/permissions";
+import { puedeAdministrar, puedeOperar } from "../../../../common/api/permissions";
 import { BotonExportar } from "../../../exportacion";
 
 const PAGE_SIZE = 10;
@@ -185,9 +187,60 @@ function normalizar(texto: string) {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+/**
+ * Plan de acción de una alerta: el enlace al plan activo, o el botón para
+ * crear uno (resaltado cuando SAIA lo sugiere por criticidad alta o
+ * recurrencia). Frena el clic para no disparar la acción de la fila.
+ */
+function CeldaPlan({
+  planId,
+  sugerido,
+  elegible,
+  onVerPlan,
+  onCrearPlan,
+}: {
+  planId: number | null;
+  sugerido: boolean;
+  elegible: boolean;
+  onVerPlan: (id: number) => void;
+  onCrearPlan: () => void;
+}) {
+  if (planId === null && !elegible) {
+    return (
+      <Text as="span" fontSize="sm" color="fg.subtle">
+        —
+      </Text>
+    );
+  }
+  return (
+    <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      {planId !== null ? (
+        <Button size="xs" variant="outline" colorPalette="brand" onClick={() => onVerPlan(planId)}>
+          <LuClipboardCheck aria-hidden />
+          Plan #{planId}
+        </Button>
+      ) : (
+        <Button
+          size="xs"
+          variant={sugerido ? "solid" : "outline"}
+          colorPalette={sugerido ? "brand" : "neutral"}
+          onClick={onCrearPlan}
+          title={sugerido ? "SAIA sugiere un plan: riesgo alto o situación recurrente" : undefined}
+        >
+          <LuClipboardCheck aria-hidden />
+          Crear plan
+        </Button>
+      )}
+    </Box>
+  );
+}
+
 export function NotificacionesPage() {
   const navigate = useNavigate();
-  const esAdmin = puedeAdministrar(useAuth().user);
+  const { user } = useAuth();
+  const esAdmin = puedeAdministrar(user);
+  const puedeTratar = puedeOperar(user);
+  const { disponiblesPorClave, planPorClave } = usePlanesDeAlertas(puedeTratar);
   const delayed = useSafeTimeout();
 
   const [datos, setDatos] = useState<CriticidadDashboard>({
@@ -199,6 +252,11 @@ export function NotificacionesPage() {
     bajas: 0,
     alertas: [],
     elementos: [],
+    nivel_riesgo_tratado: "sin_riesgo",
+    puntaje_maximo_tratado: 0,
+    altas_tratadas: 0,
+    medias_tratadas: 0,
+    bajas_tratadas: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -539,11 +597,17 @@ export function NotificacionesPage() {
     },
   ]);
 
-  const nivel = datos.nivel_riesgo;
+  // El nivel que se destaca es el TRATADO (sin lo que un plan verificado tiene
+  // bajo control). El real nunca se modifica: se muestra al lado para comparar.
+  const enTratamiento = datos.elementos.some((e) => e.en_tratamiento);
+  const nivel = datos.nivel_riesgo_tratado;
   const nivelTexto = etiquetaNivelRiesgo(nivel);
   const nivelPaleta = paletaNivelRiesgo(nivel);
   const esCelular = useEsCelular();
   const elementoMasRiesgoso = datos.elementos[0] ?? null;
+  // Elemento que define el riesgo tratado (puede ser otro que el del real).
+  const elementoTratado =
+    [...datos.elementos].sort((a, b) => b.puntaje_tratado - a.puntaje_tratado)[0] ?? null;
 
   const filtros = (
     <>
@@ -693,14 +757,33 @@ export function NotificacionesPage() {
               {nivelTexto}
             </Text>
             <Text fontSize="sm" color="fg.muted" mt={{ base: "1", md: "2" }} lineClamp={{ base: 2, md: "none" }}>
-              {elementoMasRiesgoso
-                ? `${formatoPuntaje(datos.puntaje_maximo)} de ${RIESGO_MAXIMO} · ${elementoMasRiesgoso.etiqueta}`
+              {elementoMasRiesgoso && elementoTratado
+                ? datos.puntaje_maximo_tratado > 0
+                  ? `${formatoPuntaje(datos.puntaje_maximo_tratado)} de ${RIESGO_MAXIMO} · ${elementoTratado.etiqueta}`
+                  : "Todo el riesgo está bajo control de un plan"
                 : "No hay situaciones presentes"}
             </Text>
             {elementoMasRiesgoso && (
               <Text fontSize="xs" color="fg.subtle" mt="1" hideBelow="md">
                 Es el riesgo del elemento en peor situación.
               </Text>
+            )}
+            {enTratamiento && (
+              <Box mt="2">
+                <Badge colorPalette="blue" variant="subtle" px="2" py="1" borderRadius="md">
+                  En tratamiento
+                </Badge>
+                <Text fontSize="xs" color="fg.muted" mt="1">
+                  Riesgo real (sin descontar planes):{" "}
+                  <Text
+                    as="span"
+                    fontWeight="bold"
+                    color={`${paletaNivelRiesgo(datos.nivel_riesgo)}.fg`}
+                  >
+                    {etiquetaNivelRiesgo(datos.nivel_riesgo)} · {formatoPuntaje(datos.puntaje_maximo)}
+                  </Text>
+                </Text>
+              </Box>
             )}
           </Box>
 
@@ -818,7 +901,7 @@ export function NotificacionesPage() {
       ) : (
         <>
           <Tarjeta overflowX="auto">
-            <Table.Root variant="outline" size="md" w="100%" minW="1100px">
+            <Table.Root variant="outline" size="md" w="100%" minW="1200px">
               <Table.Header>
                 <FilaEncabezado>
                   <EncabezadoOscuro width="10%" onClick={() => handleSort("criticidad")}>
@@ -841,6 +924,7 @@ export function NotificacionesPage() {
                     </Box>
                   </EncabezadoOscuro>
                   <EncabezadoOscuro>Motivo</EncabezadoOscuro>
+                  {puedeTratar ? <EncabezadoOscuro ancho="media">Plan de acción</EncabezadoOscuro> : null}
                   <EncabezadoOscuro width="50px" textAlign="center">
                     <Box as="span" srOnly>Acción</Box>
                   </EncabezadoOscuro>
@@ -892,6 +976,17 @@ export function NotificacionesPage() {
                             ? `${etiquetaCriticidad(alerta.criticidad)} · ${formatoPuntaje(alerta.puntaje)}`
                             : "SIN RIESGO"}
                         </Badge>
+                        {alerta.plan_tratamiento_id !== null && (
+                          <Text
+                            fontSize="xs"
+                            color="blue.fg"
+                            fontWeight="medium"
+                            mt="1"
+                            title="Un plan de acción verificado tiene esta situación bajo control: el riesgo real se conserva, pero no suma al riesgo tratado."
+                          >
+                            Controlado · Plan #{alerta.plan_tratamiento_id}
+                          </Text>
+                        )}
                       </Celda>
 
                       <Celda>
@@ -933,14 +1028,30 @@ export function NotificacionesPage() {
                         {alerta.puntaje_elemento !== alerta.puntaje && (
                           <Text
                             fontSize="xs"
-                            color={`${paletaNivelRiesgo(nivelDePuntaje(alerta.puntaje_elemento))}.fg`}
+                            color={`${paletaNivelRiesgo(nivelDePuntaje(alerta.puntaje_elemento_tratado))}.fg`}
                             mt="1"
                             fontWeight="medium"
                           >
-                            Riesgo del elemento: {formatoPuntaje(alerta.puntaje_elemento)}
+                            Riesgo del elemento: {formatoPuntaje(alerta.puntaje_elemento_tratado)}
+                            {alerta.puntaje_elemento_tratado !== alerta.puntaje_elemento &&
+                              ` (real ${formatoPuntaje(alerta.puntaje_elemento)}, en tratamiento)`}
                           </Text>
                         )}
                       </Celda>
+
+                      {puedeTratar ? (
+                        <Celda>
+                          <CeldaPlan
+                            planId={planPorClave.get(alerta.clave)?.plan_id ?? null}
+                            sugerido={disponiblesPorClave.get(alerta.clave)?.sugerir_plan ?? false}
+                            elegible={disponiblesPorClave.has(alerta.clave)}
+                            onVerPlan={(id) => navigate(`/planes-accion/${id}`)}
+                            onCrearPlan={() =>
+                              navigate(`/planes-accion/nuevo?situacion=${encodeURIComponent(alerta.clave)}`)
+                            }
+                          />
+                        </Celda>
+                      ) : null}
 
                       <Celda textAlign="center" onClick={(e) => e.stopPropagation()}>
                         <Tooltip

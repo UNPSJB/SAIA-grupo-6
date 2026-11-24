@@ -7,6 +7,7 @@ import {
   LuCalendarClock,
   LuChartPie,
   LuChefHat,
+  LuClipboardCheck,
   LuClipboardList,
   LuCog,
   LuContact,
@@ -205,7 +206,7 @@ export const GRUPOS: GrupoMenu[] = [
   {
     id: "calidad",
     label: "Calidad",
-    ayuda: "Incidentes, reclamos, documentos y vencimientos",
+    ayuda: "Incidentes, reclamos, planes de acción, documentos y vencimientos",
     icon: LuShieldCheck,
     entradas: [
       {
@@ -239,6 +240,7 @@ export const GRUPOS: GrupoMenu[] = [
           },
         ],
       },
+      { to: "/planes-accion", label: "Planes de acción", rol: "operar", icon: LuClipboardCheck },
       { to: "/vencimientos", label: "Vencimientos", rol: "administrar", icon: LuCalendarClock },
       {
         to: "/consulta-documentos",

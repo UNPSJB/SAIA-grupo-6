@@ -359,6 +359,91 @@ def test_un_archivo_solo_lo_ve_su_sede(client, datos, fabrica, tmp_path, monkeyp
     assert client.get("/uploads/certificados/cal.pdf", headers=_h(datos, "admin_2")).status_code == 404
 
 
+def _plan_en(db, sede, responsable_id, **extra):
+    """Un plan de acción en borrador con su situación de origen, en `sede`."""
+    from datetime import date
+
+    from src.notificaciones.models import SituacionRiesgo
+    from src.planes_accion.models import PlanAccion, SituacionPlan
+
+    situacion = SituacionRiesgo(
+        tipo="PLAN_CALIBRACION_VENCIDO", clave=f"calib-{sede}", elemento="equipo:1",
+        detectada_en=date(2026, 1, 1), establecimiento_id=sede,
+    )
+    db.add(situacion)
+    db.flush()
+    plan = PlanAccion(
+        tipo=situacion.tipo, estado="borrador", situacion_origen_id=situacion.id,
+        causa="Causa", objetivo="Objetivo", criterio_eficacia="Criterio",
+        responsable_id=responsable_id, creado_por_id=responsable_id,
+        dias_observacion=30, establecimiento_id=sede, **extra,
+    )
+    plan.situaciones.append(
+        SituacionPlan(
+            situacion_id=situacion.id, es_origen=True, agregada_en=date(2026, 1, 1),
+            establecimiento_id=sede,
+        )
+    )
+    db.add(plan)
+    db.flush()
+    return plan
+
+
+def test_un_plan_de_accion_solo_lo_ve_su_sede(client, datos, fabrica):
+    with fabrica() as db:
+        db.info["sin_auditoria"] = True
+        plan_1 = _plan_en(db, PRINCIPAL, datos["ids"]["admin_1"])
+        db.commit()
+        plan_id = plan_1.id
+
+    def listado(quien):
+        respuesta = client.get("/planes-accion", headers=_h(datos, quien))
+        assert respuesta.status_code == 200, respuesta.text
+        cuerpo = respuesta.json()
+        return [p["id"] for p in (cuerpo["items"] if isinstance(cuerpo, dict) else cuerpo)]
+
+    assert listado("admin_1") == [plan_id]
+    assert listado("admin_2") == []
+    assert client.get(f"/planes-accion/{plan_id}", headers=_h(datos, "admin_1")).status_code == 200
+    assert client.get(f"/planes-accion/{plan_id}", headers=_h(datos, "admin_2")).status_code == 404
+
+
+def test_cada_sede_tiene_su_periodo_de_observacion(fabrica, datos):
+    from src.planes_accion import services
+
+    tipo = "PLAN_CALIBRACION_VENCIDO"
+    with fabrica() as db:
+        db.info["sin_auditoria"] = True
+        fijar_establecimiento(db, PRINCIPAL)
+        services.fijar_observacion(db, tipo, 60)
+        fijar_establecimiento(db, NORTE)
+        services.fijar_observacion(db, tipo, 45)
+        assert services.dias_observacion_de(db, tipo) == 45
+        fijar_establecimiento(db, PRINCIPAL)
+        assert services.dias_observacion_de(db, tipo) == 60
+
+
+def test_la_evidencia_de_un_plan_solo_la_ve_su_sede(client, datos, fabrica, tmp_path, monkeypatch):
+    from src.planes_accion.models import EvidenciaPlan
+    from src.uploads import router as uploads
+
+    monkeypatch.setattr(uploads, "CARPETA_BASE", tmp_path)
+    (tmp_path / "planes_accion").mkdir()
+    (tmp_path / "planes_accion" / "ev.pdf").write_bytes(b"%PDF-1.4 prueba")
+    with fabrica() as db:
+        db.info["sin_auditoria"] = True
+        plan = _plan_en(db, PRINCIPAL, datos["ids"]["admin_1"])
+        db.add(EvidenciaPlan(
+            plan_id=plan.id, tipo="implementacion", descripcion="Foto",
+            archivo_url="uploads/planes_accion/ev.pdf", establecimiento_id=PRINCIPAL,
+        ))
+        db.commit()
+
+    ruta = "/uploads/planes_accion/ev.pdf"
+    assert client.get(ruta, headers=_h(datos, "admin_1")).status_code == 200
+    assert client.get(ruta, headers=_h(datos, "admin_2")).status_code == 404
+
+
 def test_un_cambio_ensucia_solo_las_notificaciones_de_su_sede(fabrica, datos):
     from src.notificaciones.invalidacion import EstadoNotificaciones, registrar_invalidacion_automatica
 

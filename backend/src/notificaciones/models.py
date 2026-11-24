@@ -106,6 +106,10 @@ class NotificacionPersistida(DatosDeEstablecimiento, ModeloBase):
     #: Riesgo individual: impacto × probabilidad, de 1 a 9.
     puntaje: Mapped[float] = mapped_column(Float, nullable=False, default=1.0, index=True)
     detectada_en: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: Plan de acción que tiene la situación bajo control (verificado). Los
+    #: valores de arriba son SIEMPRE el riesgo real que calcula el motor: el plan
+    #: no los toca. Con esta marca, el riesgo "tratado" deja afuera la situación.
+    plan_tratamiento_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     actualizado_en: Mapped[datetime] = mapped_column(

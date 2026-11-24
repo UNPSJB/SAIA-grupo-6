@@ -63,6 +63,14 @@ class AlertaCriticidadResponse(BaseModel):
     #: Desde cuándo está presente.
     detectada_en: Optional[date] = None
 
+    #: Plan de acción que la tiene bajo control (verificado). Todo lo de arriba
+    #: es el riesgo REAL del motor y no cambia por el plan; con esta marca, el
+    #: riesgo "tratado" la deja afuera (`puntaje_tratado` = 0).
+    plan_tratamiento_id: Optional[int] = None
+    puntaje_tratado: float = 0.0
+    #: Riesgo consolidado tratado del elemento al que pertenece.
+    puntaje_elemento_tratado: float = 0.0
+
 
 class ResumenElementoResponse(BaseModel):
     """Riesgo general de un elemento, a partir de todas sus situaciones presentes."""
@@ -72,8 +80,15 @@ class ResumenElementoResponse(BaseModel):
     #: Texto para mostrar: el detalle de su situación más grave.
     etiqueta: str
     situaciones: int
+    #: Riesgo REAL: lo que calcula el motor, sin planes de acción.
     puntaje: float
     nivel: NivelRiesgo
+    #: Riesgo TRATADO: el real sin las situaciones que un plan verificado tiene
+    #: bajo control. Igual al real si no hay ninguna.
+    puntaje_tratado: float = 0.0
+    nivel_tratado: NivelRiesgo = "sin_riesgo"
+    #: Alguna de sus situaciones está bajo control de un plan de acción.
+    en_tratamiento: bool = False
 
 
 class CriticidadDashboardResponse(BaseModel):
@@ -89,6 +104,14 @@ class CriticidadDashboardResponse(BaseModel):
     alertas: list[AlertaCriticidadResponse]
     #: Un renglón por elemento, del más al menos riesgoso.
     elementos: list[ResumenElementoResponse] = []
+
+    # Lo mismo, pero tratado: sin lo que un plan de acción verificado tiene
+    # bajo control. Lo de arriba es siempre el riesgo real.
+    nivel_riesgo_tratado: NivelRiesgo = "sin_riesgo"
+    puntaje_maximo_tratado: float = 0.0
+    altas_tratadas: int = 0
+    medias_tratadas: int = 0
+    bajas_tratadas: int = 0
 
 
 class ImpactoSituacionResponse(BaseModel):

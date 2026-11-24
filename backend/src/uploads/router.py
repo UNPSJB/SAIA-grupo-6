@@ -14,6 +14,7 @@ from src.checklist.models import HistorialRegistroTarea, RegistroTarea
 from src.documentos.models import VersionDocumento
 from src.Equipo.models import Calibracion
 from src.incidente.models import Incidente
+from src.planes_accion.models import EvidenciaPlan
 from src.proveedores.models import CertificacionProveedor
 
 router = APIRouter(prefix="/uploads", tags=["evidencias"])
@@ -36,6 +37,7 @@ REFERENCIAS_A_ARCHIVOS = (
     RegistroTarea.evidencia_url,
     HistorialRegistroTarea.evidencia_url,
     Incidente.foto_url,
+    EvidenciaPlan.archivo_url,
 )
 
 

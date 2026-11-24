@@ -426,6 +426,13 @@ def _evaluar_alertas(
     """Completa en cada alerta su evaluación de riesgo individual."""
     impactos = impactos_vigentes(db)
 
+    # Situaciones que un plan de acción verificado tiene bajo control: id de la
+    # situación -> id del plan. Solo se MARCAN: el riesgo real de abajo no se
+    # toca. Import tardío: `planes_accion` lee este módulo.
+    from src.planes_accion.mitigacion import situaciones_controladas
+
+    controladas = situaciones_controladas(db)
+
     # Detecciones de cada (tipo, elemento) dentro de la ventana: las presentes
     # y las ya resueltas. El historial no se reinicia al resolverse algo.
     detecciones: Counter[tuple[str, str]] = Counter()
@@ -461,6 +468,7 @@ def _evaluar_alertas(
         alerta["detectada_en"] = situacion.detectada_en
         alerta["motivo"] = _motivo(alerta["regla"], evaluacion, cantidad, dias_presente)
         alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy_dia)
+        alerta["plan_tratamiento_id"] = controladas.get(situacion.id)
 
 
 # ============================================================
@@ -492,9 +500,18 @@ def _armar_dashboard(
 
     elementos: list[ResumenElementoResponse] = []
     for elemento, situaciones in por_elemento.items():
+        # Riesgo REAL: todo lo presente, tal como lo calcula el motor.
         puntaje = riesgo.riesgo_consolidado([s.puntaje for s in situaciones])
+        # Riesgo TRATADO: lo mismo sin las situaciones que un plan de acción
+        # verificado tiene bajo control. Es un cálculo aparte; el real no cambia.
+        sin_control = [s for s in situaciones if s.plan_tratamiento_id is None]
+        puntaje_tratado = riesgo.riesgo_consolidado([s.puntaje for s in sin_control])
         for situacion in situaciones:
             situacion.puntaje_elemento = puntaje
+            situacion.puntaje_elemento_tratado = puntaje_tratado
+            situacion.puntaje_tratado = (
+                0.0 if situacion.plan_tratamiento_id is not None else situacion.puntaje
+            )
         elementos.append(
             ResumenElementoResponse(
                 elemento=elemento,
@@ -504,6 +521,9 @@ def _armar_dashboard(
                 situaciones=len(situaciones),
                 puntaje=puntaje,
                 nivel=riesgo.nivel_de(puntaje),
+                puntaje_tratado=puntaje_tratado,
+                nivel_tratado=riesgo.nivel_de(puntaje_tratado),
+                en_tratamiento=len(sin_control) < len(situaciones),
             )
         )
     elementos.sort(key=lambda e: -e.puntaje)
@@ -511,6 +531,10 @@ def _armar_dashboard(
     # No hay un riesgo "del establecimiento" en la propuesta: el nivel general
     # que se muestra es el del elemento en peor situación.
     puntaje_maximo = elementos[0].puntaje if elementos else 0.0
+    puntaje_maximo_tratado = max((e.puntaje_tratado for e in elementos), default=0.0)
+    sin_control_alertas = [
+        a for a in alertas if a.puntaje > 0 and a.plan_tratamiento_id is None
+    ]
 
     return CriticidadDashboardResponse(
         nivel_riesgo=riesgo.nivel_de(puntaje_maximo),
@@ -522,6 +546,11 @@ def _armar_dashboard(
         no_leidas=sum(1 for a in alertas if not a.leida),
         alertas=alertas,
         elementos=elementos,
+        nivel_riesgo_tratado=riesgo.nivel_de(puntaje_maximo_tratado),
+        puntaje_maximo_tratado=puntaje_maximo_tratado,
+        altas_tratadas=sum(1 for a in sin_control_alertas if a.criticidad == "alta"),
+        medias_tratadas=sum(1 for a in sin_control_alertas if a.criticidad == "media"),
+        bajas_tratadas=sum(1 for a in sin_control_alertas if a.criticidad == "baja"),
     )
 
 
@@ -554,6 +583,7 @@ def _reconstruir_desde_persistida(
                 puntaje=f.puntaje,
                 detectada_en=f.detectada_en,
                 leida=notificacion_services._esta_leida(f, lecturas.get(f.id_notificacion)),
+                plan_tratamiento_id=f.plan_tratamiento_id,
             )
             for f in filas
         ]
@@ -830,6 +860,7 @@ def calcular_criticidad_dashboard(
                 probabilidad=a["probabilidad"],
                 puntaje=a["puntaje"],
                 detectada_en=a["detectada_en"],
+                plan_tratamiento_id=a.get("plan_tratamiento_id"),
             )
             for a in alertas
         ]

@@ -24,6 +24,7 @@ from .insumos_tipo import (
 from .lotes import migrar_lotes
 from .lotes_fecha_vencimiento import migrar_lotes_fecha_vencimiento
 from .notificaciones import migrar_notificaciones
+from .planes_accion import migrar_planes_accion
 from .versiones_receta_vida_util import migrar_versiones_receta_vida_util
 from .nutricion import migrar_nutricion
 from .personal import bootstrap_super_admin, migrar_columnas_personal
@@ -88,6 +89,7 @@ def run_migrations() -> None:
     bootstrap_super_admin()
     migrar_seguridad()
     migrar_notificaciones()
+    migrar_planes_accion()
     migrar_unidades_medida_tipo_factor()
     asignar_equivalencias_conocidas()
     migrar_insumos_densidad_peso()
