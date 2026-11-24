@@ -12,7 +12,6 @@ import {
   BotonGuardar,
   FormField,
   FormInput,
-  FormNativeSelect,
   MensajeError,
 } from "../../../components/ui/patrones";
 import { formatoFecha } from "../../../common/utils/fechas";
@@ -28,9 +27,6 @@ interface ModalCerrarReclamoProps {
   onClose: () => void;
   onCerrado: (reclamo: ReclamoDetalle) => void;
 }
-
-type AccionFisica = "SIN_DEVOLUCION" | "CON_DEVOLUCION";
-type DisposicionFisica = "CUARENTENA" | "BAJA";
 
 /**
  * Cierre de un reclamo de cliente: la acción correctiva, qué pasó con la
@@ -50,8 +46,10 @@ function Formulario({
   onCerrado,
 }: ModalCerrarReclamoProps & { reclamo: ReclamoResumen }) {
   const [observacion, setObservacion] = useState("");
-  const [accionFisica, setAccionFisica] = useState<AccionFisica>("SIN_DEVOLUCION");
-  const [disposicionFisica, setDisposicionFisica] = useState<DisposicionFisica>("CUARENTENA");
+  const [mercaderiaDevuelta, setMercaderiaDevuelta] = useState(false);
+  const [cantidadDevuelta, setCantidadDevuelta] = useState("");
+  const [disponibleDevolucion, setDisponibleDevolucion] = useState(0);
+  const [devolucionYaRegistrada, setDevolucionYaRegistrada] = useState<string | null>(null);
   const [generarReposicion, setGenerarReposicion] = useState(false);
   const [cantidadReponer, setCantidadReponer] = useState("");
   const [unidadAfectada, setUnidadAfectada] = useState("");
@@ -65,8 +63,21 @@ function Formulario({
   useEffect(() => {
     let vigente = true;
     obtenerReclamo(reclamo.id)
-      .then(({ salida, incidente, reposicion: yaGenerada }) => {
+      .then((data) => {
         if (!vigente) return;
+        const { salida, incidente, reposicion: yaGenerada } = data;
+        if (data.cantidad_devuelta) {
+          setDevolucionYaRegistrada(data.cantidad_devuelta);
+          setMercaderiaDevuelta(false);
+        }
+        const disponibleRaw = salida.cantidad_disponible_devolucion ?? salida.cantidad;
+        const disponible = Number(disponibleRaw.replace(",", "."));
+        if (Number.isFinite(disponible)) {
+          setDisponibleDevolucion(disponible);
+          if (disponible > 0) {
+            setCantidadDevuelta(String(disponible));
+          }
+        }
         const cantidad = Number(salida.cantidad.replace(",", "."));
         if (Number.isFinite(cantidad) && cantidad > 0) setCantidadReponer(String(cantidad));
         setUnidadAfectada(salida.unidad_medida);
@@ -83,13 +94,17 @@ function Formulario({
   }, [reclamo.id]);
 
   const campoInvalido = !observacion.trim();
-  const mercaderiaDevuelta = accionFisica === "CON_DEVOLUCION";
   const cantidadNum = Number(cantidadReponer);
   const cantidadInvalida = generarReposicion && !(cantidadNum > 0);
+  const cantidadDevueltaNum = Number(cantidadDevuelta);
+  const cantidadDevueltaInvalida =
+    mercaderiaDevuelta &&
+    (!(cantidadDevueltaNum > 0) ||
+      (disponibleDevolucion > 0 && cantidadDevueltaNum > disponibleDevolucion));
 
   const handleConfirmar = async () => {
     setIntento(true);
-    if (campoInvalido || cantidadInvalida) return;
+    if (campoInvalido || cantidadInvalida || cantidadDevueltaInvalida) return;
     setEnviando(true);
     setError(null);
     try {
@@ -97,7 +112,8 @@ function Formulario({
         await cerrarReclamo(reclamo.id, {
           accion_correctiva: observacion.trim(),
           mercaderia_devuelta: mercaderiaDevuelta,
-          disposicion_fisica: mercaderiaDevuelta ? disposicionFisica : null,
+          disposicion_fisica: mercaderiaDevuelta ? "BAJA" : null,
+          cantidad_devuelta: mercaderiaDevuelta ? cantidadDevueltaNum : null,
           generar_reposicion: generarReposicion,
           cantidad_a_reponer: generarReposicion ? cantidadNum : null,
         })
@@ -191,58 +207,106 @@ function Formulario({
             ) : null}
           </FormField>
 
-          {/* BLOQUE 1: Acción Física (Calidad) */}
-          <Box
-            p="3.5"
-            bg="bg.subtle"
-            borderWidth="1px"
-            borderColor="border.subtle"
-            rounded="md"
-          >
-            <VStack align="stretch" gap="3">
-              <FormField
-                label="Acción física tomada con la mercadería"
-                mb="0"
+          {/* BLOQUE 1: Acción Física (Calidad / Inocuidad) */}
+          {devolucionYaRegistrada ? (
+            <Box
+              p="3.5"
+              bg="bg.subtle"
+              borderWidth="1px"
+              borderColor="border.subtle"
+              rounded="md"
+            >
+              <Text fontSize="sm" fontWeight="semibold" color="fg">
+                Este reclamo ya registró una devolución física de{" "}
+                {cantidadConUnidad(devolucionYaRegistrada, unidadAfectada)}
+              </Text>
+              <Text fontSize="xs" color="fg.muted" mt="0.5">
+                La mercadería fue dada de baja sanitaria (desechada en el lote). No se vuelve a descontar al cerrarlo.
+              </Text>
+            </Box>
+          ) : disponibleDevolucion <= 0 ? (
+            <Box
+              p="3.5"
+              bg="bg.subtle"
+              borderWidth="1px"
+              borderColor="border.subtle"
+              rounded="md"
+            >
+              <Text fontSize="sm" fontWeight="semibold" color="fg">
+                Sin saldo de entrega disponible para devolver
+              </Text>
+              <Text fontSize="xs" color="fg.muted" mt="0.5">
+                La totalidad de las unidades de esta entrega ya fueron devueltas y dadas de baja en reclamos anteriores.
+              </Text>
+            </Box>
+          ) : (
+            <Box>
+              <Box
+                p="3.5"
+                bg={mercaderiaDevuelta ? "orange.subtle" : "bg.subtle"}
+                borderWidth="1px"
+                borderColor={mercaderiaDevuelta ? "orange.border" : "border.subtle"}
+                rounded="md"
+                cursor="pointer"
+                transition="background-color 0.15s ease, border-color 0.15s ease"
+                onClick={() => setMercaderiaDevuelta((prev) => !prev)}
               >
-                <FormNativeSelect
-                  value={accionFisica}
-                  onChange={(e) =>
-                    setAccionFisica(e.target.value as AccionFisica)
-                  }
-                >
-                  <option value="SIN_DEVOLUCION">
-                    No hubo devolución física (solo registro)
-                  </option>
-                  <option value="CON_DEVOLUCION">
-                    Se recibió mercadería devuelta en planta
-                  </option>
-                </FormNativeSelect>
-              </FormField>
+                <HStack gap="3" align="center">
+                  <Box onClick={(e) => e.stopPropagation()}>
+                    <Checkbox.Root
+                      checked={mercaderiaDevuelta}
+                      onCheckedChange={(e) =>
+                        setMercaderiaDevuelta(Boolean(e.checked))
+                      }
+                      colorPalette="orange"
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control cursor="pointer" />
+                    </Checkbox.Root>
+                  </Box>
+                  <Box flex="1">
+                    <Text
+                      fontSize="sm"
+                      fontWeight="semibold"
+                      color={mercaderiaDevuelta ? "orange.fg" : "fg"}
+                    >
+                      Se recibió mercadería devuelta en planta (Baja / Descarte sanitario)
+                    </Text>
+                    <Text fontSize="xs" color="fg.muted" mt="0.5">
+                      Por pérdida de cadena de custodia, las unidades devueltas por el cliente no vuelven al saldo vendible: se descuentan de lo entregado y pasan a 'Desechado' en el lote.
+                    </Text>
+                  </Box>
+                </HStack>
+              </Box>
 
               {mercaderiaDevuelta && (
-                <FormField
-                  label="Disposición física"
-                  required
-                  mb="0"
-                  helper="Indicá el destino en planta de las unidades devueltas por el cliente."
-                >
-                  <FormNativeSelect
-                    value={disposicionFisica}
-                    onChange={(e) =>
-                      setDisposicionFisica(e.target.value as DisposicionFisica)
-                    }
+                <Box mt="3" pl="1">
+                  <FormField
+                    label={unidadAfectada ? `Cantidad devuelta a descartar (${unidadAfectada})` : "Cantidad devuelta a descartar"}
+                    required
+                    mb="0"
+                    invalid={intento && cantidadDevueltaInvalida}
+                    helper={`Máximo disponible para devolver de esta entrega: ${cantidadConUnidad(disponibleDevolucion, unidadAfectada)}.`}
                   >
-                    <option value="CUARENTENA">
-                      CUARENTENA (Reingreso a cuarentena)
-                    </option>
-                    <option value="BAJA">
-                      BAJA (Descarte/Destrucción)
-                    </option>
-                  </FormNativeSelect>
-                </FormField>
+                    <FormInput
+                      type="number"
+                      min="0"
+                      max={disponibleDevolucion}
+                      step="any"
+                      value={cantidadDevuelta}
+                      onChange={(e) => setCantidadDevuelta(e.target.value)}
+                      placeholder="0"
+                    />
+                    {intento && cantidadDevueltaInvalida ? (
+                      <MensajeError>
+                        Ingresá una cantidad mayor a 0 y que no supere {cantidadConUnidad(disponibleDevolucion, unidadAfectada)}.
+                      </MensajeError>
+                    ) : null}
+                  </FormField>
+                </Box>
               )}
-            </VStack>
-          </Box>
+            </Box>
+          )}
 
           {/* Separador entre Bloque 1 (Calidad) y Bloque 2 (Comercial) */}
           <Separator />

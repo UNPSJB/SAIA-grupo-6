@@ -21,7 +21,7 @@ from sqlalchemy import text
 
 from src.database import engine
 
-from .base import marcar_migracion, migracion_ya_corrio, tablas
+from .base import agregar_columna, marcar_migracion, migracion_ya_corrio, tablas
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS reclamos (
     dias_desde_entrega INTEGER NOT NULL,
     plazo_referencia_dias INTEGER NOT NULL,
     fuera_de_plazo BOOLEAN NOT NULL,
+    cantidad_devuelta NUMERIC(14, 3),
     registrado_por_id INTEGER NOT NULL,
     fecha_registro DATETIME NOT NULL,
     PRIMARY KEY (id),
@@ -64,10 +65,12 @@ _INDICES_RECLAMOS = (
 
 
 def migrar_reclamos() -> None:
+    existentes = tablas()
+    if "reclamos" in existentes:
+        agregar_columna("reclamos", "cantidad_devuelta", "NUMERIC(14, 3)")
+
     if migracion_ya_corrio(CLAVE):
         return
-
-    existentes = tablas()
 
     with engine.begin() as conexion:
         if "configuracion_alertas" in existentes:

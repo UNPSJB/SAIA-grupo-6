@@ -1,9 +1,10 @@
 """Modelo de los reclamos de clientes sobre una entrega."""
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.common.fechas import ahora
@@ -58,6 +59,7 @@ class Reclamo(DatosDeEstablecimiento, ModeloBase):
         ForeignKey("personal.id", ondelete="RESTRICT"), nullable=False
     )
     fecha_registro: Mapped[datetime] = mapped_column(DateTime, default=ahora, nullable=False)
+    cantidad_devuelta: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 3), nullable=True)
 
     salida: Mapped["Salida"] = relationship(back_populates="reclamos")
     lote: Mapped["LoteProducto"] = relationship()

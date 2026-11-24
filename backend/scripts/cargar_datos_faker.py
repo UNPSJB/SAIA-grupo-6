@@ -85,6 +85,7 @@ from PIL import Image
 from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 # Permite correr el script desde cualquier directorio.
 RAIZ = Path(__file__).resolve().parent.parent
@@ -167,6 +168,9 @@ from src.notificaciones.models import (  # noqa: E402
     NotificacionPersistida,
     SituacionRiesgo,
 )
+from src.planes_accion import schemas as plan_schemas  # noqa: E402
+from src.planes_accion import services as plan_services  # noqa: E402
+from src.planes_accion.constants import EstadoPlan  # noqa: E402
 from src.planes_accion.models import (  # noqa: E402
     AccionPlan,
     EvidenciaPlan,
@@ -184,6 +188,7 @@ from src.reposiciones.models import Reposicion  # noqa: E402
 from src.notificaciones.invalidacion import (  # noqa: E402
     EstadoNotificaciones,
     asegurar_notificaciones_al_dia,
+    invalidar_notificaciones,
 )
 from src.productos.models import Producto  # noqa: E402
 from src.recetas.models import (  # noqa: E402
@@ -266,7 +271,7 @@ from src.retiros.constants import (  # noqa: E402
 from src.rotulado.models import BorradorRotulado, CampoRotuladoEditado  # noqa: E402
 from src.rotulado import services as rotulado_services  # noqa: E402
 from src.rotulado.schemas import BorradorRotuladoCreate, BorradorRotuladoUpdate  # noqa: E402
-from src.rotulado.constants import ESTADO_COMPLETADO  # noqa: E402
+from src.rotulado.constants import ESTADO_BORRADOR, ESTADO_COMPLETADO  # noqa: E402
 from src.rotulado import declaraciones_services  # noqa: E402
 from src.rotulado.declaraciones_schemas import (  # noqa: E402
     ConservacionProducto,
@@ -5169,6 +5174,569 @@ def vistos_de_la_sede(db) -> dict:
     }
 
 
+def inyectar_datos_demo(
+    db, productos: list, clientes: list, transportistas: list, admins: list
+) -> None:
+    """Inyecta tres sets de datos duros, controlados e independientes para demo en vivo.
+
+    1. Logística y Recall (Expositor 3 - Facundo):
+       - Producto "Pan de molde blanco" (o similar).
+       - Lote TERMINADO `DEMO-LOGISTICA-001` con Salida A (Reservada) y Salida B (Reservada).
+       - Lote TERMINADO `DEMO-RECALL-002` con Salida C (Entregada a Cliente 1) y
+         Salida D (Despachada a Cliente 2 con transportista habilitado).
+    2. Rotulado Frontal (Expositores 1 y 2 - Moraga/María):
+       - Producto "Alfajor de maicena" (distinto al de logística).
+       - Lote TERMINADO `DEMO-ROTULO-001`.
+       - Configuración forzada en canal MINORISTA, envasado sin cliente y todas las
+         marcas en True para asegurar octógonos y leyendas precautorias.
+       - Evaluación de rotulado frontal ejecutada y borrador autocompletado dejado
+         explícitamente en estado borrador (abierto / no completado).
+    3. Planes de Acción (Expositor 4 - Calidad):
+       - Sin vínculo a los lotes anteriores.
+       - Dos incidentes graves abiertos (`FALLA_EQUIPO`):
+         "DEMO-INCIDENTE: Falla en cámara de frío Norte" y
+         "DEMO-INCIDENTE: Falla en termostato de amasadora".
+       - Plan de acción en ejecución ("DEMO-PLAN: Auditoría y recambio de sensores
+         de temperatura") con 2 acciones concretas (`AccionPlan`) y ambos incidentes
+         vinculados mediante `SituacionPlan`.
+    """
+    if (
+        db.scalar(
+            select(LoteProducto.id).where(LoteProducto.numero_lote == "DEMO-LOGISTICA-001")
+        )
+        is not None
+    ):
+        print("   Los datos de demo ya estaban cargados en esta sede.")
+        return
+
+    print("⏳ Inyectando datos controlados para demo en vivo...")
+    hoy = hoy_ar()
+    ayer = hoy - timedelta(days=1)
+    vencimiento_futuro = hoy + timedelta(days=180)
+
+    admin_ids = [a.id for a in admins] if admins else []
+    admins_activos = [
+        p
+        for p in db.scalars(
+            select(Personal)
+            .where(Personal.activo.is_(True), Personal.id.in_(admin_ids))
+            .order_by(Personal.id)
+        ).all()
+        if p.puede_administrar
+    ]
+    if not admins_activos:
+        admins_activos = [
+            p
+            for p in db.scalars(
+                select(Personal).where(Personal.activo.is_(True)).order_by(Personal.id)
+            ).all()
+            if p.puede_administrar
+        ]
+    if not admins_activos:
+        print("   ⚠️  Sin administradores activos: se omite inyectar_datos_demo.")
+        return
+    admin = admins_activos[0]
+
+    producto_ids = [p.id for p in productos] if productos else []
+    productos_db = (
+        list(
+            db.scalars(
+                select(Producto).where(Producto.id.in_(producto_ids)).order_by(Producto.id)
+            ).all()
+        )
+        if producto_ids
+        else list(db.scalars(select(Producto).order_by(Producto.id)).all())
+    )
+
+    cliente_ids = [c.id for c in clientes] if clientes else []
+    clientes_activos = (
+        list(
+            db.scalars(
+                select(Cliente)
+                .where(Cliente.activo.is_(True), Cliente.id.in_(cliente_ids))
+                .order_by(Cliente.id)
+            ).all()
+        )
+        if cliente_ids
+        else []
+    )
+    if len(clientes_activos) < 2:
+        clientes_activos = list(
+            db.scalars(
+                select(Cliente).where(Cliente.activo.is_(True)).order_by(Cliente.id)
+            ).all()
+        )
+
+    transportista_ids = [t.id for t in transportistas] if transportistas else []
+    transportistas_db = list(
+        db.scalars(
+            select(Transportista)
+            .options(selectinload(Transportista.certificaciones))
+            .where(
+                Transportista.activo.is_(True),
+                *(
+                    [Transportista.id.in_(transportista_ids)]
+                    if transportista_ids
+                    else []
+                ),
+            )
+            .order_by(Transportista.id)
+        ).all()
+    )
+    transportistas_habilitados = [
+        t
+        for t in transportistas_db
+        if estado_habilitacion(t.certificaciones, fecha_referencia=hoy) == ESTADO_HABILITADO
+    ]
+    if not transportistas_habilitados:
+        transportistas_habilitados = [
+            t
+            for t in db.scalars(
+                select(Transportista)
+                .options(selectinload(Transportista.certificaciones))
+                .where(Transportista.activo.is_(True))
+                .order_by(Transportista.id)
+            ).all()
+            if estado_habilitacion(t.certificaciones, fecha_referencia=hoy)
+            == ESTADO_HABILITADO
+        ]
+
+    def _version_vigente(producto_id: int) -> Optional[VersionReceta]:
+        return db.scalar(
+            select(VersionReceta)
+            .join(Receta, Receta.id == VersionReceta.receta_id)
+            .where(Receta.producto_id == producto_id)
+            .order_by(VersionReceta.numero.desc())
+        )
+
+    def _buscar_producto(nombre_objetivo: str, excluir_ids: set[int]) -> Optional[Producto]:
+        objetivo = nombre_objetivo.strip().lower()
+        candidatos = [
+            p
+            for p in productos_db
+            if p.id not in excluir_ids and _version_vigente(p.id) is not None
+        ]
+        # 1. Coincidencia exacta (prioriza activo)
+        for solo_activos in (True, False):
+            for p in candidatos:
+                if solo_activos and not p.activo:
+                    continue
+                if p.nombre.strip().lower() == objetivo:
+                    if not p.activo:
+                        p.activo = True
+                        db.flush()
+                    return p
+        # 2. Coincidencia parcial
+        for solo_activos in (True, False):
+            for p in candidatos:
+                if solo_activos and not p.activo:
+                    continue
+                if objetivo in p.nombre.strip().lower():
+                    if not p.activo:
+                        p.activo = True
+                        db.flush()
+                    return p
+        # 3. Fallback a cualquier producto con receta
+        for p in candidatos:
+            if p.activo:
+                return p
+        if candidatos:
+            candidatos[0].activo = True
+            db.flush()
+            return candidatos[0]
+        return None
+
+    def _obtener_lote_insumo_para_demo(ingrediente, cantidad_req: Decimal) -> Optional[LoteInsumo]:
+        lotes_cand = list(
+            db.scalars(
+                select(LoteInsumo)
+                .where(
+                    LoteInsumo.ingrediente_id == ingrediente.id,
+                    LoteInsumo.activo.is_(True),
+                )
+                .order_by(LoteInsumo.fecha_vencimiento.desc(), LoteInsumo.id.desc())
+            ).all()
+        )
+        mejor = None
+        for lote_in in lotes_cand:
+            if lote_in.fecha_vencimiento is not None and lote_in.fecha_vencimiento < hoy:
+                continue
+            consumido = db.scalar(
+                select(func.coalesce(func.sum(ConsumoInsumo.cantidad), 0)).where(
+                    ConsumoInsumo.lote_insumo_id == lote_in.id
+                )
+            )
+            bajas = db.scalar(
+                select(func.coalesce(func.sum(BajaLoteInsumo.cantidad), 0)).where(
+                    BajaLoteInsumo.lote_insumo_id == lote_in.id
+                )
+            )
+            saldo_in = _q(lote_in.cantidad_recibida) - _q(consumido) - _q(bajas)
+            if saldo_in >= cantidad_req:
+                return lote_in
+            if mejor is None and saldo_in > 0:
+                mejor = lote_in
+        if mejor is not None:
+            return mejor
+        proveedor_activo = db.scalar(
+            select(Proveedor)
+            .where(Proveedor.activo.is_(True))
+            .order_by(Proveedor.es_certificado.desc(), Proveedor.id)
+        )
+        if proveedor_activo is None:
+            return None
+        ingreso_demo = ayer - timedelta(days=3)
+        cert = obtener_certificacion_vigente(db, proveedor_activo.id, ingreso_demo)
+        nuevo = LoteInsumo(
+            certificacion_id=cert.id if cert is not None else None,
+            insumo=_insumo_para(db, ingrediente, proveedor_activo),
+            ingrediente=ingrediente,
+            proveedor=proveedor_activo,
+            numero_lote=f"DEMO-INS-{ingrediente.id}-{hoy:%Y%m%d}",
+            cantidad_recibida=_q(max(cantidad_req * Decimal("5"), Decimal("100"))),
+            fecha_ingreso=ingreso_demo,
+            fecha_vencimiento=vencimiento_futuro,
+            creado_por_id=admin.id,
+            creado_en=datetime.combine(ingreso_demo, datetime.min.time()) + timedelta(hours=9),
+        )
+        db.add(nuevo)
+        db.flush()
+        return nuevo
+
+    def _crear_lote_terminado_demo(
+        producto: Producto, numero_lote: str, cantidad_base: Decimal = Decimal("100")
+    ) -> LoteProducto:
+        version = _version_vigente(producto.id)
+        if version is None:
+            raise RuntimeError(f"El producto {producto.nombre} no tiene versión de receta.")
+        rendimiento = Decimal(version.rendimiento)
+        objetivo = _en_piezas_enteras(
+            _q(max(cantidad_base, rendimiento)), producto.unidad_medida
+        )
+        if objetivo <= 0:
+            objetivo = _en_piezas_enteras(_q(rendimiento), producto.unidad_medida)
+        factor = (objetivo / rendimiento).quantize(Decimal("0.000001"))
+
+        inicio_dt = datetime.combine(ayer, datetime.min.time()) + timedelta(hours=8)
+        lote = LoteProducto(
+            numero_lote=numero_lote,
+            producto_id=producto.id,
+            version_receta_id=version.id,
+            estado=ESTADO_EN_PROCESO,
+            cantidad_objetivo=objetivo,
+            factor_escala=factor,
+            creado_por_id=admin.id,
+            fecha_inicio=inicio_dt,
+        )
+        db.add(lote)
+        db.flush()
+
+        momento_tarea = inicio_dt
+        for tarea in sorted(version.tareas, key=lambda t: t.orden):
+            momento_tarea += timedelta(minutes=45)
+            item = ChecklistProduccion(
+                lote=lote,
+                tarea=tarea,
+                asignado_a_id=admin.id,
+                completado_por_id=admin.id,
+                completado_en=momento_tarea,
+            )
+            db.add(item)
+            db.flush()
+            for reparto in tarea.ingredientes:
+                ingrediente = reparto.receta_ingrediente.ingrediente
+                cant_consumo = max(_q(Decimal(reparto.cantidad) * factor), _MILESIMA)
+                lote_in = _obtener_lote_insumo_para_demo(ingrediente, cant_consumo)
+                if lote_in is not None:
+                    db.add(
+                        ConsumoInsumo(
+                            checklist=item,
+                            lote_insumo=lote_in,
+                            cantidad=cant_consumo,
+                            tipo=TIPO_CONSUMO_REAL,
+                            registrado_por_id=admin.id,
+                            registrado_en=momento_tarea,
+                        )
+                    )
+        db.flush()
+
+        lote.estado = ESTADO_TERMINADO
+        lote.cantidad_producida = objetivo
+        lote.fecha_cierre = max(
+            momento_tarea + timedelta(minutes=30),
+            datetime.combine(ayer, datetime.min.time()) + timedelta(hours=14),
+        )
+        lote.fecha_vencimiento = vencimiento_futuro
+        db.flush()
+        return lote
+
+    db.info["usuario_id"] = admin.id
+    try:
+        # ==================================================================
+        # 1. Set de Logística y Recall (Expositor 3 - Facundo)
+        # ==================================================================
+        prod_logistica = _buscar_producto("Pan de molde blanco", set())
+        if prod_logistica is not None and clientes_activos:
+            cliente_1 = clientes_activos[0]
+            cliente_2 = clientes_activos[1] if len(clientes_activos) > 1 else clientes_activos[0]
+            transportista_ok = (
+                transportistas_habilitados[0] if transportistas_habilitados else None
+            )
+
+            # Lote 1: DEMO-LOGISTICA-001 (Salida A Reservada y Salida B Reservada)
+            lote_logistica = _crear_lote_terminado_demo(
+                prod_logistica, "DEMO-LOGISTICA-001", Decimal("100")
+            )
+            db.commit()
+            rotular_lote(db, lote_logistica.id, vencimiento_futuro, admin)
+
+            cant_a = _en_piezas_enteras(_q(Decimal("20")), prod_logistica.unidad_medida)
+            cant_b = _en_piezas_enteras(_q(Decimal("25")), prod_logistica.unidad_medida)
+            salidas_services.reservar(db, lote_logistica.id, cliente_1.id, cant_a, ayer, admin)
+            salidas_services.reservar(db, lote_logistica.id, cliente_2.id, cant_b, hoy, admin)
+
+            # Lote 2: DEMO-RECALL-002 (Salida C Entregada a Cliente 1, Salida D Despachada a Cliente 2)
+            lote_recall = _crear_lote_terminado_demo(
+                prod_logistica, "DEMO-RECALL-002", Decimal("100")
+            )
+            db.commit()
+            rotular_lote(db, lote_recall.id, vencimiento_futuro, admin)
+
+            cant_c = _en_piezas_enteras(_q(Decimal("30")), prod_logistica.unidad_medida)
+            cant_d = _en_piezas_enteras(_q(Decimal("20")), prod_logistica.unidad_medida)
+
+            salida_c = salidas_services.reservar(
+                db, lote_recall.id, cliente_1.id, cant_c, ayer, admin
+            )
+            forma_c = (
+                FORMA_ENTREGA_CON_TRANSPORTISTA
+                if transportista_ok is not None
+                else FORMA_ENTREGA_RETIRA_CLIENTE
+            )
+            salidas_services.despachar(
+                db,
+                salida_c.id,
+                forma_c,
+                transportista_ok.id if transportista_ok is not None else None,
+                ayer,
+                admin,
+            )
+            salidas_services.entregar(
+                db,
+                salida_c.id,
+                hoy,
+                "Entrega conforme en depósito del cliente.",
+                admin,
+                recibido_por="Encargado de recepción",
+            )
+
+            salida_d = salidas_services.reservar(
+                db, lote_recall.id, cliente_2.id, cant_d, ayer, admin
+            )
+            forma_d = (
+                FORMA_ENTREGA_CON_TRANSPORTISTA
+                if transportista_ok is not None
+                else FORMA_ENTREGA_RETIRA_CLIENTE
+            )
+            salidas_services.despachar(
+                db,
+                salida_d.id,
+                forma_d,
+                transportista_ok.id if transportista_ok is not None else None,
+                hoy,
+                admin,
+            )
+
+        # ==================================================================
+        # 2. Set de Rotulado Frontal (Expositores 1 y 2 - Moraga/María)
+        # ==================================================================
+        excluir_rotulo = {prod_logistica.id} if prod_logistica is not None else set()
+        prod_rotulo = _buscar_producto("Alfajor de maicena", excluir_rotulo)
+        if prod_rotulo is not None:
+            lote_rotulo = _crear_lote_terminado_demo(
+                prod_rotulo, "DEMO-ROTULO-001", Decimal("100")
+            )
+            version_rotulo = db.get(VersionReceta, lote_rotulo.version_receta_id)
+            _preparar_declaraciones_rotulado(db, prod_rotulo, version_rotulo)
+            db.commit()
+
+            # Asegura módulo activo y fuerza configuración minorista con todas las marcas
+            # para garantizar octógonos y leyendas precautorias.
+            rotulado_frontal_services.actualizar_modulo(db, True)
+            rotulado_frontal_services.guardar_configuracion(
+                db,
+                prod_rotulo.id,
+                ConfiguracionRotuladoIn(
+                    canal_comercializacion=rotulado_frontal_constants.CANAL_MINORISTA,
+                    envasado_sin_cliente=True,
+                    azucares_agregados=True,
+                    grasas_agregadas=True,
+                    sodio_agregado=True,
+                    edulcorantes=True,
+                    cafeina=True,
+                    categoria_rotulado=None,
+                    categoria_exceptuada_por_ley=False,
+                ),
+            )
+            rotulado_frontal_services.evaluar(db, prod_rotulo.id)
+
+            borrador_demo = rotulado_services.crear_borrador(
+                db,
+                prod_rotulo.id,
+                BorradorRotuladoCreate(
+                    producto_id=prod_rotulo.id,
+                    version_receta_id=lote_rotulo.version_receta_id,
+                    lote_producto_id=lote_rotulo.id,
+                    estado=ESTADO_BORRADOR,
+                ),
+                admin,
+            )
+            rotulado_services.autocompletar_borrador(
+                db,
+                borrador_demo.id,
+                lote_rotulo.version_receta_id,
+                lote_rotulo.id,
+                False,
+                admin,
+            )
+
+        # ==================================================================
+        # 3. Set de Planes de Acción (Expositor 4 - Calidad)
+        # ==================================================================
+        equipos_activos = list(
+            db.scalars(
+                select(Equipo).where(Equipo.activo.is_(True)).order_by(Equipo.id)
+            ).all()
+        )
+        equipo_frio = next(
+            (
+                e
+                for e in equipos_activos
+                if any(
+                    palabra in e.nombre.lower()
+                    for palabra in ("cámara", "camara", "frío", "frio", "heladera", "freezer")
+                )
+            ),
+            equipos_activos[0] if equipos_activos else None,
+        )
+        equipo_amasadora = next(
+            (
+                e
+                for e in equipos_activos
+                if e is not equipo_frio
+                and any(
+                    palabra in e.nombre.lower()
+                    for palabra in ("amasadora", "batidora", "horno", "termostato")
+                )
+            ),
+            next((e for e in equipos_activos if e is not equipo_frio), equipo_frio),
+        )
+
+        incidente_frio = Incidente(
+            titulo="DEMO-INCIDENTE: Falla en cámara de frío Norte",
+            descripcion=(
+                "Desvío térmico sostenido por encima de 8 °C en cámara de frío Norte "
+                "detectado en el control de turno por falla en el sensor de temperatura."
+            ),
+            tipo=TipoIncidente.FALLA_EQUIPO.value,
+            equipo_id=equipo_frio.id if equipo_frio is not None else None,
+            usuario_id=admin.id,
+            fecha_reporte=datetime.combine(ayer, datetime.min.time()) + timedelta(hours=10),
+            estado=EstadoIncidente.ABIERTO.value,
+            lote_id=None,
+            salida_id=None,
+        )
+        incidente_amasadora = Incidente(
+            titulo="DEMO-INCIDENTE: Falla en termostato de amasadora",
+            descripcion=(
+                "Lectura errática e intermitente en el termostato de la amasadora "
+                "durante el amasado, con riesgo de sobrecalentamiento de la masa."
+            ),
+            tipo=TipoIncidente.FALLA_EQUIPO.value,
+            equipo_id=equipo_amasadora.id if equipo_amasadora is not None else None,
+            usuario_id=admin.id,
+            fecha_reporte=datetime.combine(hoy, datetime.min.time()) + timedelta(hours=9),
+            estado=EstadoIncidente.ABIERTO.value,
+            lote_id=None,
+            salida_id=None,
+        )
+        db.add_all([incidente_frio, incidente_amasadora])
+        db.commit()
+
+        # Recalcula situaciones de riesgo para que ambos incidentes generen su SituacionRiesgo.
+        invalidar_notificaciones(db)
+        asegurar_notificaciones_al_dia(db)
+
+        sit_frio_id = db.scalar(
+            select(SituacionRiesgo.id).where(
+                SituacionRiesgo.clave == f"incidente-{incidente_frio.id}",
+                SituacionRiesgo.resuelta_en.is_(None),
+            )
+        )
+        sit_amasadora_id = db.scalar(
+            select(SituacionRiesgo.id).where(
+                SituacionRiesgo.clave == f"incidente-{incidente_amasadora.id}",
+                SituacionRiesgo.resuelta_en.is_(None),
+            )
+        )
+
+        if sit_frio_id is not None and sit_amasadora_id is not None:
+            otros_activos = [
+                p
+                for p in db.scalars(
+                    select(Personal).where(Personal.activo.is_(True)).order_by(Personal.id)
+                ).all()
+                if p.id != admin.id
+            ]
+            responsable_plan = otros_activos[0] if otros_activos else admin
+            responsable_accion_2 = (
+                otros_activos[1] if len(otros_activos) > 1 else responsable_plan
+            )
+
+            plan_demo = plan_services.crear_plan(
+                db,
+                plan_schemas.PlanCrear(
+                    situacion_origen_id=sit_frio_id,
+                    situaciones_adicionales=[sit_amasadora_id],
+                    confirma_causa_compatible=True,
+                    objetivo="DEMO-PLAN: Auditoría y recambio de sensores de temperatura",
+                    causa=(
+                        "Descalibración y desgaste simultáneo de sensores térmicos críticos "
+                        "en cámara de frío Norte y amasadora por falta de recambio preventivo."
+                    ),
+                    criterio_eficacia=(
+                        "Lecturas térmicas estables dentro de rango nominal durante todo el "
+                        "período de observación sin nuevos incidentes de falla de sensores."
+                    ),
+                    responsable_id=responsable_plan.id,
+                    plazo=hoy + timedelta(days=15),
+                    acciones=[
+                        plan_schemas.AccionCrear(
+                            descripcion=(
+                                "Auditar y contrastar los sensores de temperatura de la "
+                                "cámara de frío Norte y la amasadora contra patrón calibrado."
+                            ),
+                            responsable_id=responsable_plan.id,
+                            plazo=hoy + timedelta(days=7),
+                        ),
+                        plan_schemas.AccionCrear(
+                            descripcion=(
+                                "Reemplazar el sensor de cámara de frío Norte y el termostato "
+                                "de la amasadora por repuestos certificados e incorporar al plan preventivo."
+                            ),
+                            responsable_id=responsable_accion_2.id,
+                            plazo=hoy + timedelta(days=14),
+                        ),
+                    ],
+                ),
+                admin,
+            )
+            if plan_demo.estado == EstadoPlan.BORRADOR.value:
+                plan_services.confirmar_plan(db, plan_demo.id, admin)
+    finally:
+        db.info.pop("usuario_id", None)
+
+
 def cargar_establecimiento(
     db, args, fake: Faker, vistos: dict, hash_password: str, con_super_admin: bool
 ) -> dict:
@@ -5280,6 +5848,14 @@ def cargar_establecimiento(
         db, sys.modules[__name__], fake, vistos=vistos, hash_password=hash_password,
         admins=admins, operadores=operadores, unidades=unidades, ingredientes=ingredientes,
     )
+
+    # Datos duros y controlados para demo en vivo (independientes por expositor).
+    transportistas_sede = list(
+        db.scalars(select(Transportista).order_by(Transportista.id)).all()
+    )
+    inyectar_datos_demo(db, productos, clientes, transportistas_sede, admins)
+    db.commit()
+    invalidar_notificaciones(db)
 
     # La caché de notificaciones se recalcula sobre los datos finales, igual
     # que en la primera lectura de la app.

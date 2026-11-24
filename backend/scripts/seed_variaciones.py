@@ -766,7 +766,7 @@ def _reclamos(db, h, usuario) -> None:
     pendientes = [r.id for r in reclamos if abierto(r)]
     guiones = [
         dict(accion_correctiva="Se repuso el producto y se revisó el envasado.", mercaderia_devuelta=True,
-             disposicion_fisica="CUARENTENA", reponer=True),
+             disposicion_fisica="BAJA", reponer=True),
         dict(accion_correctiva="Producto devuelto y descartado.", mercaderia_devuelta=True,
              disposicion_fisica="BAJA", reponer=True),
         dict(accion_correctiva="Se explicó al cliente la forma de conservación.", reponer=False),
@@ -776,6 +776,13 @@ def _reclamos(db, h, usuario) -> None:
     for reclamo_id, guion in zip(pendientes, guiones):
         reclamo = db.get(Reclamo, reclamo_id)
         datos = dict(guion)
+        if datos.get("mercaderia_devuelta"):
+            cant_dev = h._en_piezas_enteras(reclamo.salida.cantidad, reclamo.lote.producto.unidad_medida)
+            if cant_dev > 0:
+                datos["cantidad_devuelta"] = cant_dev
+            else:
+                datos.pop("mercaderia_devuelta", None)
+                datos.pop("disposicion_fisica", None)
         if datos.pop("reponer"):
             cantidad = h._en_piezas_enteras(reclamo.salida.cantidad, reclamo.lote.producto.unidad_medida)
             if cantidad > 0:

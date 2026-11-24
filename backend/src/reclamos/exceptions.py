@@ -40,3 +40,15 @@ class ReclamoSinIncidente(BadRequest):
 
 class ReposicionYaGenerada(BadRequest):
     DETAIL = ErrorCode.REPOSICION_YA_GENERADA
+
+
+class DevolucionYaRegistrada(BadRequest):
+    DETAIL = ErrorCode.DEVOLUCION_YA_REGISTRADA
+
+
+class CantidadDevueltaSuperada(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_DEVUELTA_SUPERADA
+
+
+class CantidadDevueltaFraccionInvalida(BadRequest):
+    DETAIL = ErrorCode.CANTIDAD_DEVUELTA_FRACCION_INVALIDA

@@ -59,3 +59,6 @@ class ErrorCode:
     DETALLE_DEMASIADO_LARGO = (
         "El detalle del reclamo no puede superar los 500 caracteres."
     )
+    DEVOLUCION_YA_REGISTRADA = "Este reclamo ya registró una devolución física de mercadería: no se puede registrar otra."
+    CANTIDAD_DEVUELTA_SUPERADA = "La cantidad devuelta supera la cantidad entregada pendiente de devolución para esta salida."
+    CANTIDAD_DEVUELTA_FRACCION_INVALIDA = "La unidad de medida del producto no admite cantidades con decimales."

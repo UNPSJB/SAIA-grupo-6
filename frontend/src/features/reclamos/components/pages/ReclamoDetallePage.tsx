@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Image, Stack, Text } from "@chakra-ui/react";
+import { Badge, Box, Button, HStack, Image, Stack, Text } from "@chakra-ui/react";
 import { LuCircleCheck, LuRotateCcw } from "react-icons/lu";
 import { formatoFecha, formatoFechaHora } from "../../../../common/utils/fechas";
 import { puedeAdministrar } from "../../../../common/api/permissions";
@@ -205,6 +205,18 @@ export function ReclamoDetallePage() {
               <DatoDetalle etiqueta="Fecha de registro">
                 {formatoFechaHora(reclamo.fecha_registro)}
               </DatoDetalle>
+              {reclamo.cantidad_devuelta && (
+                <DatoDetalle etiqueta="Mercadería devuelta">
+                  <HStack gap="2" flexWrap="wrap">
+                    <Text fontWeight="semibold">
+                      {[reclamo.cantidad_devuelta, reclamo.salida.unidad_medida].filter(Boolean).join(" ")}
+                    </Text>
+                    <Badge colorPalette="red" variant="subtle" size="sm">
+                      Baja sanitaria (Desechada)
+                    </Badge>
+                  </HStack>
+                </DatoDetalle>
+              )}
               <Box gridColumn="1 / -1">
                 <DatoDetalle etiqueta="Detalle">
                   <Text whiteSpace="pre-line">

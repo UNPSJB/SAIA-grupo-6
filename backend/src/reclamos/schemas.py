@@ -35,6 +35,7 @@ class ReclamoResumen(BaseModel):
     fuera_de_plazo: bool
     incidente_id: Optional[int] = None
     incidente_estado: Optional[str] = None
+    cantidad_devuelta: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,6 +50,8 @@ class ReclamoSalidaDetalle(BaseModel):
     unidad_medida: str
     producto_nombre: str
     lote_numero: str
+    cantidad_devuelta_total: str = "0"
+    cantidad_disponible_devolucion: str = "0"
 
 
 class ReclamoIncidenteDetalle(BaseModel):
@@ -94,14 +97,22 @@ class ReclamoCerrar(BaseModel):
 
     accion_correctiva: str
     mercaderia_devuelta: bool = False
-    disposicion_fisica: Optional[Literal["CUARENTENA", "BAJA"]] = None
+    disposicion_fisica: Optional[Literal["BAJA"]] = "BAJA"
+    cantidad_devuelta: Optional[Decimal] = Field(None, gt=0)
     generar_reposicion: bool = False
     cantidad_a_reponer: Optional[Decimal] = Field(None, gt=0)
 
     @model_validator(mode="after")
     def validar_resolucion(self):
-        if self.mercaderia_devuelta and self.disposicion_fisica is None:
-            raise ValueError("Indicá el destino de la mercadería devuelta.")
+        if self.mercaderia_devuelta:
+            if self.cantidad_devuelta is None:
+                raise ValueError("Indicá la cantidad de mercadería devuelta.")
+            if self.disposicion_fisica is None:
+                self.disposicion_fisica = "BAJA"
+        else:
+            self.cantidad_devuelta = None
+            self.disposicion_fisica = None
+
         if self.generar_reposicion and self.cantidad_a_reponer is None:
             raise ValueError("Indicá la cantidad a reponer.")
         return self

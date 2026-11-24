@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import select
@@ -13,6 +14,7 @@ from src.clientes.models import Cliente
 from src.lotes.models import LoteProducto
 from src.notificaciones.services import obtener_plazo_reclamo_dias
 from src.personal.models import Personal
+from src.productos.models import Producto
 from src.reclamos import exceptions, schemas
 from src.reclamos.constants import (
     ETIQUETAS_MOTIVO_RECLAMO,
@@ -32,6 +34,7 @@ from src.salidas import exceptions as salidas_exceptions
 from src.salidas import services as salidas_services
 from src.salidas.constants import ESTADO_ENTREGADO
 from src.salidas.models import Salida
+from src.unidadMedida.cantidades import es_cantidad_valida
 
 
 def _nombre_completo(persona: Optional[Personal]) -> Optional[str]:
@@ -214,11 +217,35 @@ def cerrar_reclamo(
         raise exceptions.ReposicionYaGenerada()
 
     accion = datos.accion_correctiva.strip()
-    if accion and datos.mercaderia_devuelta:
-        accion = (
-            f"{accion} | Mercadería devuelta a planta. "
-            f"Disposición física: {datos.disposicion_fisica}"
+    if datos.mercaderia_devuelta:
+        if reclamo.cantidad_devuelta is not None:
+            raise exceptions.DevolucionYaRegistrada()
+        unidad_obj = (
+            reclamo.salida.lote.producto.unidad_medida
+            if reclamo.salida.lote and reclamo.salida.lote.producto
+            else None
         )
+        if not es_cantidad_valida(datos.cantidad_devuelta, unidad_obj):
+            raise exceptions.CantidadDevueltaFraccionInvalida()
+
+        ya_devuelto = sum(
+            (r.cantidad_devuelta or Decimal("0"))
+            for r in (reclamo.salida.reclamos or [])
+            if r.id != reclamo.id and r.cantidad_devuelta is not None
+        )
+        disponible_devolucion = reclamo.salida.cantidad - ya_devuelto
+        if datos.cantidad_devuelta > disponible_devolucion:
+            raise exceptions.CantidadDevueltaSuperada()
+
+        reclamo.cantidad_devuelta = datos.cantidad_devuelta
+        unidad_simbolo = unidad_obj.simbolo if unidad_obj else ""
+        cant_str = f"{salidas_services.formatear_cantidad(datos.cantidad_devuelta)} {unidad_simbolo}".strip()
+        if accion:
+            accion = (
+                f"{accion} | Mercadería devuelta a planta ({cant_str}): "
+                "dada de baja (descarte sanitario)."
+            )
+
     incidente_services.cerrar_incidente(db, incidente, usuario, accion)
 
     if datos.generar_reposicion:
@@ -334,9 +361,10 @@ def obtener_reclamo(db: Session, reclamo_id: int) -> Reclamo:
             selectinload(Reclamo.lote),
             selectinload(Reclamo.incidente),
             selectinload(Reclamo.registrado_por),
+            selectinload(Reclamo.salida).selectinload(Salida.reclamos),
             selectinload(Reclamo.salida).selectinload(Salida.lote).selectinload(
                 LoteProducto.producto
-            ),
+            ).selectinload(Producto.unidad_medida),
         )
         .where(Reclamo.id == reclamo_id)
     )
@@ -365,6 +393,11 @@ def reclamo_a_resumen(reclamo: Reclamo) -> schemas.ReclamoResumen:
         incidente_id=reclamo.incidente_id,
         incidente_estado=(
             reclamo.incidente.estado if reclamo.incidente is not None else None
+        ),
+        cantidad_devuelta=(
+            salidas_services.formatear_cantidad(reclamo.cantidad_devuelta)
+            if reclamo.cantidad_devuelta is not None
+            else None
         ),
     )
 
@@ -405,6 +438,13 @@ def reclamo_a_detalle(reclamo: Reclamo) -> schemas.ReclamoDetalle:
         if salida.lote.producto and salida.lote.producto.unidad_medida
         else ""
     )
+    devuelto_total = sum(
+        (r.cantidad_devuelta or Decimal("0"))
+        for r in (salida.reclamos or [])
+        if r.cantidad_devuelta is not None
+    )
+    disponible_dev = max(Decimal("0"), salida.cantidad - devuelto_total)
+
     return schemas.ReclamoDetalle(
         **reclamo_a_resumen(reclamo).model_dump(),
         registrado_por_nombre=_nombre_completo(reclamo.registrado_por),
@@ -419,6 +459,8 @@ def reclamo_a_detalle(reclamo: Reclamo) -> schemas.ReclamoDetalle:
             unidad_medida=unidad,
             producto_nombre=salida.lote.producto.nombre,
             lote_numero=salida.lote.numero_lote,
+            cantidad_devuelta_total=salidas_services.formatear_cantidad(devuelto_total),
+            cantidad_disponible_devolucion=salidas_services.formatear_cantidad(disponible_dev),
         ),
         incidente=(
             schemas.ReclamoIncidenteDetalle(

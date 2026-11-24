@@ -67,19 +67,20 @@ def test_cerrar_con_devolucion_y_reposicion(db_session, escenario):
             accion_correctiva="Se repone",
             mercaderia_devuelta=True,
             disposicion_fisica="BAJA",
+            cantidad_devuelta=Decimal("2"),
             generar_reposicion=True,
-            cantidad_a_reponer=Decimal("2.5"),
+            cantidad_a_reponer=Decimal("2"),
         ),
         admin,
     )
 
-    assert cerrado.incidente.observacion_cierre == (
-        "Se repone | Mercadería devuelta a planta. Disposición física: BAJA"
-    )
+    assert "Mercadería devuelta a planta" in cerrado.incidente.observacion_cierre
+    assert "dada de baja (descarte sanitario)" in cerrado.incidente.observacion_cierre
+    assert cerrado.cantidad_devuelta == Decimal("2")
     (reposicion,) = _reposiciones(db_session)
     assert reposicion.cliente_id == reclamo.cliente_id
     assert reposicion.producto_id == reclamo.lote.producto_id
-    assert reposicion.cantidad_pendiente == Decimal("2.5")
+    assert reposicion.cantidad_pendiente == Decimal("2")
     assert reposicion.incidente_origen_id == reclamo.incidente_id
     assert reposicion.salida_origen_id == reclamo.salida_id
 
@@ -95,6 +96,7 @@ def test_cerrar_sin_accion_correctiva_no_deja_nada_guardado(db_session, escenari
                 accion_correctiva="  ",
                 mercaderia_devuelta=True,
                 disposicion_fisica="BAJA",
+                cantidad_devuelta=Decimal("1"),
                 generar_reposicion=True,
                 cantidad_a_reponer=1,
             ),
@@ -218,3 +220,73 @@ def test_la_ficha_trae_la_reposicion_vigente(db_session, escenario):
     reposicion = services.reclamo_a_detalle(cerrado).reposicion
     assert reposicion.estado == "PENDIENTE"
     assert reposicion.cantidad_pendiente == 2
+
+
+def test_devolucion_impacta_en_cantidades_del_lote(db_session, escenario):
+    admin, reclamo = escenario
+    lote = reclamo.lote
+    entregado_inicial = lote.entregado
+    desechado_inicial = lote.desechado
+    saldo_inicial = lote.saldo
+
+    services.cerrar_reclamo(
+        db_session,
+        reclamo.id,
+        ReclamoCerrar(
+            accion_correctiva="Se descartó en planta",
+            mercaderia_devuelta=True,
+            cantidad_devuelta=Decimal("2"),
+        ),
+        admin,
+    )
+
+    db_session.expire_all()
+    lote_actualizado = db_session.get(type(lote), lote.id)
+    assert lote_actualizado.entregado == entregado_inicial - Decimal("2")
+    assert lote_actualizado.desechado == desechado_inicial + Decimal("2")
+    assert lote_actualizado.saldo == saldo_inicial
+
+
+def test_cantidad_devuelta_no_puede_superar_disponible(db_session, escenario):
+    admin, reclamo = escenario
+    salida_cant = reclamo.salida.cantidad
+
+    with pytest.raises(exceptions.CantidadDevueltaSuperada):
+        services.cerrar_reclamo(
+            db_session,
+            reclamo.id,
+            ReclamoCerrar(
+                accion_correctiva="Devolución excesiva",
+                mercaderia_devuelta=True,
+                cantidad_devuelta=salida_cant + Decimal("1"),
+            ),
+            admin,
+        )
+
+
+def test_reabrir_y_reintentar_devolucion_no_permitida(db_session, escenario):
+    admin, reclamo = escenario
+    services.cerrar_reclamo(
+        db_session,
+        reclamo.id,
+        ReclamoCerrar(
+            accion_correctiva="Devuelto inicial",
+            mercaderia_devuelta=True,
+            cantidad_devuelta=Decimal("1"),
+        ),
+        admin,
+    )
+
+    services.reabrir_reclamo(db_session, reclamo.id, "Reapertura", admin)
+
+    with pytest.raises(exceptions.DevolucionYaRegistrada):
+        services.cerrar_reclamo(
+            db_session,
+            reclamo.id,
+            ReclamoCerrar(
+                accion_correctiva="Segunda devolución",
+                mercaderia_devuelta=True,
+                cantidad_devuelta=Decimal("1"),
+            ),
+            admin,
+        )

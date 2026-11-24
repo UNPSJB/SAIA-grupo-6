@@ -126,7 +126,9 @@ class Salida(DatosDeEstablecimiento, ModeloBase):
     )
     # Reclamos de cliente sobre esta entrega (Historia 20). Una entrega admite
     # más de uno; el vínculo inverso lo define `Reclamo.salida`.
-    reclamos: Mapped[list["Reclamo"]] = relationship(back_populates="salida")
+    reclamos: Mapped[list["Reclamo"]] = relationship(
+        back_populates="salida", lazy="selectin"
+    )
 
 
 class HitoLote(DatosDeEstablecimiento, ModeloBase):
@@ -208,9 +210,19 @@ def calcular_cantidades(
     despachado = sum(
         (s.cantidad for s in salidas if s.estado == "DESPACHADO"), _CERO
     )
+    devuelto_reclamos = sum(
+        (
+            (getattr(r, "cantidad_devuelta", None) or _CERO)
+            for s in salidas
+            if s.estado == "ENTREGADO"
+            for r in (getattr(s, "reclamos", None) or [])
+            if getattr(r, "cantidad_devuelta", None) is not None
+        ),
+        _CERO,
+    )
     entregado = sum(
         (s.cantidad for s in salidas if s.estado == "ENTREGADO"), _CERO
-    )
+    ) - devuelto_reclamos
     # Mercadería rechazada por el cliente: queda "en revisión" hasta que un
     # administrador decide su destino. DESECHADA se da de baja; REINGRESADA no
     # resta (vuelve al saldo del lote).
@@ -229,7 +241,7 @@ def calcular_cantidades(
             if s.estado == "RECHAZADA" and s.disposicion == "DESECHADA"
         ),
         _CERO,
-    )
+    ) + devuelto_reclamos
     # Las salidas CANCELADAS no suman en ninguna cantidad.
 
     saldo = producido_q - (

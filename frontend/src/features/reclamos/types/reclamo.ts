@@ -68,6 +68,7 @@ export interface ReclamoResumen {
   fuera_de_plazo: boolean;
   incidente_id: number | null;
   incidente_estado: "abierto" | "cerrado" | null;
+  cantidad_devuelta?: string | null;
 }
 
 /** Datos de la salida que se muestran en la ficha del reclamo. */
@@ -79,6 +80,8 @@ export interface ReclamoSalida {
   unidad_medida: string;
   producto_nombre: string;
   lote_numero: string;
+  cantidad_devuelta_total?: string;
+  cantidad_disponible_devolucion?: string;
 }
 
 /** Incidente vinculado, con su resolución si ya se cerró. */
@@ -119,7 +122,8 @@ export interface ReclamoCreateValues {
 export interface ReclamoCerrarValues {
   accion_correctiva: string;
   mercaderia_devuelta: boolean;
-  disposicion_fisica: "CUARENTENA" | "BAJA" | null;
+  disposicion_fisica: "BAJA" | null;
+  cantidad_devuelta: number | null;
   generar_reposicion: boolean;
   cantidad_a_reponer: number | null;
 }
