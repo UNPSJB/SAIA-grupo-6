@@ -6,7 +6,7 @@ import {
   obtenerImpactoSituaciones,
   restaurarImpactoSituacion,
 } from "../services/configuracionService";
-import type { ImpactoSituacion } from "../types/configuracion";
+import type { CambioSituacion, ImpactoSituacion } from "../types/configuracion";
 
 /**
  * Impacto (criticidad) de cada tipo de situación del motor de riesgos, para la
@@ -68,11 +68,11 @@ export function useImpactoSituaciones() {
   );
 
   const cambiar = useCallback(
-    (tipo: string, impacto: number) =>
+    (tipo: string, cambio: CambioSituacion) =>
       aplicar(
         tipo,
-        () => fijarImpactoSituacion(tipo, impacto),
-        (i) => `Impacto de “${i.etiqueta}” guardado.`,
+        () => fijarImpactoSituacion(tipo, cambio),
+        (i) => `Cambios de “${i.etiqueta}” guardados.`,
       ),
     [aplicar],
   );
@@ -82,7 +82,7 @@ export function useImpactoSituaciones() {
       aplicar(
         tipo,
         () => restaurarImpactoSituacion(tipo),
-        (i) => `Impacto de “${i.etiqueta}” restaurado al sugerido.`,
+        (i) => `“${i.etiqueta}” volvió a lo sugerido por SAIA.`,
       ),
     [aplicar],
   );

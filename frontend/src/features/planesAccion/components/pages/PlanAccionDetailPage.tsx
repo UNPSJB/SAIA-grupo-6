@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Badge, Box, Button, HStack, Stack, Table, Text } from "@chakra-ui/react";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Badge, Box, Button, HStack, Link, Stack, Table, Text } from "@chakra-ui/react";
 import {
   LuBan,
   LuCheck,
@@ -324,10 +324,22 @@ function SeccionAlcance({
                     </Text>
                   ) : null}
                   {decide && s.verificacion_manual ? (
-                    <Text fontSize="xs" color="fg.muted" mt="0.5">
-                      Un incidente no se cierra solo: lo confirma a mano alguien que no sea responsable del
-                      plan ni de sus acciones, con evidencia. Al confirmarlo pasa a "controlado" y deja de
-                      sumar al riesgo tratado; el riesgo real queda en el historial.
+                    <Text
+                      fontSize="xs"
+                      color={s.sigue_presente ? "orange.fg" : "fg.muted"}
+                      mt="0.5"
+                    >
+                      {s.sigue_presente
+                        ? "El incidente sigue abierto: para darlo por corregido, primero cerralo desde su ficha. Que no fue eficaz se puede indicar igual."
+                        : "Lo confirma a mano alguien que no sea responsable del plan ni de sus acciones, con evidencia. Después empieza el período de observación."}
+                      {s.sigue_presente && s.destino ? (
+                        <>
+                          {" "}
+                          <Link asChild color="brand.fg" fontWeight="medium">
+                            <RouterLink to={s.destino}>Ir al incidente</RouterLink>
+                          </Link>
+                        </>
+                      ) : null}
                     </Text>
                   ) : s.sigue_presente && !s.verificacion_manual && s.estado !== "pendiente" ? (
                     <Text fontSize="xs" color="orange.fg" mt="0.5">

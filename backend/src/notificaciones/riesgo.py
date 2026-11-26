@@ -65,45 +65,80 @@ Criticidad = Literal["alta", "media", "baja"]
 # QUÉ GENERA RIESGO E IMPACTO BASE
 # ============================================================
 #
-# Generan riesgo:
+# SAIA sugiere una clasificación inicial y el administrador de cada
+# establecimiento decide, tipo por tipo (`notificaciones.impacto`):
 #
-#   - los incidentes de higiene y contaminación, falla de equipos y plagas, y
-#     los de tipo "Otro" (la categoría "Otros");
-#   - quedarse sin stock (insumo por debajo del mínimo);
-#   - el incumplimiento de los checklists;
-#   - los vencimientos (documentos, aptitudes del personal, calibraciones,
-#     mantenimientos y recambios de limpieza), vencidos o próximos a vencer.
+#   - si el tipo GENERA RIESGO o solo se notifica;
+#   - su IMPACTO (1 bajo · 2 medio · 3 alto);
+#   - si exige un PLAN DE ACCIÓN OBLIGATORIO desde la primera detección
+#     (aunque el riesgo todavía no sea alto);
+#   - para los incidentes de circuito (reclamos, retiros y rechazos), qué
+#     CAUSAS cuentan: con otra causa se notifican sin riesgo.
 #
-# Los incidentes de otras clases (devolución de cliente) se notifican, pero no
-# entran en el cálculo.
-#
-# Los reclamos de clientes, los retiros de lote y los rechazos de entrega no
-# generan riesgo por sí mismos: de ellos solo interesa la CAUSA, y la única
-# causa relevante es higiene o contaminación. Un reclamo, retiro o rechazo
-# cuya causa lo sea cuenta como un evento de "Higiene y contaminación"; con
-# cualquier otra causa se notifica sin riesgo.
-#
-# El impacto de cada tipo de evento lo puede cambiar el administrador, también
-# el de "Otros".
+# Además, todo elemento en riesgo alto exige un plan, sea cual sea el tipo de
+# sus situaciones (ver `criticidad._armar_dashboard`).
+
+from src.reclamos.constants import (  # noqa: E402  (constantes puras)
+    ETIQUETAS_MOTIVO_RECLAMO,
+    MOTIVO_DEVOLUCION_RECALL,
+    MOTIVO_DEVOLUCION_RECALL_KEY,
+)
+from src.retiros.constants import MOTIVOS_RETIRO  # noqa: E402
+from src.salidas.constants import ETIQUETAS_MOTIVO_RECHAZO  # noqa: E402
+
 
 @dataclass(frozen=True)
 class TipoSituacion:
     etiqueta: str
-    #: Impacto base sugerido por SAIA: 1 bajo · 2 medio · 3 alto. El
-    #: administrador del establecimiento puede cambiarlo.
+    #: Impacto base sugerido por SAIA: 1 bajo · 2 medio · 3 alto.
     impacto_sugerido: int
+    #: Si genera riesgo de entrada (el administrador lo puede apagar).
+    activo_sugerido: bool = True
+    #: Si exige plan de acción desde la primera detección.
+    plan_obligatorio_sugerido: bool = False
+    #: Solo los incidentes de circuito: causa (valor guardado) -> etiqueta.
+    causas: tuple[tuple[str, str], ...] = ()
+    #: Las causas que cuentan de entrada.
+    causas_sugeridas: frozenset[str] = frozenset()
 
 
-#: Tipos de evento que generan riesgo. La clasificación sugerida es la que el
-#: motor anterior ya usaba: incidentes = 3 (alta); stock, vencido = 2 (media);
-#: checklist, próximo a vencer = 1 (baja).
+_CAUSAS_RECLAMO = tuple(
+    (k, v) for k, v in ETIQUETAS_MOTIVO_RECLAMO.items() if k != MOTIVO_DEVOLUCION_RECALL
+)
+_CAUSAS_RETIRO = tuple((m, m) for m in MOTIVOS_RETIRO)
+_CAUSAS_RECHAZO = tuple(ETIQUETAS_MOTIVO_RECHAZO.items())
+
+#: Tipos de evento que pueden generar riesgo. La clasificación sugerida:
+#: incidentes = 3 (alto); stock, vencido = 2 (medio); checklist, próximo a
+#: vencer = 1 (bajo). Un retiro o un reclamo de causa sanitaria exige plan.
 TIPOS_SITUACION: dict[str, TipoSituacion] = {
     "HIGIENE_CONTAMINACION": TipoSituacion("Higiene y contaminación", 3),
     "FALLA_EQUIPO": TipoSituacion("Falla de equipo", 3),
     "PLAGAS": TipoSituacion("Plagas", 3),
-    "STOCK_BAJO": TipoSituacion("Stock por debajo del mínimo", 2),
+    "STOCK_BAJO": TipoSituacion("Stock de insumo químico bajo el mínimo", 2),
     "CHECKLIST_INCOMPLETO": TipoSituacion("Checklist incumplido", 1),
     "OTROS": TipoSituacion("Otros", 3),
+    "RECLAMO_CLIENTE": TipoSituacion(
+        "Reclamo de cliente",
+        3,
+        plan_obligatorio_sugerido=True,
+        causas=_CAUSAS_RECLAMO,
+        causas_sugeridas=frozenset({"cuerpo_extrano", "posible_afectacion_salud"}),
+    ),
+    "RETIRO_LOTE": TipoSituacion(
+        "Retiro de lote",
+        3,
+        plan_obligatorio_sugerido=True,
+        causas=_CAUSAS_RETIRO,
+        # Todo retiro del mercado es sanitario, salvo el "Otro" sin precisar.
+        causas_sugeridas=frozenset(m for m in MOTIVOS_RETIRO if m != "Otro"),
+    ),
+    "ENTREGA_RECHAZADA": TipoSituacion(
+        "Entrega rechazada",
+        2,
+        causas=_CAUSAS_RECHAZO,
+        causas_sugeridas=frozenset({"producto_no_conforme", "temperatura_inadecuada"}),
+    ),
     "DOCUMENTO_VENCIDO": TipoSituacion("Documento vencido", 2),
     "DOCUMENTO_PROXIMO": TipoSituacion("Documento próximo a vencer", 1),
     "VENCIMIENTO_PERSONAL_VENCIDO": TipoSituacion("Aptitud vencida", 2),
@@ -114,6 +149,8 @@ TIPOS_SITUACION: dict[str, TipoSituacion] = {
     "PLAN_MANTENIMIENTO_PROXIMO": TipoSituacion("Mantenimiento próximo a vencer", 1),
     "ELEMENTO_LIMPIEZA_VENCIDO": TipoSituacion("Recambio vencido", 2),
     "ELEMENTO_LIMPIEZA_PROXIMO": TipoSituacion("Recambio próximo a vencer", 1),
+    "HOMOLOGACION_INSUMO_VENCIDO": TipoSituacion("Homologación vencida", 2),
+    "HOMOLOGACION_INSUMO_PROXIMO": TipoSituacion("Homologación próxima a vencer", 1),
 }
 
 #: Tipo de incidente → tipo de evento de riesgo. Los valores son los de
@@ -123,35 +160,45 @@ TIPO_SITUACION_POR_INCIDENTE: dict[str, str] = {
     "falla_equipo": "FALLA_EQUIPO",
     "plagas": "PLAGAS",
     "otro": "OTROS",
+    "reclamo_cliente": "RECLAMO_CLIENTE",
+    "retiro_lote": "RETIRO_LOTE",
+    "entrega_rechazada": "ENTREGA_RECHAZADA",
 }
 
 #: Tipos de evento que nacen de un incidente (el resto, de stock, checklists y
-#: vencimientos).
+#: vencimientos). Su corrección la confirma una persona (ver `planes_accion`).
 TIPOS_DE_INCIDENTE: frozenset[str] = frozenset(TIPO_SITUACION_POR_INCIDENTE.values())
 
-#: Incidentes de sistema que solo generan riesgo según su causa, y qué causas
-#: cuentan como higiene o contaminación. Para cada uno: la lista de motivos de
-#: su circuito de origen (`src.reclamos.constants`, `src.retiros.constants`,
-#: `src.salidas.constants`).
-#:
-#: - Reclamo de cliente: "Cuerpo extraño".
-#: - Retiro de lote: "Contaminación o cuerpo extraño".
-#: - Rechazo de entrega: ninguno de sus motivos es higiene o contaminación.
-CAUSAS_DE_CONTAMINACION: dict[str, frozenset[str]] = {
-    "reclamo_cliente": frozenset({"cuerpo_extrano"}),
-    "retiro_lote": frozenset({"Contaminación o cuerpo extraño"}),
-    "entrega_rechazada": frozenset(),
-}
+#: Incidentes de circuito: solo cuentan según su causa.
+TIPOS_CON_CAUSA: frozenset[str] = frozenset(
+    tipo for tipo, datos in TIPOS_SITUACION.items() if datos.causas
+)
 
-#: Etiquetas de lo que se notifica sin generar riesgo (la de los tipos de
-#: riesgo está en `TIPOS_SITUACION`): los incidentes que no son de ninguna clase
-#: de riesgo (reclamos, retiros y rechazos con otra causa).
+#: Etiquetas de lo que se notifica sin generar riesgo nunca (la de los tipos
+#: de riesgo está en `TIPOS_SITUACION`).
 ETIQUETAS_SIN_RIESGO: dict[str, str] = {
     "INCIDENTE_ABIERTO": "Incidente abierto",
-    # Vigencia de la homologación de una marca: por ahora solo avisa.
-    "HOMOLOGACION_INSUMO_VENCIDA": "Homologación vencida",
-    "HOMOLOGACION_INSUMO_PROXIMA": "Homologación próxima a vencer",
 }
+
+
+@dataclass(frozen=True)
+class ConfiguracionTipo:
+    """Lo que decidió el administrador para un tipo (o lo sugerido)."""
+
+    activo: bool
+    impacto: int
+    plan_obligatorio: bool
+    causas: frozenset[str]
+
+
+def configuracion_sugerida(tipo: str) -> ConfiguracionTipo:
+    datos = TIPOS_SITUACION[tipo]
+    return ConfiguracionTipo(
+        activo=datos.activo_sugerido,
+        impacto=datos.impacto_sugerido,
+        plan_obligatorio=datos.plan_obligatorio_sugerido,
+        causas=datos.causas_sugeridas,
+    )
 
 
 def etiqueta_de(regla: str) -> str:
@@ -161,18 +208,47 @@ def etiqueta_de(regla: str) -> str:
     return ETIQUETAS_SIN_RIESGO[regla]
 
 
-def tipo_situacion_de_incidente(tipo_incidente: str, causa: str | None = None) -> str | None:
+def normalizar_causa(causa: str | None) -> str | None:
+    """Los reclamos viejos guardaban la etiqueta del recall en vez de su clave."""
+    if causa == MOTIVO_DEVOLUCION_RECALL:
+        return MOTIVO_DEVOLUCION_RECALL_KEY
+    return causa
+
+
+def tipo_situacion_de_incidente(
+    tipo_incidente: str,
+    causa: str | None = None,
+    configuracion: dict[str, ConfiguracionTipo] | None = None,
+) -> str | None:
     """Tipo de evento de riesgo de un incidente, o `None` si no genera riesgo.
 
     `causa` es el motivo del circuito de origen (reclamo, retiro o rechazo);
-    solo se mira en los incidentes de sistema.
+    solo se mira en esos. `configuracion` es la del establecimiento (sin ella,
+    la sugerida). Un tipo desactivado no genera riesgo.
     """
-    directo = TIPO_SITUACION_POR_INCIDENTE.get(tipo_incidente)
-    if directo is not None:
-        return directo
-    if causa is not None and causa in CAUSAS_DE_CONTAMINACION.get(tipo_incidente, frozenset()):
-        return "HIGIENE_CONTAMINACION"
-    return None
+    tipo = TIPO_SITUACION_POR_INCIDENTE.get(tipo_incidente)
+    if tipo is None:
+        return None
+    config = (configuracion or {}).get(tipo) or configuracion_sugerida(tipo)
+    if not config.activo:
+        return None
+    if tipo in TIPOS_CON_CAUSA and normalizar_causa(causa) not in config.causas:
+        return None
+    return tipo
+
+
+#: "Próximo a vencer" y "vencido" son el mismo problema en dos momentos: lo
+#: que estaba próximo y venció no se corrigió, empeoró.
+_SUFIJOS_FAMILIA = ("_PROXIMO", "_VENCIDO")
+
+
+def familia(tipo: str) -> str:
+    """El problema de fondo de un tipo: DOCUMENTO_PROXIMO y DOCUMENTO_VENCIDO
+    son la familia DOCUMENTO. Los demás tipos son su propia familia."""
+    for sufijo in _SUFIJOS_FAMILIA:
+        if tipo.endswith(sufijo):
+            return tipo[: -len(sufijo)]
+    return tipo
 
 
 IMPACTO_MINIMO = 1

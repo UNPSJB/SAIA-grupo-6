@@ -1,6 +1,7 @@
 import { pedir } from "../../../common/api/errors";
 import { apiFetch, API_URL } from "../../../common/api/apiClient";
 import type {
+  CambioSituacion,
   ConfiguracionAlertas,
   ImpactoSituacion,
   PlazoReclamo,
@@ -48,14 +49,14 @@ export async function obtenerImpactoSituaciones(): Promise<ImpactoSituacion[]> {
 
 export async function fijarImpactoSituacion(
   tipo: string,
-  impacto: number
+  cambio: CambioSituacion
 ): Promise<ImpactoSituacion> {
   const response = await apiFetch(
     `${API_URL}/configuracion/impacto-situaciones/${encodeURIComponent(tipo)}`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ impacto }),
+      body: JSON.stringify(cambio),
     }
   );
   return pedir<ImpactoSituacion>(response, "No se pudo guardar el impacto");

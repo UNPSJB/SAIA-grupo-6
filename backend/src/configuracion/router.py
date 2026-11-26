@@ -88,7 +88,7 @@ def fijar_impacto_situacion(
     datos: schemas.ImpactoSituacionUpdate,
     db: Session = Depends(get_db),
 ):
-    return impacto.fijar_impacto(db, tipo, datos.impacto)
+    return impacto.fijar_impacto(db, tipo, datos)
 
 
 @router.delete(

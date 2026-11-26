@@ -397,9 +397,17 @@ def _alerta(db, clave, elemento, impacto, puntaje, recurrencia=1, plan_id=None):
     db.commit()
 
 
+def _cerrar_incidente(db, situacion):
+    """Lo que hace el motor cuando alguien cierra el incidente en su ficha."""
+    situacion.resuelta_en = HOY
+    db.commit()
+
+
 def _verificado(db, usuario, verificador, situacion):
-    """Plan con un incidente implementado y verificado a mano por otra persona."""
+    """Plan con un incidente implementado, cerrado y verificado a mano por otra
+    persona."""
     plan = _implementado(db, usuario, situacion)
+    _cerrar_incidente(db, situacion)
     return services.verificar_situacion(
         db, plan.id, plan.situaciones[0].id, verificador,
         descripcion="Mallas colocadas y revisadas en el recorrido", resultado="corregida",
@@ -418,7 +426,7 @@ def test_un_incidente_no_se_verifica_solo_aunque_siga_abierto(db_session, usuari
     assert plan.situaciones[0].verificacion_manual
 
 
-def test_al_verificar_a_mano_el_incidente_queda_controlado_y_empieza_la_observacion(
+def test_al_verificar_a_mano_el_incidente_cerrado_empieza_la_observacion(
     db_session, usuario, verificador
 ):
     s = _incidente(db_session)
@@ -426,7 +434,9 @@ def test_al_verificar_a_mano_el_incidente_queda_controlado_y_empieza_la_observac
 
     assert plan.estado == "en_verificacion"
     assert plan.situaciones[0].estado == "corregida"
-    assert plan.situaciones[0].controlada
+    # Cerrado, ya no suma riesgo: no hace falta mostrarlo como controlado.
+    assert not plan.situaciones[0].sigue_presente
+    assert not plan.situaciones[0].controlada
     assert plan.situaciones[0].evidencias[0].tipo == "verificacion"
     assert mitigacion.situaciones_controladas(db_session) == {s.id: plan.id}
 
@@ -470,7 +480,27 @@ def test_la_verificacion_manual_exige_evidencia_sustancial(db_session, usuario, 
     assert mitigacion.situaciones_controladas(db_session) == {}
 
 
-def test_un_incidente_corregido_que_sigue_abierto_no_cuenta_como_reaparicion(
+def test_un_incidente_abierto_no_se_puede_dar_por_corregido(db_session, usuario, verificador):
+    s = _incidente(db_session)
+    plan = _implementado(db_session, usuario, s)
+
+    # Abierto, quedaba "controlado" para siempre sin que nadie lo cerrara.
+    with pytest.raises(BadRequest):
+        services.verificar_situacion(
+            db_session, plan.id, plan.situaciones[0].id, verificador,
+            descripcion="Mallas colocadas y revisadas", resultado="corregida",
+        )
+    assert mitigacion.situaciones_controladas(db_session) == {}
+
+    # Que NO fue eficaz sí se puede decir con el incidente abierto.
+    plan = services.verificar_situacion(
+        db_session, plan.id, plan.situaciones[0].id, verificador,
+        descripcion="El problema sigue igual que antes", resultado="no_eficaz",
+    )
+    assert plan.situaciones[0].estado == "no_eficaz"
+
+
+def test_un_incidente_corregido_solo_vuelve_si_aparece_otro(
     db_session, usuario, verificador
 ):
     s = _incidente(db_session)
@@ -502,6 +532,7 @@ def test_un_plan_cancelado_deja_de_controlar_lo_que_habia_verificado(
     assert mitigacion.situaciones_controladas(db_session) == {}
 
     # Se verifica una de las dos: queda controlada, y el plan sigue en Implementado.
+    _cerrar_incidente(db_session, s1)
     plan = services.verificar_situacion(
         db_session, plan.id, plan.situaciones[0].id, verificador,
         descripcion="Mallas colocadas y revisadas", resultado="corregida",
@@ -591,6 +622,7 @@ def test_el_detalle_muestra_la_proyeccion_y_guarda_real_y_tratado(
     implementado = next(r for r in plan.riesgos if r.momento == "implementado")
     assert implementado.puntaje == implementado.puntaje_tratado == 8.1
 
+    _cerrar_incidente(db_session, s)
     plan = services.verificar_situacion(
         db_session, plan.id, plan.situaciones[0].id, verificador,
         descripcion="Mallas colocadas y revisadas", resultado="corregida",
@@ -656,6 +688,7 @@ def test_en_un_plan_mixto_cada_situacion_se_observa_segun_su_propio_tipo(
     calib.resuelta_en = HOY
     db_session.commit()
     services.sincronizar_con_motor(db_session, HOY)
+    _cerrar_incidente(db_session, falla)
     plan = services.verificar_situacion(
         db_session, plan.id,
         next(sp.id for sp in services.obtener_plan(db_session, plan.id).situaciones if sp.tipo == "FALLA_EQUIPO"),
@@ -668,3 +701,153 @@ def test_en_un_plan_mixto_cada_situacion_se_observa_segun_su_propio_tipo(
     services.sincronizar_con_motor(db_session, HOY + timedelta(days=2))
     estados = {sp.tipo: sp.estado for sp in services.obtener_plan(db_session, plan.id).situaciones}
     assert estados == {"FALLA_EQUIPO": "corregida", "PLAN_CALIBRACION_VENCIDO": "no_eficaz"}
+
+
+# --- Próximo a vencer que vence: no es una corrección -------------------------
+
+def test_lo_proximo_a_vencer_que_vence_no_cuenta_como_corregido(db_session, usuario):
+    proximo = _situacion(db_session, "doc-1", tipo="DOCUMENTO_PROXIMO", elemento="documento:1")
+    plan = services.crear_plan(db_session, _datos(usuario, proximo), usuario)
+    services.confirmar_plan(db_session, plan.id, usuario)
+
+    # El documento vence: el motor deja de ver "próximo" y ve "vencido".
+    proximo.resuelta_en = HOY
+    db_session.commit()
+    _situacion(db_session, "doc-1", tipo="DOCUMENTO_VENCIDO", elemento="documento:1")
+
+    plan = services.completar_accion(db_session, plan.id, plan.acciones[0].id, usuario, "Hecho")
+    assert plan.situaciones[0].estado == "accion_implementada"  # no se autoconfirmó
+
+    plan = services.verificar_plan(db_session, plan.id, usuario)
+    assert plan.situaciones[0].estado == "no_eficaz"
+
+
+def test_un_plan_activo_cubre_la_misma_familia_en_el_mismo_elemento(db_session, usuario):
+    proximo = _situacion(db_session, "doc-1", tipo="DOCUMENTO_PROXIMO", elemento="documento:1")
+    plan = services.crear_plan(db_session, _datos(usuario, proximo), usuario)
+    vencido = _situacion(db_session, "doc-1", tipo="DOCUMENTO_VENCIDO", elemento="documento:1")
+    otro = _situacion(db_session, "doc-2", tipo="DOCUMENTO_VENCIDO", elemento="documento:2")
+    incidente = _incidente(db_session, "inc-1", "documento:1")
+
+    cobertura = mitigacion.cobertura_activa(db_session)
+    assert mitigacion.plan_activo_de(cobertura, vencido.id, vencido.tipo, vencido.elemento) == plan.id
+    assert mitigacion.plan_activo_de(cobertura, otro.id, otro.tipo, otro.elemento) is None
+    # Un incidente necesita su propio lugar en un plan.
+    assert mitigacion.plan_activo_de(cobertura, incidente.id, incidente.tipo, incidente.elemento) is None
+
+
+def test_lo_que_se_corrige_y_vuelve_como_otra_del_mismo_dia_tambien_vuelve(db_session, usuario):
+    """Checklist: cada día incumplido es otra situación del mismo equipo."""
+    ayer = _situacion(db_session, "chk-1-ayer", tipo="CHECKLIST_INCOMPLETO", elemento="equipo:1")
+    plan = services.crear_plan(db_session, _datos(usuario, ayer), usuario)
+    services.confirmar_plan(db_session, plan.id, usuario)
+    ayer.resuelta_en = HOY
+    db_session.commit()
+    _situacion(db_session, "chk-1-hoy", tipo="CHECKLIST_INCOMPLETO", elemento="equipo:1")
+
+    plan = services.completar_accion(db_session, plan.id, plan.acciones[0].id, usuario, "Hecho")
+    plan = services.verificar_plan(db_session, plan.id, usuario)
+    assert plan.situaciones[0].estado == "no_eficaz"
+
+
+# --- Plan obligatorio: cancelación ---------------------------------------------
+
+def _alerta_obligatoria(db, clave, elemento, puntaje=3.0, exige=True):
+    db.add(
+        NotificacionPersistida(
+            id_notificacion=clave, tipo="INCIDENTE", entidad_id=1, titulo="Retiro",
+            mensaje="Lote 5", nivel="BAJA", link_destino="/retiros/1",
+            grupo_clave=elemento, criticidad="baja", motivo="x", impacto=3,
+            recurrencia=1, persistencia=1, probabilidad=1.0, puntaje=puntaje,
+            exige_plan=exige,
+        )
+    )
+    db.commit()
+
+
+def test_un_operador_no_puede_cancelar_un_plan_obligatorio(db_session, usuario, verificador):
+    s = _situacion(db_session, "incidente-1", tipo="RETIRO_LOTE", elemento="producto:1")
+    _alerta_obligatoria(db_session, "incidente-1", "producto:1")
+    plan = services.crear_plan(db_session, _datos(usuario, s), usuario)
+
+    with pytest.raises(BadRequest):
+        services.cancelar_plan(db_session, plan.id, "No hace falta", verificador)
+
+    # Quien administra sí (y la obligación vuelve a aparecer).
+    plan = services.cancelar_plan(db_session, plan.id, "Se reemplaza por otro", usuario)
+    assert plan.estado == "cancelado"
+
+
+def test_un_elemento_en_riesgo_alto_tambien_hace_obligatorio_el_plan(db_session, usuario, verificador):
+    s = _situacion(db_session, "inc-1", tipo="PLAGAS", elemento="equipo:1")
+    _alerta_obligatoria(db_session, "inc-1", "equipo:1", puntaje=7.2, exige=False)
+    plan = services.crear_plan(db_session, _datos(usuario, s), usuario)
+
+    with pytest.raises(BadRequest):
+        services.cancelar_plan(db_session, plan.id, "No hace falta", verificador)
+
+
+def test_un_operador_puede_cancelar_un_plan_que_no_es_obligatorio(db_session, usuario, verificador):
+    s = _situacion(db_session)
+    _alerta_obligatoria(db_session, "calib-1", "equipo:1", puntaje=2.0, exige=False)
+    plan = services.crear_plan(db_session, _datos(usuario, s), usuario)
+
+    plan = services.cancelar_plan(db_session, plan.id, "Se resolvió de otra forma", verificador)
+    assert plan.estado == "cancelado"
+
+
+def test_la_situacion_disponible_dice_si_exige_plan(db_session, usuario):
+    _situacion(db_session, "incidente-1", tipo="RETIRO_LOTE", elemento="producto:1")
+    _alerta_obligatoria(db_session, "incidente-1", "producto:1")
+    db_session.execute(
+        NotificacionPersistida.__table__.update().values(motivo_plan="tipo")
+    )
+    db_session.commit()
+
+    (disponible,) = services.situaciones_disponibles(db_session)
+    assert disponible.requiere_plan and disponible.motivo_plan == "tipo"
+
+
+# --- Lo que los planes ya corrigieron (últimos 30 días) ------------------------
+
+def test_el_plan_guarda_el_ultimo_riesgo_de_sus_situaciones(db_session, usuario):
+    s = _situacion(db_session, "calib-1")
+    _alerta(db_session, "calib-1", "equipo:1", impacto=2, puntaje=4.0)
+    plan = services.crear_plan(db_session, _datos(usuario, s), usuario)
+
+    sp = db_session.get(services.SituacionPlan, plan.situaciones[0].id)
+    assert (sp.ultimo_impacto, sp.ultima_probabilidad, sp.ultimo_puntaje) == (2, 2.0, 4.0)
+
+
+def test_lo_corregido_reciente_lista_lo_que_el_plan_ya_saco(db_session, usuario):
+    s = _situacion(db_session, "calib-1")
+    _alerta(db_session, "calib-1", "equipo:1", impacto=2, puntaje=4.0)
+    plan = _implementado(db_session, usuario, s)
+    assert services.corregidas_recientes(db_session) == []  # todavía presente
+
+    s.resuelta_en = HOY
+    db_session.commit()
+    plan = services.verificar_plan(db_session, plan.id, usuario)
+    assert plan.situaciones[0].estado == "corregida"
+
+    (corregida,) = services.corregidas_recientes(db_session)
+    assert (corregida.plan_id, corregida.impacto, corregida.puntaje) == (plan.id, 2, 4.0)
+
+
+def test_lo_corregido_hace_mas_de_30_dias_o_cancelado_no_cuenta(db_session, usuario):
+    s = _situacion(db_session, "calib-1")
+    _alerta(db_session, "calib-1", "equipo:1", impacto=2, puntaje=4.0)
+    plan = _implementado(db_session, usuario, s)
+    s.resuelta_en = HOY
+    db_session.commit()
+    services.verificar_plan(db_session, plan.id, usuario)
+
+    sp = db_session.get(services.SituacionPlan, plan.situaciones[0].id)
+    sp.verificada_en = HOY - timedelta(days=31)
+    db_session.commit()
+    assert services.corregidas_recientes(db_session) == []
+
+    sp.verificada_en = HOY
+    db_session.get(services.PlanAccion, plan.id).estado = "cancelado"
+    db_session.commit()
+    assert services.corregidas_recientes(db_session) == []

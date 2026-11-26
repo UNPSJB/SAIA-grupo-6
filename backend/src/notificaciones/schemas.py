@@ -6,6 +6,7 @@ from src.common.paginacion import Pagina
 
 
 Criticidad = Literal["alta", "media", "baja"]
+MotivoPlan = Literal["tipo", "elemento"]
 NivelRiesgo = Literal["alto", "medio", "bajo", "sin_riesgo"]
 IconoCriticidad = Literal[
     "limpieza",
@@ -71,6 +72,18 @@ class AlertaCriticidadResponse(BaseModel):
     #: Riesgo consolidado tratado del elemento al que pertenece.
     puntaje_elemento_tratado: float = 0.0
 
+    # Plan de acción obligatorio.
+    #: Plan ACTIVO (todavía sin verificar) que trata la situación, o que trata
+    #: otra de la misma familia en el mismo elemento.
+    plan_activo_id: Optional[int] = None
+    #: Su tipo exige plan desde la primera detección.
+    exige_plan: bool = False
+    #: Por qué necesita un plan que todavía no tiene: "tipo" (lo exige su
+    #: tipo) o "elemento" (su elemento está en riesgo alto). None: no lo
+    #: necesita o ya está cubierta.
+    motivo_plan: Optional[MotivoPlan] = None
+    requiere_plan: bool = False
+
 
 class ResumenElementoResponse(BaseModel):
     """Riesgo general de un elemento, a partir de todas sus situaciones presentes."""
@@ -89,6 +102,10 @@ class ResumenElementoResponse(BaseModel):
     nivel_tratado: NivelRiesgo = "sin_riesgo"
     #: Alguna de sus situaciones está bajo control de un plan de acción.
     en_tratamiento: bool = False
+    #: Riesgo de lo que queda sin ningún plan (ni activo ni verificado). Si es
+    #: alto, el elemento exige un plan de acción.
+    puntaje_sin_plan: float = 0.0
+    requiere_plan: bool = False
 
 
 class CriticidadDashboardResponse(BaseModel):
@@ -113,9 +130,24 @@ class CriticidadDashboardResponse(BaseModel):
     medias_tratadas: int = 0
     bajas_tratadas: int = 0
 
+    #: Situaciones que necesitan un plan de acción y todavía no lo tienen.
+    planes_requeridos: int = 0
+    #: Elementos en riesgo alto sin un plan que alcance para bajarlo.
+    elementos_alto_sin_plan: int = 0
+
+
+class CausaSituacionResponse(BaseModel):
+    """Una causa de un incidente de circuito (reclamo, retiro o rechazo)."""
+
+    valor: str
+    etiqueta: str
+    #: Con esta causa, el incidente genera riesgo.
+    cuenta: bool
+    sugerida: bool
+
 
 class ImpactoSituacionResponse(BaseModel):
-    """Impacto base de un tipo de situación en este establecimiento."""
+    """Configuración de un tipo de situación en este establecimiento."""
 
     tipo: str
     etiqueta: str
@@ -123,12 +155,25 @@ class ImpactoSituacionResponse(BaseModel):
     impacto: int
     #: El que sugiere SAIA.
     impacto_sugerido: int
-    #: True si el administrador lo cambió respecto del sugerido.
+    #: Genera riesgo (si no, solo se notifica).
+    activo: bool = True
+    activo_sugerido: bool = True
+    #: Exige plan de acción desde la primera detección.
+    plan_obligatorio: bool = False
+    plan_obligatorio_sugerido: bool = False
+    #: Solo reclamos, retiros y rechazos: qué causas cuentan.
+    causas: list[CausaSituacionResponse] = []
+    #: True si el administrador cambió algo respecto de lo sugerido.
     modificado: bool
 
 
 class ImpactoSituacionUpdate(BaseModel):
-    impacto: int = Field(ge=1, le=3)
+    """Cambios parciales: lo que no se manda queda como estaba."""
+
+    impacto: Optional[int] = Field(default=None, ge=1, le=3)
+    activo: Optional[bool] = None
+    plan_obligatorio: Optional[bool] = None
+    causas: Optional[list[str]] = None
 
 
 class ContadoresNotificaciones(BaseModel):

@@ -105,7 +105,24 @@ export interface AlertaCriticidad {
   puntaje_tratado: number;
   /** Riesgo consolidado del elemento descontando lo controlado. */
   puntaje_elemento_tratado: number;
+
+  /** Plan activo (sin verificar todavía) que ya trata esta situación. */
+  plan_activo_id?: number | null;
+  /** Su tipo exige plan desde la primera detección (lo configura el administrador). */
+  exige_plan?: boolean;
+  /** Necesita un plan de acción y todavía no lo tiene: "tipo" (su tipo lo
+   *  exige) o "elemento" (su elemento está en riesgo alto). */
+  motivo_plan?: MotivoPlan | null;
+  requiere_plan?: boolean;
 }
+
+export type MotivoPlan = "tipo" | "elemento";
+
+/** Por qué una situación exige un plan de acción, para mostrar. */
+export const TEXTO_MOTIVO_PLAN: Record<MotivoPlan, string> = {
+  tipo: "Este tipo de evento exige un plan de acción",
+  elemento: "El elemento está en riesgo alto: exige un plan de acción",
+};
 
 /** Riesgo general de un elemento, a partir de todas sus situaciones presentes. */
 export interface ResumenElemento {
@@ -119,6 +136,10 @@ export interface ResumenElemento {
   nivel_tratado: NivelRiesgo;
   /** true si el elemento tiene situaciones bajo control de un plan. */
   en_tratamiento: boolean;
+  /** Riesgo de lo que queda sin ningún plan (ni activo ni verificado). */
+  puntaje_sin_plan?: number;
+  /** Está en riesgo alto y lo que queda sin plan sigue siendo alto. */
+  requiere_plan?: boolean;
 }
 
 export interface CriticidadDashboard {
@@ -140,4 +161,9 @@ export interface CriticidadDashboard {
   altas_tratadas: number;
   medias_tratadas: number;
   bajas_tratadas: number;
+
+  /** Situaciones que necesitan un plan de acción y todavía no lo tienen. */
+  planes_requeridos?: number;
+  /** Elementos en riesgo alto sin un plan que alcance para bajarlo. */
+  elementos_alto_sin_plan?: number;
 }

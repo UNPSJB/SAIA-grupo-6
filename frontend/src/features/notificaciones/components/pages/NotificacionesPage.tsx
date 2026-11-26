@@ -1,16 +1,16 @@
 import { formatoFechaOCorta } from "../../../../common/utils/fechas";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Badge,
   Box,
   Button,
+  chakra,
   Field,
   Flex,
   HStack,
   IconButton,
   Spinner,
-  Stack,
   Table,
   Text,
 } from "@chakra-ui/react";
@@ -34,13 +34,14 @@ import {
   LuBrush,
   LuCheck,
   LuCheckCheck,
-  LuCircle,
   LuCircleCheck,
   LuCircleDot,
   LuClipboardCheck,
   LuFileText,
   LuListChecks,
   LuPackage,
+  LuShieldAlert,
+  LuShieldCheck,
   LuTriangleAlert,
   LuUsers,
   LuWrench,
@@ -51,13 +52,23 @@ import type {
   Criticidad,
   CriticidadDashboard,
   IconoCriticidad,
+  MotivoPlan,
 } from "../../types/notificacion";
 import {
+  TEXTO_MOTIVO_PLAN,
   RIESGO_MAXIMO,
   formatoPuntaje,
   nivelDePuntaje,
 } from "../../types/notificacion";
 import { CambiarFechaVencimientoDialog } from "../CambiarFechaVencimientoDialog";
+import {
+  ETIQUETA_IMPACTO,
+  ETIQUETA_PROBABILIDAD,
+  alertaEnCelda,
+  celdaDeParametros,
+  columnaDeProbabilidad,
+  escalaDeImpacto,
+} from "../../../dashboard/types/matrizRiesgo";
 import {
   BarraFiltros,
   ChipsFiltros,
@@ -126,7 +137,8 @@ const ETIQUETA_ORIGEN: Record<string, string> = {
 };
 
 /**
- * Las situaciones con puntaje 0 (retiros de lote, reclamos de clientes) se
+ * Las situaciones con puntaje 0 (tipos desactivados, reclamos o retiros con una
+ * causa que no cuenta) se
  * notifican pero no entran en el cálculo de riesgo: no tienen criticidad, así
  * que ningún filtro alta/media/baja las incluye.
  */
@@ -144,6 +156,30 @@ function etiquetaCriticidad(criticidad: Criticidad) {
       ? "MEDIA"
       : "BAJA";
 }
+
+type NivelRiesgoGeneral = CriticidadDashboard["nivel_riesgo"];
+
+const ICONO_NIVEL: Record<NivelRiesgoGeneral, IconType> = {
+  alto: LuShieldAlert,
+  medio: LuTriangleAlert,
+  bajo: LuShieldCheck,
+  sin_riesgo: LuCircleCheck,
+};
+
+const MENSAJE_NIVEL: Record<NivelRiesgoGeneral, string> = {
+  alto: "Requiere atención prioritaria",
+  medio: "Conviene hacerle seguimiento",
+  bajo: "Situación controlada",
+  sin_riesgo: "Sin situaciones que requieran atención",
+};
+
+/** Los tres tramos del medidor, con los mismos rangos que el backend. */
+const TRAMOS_MEDIDOR: { nivel: NivelRiesgoGeneral; paleta: string; etiqueta: string; rango: string }[] = [
+  { nivel: "bajo", paleta: "green", etiqueta: "Bajo", rango: "hasta 3" },
+  { nivel: "medio", paleta: "orange", etiqueta: "Medio", rango: "3 a 6" },
+  { nivel: "alto", paleta: "red", etiqueta: "Alto", rango: "6 a 9" },
+];
+
 
 function etiquetaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
   return nivel === "alto"
@@ -164,6 +200,103 @@ function paletaNivelRiesgo(nivel: CriticidadDashboard["nivel_riesgo"]) {
         ? "green"
         : "gray";
 }
+
+/**
+ * Medidor del riesgo general: una barra con los tres niveles (bajo, medio,
+ * alto) y un marcador en la posición del puntaje, de 0 a RIESGO_MAXIMO.
+ */
+function MedidorRiesgo({
+  puntaje,
+  nivel,
+}: {
+  puntaje: number;
+  nivel: NivelRiesgoGeneral;
+}) {
+  const hayRiesgo = nivel !== "sin_riesgo";
+  const paleta = paletaNivelRiesgo(nivel);
+  const posicion = Math.min(100, Math.max(0, (puntaje / RIESGO_MAXIMO) * 100));
+
+  return (
+    <Box
+      role="img"
+      aria-label={
+        hayRiesgo
+          ? `Riesgo ${formatoPuntaje(puntaje)} de ${RIESGO_MAXIMO}, nivel ${etiquetaNivelRiesgo(nivel).toLowerCase()}`
+          : "Sin riesgo"
+      }
+    >
+      <Box position="relative" pt="8">
+        {hayRiesgo && (
+          <Text
+            position="absolute"
+            top="0"
+            left={`clamp(22px, ${posicion}%, calc(100% - 22px))`}
+            transform="translateX(-50%)"
+            px="2.5"
+            py="0.5"
+            rounded="md"
+            bg={`${paleta}.solid`}
+            color={`${paleta}.contrast`}
+            fontSize="sm"
+            fontWeight="bold"
+            lineHeight="1.4"
+            whiteSpace="nowrap"
+            aria-hidden
+          >
+            {formatoPuntaje(puntaje)}
+          </Text>
+        )}
+
+        <Box position="relative">
+          <Flex h="3" gap="0.5" rounded="full" overflow="hidden">
+            {TRAMOS_MEDIDOR.map((tramo) => (
+              <Box
+                key={tramo.nivel}
+                flex="1"
+                bg={`${tramo.paleta}.solid`}
+                opacity={tramo.nivel === nivel ? 1 : 0.28}
+              />
+            ))}
+          </Flex>
+          {hayRiesgo && (
+            <Box
+              position="absolute"
+              top="50%"
+              left={`${posicion}%`}
+              transform="translate(-50%, -50%)"
+              w="5"
+              h="5"
+              rounded="full"
+              bg="bg.panel"
+              borderWidth="4px"
+              borderColor={`${paleta}.solid`}
+              boxShadow="sm"
+              aria-hidden
+            />
+          )}
+        </Box>
+      </Box>
+
+      <Flex mt="2" aria-hidden>
+        {TRAMOS_MEDIDOR.map((tramo) => (
+          <Box key={tramo.nivel} flex="1" textAlign="center">
+            <Text
+              fontSize="xs"
+              fontWeight={tramo.nivel === nivel ? "bold" : "medium"}
+              color={tramo.nivel === nivel ? `${tramo.paleta}.fg` : "fg.muted"}
+            >
+              {tramo.etiqueta}
+            </Text>
+            <Text fontSize="xs" color="fg.subtle">
+              {tramo.rango}
+            </Text>
+          </Box>
+        ))}
+      </Flex>
+    </Box>
+  );
+}
+
 
 function SortIcon({
   column,
@@ -189,18 +322,19 @@ function normalizar(texto: string) {
 
 /**
  * Plan de acción de una alerta: el enlace al plan activo, o el botón para
- * crear uno (resaltado cuando SAIA lo sugiere por criticidad alta o
- * recurrencia). Frena el clic para no disparar la acción de la fila.
+ * crear uno (en rojo, "Plan obligatorio", cuando la situación lo exige: por su
+ * tipo o porque su elemento está en riesgo alto). Frena el clic para no
+ * disparar la acción de la fila.
  */
 function CeldaPlan({
   planId,
-  sugerido,
+  motivo,
   elegible,
   onVerPlan,
   onCrearPlan,
 }: {
   planId: number | null;
-  sugerido: boolean;
+  motivo: MotivoPlan | null;
   elegible: boolean;
   onVerPlan: (id: number) => void;
   onCrearPlan: () => void;
@@ -222,13 +356,13 @@ function CeldaPlan({
       ) : (
         <Button
           size="xs"
-          variant={sugerido ? "solid" : "outline"}
-          colorPalette={sugerido ? "brand" : "neutral"}
+          variant={motivo ? "solid" : "outline"}
+          colorPalette={motivo ? "red" : "neutral"}
           onClick={onCrearPlan}
-          title={sugerido ? "SAIA sugiere un plan: riesgo alto o situación recurrente" : undefined}
+          title={motivo ? TEXTO_MOTIVO_PLAN[motivo] : undefined}
         >
           <LuClipboardCheck aria-hidden />
-          Crear plan
+          {motivo ? "Plan obligatorio" : "Crear plan"}
         </Button>
       )}
     </Box>
@@ -266,6 +400,24 @@ export function NotificacionesPage() {
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<Criticidad[]>([]);
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todas");
   const [filtroLectura, setFiltroLectura] = useState<FiltroLectura>("todas");
+  // Solo las que exigen un plan de acción y todavía no lo tienen.
+  const [soloPlanObligatorio, setSoloPlanObligatorio] = useState(false);
+  // Celda de la matriz de riesgo del Inicio (`?impacto=3&probabilidad=2`):
+  // vive en la URL, así el enlace se puede compartir y "atrás" vuelve.
+  const [parametros, setParametros] = useSearchParams();
+  const celda = useMemo(() => celdaDeParametros(parametros), [parametros]);
+  const quitarCelda = () => {
+    setParametros(
+      (previos) => {
+        const nuevos = new URLSearchParams(previos);
+        nuevos.delete("impacto");
+        nuevos.delete("probabilidad");
+        return nuevos;
+      },
+      { replace: true },
+    );
+    setPage(1);
+  };
   const [busqueda, setBusqueda] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -415,6 +567,14 @@ export function NotificacionesPage() {
       resultado = resultado.filter((alerta) => Boolean(alerta.leida));
     }
 
+    if (soloPlanObligatorio) {
+      resultado = resultado.filter((alerta) => Boolean(alerta.motivo_plan));
+    }
+
+    if (celda) {
+      resultado = resultado.filter((alerta) => alertaEnCelda(alerta, celda));
+    }
+
     if (sortColumn === "criticidad") {
       resultado.sort((a, b) => {
         // "asc": primero lo más riesgoso, igual que el orden por defecto.
@@ -439,7 +599,7 @@ export function NotificacionesPage() {
     }
 
     return resultado;
-  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, filtroLectura, busqueda, sortColumn, sortDirection]);
+  }, [datos.alertas, criticidadesSeleccionadas, filtroOrigen, filtroLectura, soloPlanObligatorio, celda, busqueda, sortColumn, sortDirection]);
 
   const contadores = useMemo(() => {
     // Los contadores de origen siempre representan el conjunto que se está
@@ -464,6 +624,15 @@ export function NotificacionesPage() {
       );
     }
 
+    // La celda de la matriz y "solo las que exigen plan" también acotan lo
+    // que se ve: los números de los desplegables tienen que coincidir.
+    if (celda) {
+      base = base.filter((alerta) => alertaEnCelda(alerta, celda));
+    }
+    if (soloPlanObligatorio) {
+      base = base.filter((alerta) => Boolean(alerta.motivo_plan));
+    }
+
     // OJO: aca NO se aplica filtroOrigen. Estos contadores son los del propio
     // dropdown de origen; filtrando por origen quedaban en 0 todas las demas
     // opciones al elegir una.
@@ -481,7 +650,7 @@ export function NotificacionesPage() {
       checklists: base.filter((a) => a.origen === "CHECKLIST").length,
       incidentes: base.filter((a) => a.origen === "INCIDENTE").length,
     };
-  }, [datos.alertas, criticidadesSeleccionadas, busqueda]);
+  }, [datos.alertas, criticidadesSeleccionadas, busqueda, celda, soloPlanObligatorio]);
 
   const {
     paginados: alertasPaginadas,
@@ -525,6 +694,7 @@ export function NotificacionesPage() {
 
   const limpiarTodo = () => {
     mostrarTodasLasSituaciones();
+    if (celda) quitarCelda();
     setSortColumn(null);
     setSortDirection("asc");
   };
@@ -536,6 +706,14 @@ export function NotificacionesPage() {
   };
 
   const chips = chipsDeFiltros([
+    {
+      clave: "celda",
+      etiqueta: "Matriz de riesgo",
+      valor: celda
+        ? `impacto ${ETIQUETA_IMPACTO[celda.impacto].toLowerCase()} × probabilidad ${ETIQUETA_PROBABILIDAD[celda.probabilidad].toLowerCase()}`
+        : "",
+      onQuitar: quitarCelda,
+    },
     {
       clave: "busqueda",
       etiqueta: "Búsqueda",
@@ -605,6 +783,12 @@ export function NotificacionesPage() {
   const nivelPaleta = paletaNivelRiesgo(nivel);
   const esCelular = useEsCelular();
   const elementoMasRiesgoso = datos.elementos[0] ?? null;
+  const IconoNivel = ICONO_NIVEL[nivel];
+  const RESUMEN_CRITICIDAD: { criticidad: Criticidad; etiqueta: string; cantidad: number }[] = [
+    { criticidad: "alta", etiqueta: "Alta", cantidad: datos.altas },
+    { criticidad: "media", etiqueta: "Media", cantidad: datos.medias },
+    { criticidad: "baja", etiqueta: "Baja", cantidad: datos.bajas },
+  ];
   // Elemento que define el riesgo tratado (puede ser otro que el del real).
   const elementoTratado =
     [...datos.elementos].sort((a, b) => b.puntaje_tratado - a.puntaje_tratado)[0] ?? null;
@@ -736,27 +920,135 @@ export function NotificacionesPage() {
 
       {error && <BannerError>{error}</BannerError>}
 
-      {/* Resumen general del motor de riesgo. */}
-      <Tarjeta p={{ base: "4", md: "5" }} mb="6">
+      {/* Plan de acción obligatorio: lo que todavía no tiene plan. */}
+      {(datos.planes_requeridos ?? 0) > 0 && (
         <Flex
+          role="status"
+          mb="4"
+          p="3"
+          gap="3"
+          align={{ base: "flex-start", md: "center" }}
           direction={{ base: "column", md: "row" }}
-          align={{ base: "stretch", md: "center" }}
-          gap={{ base: "3", md: "8" }}
+          borderWidth="1px"
+          borderColor="red.muted"
+          bg="red.subtle"
+          borderRadius="lg"
         >
-          {/* Nivel general de riesgo: destacado a la izquierda. */}
-          <Box flex="1" minW="0">
-            <Text fontSize="sm" color="fg.muted" mb="1">
-              Nivel de riesgo general
+          <HStack gap="2" flex="1" align="flex-start">
+            <Box color="red.fg" mt="0.5" aria-hidden>
+              <LuClipboardCheck size={18} />
+            </Box>
+            <Text fontSize="sm" color="fg">
+              <Text as="span" fontWeight="semibold">
+                {datos.planes_requeridos === 1
+                  ? "1 situación exige un plan de acción"
+                  : `${datos.planes_requeridos} situaciones exigen un plan de acción`}
+              </Text>{" "}
+              y todavía no lo tienen
+              {(datos.elementos_alto_sin_plan ?? 0) > 0 &&
+                ` (${datos.elementos_alto_sin_plan} ${
+                  datos.elementos_alto_sin_plan === 1 ? "elemento" : "elementos"
+                } en riesgo alto)`}
+              . Los incidentes que lo exigen no se pueden cerrar sin plan.
             </Text>
-            <Text
-              fontSize={{ base: "2xl", md: "4xl" }}
-              lineHeight="1.1"
-              fontWeight="extrabold"
-              color={`${nivelPaleta}.fg`}
+          </HStack>
+          <Button
+            size="sm"
+            variant={soloPlanObligatorio ? "solid" : "outline"}
+            colorPalette="red"
+            onClick={() => {
+              setSoloPlanObligatorio((v) => !v);
+              setPage(1);
+            }}
+          >
+            {soloPlanObligatorio ? "Ver todas" : "Ver solo esas"}
+          </Button>
+        </Flex>
+      )}
+
+      {/* Banner del nivel de riesgo general: el color sigue al nivel (el
+          tratado: descuenta lo que un plan verificado ya controla). */}
+      <Box
+        role="region"
+        aria-label={`Nivel de riesgo general: ${nivelTexto}`}
+        position="relative"
+        overflow="hidden"
+        mb="6"
+        rounded="xl"
+        borderWidth="1px"
+        borderColor={`${nivelPaleta}.border`}
+        bg={`${nivelPaleta}.subtle`}
+        px={{ base: "4", md: "8" }}
+        py={{ base: "4", md: "6" }}
+      >
+        <Box aria-hidden position="absolute" top="0" bottom="0" left="0" w="2" bg={`${nivelPaleta}.solid`} />
+
+        <Flex
+          direction={{ base: "column", lg: "row" }}
+          align={{ base: "stretch", lg: "center" }}
+          gap={{ base: "4", lg: "10" }}
+        >
+          {/* Nivel. */}
+          <HStack gap={{ base: "3", md: "4" }} flex="1.1" minW="0" align="center">
+            <Flex
+              flexShrink={0}
+              align="center"
+              justify="center"
+              w={{ base: "12", md: "16" }}
+              h={{ base: "12", md: "16" }}
+              rounded="full"
+              bg={`${nivelPaleta}.solid`}
+              color={`${nivelPaleta}.contrast`}
+              aria-hidden
             >
-              {nivelTexto}
-            </Text>
-            <Text fontSize="sm" color="fg.muted" mt={{ base: "1", md: "2" }} lineClamp={{ base: 2, md: "none" }}>
+              <IconoNivel size={esCelular ? 24 : 30} />
+            </Flex>
+            <Box minW="0">
+              <Text
+                fontSize="xs"
+                fontWeight="bold"
+                letterSpacing="wider"
+                textTransform="uppercase"
+                color="fg.muted"
+              >
+                Nivel de riesgo general
+              </Text>
+              <Text
+                fontSize={{ base: "3xl", md: "5xl" }}
+                lineHeight="1"
+                fontWeight="extrabold"
+                letterSpacing="tight"
+                color={`${nivelPaleta}.fg`}
+              >
+                {nivelTexto}
+              </Text>
+              <Text mt="1.5" fontSize="sm" fontWeight="medium" color={`${nivelPaleta}.fg`}>
+                {MENSAJE_NIVEL[nivel]}
+              </Text>
+              {enTratamiento && (
+                <Box mt="2">
+                  <Badge colorPalette="blue" variant="subtle" px="2" py="1" borderRadius="md">
+                    En tratamiento
+                  </Badge>
+                  <Text fontSize="xs" color="fg.muted" mt="1">
+                    Riesgo real (sin descontar planes):{" "}
+                    <Text
+                      as="span"
+                      fontWeight="bold"
+                      color={`${paletaNivelRiesgo(datos.nivel_riesgo)}.fg`}
+                    >
+                      {etiquetaNivelRiesgo(datos.nivel_riesgo)} · {formatoPuntaje(datos.puntaje_maximo)}
+                    </Text>
+                  </Text>
+                </Box>
+              )}
+            </Box>
+          </HStack>
+
+          {/* Medidor y elemento en peor situación. */}
+          <Box flex="1.4" minW="0">
+            <MedidorRiesgo puntaje={datos.puntaje_maximo_tratado} nivel={nivel} />
+            <Text mt="3" fontSize="sm" color="fg" lineClamp={{ base: 2, md: "none" }}>
               {elementoMasRiesgoso && elementoTratado
                 ? datos.puntaje_maximo_tratado > 0
                   ? `${formatoPuntaje(datos.puntaje_maximo_tratado)} de ${RIESGO_MAXIMO} · ${elementoTratado.etiqueta}`
@@ -764,105 +1056,81 @@ export function NotificacionesPage() {
                 : "No hay situaciones presentes"}
             </Text>
             {elementoMasRiesgoso && (
-              <Text fontSize="xs" color="fg.subtle" mt="1" hideBelow="md">
+              <Text fontSize="xs" color="fg.muted" mt="0.5" hideBelow="md">
                 Es el riesgo del elemento en peor situación.
               </Text>
             )}
-            {enTratamiento && (
-              <Box mt="2">
-                <Badge colorPalette="blue" variant="subtle" px="2" py="1" borderRadius="md">
-                  En tratamiento
-                </Badge>
-                <Text fontSize="xs" color="fg.muted" mt="1">
-                  Riesgo real (sin descontar planes):{" "}
-                  <Text
-                    as="span"
-                    fontWeight="bold"
-                    color={`${paletaNivelRiesgo(datos.nivel_riesgo)}.fg`}
-                  >
-                    {etiquetaNivelRiesgo(datos.nivel_riesgo)} · {formatoPuntaje(datos.puntaje_maximo)}
-                  </Text>
-                </Text>
-              </Box>
-            )}
           </Box>
 
-          {/* Contador clickeable: limpia los filtros y muestra todo. */}
-          <Button
-            flexShrink={0}
-            minW={{ base: "100%", md: "170px" }}
-            minH={{ base: "11", md: "112px" }}
-            h="auto"
-            px="6"
-            py={{ base: "2", md: "4" }}
-            borderRadius="xl"
-            bg="bg.subtle"
-            color="fg"
-            borderWidth="1px"
-            borderColor="border"
-            variant="solid"
-            _hover={{ bg: "bg.muted", borderColor: "border.emphasized" }}
-            onClick={mostrarTodasLasSituaciones}
-            aria-label="Mostrar todas las situaciones y limpiar los filtros"
-            title="Mostrar todas las situaciones"
-          >
-            <Stack direction={{ base: "row", md: "column" }} gap={{ base: "2", md: "1" }} align="center">
-              <Text fontSize={{ base: "xl", md: "3xl" }} lineHeight="1" fontWeight="bold">
-                {alertasFiltradas.length}
-              </Text>
-              <Text fontSize="xs" letterSpacing="wider" fontWeight="bold">
-                SITUACIONES
-              </Text>
-              <Text fontSize="xs" fontWeight="normal" color="fg.muted">
-                Ver todas
-              </Text>
-            </Stack>
-          </Button>
-
-          {/* Filtros de criticidad acumulables, sin contadores individuales. */}
-          <Stack
-            direction={{ base: "row", md: "column" }}
-            align="stretch"
-            gap="2"
-            minW={{ base: "100%", md: "145px" }}
-            css={{ "& > *": { flex: { base: "1", md: "none" } } }}
-          >
-            <Button
-              justifyContent={{ base: "center", md: "flex-start" }}
-              variant={criticidadesSeleccionadas.includes("alta") ? "solid" : "ghost"}
-              colorPalette="red"
-              size={{ base: "md", md: "sm" }}
-              onClick={() => alternarCriticidad("alta")}
-              aria-pressed={criticidadesSeleccionadas.includes("alta")}
-              title="Filtrar situaciones de criticidad alta"
+          {/* Situaciones por criticidad: filtros acumulables. "Ver todas"
+              limpia los filtros. */}
+          <Box flexShrink={0}>
+            <Text
+              fontSize="xs"
+              fontWeight="bold"
+              letterSpacing="wider"
+              textTransform="uppercase"
+              color="fg.muted"
+              mb="2"
             >
-              <LuCircle size={14} /> Alta
-            </Button>
+              {alertasFiltradas.length} {alertasFiltradas.length === 1 ? "situación" : "situaciones"}
+            </Text>
+            <HStack gap="2" align="stretch">
+              {RESUMEN_CRITICIDAD.map(({ criticidad, etiqueta, cantidad }) => {
+                const activa = criticidadesSeleccionadas.includes(criticidad);
+                const paleta = PALETA_CRITICIDAD[criticidad];
+                return (
+                  <chakra.button
+                    key={criticidad}
+                    type="button"
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="center"
+                    gap="0"
+                    flex={{ base: "1", lg: "none" }}
+                    minW={{ base: "0", lg: "76px" }}
+                    px="3"
+                    py="2"
+                    rounded="lg"
+                    cursor="pointer"
+                    bg={activa ? `${paleta}.solid` : "bg.panel"}
+                    color={activa ? `${paleta}.contrast` : "fg"}
+                    borderWidth="1px"
+                    borderColor={`${paleta}.border`}
+                    _hover={{ borderColor: `${paleta}.solid` }}
+                    onClick={() => alternarCriticidad(criticidad)}
+                    aria-pressed={activa}
+                    title={`Filtrar situaciones de criticidad ${etiqueta.toLowerCase()}`}
+                  >
+                    <Text
+                      fontSize="2xl"
+                      lineHeight="1.1"
+                      fontWeight="bold"
+                      color={activa ? `${paleta}.contrast` : `${paleta}.fg`}
+                    >
+                      {cantidad}
+                    </Text>
+                    <Text fontSize="xs" color={activa ? `${paleta}.contrast` : "fg.muted"}>
+                      {etiqueta}
+                    </Text>
+                  </chakra.button>
+                );
+              })}
+            </HStack>
             <Button
-              justifyContent={{ base: "center", md: "flex-start" }}
-              variant={criticidadesSeleccionadas.includes("media") ? "solid" : "ghost"}
-              colorPalette="orange"
-              size={{ base: "md", md: "sm" }}
-              onClick={() => alternarCriticidad("media")}
-              aria-pressed={criticidadesSeleccionadas.includes("media")}
-              title="Filtrar situaciones de criticidad media"
+              mt="2"
+              size="xs"
+              variant="ghost"
+              w="full"
+              onClick={mostrarTodasLasSituaciones}
+              aria-label="Mostrar todas las situaciones y limpiar los filtros"
+              title="Mostrar todas las situaciones"
             >
-              <LuCircle size={14} /> Media
+              Ver todas
             </Button>
-            <Button
-              justifyContent={{ base: "center", md: "flex-start" }}
-              variant={criticidadesSeleccionadas.includes("baja") ? "solid" : "ghost"}
-              colorPalette="green"
-              size={{ base: "md", md: "sm" }}
-              onClick={() => alternarCriticidad("baja")}
-              aria-pressed={criticidadesSeleccionadas.includes("baja")}
-              title="Filtrar situaciones de criticidad baja"
-            >
-              <LuCircle size={14} /> Baja
-            </Button>
-          </Stack>
+          </Box>
         </Flex>
-      </Tarjeta>
+      </Box>
 
       {/* Filtros de la gestión de riesgos. */}
       {esCelular ? (
@@ -904,7 +1172,7 @@ export function NotificacionesPage() {
             <Table.Root variant="outline" size="md" w="100%" minW="1200px">
               <Table.Header>
                 <FilaEncabezado>
-                  <EncabezadoOscuro width="10%" onClick={() => handleSort("criticidad")}>
+                  <EncabezadoOscuro width="12%" onClick={() => handleSort("criticidad")}>
                     <Box display="flex" alignItems="center" gap="1" cursor="pointer" userSelect="none">
                       Criticidad
                       <SortIcon column="criticidad" sortColumn={sortColumn} sortDirection={sortDirection} />
@@ -976,6 +1244,26 @@ export function NotificacionesPage() {
                             ? `${etiquetaCriticidad(alerta.criticidad)} · ${formatoPuntaje(alerta.puntaje)}`
                             : "SIN RIESGO"}
                         </Badge>
+                        {alerta.puntaje > 0 && (
+                          <Text
+                            fontSize="xs"
+                            color="fg.muted"
+                            mt="1"
+                            lineHeight="1.35"
+                            title={`Impacto ${alerta.impacto} de 3 × probabilidad ${formatoPuntaje(alerta.probabilidad)} de 3 = ${formatoPuntaje(alerta.puntaje)}`}
+                          >
+                            Impacto{" "}
+                            <Text as="span" fontWeight="semibold" color="fg">
+                              {ETIQUETA_IMPACTO[escalaDeImpacto(alerta.impacto)].toLowerCase()}
+                            </Text>
+                            <br />
+                            Probabilidad{" "}
+                            <Text as="span" fontWeight="semibold" color="fg">
+                              {ETIQUETA_PROBABILIDAD[columnaDeProbabilidad(alerta.probabilidad)].toLowerCase()}
+                            </Text>{" "}
+                            ({formatoPuntaje(alerta.probabilidad)})
+                          </Text>
+                        )}
                         {alerta.plan_tratamiento_id !== null && (
                           <Text
                             fontSize="xs"
@@ -1042,8 +1330,10 @@ export function NotificacionesPage() {
                       {puedeTratar ? (
                         <Celda>
                           <CeldaPlan
-                            planId={planPorClave.get(alerta.clave)?.plan_id ?? null}
-                            sugerido={disponiblesPorClave.get(alerta.clave)?.sugerir_plan ?? false}
+                            planId={
+                              planPorClave.get(alerta.clave)?.plan_id ?? alerta.plan_activo_id ?? null
+                            }
+                            motivo={alerta.motivo_plan ?? null}
                             elegible={disponiblesPorClave.has(alerta.clave)}
                             onVerPlan={(id) => navigate(`/planes-accion/${id}`)}
                             onCrearPlan={() =>

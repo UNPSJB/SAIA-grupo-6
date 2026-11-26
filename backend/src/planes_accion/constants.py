@@ -104,3 +104,15 @@ class ErrorCode:
         "Para verificar a mano hay que describir la evidencia (al menos 10 caracteres)."
     )
     SITUACION_NO_VERIFICABLE = "La situación no está pendiente de verificación."
+    INCIDENTE_SIN_CERRAR = (
+        "El incidente sigue abierto: cerralo desde su ficha antes de confirmar que "
+        "está corregido."
+    )
+    CANCELACION_OBLIGATORIA = (
+        "Este plan trata una situación que exige plan de acción: solo un administrador "
+        "puede cancelarlo."
+    )
+    PLAN_OBLIGATORIO_PENDIENTE = (
+        "Este incidente exige un plan de acción. Crealo desde Notificaciones o Planes de "
+        "acción antes de cerrarlo."
+    )

@@ -233,7 +233,7 @@ export function NuevoPlanAccionPage() {
                   <SelectPlaceholder value="">Elegí la situación…</SelectPlaceholder>
                   {situaciones.map((s) => (
                     <option key={s.situacion_id} value={s.situacion_id}>
-                      {s.sugerir_plan ? "★ " : ""}
+                      {s.requiere_plan ? "[Plan obligatorio] " : ""}
                       {s.titulo} — {s.elemento_nombre}
                     </option>
                   ))}

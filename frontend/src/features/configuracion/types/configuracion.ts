@@ -20,9 +20,10 @@ export interface PlazoReclamo {
 }
 
 /**
- * Impacto base de un tipo de situación del motor de riesgos: la gravedad
- * potencial de sus consecuencias (1 bajo, 2 medio, 3 alto). SAIA sugiere una
- * clasificación y el administrador puede cambiarla.
+ * Configuración de un tipo de situación del motor de riesgos. SAIA sugiere una
+ * clasificación y el administrador decide: si genera riesgo, su impacto (1
+ * bajo, 2 medio, 3 alto), si exige plan de acción desde la primera detección
+ * y, en reclamos, retiros y rechazos, qué causas cuentan.
  */
 export interface ImpactoSituacion {
   /** Clave del tipo de situación, ej. `INCIDENTE_ABIERTO`. */
@@ -32,8 +33,33 @@ export interface ImpactoSituacion {
   impacto: number;
   /** El que sugiere SAIA. */
   impacto_sugerido: number;
-  /** `true` si el administrador lo cambió respecto del sugerido. */
+  /** Genera riesgo (si no, solo se notifica). */
+  activo: boolean;
+  activo_sugerido: boolean;
+  /** Exige plan de acción desde la primera detección. */
+  plan_obligatorio: boolean;
+  plan_obligatorio_sugerido: boolean;
+  /** Solo reclamos, retiros y rechazos: qué causas cuentan. */
+  causas: CausaSituacion[];
+  /** `true` si el administrador cambió algo respecto de lo sugerido. */
   modificado: boolean;
+}
+
+/** Una causa de un reclamo, retiro o rechazo. */
+export interface CausaSituacion {
+  valor: string;
+  etiqueta: string;
+  /** Con esta causa, el incidente genera riesgo. */
+  cuenta: boolean;
+  sugerida: boolean;
+}
+
+/** Cambios parciales: lo que no se manda queda como estaba. */
+export interface CambioSituacion {
+  impacto?: number;
+  activo?: boolean;
+  plan_obligatorio?: boolean;
+  causas?: string[];
 }
 
 export const ETIQUETA_IMPACTO: Record<number, string> = {

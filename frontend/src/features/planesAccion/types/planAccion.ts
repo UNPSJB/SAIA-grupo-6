@@ -223,7 +223,23 @@ export interface SituacionDisponible {
   puntaje: number;
   recurrencia: number;
   destino: string | null;
-  sugerir_plan: boolean;
+  /** Necesita un plan y todavía no lo tiene: "tipo" (su tipo lo exige) o
+   *  "elemento" (su elemento está en riesgo alto). */
+  motivo_plan: "tipo" | "elemento" | null;
+  requiere_plan: boolean;
+}
+
+/** Situación que un plan corrigió hace poco, con el último riesgo que tenía. */
+export interface SituacionCorregida {
+  situacion_plan_id: number;
+  plan_id: number;
+  tipo: string;
+  tipo_etiqueta: string;
+  elemento_nombre: string;
+  verificada_en: string;
+  impacto: number;
+  probabilidad: number;
+  puntaje: number;
 }
 
 export interface SituacionConPlan {

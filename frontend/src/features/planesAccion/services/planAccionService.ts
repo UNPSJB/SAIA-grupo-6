@@ -12,6 +12,7 @@ import type {
   ResponsablePosible,
   ProyeccionElemento,
   SituacionConPlan,
+  SituacionCorregida,
   SituacionDisponible,
 } from "../types/planAccion";
 
@@ -69,6 +70,12 @@ export async function listarSituacionesDisponibles(
 export async function listarSituacionesConPlan(): Promise<SituacionConPlan[]> {
   const response = await apiFetch(`${BASE}/situaciones-con-plan`);
   return pedir<SituacionConPlan[]>(response, "Error al obtener los planes de las situaciones");
+}
+
+/** Lo que los planes corrigieron en los últimos 30 días, con su último riesgo. */
+export async function listarCorregidasRecientes(): Promise<SituacionCorregida[]> {
+  const response = await apiFetch(`${BASE}/corregidas-recientes`);
+  return pedir<SituacionCorregida[]>(response, "Error al obtener lo que corrigieron los planes");
 }
 
 /** Riesgo actual de los elementos y cómo quedaría si el plan se implementara y verificara. */

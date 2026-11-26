@@ -143,6 +143,14 @@ class SituacionPlan(DatosDeEstablecimiento, ModeloBase):
     agregada_en: Mapped[date] = mapped_column(Date, nullable=False)
     verificada_en: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
+    # Último riesgo que el motor le midió a la situación mientras estaba
+    # presente (se actualiza al leer los planes). Cuando el plan la corrige, la
+    # situación deja de detectarse y su notificación se borra: esto es lo único
+    # que queda para mostrar cuánto riesgo sacó el plan.
+    ultimo_impacto: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    ultima_probabilidad: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ultimo_puntaje: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
     plan: Mapped["PlanAccion"] = relationship(back_populates="situaciones")
     situacion: Mapped["SituacionRiesgo"] = relationship()
 

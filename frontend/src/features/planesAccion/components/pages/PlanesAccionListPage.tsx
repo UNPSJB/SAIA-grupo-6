@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, HStack, Table, Text } from "@chakra-ui/react";
+import { useAuth } from "../../../../common/context/useAuth";
+import { puedeAdministrar } from "../../../../common/api/permissions";
+import { TarjetaImpactoPlanes } from "../../../dashboard/components/TarjetaImpactoPlanes";
+import { useMatrizRiesgo } from "../../../dashboard/hooks/useMatrizRiesgo";
 import { usePlanes } from "../../hooks/usePlanes";
 import { EtiquetaEstadoPlan, EtiquetaVencido } from "../EtiquetasPlan";
 import { ESTADOS_PLAN, estadoPlanLabel, type EstadoPlan, type GrupoPlan } from "../../types/planAccion";
@@ -36,6 +40,18 @@ const GRUPOS: { valor: GrupoPlan; etiqueta: string }[] = [
 
 export function PlanesAccionListPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // El impacto sale de la criticidad de Notificaciones, que es solo de administración.
+  const veImpacto = puedeAdministrar(user);
+  const {
+    real,
+    proyectado,
+    sinPlanes,
+    corregidas,
+    loading: cargandoImpacto,
+    error: errorImpacto,
+  } = useMatrizRiesgo(veImpacto, { conCorregidas: true });
 
   // Lo que importa a diario es lo que está en curso.
   const [grupo, setGrupo] = useState<GrupoPlan | "">("activos");
@@ -89,6 +105,17 @@ export function PlanesAccionListPage() {
         <BotonAgregar onClick={() => navigate("/planes-accion/nuevo")}>Nuevo plan</BotonAgregar>
       }
     >
+      {veImpacto && (
+        <TarjetaImpactoPlanes
+          real={real}
+          proyectado={proyectado}
+          sinPlanes={sinPlanes}
+          corregidas={corregidas}
+          cargando={cargandoImpacto}
+          error={errorImpacto}
+        />
+      )}
+
       <BarraFiltros
         busqueda={
           <CampoBusqueda

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Iterable
 
 from fastapi import UploadFile
@@ -102,6 +102,53 @@ def _persona_activa(db: Session, persona_id: int) -> Personal:
 def _exigir_plazo_futuro(plazo: date | None, hoy_dia: date) -> None:
     if plazo is not None and plazo < hoy_dia:
         raise BadRequest(ErrorCode.PLAZO_PASADO)
+
+
+def _tomar_riesgo(
+    db: Session, situaciones: Iterable[SituacionPlan], alertas: dict | None = None
+) -> bool:
+    """Copia a cada situación del plan el riesgo que el motor le mide HOY,
+    si sigue presente. Devuelve si cambió algo (para no escribir de más: cada
+    escritura invalida las notificaciones)."""
+    alertas = _alertas_por_clave(db) if alertas is None else alertas
+    cambio = False
+    for sp in situaciones:
+        if sp.situacion.resuelta_en is not None:
+            continue
+        alerta = _alerta_de(sp.situacion, alertas)
+        if alerta is None or alerta.puntaje <= 0:
+            continue
+        valores = (alerta.impacto, alerta.probabilidad, alerta.puntaje)
+        if (sp.ultimo_impacto, sp.ultima_probabilidad, sp.ultimo_puntaje) != valores:
+            sp.ultimo_impacto, sp.ultima_probabilidad, sp.ultimo_puntaje = valores
+            cambio = True
+    return cambio
+
+
+def _puede_administrar(usuario: Personal) -> bool:
+    return bool(usuario.puede_administrar or usuario.es_gerente or usuario.es_super_admin)
+
+
+def _trata_algo_obligatorio(db: Session, plan: PlanAccion) -> bool:
+    """Alguna situación presente del alcance exige plan: su tipo lo pide o su
+    elemento está en riesgo alto."""
+    alertas = _alertas_por_clave(db)
+    riesgos = None
+    for sp in plan.situaciones:
+        situacion = sp.situacion
+        if situacion.resuelta_en is not None:
+            continue
+        alerta = _alerta_de(situacion, alertas)
+        if alerta is None or alerta.puntaje <= 0:
+            continue
+        if alerta.exige_plan:
+            return True
+        if riesgos is None:
+            riesgos = _riesgo_por_elemento(db)
+        dato = riesgos.get(alerta.grupo_clave or alerta.id_notificacion)
+        if dato is not None and riesgo.nivel_de(dato.puntaje) == "alto":
+            return True
+    return False
 
 
 def _plan(db: Session, plan_id: int) -> PlanAccion:
@@ -324,9 +371,8 @@ def _disponible(
         puntaje=alerta.puntaje if alerta else 0.0,
         recurrencia=alerta.recurrencia if alerta else 1,
         destino=alerta.link_destino if alerta else None,
-        sugerir_plan=reglas.sugerir_plan(
-            alerta.criticidad if alerta else None, alerta.recurrencia if alerta else None
-        ),
+        motivo_plan=alerta.motivo_plan if alerta else None,
+        requiere_plan=bool(alerta and alerta.motivo_plan),
     )
 
 
@@ -464,16 +510,45 @@ def _marcar_implementado(
     _avanzar_si_verificado(db, plan, usuario, hoy_dia)
 
 
+def _presentes_por_familia(db: Session) -> set[tuple[str, str]]:
+    """(familia, elemento) de todo lo que el motor detecta ahora."""
+    return {
+        (riesgo.familia(tipo), elemento)
+        for tipo, elemento in db.execute(
+            select(SituacionRiesgo.tipo, SituacionRiesgo.elemento).where(
+                SituacionRiesgo.resuelta_en.is_(None)
+            )
+        )
+    }
+
+
+def _sigue_presente(situacion: SituacionRiesgo, presentes: set[tuple[str, str]]) -> bool:
+    """¿El problema que trata el plan sigue ahí?
+
+    Para lo que detecta el motor no alcanza con mirar la situación exacta: un
+    documento "próximo a vencer" deja de detectarse cuando VENCE (empeoró, no
+    se corrigió), y un checklist incumplido es una situación por día. Se mira
+    la familia en el mismo elemento. Un incidente es él mismo: está presente
+    mientras siga abierto.
+    """
+    if reglas.es_verificacion_manual(situacion.tipo):
+        return situacion.resuelta_en is None
+    return (riesgo.familia(situacion.tipo), situacion.elemento) in presentes
+
+
 def _autoconfirmar_correcciones(db: Session, plan: PlanAccion, hoy_dia: date) -> bool:
     """Para los tipos que detecta el motor, la corrección se confirma sola
-    cuando el motor deja de detectar la situación."""
+    cuando el motor deja de detectar el problema."""
     hubo = False
+    presentes: set[tuple[str, str]] | None = None
     for sp in plan.situaciones:
         if sp.estado != EstadoSituacionPlan.ACCION_IMPLEMENTADA.value:
             continue
         if reglas.es_verificacion_manual(sp.situacion.tipo):
             continue
-        if sp.situacion.resuelta_en is None:
+        if presentes is None:
+            presentes = _presentes_por_familia(db)
+        if _sigue_presente(sp.situacion, presentes):
             continue
         sp.estado = EstadoSituacionPlan.CORREGIDA.value
         sp.verificada_en = hoy_dia
@@ -548,8 +623,11 @@ def _revisar_observacion(db: Session, plan: PlanAccion, hoy_dia: date) -> bool:
         sp for sp in plan.situaciones if sp.estado == EstadoSituacionPlan.CORREGIDA.value
     ]
     if corregidas and plan.situacion_id_base is not None:
+        presentes = _presentes_por_familia(db)
+        # Por familia: si lo que estaba "próximo a vencer" vuelve como
+        # "vencido", también volvió.
         nuevas = {
-            (tipo, elemento)
+            (riesgo.familia(tipo), elemento)
             for tipo, elemento in db.execute(
                 select(SituacionRiesgo.tipo, SituacionRiesgo.elemento).where(
                     SituacionRiesgo.id > plan.situacion_id_base,
@@ -561,10 +639,10 @@ def _revisar_observacion(db: Session, plan: PlanAccion, hoy_dia: date) -> bool:
             # Un incidente (verificación manual) sigue abierto aunque su causa
             # esté corregida: que siga presente no es que haya vuelto. Para los
             # demás tipos, que el motor lo detecte otra vez sí lo es.
-            volvio = situacion.resuelta_en is None and not reglas.es_verificacion_manual(
-                situacion.tipo
+            volvio = not reglas.es_verificacion_manual(situacion.tipo) and _sigue_presente(
+                situacion, presentes
             )
-            if volvio or (situacion.tipo, situacion.elemento) in nuevas:
+            if volvio or (riesgo.familia(situacion.tipo), situacion.elemento) in nuevas:
                 sp.estado = EstadoSituacionPlan.NO_EFICAZ.value
                 _historial(
                     plan,
@@ -598,6 +676,16 @@ def sincronizar_con_motor(db: Session, hoy_dia: date | None = None) -> int:
     segundo plano.
     """
     hoy_dia = hoy_dia or hoy()
+    cambios = 0
+
+    # El último riesgo medido de lo que tratan los planes activos: cuando una
+    # situación se corrige y deja de detectarse, es lo que queda de ella.
+    activos = db.scalars(select(PlanAccion).where(PlanAccion.estado.in_(_ACTIVOS))).all()
+    if activos:
+        alertas = _alertas_por_clave(db)
+        for plan in activos:
+            cambios += int(_tomar_riesgo(db, plan.situaciones, alertas))
+
     planes = db.scalars(
         select(PlanAccion).where(
             PlanAccion.estado.in_(
@@ -606,7 +694,6 @@ def sincronizar_con_motor(db: Session, hoy_dia: date | None = None) -> int:
         )
     ).all()
 
-    cambios = 0
     for plan in planes:
         if plan.estado == EstadoPlan.IMPLEMENTADO.value:
             hubo = _autoconfirmar_correcciones(db, plan, hoy_dia)
@@ -740,6 +827,7 @@ def _detalle(db: Session, plan: PlanAccion, hoy_dia: date) -> schemas.PlanDetall
     ]
 
     situaciones = []
+    presentes = _presentes_por_familia(db)
     for sp in plan.situaciones:
         situacion = sp.situacion
         alerta = _alerta_de(situacion, alertas)
@@ -757,7 +845,7 @@ def _detalle(db: Session, plan: PlanAccion, hoy_dia: date) -> schemas.PlanDetall
                 detalle=alerta.mensaje if alerta else "",
                 detectada_en=situacion.detectada_en,
                 resuelta_en=situacion.resuelta_en,
-                sigue_presente=situacion.resuelta_en is None,
+                sigue_presente=_sigue_presente(situacion, presentes),
                 verificacion_manual=reglas.es_verificacion_manual(situacion.tipo),
                 tipo_etiqueta=etiqueta,
                 controlada=situacion.resuelta_en is None
@@ -920,9 +1008,54 @@ def situaciones_disponibles(db: Session, tipo: str | None = None) -> list[schema
         for s in _situaciones_abiertas(db, tipo)
         if s.id not in ocupadas
     ]
-    # Primero lo que SAIA sugiere tratar, y dentro de eso lo más riesgoso.
-    disponibles.sort(key=lambda d: (not d.sugerir_plan, -d.puntaje, d.detectada_en))
+    # Primero lo que exige un plan, y dentro de eso lo más riesgoso.
+    disponibles.sort(key=lambda d: (not d.requiere_plan, -d.puntaje, d.detectada_en))
     return disponibles
+
+
+#: Cuánto hacia atrás se muestra lo que los planes corrigieron: la ventana de
+#: recurrencia del motor (lo corregido antes ya no influye en el riesgo).
+DIAS_CORREGIDAS_RECIENTES = riesgo.DIAS_VENTANA_RECURRENCIA
+
+
+def corregidas_recientes(db: Session) -> list[schemas.SituacionCorregida]:
+    """Situaciones que un plan corrigió en los últimos 30 días y que ya no se
+    detectan, con el último riesgo que tenían. Es lo que los planes YA bajaron
+    (no una estimación). No cuenta las de un plan cancelado ni las que después
+    resultaron no eficaces, ni las que no tienen riesgo medido (corregidas
+    antes de que se guardara)."""
+    _motor_al_dia(db)
+    sincronizar_con_motor(db)
+    desde = hoy() - timedelta(days=DIAS_CORREGIDAS_RECIENTES)
+    filas = db.scalars(
+        select(SituacionPlan)
+        .join(PlanAccion, PlanAccion.id == SituacionPlan.plan_id)
+        .join(SituacionRiesgo, SituacionRiesgo.id == SituacionPlan.situacion_id)
+        .where(
+            SituacionPlan.estado.in_(
+                [EstadoSituacionPlan.CORREGIDA.value, EstadoSituacionPlan.EFICAZ.value]
+            ),
+            SituacionPlan.verificada_en >= desde,
+            SituacionPlan.ultimo_puntaje.is_not(None),
+            PlanAccion.estado != EstadoPlan.CANCELADO.value,
+            SituacionRiesgo.resuelta_en.is_not(None),
+        )
+        .order_by(SituacionPlan.verificada_en.desc(), SituacionPlan.id)
+    )
+    return [
+        schemas.SituacionCorregida(
+            situacion_plan_id=sp.id,
+            plan_id=sp.plan_id,
+            tipo=sp.situacion.tipo,
+            tipo_etiqueta=_etiqueta_tipo(sp.situacion.tipo),
+            elemento_nombre=nombre_elemento(db, sp.situacion.elemento),
+            verificada_en=sp.verificada_en,
+            impacto=sp.ultimo_impacto,
+            probabilidad=sp.ultima_probabilidad,
+            puntaje=sp.ultimo_puntaje,
+        )
+        for sp in filas
+    ]
 
 
 def proyectar_alcance(db: Session, situacion_ids: list[int]) -> list[schemas.ProyeccionElemento]:
@@ -1116,6 +1249,7 @@ def crear_plan(db: Session, datos: schemas.PlanCrear, usuario: Personal) -> sche
 
     db.add(plan)
     db.flush()
+    _tomar_riesgo(db, plan.situaciones)
     _registrar_riesgo(db, plan, MomentoRiesgo.ANTES, hoy_dia)
     db.commit()
     return _detalle(db, plan, hoy_dia)
@@ -1173,10 +1307,15 @@ def confirmar_plan(db: Session, plan_id: int, usuario: Personal) -> schemas.Plan
 def cancelar_plan(
     db: Session, plan_id: int, motivo: str, usuario: Personal
 ) -> schemas.PlanDetalle:
-    """Se descarta el plan, con justificación. Todas sus situaciones quedan liberadas."""
+    """Se descarta el plan, con justificación. Todas sus situaciones quedan
+    liberadas. Si el plan trata algo que exige plan (por su tipo o porque su
+    elemento está en riesgo alto), solo lo puede cancelar quien administra: la
+    obligación vuelve a aparecer y alguien tiene que hacerse cargo."""
     plan = _plan(db, plan_id)
     if not reglas.es_cancelable(plan.estado):
         raise OperacionNoPermitida()
+    if not _puede_administrar(usuario) and _trata_algo_obligatorio(db, plan):
+        raise BadRequest(ErrorCode.CANCELACION_OBLIGATORIA)
     hoy_dia = hoy()
     plan.motivo_cancelacion = motivo
     plan.fecha_cierre = hoy_dia
@@ -1372,6 +1511,7 @@ def verificar_plan(db: Session, plan_id: int, usuario: Personal) -> schemas.Plan
     _exigir_estado(plan, EstadoPlan.IMPLEMENTADO)
     hoy_dia = hoy()
 
+    presentes = _presentes_por_familia(db)
     for sp in plan.situaciones:
         if sp.estado != EstadoSituacionPlan.ACCION_IMPLEMENTADA.value:
             continue
@@ -1379,7 +1519,7 @@ def verificar_plan(db: Session, plan_id: int, usuario: Personal) -> schemas.Plan
         if reglas.es_verificacion_manual(situacion.tipo):
             continue
         sp.estado = reglas.decidir_verificacion(
-            tipo=situacion.tipo, sigue_presente=situacion.resuelta_en is None
+            tipo=situacion.tipo, sigue_presente=_sigue_presente(situacion, presentes)
         ).value
         sp.verificada_en = hoy_dia
         resultado = (
@@ -1440,13 +1580,19 @@ def verificar_situacion(
             )
         except ValueError:
             raise BadRequest(ErrorCode.VERIFICACION_MANUAL)
+        # Un incidente abierto no está corregido: primero se cierra (en su
+        # ficha) y después se confirma la corrección con la evidencia. Si no,
+        # quedaba abierto y fuera del riesgo tratado para siempre.
+        if nuevo == EstadoSituacionPlan.CORREGIDA and situacion.resuelta_en is None:
+            raise BadRequest(ErrorCode.INCIDENTE_SIN_CERRAR)
     else:
         texto = (descripcion or "").strip() or None
         if texto is not None and len(texto) < 3:
             raise BadRequest(ErrorCode.EVIDENCIA_REQUERIDA)
         nuevo = (
             reglas.decidir_verificacion(
-                tipo=situacion.tipo, sigue_presente=situacion.resuelta_en is None
+                tipo=situacion.tipo,
+                sigue_presente=_sigue_presente(situacion, _presentes_por_familia(db)),
             )
             if decide
             else None

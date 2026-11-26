@@ -1,12 +1,13 @@
 import { Badge, Box, HStack, Text, VStack } from "@chakra-ui/react";
-import { LuSparkles } from "react-icons/lu";
+import { LuClipboardCheck } from "react-icons/lu";
 import { formatoFecha } from "../../../common/utils/fechas";
+import { TEXTO_MOTIVO_PLAN } from "../../notificaciones/types/notificacion";
 import type { SituacionDisponible } from "../types/planAccion";
 
 const PALETA_CRITICIDAD = { alta: "red", media: "orange", baja: "green" } as const;
 const ETIQUETA_CRITICIDAD = { alta: "Alta", media: "Media", baja: "Baja" } as const;
 
-/** Etiquetas de una situación: criticidad y, si corresponde, la sugerencia de SAIA. */
+/** Etiquetas de una situación: criticidad y, si corresponde, que exige plan. */
 export function MarcasSituacion({ situacion }: { situacion: SituacionDisponible }) {
   return (
     <HStack gap="2" flexWrap="wrap">
@@ -25,10 +26,17 @@ export function MarcasSituacion({ situacion }: { situacion: SituacionDisponible 
           Recurrente
         </Badge>
       )}
-      {situacion.sugerir_plan && (
-        <Badge colorPalette="brand" variant="solid" rounded="full" px="2" gap="1">
-          <LuSparkles aria-hidden />
-          SAIA sugiere un plan
+      {situacion.motivo_plan && (
+        <Badge
+          colorPalette="red"
+          variant="solid"
+          rounded="full"
+          px="2"
+          gap="1"
+          title={TEXTO_MOTIVO_PLAN[situacion.motivo_plan]}
+        >
+          <LuClipboardCheck aria-hidden />
+          {situacion.motivo_plan === "tipo" ? "Plan obligatorio" : "Plan obligatorio: elemento en riesgo alto"}
         </Badge>
       )}
     </HStack>

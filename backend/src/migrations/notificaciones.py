@@ -25,7 +25,18 @@ def migrar_notificaciones() -> None:
         agregar_columna(tabla, "detectada_en", "DATE"),
         # Plan de acción que tiene la situación bajo control (riesgo tratado).
         agregar_columna(tabla, "plan_tratamiento_id", "INTEGER"),
+        # Plan de acción obligatorio.
+        agregar_columna(tabla, "plan_activo_id", "INTEGER"),
+        agregar_columna(tabla, "exige_plan", "BOOLEAN NOT NULL DEFAULT 0"),
+        agregar_columna(tabla, "motivo_plan", "VARCHAR(20)"),
     ]
+    if "configuracion_impacto" in tablas():
+        # Qué genera riesgo, plan obligatorio y causas: los decide el administrador.
+        nuevas += [
+            agregar_columna("configuracion_impacto", "activo", "BOOLEAN"),
+            agregar_columna("configuracion_impacto", "plan_obligatorio", "BOOLEAN"),
+            agregar_columna("configuracion_impacto", "causas", "TEXT"),
+        ]
     # Las filas que ya existían quedaron con puntajes por defecto: se marca la
     # tabla como desactualizada para que la primera lectura las recalcule.
     if any(nuevas) and "estado_notificaciones" in tablas():

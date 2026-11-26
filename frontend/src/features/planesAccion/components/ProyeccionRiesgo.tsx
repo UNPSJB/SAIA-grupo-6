@@ -72,6 +72,15 @@ export function ProyeccionRiesgo({
                 </Box>
               </HStack>
             </HStack>
+            {fila.proyectado_nivel === "alto" ? (
+              // Un elemento alto exige un plan que lo saque de alto: tratar
+              // solo una parte no cumple con la obligación.
+              <Text fontSize="xs" color="red.fg" mt="2" fontWeight="medium">
+                Aunque el plan sea eficaz, el elemento sigue en riesgo alto: no alcanza para cumplir
+                con el plan obligatorio. Sumá las demás situaciones del elemento que compartan la
+                causa, o tratá el resto con otro plan.
+              </Text>
+            ) : null}
           </Tarjeta>
         ))}
       </Stack>

@@ -21,10 +21,12 @@ import {
   MensajeError,
 } from "../../../../components/ui/patrones";
 import { useInicio } from "../../hooks/useInicio";
+import { useMatrizRiesgo } from "../../hooks/useMatrizRiesgo";
 import { ChecklistDeHoy } from "../ChecklistDeHoy";
 import { MiCumplimiento } from "../MiCumplimiento";
 import { MisTareasProduccion } from "../MisTareasProduccion";
-import { TarjetaHoy, VencenHoy } from "../TarjetaHoy";
+import { TarjetaHoy } from "../TarjetaHoy";
+import { TarjetaMatrizRiesgo } from "../TarjetaMatrizRiesgo";
 
 function saludo(hora: number): string {
   if (hora < 12) return "Buen día";
@@ -47,14 +49,22 @@ function horaCorta(fecha: Date): string {
  *
  * A la izquierda, el checklist de limpieza de hoy (lo que más se mira en el
  * día); a la derecha, las cifras de hoy de cada área (lotes iniciados y
- * terminados, salidas, ingredientes recibidos, incidentes, reclamos, retiros) y,
- * para quien administra, lo que vence hoy. Las tendencias y el análisis del
+ * terminados, salidas, incidentes, reclamos, retiros) y, para quien administra,
+ * la matriz de riesgo, grande, debajo. Las tendencias y el análisis del
  * período están en el panel de cada área, no acá.
  */
 export function InicioPage() {
   const { user } = useAuth();
   const habilitado = puedeOperar(user) || puedeAdministrar(user);
   const { inicio, loading, error, recargar, actualizado } = useInicio(habilitado, user?.id);
+  // La matriz de riesgo sale de las notificaciones, que son de administración.
+  const veRiesgo = puedeAdministrar(user);
+  const {
+    matriz,
+    loading: cargandoMatriz,
+    error: errorMatriz,
+    recargar: recargarMatriz,
+  } = useMatrizRiesgo(veRiesgo);
 
   if (!habilitado) {
     return (
@@ -71,7 +81,6 @@ export function InicioPage() {
   const cargado = inicio.fecha !== "";
   const produccion = inicio.grupos.find((g) => g.clave === "produccion");
   const calidad = inicio.grupos.find((g) => g.clave === "calidad");
-  const inventario = inicio.grupos.find((g) => g.clave === "inventario");
 
   const separacion = "5";
 
@@ -102,9 +111,9 @@ export function InicioPage() {
           </Stack>
         ) : (
         <Stack gap={separacion} h="full">
-          {/* Producción y Calidad con su alto natural; la última fila
-              (Inventario y Vence hoy) ocupa lo que sobra, así la columna
-              termina a la par del checklist. */}
+          {/* Producción y Calidad con su alto natural; la matriz de riesgo
+              ocupa lo que sobra, a todo el ancho, así la columna termina a la
+              par del checklist. */}
           {produccion ? (
             <Box flexShrink={0}>
               <TarjetaHoy grupo={produccion} />
@@ -115,11 +124,10 @@ export function InicioPage() {
               <TarjetaHoy grupo={calidad} />
             </Box>
           ) : null}
-          {inventario || inicio.vencen_hoy ? (
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap={separacion} flex="1">
-              {inventario ? <TarjetaHoy grupo={inventario} /> : null}
-              {inicio.vencen_hoy ? <VencenHoy filas={inicio.vencen_hoy} /> : null}
-            </SimpleGrid>
+          {veRiesgo ? (
+            <Box flex="1" minH="0">
+              <TarjetaMatrizRiesgo matriz={matriz} cargando={cargandoMatriz} error={errorMatriz} />
+            </Box>
           ) : null}
         </Stack>
         )}
@@ -172,7 +180,10 @@ export function InicioPage() {
                 variant="ghost"
                 color="whiteAlpha.800"
                 _hover={{ bg: "whiteAlpha.200", color: "white" }}
-                onClick={() => void recargar()}
+                onClick={() => {
+                  void recargar();
+                  if (veRiesgo) void recargarMatriz();
+                }}
                 loading={loading}
               >
                 <LuRefreshCw />
@@ -262,16 +273,10 @@ function EsqueletoInicio() {
               </SimpleGrid>
             </Box>
           ))}
-          <SimpleGrid columns={{ base: 1, md: 2 }} gap="4" flex="1">
-            <Box {...tarjeta}>
-              <Skeleton h="6" w="40%" rounded="md" />
-              {lineas(2)}
-            </Box>
-            <Box {...tarjeta}>
-              <Skeleton h="6" w="40%" rounded="md" />
-              {lineas(2)}
-            </Box>
-          </SimpleGrid>
+          <Box {...tarjeta} flex="1">
+            <Skeleton h="6" w="30%" rounded="md" />
+            {lineas(3)}
+          </Box>
         </Stack>
       </GridItem>
     </Grid>

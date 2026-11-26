@@ -277,6 +277,37 @@ const config = defineConfig({
           rojoTexto: { value: { _light: "#9B2C1F", _dark: "#F2A89A" } },
         },
 
+        /*
+         * Mapas de calor del riesgo (matrices de impacto × probabilidad). En
+         * vez del verde, naranja y rojo saturados de Chakra, tonos de la
+         * propia página: el teal de la marca (bajo), un ocre (medio) y un
+         * terracota (alto), los mismos de los avisos ámbar y rojo. `solid`
+         * lleva texto blanco: todos dan 4.6:1 o más.
+         */
+        riesgo: {
+          bajo: {
+            solid: { value: { _light: "#3D737A", _dark: "#3F7A80" } },
+            contrast: { value: "{colors.white}" },
+            subtle: { value: { _light: "#E1EEEC", _dark: "#172A2D" } },
+            border: { value: { _light: "#BBDFDC", _dark: "#2B5157" } },
+            fg: { value: { _light: "#2E565C", _dark: "#90BEBB" } },
+          },
+          medio: {
+            solid: { value: "#9A6B12" },
+            contrast: { value: "{colors.white}" },
+            subtle: { value: { _light: "#F7ECD2", _dark: "#2B2312" } },
+            border: { value: { _light: "#E8D3A0", _dark: "#5C4824" } },
+            fg: { value: { _light: "#7A5410", _dark: "#F0C878" } },
+          },
+          alto: {
+            solid: { value: { _light: "#A4452F", _dark: "#B5533B" } },
+            contrast: { value: "{colors.white}" },
+            subtle: { value: { _light: "#F8E4DE", _dark: "#2E1714" } },
+            border: { value: { _light: "#EBC1B5", _dark: "#6B2E26" } },
+            fg: { value: { _light: "#8E3522", _dark: "#F2A89A" } },
+          },
+        },
+
         /* Fondo claro del Inicio, debajo del degradado de la marca. */
         inicio: {
           fondo: { value: { _light: "#EBF1F1", _dark: "{colors.brandDark.50}" } },

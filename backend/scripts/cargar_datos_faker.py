@@ -105,6 +105,7 @@ from src.config import settings
 from src.database import SessionLocal  # noqa: E402
 import src.all_models  # noqa: F401,E402  (registra los modelos)
 from scripts import seed_variaciones  # noqa: E402
+from src.planes_accion.obligacion import OMITIR_EN_SESION as OMITIR_PLAN_OBLIGATORIO  # noqa: E402
 from src.migrations import crear_tablas_y_migrar  # noqa: E402
 from src.auth.services import hashear_password  # noqa: E402
 from src.personal.models import Personal  # noqa: E402
@@ -168,6 +169,7 @@ from src.notificaciones.models import (  # noqa: E402
     NotificacionPersistida,
     SituacionRiesgo,
 )
+from src.notificaciones import riesgo  # noqa: E402
 from src.planes_accion import schemas as plan_schemas  # noqa: E402
 from src.planes_accion import services as plan_services  # noqa: E402
 from src.planes_accion.constants import EstadoPlan  # noqa: E402
@@ -5737,6 +5739,196 @@ def inyectar_datos_demo(
         db.info.pop("usuario_id", None)
 
 
+# ======================================================================
+# Planes de acción para lo que los exige
+# ======================================================================
+
+#: Causa y acciones verosímiles por familia de situación (las de los planes
+#: que el establecimiento ya armó para lo que exige plan).
+CAUSAS_PLAN: dict[str, tuple[str, list[str]]] = {
+    "RETIRO_LOTE": (
+        "Falla en el control de la línea de envasado: el desvío no se detectó antes del despacho.",
+        ["Desarmar y sanitizar la línea afectada", "Revisar el registro de control de la línea con el operario"],
+    ),
+    "RECLAMO_CLIENTE": (
+        "Control de producto terminado insuficiente: el defecto llegó al cliente.",
+        ["Reforzar la inspección final del lote", "Capacitar al personal en el control de producto terminado"],
+    ),
+    "ENTREGA_RECHAZADA": (
+        "Cadena de frío y estado del producto sin verificar al cargar.",
+        ["Agregar control de temperatura y estado al cargar", "Revisar con el transportista las condiciones de traslado"],
+    ),
+    "HIGIENE_CONTAMINACION": (
+        "Procedimiento de limpieza incompleto en el sector.",
+        ["Revisar y actualizar el procedimiento de limpieza", "Capacitar al personal del turno"],
+    ),
+    "FALLA_EQUIPO": (
+        "Desgaste por falta de mantenimiento preventivo.",
+        ["Reparar o reemplazar la pieza dañada", "Incorporar el equipo al plan de mantenimiento preventivo"],
+    ),
+    "PLAGAS": (
+        "Aberturas sin protección y residuos fuera de lugar.",
+        ["Sellar aberturas y colocar mallas", "Pedir un refuerzo del control de plagas"],
+    ),
+    "CHECKLIST_INCOMPLETO": (
+        "Tareas del checklist sin responsable claro en el turno.",
+        ["Reasignar las tareas del checklist", "Revisar el checklist con el encargado del turno"],
+    ),
+}
+CAUSA_PLAN_GENERICA = (
+    "Seguimiento insuficiente del control: el desvío no se corrigió a tiempo.",
+    ["Corregir la situación detectada", "Definir un responsable y un recordatorio para el control"],
+)
+
+#: Cuántos elementos quedan SIN plan, a propósito: los que muestran el aviso
+#: rojo de "plan obligatorio" en Notificaciones y el Inicio. En un
+#: establecimiento real casi todo lo que exige plan ya tiene uno en curso.
+ELEMENTOS_PENDIENTES_DE_PLAN = 2
+
+
+#: Tipos de riesgo que nacen de un circuito (reclamo, retiro, rechazo).
+TIPOS_DE_CIRCUITO_RIESGO = frozenset({"RECLAMO_CLIENTE", "RETIRO_LOTE", "ENTREGA_RECHAZADA"})
+
+
+def verificar_plan_del_seed(db, plan, verificador):
+    """Cierra los incidentes de un plan implementado y verifica todo su
+    alcance: queda En verificación, con sus situaciones corregidas."""
+    from src.incidente import services as incidente_services
+
+    for sp in plan.situaciones:
+        if not sp.verificacion_manual:
+            continue
+        clave = db.get(SituacionRiesgo, sp.situacion_id).clave
+        incidente = db.get(Incidente, int(clave.removeprefix("incidente-")))
+        if incidente is not None and incidente.estado == EstadoIncidente.ABIERTO.value:
+            incidente_services.cerrar_incidente(
+                db, incidente, verificador, "Causa corregida con el plan de acción."
+            )
+    db.commit()
+    invalidar_notificaciones(db)
+    asegurar_notificaciones_al_dia(db)
+    plan = plan_services.obtener_plan(db, plan.id)
+    for sp in plan.situaciones:
+        if sp.verificacion_manual and sp.estado == "accion_implementada":
+            plan = plan_services.verificar_situacion(
+                db, plan.id, sp.id, verificador,
+                descripcion="Se recorrió el sector y se revisaron los registros del turno.",
+                resultado="corregida",
+            )
+    if plan.estado == EstadoPlan.IMPLEMENTADO.value:
+        plan = plan_services.verificar_plan(db, plan.id, verificador)
+    return plan
+
+
+def tratar_lo_obligatorio(db, admins: list, operadores: list) -> int:
+    """Arma un plan de acción para casi todo lo que exige uno.
+
+    Sin esto, el seed deja decenas de situaciones en rojo (cada retiro y
+    reclamo abierto exige plan, y los equipos con fallas reiteradas quedan en
+    riesgo alto), algo que no pasa en un establecimiento que usa la
+    aplicación. Un plan por elemento, con todas sus situaciones pendientes:
+    así alcanza para sacar al elemento de alto. Quedan sin tratar
+    `ELEMENTOS_PENDIENTES_DE_PLAN` elementos (uno por tipo obligatorio y otro
+    por riesgo alto, si los hay), para que el aviso se vea en la demo.
+
+    Los planes quedan en curso (borrador, en ejecución o implementado),
+    creados en los últimos días.
+    """
+    asegurar_notificaciones_al_dia(db)
+    requeridas = [s for s in plan_services.situaciones_disponibles(db) if s.requiere_plan]
+    if not requeridas:
+        return 0
+
+    por_elemento: dict[str, list] = {}
+    for situacion in requeridas:
+        por_elemento.setdefault(situacion.elemento, []).append(situacion)
+
+    # Los que quedan pendientes: uno de cada motivo, el menos grave de cada uno.
+    pendientes: set[str] = set()
+    for motivo in ("tipo", "elemento"):
+        candidatos = [
+            e for e, sits in por_elemento.items()
+            if e not in pendientes and any(s.motivo_plan == motivo for s in sits)
+        ]
+        if candidatos and len(pendientes) < ELEMENTOS_PENDIENTES_DE_PLAN:
+            pendientes.add(min(candidatos, key=lambda e: max(s.puntaje for s in por_elemento[e])))
+
+    activos_admin = [a for a in admins if a.activo and a.puede_administrar] or admins
+    activos_oper = [o for o in operadores if o.activo and o.puede_operar] or activos_admin
+    creador = activos_admin[0]
+    db.info["usuario_id"] = creador.id
+    hoy_plan = HOY
+    creados = 0
+    try:
+        for indice, (elemento, situaciones) in enumerate(sorted(por_elemento.items())):
+            if elemento in pendientes:
+                continue
+            situaciones.sort(key=lambda s: (-s.puntaje, s.detectada_en))
+            origen, adicionales = situaciones[0], situaciones[1:]
+            causa, acciones = CAUSAS_PLAN.get(riesgo.familia(origen.tipo), CAUSA_PLAN_GENERICA)
+            responsable = activos_oper[indice % len(activos_oper)]
+            ejecutor = activos_oper[(indice + 1) % len(activos_oper)]
+            plan = plan_services.crear_plan(
+                db,
+                plan_schemas.PlanCrear(
+                    situacion_origen_id=origen.situacion_id,
+                    situaciones_adicionales=[s.situacion_id for s in adicionales],
+                    confirma_causa_compatible=bool(adicionales),
+                    causa=causa,
+                    objetivo=f"Que no vuelva a ocurrir en {origen.elemento_nombre}.",
+                    criterio_eficacia="Sin nuevas detecciones durante el período de observación.",
+                    responsable_id=responsable.id,
+                    plazo=hoy_plan + timedelta(days=random.randint(20, 40)),
+                    acciones=[
+                        plan_schemas.AccionCrear(
+                            descripcion=descripcion,
+                            responsable_id=(ejecutor if n else responsable).id,
+                            plazo=hoy_plan + timedelta(days=random.randint(7, 18) + 7 * n),
+                        )
+                        for n, descripcion in enumerate(acciones)
+                    ],
+                ),
+                creador,
+            )
+            creados += 1
+            # Mezcla de estados: la mayoría en ejecución, algunos recién
+            # armados y otros con las acciones ya hechas, esperando verificación.
+            # Los de reclamos, retiros y rechazos se cierran en su ficha (con su
+            # propio circuito): no se llevan hasta la verificación acá.
+            de_circuito = any(s.tipo in TIPOS_DE_CIRCUITO_RIESGO for s in situaciones)
+            estado = random.choices(
+                ["borrador", "en_ejecucion", "implementado", "en_verificacion"],
+                weights=[2, 5, 2, 0 if de_circuito else 3],
+            )[0]
+            if estado != "borrador":
+                plan = plan_services.confirmar_plan(db, plan.id, creador)
+                completo = estado in ("implementado", "en_verificacion")
+                acciones_hechas = plan.acciones if completo else plan.acciones[:1]
+                for accion in acciones_hechas:
+                    if random.random() < 0.6 or completo:
+                        quien = db.get(Personal, accion.responsable_id) or creador
+                        plan = plan_services.completar_accion(
+                            db, plan.id, accion.id, quien, f"Hecho: {accion.descripcion.lower()}."
+                        )
+            if estado == "en_verificacion":
+                # La causa se corrigió: se cierran los incidentes y otra persona
+                # (ni responsable ni ejecutor) lo verifica. Así hay algo en "Lo
+                # que ya bajaron" de la tarjeta de impacto de los planes.
+                verificador = next(
+                    (a for a in activos_admin if a.id not in (responsable.id, ejecutor.id)), None
+                )
+                if verificador is not None:
+                    plan = verificar_plan_del_seed(db, plan, verificador)
+            # Creado hace unos días (nunca antes de que apareciera la situación).
+            antiguedad = max(0, min(12, (HOY - min(s.detectada_en for s in situaciones)).days))
+            if antiguedad:
+                seed_variaciones._llevar_al_pasado(db, plan.id, random.randint(1, antiguedad))
+    finally:
+        db.info.pop("usuario_id", None)
+    invalidar_notificaciones(db)
+    return creados
+
+
 def cargar_establecimiento(
     db, args, fake: Faker, vistos: dict, hash_password: str, con_super_admin: bool
 ) -> dict:
@@ -5857,6 +6049,12 @@ def cargar_establecimiento(
     db.commit()
     invalidar_notificaciones(db)
 
+    # Casi todo lo que exige plan de acción ya tiene uno, como en un
+    # establecimiento que usa la aplicación: quedan pocos avisos en rojo.
+    print("⏳ Armando planes de acción para lo que los exige...")
+    planes_obligatorios = tratar_lo_obligatorio(db, admins, operadores)
+    print(f"   {planes_obligatorios} planes de acción en curso.")
+
     # La caché de notificaciones se recalcula sobre los datos finales, igual
     # que en la primera lectura de la app.
     print("⏳ Calculando notificaciones...")
@@ -5955,6 +6153,9 @@ def main(preparar_esquema: bool = True) -> int:
     fake = Faker(args.locale)
 
     db = SessionLocal()
+    # Lo que se carga es historia: los retiros y reclamos cerrados hace meses
+    # son anteriores al plan de acción obligatorio, así que su cierre no lo pide.
+    db.info[OMITIR_PLAN_OBLIGATORIO] = True
     # Auditar el seed para que la vista de auditoría muestre todas las entidades.
     # db.info["sin_auditoria"] = True
     try:

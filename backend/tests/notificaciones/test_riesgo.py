@@ -209,7 +209,7 @@ def test_redondeo_mitades_hacia_arriba():
     assert redondear(4.8) == 4.8
 
 
-def test_las_clases_de_evento_que_generan_riesgo():
+def test_las_clases_de_evento_que_pueden_generar_riesgo():
     assert list(TIPOS_SITUACION) == [
         "HIGIENE_CONTAMINACION",
         "FALLA_EQUIPO",
@@ -217,6 +217,9 @@ def test_las_clases_de_evento_que_generan_riesgo():
         "STOCK_BAJO",
         "CHECKLIST_INCOMPLETO",
         "OTROS",
+        "RECLAMO_CLIENTE",
+        "RETIRO_LOTE",
+        "ENTREGA_RECHAZADA",
         "DOCUMENTO_VENCIDO",
         "DOCUMENTO_PROXIMO",
         "VENCIMIENTO_PERSONAL_VENCIDO",
@@ -227,27 +230,47 @@ def test_las_clases_de_evento_que_generan_riesgo():
         "PLAN_MANTENIMIENTO_PROXIMO",
         "ELEMENTO_LIMPIEZA_VENCIDO",
         "ELEMENTO_LIMPIEZA_PROXIMO",
+        "HOMOLOGACION_INSUMO_VENCIDO",
+        "HOMOLOGACION_INSUMO_PROXIMO",
     ]
 
 
-def test_el_impacto_sugerido_replica_la_clasificacion_del_motor_anterior():
+def test_el_impacto_sugerido():
     por_tipo = {tipo: t.impacto_sugerido for tipo, t in TIPOS_SITUACION.items()}
     assert por_tipo == {
         "HIGIENE_CONTAMINACION": 3,
         "FALLA_EQUIPO": 3,
         "PLAGAS": 3,
-        "STOCK_BAJO": 2,  # el motor anterior lo tenía como media
-        "CHECKLIST_INCOMPLETO": 1,  # y esto como baja
+        "STOCK_BAJO": 2,
+        "CHECKLIST_INCOMPLETO": 1,
         "OTROS": 3,
+        "RECLAMO_CLIENTE": 3,
+        "RETIRO_LOTE": 3,
+        "ENTREGA_RECHAZADA": 2,
         **{t: 2 for t in TIPOS_SITUACION if t.endswith("_VENCIDO")},
         **{t: 1 for t in TIPOS_SITUACION if t.endswith("_PROXIMO")},
     }
 
 
+def test_todo_genera_riesgo_de_entrada_y_solo_retiros_y_reclamos_exigen_plan():
+    assert all(t.activo_sugerido for t in TIPOS_SITUACION.values())
+    obligatorios = {tipo for tipo, t in TIPOS_SITUACION.items() if t.plan_obligatorio_sugerido}
+    assert obligatorios == {"RECLAMO_CLIENTE", "RETIRO_LOTE"}
+
+
 def test_todos_los_vencimientos_generan_riesgo():
-    for categoria in ("DOCUMENTO", "VENCIMIENTO_PERSONAL", "PLAN_CALIBRACION", "PLAN_MANTENIMIENTO", "ELEMENTO_LIMPIEZA"):
+    for categoria in (
+        "DOCUMENTO", "VENCIMIENTO_PERSONAL", "PLAN_CALIBRACION", "PLAN_MANTENIMIENTO",
+        "ELEMENTO_LIMPIEZA", "HOMOLOGACION_INSUMO",
+    ):
         assert f"{categoria}_VENCIDO" in TIPOS_SITUACION
         assert f"{categoria}_PROXIMO" in TIPOS_SITUACION
+
+
+def test_proximo_y_vencido_son_la_misma_familia():
+    assert riesgo.familia("DOCUMENTO_PROXIMO") == riesgo.familia("DOCUMENTO_VENCIDO") == "DOCUMENTO"
+    assert riesgo.familia("CHECKLIST_INCOMPLETO") == "CHECKLIST_INCOMPLETO"
+    assert riesgo.familia("RETIRO_LOTE") == "RETIRO_LOTE"
 
 
 def test_un_incidente_de_otra_clase_no_esta_en_el_catalogo():
@@ -269,7 +292,9 @@ def test_toda_regla_tiene_etiqueta():
 HOY = date(2026, 11, 18)
 
 
-@pytest.mark.parametrize("tipo", ["PLAGAS", "HIGIENE_CONTAMINACION", "FALLA_EQUIPO", "OTROS"])
+@pytest.mark.parametrize(
+    "tipo", ["PLAGAS", "HIGIENE_CONTAMINACION", "FALLA_EQUIPO", "OTROS", "RETIRO_LOTE"]
+)
 def test_un_incidente_cuenta_desde_que_se_reporto(tipo):
     assert fecha_deteccion_inicial(tipo, date(2026, 11, 10), HOY) == date(2026, 11, 10)
 
@@ -314,28 +339,66 @@ def test_los_incidentes_de_higiene_equipos_plagas_y_otros_generan_riesgo(tipo, e
 
 
 @pytest.mark.parametrize("tipo", ["reclamo_cliente", "retiro_lote", "entrega_rechazada"])
-def test_reclamos_retiros_y_rechazos_no_generan_riesgo_por_si_mismos(tipo):
+def test_reclamos_retiros_y_rechazos_sin_causa_no_generan_riesgo(tipo):
     assert tipo_situacion_de_incidente(tipo) is None
     assert tipo_situacion_de_incidente(tipo, None) is None
-    assert tipo_situacion_de_incidente(tipo, "otro") is None
 
 
-def test_un_reclamo_por_cuerpo_extrano_cuenta_como_contaminacion():
-    assert tipo_situacion_de_incidente("reclamo_cliente", "cuerpo_extrano") == "HIGIENE_CONTAMINACION"
+def test_un_reclamo_cuenta_con_las_causas_sugeridas():
+    assert tipo_situacion_de_incidente("reclamo_cliente", "cuerpo_extrano") == "RECLAMO_CLIENTE"
+    assert (
+        tipo_situacion_de_incidente("reclamo_cliente", "posible_afectacion_salud")
+        == "RECLAMO_CLIENTE"
+    )
     assert tipo_situacion_de_incidente("reclamo_cliente", "envase_danado") is None
 
 
-def test_un_retiro_por_contaminacion_cuenta_como_contaminacion():
+def test_un_retiro_cuenta_salvo_el_motivo_otro():
     assert (
-        tipo_situacion_de_incidente("retiro_lote", "Contaminación o cuerpo extraño")
-        == "HIGIENE_CONTAMINACION"
+        tipo_situacion_de_incidente("retiro_lote", "Contaminación cruzada en origen")
+        == "RETIRO_LOTE"
     )
-    assert tipo_situacion_de_incidente("retiro_lote", "Error de rotulado o alérgenos") is None
+    assert tipo_situacion_de_incidente("retiro_lote", "Error de rotulado o alérgenos") == "RETIRO_LOTE"
+    assert tipo_situacion_de_incidente("retiro_lote", "Otro") is None
+
+
+def test_un_rechazo_cuenta_por_producto_no_conforme_o_temperatura():
+    assert tipo_situacion_de_incidente("entrega_rechazada", "temperatura_inadecuada") == "ENTREGA_RECHAZADA"
+    assert tipo_situacion_de_incidente("entrega_rechazada", "error_pedido") is None
 
 
 def test_la_causa_de_un_tipo_no_vale_para_otro():
     # "cuerpo_extrano" es un motivo de reclamo, no de retiro.
     assert tipo_situacion_de_incidente("retiro_lote", "cuerpo_extrano") is None
+
+
+def test_el_administrador_elige_causas_y_puede_apagar_un_tipo():
+    config = {
+        "RECLAMO_CLIENTE": riesgo.ConfiguracionTipo(
+            activo=True, impacto=3, plan_obligatorio=True, causas=frozenset({"envase_danado"})
+        ),
+        "PLAGAS": riesgo.ConfiguracionTipo(
+            activo=False, impacto=3, plan_obligatorio=False, causas=frozenset()
+        ),
+    }
+    assert tipo_situacion_de_incidente("reclamo_cliente", "envase_danado", config) == "RECLAMO_CLIENTE"
+    assert tipo_situacion_de_incidente("reclamo_cliente", "cuerpo_extrano", config) is None
+    assert tipo_situacion_de_incidente("plagas", None, config) is None
+
+
+def test_el_recall_viejo_guardado_con_la_etiqueta_se_reconoce():
+    from src.reclamos.constants import MOTIVO_DEVOLUCION_RECALL, MOTIVO_DEVOLUCION_RECALL_KEY
+
+    config = {
+        "RECLAMO_CLIENTE": riesgo.ConfiguracionTipo(
+            activo=True, impacto=3, plan_obligatorio=False,
+            causas=frozenset({MOTIVO_DEVOLUCION_RECALL_KEY}),
+        )
+    }
+    assert (
+        tipo_situacion_de_incidente("reclamo_cliente", MOTIVO_DEVOLUCION_RECALL, config)
+        == "RECLAMO_CLIENTE"
+    )
 
 
 def test_los_valores_usados_existen_en_los_circuitos_de_origen():
@@ -347,7 +410,13 @@ def test_los_valores_usados_existen_en_los_circuitos_de_origen():
 
     tipos = {t.value for t in TipoIncidente}
     assert set(riesgo.TIPO_SITUACION_POR_INCIDENTE) <= tipos
-    assert set(riesgo.CAUSAS_DE_CONTAMINACION) <= tipos
-    assert riesgo.CAUSAS_DE_CONTAMINACION["reclamo_cliente"] <= set(MOTIVOS_RECLAMO)
-    assert riesgo.CAUSAS_DE_CONTAMINACION["retiro_lote"] <= set(MOTIVOS_RETIRO)
-    assert riesgo.CAUSAS_DE_CONTAMINACION["entrega_rechazada"] <= set(MOTIVOS_RECHAZO)
+    origen = {
+        "RECLAMO_CLIENTE": set(MOTIVOS_RECLAMO),
+        "RETIRO_LOTE": set(MOTIVOS_RETIRO),
+        "ENTREGA_RECHAZADA": set(MOTIVOS_RECHAZO),
+    }
+    assert set(origen) == set(riesgo.TIPOS_CON_CAUSA)
+    for tipo, motivos in origen.items():
+        datos = TIPOS_SITUACION[tipo]
+        assert {valor for valor, _ in datos.causas} <= motivos
+        assert datos.causas_sugeridas <= {valor for valor, _ in datos.causas}

@@ -257,8 +257,26 @@ class SituacionDisponible(BaseModel):
     puntaje: float = 0.0
     recurrencia: int = 1
     destino: Optional[str] = None
-    #: SAIA sugiere un plan: riesgo alto o recurrencia elevada.
-    sugerir_plan: bool = False
+    #: Necesita un plan de acción y todavía no lo tiene: "tipo" (su tipo lo
+    #: exige) o "elemento" (su elemento está en riesgo alto).
+    motivo_plan: Optional[Literal["tipo", "elemento"]] = None
+    requiere_plan: bool = False
+
+
+class SituacionCorregida(BaseModel):
+    """Situación que un plan corrigió hace poco, con el último riesgo que tenía
+    mientras estaba presente. Sirve para mostrar lo que los planes ya bajaron
+    (la situación ya no está en las notificaciones)."""
+
+    situacion_plan_id: int
+    plan_id: int
+    tipo: str
+    tipo_etiqueta: str
+    elemento_nombre: str
+    verificada_en: date
+    impacto: int
+    probabilidad: float
+    puntaje: float
 
 
 class SituacionConPlan(BaseModel):

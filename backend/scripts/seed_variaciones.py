@@ -36,6 +36,7 @@ from src.documentos.models import Documento
 from src.documentos.constants import TipoDocumento
 from src.elementoLimpieza.models import ElementoLimpieza
 from src.Equipo.models import Calibracion, Equipo
+from src.establecimientos.contexto import sede_efectiva
 from src.establecimientos.models import Establecimiento
 from src.incidente import services as incidente_services
 from src.incidente.constants import EstadoIncidente, TipoIncidente
@@ -52,6 +53,7 @@ from src.notificaciones import riesgo
 from src.notificaciones import services as notificaciones_services
 from src.notificaciones.invalidacion import asegurar_notificaciones_al_dia, invalidar_notificaciones
 from src.notificaciones.models import NotificacionLeida, NotificacionPersistida, SituacionRiesgo
+from src.notificaciones.schemas import ImpactoSituacionUpdate
 from src.nutricion.constants import FUENTE_PROPIO
 from src.nutricion.models import (
     AlimentoReferencia,
@@ -434,6 +436,13 @@ def _produccion(db, h, admins, unidades: dict, ingredientes: dict) -> None:
         Insumo(
             ingrediente=soja, marca="El Molinero", descripcion="Presentación discontinuada",
             activo=False, proveedores=proveedores,
+        ),
+        # Homologación aprobada que vence en unos días (riesgo "próxima a vencer").
+        Insumo(
+            ingrediente=sesamo, marca="Semillas del Valle", descripcion="Tostado",
+            codigo_fabricante="SV-120", sin_rotulo=True, estado_homologacion="aprobada",
+            resultado_homologacion="apta", homologado_por_id=autor.id,
+            homologado_en=ahora - timedelta(days=358), proveedores=proveedores,
         ),
     ])
     db.flush()
@@ -924,7 +933,23 @@ def _reabrir_incidente(db, usuario) -> None:
 # ======================================================================
 
 def _configuracion(db) -> None:
+    # Qué genera riesgo lo decide el administrador: un reclamo por sabor u
+    # olor anormal también cuenta (primera fila: con causas elegidas).
+    impacto_services.fijar_impacto(
+        db, "RECLAMO_CLIENTE",
+        ImpactoSituacionUpdate(
+            causas=["cuerpo_extrano", "posible_afectacion_salud", "sabor_olor_aspecto"]
+        ),
+    )
     impacto_services.fijar_impacto(db, "OTROS", 2)
+    principal = db.scalar(select(func.min(Establecimiento.id)))
+    if sede_efectiva(db) != principal:
+        # En otra sede el stock de químicos no genera riesgo (solo avisa); y
+        # las plagas exigen plan desde el primer reporte.
+        impacto_services.fijar_impacto(db, "STOCK_BAJO", ImpactoSituacionUpdate(activo=False))
+        impacto_services.fijar_impacto(
+            db, "PLAGAS", ImpactoSituacionUpdate(plan_obligatorio=True)
+        )
     plan_services.fijar_observacion(db, "FALLA_EQUIPO", 45)
 
 
@@ -979,8 +1004,22 @@ def _planes(db, h, admins, operadores) -> None:
                 )
         return plan
 
+    def cerrar_incidente_de(situacion_id):
+        """Un incidente se cierra en su ficha antes de darlo por corregido."""
+        clave = db.get(SituacionRiesgo, situacion_id).clave
+        incidente = db.get(Incidente, int(clave.removeprefix("incidente-")))
+        if incidente.estado == EstadoIncidente.ABIERTO.value:
+            incidente_services.cerrar_incidente(
+                db, incidente, verificador, "Causa corregida con el plan de acción."
+            )
+            db.commit()
+            invalidar_notificaciones(db)
+            asegurar_notificaciones_al_dia(db)
+
     def verificar(plan, *resultados):
         for sp, resultado in zip(plan.situaciones, resultados):
+            if resultado == "corregida" and sp.verificacion_manual:
+                cerrar_incidente_de(sp.situacion_id)
             plan = plan_services.verificar_situacion(
                 db, plan.id, sp.id, verificador,
                 descripcion="Se recorrió el sector y se revisaron los registros.", resultado=resultado,

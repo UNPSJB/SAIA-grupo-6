@@ -58,17 +58,6 @@ def test_la_accion_vence_solo_si_no_esta_completada():
     assert not reglas.accion_vencida(ayer, False, HOY, "cancelado")
 
 
-# --- Sugerencia -----------------------------------------------------------
-
-@pytest.mark.parametrize(
-    "criticidad, recurrencia, esperado",
-    [("alta", 1, True), ("media", 3, True), ("baja", 3, True),
-     ("media", 2, False), ("baja", 1, False), (None, None, False)],
-)
-def test_se_sugiere_plan_con_riesgo_alto_o_recurrencia_elevada(criticidad, recurrencia, esperado):
-    assert reglas.sugerir_plan(criticidad, recurrencia) is esperado
-
-
 # --- Verificación ---------------------------------------------------------
 
 def test_si_el_motor_ya_no_la_detecta_queda_corregida():

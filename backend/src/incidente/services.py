@@ -452,6 +452,11 @@ def cerrar_incidente(
         raise exceptions.ObservacionCierreRequerida()
 
     _verificar_usuario(db, current_user.id)
+    # Plan de acción obligatorio: si el incidente lo exige y no lo tiene, no
+    # se cierra (import tardío: planes_accion depende de incidentes).
+    from src.planes_accion.obligacion import exigir_plan_al_cerrar
+
+    exigir_plan_al_cerrar(db, incidente)
     estado_anterior = incidente.estado
     incidente.estado = EstadoIncidente.CERRADO.value
     incidente.fecha_cierre = ahora()

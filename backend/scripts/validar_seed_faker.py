@@ -335,6 +335,8 @@ ESPERADO = [
     (TokenRevocado.tipo, ["access", "refresh"]),
     (SituacionRiesgo.tipo, list(TIPOS_SITUACION)),
     (NotificacionPersistida.criticidad, ["alta", "media", "baja"]),
+    # Plan obligatorio: por su tipo (un retiro en curso) y por elemento alto.
+    (NotificacionPersistida.motivo_plan, ["tipo", "elemento"]),
     (PlanAccion.estado, [x.value for x in EstadoPlan]),
     (SituacionPlan.estado, [x.value for x in EstadoSituacionPlan]),
     (EvidenciaPlan.tipo, [x.value for x in TipoEvidencia]),
@@ -373,8 +375,9 @@ print("==Primer registro de cada tabla (sede principal), completo ==")
 VACIOS_CORRECTOS = {
     "parametros_nutrientes": {"valor_diario"},  # azúcares añadidos no tiene VD
     "productos": {"categoria_rotulado"},  # solo si está exceptuado de octógonos
-    "notificaciones_persistidas": {"recambio_id", "plan_tratamiento_id"},  # la calcula el motor
+    "notificaciones_persistidas": {"recambio_id", "plan_tratamiento_id", "plan_activo_id", "motivo_plan"},  # la calcula el motor
     "planes_accion": {"plan_anterior_id", "motivo_cancelacion"},
+    "configuracion_impacto": {"causas"},  # solo reclamos, retiros y rechazos
     "historial_planes_accion": {"estado_anterior"},  # es la creación
     "evidencias_plan": {"situacion_plan_id"},  # es de una acción
     "certificaciones_transportista": {"motivo_anulacion", "anulada_por", "fecha_anulacion"},

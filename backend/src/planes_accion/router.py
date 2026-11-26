@@ -34,7 +34,7 @@ def listar_situaciones_disponibles(
     db: Session = Depends(get_db),
 ):
     """Situaciones presentes que se pueden tratar con un plan nuevo (las que no
-    están en otro plan activo). Las que SAIA sugiere tratar vienen primero."""
+    están en otro plan activo). Las que exigen un plan vienen primero."""
     return services.situaciones_disponibles(db, tipo)
 
 
@@ -47,6 +47,17 @@ def proyectar_alcance(datos: schemas.ProyeccionInput, db: Session = Depends(get_
     """Riesgo actual de los elementos de estas situaciones y cómo quedaría si un
     plan que las trate se implementara y verificara. No escribe nada."""
     return services.proyectar_alcance(db, datos.situacion_ids)
+
+
+@router.get(
+    "/corregidas-recientes",
+    response_model=list[schemas.SituacionCorregida],
+    dependencies=_OPERADOR,
+)
+def listar_corregidas_recientes(db: Session = Depends(get_db)):
+    """Lo que los planes corrigieron en los últimos 30 días (la ventana de
+    recurrencia), con el último riesgo que tenía cada situación."""
+    return services.corregidas_recientes(db)
 
 
 @router.get(

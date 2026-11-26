@@ -216,7 +216,36 @@ def test_flujo_retiro_completo():
         assert resp.status_code == 200, f"Notificar afectado {afectado_id} falló: {resp.status_code} {resp.text}"
         print(f"  POST /retiros/{retiro_id}/afectados/{afectado_id}/notificar -> 200 OK")
 
-    # 4) POST /retiros/{id}/cerrar -> 200
+    # 4) Un retiro exige plan de acción: sin plan, no se cierra.
+    resp = client.post(
+        f"/retiros/{retiro_id}/cerrar",
+        json={"accion_correctiva": "Acción correctiva de prueba"},
+        headers=_headers(admin_id),
+    )
+    assert resp.status_code == 400, f"Cerró sin plan: {resp.status_code} {resp.text}"
+
+    resp = client.get(
+        "/planes-accion/situaciones-disponibles",
+        params={"tipo": "RETIRO_LOTE"},
+        headers=_headers(admin_id),
+    )
+    assert resp.status_code == 200, resp.text
+    (situacion,) = resp.json()
+    assert situacion["requiere_plan"] and situacion["motivo_plan"] == "tipo"
+    resp = client.post(
+        "/planes-accion",
+        json={
+            "situacion_origen_id": situacion["situacion_id"],
+            "causa": "Cuerpo extraño en la línea de envasado",
+            "objetivo": "Eliminar la fuente de contaminación",
+            "criterio_eficacia": "Sin reclamos ni hallazgos en 30 días",
+            "responsable_id": admin_id,
+        },
+        headers=_headers(admin_id),
+    )
+    assert resp.status_code == 201, f"Crear plan falló: {resp.status_code} {resp.text}"
+
+    # 5) POST /retiros/{id}/cerrar -> 200
     resp = client.post(
         f"/retiros/{retiro_id}/cerrar",
         json={"accion_correctiva": "Acción correctiva de prueba"},

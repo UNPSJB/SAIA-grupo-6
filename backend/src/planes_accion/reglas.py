@@ -1,7 +1,7 @@
 """Reglas puras del plan de acción: sin base de datos ni FastAPI.
 
 Acá vive todo lo que es "decisión" (qué estado corresponde, cuándo vence,
-cuándo se sugiere un plan), para poder probarlo sin infraestructura. Los
+cuándo se verifica), para poder probarlo sin infraestructura. Los
 services solo leen y escriben.
 
 Principio rector (sección 1 del documento funcional): el plan TRATA, el motor
@@ -147,17 +147,22 @@ def accion_vencida(plazo: date | None, completada: bool, hoy: date, estado_plan)
 
 
 # ============================================================
-# SUGERENCIA DE PLAN
+# PLAN OBLIGATORIO
 # ============================================================
+#
+# Ya no es una sugerencia: el motor (`criticidad._armar_dashboard`) señala qué
+# situaciones necesitan un plan y todavía no lo tienen, por dos motivos:
+#
+# - "tipo": el administrador marcó que ese tipo exige plan desde la primera
+#   detección (p. ej. un retiro de lote);
+# - "elemento": el elemento está en riesgo alto y lo que queda sin plan sigue
+#   siendo alto. Cubrir solo una situación leve no alcanza.
+#
+# Una situación cuenta como cubierta si está en un plan activo, si un plan
+# verificado la controla, o (lo que detecta el motor) si un plan activo trata
+# otra de la misma familia en el mismo elemento (`mitigacion.cobertura_activa`).
 
-#: Puntaje de recurrencia (1 a 3) desde el cual se considera "elevada".
-RECURRENCIA_ELEVADA = 3
-
-
-def sugerir_plan(criticidad: str | None, recurrencia: int | None) -> bool:
-    """SAIA sugiere (no impone) un plan para situaciones de riesgo alto o con
-    recurrencia elevada. La decisión de tratarla es siempre del usuario."""
-    return criticidad == "alta" or (recurrencia or 0) >= RECURRENCIA_ELEVADA
+MOTIVOS_PLAN = ("tipo", "elemento")
 
 
 # ============================================================

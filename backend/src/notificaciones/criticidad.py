@@ -13,7 +13,8 @@ from src.incidente.constants import EstadoIncidente
 from src.incidente.models import Incidente
 from src.notificaciones import riesgo
 from src.notificaciones import services as notificacion_services
-from src.notificaciones.impacto import impactos_vigentes
+from src.lotes.models import LoteProducto
+from src.notificaciones.impacto import configuracion_vigente
 from src.notificaciones.invalidacion import asegurar_notificaciones_al_dia
 from src.notificaciones.models import NotificacionPersistida, SituacionRiesgo
 from src.reclamos.models import Reclamo
@@ -34,17 +35,18 @@ from src.notificaciones.schemas import (
 #
 #   1. Detecta lo presente consultando las fuentes de origen (vencimientos,
 #      documentos, checklists, incidentes, stock). Todo se notifica.
-#   2. De eso generan riesgo las clases de `riesgo.TIPOS_SITUACION`:
-#      incidentes de higiene y contaminación, falla de equipos, plagas y otros;
-#      stock por debajo del mínimo; checklists incumplidos; y los
-#      vencimientos. Un reclamo, retiro de lote o rechazo de entrega lo genera
-#      solo si su causa es higiene o contaminación; una devolución de cliente
-#      solo se notifica. Los eventos de riesgo se registran en el historial
+#   2. De eso generan riesgo los tipos de `riesgo.TIPOS_SITUACION` que el
+#      administrador dejó activos. Un reclamo, retiro de lote o rechazo de
+#      entrega lo genera solo con una de las causas que él eligió, y cuenta
+#      sobre el producto afectado. Los eventos de riesgo se registran en el historial
 #      `situaciones_riesgo`: cuándo apareció cada uno y, si ya terminó, cuándo.
 #      Es lo que permite medir persistencia y recurrencia.
 #   3. Evalúa cada evento de riesgo (Impacto × Probabilidad) y consolida el
 #      riesgo de cada elemento. Lo que no genera riesgo se notifica con
 #      puntaje 0.
+#   4. Señala qué necesita un PLAN DE ACCIÓN OBLIGATORIO y todavía no lo
+#      tiene: las situaciones de un tipo que lo exige y las de los elementos
+#      en riesgo alto (ver `_armar_dashboard`).
 #
 # El motor evalúa; no decide qué hacer. Nada de lo que se haga con una
 # situación (un plan, una corrección) toca su impacto ni resta puntos: el riesgo
@@ -118,9 +120,9 @@ def _regla_notificacion(tipo: str, nivel: str) -> str:
 
     if tipo == "HOMOLOGACION_INSUMO":
         return (
-            "HOMOLOGACION_INSUMO_VENCIDA"
+            "HOMOLOGACION_INSUMO_VENCIDO"
             if nivel == "VENCIDO"
-            else "HOMOLOGACION_INSUMO_PROXIMA"
+            else "HOMOLOGACION_INSUMO_PROXIMO"
         )
 
     if tipo == "DOCUMENTO":
@@ -178,7 +180,7 @@ def _sembrar_historial(
     db: Session,
     *,
     incidentes: list[Incidente],
-    tipos_riesgo: dict[int, str | None],
+    tipos_riesgo: dict[int, tuple[str | None, int | None]],
     checklists: list[Checklist],
     hoy_dia: date,
     desde: date,
@@ -193,7 +195,7 @@ def _sembrar_historial(
     for incidente in incidentes:
         if incidente.estado == EstadoIncidente.ABIERTO.value:
             continue
-        tipo = tipos_riesgo.get(incidente.id)
+        tipo, producto_id = tipos_riesgo.get(incidente.id, (None, None))
         if tipo is None:
             continue  # no genera riesgo
         reporte = incidente.fecha_reporte.date()
@@ -204,7 +206,7 @@ def _sembrar_historial(
             SituacionRiesgo(
                 tipo=tipo,
                 clave=f"incidente-{incidente.id}",
-                elemento=_grupo_incidente(incidente, tipo),
+                elemento=_grupo_incidente(incidente, tipo, producto_id),
                 detectada_en=reporte,
                 resuelta_en=max(cierre, reporte),
             )
@@ -229,45 +231,59 @@ def _sembrar_historial(
         )
 
 
-def _grupo_incidente(incidente: Incidente, tipo_riesgo: str | None) -> str:
-    """El elemento al que pertenece un incidente: su equipo o, si no tiene, la
+def _grupo_incidente(
+    incidente: Incidente, tipo_riesgo: str | None, producto_id: int | None = None
+) -> str:
+    """El elemento al que pertenece un incidente: su equipo; si es de un
+    circuito (reclamo, retiro o rechazo), el producto afectado; si no, la
     clase de evento (así los de la misma clase sin equipo cuentan juntos)."""
     if incidente.equipo_id is not None:
         return f"equipo:{incidente.equipo_id}"
+    if producto_id is not None:
+        return f"producto:{producto_id}"
     return f"incidente-tipo:{(tipo_riesgo or incidente.tipo).lower()}"
 
 
 def _tipos_de_riesgo(
-    db: Session, incidentes: list[Incidente]
-) -> dict[int, str | None]:
-    """Tipo de evento de riesgo de cada incidente (`None`: no genera riesgo).
+    db: Session,
+    incidentes: list[Incidente],
+    configuracion: dict[str, riesgo.ConfiguracionTipo],
+) -> dict[int, tuple[str | None, int | None]]:
+    """Tipo de evento de riesgo de cada incidente (`None`: no genera riesgo) y,
+    para los de circuito, el producto afectado.
 
     Los reclamos, retiros y rechazos dependen de su causa, que vive en su
-    circuito de origen.
+    circuito de origen, y de qué causas eligió el administrador.
     """
-    de_sistema = {
-        incidente.id: incidente.tipo
+    de_circuito = [
+        incidente.id
         for incidente in incidentes
-        if incidente.tipo in riesgo.CAUSAS_DE_CONTAMINACION
-    }
+        if riesgo.TIPO_SITUACION_POR_INCIDENTE.get(incidente.tipo) in riesgo.TIPOS_CON_CAUSA
+    ]
     causas: dict[int, str] = {}
-    if de_sistema:
-        ids = list(de_sistema)
+    productos: dict[int, int] = {}
+    if de_circuito:
         for modelo, motivo in (
             (Reclamo, Reclamo.motivo),
             (Retiro, Retiro.motivo),
             (Salida, Salida.motivo_rechazo),
         ):
-            for incidente_id, causa in db.execute(
-                select(modelo.incidente_id, motivo).where(
-                    modelo.incidente_id.in_(ids), motivo.is_not(None)
-                )
+            for incidente_id, causa, producto_id in db.execute(
+                select(modelo.incidente_id, motivo, LoteProducto.producto_id)
+                .outerjoin(LoteProducto, LoteProducto.id == modelo.lote_id)
+                .where(modelo.incidente_id.in_(de_circuito))
             ):
-                causas[incidente_id] = causa
+                if causa is not None:
+                    causas[incidente_id] = causa
+                if producto_id is not None:
+                    productos[incidente_id] = producto_id
 
     return {
-        incidente.id: riesgo.tipo_situacion_de_incidente(
-            incidente.tipo, causas.get(incidente.id)
+        incidente.id: (
+            riesgo.tipo_situacion_de_incidente(
+                incidente.tipo, causas.get(incidente.id), configuracion
+            ),
+            productos.get(incidente.id),
         )
         for incidente in incidentes
     }
@@ -422,16 +438,24 @@ def _evaluar_alertas(
     *,
     hoy_dia: date,
     desde: date,
+    configuracion: dict[str, riesgo.ConfiguracionTipo] | None = None,
 ) -> None:
     """Completa en cada alerta su evaluación de riesgo individual."""
-    impactos = impactos_vigentes(db)
-
+    if configuracion is None:
+        configuracion = configuracion_vigente(db)
     # Situaciones que un plan de acción verificado tiene bajo control: id de la
     # situación -> id del plan. Solo se MARCAN: el riesgo real de abajo no se
     # toca. Import tardío: `planes_accion` lee este módulo.
-    from src.planes_accion.mitigacion import situaciones_controladas
+    from src.planes_accion.mitigacion import (
+        cobertura_activa,
+        plan_activo_de,
+        situaciones_controladas,
+    )
 
     controladas = situaciones_controladas(db)
+    # Situaciones que un plan activo (todavía sin verificar) ya trata: no bajan
+    # el riesgo, pero cumplen con la obligación de tener un plan.
+    cobertura = cobertura_activa(db)
 
     # Detecciones de cada (tipo, elemento) dentro de la ventana: las presentes
     # y las ya resueltas. El historial no se reinicia al resolverse algo.
@@ -453,7 +477,7 @@ def _evaluar_alertas(
         dias_presente = (hoy_dia - situacion.detectada_en).days
 
         evaluacion = riesgo.evaluar_situacion(
-            impacto=impactos[alerta["regla"]],
+            impacto=configuracion[alerta["regla"]].impacto,
             detecciones=cantidad,
             dias_presente=dias_presente,
             tipo=alerta["regla"],
@@ -469,6 +493,10 @@ def _evaluar_alertas(
         alerta["motivo"] = _motivo(alerta["regla"], evaluacion, cantidad, dias_presente)
         alerta["plazo"] = _plazo(alerta["fecha_referencia"], hoy_dia)
         alerta["plan_tratamiento_id"] = controladas.get(situacion.id)
+        alerta["plan_activo_id"] = plan_activo_de(
+            cobertura, situacion.id, situacion.tipo, situacion.elemento
+        )
+        alerta["exige_plan"] = configuracion[alerta["regla"]].plan_obligatorio
 
 
 # ============================================================
@@ -506,12 +534,35 @@ def _armar_dashboard(
         # verificado tiene bajo control. Es un cálculo aparte; el real no cambia.
         sin_control = [s for s in situaciones if s.plan_tratamiento_id is None]
         puntaje_tratado = riesgo.riesgo_consolidado([s.puntaje for s in sin_control])
+        # PLAN OBLIGATORIO. Lo que no tiene ningún plan (ni activo ni
+        # verificado): si su riesgo consolidado es alto, el elemento exige un
+        # plan que alcance para bajarlo de alto, y cada situación sin plan del
+        # elemento queda señalada hasta que lo que quede afuera ya no sea alto.
+        # Aparte, el tipo de la situación puede exigir plan desde la primera
+        # detección (lo decide el administrador).
+        sin_plan = [
+            s for s in situaciones
+            if s.plan_tratamiento_id is None and s.plan_activo_id is None
+        ]
+        puntaje_sin_plan = riesgo.riesgo_consolidado([s.puntaje for s in sin_plan])
+        elemento_exige = riesgo.nivel_de(puntaje_sin_plan) == "alto"
+        sin_plan_ids = {id(s) for s in sin_plan}
         for situacion in situaciones:
             situacion.puntaje_elemento = puntaje
             situacion.puntaje_elemento_tratado = puntaje_tratado
             situacion.puntaje_tratado = (
                 0.0 if situacion.plan_tratamiento_id is not None else situacion.puntaje
             )
+            cubierta = id(situacion) not in sin_plan_ids
+            if cubierta:
+                situacion.motivo_plan = None
+            elif situacion.exige_plan:
+                situacion.motivo_plan = "tipo"
+            elif elemento_exige:
+                situacion.motivo_plan = "elemento"
+            else:
+                situacion.motivo_plan = None
+            situacion.requiere_plan = situacion.motivo_plan is not None
         elementos.append(
             ResumenElementoResponse(
                 elemento=elemento,
@@ -524,9 +575,16 @@ def _armar_dashboard(
                 puntaje_tratado=puntaje_tratado,
                 nivel_tratado=riesgo.nivel_de(puntaje_tratado),
                 en_tratamiento=len(sin_control) < len(situaciones),
+                puntaje_sin_plan=puntaje_sin_plan,
+                requiere_plan=elemento_exige,
             )
         )
     elementos.sort(key=lambda e: -e.puntaje)
+    # Lo que no genera riesgo nunca exige plan.
+    for alerta in alertas:
+        if alerta.puntaje <= 0:
+            alerta.motivo_plan = None
+            alerta.requiere_plan = False
 
     # No hay un riesgo "del establecimiento" en la propuesta: el nivel general
     # que se muestra es el del elemento en peor situación.
@@ -551,6 +609,8 @@ def _armar_dashboard(
         altas_tratadas=sum(1 for a in sin_control_alertas if a.criticidad == "alta"),
         medias_tratadas=sum(1 for a in sin_control_alertas if a.criticidad == "media"),
         bajas_tratadas=sum(1 for a in sin_control_alertas if a.criticidad == "baja"),
+        planes_requeridos=sum(1 for a in alertas if a.requiere_plan),
+        elementos_alto_sin_plan=sum(1 for e in elementos if e.requiere_plan),
     )
 
 
@@ -584,6 +644,8 @@ def _reconstruir_desde_persistida(
                 detectada_en=f.detectada_en,
                 leida=notificacion_services._esta_leida(f, lecturas.get(f.id_notificacion)),
                 plan_tratamiento_id=f.plan_tratamiento_id,
+                plan_activo_id=f.plan_activo_id,
+                exige_plan=bool(f.exige_plan),
             )
             for f in filas
         ]
@@ -617,6 +679,9 @@ def calcular_criticidad_dashboard(
     """
     hoy_dia = hoy()
     desde = hoy_dia - timedelta(days=riesgo.DIAS_VENTANA_RECURRENCIA)
+    # Qué genera riesgo, con qué impacto y si exige plan: lo decide el
+    # administrador de la sede.
+    configuracion = configuracion_vigente(db)
 
     alertas: list[dict[str, Any]] = []
 
@@ -777,14 +842,14 @@ def calcular_criticidad_dashboard(
     incidentes = db.scalars(select(Incidente).options(selectinload(Incidente.equipo))).all()
     # Qué incidentes generan riesgo y de qué clase (los reclamos, retiros y
     # rechazos, según su causa).
-    tipos_riesgo = _tipos_de_riesgo(db, incidentes)
+    tipos_riesgo = _tipos_de_riesgo(db, incidentes, configuracion)
 
     for incidente in incidentes:
         if incidente.estado != EstadoIncidente.ABIERTO.value:
             continue
 
-        tipo_riesgo = tipos_riesgo[incidente.id]
-        grupo = _grupo_incidente(incidente, tipo_riesgo)
+        tipo_riesgo, producto_id = tipos_riesgo[incidente.id]
+        grupo = _grupo_incidente(incidente, tipo_riesgo, producto_id)
 
         detalle = incidente.descripcion
         if incidente.equipo is not None:
@@ -828,9 +893,15 @@ def calcular_criticidad_dashboard(
 
     # Solo lo que genera riesgo tiene historial y se evalúa; el resto se
     # notifica sin puntaje.
+    # Un tipo que el administrador desactivó se notifica, pero sin riesgo.
+    for alerta in alertas:
+        config = configuracion.get(alerta["regla"])
+        alerta["genera_riesgo"] = config is not None and config.activo
     con_riesgo = [a for a in alertas if a["genera_riesgo"]]
     vigentes = _sincronizar_situaciones(db, con_riesgo, hoy_dia=hoy_dia, desde=desde)
-    _evaluar_alertas(db, con_riesgo, vigentes, hoy_dia=hoy_dia, desde=desde)
+    _evaluar_alertas(
+        db, con_riesgo, vigentes, hoy_dia=hoy_dia, desde=desde, configuracion=configuracion
+    )
     for alerta in alertas:
         if not alerta["genera_riesgo"]:
             _marcar_sin_riesgo(alerta, hoy_dia)
@@ -861,6 +932,8 @@ def calcular_criticidad_dashboard(
                 puntaje=a["puntaje"],
                 detectada_en=a["detectada_en"],
                 plan_tratamiento_id=a.get("plan_tratamiento_id"),
+                plan_activo_id=a.get("plan_activo_id"),
+                exige_plan=a.get("exige_plan", False),
             )
             for a in alertas
         ]

@@ -303,14 +303,15 @@ def test_los_tipos_de_riesgo_salen_del_tipo_de_incidente_y_de_la_causa(db_sessio
         _incidente_cerrado(8, "entrega_rechazada"),
     ]
 
-    assert criticidad._tipos_de_riesgo(db_session, incidentes) == {
-        1: "PLAGAS",
-        2: "FALLA_EQUIPO",
-        3: "HIGIENE_CONTAMINACION",
-        4: "OTROS",
-        6: None,
-        7: None,
-        8: None,
+    config = impacto.configuracion_vigente(db_session)
+    assert criticidad._tipos_de_riesgo(db_session, incidentes, config) == {
+        1: ("PLAGAS", None),
+        2: ("FALLA_EQUIPO", None),
+        3: ("HIGIENE_CONTAMINACION", None),
+        4: ("OTROS", None),
+        6: (None, None),
+        7: (None, None),
+        8: (None, None),
     }
 
 
@@ -331,7 +332,11 @@ def test_el_historial_inicial_solo_siembra_incidentes_de_riesgo(db_session):
     criticidad._sembrar_historial(
         db_session,
         incidentes=incidentes,
-        tipos_riesgo={1: "PLAGAS", 2: None, 3: "HIGIENE_CONTAMINACION"},
+        tipos_riesgo={
+            1: ("PLAGAS", None),
+            2: (None, None),
+            3: ("HIGIENE_CONTAMINACION", None),
+        },
         checklists=[],
         hoy_dia=HOY,
         desde=HOY - VENTANA,
@@ -492,6 +497,9 @@ def test_sin_configurar_se_usa_el_impacto_sugerido(db_session):
         "STOCK_BAJO": 2,
         "CHECKLIST_INCOMPLETO": 1,
         "OTROS": 3,
+        "RECLAMO_CLIENTE": 3,
+        "RETIRO_LOTE": 3,
+        "ENTREGA_RECHAZADA": 2,
         "DOCUMENTO_VENCIDO": 2,
         "DOCUMENTO_PROXIMO": 1,
         "VENCIMIENTO_PERSONAL_VENCIDO": 2,
@@ -502,6 +510,8 @@ def test_sin_configurar_se_usa_el_impacto_sugerido(db_session):
         "PLAN_MANTENIMIENTO_PROXIMO": 1,
         "ELEMENTO_LIMPIEZA_VENCIDO": 2,
         "ELEMENTO_LIMPIEZA_PROXIMO": 1,
+        "HOMOLOGACION_INSUMO_VENCIDO": 2,
+        "HOMOLOGACION_INSUMO_PROXIMO": 1,
     }
 
 

@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from sqlalchemy import DateTime, Date, Float, ForeignKey, Index, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Date, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from src.models import ModeloBase
 from src.establecimientos.models import DatosDeEstablecimiento, columna_sede_pk
@@ -19,12 +19,14 @@ class ConfiguracionAlerta(DatosDeEstablecimiento, ModeloBase):
 
 
 class ConfiguracionImpacto(DatosDeEstablecimiento, ModeloBase):
-    """Impacto base (1 bajo, 2 medio, 3 alto) que el administrador de este
-    establecimiento le asigna a un tipo de situación.
+    """Lo que el administrador de este establecimiento decidió para un tipo de
+    situación: si genera riesgo, su impacto (1 bajo, 2 medio, 3 alto), si exige
+    plan de acción desde la primera detección y, en los incidentes de
+    circuito, qué causas cuentan.
 
-    Solo se guardan los tipos que se modificaron: lo que no figura usa el
-    impacto sugerido por SAIA (`riesgo.TIPOS_SITUACION`). Borrar la fila
-    restaura el valor sugerido.
+    Solo se guardan los tipos que se modificaron: lo que no figura usa lo
+    sugerido por SAIA (`riesgo.TIPOS_SITUACION`). En una fila, un campo NULL
+    también es "lo sugerido". Borrar la fila restaura todo.
     """
 
     __tablename__ = "configuracion_impacto"
@@ -32,6 +34,10 @@ class ConfiguracionImpacto(DatosDeEstablecimiento, ModeloBase):
     establecimiento_id: Mapped[int] = columna_sede_pk()
     tipo: Mapped[str] = mapped_column(String(40), primary_key=True)
     impacto: Mapped[int] = mapped_column(Integer, nullable=False)
+    activo: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    plan_obligatorio: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    #: Lista JSON de causas que cuentan (solo incidentes de circuito).
+    causas: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class SituacionRiesgo(DatosDeEstablecimiento, ModeloBase):
@@ -110,6 +116,15 @@ class NotificacionPersistida(DatosDeEstablecimiento, ModeloBase):
     #: valores de arriba son SIEMPRE el riesgo real que calcula el motor: el plan
     #: no los toca. Con esta marca, el riesgo "tratado" deja afuera la situación.
     plan_tratamiento_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    #: Plan de acción ACTIVO (todavía sin verificar) que trata la situación,
+    #: o que trata otra de la misma familia en el mismo elemento.
+    plan_activo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: El tipo exige plan desde la primera detección (configuración).
+    exige_plan: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: Por qué la situación necesita un plan y todavía no lo tiene: "tipo" (lo
+    #: exige su tipo) o "elemento" (su elemento está en riesgo alto). NULL: no
+    #: lo necesita o ya está cubierta.
+    motivo_plan: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     actualizado_en: Mapped[datetime] = mapped_column(

@@ -19,6 +19,7 @@ from src.insumos.models import Insumo
 from src.lotesInsumo.models import LoteInsumo
 from src.notificaciones import riesgo
 from src.personal.models import Personal
+from src.productos.models import Producto
 
 #: Prefijo de la clave -> (modelo, cómo se nombra, texto si ya no existe).
 _ENTIDADES: dict[str, tuple[type, Callable[..., str], str]] = {
@@ -29,6 +30,8 @@ _ENTIDADES: dict[str, tuple[type, Callable[..., str], str]] = {
     "lote-insumo": (LoteInsumo, lambda lote: f"Lote {lote.numero_lote}", "Lote de insumo"),
     "homologacion-insumo": (Insumo, lambda i: i.marca, "Insumo"),
     "STOCK_BAJO": (InsumoQuimico, lambda i: i.nombre, "Insumo químico"),
+    # Reclamos, retiros y rechazos: cuentan sobre el producto afectado.
+    "producto": (Producto, lambda p: p.nombre, "Producto"),
 }
 
 

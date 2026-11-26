@@ -15,7 +15,7 @@ const VACIO: DatosPlanes = { disponibles: [], conPlan: [] };
 
 /**
  * Lo que el centro de notificaciones necesita para ofrecer planes: qué alertas
- * se pueden tratar con uno (y cuáles SAIA sugiere) y cuáles ya tienen un plan
+ * se pueden tratar con uno (y cuáles exigen uno) y cuáles ya tienen un plan
  * activo. Solo se pide si la persona puede operar; si falla no rompe la
  * pantalla, simplemente no se ofrece nada.
  */
